@@ -1,0 +1,10 @@
+name: abcde_env
+channels:
+  - defaults
+dependencies:
+  - pip
+  - torchvision
+  - pytorch
+  - cudatoolkit=10.2
+prefix: C:\Users\Kevin\Anaconda3\envs\abcde_env
+
