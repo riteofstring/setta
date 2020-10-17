@@ -1,15 +1,28 @@
 import inspect
 
 
-def get_init_arguments(input_obj):
-    obj_stack = [input_obj]
+def is_class_or_function(x):
+    return inspect.isclass(x) or inspect.isfunction(x)
+
+
+def add_signature_to_dict(input_obj, input_dict):
+    signature = inspect.signature(input_obj)
+    for k, v in signature.parameters.items():
+        input_dict[k] = v
+
+
+def get_args(input_obj):
     init_arguments = {}
-    while len(obj_stack) > 0:
-        curr_obj = obj_stack.pop()
-        obj_stack += list(curr_obj.__bases__)
-        signature = inspect.signature(curr_obj)
-        for k, v in signature.parameters.items():
-            init_arguments[k] = v
+    if inspect.isclass(input_obj):
+        obj_stack = [input_obj]
+        while len(obj_stack) > 0:
+            curr_obj = obj_stack.pop()
+            obj_stack += list(curr_obj.__bases__)
+            add_signature_to_dict(curr_obj, init_arguments)
+    elif inspect.isfunction(input_obj):
+        add_signature_to_dict(input_obj, init_arguments)
+    else:
+        raise TypeError("input_obj to get_args must be a class or function")
     return init_arguments
 
 
@@ -22,3 +35,9 @@ def merge_dicts(x, y):
     for k, v in y.items():
         z[k] = v
     return z
+
+
+def type_to_str(x):
+    if inspect.isclass(x):
+        x = x.__name__
+    return str(x)

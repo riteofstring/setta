@@ -1,14 +1,14 @@
 from abcde.utils import common_functions as c_f
-from abcde.registration.module_info import ModuleInfo
+from abcde.registration.class_info import ClassInfo
 import torch
 import unittest
 import inspect
 
 
 class TestGetInitArguments(unittest.TestCase):
-    def test_get_init_arguments(self):
-        x = c_f.get_init_arguments(torch.nn.CrossEntropyLoss)
-        x = c_f.get_init_arguments(ModuleInfo)
+    def test_get_args(self):
+        x = c_f.get_args(torch.nn.CrossEntropyLoss)
+        x = c_f.get_args(ClassInfo)
         for k, v in x.items():
             if c_f.parameter_has_default(v):
                 self.assertTrue(v.default != inspect.empty)
