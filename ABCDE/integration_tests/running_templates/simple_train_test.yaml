@@ -6,21 +6,25 @@ abcde.registration.global_ref_dict.add_to_ref_dict:
         - torchvision.transforms.Normalize:
             mean: [0.1307]
             std: [0.3081]
+  dataset_root: "."
 
 abcde.templates.simple_train_test.main:
   model:
     abcde.templates.simple_train_test.Net:
   
+  optimizer:
+    torch.optim.Adadelta: ~DO_NOT_INIT~
+  
   train_set:
     torchvision.datasets.MNIST:
-      root: "."
+      root: ~REF~dataset_root
       train: True
       download: True
       transform: ~REF~transform
 
   val_set:
     torchvision.datasets.MNIST:
-      root: "."
+      root: ~REF~dataset_root
       train: False
       download: True
       transform: ~REF~transform

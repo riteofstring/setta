@@ -1,7 +1,8 @@
 import yaml
 import importlib
 from ..registration.global_ref_dict import GLOBAL_REF_DICT
-from .constants import REF_KEYWORD
+from .constants import REF_KEYWORD, DO_NOT_INIT_KEYWORD
+
 
 def load_yaml(fname):
     with open(fname, "r") as f:
@@ -37,11 +38,12 @@ def create_objects(x):
                 obj = GLOBAL_REF_DICT[v.replace(REF_KEYWORD, "")]
             elif represents_object(k):
                 obj = string_to_attr(k)
-                params = {} if v is None else v
-                params = create_objects(params)
-                if isinstance(params, (list, tuple)):
-                    params = {k: params}
-                obj = obj(**params)
+                if v != DO_NOT_INIT_KEYWORD:
+                    params = {} if v is None else v
+                    params = create_objects(params)
+                    if isinstance(params, (list, tuple)):
+                        params = {k: params}
+                    obj = obj(**params)
             else:
                 obj = create_objects(v)
             if not represents_object(k):
