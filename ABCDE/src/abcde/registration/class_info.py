@@ -29,7 +29,7 @@ class ClassInfo:
             assert all(k in self.cls_args for k in e)
             self.expose_list = e
 
-    def json(self):
+    def as_dict(self):
         for k1, v1 in self.cls_args.items():
             for k2, v2 in v1.items():
                 v1[k2] = c_f.type_to_str(v2)
@@ -38,4 +38,7 @@ class ClassInfo:
             "args": self.cls_args,
             "expose_list": self.expose_list,
         }
-        return json.dumps(output)
+        return output
+
+    def as_json(self):
+        return json.dumps(self.as_dict())

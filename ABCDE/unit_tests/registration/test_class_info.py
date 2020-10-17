@@ -8,11 +8,11 @@ class TestClassInfo(unittest.TestCase):
         x = ClassInfo(torch.nn.CrossEntropyLoss)
         x.expose("size_average")
         self.assertTrue(x.expose_list == ["size_average"])
-        y = x.json()
+        y = x.as_json()
 
         x = ClassInfo(torch.nn.functional.cross_entropy)
         x.expose("size_average")
         self.assertTrue(x.expose_list == ["size_average"])
-        y = x.json()
+        y = x.as_json()
 
         self.assertRaises(TypeError, lambda: ClassInfo(torch.nn.functional))
