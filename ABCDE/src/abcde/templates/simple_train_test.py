@@ -90,7 +90,6 @@ def main(
     batch_size=64,
     test_batch_size=1000,
     epochs=14,
-    lr=1.0,
     gamma=0.7,
     no_cuda=False,
     dry_run=False,
@@ -113,9 +112,6 @@ def main(
 
     train_loader = torch.utils.data.DataLoader(train_set, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(val_set, **test_kwargs)
-
-    model = model.to(device)
-    optimizer = optimizer(model.parameters(), lr=lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
     for epoch in range(1, epochs + 1):

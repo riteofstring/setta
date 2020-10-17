@@ -1,4 +1,4 @@
-abcde.registration.global_ref_dict.add_to_ref_dict:
+abcde.registration.global_dicts.add_to_ref_dict:
   transform:
     torchvision.transforms.Compose:
       transforms:
@@ -7,14 +7,19 @@ abcde.registration.global_ref_dict.add_to_ref_dict:
             mean: [0.1307]
             std: [0.3081]
   dataset_root: "."
-
-abcde.templates.simple_train_test.main:
   model:
     abcde.templates.simple_train_test.Net:
-  
+
+integration_tests.running_templates.test_simple_train_test.create_optimizer:
+  model: ~REF~model
   optimizer:
     torch.optim.Adadelta: ~DO_NOT_INIT~
-  
+  lr: 1.0
+
+abcde.templates.simple_train_test.main:
+  model: ~REF~model
+  optimizer: ~REF~optimizer
+
   train_set:
     torchvision.datasets.MNIST:
       root: ~REF~dataset_root
@@ -32,4 +37,3 @@ abcde.templates.simple_train_test.main:
   batch_size: 64
   test_batch_size: 1000
   epochs: 1
-  lr: 1.0

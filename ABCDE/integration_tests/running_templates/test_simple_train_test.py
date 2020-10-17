@@ -1,7 +1,15 @@
 from abcde.utils import yaml_parsing as yp
+from abcde.registration.global_dicts import add_to_ref_dict
 import unittest
 import os
 import shutil
+import torch
+
+
+def create_optimizer(model, optimizer, **kwargs):
+    device = torch.device("cuda")
+    model = model.to(device)
+    add_to_ref_dict(optimizer=optimizer(model.parameters(), **kwargs))
 
 
 class TestSimpleTrainTest(unittest.TestCase):

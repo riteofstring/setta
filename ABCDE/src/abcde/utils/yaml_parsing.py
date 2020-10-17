@@ -1,6 +1,6 @@
 import yaml
 import importlib
-from ..registration.global_ref_dict import GLOBAL_REF_DICT
+from ..registration.global_dicts import GLOBAL_REF_DICT
 from .constants import REF_KEYWORD, DO_NOT_INIT_KEYWORD
 
 
@@ -30,12 +30,20 @@ def represents_object(x):
     return "." in x
 
 
+def is_ref(x):
+    return isinstance(x, str) and x.startswith(REF_KEYWORD)
+
+
+def get_ref(x):
+    return GLOBAL_REF_DICT[x.replace(REF_KEYWORD, "")]
+
+
 def create_objects(x):
     if isinstance(x, dict) and len(x) > 0:
         output = {}
         for k, v in x.items():
-            if isinstance(v, str) and v.startswith(REF_KEYWORD):
-                obj = GLOBAL_REF_DICT[v.replace(REF_KEYWORD, "")]
+            if is_ref(v):
+                obj = get_ref(v)
             elif represents_object(k):
                 obj = string_to_attr(k)
                 if v != DO_NOT_INIT_KEYWORD:
@@ -54,6 +62,8 @@ def create_objects(x):
     elif isinstance(x, (list, tuple)) and len(x) > 0:
         return [create_objects(sub_x) for sub_x in x]
     else:
+        if is_ref(x):
+            x = get_ref(x)
         return x
 
 
