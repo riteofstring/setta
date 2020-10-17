@@ -1,6 +1,7 @@
 import yaml
 import importlib
-
+from ..registration.global_ref_dict import GLOBAL_REF_DICT
+from .constants import REF_KEYWORD
 
 def load_yaml(fname):
     with open(fname, "r") as f:
@@ -32,7 +33,9 @@ def create_objects(x):
     if isinstance(x, dict) and len(x) > 0:
         output = {}
         for k, v in x.items():
-            if represents_object(k):
+            if isinstance(v, str) and v.startswith(REF_KEYWORD):
+                obj = GLOBAL_REF_DICT[v.replace(REF_KEYWORD, "")]
+            elif represents_object(k):
                 obj = string_to_attr(k)
                 params = {} if v is None else v
                 params = create_objects(params)
@@ -50,3 +53,13 @@ def create_objects(x):
         return [create_objects(sub_x) for sub_x in x]
     else:
         return x
+
+
+def run(config):
+    funcs = get_func_dict(config)
+    for func_name, F in funcs.items():
+        collected_args = {}
+        for name, args in config[func_name].items():
+            created_obj = create_objects(args)
+            collected_args[name] = created_obj
+        F(**collected_args)

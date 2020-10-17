@@ -86,8 +86,6 @@ def main(
     model,
     train_set,
     val_set,
-    train_transform,
-    val_transform,
     batch_size=64,
     test_batch_size=1000,
     epochs=14,
@@ -115,6 +113,7 @@ def main(
     train_loader = torch.utils.data.DataLoader(train_set, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(val_set, **test_kwargs)
 
+    model = model.to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
