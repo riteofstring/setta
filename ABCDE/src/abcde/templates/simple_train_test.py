@@ -111,8 +111,12 @@ def main(
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
-    dataset1 = datasets.MNIST("D:/Downloads/test_data", train=True, download=True, transform=transform)
-    dataset2 = datasets.MNIST("D:/Downloads/test_data", train=False, transform=transform)
+    dataset1 = datasets.MNIST(
+        "D:/Downloads/test_data", train=True, download=True, transform=transform
+    )
+    dataset2 = datasets.MNIST(
+        "D:/Downloads/test_data", train=False, transform=transform
+    )
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
@@ -121,9 +125,7 @@ def main(
 
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
     for epoch in range(1, epochs + 1):
-        train(
-            model, device, train_loader, optimizer, epoch, log_interval, dry_run
-        )
+        train(model, device, train_loader, optimizer, epoch, log_interval, dry_run)
         test(model, device, test_loader)
         scheduler.step()
 
