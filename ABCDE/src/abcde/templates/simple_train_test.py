@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
 
@@ -84,6 +83,11 @@ def test(model, device, test_loader):
 
 
 def main(
+    model,
+    train_set,
+    val_set,
+    train_transform,
+    val_transform,
     batch_size=64,
     test_batch_size=1000,
     epochs=14,
@@ -108,19 +112,9 @@ def main(
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-    )
-    dataset1 = datasets.MNIST(
-        "D:/Downloads/test_data", train=True, download=True, transform=transform
-    )
-    dataset2 = datasets.MNIST(
-        "D:/Downloads/test_data", train=False, transform=transform
-    )
-    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
-    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+    train_loader = torch.utils.data.DataLoader(train_set, **train_kwargs)
+    test_loader = torch.utils.data.DataLoader(val_set, **test_kwargs)
 
-    model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
@@ -130,7 +124,7 @@ def main(
         scheduler.step()
 
     if save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+        torch.save(model.state_dict(), "simple_cnn.pt")
 
 
 if __name__ == "__main__":

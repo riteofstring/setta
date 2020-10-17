@@ -19,7 +19,7 @@ class ClassInfo:
             )
             for k, v in cls_args.items()
         }
-        self.expose_list = list(self.cls_args.keys())
+        self.expose_list = []
 
     def expose(self, e):
         if isinstance(e, str):
