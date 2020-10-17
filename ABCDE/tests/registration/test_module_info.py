@@ -3,7 +3,8 @@ import torch
 import unittest
 
 
-class TestGetInitArguments(unittest.TestCase):
+class TestModuleInfo(unittest.TestCase):
     def test_module_info(self):
-        x = ModuleInfo(torch.nn.CrossEntropyLoss, expose=["size_average"])
-        print(x.expose)
+        x = ModuleInfo(torch.nn.CrossEntropyLoss)
+        x.expose("size_average")
+        self.assertTrue(x.expose_list == ["size_average"])

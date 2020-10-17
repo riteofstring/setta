@@ -15,3 +15,10 @@ def get_init_arguments(input_obj):
 
 def parameter_has_default(parameter):
     return parameter.default != inspect.Parameter.empty
+
+
+def merge_dicts(x, y):
+    z = x.copy()
+    for k, v in y.items():
+        z[k] = v
+    return z
