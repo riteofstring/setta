@@ -42,3 +42,7 @@ class ClassInfo:
 
     def as_json(self):
         return json.dumps(self.as_dict())
+
+    def set_type(self, arg_name, new_type):
+        self.cls_args[arg_name]["type"] = new_type
+        self.cls_args[arg_name]["ui_type"] = const.TYPE_MAP.get_ui_type(new_type)

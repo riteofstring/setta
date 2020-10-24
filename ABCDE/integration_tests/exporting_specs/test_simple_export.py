@@ -1,6 +1,6 @@
 from abcde.registration.class_info import ClassInfo
 from abcde.registration.module_info import ModuleInfo
-from abcde.utils.constants import TYPE_MAP
+from abcde.utils.constants import TYPE_MAP, Category
 from abcde.templates import simple_train_test
 from abcde.utils import common_functions as c_f
 import abcde
@@ -29,8 +29,14 @@ class TestSimpleExport(unittest.TestCase):
     def test_simple_export(self):
 
         TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
-        x = ClassInfo(torch.nn.CrossEntropyLoss)
-        print(x.cls_args)
+        # x = ClassInfo(torchvision.transforms.Compose)
+        # print(x.as_dict())
+        x = ModuleInfo(torchvision.transforms)
+        # print(x.classes["Parameter"].cls_args)
+        x.set_type("Compose", "transforms", Category(torchvision.transforms))
+        # print(x.classes["Compose"].as_dict())
+        # x.set_type("transforms", Category("transform"))
+        # print(x.as_dict())
 
         # x = ClassInfo(test_function)
         # print(x.cls_args)

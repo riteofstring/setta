@@ -6,7 +6,10 @@ def is_class_or_function(x):
 
 
 def add_signature_to_dict(input_obj, input_dict):
-    signature = inspect.signature(input_obj)
+    try:
+        signature = inspect.signature(input_obj)
+    except ValueError:
+        return
     for k, v in signature.parameters.items():
         input_dict[k] = v
 
