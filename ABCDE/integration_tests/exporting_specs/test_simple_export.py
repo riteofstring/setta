@@ -1,5 +1,6 @@
 from abcde.registration.class_info import ClassInfo
 from abcde.registration.module_info import ModuleInfo
+from abcde.utils.constants import TYPE_MAP
 from abcde.templates import simple_train_test
 from abcde.utils import common_functions as c_f
 import abcde
@@ -19,6 +20,7 @@ def test_function(
     e: typing.Optional[int] = 5,
     f: typing.Tuple[typing.Tuple[int, float], ...] = ((5, 6), (7, 8)),
     g: typing.Dict[str, int] = {"hello": 100},
+    h: torchvision.transforms.CenterCrop = torchvision.transforms.CenterCrop(224),
 ):
     return True
 
@@ -26,11 +28,12 @@ def test_function(
 class TestSimpleExport(unittest.TestCase):
     def test_simple_export(self):
 
-        # x = ClassInfo(torch.nn.CrossEntropyLoss)
-        # print(typing.get_args(x.cls_args["weight"]["type"]))
-
-        x = ClassInfo(test_function)
+        TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
+        x = ClassInfo(torch.nn.CrossEntropyLoss)
         print(x.cls_args)
+
+        # x = ClassInfo(test_function)
+        # print(x.cls_args)
 
         # output = {}
         # output["model"] = ModuleInfo(torchvision.models).as_dict("functions")

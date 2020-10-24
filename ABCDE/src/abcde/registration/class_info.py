@@ -14,7 +14,7 @@ class ClassInfo:
                 {
                     "default": v.default,
                     "type": v.annotation,
-                    "ui_type": const.get_ui_type(v.annotation),
+                    "ui_type": const.TYPE_MAP.get_ui_type(v.annotation),
                 }
             )
             for k, v in cls_args.items()
