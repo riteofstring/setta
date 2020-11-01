@@ -11,7 +11,7 @@ class TestGetInitArguments(unittest.TestCase):
         x = c_f.get_args(ClassInfo)
         for k, v in x.items():
             if c_f.parameter_has_default(v):
-                self.assertTrue(v.default != inspect.empty)
+                self.assertTrue(v.default != inspect.Signature.empty)
 
     def test_merge_dicts(self):
         x = {"apple": 5}

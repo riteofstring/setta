@@ -1,10 +1,11 @@
 from ..utils import common_functions as c_f
 from ..utils import constants as const
+from .base_info import BaseInfo
 import json
 
 
-class ClassInfo:
-    def __init__(self, input_class):
+class ClassInfo(BaseInfo):
+    def __init__(self, input_class, include=(), exclude=()):
         if not c_f.is_class_or_function(input_class):
             raise TypeError("Input to ClassInfo must be a class or function")
         self.cls = input_class
@@ -18,16 +19,8 @@ class ClassInfo:
                 }
             )
             for k, v in cls_args.items()
+            if self.should_be_included(k, include, exclude)
         }
-        self.expose_list = []
-
-    def expose(self, e):
-        if isinstance(e, str):
-            self.expose_list = [e]
-        else:
-            assert isinstance(e, (list, tuple))
-            assert all(k in self.cls_args for k in e)
-            self.expose_list = e
 
     def as_dict(self):
         for k1, v1 in self.cls_args.items():
@@ -36,12 +29,8 @@ class ClassInfo:
         output = {
             "name": self.cls.__name__,
             "args": self.cls_args,
-            "expose_list": self.expose_list,
         }
         return output
-
-    def as_json(self):
-        return json.dumps(self.as_dict())
 
     def set_type(self, arg_name, new_type):
         self.cls_args[arg_name]["type"] = new_type

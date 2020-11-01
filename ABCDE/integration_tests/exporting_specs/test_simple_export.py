@@ -1,5 +1,6 @@
 from abcde.registration.class_info import ClassInfo
 from abcde.registration.module_info import ModuleInfo
+from abcde.registration.ui_creator import UICreator
 from abcde.utils.constants import TYPE_MAP, Category
 from abcde.templates import simple_train_test
 from abcde.utils import common_functions as c_f
@@ -54,3 +55,26 @@ class TestSimpleExport(unittest.TestCase):
         # output = json.dumps(output, indent=4)
         # output = json.loads(output)
         # print(output["transform"]["torchvision.transforms"]["classes"]["Compose"])
+
+        ui = UICreator()
+        ui.add("model", ModuleInfo(simple_train_test, "classes"))
+
+        x = ModuleInfo(torchvision.transforms, "classes")
+        x.set_type("Compose", "transforms", Category(torchvision.transforms))
+        ui.add("transform", x)
+
+        ui.add("train_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))
+        ui.add("val_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))
+
+        ui.add("optimizer", ModuleInfo(torch.optim))
+
+        ui.add(
+            "main_function",
+            ClassInfo(
+                simple_train_test.main,
+                include=("batch_size", "test_batch_size", "epochs"),
+            ),
+        )
+        json_output = ui.export()
+
+        print(json_output)

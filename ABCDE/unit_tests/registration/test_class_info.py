@@ -5,14 +5,10 @@ import unittest
 
 class TestClassInfo(unittest.TestCase):
     def test_class_info(self):
-        x = ClassInfo(torch.nn.CrossEntropyLoss)
-        x.expose("size_average")
-        self.assertTrue(x.expose_list == ["size_average"])
-        y = x.as_json()
+        x = ClassInfo(torch.nn.CrossEntropyLoss, include=("size_average",))
+        self.assertTrue(list(x.cls_args.keys()) == ["size_average"])
 
-        x = ClassInfo(torch.nn.functional.cross_entropy)
-        x.expose("size_average")
-        self.assertTrue(x.expose_list == ["size_average"])
-        y = x.as_json()
+        x = ClassInfo(torch.nn.functional.cross_entropy, include=("size_average",))
+        self.assertTrue(list(x.cls_args.keys()) == ["size_average"])
 
         self.assertRaises(TypeError, lambda: ClassInfo(torch.nn.functional))
