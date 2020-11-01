@@ -1,5 +1,5 @@
 from ..utils import common_functions as c_f
-from ..utils import constants as const
+from ..utils.type_map import TYPE_MAP
 from .base_info import BaseInfo
 import json
 
@@ -15,7 +15,7 @@ class ClassInfo(BaseInfo):
                 {
                     "default": v.default,
                     "type": v.annotation,
-                    "ui_type": const.TYPE_MAP.get_ui_type(v.annotation),
+                    "ui_type": TYPE_MAP.get_ui_type(v.annotation),
                 }
             )
             for k, v in cls_args.items()
@@ -34,4 +34,4 @@ class ClassInfo(BaseInfo):
 
     def set_type(self, arg_name, new_type):
         self.cls_args[arg_name]["type"] = new_type
-        self.cls_args[arg_name]["ui_type"] = const.TYPE_MAP.get_ui_type(new_type)
+        self.cls_args[arg_name]["ui_type"] = TYPE_MAP.get_ui_type(new_type)

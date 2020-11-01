@@ -1,0 +1,56 @@
+IMPORTS:
+  torchvision:
+    - datasets
+    - models
+    - transforms
+  abcde.templates:
+    - simple_train_test
+
+UI_TYPES:
+  LIST: 
+    - torch.Tensor
+
+
+
+# 0:
+#   abcde.registration.global_dicts.add_to_ref_dict:
+#     transform:
+#       torchvision.transforms.Compose:
+#         transforms:
+#           - torchvision.transforms.ToTensor:
+#           - torchvision.transforms.Normalize:
+#               mean: [0.1307]
+#               std: [0.3081]
+#     dataset_root: "."
+#     model:
+#       abcde.templates.simple_train_test.Net:
+
+# 1:
+#   abcde.registration.global_dicts.add_to_ref_dict:
+#     train_set:
+#       torchvision.datasets.MNIST:
+#         root: ~REF~dataset_root
+#         train: True
+#         download: True
+#         transform: ~REF~transform
+#     val_set:
+#       torchvision.datasets.MNIST:
+#         root: ~REF~dataset_root
+#         train: False
+#         download: True
+#         transform: ~REF~transform
+
+#   integration_tests.running_templates.test_simple_train_test.create_optimizer:
+#     model: ~REF~model
+#     optimizer:
+#       torch.optim.Adadelta: ~DO_NOT_INIT~
+#     lr: 1.0
+
+#   abcde.templates.simple_train_test.main:
+#     model: ~REF~model
+#     optimizer: ~REF~optimizer
+#     train_set: ~REF~train_set
+#     val_set: ~REF~val_set
+#     batch_size: 64
+#     test_batch_size: 1000
+#     epochs: 1

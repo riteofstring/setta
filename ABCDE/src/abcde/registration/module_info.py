@@ -1,5 +1,4 @@
 from ..utils import common_functions as c_f
-from ..utils import constants as const
 from .class_info import ClassInfo
 from .base_info import BaseInfo
 import json

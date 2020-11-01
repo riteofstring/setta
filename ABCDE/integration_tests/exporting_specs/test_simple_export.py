@@ -1,80 +1,97 @@
 from abcde.registration.class_info import ClassInfo
 from abcde.registration.module_info import ModuleInfo
 from abcde.registration.ui_creator import UICreator
-from abcde.utils.constants import TYPE_MAP, Category
+from abcde.utils.type_map import TYPE_MAP, Category
 from abcde.templates import simple_train_test
 from abcde.utils import common_functions as c_f
+from abcde.utils import yaml_parsing as yp
+from abcde.registration.imports_holder import ImportsHolder
 import abcde
 import unittest
-import torchvision
+
+# import torchvision
 import torch
 import json
 from typing import List
 import typing
+import os
+import importlib
 
 
-def test_function(
-    a: int,
-    b: str,
-    c: List[List[float]] = [[1, 2, 3], [4, 5, 6]],
-    d: type(None) = None,
-    e: typing.Optional[int] = 5,
-    f: typing.Tuple[typing.Tuple[int, float], ...] = ((5, 6), (7, 8)),
-    g: typing.Dict[str, int] = {"hello": 100},
-    h: torchvision.transforms.CenterCrop = torchvision.transforms.CenterCrop(224),
-):
-    return True
+# def test_function(
+#     a: int,
+#     b: str,
+#     c: List[List[float]] = [[1, 2, 3], [4, 5, 6]],
+#     d: type(None) = None,
+#     e: typing.Optional[int] = 5,
+#     f: typing.Tuple[typing.Tuple[int, float], ...] = ((5, 6), (7, 8)),
+#     g: typing.Dict[str, int] = {"hello": 100},
+#     h: torchvision.transforms.CenterCrop = torchvision.transforms.CenterCrop(224),
+# ):
+#     return True
 
 
 class TestSimpleExport(unittest.TestCase):
     def test_simple_export(self):
 
-        TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
-        # x = ClassInfo(torchvision.transforms.Compose)
-        # print(x.as_dict())
-        x = ModuleInfo(torchvision.transforms)
-        # print(x.classes["Parameter"].cls_args)
-        x.set_type("Compose", "transforms", Category(torchvision.transforms))
-        # print(x.classes["Compose"].as_dict())
-        # x.set_type("transforms", Category("transform"))
-        # print(x.as_dict())
+        curr_dir = os.path.dirname(os.path.abspath(__file__))
+        config = yp.load_yaml(os.path.join(curr_dir, "simple_train_test.yaml"))
 
-        # x = ClassInfo(test_function)
-        # print(x.cls_args)
+        imports = config.pop("IMPORTS")
+        ih = ImportsHolder()
+        ih.set_imports(imports)
+        print(ih.__dict__)
 
-        # output = {}
-        # output["model"] = ModuleInfo(torchvision.models).as_dict("functions")
-        # output["model"] = c_f.merge_dicts(
-        #     output["model"], ModuleInfo(simple_train_test).as_dict("classes")
+        ui_types = config.pop("UI_TYPES")
+        TYPE_MAP.register_from_dict(ui_types)
+        print(TYPE_MAP.get_ui_type(torch.Tensor))
+
+        # TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
+        # # x = ClassInfo(torchvision.transforms.Compose)
+        # # print(x.as_dict())
+        # x = ModuleInfo(torchvision.transforms)
+        # # print(x.classes["Parameter"].cls_args)
+        # x.set_type("Compose", "transforms", Category(torchvision.transforms))
+        # # print(x.classes["Compose"].as_dict())
+        # # x.set_type("transforms", Category("transform"))
+        # # print(x.as_dict())
+
+        # # x = ClassInfo(test_function)
+        # # print(x.cls_args)
+
+        # # output = {}
+        # # output["model"] = ModuleInfo(torchvision.models).as_dict("functions")
+        # # output["model"] = c_f.merge_dicts(
+        # #     output["model"], ModuleInfo(simple_train_test).as_dict("classes")
+        # # )
+        # # output["optimizer"] = ModuleInfo(torch.optim).as_dict("classes")
+        # # output["train_set"] = ModuleInfo(torchvision.datasets).as_dict("classes")
+        # # output["val_set"] = output["train_set"]
+        # # output["transform"] = ModuleInfo(torchvision.transforms).as_dict("classes")
+        # # output["transform"]["torchvision.transforms"]["classes"]["Compose"]["args"]["transforms"]["type"] = torchvision.transforms
+        # # output = json.dumps(output, indent=4)
+        # # output = json.loads(output)
+        # # print(output["transform"]["torchvision.transforms"]["classes"]["Compose"])
+
+        # ui = UICreator()
+        # ui.add("model", ModuleInfo(simple_train_test, "classes"))
+
+        # x = ModuleInfo(torchvision.transforms, "classes")
+        # x.set_type("Compose", "transforms", Category(torchvision.transforms))
+        # ui.add("transform", x)
+
+        # ui.add("train_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))
+        # ui.add("val_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))
+
+        # ui.add("optimizer", ModuleInfo(torch.optim))
+
+        # ui.add(
+        #     "main_function",
+        #     ClassInfo(
+        #         simple_train_test.main,
+        #         include=("batch_size", "test_batch_size", "epochs"),
+        #     ),
         # )
-        # output["optimizer"] = ModuleInfo(torch.optim).as_dict("classes")
-        # output["train_set"] = ModuleInfo(torchvision.datasets).as_dict("classes")
-        # output["val_set"] = output["train_set"]
-        # output["transform"] = ModuleInfo(torchvision.transforms).as_dict("classes")
-        # output["transform"]["torchvision.transforms"]["classes"]["Compose"]["args"]["transforms"]["type"] = torchvision.transforms
-        # output = json.dumps(output, indent=4)
-        # output = json.loads(output)
-        # print(output["transform"]["torchvision.transforms"]["classes"]["Compose"])
+        # json_output = ui.export()
 
-        ui = UICreator()
-        ui.add("model", ModuleInfo(simple_train_test, "classes"))
-
-        x = ModuleInfo(torchvision.transforms, "classes")
-        x.set_type("Compose", "transforms", Category(torchvision.transforms))
-        ui.add("transform", x)
-
-        ui.add("train_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))
-        ui.add("val_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))
-
-        ui.add("optimizer", ModuleInfo(torch.optim))
-
-        ui.add(
-            "main_function",
-            ClassInfo(
-                simple_train_test.main,
-                include=("batch_size", "test_batch_size", "epochs"),
-            ),
-        )
-        json_output = ui.export()
-
-        print(json_output)
+        # print(json_output)
