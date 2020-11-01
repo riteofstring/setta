@@ -14,10 +14,15 @@ def keys_as_list(config):
     return list(config.keys())
 
 
-def string_to_attr(input_string):
+def split_attr_from_modules(input_string):
     modules = input_string.split(".")
     attr_name = modules.pop()
     modules = ".".join(modules)
+    return modules, attr_name
+
+
+def string_to_attr(input_string):
+    modules, attr_name = split_attr_from_modules(input_string)
     imported_module = importlib.import_module(modules)
     return getattr(imported_module, attr_name)
 

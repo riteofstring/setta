@@ -1,8 +1,6 @@
 IMPORTS:
+  torch.optim:
   torchvision:
-    - datasets
-    - models
-    - transforms
   abcde.templates:
     - simple_train_test
 
@@ -10,7 +8,24 @@ UI_TYPES:
   LIST: 
     - torch.Tensor
 
+SECTIONS:
+  Model:
+    - IMPORTS:
+        torchvision:
+          - models
+    - ModuleInfo:
+        name: models
+        include:
+          - resnet18
+          - resnet50
+    - ModuleInfo:
+        name: simple_train_test
+        include:
+          - Net
 
+  Optimizer:
+    - ModuleInfo:
+        name: torch.optim
 
 # 0:
 #   abcde.registration.global_dicts.add_to_ref_dict:

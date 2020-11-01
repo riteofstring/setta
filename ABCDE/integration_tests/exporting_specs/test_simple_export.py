@@ -37,14 +37,21 @@ class TestSimpleExport(unittest.TestCase):
         curr_dir = os.path.dirname(os.path.abspath(__file__))
         config = yp.load_yaml(os.path.join(curr_dir, "simple_train_test.yaml"))
 
-        imports = config.pop("IMPORTS")
-        ih = ImportsHolder()
-        ih.set_imports(imports)
-        print(ih.__dict__)
+        imports = config.pop("IMPORTS", {})
+        global_ih = ImportsHolder()
+        global_ih.set_imports(imports)
+        print(global_ih.__dict__)
 
-        ui_types = config.pop("UI_TYPES")
+        ui_types = config.pop("UI_TYPES", {})
         TYPE_MAP.register_from_dict(ui_types)
         print(TYPE_MAP.get_ui_type(torch.Tensor))
+
+        sections = config.pop("SECTIONS", {})
+        ui = UICreator()
+        ui.create(sections, global_ih)
+
+        json_output = ui.export()
+        print(json_output)
 
         # TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
         # # x = ClassInfo(torchvision.transforms.Compose)
