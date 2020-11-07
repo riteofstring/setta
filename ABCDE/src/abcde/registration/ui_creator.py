@@ -1,4 +1,5 @@
 from abcde.utils import common_functions as c_f
+from abcde.utils.constants import REF_KEYWORD
 import json
 import typing
 from .imports_holder import ImportsHolder
@@ -11,54 +12,77 @@ class UICreator:
     sections = {}
     info_classes: typing.Final = {"ModuleInfo": ModuleInfo, "ClassInfo": ClassInfo}
 
-    def create(self, yaml_specs, global_ih):
+    def create(self, yaml_specs, definitions, global_ih):
         self.global_ih = global_ih
         for section_name, list_of_details in yaml_specs.items():
-            infos = self.create_infos(list_of_details)
+            infos = self.create_infos(list_of_details, definitions)
             for i in infos:
                 self.add(section_name, i)
 
-    def create_infos(self, list_of_details):
+    def create_infos(self, list_of_details, definitions):
         local_ih = ImportsHolder()
         import_holders = [local_ih, self.global_ih]
         infos = []
+        list_of_details = self.replace_refs_with_defs(list_of_details, definitions)
+
         for details in list_of_details:
-            for info_type, kwargs in details.items():
-                if info_type == "IMPORTS":
-                    local_ih.set_imports(kwargs)
-                else:
-                    module_class_or_function = self.try_multiple_import_holders(
-                        kwargs["name"], import_holders
-                    )
-                    kwargs.pop("name")
-                    set_arg_types_info = kwargs.pop("set_type", None)
-                    if info_type == "ModuleInfo":
-                        kwargs["module"] = module_class_or_function
-                    elif info_type == "ClassInfo":
-                        kwargs["input_class"] = module_class_or_function
-                    section_module = self.info_classes[info_type](**kwargs)
-                    self.set_arg_types(section_module, set_arg_types_info, info_type)
-                    infos.append(section_module)
+            assert len(details) == 1
+            info_type, kwargs = self.get_info_type_and_kwargs(details)
+            if info_type == "IMPORTS":
+                local_ih.set_imports(kwargs)
+            else:
+                module_class_or_function = self.try_multiple_import_holders(
+                    kwargs["name"], import_holders
+                )
+                kwargs.pop("name")
+                set_arg_types_info = kwargs.pop("set_type", None)
+                if info_type == "ModuleInfo":
+                    kwargs["module"] = module_class_or_function
+                elif info_type == "ClassInfo":
+                    kwargs["input_class"] = module_class_or_function
+                section_module = self.info_classes[info_type](**kwargs)
+                self.set_arg_types(
+                    section_module, set_arg_types_info, info_type, definitions
+                )
+                infos.append(section_module)
         return infos
 
-    def set_arg_types(self, section_module, set_arg_types_info, info_type):
+    def replace_refs_with_defs(self, list_of_details, definitions):
+        new_list_of_details = []
+        for details in list_of_details:
+            assert len(details) == 1
+            info_type, kwargs = self.get_info_type_and_kwargs(details)
+            if info_type.startswith(REF_KEYWORD):
+                info_type = info_type.replace(REF_KEYWORD, "")
+                details = definitions[info_type]
+                new_list_of_details.extend(details)
+            else:
+                new_list_of_details.append(details)
+        return new_list_of_details
+
+    def get_info_type_and_kwargs(self, details):
+        info_type = c_f.get_the_only_key(details)
+        kwargs = details[info_type]
+        return info_type, kwargs
+
+    def set_arg_types(self, section_module, set_arg_types_info, info_type, definitions):
         if set_arg_types_info is not None:
             if info_type == "ModuleInfo":
                 for obj_name, args in set_arg_types_info.items():
                     for arg, new_type in args.items():
-                        new_type = self.process_new_type(new_type)
+                        new_type = self.process_new_type(new_type, definitions)
                         section_module.set_type(obj_name, arg, new_type)
 
-    def process_new_type(self, new_type):
+    def process_new_type(self, new_type, definitions):
         if isinstance(new_type, str):
             return new_type
         elif isinstance(new_type, list):
-            infos = self.create_infos(new_type)
+            infos = self.create_infos(new_type, definitions)
             return NestedObject(infos)
         elif isinstance(new_type, dict):
             series_type = c_f.get_the_only_key(new_type)
             new_type = new_type[series_type]
-            infos = self.create_infos(new_type)
+            infos = self.create_infos(new_type, definitions)
             if series_type == "list":
                 return ListNestedObject(infos)
             if series_type == "dict":

@@ -8,6 +8,23 @@ UI_TYPES:
   LIST: 
     - torch.Tensor
 
+transforms_module_without_compose: &A
+  - ModuleInfo:
+      name: torchvision.transforms
+      include:
+        - ColorJitter
+
+transforms_module: &B
+  - ModuleInfo:
+      name: torchvision.transforms
+      include:
+        - Compose
+      set_type:
+        Compose:
+          transforms:
+            list:
+              - <<: *A    
+
 SECTIONS:
   Model:
     - IMPORTS:
@@ -31,26 +48,25 @@ SECTIONS:
           - Adam
     
   Transform:
-    - ModuleInfo:
-        name: torchvision.transforms
-        include:
-          - Compose
-          - ColorJitter
-        set_type:
-          Compose:
-            transforms:
-              list:
-                - ModuleInfo:
-                    name: torchvision.transforms
-                    include:
-                      - ToTensor
-                      - RandomHorizontalFlip
-                      - RandomVerticalFlip
-                      - Normalize
-          ColorJitter:
-            brightness: torch.Tensor
-            contrast: int
-            saturation: int
+    - <<: *B
+
+
+
+
+
+
+
+        # set_type:
+        #   Compose:
+        #     transforms:
+        #       list:
+        #         - ~REF~transforms_module:
+        #             exclude:
+        #               - Compose
+        #   ColorJitter:
+        #     brightness: torch.Tensor
+        #     contrast: int
+        #     saturation: int
 
 
 
