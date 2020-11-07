@@ -40,18 +40,19 @@ class TestSimpleExport(unittest.TestCase):
         imports = config.pop("IMPORTS", {})
         global_ih = ImportsHolder()
         global_ih.set_imports(imports)
-        print(global_ih.__dict__)
 
         ui_types = config.pop("UI_TYPES", {})
         TYPE_MAP.register_from_dict(ui_types)
-        print(TYPE_MAP.get_ui_type(torch.Tensor))
+        self.assertTrue(TYPE_MAP.get_ui_type(torch.Tensor) == "LIST")
 
         sections = config.pop("SECTIONS", {})
         ui = UICreator()
         ui.create(sections, global_ih)
 
-        json_output = ui.export()
-        print(json_output)
+        test_filepath = "test.json"
+        ui.export(test_filepath)
+
+        os.remove(test_filepath)
 
         # TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
         # # x = ClassInfo(torchvision.transforms.Compose)

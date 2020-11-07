@@ -26,6 +26,25 @@ SECTIONS:
   Optimizer:
     - ModuleInfo:
         name: torch.optim
+        include:
+          - SGD
+          - Adam
+    
+  Transform:
+    - ModuleInfo:
+        name: torchvision.transforms
+        include:
+          - Compose
+          - ColorJitter
+        set_type:
+          Compose:
+            transforms: str
+          ColorJitter:
+            brightness: int
+            contrast: int
+            saturation: int
+
+
 
 # 0:
 #   abcde.registration.global_dicts.add_to_ref_dict:

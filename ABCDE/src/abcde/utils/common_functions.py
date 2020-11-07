@@ -1,4 +1,5 @@
 import inspect
+import builtins
 
 
 def is_class_or_function(x):
@@ -44,3 +45,7 @@ def type_to_str(x):
     if inspect.isclass(x):
         x = x.__name__
     return str(x)
+
+
+def str_to_builtin_type(x):
+    return getattr(builtins, x)

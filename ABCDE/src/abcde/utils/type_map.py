@@ -1,5 +1,6 @@
 import typing
 import inspect
+from inspect import Parameter
 import importlib
 from . import common_functions as c_f
 from . import yaml_parsing as yp
@@ -33,6 +34,7 @@ ORIGINAL_TYPE_MAP: typing.Final = {
     Ellipsis: "...",
     typing.Union: "EITHER",
     Category: Category.ui_type,
+    Parameter.VAR_KEYWORD: "TEXT",
 }
 
 
@@ -56,20 +58,23 @@ class TypeMap:
         for ui_type, py_types in input_dict.items():
             self.register_multiple(py_types, ui_type)
 
-    def get_ui_type(self, input_type):
-        if isinstance(input_type, Category):
-            input_type = type(input_type)
-        sub_types = typing.get_args(input_type)
-        if len(sub_types) == 0:
-            return self.UI_TYPE_MAP.get(input_type, UNKNOWN_UI_TYPE)
-        wrapper_type = typing.get_origin(input_type)
-        return {
-            self.UI_TYPE_MAP.get(wrapper_type, UNKNOWN_UI_TYPE): [
-                self.get_ui_type(k) for k in sub_types
-            ]
-            if len(sub_types) > 1
-            else self.get_ui_type(sub_types[0])
-        }
+    def get_ui_type(self, input_type, input_kind=None):
+        if input_kind is not None:
+            return self.UI_TYPE_MAP.get(input_kind, UNKNOWN_UI_TYPE)
+        else:
+            if isinstance(input_type, Category):
+                input_type = type(input_type)
+            sub_types = typing.get_args(input_type)
+            if len(sub_types) == 0:
+                return self.UI_TYPE_MAP.get(input_type, UNKNOWN_UI_TYPE)
+            wrapper_type = typing.get_origin(input_type)
+            return {
+                self.UI_TYPE_MAP.get(wrapper_type, UNKNOWN_UI_TYPE): [
+                    self.get_ui_type(k) for k in sub_types
+                ]
+                if len(sub_types) > 1
+                else self.get_ui_type(sub_types[0])
+            }
 
 
 TYPE_MAP = TypeMap()

@@ -23,11 +23,23 @@ class UICreator:
                             kwargs["name"], import_holders
                         )
                         kwargs.pop("name")
+                        set_arg_types_info = kwargs.pop("set_type", None)
                         if info_type == "ModuleInfo":
                             kwargs["module"] = module_class_or_function
                         elif info_type == "ClassInfo":
                             kwargs["input_class"] = module_class_or_function
-                        self.add(section_name, self.info_classes[info_type](**kwargs))
+                        section_module = self.info_classes[info_type](**kwargs)
+                        self.set_arg_types(
+                            section_module, set_arg_types_info, info_type
+                        )
+                        self.add(section_name, section_module)
+
+    def set_arg_types(self, section_module, set_arg_types_info, info_type):
+        if set_arg_types_info is not None:
+            if info_type == "ModuleInfo":
+                for obj_name, args in set_arg_types_info.items():
+                    for arg, new_type in args.items():
+                        section_module.set_type(obj_name, arg, new_type)
 
     def try_multiple_import_holders(self, name, import_holders):
         for ih in import_holders:
@@ -42,5 +54,9 @@ class UICreator:
             as_dict = c_f.merge_dicts(self.sections[name], as_dict)
         self.sections[name] = as_dict
 
-    def export(self):
-        return json.dumps(self.sections, indent=4)
+    def export(self, filepath=None):
+        if filepath is not None:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(self.sections, f, ensure_ascii=False, indent=4)
+        else:
+            return json.dumps(self.sections, indent=4)

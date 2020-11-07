@@ -15,7 +15,7 @@ class ClassInfo(BaseInfo):
                 {
                     "default": v.default,
                     "type": v.annotation,
-                    "ui_type": TYPE_MAP.get_ui_type(v.annotation),
+                    "ui_type": TYPE_MAP.get_ui_type(v.annotation, v.kind),
                 }
             )
             for k, v in cls_args.items()
@@ -33,5 +33,7 @@ class ClassInfo(BaseInfo):
         return output
 
     def set_type(self, arg_name, new_type):
+        if isinstance(new_type, str):
+            new_type = c_f.str_to_builtin_type(new_type)
         self.cls_args[arg_name]["type"] = new_type
         self.cls_args[arg_name]["ui_type"] = TYPE_MAP.get_ui_type(new_type)
