@@ -1,0 +1,145 @@
+{
+    "Model": {
+        "torchvision.models": {
+            "classes": {},
+            "functions": {
+                "resnet18": {
+                    "name": "resnet18",
+                    "args": {
+                        "pretrained": {
+                            "default": "False",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "progress": {
+                            "default": "True",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "kwargs": {
+                            "default": "_empty",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        }
+                    }
+                },
+                "resnet50": {
+                    "name": "resnet50",
+                    "args": {
+                        "pretrained": {
+                            "default": "False",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "progress": {
+                            "default": "True",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "kwargs": {
+                            "default": "_empty",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        }
+                    }
+                }
+            }
+        },
+        "abcde.templates.simple_train_test": {
+            "classes": {
+                "Net": {
+                    "name": "Net",
+                    "args": {}
+                }
+            },
+            "functions": {}
+        }
+    },
+    "Optimizer": {
+        "torch.optim": {
+            "classes": {
+                "Adam": {
+                    "name": "Adam",
+                    "args": {
+                        "params": {
+                            "default": "_empty",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "lr": {
+                            "default": "0.001",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "betas": {
+                            "default": "(0.9, 0.999)",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "eps": {
+                            "default": "1e-08",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "weight_decay": {
+                            "default": "0",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "amsgrad": {
+                            "default": "False",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "defaults": {
+                            "default": "_empty",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        }
+                    }
+                },
+                "SGD": {
+                    "name": "SGD",
+                    "args": {
+                        "params": {
+                            "default": "_empty",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "lr": {
+                            "default": "<required parameter>",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "momentum": {
+                            "default": "0",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "dampening": {
+                            "default": "0",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "weight_decay": {
+                            "default": "0",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "nesterov": {
+                            "default": "False",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        },
+                        "defaults": {
+                            "default": "_empty",
+                            "type": "_empty",
+                            "ui_type": "UNKNOWN"
+                        }
+                    }
+                }
+            },
+            "functions": {}
+        }
+    }
+}
