@@ -48,7 +48,7 @@ SECTIONS:
                       - RandomVerticalFlip
                       - Normalize
           ColorJitter:
-            brightness: list
+            brightness: torch.Tensor
             contrast: int
             saturation: int
 

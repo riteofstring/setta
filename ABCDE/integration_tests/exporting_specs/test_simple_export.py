@@ -9,8 +9,6 @@ from abcde.registration.imports_holder import ImportsHolder
 import abcde
 import unittest
 
-# import torchvision
-import torch
 import json
 from typing import List
 import typing
@@ -43,7 +41,6 @@ class TestSimpleExport(unittest.TestCase):
 
         ui_types = config.pop("UI_TYPES", {})
         TYPE_MAP.register_from_dict(ui_types)
-        self.assertTrue(TYPE_MAP.get_ui_type(torch.Tensor) == "LIST")
 
         sections = config.pop("SECTIONS", {})
         ui = UICreator()
