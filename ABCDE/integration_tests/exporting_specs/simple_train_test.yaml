@@ -8,22 +8,26 @@ UI_TYPES:
   LIST: 
     - torch.Tensor
 
-transforms_module_without_compose: &A
+
+transforms: &transforms
+  name: torchvision.transforms 
+
+transforms_module_without_compose: &transforms_module_without_compose
   - ModuleInfo:
-      name: torchvision.transforms
+      <<: *transforms
       include:
         - ColorJitter
 
-transforms_module: &B
+transforms_module: &transforms_module
   - ModuleInfo:
-      name: torchvision.transforms
+      <<: *transforms
       include:
         - Compose
       set_type:
         Compose:
           transforms:
             list:
-              - <<: *A    
+              - <<: *transforms_module_without_compose   
 
 SECTIONS:
   Model:
@@ -48,7 +52,7 @@ SECTIONS:
           - Adam
     
   Transform:
-    - <<: *B
+    - <<: *transforms_module
 
 
 

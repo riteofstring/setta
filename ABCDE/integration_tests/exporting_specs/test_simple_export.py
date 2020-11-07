@@ -42,10 +42,9 @@ class TestSimpleExport(unittest.TestCase):
         ui_types = config.pop("UI_TYPES", {})
         TYPE_MAP.register_from_dict(ui_types)
 
-        definitions = config.pop("DEFINITIONS", {})
         sections = config.pop("SECTIONS", {})
         ui = UICreator()
-        ui.create(sections, definitions, global_ih)
+        ui.create(sections, global_ih)
 
         test_filepath = "test.json"
         ui.export(test_filepath)
