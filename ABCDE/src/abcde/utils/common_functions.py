@@ -49,3 +49,11 @@ def type_to_str(x):
 
 def str_to_builtin_type(x):
     return getattr(builtins, x)
+
+
+def get_the_only_key(x):
+    return list(x.keys())[0]
+
+
+def get_the_only_value(x):
+    return x[get_the_only_key(x)]

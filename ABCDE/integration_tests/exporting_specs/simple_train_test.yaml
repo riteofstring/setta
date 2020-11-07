@@ -39,15 +39,16 @@ SECTIONS:
         set_type:
           Compose:
             transforms:
-              - ModuleInfo:
-                  name: torchvision.transforms
-                  include:
-                    - ToTensor
-                    - RandomHorizontalFlip
-                    - RandomVerticalFlip
-                    - Normalize
+              list:
+                - ModuleInfo:
+                    name: torchvision.transforms
+                    include:
+                      - ToTensor
+                      - RandomHorizontalFlip
+                      - RandomVerticalFlip
+                      - Normalize
           ColorJitter:
-            brightness: int
+            brightness: list
             contrast: int
             saturation: int
 

@@ -4,7 +4,7 @@ import typing
 from .imports_holder import ImportsHolder
 from .class_info import ClassInfo
 from .module_info import ModuleInfo
-from ..utils.type_map import NestedObject
+from ..utils.type_map import NestedObject, ListNestedObject, DictNestedObject
 
 
 class UICreator:
@@ -52,10 +52,17 @@ class UICreator:
     def process_new_type(self, new_type):
         if isinstance(new_type, str):
             return new_type
-        else:
-            assert isinstance(new_type, list)
+        elif isinstance(new_type, list):
             infos = self.create_infos(new_type)
             return NestedObject(infos)
+        elif isinstance(new_type, dict):
+            series_type = c_f.get_the_only_key(new_type)
+            new_type = new_type[series_type]
+            infos = self.create_infos(new_type)
+            if series_type == "list":
+                return ListNestedObject(infos)
+            if series_type == "dict":
+                return DictNestedObject(infos)
 
     def try_multiple_import_holders(self, name, import_holders):
         for ih in import_holders:

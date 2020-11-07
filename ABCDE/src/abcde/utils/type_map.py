@@ -8,7 +8,7 @@ from .constants import UNKNOWN_UI_TYPE, REF_KEYWORD
 
 
 class NestedObject:
-    ui_type: typing.Final = "NESTED_OBJECT"
+    ui_type = "NESTED_OBJECT"
 
     def __init__(self, module_infos):
         self.module_infos = module_infos
@@ -23,6 +23,14 @@ class NestedObject:
             return out_dict
 
 
+class ListNestedObject(NestedObject):
+    ui_type = "LIST_NESTED_OBJECT"
+
+
+class DictNestedObject(NestedObject):
+    ui_type = "DICT_NESTED_OBJECT"
+
+
 ORIGINAL_TYPE_MAP: typing.Final = {
     type(None): "NONE",
     bool: "BOOL",
@@ -35,6 +43,8 @@ ORIGINAL_TYPE_MAP: typing.Final = {
     Ellipsis: "...",
     typing.Union: "EITHER",
     NestedObject: NestedObject.ui_type,
+    ListNestedObject: ListNestedObject.ui_type,
+    DictNestedObject: DictNestedObject.ui_type,
     Parameter.VAR_KEYWORD: "TEXT",
 }
 
