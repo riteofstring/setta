@@ -5,10 +5,10 @@ import json
 
 
 class ClassInfo(BaseInfo):
-    def __init__(self, input_class, include=(), exclude=()):
-        if not c_f.is_class_or_function(input_class):
+    def __init__(self, obj, include=(), exclude=()):
+        if not c_f.is_class_or_function(obj):
             raise TypeError("Input to ClassInfo must be a class or function")
-        self.cls = input_class
+        self.cls = obj
         cls_args = c_f.get_args(self.cls)
         self.cls_args = {
             k: (

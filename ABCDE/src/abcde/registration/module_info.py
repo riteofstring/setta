@@ -6,10 +6,10 @@ import inspect
 
 
 class ModuleInfo(BaseInfo):
-    def __init__(self, module, obj_type=None, include=(), exclude=()):
-        if not inspect.ismodule(module):
+    def __init__(self, obj, obj_type=None, include=(), exclude=()):
+        if not inspect.ismodule(obj):
             raise TypeError("Input to ModuleInfo must be a module")
-        self.module = module
+        self.module = obj
         self.name = self.module.__name__
         do_classes = obj_type in [None, "classes"]
         do_functions = obj_type in [None, "functions"]

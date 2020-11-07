@@ -39,20 +39,27 @@ SECTIONS:
         include:
           - resnet18
           - resnet50
-    - ModuleInfo:
-        name: simple_train_test
-        include:
-          - Net
+    - ClassInfo:
+        name: simple_train_test.Net
 
-  Optimizer:
-    - ModuleInfo:
-        name: torch.optim
-        include:
-          - SGD
-          - Adam
+  # Optimizer:
+  #   - ModuleInfo:
+  #       name: torch.optim
+  #       include:
+  #         - SGD
+  #         - Adam
     
-  Transform:
-    - <<: *transforms_module
+  # Transform:
+  #   - <<: *transforms_module
+
+
+  # TrainSet:
+  #   - ModuleInfo:
+  #       name: torchvision.datasets
+  
+  # ValSet:
+  #   - ModuleInfo:
+  #       name: torchvision.datasets
 
 
 
