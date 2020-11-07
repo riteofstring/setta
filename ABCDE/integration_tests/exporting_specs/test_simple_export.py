@@ -1,7 +1,7 @@
 from abcde.registration.class_info import ClassInfo
 from abcde.registration.module_info import ModuleInfo
 from abcde.registration.ui_creator import UICreator
-from abcde.utils.type_map import TYPE_MAP, Category
+from abcde.utils.type_map import TYPE_MAP, NestedObject
 from abcde.templates import simple_train_test
 from abcde.utils import common_functions as c_f
 from abcde.utils import yaml_parsing as yp
@@ -59,9 +59,9 @@ class TestSimpleExport(unittest.TestCase):
         # # print(x.as_dict())
         # x = ModuleInfo(torchvision.transforms)
         # # print(x.classes["Parameter"].cls_args)
-        # x.set_type("Compose", "transforms", Category(torchvision.transforms))
+        # x.set_type("Compose", "transforms", NestedObject(torchvision.transforms))
         # # print(x.classes["Compose"].as_dict())
-        # # x.set_type("transforms", Category("transform"))
+        # # x.set_type("transforms", NestedObject("transform"))
         # # print(x.as_dict())
 
         # # x = ClassInfo(test_function)
@@ -85,7 +85,7 @@ class TestSimpleExport(unittest.TestCase):
         # ui.add("model", ModuleInfo(simple_train_test, "classes"))
 
         # x = ModuleInfo(torchvision.transforms, "classes")
-        # x.set_type("Compose", "transforms", Category(torchvision.transforms))
+        # x.set_type("Compose", "transforms", NestedObject(torchvision.transforms))
         # ui.add("transform", x)
 
         # ui.add("train_set", ClassInfo(torchvision.datasets.MNIST, include=("root",)))

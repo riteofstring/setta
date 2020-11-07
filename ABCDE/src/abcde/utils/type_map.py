@@ -4,22 +4,23 @@ from inspect import Parameter
 import importlib
 from . import common_functions as c_f
 from . import yaml_parsing as yp
-from .constants import UNKNOWN_UI_TYPE
+from .constants import UNKNOWN_UI_TYPE, REF_KEYWORD
 
 
-class Category:
-    ui_type: typing.Final = "CATEGORY"
+class NestedObject:
+    ui_type: typing.Final = "NESTED_OBJECT"
 
-    def __init__(self, module):
-        self.module = module
+    def __init__(self, module_infos):
+        self.module_infos = module_infos
 
-    def __repr__(self):
-        descriptor = (
-            "{}{}".format(REF_KEYWORD, self.module)
-            if isinstance(self.module, str)
-            else self.module.__name__
-        )
-        return "Category:{}".format(descriptor)
+    def description(self):
+        if isinstance(self.module_infos, str):
+            return "{}{}".format(REF_KEYWORD, self.module_infos)
+        else:
+            out_dict = {}
+            for m in self.module_infos:
+                out_dict = c_f.merge_dicts(out_dict, m.as_dict())
+            return out_dict
 
 
 ORIGINAL_TYPE_MAP: typing.Final = {
@@ -33,7 +34,7 @@ ORIGINAL_TYPE_MAP: typing.Final = {
     dict: "DICT",
     Ellipsis: "...",
     typing.Union: "EITHER",
-    Category: Category.ui_type,
+    NestedObject: NestedObject.ui_type,
     Parameter.VAR_KEYWORD: "TEXT",
 }
 
@@ -62,7 +63,7 @@ class TypeMap:
         if input_kind is not None:
             return self.UI_TYPE_MAP.get(input_kind, UNKNOWN_UI_TYPE)
         else:
-            if isinstance(input_type, Category):
+            if isinstance(input_type, NestedObject):
                 input_type = type(input_type)
             sub_types = typing.get_args(input_type)
             if len(sub_types) == 0:

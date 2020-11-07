@@ -38,7 +38,14 @@ SECTIONS:
           - ColorJitter
         set_type:
           Compose:
-            transforms: str
+            transforms:
+              - ModuleInfo:
+                  name: torchvision.transforms
+                  include:
+                    - ToTensor
+                    - RandomHorizontalFlip
+                    - RandomVerticalFlip
+                    - Normalize
           ColorJitter:
             brightness: int
             contrast: int

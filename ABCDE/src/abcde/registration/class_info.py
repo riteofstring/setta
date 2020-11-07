@@ -1,5 +1,5 @@
 from ..utils import common_functions as c_f
-from ..utils.type_map import TYPE_MAP
+from ..utils.type_map import TYPE_MAP, NestedObject
 from .base_info import BaseInfo
 import json
 
@@ -25,7 +25,10 @@ class ClassInfo(BaseInfo):
     def as_dict(self):
         for k1, v1 in self.cls_args.items():
             for k2, v2 in v1.items():
-                v1[k2] = c_f.type_to_str(v2)
+                if isinstance(v2, NestedObject):
+                    v1[k2] = v2.description()
+                else:
+                    v1[k2] = c_f.type_to_str(v2)
         output = {
             "name": self.cls.__name__,
             "args": self.cls_args,
