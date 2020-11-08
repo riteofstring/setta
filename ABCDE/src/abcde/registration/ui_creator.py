@@ -51,7 +51,12 @@ class UICreator:
                         for obj_name in obj_dict.keys():
                             for arg, new_type in args.items():
                                 new_type = self.process_new_type(new_type)
-                                section_module.set_type(obj_name, arg, new_type, o_t)
+                                try:
+                                    section_module.set_type(
+                                        obj_name, arg, new_type, o_t
+                                    )
+                                except KeyError:
+                                    pass
                 else:
                     for obj_name, args in set_arg_types_info.items():
                         for arg, new_type in args.items():

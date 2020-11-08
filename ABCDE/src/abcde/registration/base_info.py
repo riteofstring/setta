@@ -1,12 +1,24 @@
 from ..utils import common_functions as c_f, yaml_parsing as yp
+from ..utils.constants import REGEX_KEYWORD
+import re
 
 
 class BaseInfo:
+    def is_in_list(self, k, checklist):
+        for L in checklist:
+            if L.startswith(REGEX_KEYWORD):
+                L = L.replace(REGEX_KEYWORD, "")
+                if re.search(L, k):
+                    return True
+            elif k == L:
+                return True
+        return False
+
     def should_be_included(self, k, include, exclude):
         if len(include) > 0:
-            return k in include
+            return self.is_in_list(k, include)
         if len(exclude) > 0:
-            return k not in exclude
+            return not self.is_in_list(k, exclude)
         return True
 
     def str_to_type(self, x):

@@ -9,3 +9,4 @@ CLASS_INFO: typing.Final = "ClassInfo"
 PARAMETER_INFO: typing.Final = "ParameterInfo"
 
 ALL_KEYWORD: typing.Final = "~ALL~"
+REGEX_KEYWORD: typing.Final = "~REGEX~"
