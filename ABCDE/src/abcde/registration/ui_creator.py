@@ -1,5 +1,5 @@
 from abcde.utils import common_functions as c_f, yaml_parsing as yp
-from abcde.utils.constants import MODULE_INFO, CLASS_INFO, PARAMETER_INFO
+from abcde.utils.constants import MODULE_INFO, CLASS_INFO, PARAMETER_INFO, ALL_KEYWORD
 import abcde.registration as registration
 import json
 import typing
@@ -44,10 +44,19 @@ class UICreator:
     def set_arg_types(self, section_module, set_arg_types_info, info_type):
         if set_arg_types_info is not None:
             if info_type == MODULE_INFO:
-                for obj_name, args in set_arg_types_info.items():
-                    for arg, new_type in args.items():
-                        new_type = self.process_new_type(new_type)
-                        section_module.set_type(obj_name, arg, new_type)
+                if ALL_KEYWORD in set_arg_types_info:
+                    args = set_arg_types_info.pop(ALL_KEYWORD)
+                    for o_t in section_module.obj_types:
+                        obj_dict = getattr(section_module, o_t)
+                        for obj_name in obj_dict.keys():
+                            for arg, new_type in args.items():
+                                new_type = self.process_new_type(new_type)
+                                section_module.set_type(obj_name, arg, new_type, o_t)
+                else:
+                    for obj_name, args in set_arg_types_info.items():
+                        for arg, new_type in args.items():
+                            new_type = self.process_new_type(new_type)
+                            section_module.set_type(obj_name, arg, new_type)
             elif info_type == CLASS_INFO:
                 for arg, new_type in set_arg_types_info.items():
                     new_type = self.process_new_type(new_type)

@@ -35,5 +35,6 @@ class ClassInfo(BaseInfo):
         return output
 
     def set_type(self, arg_name, new_type):
+        new_type = self.str_to_type(new_type)
         self.cls_args[arg_name]["type"] = new_type
         self.cls_args[arg_name]["ui_type"] = TYPE_MAP.get_ui_type(new_type)
