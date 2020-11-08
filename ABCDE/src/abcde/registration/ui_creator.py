@@ -1,15 +1,13 @@
 from abcde.utils import common_functions as c_f, yaml_parsing as yp
+import abcde.registration as registration
 import json
 import typing
 from .imports_holder import ImportsHolder
-from .class_info import ClassInfo
-from .module_info import ModuleInfo
 from ..utils.type_map import NestedObject, ListNestedObject, DictNestedObject
 
 
 class UICreator:
     sections = {}
-    info_classes: typing.Final = {"ModuleInfo": ModuleInfo, "ClassInfo": ClassInfo}
 
     def create(self, yaml_specs, global_ih):
         self.global_ih = global_ih
@@ -26,6 +24,10 @@ class UICreator:
             for info_type, kwargs in details.items():
                 if info_type == "IMPORTS":
                     local_ih.set_imports(kwargs)
+                elif info_type == "ParameterInfo":
+                    infos.append(
+                        (getattr(registration, info_type)(**kwargs), info_type, None)
+                    )
                 else:
                     module_class_or_function = self.try_multiple_import_holders(
                         kwargs["name"], import_holders
@@ -33,7 +35,7 @@ class UICreator:
                     original_name = kwargs.pop("name")
                     set_arg_types_info = kwargs.pop("set_type", None)
                     kwargs["obj"] = module_class_or_function
-                    section_module = self.info_classes[info_type](**kwargs)
+                    section_module = getattr(registration, info_type)(**kwargs)
                     self.set_arg_types(section_module, set_arg_types_info, info_type)
                     infos.append((section_module, info_type, original_name))
         return infos

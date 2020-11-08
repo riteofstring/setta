@@ -1,7 +1,6 @@
-from ..utils import common_functions as c_f, yaml_parsing as yp
+from ..utils import common_functions as c_f
 from ..utils.type_map import TYPE_MAP, NestedObject
 from .base_info import BaseInfo
-import json
 
 
 class ClassInfo(BaseInfo):
@@ -36,10 +35,5 @@ class ClassInfo(BaseInfo):
         return output
 
     def set_type(self, arg_name, new_type):
-        if isinstance(new_type, str):
-            try:
-                new_type = c_f.str_to_builtin_type(new_type)
-            except AttributeError:
-                new_type = yp.string_to_attr(new_type)
         self.cls_args[arg_name]["type"] = new_type
         self.cls_args[arg_name]["ui_type"] = TYPE_MAP.get_ui_type(new_type)

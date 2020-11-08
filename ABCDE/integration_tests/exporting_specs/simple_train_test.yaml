@@ -42,6 +42,16 @@ SECTIONS:
     - ClassInfo:
         name: simple_train_test.Net
 
+  Other Stuff:
+    - ParameterInfo:
+        dataset_root:
+          default: .
+        batch_size:
+          type: int
+        name:
+        weights: 
+          type: torch.Tensor
+
   # Optimizer:
   #   - ModuleInfo:
   #       name: torch.optim
