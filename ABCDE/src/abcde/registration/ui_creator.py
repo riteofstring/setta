@@ -1,4 +1,5 @@
 from abcde.utils import common_functions as c_f, yaml_parsing as yp
+from abcde.utils.constants import MODULE_INFO, CLASS_INFO, PARAMETER_INFO
 import abcde.registration as registration
 import json
 import typing
@@ -24,7 +25,7 @@ class UICreator:
             for info_type, kwargs in details.items():
                 if info_type == "IMPORTS":
                     local_ih.set_imports(kwargs)
-                elif info_type == "ParameterInfo":
+                elif info_type == PARAMETER_INFO:
                     infos.append(
                         (getattr(registration, info_type)(**kwargs), info_type, None)
                     )
@@ -42,12 +43,12 @@ class UICreator:
 
     def set_arg_types(self, section_module, set_arg_types_info, info_type):
         if set_arg_types_info is not None:
-            if info_type == "ModuleInfo":
+            if info_type == MODULE_INFO:
                 for obj_name, args in set_arg_types_info.items():
                     for arg, new_type in args.items():
                         new_type = self.process_new_type(new_type)
                         section_module.set_type(obj_name, arg, new_type)
-            elif info_type == "ClassInfo":
+            elif info_type == CLASS_INFO:
                 for arg, new_type in set_arg_types_info.items():
                     new_type = self.process_new_type(new_type)
                     section_module.set_type(arg, new_type)
@@ -77,12 +78,16 @@ class UICreator:
     def add(self, name, info):
         info, info_type, original_name = info
         as_dict = info.as_dict()
-        if info_type == "ClassInfo":
+        if info_type == CLASS_INFO:
             module_name, _ = yp.split_attr_from_modules(original_name)
             as_dict = {module_name: as_dict}
         if name in self.sections:
-            as_dict = c_f.merge_dicts(self.sections[name], as_dict)
-        self.sections[name] = as_dict
+            curr_section = self.sections[name]
+            if info_type not in curr_section:
+                curr_section[info_type] = {}
+            curr_section[info_type] = c_f.merge_dicts(curr_section[info_type], as_dict)
+        else:
+            self.sections[name] = {info_type: as_dict}
 
     def export(self, filepath=None):
         if filepath is not None:
