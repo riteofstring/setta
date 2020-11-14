@@ -13,34 +13,24 @@ class ModuleInfo(BaseInfo):
         do_classes = obj_type in [None, "classes"]
         do_functions = obj_type in [None, "functions"]
 
+        self.objs = {}
+
         if do_classes:
-            self.classes = {}
             for name, cls in inspect.getmembers(self.module, inspect.isclass):
                 if self.should_be_included(name, include, exclude):
-                    self.classes[name] = ClassInfo(cls)
+                    self.objs[name] = ClassInfo(cls)
 
         if do_functions:
-            self.functions = {}
             for name, func in inspect.getmembers(self.module, inspect.isfunction):
                 if self.should_be_included(name, include, exclude):
-                    self.functions[name] = ClassInfo(func)
+                    self.objs[name] = ClassInfo(func)
 
-        self.obj_types = ["classes", "functions"] if obj_type is None else [obj_type]
-
-    def as_dict(self, obj_type=None):
-        assert obj_type in self.obj_types + [None]
-        obj_type = [obj_type] if obj_type is not None else self.obj_types
-        output = {self.name: {k: {} for k in obj_type}}
-        for T in obj_type:
-            for name, cls_info in getattr(self, T).items():
-                output[self.name][T][name] = cls_info.as_dict()["args"]
+    def as_dict(self):
+        output = {self.name: {}}
+        for name, cls_info in self.objs.items():
+            output[self.name][name] = cls_info.as_dict()
         return output
 
-    def set_type(self, obj_name, arg_name, new_type, obj_type=None):
-        assert obj_type in self.obj_types + [None]
-        obj_type = [obj_type] if obj_type is not None else self.obj_types
-        for k in obj_type:
-            cls_info = getattr(self, k).get(obj_name, None)
-            if cls_info is not None:
-                cls_info.set_type(arg_name, new_type)
-                break
+    def set_type(self, obj_name, arg_name, new_type):
+        cls_info = self.objs.get(obj_name, None)
+        cls_info.set_type(arg_name, new_type)

@@ -28,11 +28,7 @@ class ClassInfo(BaseInfo):
                     v1[k2] = v2.description()
                 else:
                     v1[k2] = c_f.type_to_str(v2)
-        output = {
-            "name": self.cls.__name__,
-            "args": self.cls_args,
-        }
-        return output
+        return self.cls_args
 
     def set_type(self, arg_name, new_type):
         new_type = self.str_to_type(new_type)

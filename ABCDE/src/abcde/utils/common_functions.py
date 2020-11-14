@@ -37,7 +37,10 @@ def parameter_has_default(parameter):
 def merge_dicts(x, y):
     z = x.copy()
     for k, v in y.items():
-        z[k] = v
+        if (k in z) and isinstance(z[k], dict) and isinstance(v, dict):
+            z[k] = merge_dicts(z[k], v)
+        else:
+            z[k] = v
     return z
 
 

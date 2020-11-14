@@ -1,11 +1,7 @@
-
-
-
 class ModuleInfo {
     constructor(name, jsonInput){
         this.name = name
-        this.classes = this.getParameterInfo(jsonInput["classes"])
-        this.functions = this.getParameterInfo(jsonInput["functions"])
+        this.objs = this.getParameterInfo(jsonInput)
     }
 
     getParameterInfo(jsonInput){
