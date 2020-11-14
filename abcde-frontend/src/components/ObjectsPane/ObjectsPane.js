@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
-import { Box, Flex } from "@chakra-ui/core";
+import { Heading, Flex } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-import ObjectSelect from "../ObjectSelect/ObjectSelect";
+import ObjectContainer from "./ObjectContainer/ObjectContainer";
 
 const ObjectsPane = () => {
   const loadObjects = useStoreActions((actions) => actions.store.loadObjects);
@@ -16,9 +16,11 @@ const ObjectsPane = () => {
 
   return (
     <Flex flexDir="column">
-      <Box>Objects</Box>
+      <Heading as="h1" size="2xl" isTruncated>
+        Objects
+      </Heading>
       {sections.map((e, idx) => (
-        <ObjectSelect theSection={e} key={`${e}-${idx}`} />
+        <ObjectContainer theSection={e} key={`${e}-${idx}`} />
       ))}
     </Flex>
   );

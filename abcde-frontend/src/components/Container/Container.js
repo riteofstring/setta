@@ -2,7 +2,7 @@ import React from "react";
 import ObjectsPane from "../ObjectsPane/ObjectsPane";
 import DetailsPane from "../DetailsPane/DetailsPane";
 
-import { Flex, Grid } from "@chakra-ui/core";
+import { Flex, Grid } from "@chakra-ui/react";
 
 const Container = () => {
   return (

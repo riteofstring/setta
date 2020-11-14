@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Box, Flex } from "@chakra-ui/core";
+import { Box, Flex } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 const DetailsPane = () => {

@@ -1,45 +1,51 @@
-export class ModuleInfo {
+const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
+  let outputArray = [];
+  let info = jsonInput;
+  if (key_in_json) {
+    info = info[infoTypeStr];
+  }
+  if (info) {
+    let infoTypeObj = infoTypes[infoTypeStr];
+    for (var key of Object.keys(info)) {
+      outputArray.push(new infoTypeObj(key, info[key]));
+    }
+  }
+  return outputArray;
+};
+
+class ParameterInfo {
   constructor(name, jsonInput) {
     this.name = name;
-    this.classes = this.getParameterInfo(jsonInput["classes"]);
-    this.functions = this.getParameterInfo(jsonInput["functions"]);
-  }
-
-  getParameterInfo(jsonInput) {
-    let outputArray = [];
-    if (jsonInput) {
-      for (var key of Object.keys(jsonInput)) {
-        outputArray.push(new ParameterInfo(key, jsonInput[key]));
-      }
+    this.default = jsonInput.default;
+    this.type = jsonInput.type;
+    this.ui_type = jsonInput.ui_type;
+    if (!(typeof this.type === "string")) {
+      this.type = new Section(this.name, this.type);
     }
-    return outputArray;
   }
 }
 
-export class ParameterInfo {
+class ObjInfo {
   constructor(name, jsonInput) {
+    let infoTypes = { ParameterInfo: ParameterInfo };
     this.name = name;
-    this.args = jsonInput;
+    this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false);
+  }
+}
+
+class ModuleInfo {
+  constructor(name, jsonInput) {
+    let infoTypes = { ObjInfo: ObjInfo };
+    this.name = name;
+    this.objs = getInfos(jsonInput, infoTypes, "ObjInfo", false);
   }
 }
 
 export class Section {
   constructor(name, jsonInput) {
-    this.infoTypes = { ModuleInfo: ModuleInfo, ParameterInfo: ParameterInfo };
+    let infoTypes = { ModuleInfo: ModuleInfo, ParameterInfo: ParameterInfo };
     this.name = name;
-    this.moduleInfos = this.getInfos(jsonInput, "ModuleInfo");
-    this.parameterInfos = this.getInfos(jsonInput, "ParameterInfo");
-  }
-
-  getInfos(jsonInput, infoTypeStr) {
-    let outputArray = [];
-    let info = jsonInput[infoTypeStr];
-    if (info) {
-      let infoTypeObj = this.infoTypes[infoTypeStr];
-      for (var key of Object.keys(info)) {
-        outputArray.push(new infoTypeObj(key, info[key]));
-      }
-    }
-    return outputArray;
+    this.moduleInfos = getInfos(jsonInput, infoTypes, "ModuleInfo", true);
+    this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
   }
 }

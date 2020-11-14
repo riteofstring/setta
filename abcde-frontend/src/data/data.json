@@ -2,160 +2,174 @@
   "Model": {
     "ModuleInfo": {
       "torchvision.models": {
-        "classes": {},
-        "functions": {
-          "resnet101": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+        "resnet101": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "resnet152": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "resnet18": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet152": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "resnet34": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "resnet50": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet18": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "resnext101_32x8d": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "resnext50_32x4d": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet34": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "wide_resnet101_2": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "wide_resnet50_2": {
-            "pretrained": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "progress": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "kwargs": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "TEXT"
-            }
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet50": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnext101_32x8d": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnext50_32x4d": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "wide_resnet101_2": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "wide_resnet50_2": {
+          "pretrained": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "densenet161": {
+          "pretrained": {
+            "default": "False",
+            "type": "bool",
+            "ui_type": "BOOL"
+          },
+          "progress": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
           }
         }
       }
@@ -188,156 +202,150 @@
   "Dataset": {
     "ModuleInfo": {
       "torchvision.datasets": {
-        "classes": {
-          "CIFAR10": {
-            "root": {
-              "default": "_empty",
-              "type": "str",
-              "ui_type": "TEXT"
-            },
-            "train": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "transform": {
-              "default": "None",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "target_transform": {
-              "default": "None",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "download": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "transforms": {
-              "default": "None",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            }
+        "CIFAR10": {
+          "root": {
+            "default": "_empty",
+            "type": "str",
+            "ui_type": "TEXT"
           },
-          "CIFAR100": {
-            "root": {
-              "default": "_empty",
-              "type": "str",
-              "ui_type": "TEXT"
-            },
-            "train": {
-              "default": "True",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "transform": {
-              "default": "None",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "target_transform": {
-              "default": "None",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "download": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "transforms": {
-              "default": "None",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            }
+          "train": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transform": {
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "target_transform": {
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "download": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transforms": {
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           }
         },
-        "functions": {}
+        "CIFAR100": {
+          "root": {
+            "default": "_empty",
+            "type": "str",
+            "ui_type": "TEXT"
+          },
+          "train": {
+            "default": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transform": {
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "target_transform": {
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "download": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transforms": {
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        }
       }
     }
   },
   "Optimizer": {
     "ModuleInfo": {
       "torch.optim": {
-        "classes": {
-          "Adam": {
-            "params": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "lr": {
-              "default": "0.001",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "betas": {
-              "default": "(0.9, 0.999)",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "eps": {
-              "default": "1e-08",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "weight_decay": {
-              "default": "0",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "amsgrad": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "defaults": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            }
+        "Adam": {
+          "params": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           },
-          "SGD": {
-            "params": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "lr": {
-              "default": "<required parameter>",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "momentum": {
-              "default": "0",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "dampening": {
-              "default": "0",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "weight_decay": {
-              "default": "0",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "nesterov": {
-              "default": "False",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            },
-            "defaults": {
-              "default": "_empty",
-              "type": "_empty",
-              "ui_type": "UNKNOWN"
-            }
+          "lr": {
+            "default": "0.001",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "betas": {
+            "default": "(0.9, 0.999)",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "eps": {
+            "default": "1e-08",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "weight_decay": {
+            "default": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "amsgrad": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "defaults": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
           }
         },
-        "functions": {}
+        "SGD": {
+          "params": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "lr": {
+            "default": "<required parameter>",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "momentum": {
+            "default": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "dampening": {
+            "default": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "weight_decay": {
+            "default": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "nesterov": {
+            "default": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "defaults": {
+            "default": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        }
       }
     }
   }

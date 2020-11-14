@@ -1,11 +1,12 @@
 import { action } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
+import { debug } from "easy-peasy";
 
 const model = {
   objectList: {},
   sections: [],
-  selected: {},
+  selected: [],
 
   //actions
   loadObjects: action((state) => {
@@ -19,8 +20,12 @@ const model = {
     state.sections = [];
   }),
   setSelected: action((state, payload) => {
-    state.selected = { ...state.selected, payload };
-    console.log(state.selected);
+    state.selected.filter((e) =>
+      e.name === payload.name ? (e = payload) : ""
+    );
+
+    state.selected = [...state.selected, payload];
+    console.log(debug(state.selected));
   }),
 };
 
