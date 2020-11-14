@@ -19,6 +19,7 @@ class NestedObject:
         else:
             out_dict = {}
             for m in self.module_infos:
+                print(m)
                 out_dict = c_f.merge_dicts(out_dict, m.as_dict())
             return out_dict
 

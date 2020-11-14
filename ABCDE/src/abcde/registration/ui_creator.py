@@ -71,12 +71,12 @@ class UICreator:
         if isinstance(new_type, str):
             return new_type
         elif isinstance(new_type, list):
-            infos = self.create_infos(new_type)
+            infos = [x[0] for x in self.create_infos(new_type)]
             return NestedObject(infos)
         elif isinstance(new_type, dict):
             series_type = c_f.get_the_only_key(new_type)
             new_type = new_type[series_type]
-            infos = self.create_infos(new_type)
+            infos = [x[0] for x in self.create_infos(new_type)]
             if series_type == "list":
                 return ListNestedObject(infos)
             if series_type == "dict":

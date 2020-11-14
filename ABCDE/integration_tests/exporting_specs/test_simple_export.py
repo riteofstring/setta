@@ -49,6 +49,11 @@ class TestSimpleExport(unittest.TestCase):
         test_filepath = "test.json"
         ui.export(test_filepath)
 
+        import subprocess
+
+        x = subprocess.run(["node", os.path.join(curr_dir, "json_parsing.js")])
+        self.assertTrue(x.returncode == 0)
+
         os.remove(test_filepath)
 
         # TYPE_MAP.register_alias(torch.Tensor, typing.List[float])

@@ -27,3 +27,4 @@ class BaseInfo:
                 return c_f.str_to_builtin_type(x)
             except AttributeError:
                 return yp.string_to_attr(x)
+        return x

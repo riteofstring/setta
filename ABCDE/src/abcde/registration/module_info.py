@@ -33,7 +33,7 @@ class ModuleInfo(BaseInfo):
         output = {self.name: {k: {} for k in obj_type}}
         for T in obj_type:
             for name, cls_info in getattr(self, T).items():
-                output[self.name][T][name] = cls_info.as_dict()
+                output[self.name][T][name] = cls_info.as_dict()["args"]
         return output
 
     def set_type(self, obj_name, arg_name, new_type, obj_type=None):

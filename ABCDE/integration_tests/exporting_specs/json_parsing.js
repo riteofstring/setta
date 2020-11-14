@@ -23,7 +23,6 @@ class ParameterInfo {
     constructor(name, jsonInput){
         this.name = name
         this.args = jsonInput
-        console.log(this.name, this.args)
     }  
 }
 
@@ -52,10 +51,12 @@ class Section {
 
 
 
-testJson = require('./test.json');
+testJson = require('../../test.json');
 
 sections = []
 
 for (var key of Object.keys(testJson)) {
     sections.push(new Section(key, testJson[key]))
 }
+
+console.log("json parsing success")

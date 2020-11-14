@@ -26,8 +26,10 @@ transforms_module: &transforms_module
       set_type:
         Compose:
           transforms:
-            list:
-              - <<: *transforms_module_without_compose   
+            dict:
+              - <<: *transforms_module_without_compose
+              - ClassInfo:
+                  name: simple_train_test.Net
 
 SECTIONS:
   Model:
@@ -37,10 +39,7 @@ SECTIONS:
     - ModuleInfo:
         name: models
         include:
-          - resnet18
-          - resnet50
-    - ClassInfo:
-        name: simple_train_test.Net
+          - ~REGEX~resnet*
 
   Other Stuff:
     - ParameterInfo:
@@ -60,14 +59,12 @@ SECTIONS:
           ~ALL~:
             root: str
 
-
-
-  # Optimizer:
-  #   - ModuleInfo:
-  #       name: torch.optim
-  #       include:
-  #         - SGD
-  #         - Adam
+  Optimizer:
+    - ModuleInfo:
+        name: torch.optim
+        include:
+          - SGD
+          - Adam
     
   # Transform:
   #   - <<: *transforms_module
