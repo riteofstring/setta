@@ -5,6 +5,7 @@ import { Section } from "../utils/jsonParser";
 const model = {
   objectList: {},
   sections: [],
+  selected: {},
 
   //actions
   loadObjects: action((state) => {
@@ -16,6 +17,10 @@ const model = {
   resetObjects: action((state) => {
     state.objectList = {};
     state.sections = [];
+  }),
+  setSelected: action((state, payload) => {
+    state.selected = { ...state.selected, payload };
+    console.log(state.selected);
   }),
 };
 

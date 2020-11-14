@@ -8,6 +8,8 @@ const ObjectsPane = () => {
   const loadObjects = useStoreActions((actions) => actions.store.loadObjects);
   const sections = useStoreState((state) => state.store.sections);
 
+  console.log(sections);
+
   useEffect(() => {
     loadObjects();
   }, [loadObjects]);
