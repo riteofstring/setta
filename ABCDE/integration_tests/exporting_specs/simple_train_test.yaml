@@ -17,6 +17,12 @@ transforms_module_without_compose: &transforms_module_without_compose
       <<: *transforms
       include:
         - ColorJitter
+      set_type:
+        ColorJitter:
+          brightness:
+            - ParameterInfo:
+                delta:
+                omega:
 
 transforms_module: &transforms_module
   - ModuleInfo:
@@ -26,10 +32,7 @@ transforms_module: &transforms_module
       set_type:
         Compose:
           transforms:
-            dict:
-              - <<: *transforms_module_without_compose
-              - ClassInfo:
-                  name: simple_train_test.Net
+            - <<: *transforms_module_without_compose
 
 SECTIONS:
   Model:
@@ -78,8 +81,8 @@ SECTIONS:
           - SGD
           - Adam
     
-  # Transform:
-  #   - <<: *transforms_module
+  Transform:
+    - <<: *transforms_module
 
 
   # TrainSet:

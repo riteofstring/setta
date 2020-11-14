@@ -78,12 +78,11 @@ class UICreator:
         if isinstance(new_type, str):
             return new_type
         elif isinstance(new_type, list):
-            infos = [x[0] for x in self.create_infos(new_type)]
-            return NestedObject(infos)
+            return NestedObject(self.create_infos(new_type))
         elif isinstance(new_type, dict):
             series_type = c_f.get_the_only_key(new_type)
             new_type = new_type[series_type]
-            infos = [x[0] for x in self.create_infos(new_type)]
+            infos = self.create_infos(new_type)
             if series_type == "list":
                 return ListNestedObject(infos)
             if series_type == "dict":
@@ -100,10 +99,11 @@ class UICreator:
 
     def add(self, name, info):
         info, info_type, module_name = info
-        as_dict = info.as_dict()
         if info_type == CLASS_INFO:
-            as_dict = {module_name: {info.name: as_dict}}
+            as_dict = c_f.class_info_to_module_info(info, module_name)
             info_type = MODULE_INFO
+        else:
+            as_dict = info.as_dict()
         if name in self.sections:
             curr_section = self.sections[name]
             if info_type not in curr_section:

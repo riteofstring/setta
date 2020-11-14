@@ -4,23 +4,27 @@ from inspect import Parameter
 import importlib
 from . import common_functions as c_f
 from . import yaml_parsing as yp
-from .constants import UNKNOWN_UI_TYPE, REF_KEYWORD
+from .constants import UNKNOWN_UI_TYPE, REF_KEYWORD, MODULE_INFO, CLASS_INFO
 
 
 class NestedObject:
     ui_type = "NESTED_OBJECT"
 
-    def __init__(self, module_infos):
-        self.module_infos = module_infos
+    def __init__(self, infos):
+        self.infos = infos
 
     def description(self):
-        if isinstance(self.module_infos, str):
-            return "{}{}".format(REF_KEYWORD, self.module_infos)
+        if isinstance(self.infos, str):
+            return "{}{}".format(REF_KEYWORD, self.infos)
         else:
             out_dict = {}
-            for m in self.module_infos:
-                print(m)
-                out_dict = c_f.merge_dicts(out_dict, m.as_dict())
+            for (info, info_type, module_name) in self.infos:
+                if info_type == CLASS_INFO:
+                    as_dict = c_f.class_info_to_module_info(info, module_name)
+                    info_type = MODULE_INFO
+                else:
+                    as_dict = info.as_dict()
+                out_dict = c_f.merge_dicts(out_dict, {info_type: as_dict})
             return out_dict
 
 

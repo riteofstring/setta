@@ -60,3 +60,7 @@ def get_the_only_key(x):
 
 def get_the_only_value(x):
     return x[get_the_only_key(x)]
+
+
+def class_info_to_module_info(info, module_name):
+    return {module_name: {info.name: info.as_dict()}}
