@@ -34,3 +34,11 @@ class ModuleInfo(BaseInfo):
     def set_type(self, obj_name, arg_name, new_type):
         cls_info = self.objs.get(obj_name, None)
         cls_info.set_type(arg_name, new_type)
+
+    def set_ui_type(self, obj_name, arg_name, new_type):
+        cls_info = self.objs.get(obj_name, None)
+        cls_info.set_ui_type(arg_name, new_type)
+
+    def set_default(self, obj_name, arg_name, new_default):
+        cls_info = self.objs.get(obj_name, None)
+        cls_info.set_default(arg_name, new_default)

@@ -40,10 +40,18 @@ SECTIONS:
         name: models
         include:
           - ~REGEX~resnet*
+        set_ui_type:
+          ~ALL~:
+            pretrained: CRAZY_SHIT
+        set_default:
+          ~ALL~:
+            pretrained: True
     - ClassInfo:
         name: torchvision.models.densenet161
-        set_type:
-          pretrained: bool
+        set_ui_type:
+          pretrained: CRAZY_SHIT
+        set_default:
+          pretrained: True
 
   Other Stuff:
     - ParameterInfo:

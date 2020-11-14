@@ -31,37 +31,48 @@ class UICreator:
                     )
                 else:
                     module_name, the_module = self.try_multiple_import_holders(
-                        kwargs["name"], import_holders
+                        kwargs.pop("name"), import_holders
                     )
-                    kwargs.pop("name")
-                    set_arg_types_info = kwargs.pop("set_type", None)
+                    set_arg_types = kwargs.pop("set_type", None)
+                    set_ui_types = kwargs.pop("set_ui_type", None)
+                    set_defaults = kwargs.pop("set_default", None)
                     kwargs["obj"] = the_module
                     section_module = getattr(registration, info_type)(**kwargs)
-                    self.set_arg_types(section_module, set_arg_types_info, info_type)
+                    self.set_properties(
+                        section_module, set_arg_types, info_type, "set_type"
+                    )
+                    self.set_properties(
+                        section_module, set_ui_types, info_type, "set_ui_type"
+                    )
+                    self.set_properties(
+                        section_module, set_defaults, info_type, "set_default"
+                    )
                     infos.append((section_module, info_type, module_name))
         return infos
 
-    def set_arg_types(self, section_module, set_arg_types_info, info_type):
-        if set_arg_types_info is not None:
+    def set_properties(self, section_module, input_set_args, info_type, func_name):
+        if input_set_args is not None:
+            func = getattr(section_module, func_name)
             if info_type == MODULE_INFO:
-                if ALL_KEYWORD in set_arg_types_info:
-                    args = set_arg_types_info.pop(ALL_KEYWORD)
+                if ALL_KEYWORD in input_set_args:
+                    args = input_set_args.pop(ALL_KEYWORD)
                     for obj_name in section_module.objs.keys():
-                        for arg, new_type in args.items():
-                            new_type = self.process_new_type(new_type)
+                        for arg, new_property in args.items():
+                            if func_name == "set_type":
+                                new_property = self.process_new_type(new_property)
                             try:
-                                section_module.set_type(obj_name, arg, new_type)
+                                func(obj_name, arg, new_property)
                             except KeyError:
                                 pass
                 else:
-                    for obj_name, args in set_arg_types_info.items():
-                        for arg, new_type in args.items():
-                            new_type = self.process_new_type(new_type)
-                            section_module.set_type(obj_name, arg, new_type)
+                    for obj_name, args in input_set_args.items():
+                        for arg, new_property in args.items():
+                            new_property = self.process_new_type(new_property)
+                            func(obj_name, arg, new_property)
             elif info_type == CLASS_INFO:
-                for arg, new_type in set_arg_types_info.items():
-                    new_type = self.process_new_type(new_type)
-                    section_module.set_type(arg, new_type)
+                for arg, new_property in input_set_args.items():
+                    new_property = self.process_new_type(new_property)
+                    func(arg, new_property)
 
     def process_new_type(self, new_type):
         if isinstance(new_type, str):
