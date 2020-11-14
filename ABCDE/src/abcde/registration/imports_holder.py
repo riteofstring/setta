@@ -20,13 +20,16 @@ class ImportsHolder:
             else:
                 self.set_import(k)
 
+    # returns parent module name and the desired module
     def get_import(self, x):
         try:
-            return getattr(self, x)
+            module = getattr(self, x)
+            return module.__name__, module
         except AttributeError:
             module, attr_name = yp.split_attr_from_modules(x)
             try:
-                return getattr(getattr(self, module), attr_name)
+                curr_module = getattr(self, module)
+                return curr_module.__name__, getattr(curr_module, attr_name)
             except AttributeError:
                 return self.get_nested_import(module, attr_name)
 
@@ -47,4 +50,4 @@ class ImportsHolder:
         for j in range(i + 1, len(modules)):
             nested_module = modules[j]
             curr_module = getattr(curr_module, nested_module)
-        return getattr(curr_module, attr_name)
+        return curr_module.__name__, getattr(curr_module, attr_name)

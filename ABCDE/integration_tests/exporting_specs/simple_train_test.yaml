@@ -41,7 +41,7 @@ SECTIONS:
         include:
           - ~REGEX~resnet*
     - ClassInfo:
-        name: models.densenet161
+        name: torchvision.models.densenet161
         set_type:
           pretrained: bool
 

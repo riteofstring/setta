@@ -30,16 +30,15 @@ class UICreator:
                         (getattr(registration, info_type)(**kwargs), info_type, None)
                     )
                 else:
-                    module_class_or_function = self.try_multiple_import_holders(
+                    module_name, the_module = self.try_multiple_import_holders(
                         kwargs["name"], import_holders
                     )
-                    print("module_class_or_function", module_class_or_function)
-                    original_name = kwargs.pop("name")
+                    kwargs.pop("name")
                     set_arg_types_info = kwargs.pop("set_type", None)
-                    kwargs["obj"] = module_class_or_function
+                    kwargs["obj"] = the_module
                     section_module = getattr(registration, info_type)(**kwargs)
                     self.set_arg_types(section_module, set_arg_types_info, info_type)
-                    infos.append((section_module, info_type, original_name))
+                    infos.append((section_module, info_type, module_name))
         return infos
 
     def set_arg_types(self, section_module, set_arg_types_info, info_type):
@@ -89,11 +88,10 @@ class UICreator:
         raise AttributeError(errors)
 
     def add(self, name, info):
-        info, info_type, original_name = info
+        info, info_type, module_name = info
         as_dict = info.as_dict()
         if info_type == CLASS_INFO:
-            module_name, class_name = yp.split_attr_from_modules(original_name)
-            as_dict = {module_name: {class_name: as_dict}}
+            as_dict = {module_name: {info.name: as_dict}}
             info_type = MODULE_INFO
         if name in self.sections:
             curr_section = self.sections[name]

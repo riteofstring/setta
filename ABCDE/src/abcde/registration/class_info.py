@@ -8,6 +8,7 @@ class ClassInfo(BaseInfo):
         if not c_f.is_class_or_function(obj):
             raise TypeError("Input to ClassInfo must be a class or function")
         self.cls = obj
+        self.name = obj.__name__
         cls_args = c_f.get_args(self.cls)
         self.cls_args = {
             k: (
