@@ -12,7 +12,7 @@ const Container = () => {
         maxWidth={1280}
         h="100%"
         gap={10}
-        templateColumns="repeat(2, 1fr)"
+        templateColumns="1fr 0.5fr"
       >
         <ObjectsPane />
         <DetailsPane />
@@ -21,4 +21,4 @@ const Container = () => {
   );
 };
 
-export default Container;
+export default React.memo(Container);

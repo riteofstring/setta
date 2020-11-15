@@ -1,44 +1,63 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useStoreActions } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import { useState } from "react";
+import { HiChevronDown } from "react-icons/hi";
 import {
-  SimpleGrid,
+  HStack,
   VStack,
   Heading,
   Menu,
   MenuButton,
   Button,
 } from "@chakra-ui/react";
+import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 
 const ObjectContainer = ({ theSection }) => {
-  const [visible, setVisible] = useState(true);
-  const flipVisible = () => {
-    setVisible(!visible);
-  };
+  // const [visible, setVisible] = useState(true);
+  // const flipVisible = () => {
+  //   setVisible(!visible);
+  // };
+  const [focus, setFocus] = useState(false);
+
+  const ref = useOnClickOutsideRef(() => setFocus(false));
+
+  const { setActiveObj } = useStoreActions((actions) => actions.store);
+
+  useEffect(() => {
+    if (focus) {
+      setActiveObj(theSection.name);
+    }
+  });
 
   return (
-    <VStack ml={20} spacing="20px">
+    <VStack
+      spacing="1rem"
+      width="100%"
+      bg={focus ? "gray.50" : "white"}
+      onClick={() => setFocus(true)}
+      ref={ref}
+    >
       <Heading as="h2" size="xl">
         {theSection.name}
       </Heading>
 
-      <SimpleGrid minChildWidth="120px" spacing="2rem">
+      <HStack spacing="2rem" w="100%">
         <Menu>
           {theSection.moduleInfos.length > 0 ? (
-            <MenuButton as={Button} rightIcon="chevron-down">
+            <MenuButton as={Button} rightIcon={<HiChevronDown />}>
               Select Model
             </MenuButton>
           ) : (
-            <MenuButton as={Button} rightIcon="chevron-down" isDisabled>
+            <MenuButton as={Button} isDisabled>
               No Models Found
             </MenuButton>
           )}
           <ObjectMenu theSection={theSection} />
         </Menu>
-        <Button onClick={flipVisible}>Collapse</Button>
-      </SimpleGrid>
+        {/* <Button onClick={flipVisible}>Collapse</Button> */}
+      </HStack>
     </VStack>
   );
 };
 
-export default ObjectContainer;
+export default React.memo(ObjectContainer);

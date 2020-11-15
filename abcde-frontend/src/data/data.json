@@ -4,9 +4,9 @@
       "torchvision.models": {
         "resnet101": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -21,9 +21,9 @@
         },
         "resnet152": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -38,9 +38,9 @@
         },
         "resnet18": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -55,9 +55,9 @@
         },
         "resnet34": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -72,9 +72,9 @@
         },
         "resnet50": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -89,9 +89,9 @@
         },
         "resnext101_32x8d": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -106,9 +106,9 @@
         },
         "resnext50_32x4d": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -123,9 +123,9 @@
         },
         "wide_resnet101_2": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -140,9 +140,9 @@
         },
         "wide_resnet50_2": {
           "pretrained": {
-            "default": "False",
+            "default": "True",
             "type": "_empty",
-            "ui_type": "UNKNOWN"
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -157,9 +157,9 @@
         },
         "densenet161": {
           "pretrained": {
-            "default": "False",
-            "type": "bool",
-            "ui_type": "BOOL"
+            "default": "None",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
           },
           "progress": {
             "default": "True",
@@ -344,6 +344,59 @@
             "default": "_empty",
             "type": "_empty",
             "ui_type": "UNKNOWN"
+          }
+        }
+      }
+    }
+  },
+  "Transform": {
+    "ModuleInfo": {
+      "torchvision.transforms": {
+        "Compose": {
+          "transforms": {
+            "default": "_empty",
+            "type": {
+              "ModuleInfo": {
+                "torchvision.transforms": {
+                  "ColorJitter": {
+                    "brightness": {
+                      "default": "0",
+                      "type": {
+                        "ParameterInfo": {
+                          "delta": {
+                            "default": "",
+                            "type": "",
+                            "ui_type": "UNKNOWN"
+                          },
+                          "omega": {
+                            "default": "",
+                            "type": "",
+                            "ui_type": "UNKNOWN"
+                          }
+                        }
+                      },
+                      "ui_type": "NESTED_OBJECT"
+                    },
+                    "contrast": {
+                      "default": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    },
+                    "saturation": {
+                      "default": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    },
+                    "hue": {
+                      "default": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    }
+                  }
+                }
+              }
+            },
+            "ui_type": "NESTED_OBJECT"
           }
         }
       }

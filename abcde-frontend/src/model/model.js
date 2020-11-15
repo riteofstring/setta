@@ -1,31 +1,32 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
-import { debug } from "easy-peasy";
 
 const model = {
-  objectList: {},
   sections: [],
-  selected: [],
+  keys: [],
+  selected: {},
+  activeObj: "",
 
   //actions
   loadObjects: action((state) => {
-    state.objectList = Data;
-    for (var key of Object.keys(state.objectList)) {
-      state.sections.push(new Section(key, state.objectList[key]));
+    for (var key of Object.keys(Data)) {
+      state.sections.push(new Section(key, Data[key]));
+      state.keys.push(key);
     }
+    state.selected = state.keys.reduce((a, b) => ((a[b] = {}), a), {});
+    console.log(state.sections);
   }),
   resetObjects: action((state) => {
     state.objectList = {};
     state.sections = [];
   }),
   setSelected: action((state, payload) => {
-    state.selected.filter((e) =>
-      e.name === payload.name ? (e = payload) : ""
-    );
-
-    state.selected = [...state.selected, payload];
-    console.log(debug(state.selected));
+    const { theSection, name } = payload;
+    state.selected[theSection] = name;
+  }),
+  setActiveObj: action((state, payload) => {
+    state.activeObj = payload;
   }),
 };
 

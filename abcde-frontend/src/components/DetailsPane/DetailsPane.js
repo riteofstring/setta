@@ -1,13 +1,23 @@
-import React, { useEffect } from "react";
-import { Box, Flex } from "@chakra-ui/react";
+import React from "react";
+import { Box, Flex, VStack, HStack, Heading } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 const DetailsPane = () => {
-  const loadObjects = useStoreActions((actions) => actions.store.loadObjects);
+  const { sections, activeObj } = useStoreState((state) => state.store);
+
+  console.log("AHHH");
+  console.log(sections.filter((e) => e.name === activeObj));
 
   return (
     <Flex flexDir="column">
-      <Box>Details</Box>
+      <VStack spacing="2rem">
+        <Heading as="h1" size="2xl">
+          Details
+        </Heading>
+        <HStack>
+          <Box></Box>
+        </HStack>
+      </VStack>
     </Flex>
   );
 };

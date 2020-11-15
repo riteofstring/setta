@@ -1,13 +1,12 @@
-import React from "react";
-import { useStoreActions } from "easy-peasy";
+import React, { useState } from "react";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { MenuList, MenuItem, MenuGroup, MenuDivider } from "@chakra-ui/react";
 
 const ObjectMenu = ({ theSection }) => {
-  const moduleInfos = theSection.moduleInfos;
+  const { moduleInfos } = theSection;
 
-  const setSelected = useStoreActions((actions) => actions.store.setSelected);
-
-  console.log(theSection);
+  const { setSelected } = useStoreActions((actions) => actions.store);
+  const { selected } = useStoreState((state) => state.store);
 
   const MenuObj = ({ theSection, name }) => {
     return (
@@ -32,4 +31,4 @@ const ObjectMenu = ({ theSection }) => {
   );
 };
 
-export default ObjectMenu;
+export default React.memo(ObjectMenu);
