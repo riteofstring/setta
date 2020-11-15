@@ -1,13 +1,33 @@
-import React from "react";
-import { Box, Flex, VStack, HStack, Heading } from "@chakra-ui/react";
-import { useStoreState, useStoreActions } from "easy-peasy";
+import React, { useState, useLayoutEffect } from "react";
+import { HStack } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
+import ParamContainer from "./ParamContainer/ParamContainer";
 
 const DetailsContainer = () => {
   const { selected, activeObj } = useStoreState((state) => state.store);
+  const [paramsArr, setParamsArr] = useState([]);
+
+  const loadParams = (paramList) => {
+    let localParams = [];
+    for (let key in paramList) {
+      localParams.push(Object.assign(paramList[key], { name: key }));
+    }
+    setParamsArr(localParams);
+  };
+
+  useLayoutEffect(() => {
+    if (selected[activeObj].params) {
+      let paramList = selected[activeObj].params;
+      loadParams(paramList);
+    }
+  }, [selected, activeObj]);
 
   return (
     <HStack>
-      <Box></Box>
+      {paramsArr.length > 0 &&
+        paramsArr.map((e, idx) => (
+          <ParamContainer key={`${e}-${idx}`} parameters={e} />
+        ))}
     </HStack>
   );
 };

@@ -4,170 +4,170 @@
       "torchvision.models": {
         "resnet101": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "resnet152": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "resnet18": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "resnet34": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "resnet50": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "resnext101_32x8d": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "resnext50_32x4d": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "wide_resnet101_2": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "wide_resnet50_2": {
           "pretrained": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
         },
         "densenet161": {
           "pretrained": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "CRAZY_SHIT"
           },
           "progress": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "kwargs": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
           }
@@ -178,23 +178,23 @@
   "Other Stuff": {
     "ParameterInfo": {
       "dataset_root": {
-        "default": ".",
+        "default_val": ".",
         "type": "",
         "ui_type": "UNKNOWN"
       },
       "batch_size": {
         "type": "int",
-        "default": "",
+        "default_val": "",
         "ui_type": "INT"
       },
       "name": {
-        "default": "",
+        "default_val": "",
         "type": "",
         "ui_type": "UNKNOWN"
       },
       "weights": {
         "type": "torch.Tensor",
-        "default": "",
+        "default_val": "",
         "ui_type": "LIST"
       }
     }
@@ -204,64 +204,64 @@
       "torchvision.datasets": {
         "CIFAR10": {
           "root": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "str",
             "ui_type": "TEXT"
           },
           "train": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "transform": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "target_transform": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "download": {
-            "default": "False",
+            "default_val": "False",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "transforms": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           }
         },
         "CIFAR100": {
           "root": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "str",
             "ui_type": "TEXT"
           },
           "train": {
-            "default": "True",
+            "default_val": "True",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "transform": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "target_transform": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "download": {
-            "default": "False",
+            "default_val": "False",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "transforms": {
-            "default": "None",
+            "default_val": "None",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           }
@@ -274,74 +274,74 @@
       "torch.optim": {
         "Adam": {
           "params": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "lr": {
-            "default": "0.001",
+            "default_val": "0.001",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "betas": {
-            "default": "(0.9, 0.999)",
+            "default_val": "(0.9, 0.999)",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "eps": {
-            "default": "1e-08",
+            "default_val": "1e-08",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "weight_decay": {
-            "default": "0",
+            "default_val": "0",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "amsgrad": {
-            "default": "False",
+            "default_val": "False",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
-          "defaults": {
-            "default": "_empty",
+          "default_vals": {
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           }
         },
         "SGD": {
           "params": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "lr": {
-            "default": "<required parameter>",
+            "default_val": "<required parameter>",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "momentum": {
-            "default": "0",
+            "default_val": "0",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "dampening": {
-            "default": "0",
+            "default_val": "0",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "weight_decay": {
-            "default": "0",
+            "default_val": "0",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
           "nesterov": {
-            "default": "False",
+            "default_val": "False",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           },
-          "defaults": {
-            "default": "_empty",
+          "default_vals": {
+            "default_val": "_empty",
             "type": "_empty",
             "ui_type": "UNKNOWN"
           }
@@ -354,22 +354,22 @@
       "torchvision.transforms": {
         "Compose": {
           "transforms": {
-            "default": "_empty",
+            "default_val": "_empty",
             "type": {
               "ModuleInfo": {
                 "torchvision.transforms": {
                   "ColorJitter": {
                     "brightness": {
-                      "default": "0",
+                      "default_val": "0",
                       "type": {
                         "ParameterInfo": {
                           "delta": {
-                            "default": "",
+                            "default_val": "",
                             "type": "",
                             "ui_type": "UNKNOWN"
                           },
                           "omega": {
-                            "default": "",
+                            "default_val": "",
                             "type": "",
                             "ui_type": "UNKNOWN"
                           }
@@ -378,17 +378,17 @@
                       "ui_type": "NESTED_OBJECT"
                     },
                     "contrast": {
-                      "default": "0",
+                      "default_val": "0",
                       "type": "_empty",
                       "ui_type": "UNKNOWN"
                     },
                     "saturation": {
-                      "default": "0",
+                      "default_val": "0",
                       "type": "_empty",
                       "ui_type": "UNKNOWN"
                     },
                     "hue": {
-                      "default": "0",
+                      "default_val": "0",
                       "type": "_empty",
                       "ui_type": "UNKNOWN"
                     }

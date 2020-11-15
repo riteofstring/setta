@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 
@@ -15,7 +15,7 @@ const model = {
     }
     state.sectionNames = Object.keys(state.sections);
     state.selected = Object.keys(state.sections).reduce(
-      (a, b) => ((a[b] = {}), a),
+      (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
   }),
