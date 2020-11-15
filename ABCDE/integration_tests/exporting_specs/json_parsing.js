@@ -1,5 +1,5 @@
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
-    let outputArray = []
+    let outputObject = {}
     let info = jsonInput
     if (key_in_json){
         info = info[infoTypeStr]
@@ -7,10 +7,10 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
     if (info){
         let infoTypeObj = infoTypes[infoTypeStr]
         for (var key of Object.keys(info)) {
-            outputArray.push(new infoTypeObj(key, info[key]))
+            outputObject[key] = new infoTypeObj(key, info[key])
         }
     }
-    return outputArray
+    return outputObject
 }
 
 class ParameterInfo {
@@ -29,7 +29,7 @@ class ObjInfo {
     constructor(name, jsonInput){
         let infoTypes = {"ParameterInfo": ParameterInfo}
         this.name = name
-        this.objs = getInfos(jsonInput, infoTypes, "ParameterInfo", false)
+        this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false)
     }
 }
 
@@ -54,10 +54,10 @@ class Section {
 
 testJson = require('../../test.json');
 
-sections = []
+sections = {}
 
 for (var key of Object.keys(testJson)) {
-    sections.push(new Section(key, testJson[key]))
+    sections[key] = new Section(key, testJson[key])
 }
 
 console.log("json parsing success")
