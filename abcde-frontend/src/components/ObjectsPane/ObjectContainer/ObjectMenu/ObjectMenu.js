@@ -1,32 +1,6 @@
-import React, { useState } from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { MenuList, MenuItem, MenuGroup, MenuDivider } from "@chakra-ui/react";
-
-const MenuObj = ({ theSectionName, name, currParams }) => {
-  const { setSelected } = useStoreActions((actions) => actions.store);
-  return (
-    <MenuItem onClick={() => setSelected({ theSectionName, name, currParams })}>
-      {name}
-    </MenuItem>
-  );
-};
-
-const MenuObjs = ({ currModuleInfo, theSection }) => {
-  const currObjNames = Object.keys(currModuleInfo.objs);
-
-  return (
-    <>
-      {currObjNames.map((k, idx) => (
-        <MenuObj
-          name={k}
-          theSectionName={theSection.name}
-          currParams={currModuleInfo.objs[k].params}
-          key={`${k}-${idx}`}
-        />
-      ))}
-    </>
-  );
-};
+import React from "react";
+import { MenuList, MenuGroup, MenuDivider } from "@chakra-ui/react";
+import MenuObjs from "./MenuObjs/MenuObjs";
 
 const ObjectMenu = ({ theSection }) => {
   const { moduleInfos } = theSection;

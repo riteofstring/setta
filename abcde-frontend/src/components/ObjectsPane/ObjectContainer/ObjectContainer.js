@@ -41,12 +41,10 @@ const ObjectContainer = ({ theSection }) => {
         <Menu>
           {Object.keys(theSection.moduleInfos).length > 0 ? (
             <MenuButton as={Button} rightIcon={<HiChevronDown />}>
-              Select Model
+              Select {theSection.name}
             </MenuButton>
           ) : (
-            <MenuButton as={Button} isDisabled>
-              No Models Found
-            </MenuButton>
+            <Button as={Button}>Edit</Button>
           )}
           <ObjectMenu theSection={theSection} />
         </Menu>

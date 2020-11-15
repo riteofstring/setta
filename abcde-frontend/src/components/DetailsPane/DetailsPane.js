@@ -1,12 +1,10 @@
 import React from "react";
 import { Box, Flex, VStack, HStack, Heading } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import DetailsContainer from "./DetailsContainer/DetailsContainer";
 
 const DetailsPane = () => {
-  const { sections, activeObj } = useStoreState((state) => state.store);
-
-  // console.log("AHHH");
-  // console.log(sections.filter((e) => e.name === activeObj));
+  const { activeObj } = useStoreState((state) => state.store);
 
   return (
     <Flex flexDir="column">
@@ -15,6 +13,7 @@ const DetailsPane = () => {
           Details
         </Heading>
         <HStack>
+          {!!activeObj && <DetailsContainer />}
           <Box></Box>
         </HStack>
       </VStack>

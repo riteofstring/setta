@@ -26,7 +26,6 @@ const model = {
   setSelected: action((state, payload) => {
     const { theSectionName, name, currParams } = payload;
     state.selected[theSectionName] = { name, params: currParams };
-    console.log(debug(state.selected));
   }),
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;
