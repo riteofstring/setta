@@ -1,22 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import { HiChevronDown } from "react-icons/hi";
-import {
-  HStack,
-  VStack,
-  Heading,
-  Menu,
-  MenuButton,
-  Button,
-} from "@chakra-ui/react";
+import { HStack, VStack, Heading, Menu } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
+import ObjectMenuButton from "./ObjectMenuButton";
 
 const ObjectContainer = ({ theSection }) => {
   const [focus, setFocus] = useState(false);
-
   const ref = useOnClickOutsideRef(() => setFocus(false));
-
   const { setActiveObj } = useStoreActions((actions) => actions.store);
 
   useEffect(() => {
@@ -39,16 +30,9 @@ const ObjectContainer = ({ theSection }) => {
 
       <HStack spacing="2rem" w="100%">
         <Menu>
-          {Object.keys(theSection.moduleInfos).length > 0 ? (
-            <MenuButton as={Button} rightIcon={<HiChevronDown />}>
-              Select {theSection.name}
-            </MenuButton>
-          ) : (
-            <Button as={Button}>Edit</Button>
-          )}
+          <ObjectMenuButton theSection={theSection} />
           <ObjectMenu theSection={theSection} />
         </Menu>
-        {/* <Button onClick={flipVisible}>Collapse</Button> */}
       </HStack>
     </VStack>
   );
