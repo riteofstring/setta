@@ -13,10 +13,6 @@ import {
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 
 const ObjectContainer = ({ theSection }) => {
-  // const [visible, setVisible] = useState(true);
-  // const flipVisible = () => {
-  //   setVisible(!visible);
-  // };
   const [focus, setFocus] = useState(false);
 
   const ref = useOnClickOutsideRef(() => setFocus(false));
@@ -43,7 +39,7 @@ const ObjectContainer = ({ theSection }) => {
 
       <HStack spacing="2rem" w="100%">
         <Menu>
-          {theSection.moduleInfos.length > 0 ? (
+          {Object.keys(theSection.moduleInfos).length > 0 ? (
             <MenuButton as={Button} rightIcon={<HiChevronDown />}>
               Select Model
             </MenuButton>

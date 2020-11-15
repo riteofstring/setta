@@ -3,27 +3,30 @@ import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 
 const model = {
-  sections: [],
-  keys: [],
+  sections: {},
+  sectionNames: [],
   selected: {},
   activeObj: "",
 
   //actions
   loadObjects: action((state) => {
     for (var key of Object.keys(Data)) {
-      state.sections.push(new Section(key, Data[key]));
-      state.keys.push(key);
+      state.sections[key] = new Section(key, Data[key]);
     }
-    state.selected = state.keys.reduce((a, b) => ((a[b] = {}), a), {});
-    console.log(state.sections);
+    state.sectionNames = Object.keys(state.sections);
+    state.selected = Object.keys(state.sections).reduce(
+      (a, b) => ((a[b] = {}), a),
+      {}
+    );
   }),
   resetObjects: action((state) => {
     state.objectList = {};
     state.sections = [];
   }),
   setSelected: action((state, payload) => {
-    const { theSection, name } = payload;
-    state.selected[theSection] = name;
+    const { theSectionName, name, currParams } = payload;
+    state.selected[theSectionName] = { name, params: currParams };
+    console.log(debug(state.selected));
   }),
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;

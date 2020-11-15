@@ -2,29 +2,43 @@ import React, { useState } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { MenuList, MenuItem, MenuGroup, MenuDivider } from "@chakra-ui/react";
 
+const MenuObj = ({ theSectionName, name, currParams }) => {
+  const { setSelected } = useStoreActions((actions) => actions.store);
+  return (
+    <MenuItem onClick={() => setSelected({ theSectionName, name, currParams })}>
+      {name}
+    </MenuItem>
+  );
+};
+
+const MenuObjs = ({ currModuleInfo, theSection }) => {
+  const currObjNames = Object.keys(currModuleInfo.objs);
+
+  return (
+    <>
+      {currObjNames.map((k, idx) => (
+        <MenuObj
+          name={k}
+          theSectionName={theSection.name}
+          currParams={currModuleInfo.objs[k].params}
+          key={`${k}-${idx}`}
+        />
+      ))}
+    </>
+  );
+};
+
 const ObjectMenu = ({ theSection }) => {
   const { moduleInfos } = theSection;
-
-  const { setSelected } = useStoreActions((actions) => actions.store);
-  const { selected } = useStoreState((state) => state.store);
-
-  const MenuObj = ({ theSection, name }) => {
-    return (
-      <MenuItem onClick={() => setSelected({ theSection, name })}>
-        {name}
-      </MenuItem>
-    );
-  };
+  const moduleInfosArr = Object.keys(moduleInfos);
 
   return (
     <MenuList>
-      {moduleInfos.map((e, idx) => (
-        <MenuGroup title={e.name} key={`${e.name}-${idx}`}>
+      {moduleInfosArr.map((e, idx) => (
+        <MenuGroup title={e} key={`${e}-${idx}`}>
           <MenuDivider />
           {/* List Classes */}
-          {e.objs.map((k) => (
-            <MenuObj name={k.name} theSection={theSection.name} key={k.name} />
-          ))}
+          <MenuObjs currModuleInfo={moduleInfos[e]} theSection={theSection} />
         </MenuGroup>
       ))}
     </MenuList>

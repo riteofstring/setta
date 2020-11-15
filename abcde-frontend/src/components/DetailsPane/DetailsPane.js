@@ -5,8 +5,8 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 const DetailsPane = () => {
   const { sections, activeObj } = useStoreState((state) => state.store);
 
-  console.log("AHHH");
-  console.log(sections.filter((e) => e.name === activeObj));
+  // console.log("AHHH");
+  // console.log(sections.filter((e) => e.name === activeObj));
 
   return (
     <Flex flexDir="column">

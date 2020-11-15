@@ -1,5 +1,5 @@
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
-  let outputArray = [];
+  let outputObject = {};
   let info = jsonInput;
   if (key_in_json) {
     info = info[infoTypeStr];
@@ -7,10 +7,10 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   if (info) {
     let infoTypeObj = infoTypes[infoTypeStr];
     for (var key of Object.keys(info)) {
-      outputArray.push(new infoTypeObj(key, info[key]));
+      outputObject[key] = new infoTypeObj(key, info[key]);
     }
   }
-  return outputArray;
+  return outputObject;
 };
 
 class ParameterInfo {

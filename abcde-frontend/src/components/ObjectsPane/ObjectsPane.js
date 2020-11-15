@@ -6,7 +6,7 @@ import ObjectContainer from "./ObjectContainer/ObjectContainer";
 
 const ObjectsPane = () => {
   const { loadObjects } = useStoreActions((actions) => actions.store);
-  const { sections } = useStoreState((state) => state.store);
+  const { sections, sectionNames } = useStoreState((state) => state.store);
   useEffect(() => {
     loadObjects();
   }, [loadObjects]);
@@ -16,8 +16,8 @@ const ObjectsPane = () => {
       <Heading as="h1" size="2xl">
         Objects
       </Heading>
-      {sections.map((e, idx) => (
-        <ObjectContainer theSection={e} key={`${e}-${idx}`} />
+      {sectionNames.map((e, idx) => (
+        <ObjectContainer theSection={sections[e]} key={`${e}-${idx}`} />
       ))}
     </VStack>
   );
