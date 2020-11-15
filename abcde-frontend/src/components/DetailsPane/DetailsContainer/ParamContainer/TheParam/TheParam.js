@@ -15,8 +15,6 @@ const TheParam = ({ parameters }) => {
 
   const inputSwitch = () => {
     switch (ui_type) {
-      case "TEXT":
-        return <Input placeholder={default_val} />;
       case "NUM":
         return (
           <NumberInput>
@@ -37,6 +35,7 @@ const TheParam = ({ parameters }) => {
         );
       case "OPTION":
         return <Switch />;
+      case "TEXT":
       default:
         return <Input placeholder={default_val} />;
     }
