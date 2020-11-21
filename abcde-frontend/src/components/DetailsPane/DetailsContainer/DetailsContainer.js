@@ -4,7 +4,7 @@ import { useStoreState } from "easy-peasy";
 import ParamContainer from "./ParamContainer/ParamContainer";
 
 const DetailsContainer = () => {
-  const { selected, activeObj } = useStoreState((state) => state.store);
+  const { selected, activeObj } = useStoreState((state) => state.master);
   const [paramsArr, setParamsArr] = useState([]);
 
   const loadParams = (paramList) => {

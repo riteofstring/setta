@@ -3,12 +3,12 @@ import { useStoreActions } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
 import { HStack, VStack, Heading, Menu } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
-import ObjectMenuButton from "./ObjectMenuButton";
+import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
 const ObjectContainer = ({ theSection }) => {
   const [focus, setFocus] = useState(false);
   const ref = useOnClickOutsideRef(() => setFocus(false));
-  const { setActiveObj } = useStoreActions((actions) => actions.store);
+  const { setActiveObj } = useStoreActions((actions) => actions.master);
 
   useEffect(() => {
     if (focus) {

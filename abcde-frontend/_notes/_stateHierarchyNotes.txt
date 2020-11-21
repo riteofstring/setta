@@ -1,0 +1,29 @@
+model: {
+  torchvision.models:{
+  selected: true,
+    resnet: {
+    selected: true,
+      params: {
+      }
+    }
+  }
+}
+
+class & state curr_____
+
+if not on curr_____ --> send state to curr_SECTION
+
+if selecting different section --> send state to global "selected" object
+
+easy-peasy state called globalCurrObj
+It has 2 values:
+
+- prevObjName 101 51 18
+- currObjName
+- currObjs
+
+onClick =>
+
+- globalCurrObj.prevObjName = globalCurrObj.currObjName
+- globalCurrObj.currObjName = new name
+- globalCurrObj.currObjs[prevObjName] = globalCurrParams -> 101 + 51 + 18

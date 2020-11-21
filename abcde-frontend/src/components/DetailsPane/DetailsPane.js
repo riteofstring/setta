@@ -4,7 +4,7 @@ import { useStoreState } from "easy-peasy";
 import DetailsContainer from "./DetailsContainer/DetailsContainer";
 
 const DetailsPane = () => {
-  const { activeObj } = useStoreState((state) => state.store);
+  const { activeObj } = useStoreState((state) => state.master);
 
   const [loaded, isLoaded] = useState(false);
 

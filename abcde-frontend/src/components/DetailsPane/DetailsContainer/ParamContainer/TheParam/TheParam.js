@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import {
   Input,
   NumberInput,
@@ -9,9 +10,18 @@ import {
   Select,
   Switch,
 } from "@chakra-ui/react";
+import OutsideClickHandler from "react-outside-click-handler";
 
-const TheParam = ({ parameters }) => {
+const TheParam = ({ name, parameters }) => {
   const { ui_type, default_val } = parameters;
+
+  const { setGlobalCurrParams } = useStoreActions((actions) => actions.master);
+
+  const [value, setValue] = useState("");
+
+  const sendState = (name, value) => {
+    setGlobalCurrParams({ name, value });
+  };
 
   const inputSwitch = () => {
     switch (ui_type) {
@@ -37,11 +47,24 @@ const TheParam = ({ parameters }) => {
         return <Switch />;
       case "TEXT":
       default:
-        return <Input placeholder={default_val} />;
+        return (
+          <Input
+            placeholder={default_val}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        );
     }
   };
 
-  return <>{inputSwitch()}</>;
+  return (
+    <OutsideClickHandler
+      onOutsideClick={() => {
+        sendState(name, value);
+      }}
+    >
+      {inputSwitch()}
+    </OutsideClickHandler>
+  );
 };
 
 export default TheParam;

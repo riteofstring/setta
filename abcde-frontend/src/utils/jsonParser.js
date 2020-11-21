@@ -6,7 +6,7 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   }
   if (info) {
     let infoTypeObj = infoTypes[infoTypeStr];
-    for (var key of Object.keys(info)) {
+    for (let key of Object.keys(info)) {
       outputObject[key] = new infoTypeObj(key, info[key]);
     }
   }

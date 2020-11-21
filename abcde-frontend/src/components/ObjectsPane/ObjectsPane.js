@@ -5,8 +5,8 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import ObjectContainer from "./ObjectContainer/ObjectContainer";
 
 const ObjectsPane = () => {
-  const { loadObjects } = useStoreActions((actions) => actions.store);
-  const { sections, sectionNames } = useStoreState((state) => state.store);
+  const { loadObjects } = useStoreActions((actions) => actions.master);
+  const { sections, sectionNames } = useStoreState((state) => state.master);
   useEffect(() => {
     loadObjects();
   }, [loadObjects]);
