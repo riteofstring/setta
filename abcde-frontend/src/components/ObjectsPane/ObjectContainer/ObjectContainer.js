@@ -36,12 +36,7 @@ const ObjectContainer = ({ theSection }) => {
   }, [focus]);
 
   useEffect(() => {
-    // console.log("selected[activeObj]", activeObj, selected[activeObj]);
-    if (
-      activeObj === theSection.name &&
-      selected[activeObj] &&
-      Object.keys(selected[activeObj]).length > 0
-    ) {
+    if (activeObj === theSection.name) {
       // console.log("INSIDE", selected[activeObj]);
       setCurrSectionName(theSection.name);
       maybeResetCurrModuleNameThunk();
@@ -49,11 +44,14 @@ const ObjectContainer = ({ theSection }) => {
       maybeSetGlobalCurrObjThunk();
       maybeSetGlobalCurrModuleThunk();
       setGlobalCurrSectionThunk();
-      maybeInitGlobalCurrModuleThunk();
-      setCurrModuleName(selected[activeObj].moduleName);
-      maybeInitGlobalCurrObjsThunk();
-      setCurrObjName(selected[activeObj].name);
-      maybeInitGlobalCurrParamsThunk();
+      if (selected[activeObj] && Object.keys(selected[activeObj]).length > 0) {
+        // console.log("REALLY INSIDE", selected[activeObj]);
+        maybeInitGlobalCurrModuleThunk();
+        setCurrModuleName(selected[activeObj].moduleName);
+        maybeInitGlobalCurrObjsThunk();
+        setCurrObjName(selected[activeObj].name);
+        maybeInitGlobalCurrParamsThunk();
+      }
     }
   }, [activeObj]);
 

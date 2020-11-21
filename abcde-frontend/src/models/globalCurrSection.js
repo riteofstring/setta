@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 
 const globalCurrSection = {
   prevSectionName: null,
