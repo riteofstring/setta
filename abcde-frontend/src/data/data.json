@@ -51,11 +51,6 @@
             "default_val": "_empty",
             "type": "_empty",
             "ui_type": "TEXT"
-          },
-          "ANOTHER_ARG": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
           }
         },
         "resnet34": {
