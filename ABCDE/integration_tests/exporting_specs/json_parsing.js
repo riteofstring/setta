@@ -6,7 +6,7 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
     }
     if (info){
         let infoTypeObj = infoTypes[infoTypeStr]
-        for (var key of Object.keys(info)) {
+        for (let key of Object.keys(info)) {
             outputObject[key] = new infoTypeObj(key, info[key])
         }
     }
@@ -56,7 +56,7 @@ testJson = require('../../test.json');
 
 sections = {}
 
-for (var key of Object.keys(testJson)) {
+for (let key of Object.keys(testJson)) {
     sections[key] = new Section(key, testJson[key])
 }
 
