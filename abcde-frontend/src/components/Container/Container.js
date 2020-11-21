@@ -12,7 +12,7 @@ const Container = () => {
         maxWidth={1280}
         h="100%"
         gap={10}
-        templateColumns="1fr 0.5fr"
+        templateColumns=".5fr 1fr"
       >
         <ObjectsPane />
         <DetailsPane />

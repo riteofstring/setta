@@ -10,7 +10,7 @@ const ParamContainer = ({ parameters }) => {
       <Heading as="h3" size="md">
         {name}
       </Heading>
-      <TheParam name={name} parameters={parameters} />
+      <TheParam parameters={parameters} />
     </VStack>
   );
 };

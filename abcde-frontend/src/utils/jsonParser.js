@@ -16,7 +16,7 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
 class ParameterInfo {
   constructor(name, jsonInput) {
     this.name = name;
-    this.default = jsonInput.default;
+    this.default_val = jsonInput.default_val;
     this.type = jsonInput.type;
     this.ui_type = jsonInput.ui_type;
     if (!(typeof this.type === "string")) {

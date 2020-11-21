@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 
@@ -6,7 +6,6 @@ const master = {
   sections: {},
   sectionNames: [],
   selected: {},
-  globalCurrParams: {},
   activeObj: "",
 
   //actions
@@ -27,15 +26,9 @@ const master = {
   setSelected: action((state, payload) => {
     const { theSectionName, name, currParams } = payload;
     state.selected[theSectionName] = { name, params: currParams };
-    // console.log("SELECTED: ", debug(state.selected));
   }),
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;
-  }),
-  setGlobalCurrParams: action((state, payload) => {
-    const { name, value } = payload;
-    state.globalCurrParams[name] = value;
-    console.log("globalCurrParams", debug(state.globalCurrParams));
   }),
 };
 

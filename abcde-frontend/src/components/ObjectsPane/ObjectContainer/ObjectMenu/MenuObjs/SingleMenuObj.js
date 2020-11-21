@@ -3,7 +3,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { MenuItem } from "@chakra-ui/react";
 
 const SingleMenuObj = ({ theSectionName, name, currParams }) => {
-  const { globalCurrParams } = useStoreState((state) => state.master);
+  const { globalCurrParams } = useStoreState((state) => state.globalCurrParams);
   const { setSelected } = useStoreActions((actions) => actions.master);
   const { setCurrObjName, setGlobalCurrObj } = useStoreActions(
     (actions) => actions.globalCurrObj
@@ -12,6 +12,7 @@ const SingleMenuObj = ({ theSectionName, name, currParams }) => {
   const setSelectedAndCurrObj = (theSectionName, name, currParams) => {
     setCurrObjName(name);
     setGlobalCurrObj(globalCurrParams);
+    //reset to empty
     setSelected({ theSectionName, name, currParams });
   };
 
