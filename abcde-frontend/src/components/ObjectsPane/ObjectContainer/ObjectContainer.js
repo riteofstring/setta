@@ -36,26 +36,26 @@ const ObjectContainer = ({ theSection }) => {
   }, [focus]);
 
   useEffect(() => {
-    console.log(activeObj);
+    // console.log("selected[activeObj]", activeObj, selected[activeObj]);
+    if (
+      activeObj === theSection.name &&
+      selected[activeObj] &&
+      Object.keys(selected[activeObj]).length > 0
+    ) {
+      // console.log("INSIDE", selected[activeObj]);
+      setCurrSectionName(theSection.name);
+      maybeResetCurrModuleNameThunk();
+      maybeResetCurrObjNameThunk();
+      maybeSetGlobalCurrObjThunk();
+      maybeSetGlobalCurrModuleThunk();
+      setGlobalCurrSectionThunk();
+      maybeInitGlobalCurrModuleThunk();
+      setCurrModuleName(selected[activeObj].moduleName);
+      maybeInitGlobalCurrObjsThunk();
+      setCurrObjName(selected[activeObj].name);
+      maybeInitGlobalCurrParamsThunk();
+    }
   }, [activeObj]);
-
-  // useEffect(() => {
-  //   console.log("selected[activeObj]", activeObj, selected[activeObj]);
-  //   if (selected[activeObj] && Object.keys(selected[activeObj]).length > 0) {
-  //     console.log("INSIDE", selected[activeObj]);
-  //     setCurrSectionName(theSection.name);
-  //     maybeResetCurrModuleNameThunk();
-  //     maybeResetCurrObjNameThunk();
-  //     maybeSetGlobalCurrObjThunk();
-  //     maybeSetGlobalCurrModuleThunk();
-  //     setGlobalCurrSectionThunk();
-  //     maybeInitGlobalCurrModuleThunk();
-  //     setCurrModuleName(selected[activeObj].moduleName);
-  //     maybeInitGlobalCurrObjsThunk();
-  //     setCurrObjName(selected[activeObj].name);
-  //     maybeInitGlobalCurrParamsThunk();
-  //   }
-  // }, [activeObj]);
 
   return (
     <VStack

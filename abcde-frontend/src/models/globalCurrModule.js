@@ -12,8 +12,7 @@ const globalCurrModule = {
   setCurrModuleName: action((state, payload) => {
     state.prevModuleName = state.currModuleName;
     state.currModuleName = payload;
-    state.moduleChanged =
-      state.prevModuleName && state.prevModuleName !== state.currModuleName;
+    state.moduleChanged = state.prevModuleName !== state.currModuleName;
     // console.log("prevModuleName", debug(state.prevModuleName));
     // console.log("currModuleName", debug(state.currModuleName));
     // console.log("moduleChanged", debug(state.moduleChanged));

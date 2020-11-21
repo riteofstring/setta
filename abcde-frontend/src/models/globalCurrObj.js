@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 
 const globalCurrObj = {
   prevObjName: null,
@@ -11,8 +11,7 @@ const globalCurrObj = {
   setCurrObjName: action((state, payload) => {
     state.prevObjName = state.currObjName;
     state.currObjName = payload;
-    state.objChanged =
-      state.prevObjName && state.prevObjName !== state.currObjName;
+    state.objChanged = state.prevObjName !== state.currObjName;
     // console.log("prevObjName", debug(state.prevObjName));
     // console.log("currObjName", debug(state.currObjName));
   }),

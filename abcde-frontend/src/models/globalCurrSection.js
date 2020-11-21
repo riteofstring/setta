@@ -12,11 +12,9 @@ const globalCurrSection = {
   setCurrSectionName: action((state, payload) => {
     state.prevSectionName = state.currSectionName;
     state.currSectionName = payload;
-    state.sectionChanged =
-      state.prevSectionName && state.prevSectionName !== state.currSectionName;
-    console.log("prevSectionName", state.prevSectionName);
-    console.log("currSectionName", state.currSectionName);
-    console.log("sectionChanged", state.sectionChanged);
+    state.sectionChanged = state.prevSectionName !== state.currSectionName;
+    // console.log("prevSectionName", state.prevSectionName);
+    // console.log("currSectionName", state.currSectionName);
   }),
 
   // if user has changed sections, update previous section.
