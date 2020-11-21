@@ -11,6 +11,7 @@ const SingleMenuObj = ({ theSectionName, name, currParams }) => {
 
   const setSelectedAndCurrObj = (theSectionName, name, currParams) => {
     setCurrObjName(name);
+    //need to check if value matches def_val first before pushing change
     setGlobalCurrObj(globalCurrParams);
     //reset to empty
     setSelected({ theSectionName, name, currParams });

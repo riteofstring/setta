@@ -172,6 +172,42 @@
             "ui_type": "TEXT"
           }
         }
+      },
+      "another.Model": {
+        "testnet201": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "testnet252": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        }
       }
     }
   },

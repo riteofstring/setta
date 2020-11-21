@@ -9,6 +9,13 @@ model: {
   }
 }
 
+"Model": globalCurrObj
+
+
+
+
+
+
 class & state curr_____
 
 if not on curr_____ --> send state to curr_SECTION
@@ -27,3 +34,27 @@ onClick =>
 - globalCurrObj.prevObjName = globalCurrObj.currObjName
 - globalCurrObj.currObjName = new name
 - globalCurrObj.currObjs[prevObjName] = globalCurrParams -> 101 + 51 + 18
+
+
+
+SingleMenuObj
+- globalCurrParams 
+- reset globalCurrParams
+
+TheParam
+if field previously filled
+  => fill with saved info
+  else => fill with default value
+  else => empty 
+
+
+
+
+
+
+
+Todo:
+- Add new easy peasy state called globalCurrModule
+- Update globalCurrModule when module changes. Update it with globalCurrObj.
+- Update master.selected with globalCurrModule when changing sections.
+- Look up module, obj, and params when revisiting a section.
