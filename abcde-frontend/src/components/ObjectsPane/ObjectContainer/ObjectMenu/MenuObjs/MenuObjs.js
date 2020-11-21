@@ -1,5 +1,5 @@
 import React from "react";
-import SingleMenuObj from "./SingleMenuObj";
+import TheMenuObj from "./TheMenuObj";
 
 const MenuObjs = ({ currModuleInfo, theSection }) => {
   const currObjNames = Object.keys(currModuleInfo.objs);
@@ -7,9 +7,9 @@ const MenuObjs = ({ currModuleInfo, theSection }) => {
   return (
     <>
       {currObjNames.map((k, idx) => (
-        <SingleMenuObj
+        <TheMenuObj
           name={k}
-          theSectionName={theSection.name}
+          sectionName={theSection.name}
           moduleName={currModuleInfo.name}
           currParams={currModuleInfo.objs[k].params}
           key={`${k}-${idx}`}

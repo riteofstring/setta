@@ -8,8 +8,8 @@ const master = {
   selected: {},
   activeObj: "",
 
-  //actions
-  //Load DATA
+  // actions
+  // Load DATA
   loadObjects: action((state) => {
     for (let key of Object.keys(Data)) {
       state.sections[key] = new Section(key, Data[key]);
@@ -26,13 +26,13 @@ const master = {
     state.sections = [];
   }),
 
-  //stores what fields to show
+  // stores what fields to show
   setSelected: action((state, payload) => {
-    const { theSectionName, name, currParams } = payload;
-    state.selected[theSectionName] = { name, params: currParams };
+    const { sectionName, name, currParams } = payload;
+    state.selected[sectionName] = { name, params: currParams };
   }),
 
-  //string name of currently active object
+  // string name of currently active object
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;
   }),

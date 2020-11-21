@@ -30,6 +30,30 @@ const globalCurrModule = {
     const { globalCurrObjs } = helpers.getStoreState().globalCurrObj;
     action._setGlobalCurrModule(globalCurrObjs);
   }),
+
+  // called when user switches to a different module.
+  // if there is info in the module, it will assign it to globalCurrObjs.
+  initGlobalCurrModule: action((state, payload) => {
+    if (payload) {
+      state.globalCurrModule = payload;
+    } else {
+      state.globalCurrModule = {};
+    }
+    // console.log("initializing GlobalCurrModule", debug(state.globalCurrModule));
+  }),
+
+  // called on click, but only executes if moduleChanged is true.
+  // gets state from globalCurrModules
+  maybeInitGlobalCurrModuleThunk: thunk((action, payload, helpers) => {
+    const {
+      currSectionName,
+      sectionChanged,
+      globalCurrSection,
+    } = helpers.getStoreState().globalCurrSection;
+    if (sectionChanged) {
+      action.initGlobalCurrModule(globalCurrSection[currSectionName]);
+    }
+  }),
 };
 
 export default globalCurrModule;
