@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 
@@ -9,6 +9,7 @@ const master = {
   activeObj: "",
 
   //actions
+  //Load DATA
   loadObjects: action((state) => {
     for (let key of Object.keys(Data)) {
       state.sections[key] = new Section(key, Data[key]);
@@ -19,15 +20,19 @@ const master = {
       {}
     );
   }),
+
   resetObjects: action((state) => {
     state.objectList = {};
     state.sections = [];
   }),
+
+  //stores what fields to show
   setSelected: action((state, payload) => {
     const { theSectionName, name, currParams } = payload;
     state.selected[theSectionName] = { name, params: currParams };
-    console.log(debug(state.selected));
   }),
+
+  //string name of currently active object
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;
   }),

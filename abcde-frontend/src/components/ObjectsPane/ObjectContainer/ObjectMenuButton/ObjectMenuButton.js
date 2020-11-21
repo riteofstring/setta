@@ -18,8 +18,6 @@ const ObjectMenuButton = ({ theSection }) => {
     }
   }, [selected, activeObj]);
 
-  console.log();
-
   return (
     <>
       {Object.keys(theSection.moduleInfos).length > 0 ? (

@@ -10,6 +10,7 @@ const MenuObjs = ({ currModuleInfo, theSection }) => {
         <SingleMenuObj
           name={k}
           theSectionName={theSection.name}
+          moduleName={currModuleInfo.name}
           currParams={currModuleInfo.objs[k].params}
           key={`${k}-${idx}`}
         />

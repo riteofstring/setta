@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import {
   Input,
   NumberInput,
@@ -27,9 +27,8 @@ const TheParam = ({ parameters }) => {
 
   useEffect(() => {
     setValue(default_val);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters]);
-
-  console.log(value);
 
   const inputSwitch = () => {
     switch (ui_type) {
