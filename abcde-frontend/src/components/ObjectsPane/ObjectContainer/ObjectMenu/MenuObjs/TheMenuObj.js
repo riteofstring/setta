@@ -32,9 +32,7 @@ const TheMenuObj = ({ sectionName, moduleName, name, currParams }) => {
     maybeInitGlobalCurrModuleThunk();
     maybeInitGlobalCurrObjsThunk();
     maybeInitGlobalCurrParamsThunk();
-
-    //reset to empty
-    setSelected({ sectionName, name, currParams });
+    setSelected({ sectionName, moduleName, name, currParams });
   };
 
   return <MenuItem onClick={() => setSelectedAndCurrObj()}>{name}</MenuItem>;

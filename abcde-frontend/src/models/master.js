@@ -28,8 +28,8 @@ const master = {
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    const { sectionName, name, currParams } = payload;
-    state.selected[sectionName] = { name, params: currParams };
+    const { sectionName, moduleName, name, currParams } = payload;
+    state.selected[sectionName] = { moduleName, name, params: currParams };
     console.log("state.selected", debug(state.selected))
   }),
 

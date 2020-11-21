@@ -14,8 +14,9 @@ const globalCurrSection = {
     state.currSectionName = payload;
     state.sectionChanged =
       state.prevSectionName && state.prevSectionName !== state.currSectionName;
-    // console.log("prevSectionName", state.prevSectionName);
-    // console.log("currSectionName", state.currSectionName);
+    console.log("prevSectionName", state.prevSectionName);
+    console.log("currSectionName", state.currSectionName);
+    console.log("sectionChanged", state.sectionChanged);
   }),
 
   // if user has changed sections, update previous section.

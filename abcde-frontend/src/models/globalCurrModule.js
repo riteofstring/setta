@@ -33,6 +33,15 @@ const globalCurrModule = {
     action._setGlobalCurrModule(globalCurrObjs);
   }),
 
+  maybeSetGlobalCurrModuleThunk: thunk((action, payload, helpers) => {
+    const { sectionChanged } = helpers.getStoreState().globalCurrSection
+    const { globalCurrObjs } = helpers.getStoreState().globalCurrObj;
+    if (sectionChanged) {
+      action._setGlobalCurrModule(globalCurrObjs);
+    }
+  }),
+
+
   maybeResetCurrModuleNameThunk: thunk((action, payload, helpers) => {
     const { sectionChanged } = helpers.getStoreState().globalCurrSection;
     if (sectionChanged) {
