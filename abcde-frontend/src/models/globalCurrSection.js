@@ -1,4 +1,4 @@
-import { action, thunk, debug } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 
 const globalCurrSection = {
   prevSectionName: null,
@@ -14,15 +14,16 @@ const globalCurrSection = {
     state.currSectionName = payload;
     state.sectionChanged =
       state.prevSectionName && state.prevSectionName !== state.currSectionName;
-    // console.log("globalCurrSection", debug(state.globalCurrSection));
+    // console.log("prevSectionName", state.prevSectionName);
+    // console.log("currSectionName", state.currSectionName);
   }),
 
   // if user has changed sections, update previous section.
   _setGlobalCurrSection: action((state, payload) => {
-    if (state.sectionChanged) {
+    if (state.sectionChanged && Object.keys(payload).length > 0) {
       state.globalCurrSection[state.prevSectionName] = payload;
     }
-    console.log("globalCurrSection", debug(state.globalCurrSection));
+    // console.log("globalCurrSection", debug(state.globalCurrSection));
   }),
 
   // update globalCurrSection state with latest globalCurrModule

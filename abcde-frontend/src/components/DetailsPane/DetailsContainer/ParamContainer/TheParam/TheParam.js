@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import {
   Input,
   NumberInput,
@@ -19,16 +19,20 @@ const TheParam = ({ parameters }) => {
     (actions) => actions.globalCurrParams
   );
 
+  const { globalCurrParams } = useStoreState((state) => state.globalCurrParams);
+  const { currObjName } = useStoreState((state) => state.globalCurrObj);
+
   const [value, setValue] = useState(default_val);
 
   const sendState = (name, value) => {
+    setValue(value);
     setGlobalCurrParams({ name, value });
   };
 
   useEffect(() => {
-    setValue(default_val);
+    setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parameters]);
+  }, [parameters, currObjName]);
 
   const inputSwitch = () => {
     switch (ui_type) {
@@ -58,21 +62,22 @@ const TheParam = ({ parameters }) => {
           <Input
             // placeholder={default_val}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => sendState(name, e.target.value)}
           />
         );
     }
   };
 
-  return (
-    <OutsideClickHandler
-      onOutsideClick={() => {
-        sendState(name, value);
-      }}
-    >
-      {inputSwitch()}
-    </OutsideClickHandler>
-  );
+  return inputSwitch();
+  // <OutsideClickHandler
+  //   onOutsideClick={() => {
+  //     sendState(name, value);
+  //   }}
+  // >
+  //   {inputSwitch()}
+  // </OutsideClickHandler>
+  // {}
+  // );
 };
 
 export default TheParam;

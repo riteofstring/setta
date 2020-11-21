@@ -14,12 +14,14 @@ const globalCurrModule = {
     state.currModuleName = payload;
     state.moduleChanged =
       state.prevModuleName && state.prevModuleName !== state.currModuleName;
-    // console.log("globalCurrModule", debug(state.globalCurrModule));
+    // console.log("prevModuleName", debug(state.prevModuleName));
+    // console.log("currModuleName", debug(state.currModuleName));
+    // console.log("moduleChanged", debug(state.moduleChanged));
   }),
 
   // if user has changed modules, update previous module.
   _setGlobalCurrModule: action((state, payload) => {
-    if (state.moduleChanged) {
+    if (state.moduleChanged && Object.keys(payload).length > 0) {
       state.globalCurrModule[state.prevModuleName] = payload;
     }
     // console.log("globalCurrModule", debug(state.globalCurrModule));
@@ -29,6 +31,13 @@ const globalCurrModule = {
   setGlobalCurrModuleThunk: thunk((action, payload, helpers) => {
     const { globalCurrObjs } = helpers.getStoreState().globalCurrObj;
     action._setGlobalCurrModule(globalCurrObjs);
+  }),
+
+  maybeResetCurrModuleNameThunk: thunk((action, payload, helpers) => {
+    const { sectionChanged } = helpers.getStoreState().globalCurrSection;
+    if (sectionChanged) {
+      action.setCurrModuleName(null);
+    }
   }),
 
   // called when user switches to a different module.
@@ -50,6 +59,7 @@ const globalCurrModule = {
       sectionChanged,
       globalCurrSection,
     } = helpers.getStoreState().globalCurrSection;
+    // console.log("sectionChange", sectionChanged);
     if (sectionChanged) {
       action.initGlobalCurrModule(globalCurrSection[currSectionName]);
     }

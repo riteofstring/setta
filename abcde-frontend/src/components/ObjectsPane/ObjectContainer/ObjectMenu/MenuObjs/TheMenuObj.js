@@ -5,6 +5,9 @@ import { MenuItem } from "@chakra-ui/react";
 const TheMenuObj = ({ sectionName, moduleName, name, currParams }) => {
   const { globalCurrParams } = useStoreState((state) => state.globalCurrParams);
   const { setSelected } = useStoreActions((actions) => actions.master);
+  const { maybeInitGlobalCurrParamsThunk } = useStoreActions(
+    (actions) => actions.globalCurrParams
+  );
   const {
     setCurrObjName,
     setGlobalCurrObj,
@@ -23,12 +26,12 @@ const TheMenuObj = ({ sectionName, moduleName, name, currParams }) => {
     setCurrObjName(name);
     setCurrModuleName(moduleName);
     setCurrSectionName(sectionName);
-    //need to check if value matches def_val first before pushing change
     setGlobalCurrObj(globalCurrParams);
     setGlobalCurrModuleThunk();
     setGlobalCurrSectionThunk();
     maybeInitGlobalCurrModuleThunk();
     maybeInitGlobalCurrObjsThunk();
+    maybeInitGlobalCurrParamsThunk();
 
     //reset to empty
     setSelected({ sectionName, name, currParams });

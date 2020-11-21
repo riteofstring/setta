@@ -11,14 +11,25 @@ const globalCurrObj = {
   setCurrObjName: action((state, payload) => {
     state.prevObjName = state.currObjName;
     state.currObjName = payload;
+    state.objChanged =
+      state.prevObjName && state.prevObjName !== state.currObjName;
+    // console.log("prevObjName", debug(state.prevObjName));
+    // console.log("currObjName", debug(state.currObjName));
   }),
 
   // called onClick to assign params to previous object name
   setGlobalCurrObj: action((state, payload) => {
-    if (state.prevObjName) {
+    if (state.prevObjName && Object.keys(payload).length > 0) {
       state.globalCurrObjs[state.prevObjName] = payload;
     }
     // console.log("globalCurrObjs", debug(state.globalCurrObjs));
+  }),
+
+  maybeResetCurrObjNameThunk: thunk((action, payload, helpers) => {
+    const { moduleChanged } = helpers.getStoreState().globalCurrModule;
+    if (moduleChanged) {
+      action.setCurrObjName(null);
+    }
   }),
 
   // called when user switches to a different module.
