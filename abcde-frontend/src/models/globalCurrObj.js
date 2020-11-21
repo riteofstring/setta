@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 
 const globalCurrObj = {
   prevObjName: null,
@@ -11,8 +11,7 @@ const globalCurrObj = {
   setCurrObjName: action((state, payload) => {
     state.prevObjName = state.currObjName;
     state.currObjName = payload;
-    state.objChanged =
-      state.prevObjName && state.prevObjName !== state.currObjName;
+    state.objChanged = state.prevObjName !== state.currObjName;
     // console.log("prevObjName", debug(state.prevObjName));
     // console.log("currObjName", debug(state.currObjName));
   }),
@@ -23,6 +22,14 @@ const globalCurrObj = {
       state.globalCurrObjs[state.prevObjName] = payload;
     }
     // console.log("globalCurrObjs", debug(state.globalCurrObjs));
+  }),
+
+  maybeSetGlobalCurrObjThunk: thunk((action, payload, helpers) => {
+    const { sectionChanged } = helpers.getStoreState().globalCurrSection
+    const { globalCurrParams } = helpers.getStoreState().globalCurrParams;
+    if (sectionChanged) {
+      action.setGlobalCurrObj(globalCurrParams);
+    }
   }),
 
   maybeResetCurrObjNameThunk: thunk((action, payload, helpers) => {

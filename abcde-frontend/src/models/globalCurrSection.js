@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 
 const globalCurrSection = {
   prevSectionName: null,
@@ -12,8 +12,7 @@ const globalCurrSection = {
   setCurrSectionName: action((state, payload) => {
     state.prevSectionName = state.currSectionName;
     state.currSectionName = payload;
-    state.sectionChanged =
-      state.prevSectionName && state.prevSectionName !== state.currSectionName;
+    state.sectionChanged = state.prevSectionName !== state.currSectionName;
     // console.log("prevSectionName", state.prevSectionName);
     // console.log("currSectionName", state.currSectionName);
   }),
