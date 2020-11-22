@@ -39,13 +39,10 @@ const TheParam = ({ parameters }) => {
 
   useEffect(() => {
     setAddedNestedId(false);
-  }, [parameters]);
-
-  useEffect(() => {
-    if (ui_type === "NESTED_OBJECT" && !addedNestedId) {
+    if (ui_type === "NESTED_OBJECT") {
       setLocalAndGlobalState();
     }
-  }, [name]);
+  }, [parameters]);
 
   useEffect(() => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);

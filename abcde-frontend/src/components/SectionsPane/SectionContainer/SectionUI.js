@@ -5,8 +5,8 @@ import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
 import SectionMenuButton from "./SectionMenuButton/SectionMenuButton";
 
 const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
-  const { visible } = useStoreActions((actions) => actions.master);
-  const { setVisible } = useStoreState((state) => state.master);
+  const { setVisible } = useStoreActions((actions) => actions.master);
+  const { visible } = useStoreState((state) => state.master);
 
   const flipVisible = () => {
     setVisible(!visible);

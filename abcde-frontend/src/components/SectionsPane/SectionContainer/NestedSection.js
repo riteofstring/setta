@@ -1,14 +1,14 @@
 import React from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import SectionContainer from "./SectionContainer"
 import { Flex, Box } from "@chakra-ui/react";
 
 import { getSection, combineIds } from "../../../utils/sectionIds";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
-const SectionContainer = ({ sectionId, visibleSectionIds, e, idx }) => {
-  const { sections } = useStoreState((state) => state.master);
-  const { visible } = useStoreActions((actions) => actions.master);
+const NestedSection = ({ sectionId, visibleSectionIds, e, idx }) => {
+  const { sections, visible } = useStoreState((state) => state.master);
 
   return (
     <>
@@ -35,4 +35,4 @@ const SectionContainer = ({ sectionId, visibleSectionIds, e, idx }) => {
   );
 };
 
-export default React.memo(SectionContainer);
+export default React.memo(NestedSection);
