@@ -40,7 +40,7 @@ const TheParam = ({ parameters }) => {
 
   useEffect(() => {
     setAddedNestedId(false);
-  }, [name]);
+  }, [parameters]);
 
   useEffect(() => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);

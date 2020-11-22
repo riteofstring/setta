@@ -7,6 +7,9 @@ const master = {
   sections: {},
   selected: {},
   visibleSectionIds: {},
+  visibleSectionIdsHistory: {},
+  prevSectionIdExParam: null,
+  currSectionIdExParam: null,
   activeObj: "",
 
   // actions
@@ -19,10 +22,10 @@ const master = {
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
-    state.visibleSectionIds = Object.keys(state.sections).reduce(
-      (acc, curr) => ({ ...acc, [curr]: {} }),
-      {}
-    );
+    for (let k of Object.keys(state.selected)) {
+      state.visibleSectionIds[k] = {};
+      state.visibleSectionIdsHistory[k] = {};
+    }
   }),
 
   resetObjects: action((state) => {
@@ -34,7 +37,7 @@ const master = {
   setSelected: action((state, payload) => {
     const { sectionId, moduleName, name, currParams } = payload;
     state.selected[sectionId] = { moduleName, name, params: currParams };
-    // console.log("state.selected", debug(state.selected))
+    console.log("state.selected", debug(state.selected));
   }),
 
   // string name of currently active object
@@ -42,60 +45,88 @@ const master = {
     state.activeObj = payload;
   }),
 
-  addToVisibleSectionIds: action((state, payload) => {
-    const splitId = getSplitId(payload);
+  modifyVisibleSectionIds: action((state, payload) => {
+    const { fullId, command } = payload;
+    const splitId = getSplitId(fullId);
     const numParents = splitId.length - 1;
     const id = splitId[numParents];
     let curr = state.visibleSectionIds;
+    let currHistory = state.visibleSectionIdsHistory;
     for (let i = 0; i < numParents; i++) {
       curr = curr[splitId[i]];
+      currHistory = currHistory[splitId[i]];
     }
-    if (!(id in curr)) {
-      curr[id] = {};
+    if (command === "add") {
+      if (!(id in curr)) {
+        if (id in currHistory) {
+          curr[id] = currHistory[id];
+        } else {
+          curr[id] = {};
+          currHistory[id] = {};
+        }
+      }
+      if (!(fullId in state.selected)) {
+        state.selected[fullId] = {};
+      }
+    } else if (command === "delete") {
+      for (let k of Object.keys(curr)) {
+        if (k.startsWith(id)) {
+          delete curr[k];
+        }
+      }
     }
-    if (!(payload in state.selected)) {
-      state.selected[payload] = {};
+  }),
+
+  setSectionIdExParam: action((state, payload) => {
+    state.prevSectionIdExParam = state.currSectionIdExParam;
+    state.currSectionIdExParam = payload;
+    state.sectionIdExParamChanged =
+      state.prevSectionIdExParam !== state.currSectionIdExParam;
+  }),
+
+  getSectionId: thunk((action, payload, helpers) => {
+    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
+    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
+    const { currName: objName } = helpers.getStoreState().globalCurrObj;
+    console.log("objName", objName);
+    if ([sectionId, moduleName, objName].indexOf(null) === -1) {
+      return createId(sectionId, moduleName, objName, payload);
+    } else {
+      return null;
     }
-    console.log(
-      "ADDING state.visibleSectionIds",
-      debug(state.visibleSectionIds)
-    );
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
-    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
-    const { currName: objName } = helpers.getStoreState().globalCurrObj;
-    const id = createId(sectionId, moduleName, objName, payload);
-    action.addToVisibleSectionIds(id);
+    let id = action.getSectionId("");
+    if (id !== null) {
+      action.setSectionIdExParam(id);
+      id += payload;
+      action.modifyVisibleSectionIds({
+        fullId: id,
+        command: "add",
+      });
+    }
   }),
 
-  deletePrevFromVisibleSectionIds: action((state, payload) => {
-    const splitId = getSplitId(payload);
-    const numParents = splitId.length - 1;
-    const id = splitId[numParents];
-    let curr = state.visibleSectionIds;
-    for (let i = 0; i < numParents; i++) {
-      curr = curr[splitId[i]];
-    }
-    for (let k of Object.keys(curr)) {
-      if (k.startsWith(id)) {
-        delete curr[k];
+  deleteCurrFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
+    const {
+      currName: parentSectionId,
+    } = helpers.getStoreState().globalCurrSection;
+    let id = action.getSectionId("");
+    if (id !== null) {
+      action.setSectionIdExParam(id);
+      const prev = helpers.getState().prevSectionIdExParam;
+      if (
+        helpers.getState().sectionIdExParamChanged &&
+        prev !== null &&
+        !parentSectionId.startsWith(prev)
+      ) {
+        action.modifyVisibleSectionIds({
+          fullId: prev,
+          command: "delete",
+        });
       }
     }
-    console.log(
-      "DELETING state.addToVisibleSectionIds",
-      debug(state.visibleSectionIds)
-    );
-  }),
-
-  deletePrevFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
-    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
-    const { currName: objName } = helpers.getStoreState().globalCurrObj;
-    const id = createId(sectionId, moduleName, objName, "");
-    console.log("delete ids starting with", id);
-    action.deletePrevFromVisibleSectionIds(id);
   }),
 };
 

@@ -366,8 +366,86 @@
                     },
                     "contrast": {
                       "default_val": "0",
+                      "type": {
+                        "ModuleInfo": {
+                          "torchvision.transforms": {
+                            "More shit": {
+                              "oh": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              },
+                              "lawd": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "ui_type": "NESTED_OBJECT"
+                    },
+                    "saturation": {
+                      "default_val": "0",
                       "type": "_empty",
                       "ui_type": "UNKNOWN"
+                    },
+                    "hue": {
+                      "default_val": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    }
+                  },
+                  "GorillaMode": {
+                    "brightness": {
+                      "default_val": "0",
+                      "type": {
+                        "ModuleInfo": {
+                          "torchvision.transforms": {
+                            "BALLS DEEP!": {
+                              "brightness": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              },
+                              "contrast": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              },
+                              "bullshit": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "ui_type": "NESTED_OBJECT"
+                    },
+                    "contrast": {
+                      "default_val": "0",
+                      "type": {
+                        "ModuleInfo": {
+                          "torchvision.transforms": {
+                            "More shit": {
+                              "oh": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              },
+                              "lawd": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "ui_type": "NESTED_OBJECT"
                     },
                     "saturation": {
                       "default_val": "0",
