@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import { HStack, VStack, Heading, Menu } from "@chakra-ui/react";
+import { HStack, VStack, Heading, Menu, Box } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
-const ObjectContainer = ({ theSection }) => {
+import { FiCornerDownRight } from "react-icons/fi";
+
+const ObjectContainer = ({ theSection, depth }) => {
   const [focus, setFocus] = useState(false);
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
@@ -59,24 +61,32 @@ const ObjectContainer = ({ theSection }) => {
   }, [activeObj]);
 
   return (
-    <VStack
-      spacing="1rem"
-      width="100%"
-      bg={focus ? "gray.50" : "white"}
-      onClick={() => setFocus(true)}
-      ref={ref}
+    <HStack
+      marginLeft={depth > 1 && `${depth * 3}rem`}
+      mt="2rem"
     >
-      <Heading as="h2" size="xl">
-        {theSection.name}
-      </Heading>
+      {depth > 0 && <Box mr="2rem"><FiCornerDownRight size="3rem" color="#CBD5E0" /></Box>}
+       <VStack
+        spacing="1rem"
+        width="100%"
+        bg={focus ? "gray.50" : "white"}
+        onClick={() => setFocus(true)}
+        ref={ref}
+      >
+        <Heading as="h2" size="xl" w="100%">
+          {theSection.name}
+        </Heading>
 
-      <HStack spacing="2rem" w="100%">
-        <Menu>
-          <ObjectMenuButton theSection={theSection} />
-          <ObjectMenu theSection={theSection} />
-        </Menu>
-      </HStack>
-    </VStack>
+        <HStack spacing="2rem" w="100%">
+          <Menu>
+            <ObjectMenuButton theSection={theSection} />
+            <ObjectMenu theSection={theSection} />
+          </Menu>
+        </HStack>
+      </VStack>
+
+    </HStack>
+
   );
 };
 

@@ -7,15 +7,19 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
-  Select,
+  Box,
   Switch,
 } from "@chakra-ui/react";
 
 const TheParam = ({ parameters }) => {
-  const { name, ui_type, default_val } = parameters;
+  const { name, type, ui_type, default_val } = parameters;
 
   const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
     (actions) => actions.globalCurrParams
+  );
+
+  const { addNestedSection } = useStoreActions(
+    (actions) => actions.master
   );
 
   const { globalCurr: globalCurrParams } = useStoreState((state) => state.globalCurrParams);
@@ -45,13 +49,12 @@ const TheParam = ({ parameters }) => {
             </NumberInputStepper>
           </NumberInput>
         );
+      case "NESTED_OBJECT":
+        // Value for nested object has to be obtained here somehow
+        // addNestedSection(type)
       case "LIST":
         return (
-          <Select placeholder="Select option">
-            <option value="option1">Option 1</option>
-            <option value="option2">Option 2</option>
-            <option value="option3">Option 3</option>
-          </Select>
+          <Box>Nested Function</Box>
         );
       case "OPTION":
         return <Switch />;
