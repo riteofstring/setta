@@ -18,12 +18,14 @@ const TheParam = ({ parameters }) => {
     (actions) => actions.globalCurrParams
   );
 
-  const { addNestedSection } = useStoreActions(
-    (actions) => actions.master
-  );
+  const { addNestedSection } = useStoreActions((actions) => actions.master);
 
-  const { globalCurr: globalCurrParams } = useStoreState((state) => state.globalCurrParams);
-  const { currName: currObjName } = useStoreState((state) => state.globalCurrObj);
+  const { globalCurr: globalCurrParams } = useStoreState(
+    (state) => state.globalCurrParams
+  );
+  const { currName: currObjName } = useStoreState(
+    (state) => state.globalCurrObj
+  );
 
   const [value, setValue] = useState(default_val);
 
@@ -50,12 +52,10 @@ const TheParam = ({ parameters }) => {
           </NumberInput>
         );
       case "NESTED_OBJECT":
-        // Value for nested object has to be obtained here somehow
-        // addNestedSection(type)
+      // Value for nested object has to be obtained here somehow
+      // addNestedSection(type)
       case "LIST":
-        return (
-          <Box>Nested Function</Box>
-        );
+        return <Box>Nested Function</Box>;
       case "OPTION":
         return <Switch />;
       case "TEXT":

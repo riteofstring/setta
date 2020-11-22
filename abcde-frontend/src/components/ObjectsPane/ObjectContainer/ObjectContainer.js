@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import { HStack, Flex, Heading, Menu, Box, Button } from "@chakra-ui/react";
+import {
+  HStack,
+  Flex,
+  Heading,
+  Menu,
+  Box,
+  Button,
+  Spacer,
+} from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
@@ -66,13 +74,15 @@ const ObjectContainer = ({ theSection }) => {
   }, [activeObj]);
 
   return (
-    <Flex mt="2rem" direction="column">
+    <Flex direction="column">
       <Flex
         width="100%"
         bg={focus ? "gray.50" : "white"}
         onClick={() => setFocus(true)}
         ref={ref}
         direction="column"
+        padding="2.5rem"
+        borderRadius="md"
       >
         <Heading as="h2" size="xl" mb="0.5rem" w="100%">
           {theSection.name}
@@ -83,13 +93,14 @@ const ObjectContainer = ({ theSection }) => {
             <ObjectMenuButton theSection={theSection} />
             <ObjectMenu theSection={theSection} />
           </Menu>
+          <Spacer />
           <Button onClick={flipVisible}>
             {!!visible ? "Collapse" : "Show"}
           </Button>
         </HStack>
       </Flex>
       {theSection.name === "Transform" && (
-        <Flex mt="1rem" display={!visible ? "none" : "inherit"}>
+        <Flex mt="0rem" ml="2.5rem" display={!visible ? "none" : "inherit"}>
           <Box mt="0" mr=".5rem">
             <FiCornerDownRight size="2.4rem" color="#CBD5E0" />
           </Box>
@@ -104,6 +115,7 @@ const ObjectContainer = ({ theSection }) => {
             <Heading as="h2" size="xl" mb="0.5rem" w="100%">
               Test
             </Heading>
+            <Spacer />
             <Button w="100px">Test Btn</Button>
           </Flex>
         </Flex>
