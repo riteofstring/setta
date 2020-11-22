@@ -313,6 +313,23 @@
   "Transform": {
     "ModuleInfo": {
       "torchvision.transforms": {
+        "No compose!": {
+          "Trump": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "Biden": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "Jorg": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        },
         "Compose": {
           "transforms": {
             "default_val": "_empty",

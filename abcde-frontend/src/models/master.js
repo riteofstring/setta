@@ -45,18 +45,21 @@ const master = {
   addToVisibleSectionIds: action((state, payload) => {
     const splitId = getSplitId(payload);
     const numParents = splitId.length - 1;
-    const idToAdd = splitId[numParents]
+    const id = splitId[numParents];
     let curr = state.visibleSectionIds;
     for (let i = 0; i < numParents; i++) {
       curr = curr[splitId[i]];
     }
-    if (!(idToAdd in curr)){
-      curr[idToAdd] = {};
+    if (!(id in curr)) {
+      curr[id] = {};
     }
-    if (!(payload in state.selected)){
+    if (!(payload in state.selected)) {
       state.selected[payload] = {};
     }
-    console.log("state.addToVisibleSectionIds", debug(state.visibleSectionIds));
+    console.log(
+      "ADDING state.visibleSectionIds",
+      debug(state.visibleSectionIds)
+    );
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
@@ -67,9 +70,33 @@ const master = {
     action.addToVisibleSectionIds(id);
   }),
 
-  // deleteFromSectionIds: action((state, payload) => {
-  //   delete state.sectionIds[payload]
-  // }),
+  deletePrevFromVisibleSectionIds: action((state, payload) => {
+    const splitId = getSplitId(payload);
+    const numParents = splitId.length - 1;
+    const id = splitId[numParents];
+    let curr = state.visibleSectionIds;
+    for (let i = 0; i < numParents; i++) {
+      curr = curr[splitId[i]];
+    }
+    for (let k of Object.keys(curr)) {
+      if (k.startsWith(id)) {
+        delete curr[k];
+      }
+    }
+    console.log(
+      "DELETING state.addToVisibleSectionIds",
+      debug(state.visibleSectionIds)
+    );
+  }),
+
+  deletePrevFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
+    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
+    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
+    const { currName: objName } = helpers.getStoreState().globalCurrObj;
+    const id = createId(sectionId, moduleName, objName, "");
+    console.log("delete ids starting with", id);
+    action.deletePrevFromVisibleSectionIds(id);
+  }),
 };
 
 export default master;

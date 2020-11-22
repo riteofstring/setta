@@ -7,7 +7,7 @@ const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
   const { globalCurr: globalCurrParams } = useStoreState(
     (state) => state.globalCurrParams
   );
-  const { setSelected } = useStoreActions((actions) => actions.master);
+  const { setSelected, deletePrevFromVisibleSectionIdsThunk } = useStoreActions((actions) => actions.master);
   const {
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
   } = useStoreActions((actions) => actions.globalCurrParams);
@@ -27,6 +27,7 @@ const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
   } = useStoreActions((actions) => actions.globalCurrSection);
 
   const setSelectedAndCurrObj = () => {
+    deletePrevFromVisibleSectionIdsThunk();
     setCurrObjName(name);
     setCurrModuleName(moduleName);
     setCurrSectionName(sectionId);
