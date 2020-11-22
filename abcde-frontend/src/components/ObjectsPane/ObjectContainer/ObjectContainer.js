@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import {
-  HStack,
-  VStack,
-  Flex,
-  Heading,
-  Menu,
-  Box,
-  Button,
-} from "@chakra-ui/react";
+import { HStack, Flex, Heading, Menu, Box, Button } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
@@ -17,6 +9,11 @@ import { FiCornerDownRight } from "react-icons/fi";
 
 const ObjectContainer = ({ theSection }) => {
   const [focus, setFocus] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const flipVisible = () => {
+    setVisible(!visible);
+  };
+
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
   const { selected, activeObj } = useStoreState((state) => state.master);
@@ -68,8 +65,6 @@ const ObjectContainer = ({ theSection }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
-  console.log(theSection.name);
-
   return (
     <Flex mt="2rem" direction="column">
       <Flex
@@ -88,10 +83,13 @@ const ObjectContainer = ({ theSection }) => {
             <ObjectMenuButton theSection={theSection} />
             <ObjectMenu theSection={theSection} />
           </Menu>
+          <Button onClick={flipVisible}>
+            {!!visible ? "Collapse" : "Show"}
+          </Button>
         </HStack>
       </Flex>
       {theSection.name === "Transform" && (
-        <Flex mt="1rem">
+        <Flex mt="1rem" display={!visible ? "none" : "inherit"}>
           <Box mt="0" mr=".5rem">
             <FiCornerDownRight size="2.4rem" color="#CBD5E0" />
           </Box>
