@@ -7,7 +7,7 @@ import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
-const ObjectContainer = ({ theSection, depth }) => {
+const ObjectContainer = ({ sectionId, theSection }) => {
   const [focus, setFocus] = useState(false);
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
@@ -34,15 +34,15 @@ const ObjectContainer = ({ theSection, depth }) => {
 
   useEffect(() => {
     if (focus) {
-      setActiveObj(theSection.name);
+      setActiveObj(sectionId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
   useEffect(() => {
-    if (activeObj === theSection.name) {
+    if (activeObj === sectionId) {
       // console.log("INSIDE", selected[activeObj]);
-      setCurrSectionName(theSection.name);
+      setCurrSectionName(sectionId);
       maybeResetCurrModuleNameThunk();
       maybeResetCurrObjNameThunk();
       maybeSetGlobalCurrObjThunk();
@@ -62,11 +62,11 @@ const ObjectContainer = ({ theSection, depth }) => {
 
   return (
     <HStack
-      marginLeft={depth > 1 && `${depth * 3}rem`}
+      // marginLeft={depth > 1 && `${depth * 3}rem`}
       mt="2rem"
     >
-      {depth > 0 && <Box mr="2rem"><FiCornerDownRight size="3rem" color="#CBD5E0" /></Box>}
-       <VStack
+      {/* {depth > 0 && <Box mr="2rem"><FiCornerDownRight size="3rem" color="#CBD5E0" /></Box>} */}
+      <VStack
         spacing="1rem"
         width="100%"
         bg={focus ? "gray.50" : "white"}
@@ -79,14 +79,12 @@ const ObjectContainer = ({ theSection, depth }) => {
 
         <HStack spacing="2rem" w="100%">
           <Menu>
-            <ObjectMenuButton theSection={theSection} />
-            <ObjectMenu theSection={theSection} />
+            <ObjectMenuButton sectionId={sectionId} theSection={theSection} />
+            <ObjectMenu sectionId={sectionId} theSection={theSection} />
           </Menu>
         </HStack>
       </VStack>
-
     </HStack>
-
   );
 };
 

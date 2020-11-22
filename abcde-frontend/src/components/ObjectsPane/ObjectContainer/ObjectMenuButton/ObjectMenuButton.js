@@ -3,10 +3,10 @@ import { useStoreState } from "easy-peasy";
 import { HiChevronDown } from "react-icons/hi";
 import { MenuButton, Button } from "@chakra-ui/react";
 
-const ObjectMenuButton = ({ theSection }) => {
+const ObjectMenuButton = ({ theSection, sectionId }) => {
   const { selected } = useStoreState((state) => state.master);
 
-  const currObjectName = selected[theSection.name].name;
+  const currObjectName = selected[sectionId].name;
 
   return (
     <>
