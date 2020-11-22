@@ -10,7 +10,6 @@ import {
   Select,
   Switch,
 } from "@chakra-ui/react";
-import OutsideClickHandler from "react-outside-click-handler";
 
 const TheParam = ({ parameters }) => {
   const { name, ui_type, default_val } = parameters;
@@ -69,15 +68,6 @@ const TheParam = ({ parameters }) => {
   };
 
   return inputSwitch();
-  // <OutsideClickHandler
-  //   onOutsideClick={() => {
-  //     sendState(name, value);
-  //   }}
-  // >
-  //   {inputSwitch()}
-  // </OutsideClickHandler>
-  // {}
-  // );
 };
 
 export default TheParam;

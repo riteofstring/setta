@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 
@@ -30,7 +30,7 @@ const master = {
   setSelected: action((state, payload) => {
     const { sectionName, moduleName, name, currParams } = payload;
     state.selected[sectionName] = { moduleName, name, params: currParams };
-    console.log("state.selected", debug(state.selected))
+    // console.log("state.selected", debug(state.selected))
   }),
 
   // string name of currently active object
