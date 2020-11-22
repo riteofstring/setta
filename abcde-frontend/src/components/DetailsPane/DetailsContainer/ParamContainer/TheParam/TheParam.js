@@ -12,35 +12,25 @@ import {
 } from "@chakra-ui/react";
 
 const TheParam = ({ parameters }) => {
-  const { name, ui_type, default_val } = parameters;
+  const { name, type, ui_type, default_val } = parameters;
 
   const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
     (actions) => actions.globalCurrParams
   );
 
-  const { addToVisibleSectionIdsThunk } = useStoreActions(
+  const { addNestedSection } = useStoreActions(
     (actions) => actions.master
   );
 
-  const { globalCurr: globalCurrParams } = useStoreState(
-    (state) => state.globalCurrParams
-  );
-  const { currName: currObjName } = useStoreState(
-    (state) => state.globalCurrObj
-  );
+  const { globalCurr: globalCurrParams } = useStoreState((state) => state.globalCurrParams);
+  const { currName: currObjName } = useStoreState((state) => state.globalCurrObj);
 
   const [value, setValue] = useState(default_val);
-  const [addedNestedId, setAddedNestedId] = useState(false);
-
 
   const sendState = (name, value) => {
     setValue(value);
     setGlobalCurrParams({ name, value });
   };
-
-  useEffect(() => {
-    setAddedNestedId(false);
-  }, [parameters]);
 
   useEffect(() => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);
@@ -61,13 +51,11 @@ const TheParam = ({ parameters }) => {
         );
       case "NESTED_OBJECT":
         // Value for nested object has to be obtained here somehow
-        if (!addedNestedId) {
-          addToVisibleSectionIdsThunk(name);
-          setAddedNestedId(true);
-        }
-        return <Box>Nested Function</Box>;
+        // addNestedSection(type)
       case "LIST":
-        return <Box>It's a list bro!</Box>;
+        return (
+          <Box>Nested Function</Box>
+        );
       case "OPTION":
         return <Switch />;
       case "TEXT":
