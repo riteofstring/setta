@@ -14,12 +14,12 @@ import {
 const TheParam = ({ parameters }) => {
   const { name, ui_type, default_val } = parameters;
 
-  const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
+  const { setGlobalCurrParams } = useStoreActions(
     (actions) => actions.globalCurrParams
   );
 
-  const { globalCurr: globalCurrParams } = useStoreState((state) => state.globalCurrParams);
-  const { currName: currObjName } = useStoreState((state) => state.globalCurrObj);
+  const { globalCurrParams } = useStoreState((state) => state.globalCurrParams);
+  const { currObjName } = useStoreState((state) => state.globalCurrObj);
 
   const [value, setValue] = useState(default_val);
 

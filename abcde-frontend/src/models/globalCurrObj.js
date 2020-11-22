@@ -1,8 +1,67 @@
-import createGlobalCurr from "./globalCurr";
+import { action, thunk } from "easy-peasy";
 
-const globalCurrObj = createGlobalCurr({
-  parentName: "globalCurrModule",
-  childName: "globalCurrParams",
-});
+const globalCurrObj = {
+  prevObjName: null,
+  currObjName: null,
+  globalCurrObjs: {},
+
+  //actions
+
+  // compare curr/prev objects to determine whether user has changed obj
+  setCurrObjName: action((state, payload) => {
+    state.prevObjName = state.currObjName;
+    state.currObjName = payload;
+    state.objChanged = state.prevObjName !== state.currObjName;
+    // console.log("prevObjName", debug(state.prevObjName));
+    // console.log("currObjName", debug(state.currObjName));
+  }),
+
+  // called onClick to assign params to previous object name
+  setGlobalCurrObj: action((state, payload) => {
+    if (state.prevObjName && Object.keys(payload).length > 0) {
+      state.globalCurrObjs[state.prevObjName] = payload;
+    }
+    // console.log("globalCurrObjs", debug(state.globalCurrObjs));
+  }),
+
+  maybeSetGlobalCurrObjThunk: thunk((action, payload, helpers) => {
+    const { sectionChanged } = helpers.getStoreState().globalCurrSection;
+    const { globalCurrParams } = helpers.getStoreState().globalCurrParams;
+    if (sectionChanged) {
+      action.setGlobalCurrObj(globalCurrParams);
+    }
+  }),
+
+  maybeResetCurrObjNameThunk: thunk((action, payload, helpers) => {
+    const { moduleChanged } = helpers.getStoreState().globalCurrModule;
+    if (moduleChanged) {
+      action.setCurrObjName(null);
+    }
+  }),
+
+  // called when user switches to a different module.
+  // if there is info in the module, it will assign it to globalCurrObjs.
+  initGlobalCurrObjs: action((state, payload) => {
+    if (payload) {
+      state.globalCurrObjs = payload;
+    } else {
+      state.globalCurrObjs = {};
+    }
+    // console.log("initializing GlobalCurrObjs", debug(state.globalCurrObjs));
+  }),
+
+  // called on click, but only executes if moduleChanged is true.
+  // gets state from globalCurrModules
+  maybeInitGlobalCurrObjsThunk: thunk((action, payload, helpers) => {
+    const {
+      currModuleName,
+      moduleChanged,
+      globalCurrModule,
+    } = helpers.getStoreState().globalCurrModule;
+    if (moduleChanged) {
+      action.initGlobalCurrObjs(globalCurrModule[currModuleName]);
+    }
+  }),
+};
 
 export default globalCurrObj;
