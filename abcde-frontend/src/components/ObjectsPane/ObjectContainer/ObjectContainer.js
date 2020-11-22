@@ -10,30 +10,30 @@ const ObjectContainer = ({ theSection }) => {
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
   const { selected, activeObj } = useStoreState((state) => state.master);
-  const { maybeInitGlobalCurrParamsThunk } = useStoreActions(
-    (actions) => actions.globalCurrParams
-  );
   const {
-    maybeSetGlobalCurrObjThunk,
-    setCurrObjName,
-    maybeResetCurrObjNameThunk,
-    maybeInitGlobalCurrObjsThunk,
+    maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
+  } = useStoreActions((actions) => actions.globalCurrParams);
+  const {
+    maybeSetGlobalCurrThunk: maybeSetGlobalCurrObjThunk,
+    setCurrName: setCurrObjName,
+    maybeResetCurrNameThunk: maybeResetCurrObjNameThunk,
+    maybeInitGlobalCurrThunk: maybeInitGlobalCurrObjsThunk,
   } = useStoreActions((actions) => actions.globalCurrObj);
   const {
-    maybeResetCurrModuleNameThunk,
-    maybeSetGlobalCurrModuleThunk,
-    setCurrModuleName,
-    maybeInitGlobalCurrModuleThunk,
+    maybeResetCurrNameThunk: maybeResetCurrModuleNameThunk,
+    maybeSetGlobalCurrThunk: maybeSetGlobalCurrModuleThunk,
+    setCurrName: setCurrModuleName,
+    maybeInitGlobalCurrThunk: maybeInitGlobalCurrModuleThunk,
   } = useStoreActions((actions) => actions.globalCurrModule);
-  const { setCurrSectionName, setGlobalCurrSectionThunk } = useStoreActions(
-    (actions) => actions.globalCurrSection
-  );
+  const {
+    setCurrName: setCurrSectionName,
+    setGlobalCurrThunk: setGlobalCurrSectionThunk,
+  } = useStoreActions((actions) => actions.globalCurrSection);
 
   useEffect(() => {
     if (focus) {
       setActiveObj(theSection.name);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
   useEffect(() => {
@@ -54,7 +54,6 @@ const ObjectContainer = ({ theSection }) => {
         maybeInitGlobalCurrParamsThunk();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
   return (

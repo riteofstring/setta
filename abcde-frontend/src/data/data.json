@@ -402,8 +402,21 @@
                   "ColorJitter": {
                     "brightness": {
                       "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
+                      "type": {
+                        "ParameterInfo": {
+                          "delta": {
+                            "default_val": "",
+                            "type": "",
+                            "ui_type": "UNKNOWN"
+                          },
+                          "omega": {
+                            "default_val": "",
+                            "type": "",
+                            "ui_type": "UNKNOWN"
+                          }
+                        }
+                      },
+                      "ui_type": "NESTED_OBJECT"
                     },
                     "contrast": {
                       "default_val": "0",

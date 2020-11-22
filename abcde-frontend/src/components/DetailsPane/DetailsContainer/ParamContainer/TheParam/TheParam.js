@@ -10,16 +10,17 @@ import {
   Select,
   Switch,
 } from "@chakra-ui/react";
+import OutsideClickHandler from "react-outside-click-handler";
 
 const TheParam = ({ parameters }) => {
   const { name, ui_type, default_val } = parameters;
 
-  const { setGlobalCurrParams } = useStoreActions(
+  const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
     (actions) => actions.globalCurrParams
   );
 
-  const { globalCurrParams } = useStoreState((state) => state.globalCurrParams);
-  const { currObjName } = useStoreState((state) => state.globalCurrObj);
+  const { globalCurr: globalCurrParams } = useStoreState((state) => state.globalCurrParams);
+  const { currName: currObjName } = useStoreState((state) => state.globalCurrObj);
 
   const [value, setValue] = useState(default_val);
 
@@ -68,6 +69,15 @@ const TheParam = ({ parameters }) => {
   };
 
   return inputSwitch();
+  // <OutsideClickHandler
+  //   onOutsideClick={() => {
+  //     sendState(name, value);
+  //   }}
+  // >
+  //   {inputSwitch()}
+  // </OutsideClickHandler>
+  // {}
+  // );
 };
 
 export default TheParam;
