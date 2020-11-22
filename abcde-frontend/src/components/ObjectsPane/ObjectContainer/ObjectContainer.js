@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import {
-  HStack,
-  Flex,
-  Heading,
-  Menu,
-  Box,
-  Button,
-  Spacer,
-} from "@chakra-ui/react";
+import { HStack, VStack, Heading, Menu, Box } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
@@ -17,11 +9,6 @@ import { FiCornerDownRight } from "react-icons/fi";
 
 const ObjectContainer = ({ sectionId, theSection }) => {
   const [focus, setFocus] = useState(false);
-  const [visible, setVisible] = useState(true);
-  const flipVisible = () => {
-    setVisible(!visible);
-  };
-
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
   const { selected, activeObj } = useStoreState((state) => state.master);
@@ -74,17 +61,19 @@ const ObjectContainer = ({ sectionId, theSection }) => {
   }, [activeObj]);
 
   return (
-    <Flex direction="column">
-      <Flex
+    <HStack
+      // marginLeft={depth > 1 && `${depth * 3}rem`}
+      mt="2rem"
+    >
+      {/* {depth > 0 && <Box mr="2rem"><FiCornerDownRight size="3rem" color="#CBD5E0" /></Box>} */}
+      <VStack
+        spacing="1rem"
         width="100%"
         bg={focus ? "gray.50" : "white"}
         onClick={() => setFocus(true)}
         ref={ref}
-        direction="column"
-        padding="2.5rem"
-        borderRadius="md"
       >
-        <Heading as="h2" size="xl" mb="0.5rem" w="100%">
+        <Heading as="h2" size="xl" w="100%">
           {theSection.name}
         </Heading>
 
@@ -93,34 +82,9 @@ const ObjectContainer = ({ sectionId, theSection }) => {
             <ObjectMenuButton sectionId={sectionId} theSection={theSection} />
             <ObjectMenu sectionId={sectionId} theSection={theSection} />
           </Menu>
-          <Spacer />
-          <Button onClick={flipVisible}>
-            {!!visible ? "Collapse" : "Show"}
-          </Button>
         </HStack>
-      </Flex>
-      {theSection.name === "Transform" && (
-        <Flex mt="0rem" ml="2.5rem" display={!visible ? "none" : "inherit"}>
-          <Box mt="0" mr=".5rem">
-            <FiCornerDownRight size="2.4rem" color="#CBD5E0" />
-          </Box>
-          {/* <ObjectContainer theSection={theSection} /> */}
-          <Flex
-            width="100%"
-            bg={focus ? "gray.50" : "white"}
-            onClick={() => setFocus(true)}
-            ref={ref}
-            direction="column"
-          >
-            <Heading as="h2" size="xl" mb="0.5rem" w="100%">
-              Test
-            </Heading>
-            <Spacer />
-            <Button w="100px">Test Btn</Button>
-          </Flex>
-        </Flex>
-      )}
-    </Flex>
+      </VStack>
+    </HStack>
   );
 };
 

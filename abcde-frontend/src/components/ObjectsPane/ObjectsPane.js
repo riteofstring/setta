@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Heading, Flex } from "@chakra-ui/react";
+import { Heading, VStack, Flex } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { getSection, getVisibleSectionOrder } from "../../utils/sectionIds"
 
@@ -13,12 +13,13 @@ const ObjectsPane = () => {
   }, [loadObjects]);
 
   return (
-    <Flex direction="column" mr="5rem">
-      <Heading as="h1" size="2xl" color="gray.600">
+    <Flex direction="column" spacing="2rem">
+      <Heading as="h1" size="2xl">
         Objects
       </Heading>
       {getVisibleSectionOrder(visibleSectionIds).map((e, idx) => (
         <ObjectContainer sectionId={e} theSection={getSection(sections, e)} key={`${e}-${idx}`} />
+       
       ))}
     </Flex>
   );

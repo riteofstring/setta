@@ -7,7 +7,7 @@ const ParamContainer = ({ parameters }) => {
 
   return (
     <VStack>
-      <Heading as="h3" size="md" color="gray.500">
+      <Heading as="h3" size="md">
         {name}
       </Heading>
       <TheParam parameters={parameters} />
