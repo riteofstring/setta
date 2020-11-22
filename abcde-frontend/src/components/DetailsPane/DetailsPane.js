@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect } from "react";
-import { Box, Flex, VStack, HStack, Heading } from "@chakra-ui/react";
+import { Box, Flex, HStack, Heading, css } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import DetailsContainer from "./DetailsContainer/DetailsContainer";
 
@@ -18,17 +18,26 @@ const DetailsPane = () => {
   });
 
   return (
-    <Flex flexDir="column">
-      <VStack spacing="2rem">
-        <Heading as="h1" size="2xl">
+    <Box
+    // css={css`
+    //   align-items: flex-start;
+    // `}
+    >
+      <Flex
+        align="flex-start"
+        flexDir="column"
+        boxShadow="xl"
+        bg="gray.50"
+        borderRadius="3xl"
+        padding="5rem"
+      >
+        <Heading as="h1" size="2xl" color="gray.600">
           Details
         </Heading>
-        <HStack>
-          {loaded && <DetailsContainer />}
-          <Box></Box>
-        </HStack>
-      </VStack>
-    </Flex>
+
+        {loaded && <DetailsContainer />}
+      </Flex>
+    </Box>
   );
 };
 
