@@ -1,16 +1,17 @@
 import React from "react";
-import ObjectsPane from "../ObjectsPane/ObjectsPane";
+import SectionsPane from "../SectionsPane/SectionsPane";
 import DetailsPane from "../DetailsPane/DetailsPane";
-
+import Submit from "../Submit/Submit";
 import { Flex } from "@chakra-ui/react";
 
 const Container = () => {
   return (
     <Flex align="center" justify="center" h="100vh">
-      <Flex w="80vw" maxWidth={1280} h="100%" p="5rem">
-        <ObjectsPane />
-        <DetailsPane />
+      <Flex w="95vw" maxWidth={1600} h="100%" p="5rem">
+        <SectionsPane />
+        {/* <DetailsPane /> */}
       </Flex>
+      {/* <Submit /> */}
     </Flex>
   );
 };

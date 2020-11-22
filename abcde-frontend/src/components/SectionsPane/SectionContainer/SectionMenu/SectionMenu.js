@@ -2,7 +2,7 @@ import React from "react";
 import { MenuList, MenuGroup, MenuDivider } from "@chakra-ui/react";
 import MenuObjs from "./MenuObjs/MenuObjs";
 
-const ObjectMenu = ({ sectionId, theSection }) => {
+const SectionMenu = ({ sectionId, theSection }) => {
   const { moduleInfos } = theSection;
   const moduleInfosArr = Object.keys(moduleInfos);
 
@@ -23,4 +23,4 @@ const ObjectMenu = ({ sectionId, theSection }) => {
   );
 };
 
-export default React.memo(ObjectMenu);
+export default React.memo(SectionMenu);

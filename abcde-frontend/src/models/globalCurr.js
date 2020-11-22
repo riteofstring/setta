@@ -1,4 +1,4 @@
-import { action, thunk, debug } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 
 const createGlobalCurr = ({
   parentName,

@@ -1,4 +1,4 @@
-import { action, debug, thunk } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 import {
@@ -16,10 +16,11 @@ const master = {
   prevSectionIdExParam: null,
   currSectionIdExParam: null,
   activeObj: "",
+  visible: true,
 
   // actions
   // Load DATA
-  loadObjects: action((state) => {
+  loadSections: action((state) => {
     for (let key of Object.keys(Data)) {
       state.sections[key] = new Section(key, Data[key]);
     }
@@ -33,9 +34,9 @@ const master = {
     }
   }),
 
-  resetObjects: action((state) => {
-    state.objectList = {};
-    state.sections = [];
+  // Show/Collapse button
+  setVisible: action((state, payload) => {
+    state.visible = payload;
   }),
 
   // stores what fields to show
@@ -66,7 +67,7 @@ const master = {
         if (id in currHistory) {
           const previouslySelectedObj = state.selected[fullId].name;
           for (let k of Object.keys(currHistory[id])) {
-            if (parseNestedId(k).objName == previouslySelectedObj) {
+            if (parseNestedId(k).objName === previouslySelectedObj) {
               curr[id][k] = currHistory[id][k];
             }
           }

@@ -1,29 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import ObjectMenu from "./ObjectMenu/ObjectMenu";
-import {
-  HStack,
-  Flex,
-  Heading,
-  Menu,
-  Box,
-  Button,
-  Spacer,
-} from "@chakra-ui/react";
+import SectionHeading from "./SectionHeading";
+import { Flex } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
-import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
-import { getSection, combineIds } from "../../../utils/sectionIds";
+import SectionUI from "./SectionUI";
+import NestedSection from "./NestedSection";
 
-import { FiCornerDownRight } from "react-icons/fi";
-
-const ObjectContainer = ({ sectionId, visibleSectionIds, theSection }) => {
+const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
   const [focus, setFocus] = useState(false);
-  const [visible, setVisible] = useState(true);
-  const flipVisible = () => {
-    setVisible(!visible);
-  };
-
-  const { sections } = useStoreState((state) => state.master);
 
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
@@ -87,48 +71,22 @@ const ObjectContainer = ({ sectionId, visibleSectionIds, theSection }) => {
         padding="2.5rem"
         borderRadius="md"
       >
-        <Heading as="h2" size="xl" mb="0.5rem" w="100%">
-          {theSection.name}
-        </Heading>
-
-        <HStack spacing="2rem" w="100%">
-          <Menu>
-            <ObjectMenuButton sectionId={sectionId} theSection={theSection} />
-            <ObjectMenu sectionId={sectionId} theSection={theSection} />
-          </Menu>
-          <Spacer />
-          {Object.keys(visibleSectionIds).length > 0 && (
-            <Button onClick={flipVisible}>
-              {!!visible ? "Collapse" : "Show"}
-            </Button>
-          )}
-        </HStack>
+        <SectionHeading heading={theSection.name} />
+        <SectionUI
+          sectionId={sectionId}
+          visibleSectionIds={visibleSectionIds}
+          theSection={theSection}
+        />
       </Flex>
       {Object.keys(visibleSectionIds).length > 0 &&
         Object.keys(visibleSectionIds).map((e, idx) => (
-          <Flex
-            mt="0rem"
-            ml="2.5rem"
-            display={!visible ? "none" : "inherit"}
-            key={`nest-flex-${e}-${idx}`}
-          >
-            <Box mt="0" mr=".5rem" key={`ic-con-${e}-${idx}`}>
-              <FiCornerDownRight
-                size="2.4rem"
-                color="#CBD5E0"
-                key={`icon-${e}-${idx}`}
-              />
-            </Box>
-            <ObjectContainer
-              sectionId={combineIds(sectionId, e)}
-              visibleSectionIds={visibleSectionIds[e]}
-              theSection={getSection(sections, combineIds(sectionId, e))}
-              key={`${e}-${idx}`}
-            />
-          </Flex>
+          <NestedSection
+            sectionId={sectionId}
+            visibleSectionIds={visibleSectionIds}
+          />
         ))}
     </Flex>
   );
 };
 
-export default React.memo(ObjectContainer);
+export default React.memo(SectionContainer);
