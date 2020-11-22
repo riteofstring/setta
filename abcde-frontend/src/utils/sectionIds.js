@@ -27,8 +27,12 @@ const parseNestedId = (id) => {
   return { moduleName, objName, paramName };
 };
 
+export const getSplitId = (id) => {
+  return id.split(NESTED);
+};
+
 const parseId = (id) => {
-  const splitId = id.split(NESTED);
+  const splitId = getSplitId(id);
   const output = [splitId[0]];
   for (let i = 1; i < splitId.length; i++) {
     output.push(parseNestedId(splitId[i]));
@@ -53,11 +57,12 @@ export const getSection = (sections, id) => {
   return currSection;
 };
 
-export const getVisibleSectionOrder = (visibleSectionIds) => {
+export const getVisibleSectionOrder = (visibleSectionIds, parentName="") => {
   let output = [];
-  for (let k of Object.keys(visibleSectionIds)){
-      output.push(k)
-      output.push(...getVisibleSectionOrder(visibleSectionIds[k]))
+  for (let k of Object.keys(visibleSectionIds)) {
+    let id = parentName === "" ? k : parentName + NESTED + k
+    output.push(id);
+    output.push(...getVisibleSectionOrder(visibleSectionIds[k], id));
   }
-  return output
+  return output;
 };

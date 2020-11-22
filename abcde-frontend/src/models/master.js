@@ -1,7 +1,7 @@
 import { action, debug, thunk } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
-import { createId } from "../utils/sectionIds"
+import { createId, getSplitId } from "../utils/sectionIds";
 
 const master = {
   sections: {},
@@ -43,10 +43,20 @@ const master = {
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
-    const {parentId, id} = payload
-    state.visibleSectionIds[parentId][id] = {}
-    state.selected[id] = {}
-    console.log("state.addToVisibleSectionIds", debug(state.addToVisibleSectionIds))
+    const splitId = getSplitId(payload);
+    const numParents = splitId.length - 1;
+    const idToAdd = splitId[numParents]
+    let curr = state.visibleSectionIds;
+    for (let i = 0; i < numParents; i++) {
+      curr = curr[splitId[i]];
+    }
+    if (!(idToAdd in curr)){
+      curr[idToAdd] = {};
+    }
+    if (!(payload in state.selected)){
+      state.selected[payload] = {};
+    }
+    console.log("state.addToVisibleSectionIds", debug(state.visibleSectionIds));
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
@@ -54,13 +64,12 @@ const master = {
     const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
     const { currName: objName } = helpers.getStoreState().globalCurrObj;
     const id = createId(sectionId, moduleName, objName, payload);
-    action.addToVisibleSectionIds({parentId: sectionId, id})
+    action.addToVisibleSectionIds(id);
   }),
 
   // deleteFromSectionIds: action((state, payload) => {
   //   delete state.sectionIds[payload]
   // }),
-
 };
 
 export default master;

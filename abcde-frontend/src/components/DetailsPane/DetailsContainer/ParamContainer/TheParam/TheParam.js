@@ -22,16 +22,25 @@ const TheParam = ({ parameters }) => {
     (actions) => actions.master
   );
 
-  const { globalCurr: globalCurrParams } = useStoreState((state) => state.globalCurrParams);
-  const { currName: currObjName } = useStoreState((state) => state.globalCurrObj);
+  const { globalCurr: globalCurrParams } = useStoreState(
+    (state) => state.globalCurrParams
+  );
+  const { currName: currObjName } = useStoreState(
+    (state) => state.globalCurrObj
+  );
 
   const [value, setValue] = useState(default_val);
   const [addedNestedId, setAddedNestedId] = useState(false);
+
 
   const sendState = (name, value) => {
     setValue(value);
     setGlobalCurrParams({ name, value });
   };
+
+  useEffect(() => {
+    setAddedNestedId(false);
+  }, [name]);
 
   useEffect(() => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);
@@ -52,14 +61,13 @@ const TheParam = ({ parameters }) => {
         );
       case "NESTED_OBJECT":
         // Value for nested object has to be obtained here somehow
-        if (!addedNestedId){
-          addToVisibleSectionIdsThunk(name)
-          setAddedNestedId(true)
+        if (!addedNestedId) {
+          addToVisibleSectionIdsThunk(name);
+          setAddedNestedId(true);
         }
+        return <Box>Nested Function</Box>;
       case "LIST":
-        return (
-          <Box>Nested Function</Box>
-        );
+        return <Box>It's a list bro!</Box>;
       case "OPTION":
         return <Switch />;
       case "TEXT":
