@@ -1,12 +1,10 @@
-import { action, debug } from "easy-peasy";
+import { action, debug, thunk } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
+import { createId } from "../utils/sectionIds"
 
 const master = {
   sections: {},
-  sectionNames: [],
-  orderAndDepth: [],
-  sectionParentNames: [],
   selected: {},
   activeObj: "",
 
@@ -15,12 +13,7 @@ const master = {
   loadObjects: action((state) => {
     for (let key of Object.keys(Data)) {
       state.sections[key] = new Section(key, Data[key]);
-      state.orderAndDepth.push({name: key, depth: 0})
     }
-    state.orderAndDepth[3]["depth"] = 1
-    state.orderAndDepth[4]["depth"] = 2 
-    console.log(debug(state.orderAndDepth))
-    state.sectionNames = Object.keys(state.sections);
     state.selected = Object.keys(state.sections).reduce(
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
@@ -34,8 +27,8 @@ const master = {
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    const { sectionName, moduleName, name, currParams } = payload;
-    state.selected[sectionName] = { moduleName, name, params: currParams };
+    const { sectionId, moduleName, name, currParams } = payload;
+    state.selected[sectionId] = { moduleName, name, params: currParams };
     // console.log("state.selected", debug(state.selected))
   }),
 
@@ -44,18 +37,23 @@ const master = {
     state.activeObj = payload;
   }),
 
-  addNestedSection: action((state, payload) => {
-    let depth = 0
-    let i = 0
-    for (let name of state.sectionParentNames){
-      i = state.orderAndDepth.indexOf({name, depth}, i)
-      depth += 1
-    }
-    const name = state.sectionParentNames[depth]
-    i += 1
-    state.sections[name] = payload
-    state.orderAndDepth = [...state.orderAndDepth.slice(0, i), {name, depth}, ...state.orderAndDepth.slice(i)]
+  addToSelected: action((state, payload) => {
+    state.selected[payload] = {}
+    console.log("state.selected", debug(state.selected))
   }),
+
+  addToSelectedThunk: thunk((action, payload, helpers) => {
+    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
+    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
+    const { currName: objName } = helpers.getStoreState().globalCurrObj;
+    const id = createId(sectionId, moduleName, objName, payload);
+    action.addToSelected(id)
+  }),
+
+  // deleteFromSectionIds: action((state, payload) => {
+  //   delete state.sectionIds[payload]
+  // }),
+
 };
 
 export default master;

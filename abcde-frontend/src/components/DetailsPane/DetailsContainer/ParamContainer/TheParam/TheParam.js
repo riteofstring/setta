@@ -12,13 +12,13 @@ import {
 } from "@chakra-ui/react";
 
 const TheParam = ({ parameters }) => {
-  const { name, type, ui_type, default_val } = parameters;
+  const { name, ui_type, default_val } = parameters;
 
   const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
     (actions) => actions.globalCurrParams
   );
 
-  const { addNestedSection } = useStoreActions(
+  const { addToSelectedThunk } = useStoreActions(
     (actions) => actions.master
   );
 
@@ -26,6 +26,7 @@ const TheParam = ({ parameters }) => {
   const { currName: currObjName } = useStoreState((state) => state.globalCurrObj);
 
   const [value, setValue] = useState(default_val);
+  const [addedNestedId, setAddedNestedId] = useState(false);
 
   const sendState = (name, value) => {
     setValue(value);
@@ -51,7 +52,10 @@ const TheParam = ({ parameters }) => {
         );
       case "NESTED_OBJECT":
         // Value for nested object has to be obtained here somehow
-        // addNestedSection(type)
+        if (!addedNestedId){
+          addToSelectedThunk(name)
+          setAddedNestedId(true)
+        }
       case "LIST":
         return (
           <Box>Nested Function</Box>
