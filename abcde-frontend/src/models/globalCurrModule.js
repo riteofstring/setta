@@ -1,4 +1,4 @@
-import { action, thunk, debug } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 
 const globalCurrModule = {
   prevModuleName: null,
@@ -33,13 +33,12 @@ const globalCurrModule = {
   }),
 
   maybeSetGlobalCurrModuleThunk: thunk((action, payload, helpers) => {
-    const { sectionChanged } = helpers.getStoreState().globalCurrSection
+    const { sectionChanged } = helpers.getStoreState().globalCurrSection;
     const { globalCurrObjs } = helpers.getStoreState().globalCurrObj;
     if (sectionChanged) {
       action._setGlobalCurrModule(globalCurrObjs);
     }
   }),
-
 
   maybeResetCurrModuleNameThunk: thunk((action, payload, helpers) => {
     const { sectionChanged } = helpers.getStoreState().globalCurrSection;
