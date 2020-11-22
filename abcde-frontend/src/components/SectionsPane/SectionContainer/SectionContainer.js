@@ -68,7 +68,7 @@ const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
         onClick={() => setFocus(true)}
         ref={ref}
         direction="column"
-        padding="2.5rem"
+        padding="1.25rem"
         borderRadius="md"
       >
         <SectionHeading heading={theSection.name} />

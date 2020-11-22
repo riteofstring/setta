@@ -9,6 +9,7 @@ const PaneHeading = ({ heading }) => {
       color="gray.600"
       fontWeight="100"
       letterSpacing="-0.0025rem"
+      mb="2.5rem"
     >
       {heading}
     </Heading>

@@ -10,8 +10,8 @@ const Container = () => {
       <Flex w="95vw" maxWidth={1600} h="100%" p="5rem">
         <SectionsPane />
         <DetailsPane />
+        <Submit />
       </Flex>
-      {/* <Submit /> */}
     </Flex>
   );
 };
