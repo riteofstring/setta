@@ -19,7 +19,7 @@ export const createId = (sectionName, moduleName, objName, paramName) => {
   );
 };
 
-const parseNestedId = (id) => {
+export const parseNestedId = (id) => {
   const splitId = id.split(SEPARATOR);
   const moduleName = splitId[0].split(MODULE)[1];
   const objName = splitId[1].split(OBJ)[1];
@@ -30,6 +30,19 @@ const parseNestedId = (id) => {
 export const getSplitId = (id) => {
   return id.split(NESTED);
 };
+
+export const getTopLevelSectionId = (id) => {
+  return getSplitId(id)[0]
+}
+
+export const getParentId = (id) => {
+  const splitId = getSplitId(id);
+  return splitId.slice(0, splitId.length-1).join(NESTED)
+}
+
+export const getChildId = (id) => {
+  return getSplitId(id).pop()
+}
 
 const parseId = (id) => {
   const splitId = getSplitId(id);
@@ -57,10 +70,10 @@ export const getSection = (sections, id) => {
   return currSection;
 };
 
-export const getVisibleSectionOrder = (visibleSectionIds, parentName="") => {
+export const getVisibleSectionOrder = (visibleSectionIds, parentName = "") => {
   let output = [];
   for (let k of Object.keys(visibleSectionIds)) {
-    let id = parentName === "" ? k : parentName + NESTED + k
+    let id = parentName === "" ? k : parentName + NESTED + k;
     output.push(id);
     output.push(...getVisibleSectionOrder(visibleSectionIds[k], id));
   }

@@ -342,18 +342,18 @@
                       "type": {
                         "ModuleInfo": {
                           "torchvision.transforms": {
-                            "BALLS DEEP!": {
-                              "brightness": {
+                            "Jupiter": {
+                              "Uranus": {
                                 "default_val": "0",
                                 "type": "_empty",
                                 "ui_type": "UNKNOWN"
                               },
-                              "contrast": {
+                              "Pluto": {
                                 "default_val": "0",
                                 "type": "_empty",
                                 "ui_type": "UNKNOWN"
                               },
-                              "bullshit": {
+                              "Saturn": {
                                 "default_val": "0",
                                 "type": "_empty",
                                 "ui_type": "UNKNOWN"
@@ -403,7 +403,7 @@
                       "type": {
                         "ModuleInfo": {
                           "torchvision.transforms": {
-                            "BALLS DEEP!": {
+                            "GORILLA BALLS": {
                               "brightness": {
                                 "default_val": "0",
                                 "type": "_empty",
@@ -430,7 +430,7 @@
                       "type": {
                         "ModuleInfo": {
                           "torchvision.transforms": {
-                            "More shit": {
+                            "SHIT": {
                               "oh": {
                                 "default_val": "0",
                                 "type": "_empty",

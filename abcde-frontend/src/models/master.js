@@ -1,7 +1,12 @@
 import { action, debug, thunk } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
-import { createId, getSplitId } from "../utils/sectionIds";
+import {
+  createId,
+  getSplitId,
+  parseNestedId,
+  getTopLevelSectionId,
+} from "../utils/sectionIds";
 
 const master = {
   sections: {},
@@ -37,7 +42,6 @@ const master = {
   setSelected: action((state, payload) => {
     const { sectionId, moduleName, name, currParams } = payload;
     state.selected[sectionId] = { moduleName, name, params: currParams };
-    console.log("state.selected", debug(state.selected));
   }),
 
   // string name of currently active object
@@ -58,10 +62,15 @@ const master = {
     }
     if (command === "add") {
       if (!(id in curr)) {
+        curr[id] = {};
         if (id in currHistory) {
-          curr[id] = currHistory[id];
+          const previouslySelectedObj = state.selected[fullId].name;
+          for (let k of Object.keys(currHistory[id])) {
+            if (parseNestedId(k).objName == previouslySelectedObj) {
+              curr[id][k] = currHistory[id][k];
+            }
+          }
         } else {
-          curr[id] = {};
           currHistory[id] = {};
         }
       }
@@ -88,7 +97,6 @@ const master = {
     const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
     const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
     const { currName: objName } = helpers.getStoreState().globalCurrObj;
-    console.log("objName", objName);
     if ([sectionId, moduleName, objName].indexOf(null) === -1) {
       return createId(sectionId, moduleName, objName, payload);
     } else {
@@ -119,7 +127,8 @@ const master = {
       if (
         helpers.getState().sectionIdExParamChanged &&
         prev !== null &&
-        !parentSectionId.startsWith(prev)
+        !parentSectionId.startsWith(prev) &&
+        getTopLevelSectionId(prev) === getTopLevelSectionId(parentSectionId)
       ) {
         action.modifyVisibleSectionIds({
           fullId: prev,
