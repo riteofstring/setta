@@ -83,6 +83,9 @@ const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
           <NestedSection
             sectionId={sectionId}
             visibleSectionIds={visibleSectionIds}
+            e={e}
+            idx={idx}
+            key={`Nested-Sec-${e}-${idx}`}
           />
         ))}
     </Flex>

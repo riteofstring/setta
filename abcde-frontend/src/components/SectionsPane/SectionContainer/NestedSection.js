@@ -6,7 +6,7 @@ import { getSection, combineIds } from "../../../utils/sectionIds";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
-const SectionContainer = ({ sectionId, visibleSectionIds }) => {
+const SectionContainer = ({ sectionId, visibleSectionIds, e, idx }) => {
   const { sections } = useStoreState((state) => state.master);
   const { visible } = useStoreActions((actions) => actions.master);
 
@@ -29,7 +29,6 @@ const SectionContainer = ({ sectionId, visibleSectionIds }) => {
           sectionId={combineIds(sectionId, e)}
           visibleSectionIds={visibleSectionIds[e]}
           theSection={getSection(sections, combineIds(sectionId, e))}
-          key={`${e}-${idx}`}
         />
       </Flex>
     </>

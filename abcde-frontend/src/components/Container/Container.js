@@ -9,7 +9,7 @@ const Container = () => {
     <Flex align="center" justify="center" h="100vh">
       <Flex w="95vw" maxWidth={1600} h="100%" p="5rem">
         <SectionsPane />
-        {/* <DetailsPane /> */}
+        <DetailsPane />
       </Flex>
       {/* <Submit /> */}
     </Flex>
