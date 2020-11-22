@@ -12,15 +12,18 @@ import {
 } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
+import { getSection, combineIds } from "../../../utils/sectionIds";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
-const ObjectContainer = ({ sectionId, theSection }) => {
+const ObjectContainer = ({ sectionId, visibleSectionIds, theSection }) => {
   const [focus, setFocus] = useState(false);
   const [visible, setVisible] = useState(true);
   const flipVisible = () => {
     setVisible(!visible);
   };
+
+  const { sections } = useStoreState((state) => state.master);
 
   const ref = useOnClickOutsideRef(() => setFocus(false));
   const { setActiveObj } = useStoreActions((actions) => actions.master);
@@ -94,32 +97,36 @@ const ObjectContainer = ({ sectionId, theSection }) => {
             <ObjectMenu sectionId={sectionId} theSection={theSection} />
           </Menu>
           <Spacer />
-          <Button onClick={flipVisible}>
-            {!!visible ? "Collapse" : "Show"}
-          </Button>
+          {Object.keys(visibleSectionIds).length > 0 && (
+            <Button onClick={flipVisible}>
+              {!!visible ? "Collapse" : "Show"}
+            </Button>
+          )}
         </HStack>
       </Flex>
-      {theSection.name === "Transform" && (
-        <Flex mt="0rem" ml="2.5rem" display={!visible ? "none" : "inherit"}>
-          <Box mt="0" mr=".5rem">
-            <FiCornerDownRight size="2.4rem" color="#CBD5E0" />
-          </Box>
-          {/* <ObjectContainer theSection={theSection} /> */}
+      {Object.keys(visibleSectionIds).length > 0 &&
+        Object.keys(visibleSectionIds).map((e, idx) => (
           <Flex
-            width="100%"
-            bg={focus ? "gray.50" : "white"}
-            onClick={() => setFocus(true)}
-            ref={ref}
-            direction="column"
+            mt="0rem"
+            ml="2.5rem"
+            display={!visible ? "none" : "inherit"}
+            key={`nest-flex-${e}-${idx}`}
           >
-            <Heading as="h2" size="xl" mb="0.5rem" w="100%">
-              Test
-            </Heading>
-            <Spacer />
-            <Button w="100px">Test Btn</Button>
+            <Box mt="0" mr=".5rem" key={`ic-con-${e}-${idx}`}>
+              <FiCornerDownRight
+                size="2.4rem"
+                color="#CBD5E0"
+                key={`icon-${e}-${idx}`}
+              />
+            </Box>
+            <ObjectContainer
+              sectionId={combineIds(sectionId, e)}
+              visibleSectionIds={visibleSectionIds[e]}
+              theSection={getSection(sections, combineIds(sectionId, e))}
+              key={`${e}-${idx}`}
+            />
           </Flex>
-        </Flex>
-      )}
+        ))}
     </Flex>
   );
 };

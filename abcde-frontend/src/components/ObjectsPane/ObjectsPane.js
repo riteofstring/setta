@@ -1,13 +1,15 @@
 import React, { useEffect } from "react";
 import { Heading, Flex } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { getSection, getVisibleSectionOrder } from "../../utils/sectionIds"
+import { getSection } from "../../utils/sectionIds";
 
 import ObjectContainer from "./ObjectContainer/ObjectContainer";
 
 const ObjectsPane = () => {
   const { loadObjects } = useStoreActions((actions) => actions.master);
-  const { sections, visibleSectionIds } = useStoreState((state) => state.master);
+  const { sections, visibleSectionIds } = useStoreState(
+    (state) => state.master
+  );
   useEffect(() => {
     loadObjects();
   }, [loadObjects]);
@@ -17,8 +19,13 @@ const ObjectsPane = () => {
       <Heading as="h1" size="2xl" color="gray.600">
         Objects
       </Heading>
-      {getVisibleSectionOrder(visibleSectionIds).map((e, idx) => (
-        <ObjectContainer sectionId={e} theSection={getSection(sections, e)} key={`${e}-${idx}`} />
+      {Object.keys(visibleSectionIds).map((e, idx) => (
+        <ObjectContainer
+          sectionId={e}
+          visibleSectionIds={visibleSectionIds[e]}
+          theSection={getSection(sections, e)}
+          key={`${e}-${idx}`}
+        />
       ))}
     </Flex>
   );

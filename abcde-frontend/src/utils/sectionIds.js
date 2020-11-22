@@ -32,17 +32,17 @@ export const getSplitId = (id) => {
 };
 
 export const getTopLevelSectionId = (id) => {
-  return getSplitId(id)[0]
-}
+  return getSplitId(id)[0];
+};
 
 export const getParentId = (id) => {
   const splitId = getSplitId(id);
-  return splitId.slice(0, splitId.length-1).join(NESTED)
-}
+  return splitId.slice(0, splitId.length - 1).join(NESTED);
+};
 
 export const getChildId = (id) => {
-  return getSplitId(id).pop()
-}
+  return getSplitId(id).pop();
+};
 
 const parseId = (id) => {
   const splitId = getSplitId(id);
@@ -78,4 +78,8 @@ export const getVisibleSectionOrder = (visibleSectionIds, parentName = "") => {
     output.push(...getVisibleSectionOrder(visibleSectionIds[k], id));
   }
   return output;
+};
+
+export const combineIds = (parent, child) => {
+  return parent + NESTED + child;
 };
