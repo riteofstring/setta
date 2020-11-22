@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 
 const globalCurrObj = {
   prevObjName: null,
@@ -25,7 +25,7 @@ const globalCurrObj = {
   }),
 
   maybeSetGlobalCurrObjThunk: thunk((action, payload, helpers) => {
-    const { sectionChanged } = helpers.getStoreState().globalCurrSection;
+    const { sectionChanged } = helpers.getStoreState().globalCurrSection
     const { globalCurrParams } = helpers.getStoreState().globalCurrParams;
     if (sectionChanged) {
       action.setGlobalCurrObj(globalCurrParams);

@@ -33,7 +33,6 @@ const ObjectContainer = ({ theSection }) => {
     if (focus) {
       setActiveObj(theSection.name);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
   useEffect(() => {
@@ -54,7 +53,6 @@ const ObjectContainer = ({ theSection }) => {
         maybeInitGlobalCurrParamsThunk();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
   return (
