@@ -1,13 +1,20 @@
-import { action, debug } from "easy-peasy";
+import { action, debug, thunk } from "easy-peasy";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
+import {
+  createId,
+  getSplitId,
+  parseNestedId,
+  getTopLevelSectionId,
+} from "../utils/sectionIds";
 
 const master = {
   sections: {},
-  sectionNames: [],
-  orderAndDepth: [],
-  sectionParentNames: [],
   selected: {},
+  visibleSectionIds: {},
+  visibleSectionIdsHistory: {},
+  prevSectionIdExParam: null,
+  currSectionIdExParam: null,
   activeObj: "",
 
   // actions
@@ -15,16 +22,15 @@ const master = {
   loadObjects: action((state) => {
     for (let key of Object.keys(Data)) {
       state.sections[key] = new Section(key, Data[key]);
-      state.orderAndDepth.push({name: key, depth: 0})
     }
-    state.orderAndDepth[3]["depth"] = 1
-    state.orderAndDepth[4]["depth"] = 2 
-    console.log(debug(state.orderAndDepth))
-    state.sectionNames = Object.keys(state.sections);
     state.selected = Object.keys(state.sections).reduce(
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
+    for (let k of Object.keys(state.selected)) {
+      state.visibleSectionIds[k] = {};
+      state.visibleSectionIdsHistory[k] = {};
+    }
   }),
 
   resetObjects: action((state) => {
@@ -34,9 +40,8 @@ const master = {
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    const { sectionName, moduleName, name, currParams } = payload;
-    state.selected[sectionName] = { moduleName, name, params: currParams };
-    // console.log("state.selected", debug(state.selected))
+    const { sectionId, moduleName, name, currParams } = payload;
+    state.selected[sectionId] = { moduleName, name, params: currParams };
   }),
 
   // string name of currently active object
@@ -44,17 +49,93 @@ const master = {
     state.activeObj = payload;
   }),
 
-  addNestedSection: action((state, payload) => {
-    let depth = 0
-    let i = 0
-    for (let name of state.sectionParentNames){
-      i = state.orderAndDepth.indexOf({name, depth}, i)
-      depth += 1
+  modifyVisibleSectionIds: action((state, payload) => {
+    const { fullId, command } = payload;
+    const splitId = getSplitId(fullId);
+    const numParents = splitId.length - 1;
+    const id = splitId[numParents];
+    let curr = state.visibleSectionIds;
+    let currHistory = state.visibleSectionIdsHistory;
+    for (let i = 0; i < numParents; i++) {
+      curr = curr[splitId[i]];
+      currHistory = currHistory[splitId[i]];
     }
-    const name = state.sectionParentNames[depth]
-    i += 1
-    state.sections[name] = payload
-    state.orderAndDepth = [...state.orderAndDepth.slice(0, i), {name, depth}, ...state.orderAndDepth.slice(i)]
+    if (command === "add") {
+      if (!(id in curr)) {
+        curr[id] = {};
+        if (id in currHistory) {
+          const previouslySelectedObj = state.selected[fullId].name;
+          for (let k of Object.keys(currHistory[id])) {
+            if (parseNestedId(k).objName == previouslySelectedObj) {
+              curr[id][k] = currHistory[id][k];
+            }
+          }
+        } else {
+          currHistory[id] = {};
+        }
+      }
+      if (!(fullId in state.selected)) {
+        state.selected[fullId] = {};
+      }
+    } else if (command === "delete") {
+      for (let k of Object.keys(curr)) {
+        if (k.startsWith(id)) {
+          delete curr[k];
+        }
+      }
+    }
+  }),
+
+  setSectionIdExParam: action((state, payload) => {
+    state.prevSectionIdExParam = state.currSectionIdExParam;
+    state.currSectionIdExParam = payload;
+    state.sectionIdExParamChanged =
+      state.prevSectionIdExParam !== state.currSectionIdExParam;
+  }),
+
+  getSectionId: thunk((action, payload, helpers) => {
+    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
+    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
+    const { currName: objName } = helpers.getStoreState().globalCurrObj;
+    if ([sectionId, moduleName, objName].indexOf(null) === -1) {
+      return createId(sectionId, moduleName, objName, payload);
+    } else {
+      return null;
+    }
+  }),
+
+  addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
+    let id = action.getSectionId("");
+    if (id !== null) {
+      action.setSectionIdExParam(id);
+      id += payload;
+      action.modifyVisibleSectionIds({
+        fullId: id,
+        command: "add",
+      });
+    }
+  }),
+
+  deleteCurrFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
+    const {
+      currName: parentSectionId,
+    } = helpers.getStoreState().globalCurrSection;
+    let id = action.getSectionId("");
+    if (id !== null) {
+      action.setSectionIdExParam(id);
+      const prev = helpers.getState().prevSectionIdExParam;
+      if (
+        helpers.getState().sectionIdExParamChanged &&
+        prev !== null &&
+        !parentSectionId.startsWith(prev) &&
+        getTopLevelSectionId(prev) === getTopLevelSectionId(parentSectionId)
+      ) {
+        action.modifyVisibleSectionIds({
+          fullId: prev,
+          command: "delete",
+        });
+      }
+    }
   }),
 };
 

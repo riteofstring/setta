@@ -12,13 +12,15 @@ import {
 } from "@chakra-ui/react";
 
 const TheParam = ({ parameters }) => {
-  const { name, type, ui_type, default_val } = parameters;
+  const { name, ui_type, default_val } = parameters;
 
   const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
     (actions) => actions.globalCurrParams
   );
 
-  const { addNestedSection } = useStoreActions((actions) => actions.master);
+  const { addToVisibleSectionIdsThunk } = useStoreActions(
+    (actions) => actions.master
+  );
 
   const { globalCurr: globalCurrParams } = useStoreState(
     (state) => state.globalCurrParams
@@ -28,11 +30,17 @@ const TheParam = ({ parameters }) => {
   );
 
   const [value, setValue] = useState(default_val);
+  const [addedNestedId, setAddedNestedId] = useState(false);
+
 
   const sendState = (name, value) => {
     setValue(value);
     setGlobalCurrParams({ name, value });
   };
+
+  useEffect(() => {
+    setAddedNestedId(false);
+  }, [parameters]);
 
   useEffect(() => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);
@@ -52,10 +60,14 @@ const TheParam = ({ parameters }) => {
           </NumberInput>
         );
       case "NESTED_OBJECT":
-      // Value for nested object has to be obtained here somehow
-      // addNestedSection(type)
-      case "LIST":
+        // Value for nested object has to be obtained here somehow
+        if (!addedNestedId) {
+          addToVisibleSectionIdsThunk(name);
+          setAddedNestedId(true);
+        }
         return <Box>Nested Function</Box>;
+      case "LIST":
+        return <Box>It's a list bro!</Box>;
       case "OPTION":
         return <Switch />;
       case "TEXT":

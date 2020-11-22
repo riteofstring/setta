@@ -26,7 +26,7 @@ const DetailsContainer = () => {
     <HStack>
       {paramsArr.length > 0 &&
         paramsArr.map((e, idx) => (
-          <ParamContainer key={`${e}-${idx}`} parameters={e} />
+          <ParamContainer key={`${e.name}-${idx}`} parameters={e} />
         ))}
     </HStack>
   );

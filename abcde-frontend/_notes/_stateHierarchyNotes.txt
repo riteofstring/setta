@@ -53,8 +53,30 @@ if field previously filled
 
 
 
-Todo:
-- Add new easy peasy state called globalCurrModule
-- Update globalCurrModule when module changes. Update it with globalCurrObj.
-- Update master.selected with globalCurrModule when changing sections.
-- Look up module, obj, and params when revisiting a section.
+
+
+Sections:
+  Modules:
+    Objs:
+      Params
+
+
+
+Section depth 0:
+
+globalCurrSection: "Transform"
+globalCurrModule: "torchvision.transforms"
+globalCurrObj: "Compose"
+globalCurrParam: ...
+
+
+Section depth 1:
+
+globalCurrSection: "Transform~M:torchvision.transforms,O:Compose,P:transforms"
+globalCurrModule: "torchvision.transforms"
+globalCurrObj: "ColorJitter"
+globalCurrParams: {x: 1, y: 2}
+
+Upon exiting the nested section:
+1. Update globalCurrSection["Transform~M:torchvision.transforms,O:Compose,P:transforms"]
+// maybe not necessary 2. Update parent globalCurrSection, which is globalCurrSection["Transform"]

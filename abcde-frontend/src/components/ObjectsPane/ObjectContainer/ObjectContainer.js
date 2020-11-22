@@ -15,7 +15,7 @@ import ObjectMenuButton from "./ObjectMenuButton/ObjectMenuButton";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
-const ObjectContainer = ({ theSection }) => {
+const ObjectContainer = ({ sectionId, theSection }) => {
   const [focus, setFocus] = useState(false);
   const [visible, setVisible] = useState(true);
   const flipVisible = () => {
@@ -47,15 +47,15 @@ const ObjectContainer = ({ theSection }) => {
 
   useEffect(() => {
     if (focus) {
-      setActiveObj(theSection.name);
+      setActiveObj(sectionId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
   useEffect(() => {
-    if (activeObj === theSection.name) {
+    if (activeObj === sectionId) {
       // console.log("INSIDE", selected[activeObj]);
-      setCurrSectionName(theSection.name);
+      setCurrSectionName(sectionId);
       maybeResetCurrModuleNameThunk();
       maybeResetCurrObjNameThunk();
       maybeSetGlobalCurrObjThunk();
@@ -90,8 +90,8 @@ const ObjectContainer = ({ theSection }) => {
 
         <HStack spacing="2rem" w="100%">
           <Menu>
-            <ObjectMenuButton theSection={theSection} />
-            <ObjectMenu theSection={theSection} />
+            <ObjectMenuButton sectionId={sectionId} theSection={theSection} />
+            <ObjectMenu sectionId={sectionId} theSection={theSection} />
           </Menu>
           <Spacer />
           <Button onClick={flipVisible}>

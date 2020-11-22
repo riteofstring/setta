@@ -2,11 +2,12 @@ import React from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { MenuItem } from "@chakra-ui/react";
 
-const TheMenuObj = ({ sectionName, moduleName, name, currParams }) => {
+const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
+
   const { globalCurr: globalCurrParams } = useStoreState(
     (state) => state.globalCurrParams
   );
-  const { setSelected } = useStoreActions((actions) => actions.master);
+  const { setSelected, deleteCurrFromVisibleSectionIdsThunk } = useStoreActions((actions) => actions.master);
   const {
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
   } = useStoreActions((actions) => actions.globalCurrParams);
@@ -28,14 +29,15 @@ const TheMenuObj = ({ sectionName, moduleName, name, currParams }) => {
   const setSelectedAndCurrObj = () => {
     setCurrObjName(name);
     setCurrModuleName(moduleName);
-    setCurrSectionName(sectionName);
+    setCurrSectionName(sectionId);
     setGlobalCurrObj(globalCurrParams);
     setGlobalCurrModuleThunk();
     setGlobalCurrSectionThunk();
     maybeInitGlobalCurrModuleThunk();
     maybeInitGlobalCurrObjsThunk();
     maybeInitGlobalCurrParamsThunk();
-    setSelected({ sectionName, moduleName, name, currParams });
+    deleteCurrFromVisibleSectionIdsThunk();
+    setSelected({ sectionId, moduleName, name, currParams });
   };
 
   return <MenuItem onClick={() => setSelectedAndCurrObj()}>{name}</MenuItem>;
