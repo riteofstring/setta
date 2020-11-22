@@ -6,6 +6,7 @@ import { createId } from "../utils/sectionIds"
 const master = {
   sections: {},
   selected: {},
+  visibleSectionIds: {},
   activeObj: "",
 
   // actions
@@ -15,6 +16,10 @@ const master = {
       state.sections[key] = new Section(key, Data[key]);
     }
     state.selected = Object.keys(state.sections).reduce(
+      (acc, curr) => ({ ...acc, [curr]: {} }),
+      {}
+    );
+    state.visibleSectionIds = Object.keys(state.sections).reduce(
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
@@ -37,17 +42,19 @@ const master = {
     state.activeObj = payload;
   }),
 
-  addToSelected: action((state, payload) => {
-    state.selected[payload] = {}
-    console.log("state.selected", debug(state.selected))
+  addToVisibleSectionIds: action((state, payload) => {
+    const {parentId, id} = payload
+    state.visibleSectionIds[parentId][id] = {}
+    state.selected[id] = {}
+    console.log("state.addToVisibleSectionIds", debug(state.addToVisibleSectionIds))
   }),
 
-  addToSelectedThunk: thunk((action, payload, helpers) => {
+  addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
     const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
     const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
     const { currName: objName } = helpers.getStoreState().globalCurrObj;
     const id = createId(sectionId, moduleName, objName, payload);
-    action.addToSelected(id)
+    action.addToVisibleSectionIds({parentId: sectionId, id})
   }),
 
   // deleteFromSectionIds: action((state, payload) => {

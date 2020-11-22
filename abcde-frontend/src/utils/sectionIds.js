@@ -37,19 +37,27 @@ const parseId = (id) => {
 };
 
 export const getSection = (sections, id) => {
-//   console.log("sections", sections);
+  //   console.log("sections", sections);
   const idParsed = parseId(id);
-//   console.log("idParsed", idParsed)
+  //   console.log("idParsed", idParsed)
   const rootSectionName = idParsed[0];
-//   console.log("rootSectionName", rootSectionName)
+  //   console.log("rootSectionName", rootSectionName)
   let currSection = sections[rootSectionName];
-//   console.log("currSection", currSection)
+  //   console.log("currSection", currSection)
   for (let i = 1; i < idParsed.length; i++) {
     const { moduleName, objName, paramName } = idParsed[i];
     currSection =
-      currSection.moduleInfos[moduleName].objs[objName].params[paramName]
-        .type;
+      currSection.moduleInfos[moduleName].objs[objName].params[paramName].type;
   }
-//   console.log("returning", currSection)
+  //   console.log("returning", currSection)
   return currSection;
+};
+
+export const getVisibleSectionOrder = (visibleSectionIds) => {
+  let output = [];
+  for (let k of Object.keys(visibleSectionIds)){
+      output.push(k)
+      output.push(...getVisibleSectionOrder(visibleSectionIds[k]))
+  }
+  return output
 };

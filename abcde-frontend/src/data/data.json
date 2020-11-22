@@ -310,6 +310,46 @@
       }
     }
   },
+  "Transform": {
+    "ModuleInfo": {
+      "torchvision.transforms": {
+        "Compose": {
+          "transforms": {
+            "default_val": "_empty",
+            "type": {
+              "ModuleInfo": {
+                "torchvision.transforms": {
+                  "ColorJitter": {
+                    "brightness": {
+                      "default_val": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    },
+                    "contrast": {
+                      "default_val": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    },
+                    "saturation": {
+                      "default_val": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    },
+                    "hue": {
+                      "default_val": "0",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    }
+                  }
+                }
+              }
+            },
+            "ui_type": "NESTED_OBJECT"
+          }
+        }
+      }
+    }
+  },
   "Optimizer": {
     "ModuleInfo": {
       "torch.optim": {
@@ -385,46 +425,6 @@
             "default_val": "_empty",
             "type": "_empty",
             "ui_type": "UNKNOWN"
-          }
-        }
-      }
-    }
-  },
-  "Transform": {
-    "ModuleInfo": {
-      "torchvision.transforms": {
-        "Compose": {
-          "transforms": {
-            "default_val": "_empty",
-            "type": {
-              "ModuleInfo": {
-                "torchvision.transforms": {
-                  "ColorJitter": {
-                    "brightness": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    },
-                    "contrast": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    },
-                    "saturation": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    },
-                    "hue": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    }
-                  }
-                }
-              }
-            },
-            "ui_type": "NESTED_OBJECT"
           }
         }
       }

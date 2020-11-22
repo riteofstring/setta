@@ -18,7 +18,7 @@ const TheParam = ({ parameters }) => {
     (actions) => actions.globalCurrParams
   );
 
-  const { addToSelectedThunk } = useStoreActions(
+  const { addToVisibleSectionIdsThunk } = useStoreActions(
     (actions) => actions.master
   );
 
@@ -53,7 +53,7 @@ const TheParam = ({ parameters }) => {
       case "NESTED_OBJECT":
         // Value for nested object has to be obtained here somehow
         if (!addedNestedId){
-          addToSelectedThunk(name)
+          addToVisibleSectionIdsThunk(name)
           setAddedNestedId(true)
         }
       case "LIST":
