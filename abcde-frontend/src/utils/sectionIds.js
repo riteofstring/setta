@@ -83,3 +83,8 @@ export const getVisibleSectionOrder = (visibleSectionIds, parentName = "") => {
 export const combineIds = (parent, child) => {
   return parent + NESTED + child;
 };
+
+
+export const getVisible = (visible, sectionId) => {
+  return !(sectionId in visible) | visible[sectionId]
+}

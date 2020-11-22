@@ -3,7 +3,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionContainer from "./SectionContainer"
 import { Flex, Box } from "@chakra-ui/react";
 
-import { getSection, combineIds } from "../../../utils/sectionIds";
+import { getSection, combineIds, getVisible } from "../../../utils/sectionIds";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
@@ -15,7 +15,7 @@ const NestedSection = ({ sectionId, visibleSectionIds, e, idx }) => {
       <Flex
         mt="0rem"
         ml="2.5rem"
-        display={!visible ? "none" : "inherit"}
+        display={!getVisible(visible, sectionId) ? "none" : "inherit"}
         key={`nest-flex-${e}-${idx}`}
       >
         <Box mt="0" mr=".5rem" key={`ic-con-${e}-${idx}`}>

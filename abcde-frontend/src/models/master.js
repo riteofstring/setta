@@ -16,7 +16,7 @@ const master = {
   prevSectionIdExParam: null,
   currSectionIdExParam: null,
   activeObj: "",
-  visible: true,
+  visible: {},
 
   // actions
   // Load DATA
@@ -36,7 +36,8 @@ const master = {
 
   // Show/Collapse button
   setVisible: action((state, payload) => {
-    state.visible = payload;
+    const {sectionId, newVisible} = payload;
+    state.visible[sectionId] = newVisible
   }),
 
   // stores what fields to show
