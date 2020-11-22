@@ -369,7 +369,7 @@
                       "type": {
                         "ModuleInfo": {
                           "torchvision.transforms": {
-                            "More shit": {
+                            "shit": {
                               "oh": {
                                 "default_val": "0",
                                 "type": "_empty",
@@ -398,23 +398,40 @@
                     }
                   },
                   "GorillaMode": {
-                    "brightness": {
+                    "girth": {
                       "default_val": "0",
                       "type": {
                         "ModuleInfo": {
                           "torchvision.transforms": {
                             "GORILLA BALLS": {
-                              "brightness": {
+                              "strength": {
                                 "default_val": "0",
                                 "type": "_empty",
                                 "ui_type": "UNKNOWN"
                               },
-                              "contrast": {
+                              "width": {
                                 "default_val": "0",
                                 "type": "_empty",
                                 "ui_type": "UNKNOWN"
                               },
-                              "bullshit": {
+                              "height": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              }
+                            },
+                            "donkey nuggets": {
+                              "red": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              },
+                              "green": {
+                                "default_val": "0",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              },
+                              "blue": {
                                 "default_val": "0",
                                 "type": "_empty",
                                 "ui_type": "UNKNOWN"
@@ -425,7 +442,7 @@
                       },
                       "ui_type": "NESTED_OBJECT"
                     },
-                    "contrast": {
+                    "length": {
                       "default_val": "0",
                       "type": {
                         "ModuleInfo": {
