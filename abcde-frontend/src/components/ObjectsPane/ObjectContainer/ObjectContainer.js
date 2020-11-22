@@ -61,12 +61,8 @@ const ObjectContainer = ({ theSection, depth }) => {
   }, [activeObj]);
 
   return (
-    <HStack
-      marginLeft={depth > 1 && `${depth * 3}rem`}
-      mt="2rem"
-    >
-      {depth > 0 && <Box mr="2rem"><FiCornerDownRight size="3rem" color="#CBD5E0" /></Box>}
-       <VStack
+    <HStack>
+      <VStack
         spacing="1rem"
         width="100%"
         bg={focus ? "gray.50" : "white"}
@@ -83,10 +79,13 @@ const ObjectContainer = ({ theSection, depth }) => {
             <ObjectMenu theSection={theSection} />
           </Menu>
         </HStack>
+        <HStack ml="3rem" mt="2rem">
+          <Box>
+            <FiCornerDownRight size="3rem" color="#CBD5E0" />
+          </Box>
+        </HStack>
       </VStack>
-
     </HStack>
-
   );
 };
 
