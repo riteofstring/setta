@@ -6,7 +6,7 @@ import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionUI";
 import NestedSection from "./NestedSection";
 
-const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
+const SectionContainer = ({ sectionId, visibleSectionIds, theSection, depth }) => {
   const [focus, setFocus] = useState(false);
 
   const ref = useOnClickOutsideRef(() => setFocus(false));
@@ -91,6 +91,7 @@ const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
             e={e}
             idx={idx}
             key={`Nested-Sec-${e}-${idx}`}
+            depth={depth+1}
           />
         ))}
     </Flex>

@@ -7,7 +7,7 @@ import { getSection, combineIds, getVisible } from "../../../utils/sectionIds";
 
 import { FiCornerDownRight } from "react-icons/fi";
 
-const NestedSection = ({ sectionId, visibleSectionIds, e, idx }) => {
+const NestedSection = ({ sectionId, visibleSectionIds, e, idx, depth }) => {
   const { sections, visible } = useStoreState((state) => state.master);
 
   return (
@@ -29,6 +29,7 @@ const NestedSection = ({ sectionId, visibleSectionIds, e, idx }) => {
           sectionId={combineIds(sectionId, e)}
           visibleSectionIds={visibleSectionIds[e]}
           theSection={getSection(sections, combineIds(sectionId, e))}
+          depth={depth}
         />
       </Flex>
     </>

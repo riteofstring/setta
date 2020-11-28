@@ -24,6 +24,7 @@ const SectionsPane = () => {
           visibleSectionIds={visibleSectionIds[e]}
           theSection={getSection(sections, e)}
           key={`${e}-${idx}`}
+          depth={0}
         />
       ))}
     </Flex>
