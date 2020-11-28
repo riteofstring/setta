@@ -9,7 +9,7 @@ import {
   getBreadCrumbPath,
 } from "../../../../utils/sectionIds";
 
-const TheBreadcrumb = ({ breadCrumbPath }) => {
+const TheBreadcrumb = ({ breadCrumbPath, fullPath }) => {
   const { setActiveObj } = useStoreActions((actions) => actions.master);
   const { visibleSectionIds, selected, activeObj } = useStoreState(
     (state) => state.master
@@ -17,10 +17,11 @@ const TheBreadcrumb = ({ breadCrumbPath }) => {
 
   console.log(breadCrumbPath);
 
-  const setFocus = (breadcrumb) => {
-    // setActiveObj(breadcrumb);
-    console.log(getTopLevelSectionId);
-    console.log(breadCrumbPath);
+  const setFocus = (breadcrumbIdx) => {
+    // setActiveObj(fullPaths[breadcrumbIdx]);
+    // console.log(getTopLevelSectionId);
+    // console.log(breadCrumbPath);
+    console.log("fullPaths[breadcrumbIdx]", fullPath[breadcrumbIdx])
   };
 
   return (
@@ -28,7 +29,7 @@ const TheBreadcrumb = ({ breadCrumbPath }) => {
       {breadCrumbPath.map((e, idx) => (
         <BreadcrumbItem key={`crumbitem-${idx}`}>
           <BreadcrumbLink
-            onClick={() => setFocus(e)}
+            onClick={() => setFocus(idx)}
             href="#"
             key={`crumblink-${idx}`}
           >

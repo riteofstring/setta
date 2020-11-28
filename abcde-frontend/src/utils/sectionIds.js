@@ -114,15 +114,20 @@ export const createExportableObject = (selected, globalCurr) => {
 export const getBreadCrumbPath = (
   sectionId,
   visibleSectionIds,
-  isTopLevel = true
+  isTopLevel = true,
+  parentId = ""
 ) => {
-  let output = isTopLevel ? [sectionId] : [parseNestedId(sectionId).paramName];
+  const longPath = isTopLevel ? sectionId : combineIds(parentId, sectionId)
+  let shortOutput = isTopLevel ? [sectionId] : [parseNestedId(sectionId).paramName];
+  let longOutput = [longPath]
   const nested = visibleSectionIds[sectionId];
   if (nested) {
     const keys = Object.keys(nested);
     if (keys.length > 0) {
-      output.push(...getBreadCrumbPath(keys[0], nested, false));
+      const {breadCrumbPath, fullPath} = getBreadCrumbPath(keys[0], nested, false, longPath);
+      shortOutput.push(...breadCrumbPath)
+      longOutput.push(...fullPath)
     }
   }
-  return output;
+  return {breadCrumbPath: shortOutput, fullPath: longOutput}
 };

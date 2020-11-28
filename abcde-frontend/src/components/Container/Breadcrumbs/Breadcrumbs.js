@@ -13,7 +13,7 @@ const Breadcrumbs = () => {
   const { visibleSectionIds, activeObj } = useStoreState(
     (state) => state.master
   );
-  const breadCrumbPath = getBreadCrumbPath(
+  const {breadCrumbPath, fullPath} = getBreadCrumbPath(
     getTopLevelSectionId(activeObj),
     visibleSectionIds
   );
@@ -29,7 +29,7 @@ const Breadcrumbs = () => {
       alignItems="center"
       zIndex={10}
     >
-      <TheBreadCrumb breadCrumbPath={breadCrumbPath} />
+      <TheBreadCrumb breadCrumbPath={breadCrumbPath} fullPath={fullPath} />
     </Flex>
   );
 };
