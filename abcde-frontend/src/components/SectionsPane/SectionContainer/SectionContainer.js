@@ -78,6 +78,8 @@ const SectionContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
+  console.log(sectionId);
+
   return (
     <Flex
       direction="column"

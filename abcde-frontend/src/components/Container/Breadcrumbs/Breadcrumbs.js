@@ -1,19 +1,23 @@
 import React from "react";
 import { useStoreState } from "easy-peasy";
-import { BiChevronRight } from "react-icons/bi";
 
 import {
-  Flex,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-} from "@chakra-ui/react";
+  getTopLevelSectionId,
+  getBreadCrumbPath,
+} from "../../../utils/sectionIds";
+
+import { Flex } from "@chakra-ui/react";
+import TheBreadCrumb from "./TheBreadcrumb/TheBreadCrumb";
 
 const Breadcrumbs = () => {
   const { visibleSectionIds, activeObj } = useStoreState(
     (state) => state.master
   );
-  console.log(visibleSectionIds);
+  const breadCrumbPath = getBreadCrumbPath(
+    getTopLevelSectionId(activeObj),
+    visibleSectionIds
+  );
+
   return (
     <Flex
       w="100vw"
@@ -23,13 +27,9 @@ const Breadcrumbs = () => {
       bg="gray.100"
       justifyContent="center"
       alignItems="center"
+      zIndex={10}
     >
-      <Breadcrumb spacing="8px" separator={<BiChevronRight color="gray.500" />}>
-        <BreadcrumbItem isCurrentPage={false}>
-          <BreadcrumbLink href="#">CRUMB</BreadcrumbLink>
-        </BreadcrumbItem>
-      </Breadcrumb>
-      {activeObj}:
+      <TheBreadCrumb breadCrumbPath={breadCrumbPath} />
     </Flex>
   );
 };

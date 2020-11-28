@@ -111,17 +111,17 @@ export const createExportableObject = (selected, globalCurr) => {
   return output;
 };
 
-export const breadCrumbPath = (
+export const getBreadCrumbPath = (
   sectionId,
   visibleSectionIds,
   isTopLevel = true
 ) => {
   let output = isTopLevel ? [sectionId] : [parseNestedId(sectionId).paramName];
   const nested = visibleSectionIds[sectionId];
-  if (nested){
+  if (nested) {
     const keys = Object.keys(nested);
     if (keys.length > 0) {
-      output.push(...breadCrumbPath(keys[0], nested, false));
+      output.push(...getBreadCrumbPath(keys[0], nested, false));
     }
   }
   return output;

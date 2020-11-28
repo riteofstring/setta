@@ -1,6 +1,6 @@
 import React from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import SectionContainer from "./SectionContainer"
+import { useStoreState } from "easy-peasy";
+import SectionContainer from "./SectionContainer";
 import { Flex, Box } from "@chakra-ui/react";
 
 import { getSection, combineIds, getVisible } from "../../../utils/sectionIds";

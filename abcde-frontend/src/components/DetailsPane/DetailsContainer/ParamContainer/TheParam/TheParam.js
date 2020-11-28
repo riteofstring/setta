@@ -42,6 +42,7 @@ const TheParam = ({ parameters }) => {
     if (ui_type === "NESTED_OBJECT") {
       setLocalAndGlobalState();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters]);
 
   useEffect(() => {

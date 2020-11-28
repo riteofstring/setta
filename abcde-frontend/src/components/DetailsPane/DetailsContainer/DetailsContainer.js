@@ -19,9 +19,8 @@ const DetailsContainer = () => {
     if (activeObj && selected[activeObj].params) {
       let paramList = selected[activeObj].params;
       loadParams(paramList);
-    }
-    else{
-      setParamsArr([])
+    } else {
+      setParamsArr([]);
     }
   }, [selected, activeObj]);
 
