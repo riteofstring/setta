@@ -30,11 +30,19 @@ const createGlobalCurr = ({
     setGlobalCurr: maybeUseOverrideFunction(
       "setGlobalCurr",
       action((state, payload) => {
-        if (state.nameChanged && Object.keys(payload).length > 0) {
+        if (
+          state.nameChanged &&
+          state.prevName &&
+          Object.keys(payload).length > 0
+        ) {
           state.globalCurr[state.prevName] = payload;
         }
       })
     ),
+
+    resetGlobalCurr: action((state, payload) => {
+      state.globalCurr = {};
+    }),
 
     // update globalCurrModule state with latest globalCurrObjs
     setGlobalCurrThunk: thunk((action, payload, helpers) => {

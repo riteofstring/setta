@@ -54,37 +54,59 @@ const parseId = (id) => {
 };
 
 export const getSection = (sections, id) => {
-  //   console.log("sections", sections);
   const idParsed = parseId(id);
-  //   console.log("idParsed", idParsed)
   const rootSectionName = idParsed[0];
-  //   console.log("rootSectionName", rootSectionName)
   let currSection = sections[rootSectionName];
-  //   console.log("currSection", currSection)
   for (let i = 1; i < idParsed.length; i++) {
     const { moduleName, objName, paramName } = idParsed[i];
     currSection =
       currSection.moduleInfos[moduleName].objs[objName].params[paramName].type;
   }
-  //   console.log("returning", currSection)
   return currSection;
-};
-
-export const getVisibleSectionOrder = (visibleSectionIds, parentName = "") => {
-  let output = [];
-  for (let k of Object.keys(visibleSectionIds)) {
-    let id = parentName === "" ? k : parentName + NESTED + k;
-    output.push(id);
-    output.push(...getVisibleSectionOrder(visibleSectionIds[k], id));
-  }
-  return output;
 };
 
 export const combineIds = (parent, child) => {
   return parent + NESTED + child;
 };
 
-
 export const getVisible = (visible, sectionId) => {
-  return !(sectionId in visible) | visible[sectionId]
-}
+  return !(sectionId in visible) | visible[sectionId];
+};
+
+const createExportableParams = (selected, globalCurr, id) => {
+  let output = {};
+  const currSelected = selected[id];
+  let params = currSelected.params;
+  if (params) {
+    let moduleName = currSelected.moduleName;
+    let objName = currSelected.name;
+    let fullObjName = moduleName + "." + objName;
+    output[fullObjName] = {};
+    for (let paramName of Object.keys(params)) {
+      let nextId = createId(id, moduleName, objName, paramName);
+      if (nextId in selected) {
+        output[fullObjName][paramName] = createExportableParams(
+          selected,
+          globalCurr,
+          nextId
+        );
+      } else {
+        try {
+          output[fullObjName][paramName] =
+            globalCurr[id][moduleName][objName][paramName];
+        } catch (err) {}
+      }
+    }
+  }
+  return output;
+};
+
+export const createExportableObject = (selected, globalCurr) => {
+  let output = {};
+  for (let id of Object.keys(selected)) {
+    if (id === getTopLevelSectionId(id)) {
+      output[id] = createExportableParams(selected, globalCurr, id);
+    }
+  }
+  return output;
+};

@@ -6,6 +6,7 @@ import {
   getSplitId,
   parseNestedId,
   getTopLevelSectionId,
+  createExportableObject,
 } from "../utils/sectionIds";
 
 const master = {
@@ -36,8 +37,8 @@ const master = {
 
   // Show/Collapse button
   setVisible: action((state, payload) => {
-    const {sectionId, newVisible} = payload;
-    state.visible[sectionId] = newVisible
+    const { sectionId, newVisible } = payload;
+    state.visible[sectionId] = newVisible;
   }),
 
   // stores what fields to show
@@ -138,6 +139,13 @@ const master = {
         });
       }
     }
+  }),
+
+  exportSelected: thunk((action, payload, helpers) => {
+    const { globalCurr } = helpers.getStoreState().globalCurrSection;
+    const { selected } = helpers.getState();
+    let output = createExportableObject(selected, globalCurr)
+    output = JSON.stringify(output);
   }),
 };
 

@@ -14,18 +14,21 @@ const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
   const { selected, activeObj } = useStoreState((state) => state.master);
   const {
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
+    resetGlobalCurr: resetGlobalCurrParams,
   } = useStoreActions((actions) => actions.globalCurrParams);
   const {
     maybeSetGlobalCurrThunk: maybeSetGlobalCurrObjThunk,
     setCurrName: setCurrObjName,
     maybeResetCurrNameThunk: maybeResetCurrObjNameThunk,
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrObjsThunk,
+    resetGlobalCurr: resetGlobalCurrObj,
   } = useStoreActions((actions) => actions.globalCurrObj);
   const {
     maybeResetCurrNameThunk: maybeResetCurrModuleNameThunk,
     maybeSetGlobalCurrThunk: maybeSetGlobalCurrModuleThunk,
     setCurrName: setCurrModuleName,
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrModuleThunk,
+    resetGlobalCurr: resetGlobalCurrModule,
   } = useStoreActions((actions) => actions.globalCurrModule);
   const {
     setCurrName: setCurrSectionName,
@@ -41,7 +44,6 @@ const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
 
   useEffect(() => {
     if (activeObj === sectionId) {
-      // console.log("INSIDE", selected[activeObj]);
       setCurrSectionName(sectionId);
       maybeResetCurrModuleNameThunk();
       maybeResetCurrObjNameThunk();
@@ -49,12 +51,15 @@ const SectionContainer = ({ sectionId, visibleSectionIds, theSection }) => {
       maybeSetGlobalCurrModuleThunk();
       setGlobalCurrSectionThunk();
       if (selected[activeObj] && Object.keys(selected[activeObj]).length > 0) {
-        // console.log("REALLY INSIDE", selected[activeObj]);
         maybeInitGlobalCurrModuleThunk();
         setCurrModuleName(selected[activeObj].moduleName);
         maybeInitGlobalCurrObjsThunk();
         setCurrObjName(selected[activeObj].name);
         maybeInitGlobalCurrParamsThunk();
+      } else {
+        resetGlobalCurrModule();
+        resetGlobalCurrObj();
+        resetGlobalCurrParams();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
