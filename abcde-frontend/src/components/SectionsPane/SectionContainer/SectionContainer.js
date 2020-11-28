@@ -5,7 +5,7 @@ import { Flex } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionUI";
 import NestedSection from "./NestedSection";
-import {getTopLevelSectionId} from "../../../utils/sectionIds"
+import { getTopLevelSectionId } from "../../../utils/sectionIds";
 
 const SectionContainer = ({
   sectionId,
@@ -16,7 +16,10 @@ const SectionContainer = ({
   const [focus, setFocus] = useState(false);
 
   const ref = useOnClickOutsideRef(() => setFocus(false));
-  const { setActiveObj, setShiftAmount } = useStoreActions((actions) => actions.master);
+  const { setActiveObj, setShiftAmount } = useStoreActions(
+    (actions) => actions.master
+  );
+  const { shiftAmount } = useStoreState((state) => state.master);
   const { selected, activeObj } = useStoreState((state) => state.master);
   const {
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
@@ -44,6 +47,10 @@ const SectionContainer = ({
   useEffect(() => {
     if (focus) {
       setActiveObj(sectionId);
+      setShiftAmount({
+        sectionId: getTopLevelSectionId(sectionId),
+        shiftAmount: depth,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
@@ -72,15 +79,22 @@ const SectionContainer = ({
   }, [activeObj]);
 
   return (
-    <Flex direction="column" transform={`translate(${depth * 2.5}rem, )`}>
+    <Flex
+      direction="column"
+      ml={depth === 0 && `${shiftAmount[sectionId] * -2.5}rem`}
+      borderRadius="md"
+    >
       <Flex
         width="100%"
         bg={focus ? "gray.50" : "white"}
         onClick={() => setFocus(true)}
         ref={ref}
         direction="column"
-        padding="1.25rem"
+        padding="1rem 1.25rem"
+        my="0.5rem"
         borderRadius="md"
+        border="1px"
+        borderColor="gray.200"
       >
         <SectionHeading heading={theSection.name} />
         <SectionUI

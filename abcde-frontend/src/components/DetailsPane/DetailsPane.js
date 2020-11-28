@@ -23,7 +23,7 @@ const DetailsPane = () => {
       position="fixed"
       zIndex="5"
       right="2.5rem"
-      top="2.5rem"
+      top="7.5rem"
       visibility={activeObj ? "visible" : "hidden"}
     >
       <Flex
@@ -33,7 +33,7 @@ const DetailsPane = () => {
         bg="gray.50"
         borderRadius="3xl"
         padding="5rem"
-        minHeight="80vh"
+        minHeight="50vh"
         width="50vw"
       >
         <PaneHeading heading="Details" />
