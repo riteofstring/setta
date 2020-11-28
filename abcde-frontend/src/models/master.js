@@ -1,5 +1,5 @@
 import { action, thunk } from "easy-peasy";
-import Data from "../data/data.json";
+import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
   createId,
@@ -144,7 +144,7 @@ const master = {
   exportSelected: thunk((action, payload, helpers) => {
     const { globalCurr } = helpers.getStoreState().globalCurrSection;
     const { selected } = helpers.getState();
-    let output = createExportableObject(selected, globalCurr)
+    let output = createExportableObject(selected, globalCurr);
     output = JSON.stringify(output);
   }),
 };
