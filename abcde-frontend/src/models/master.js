@@ -18,6 +18,7 @@ const master = {
   currSectionIdExParam: null,
   activeObj: "",
   visible: {},
+  shiftAmount: {},
 
   // actions
   // Load DATA
@@ -32,6 +33,7 @@ const master = {
     for (let k of Object.keys(state.selected)) {
       state.visibleSectionIds[k] = {};
       state.visibleSectionIdsHistory[k] = {};
+      state.shiftAmount[k] = 0;
     }
   }),
 
@@ -50,6 +52,11 @@ const master = {
   // string name of currently active object
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;
+  }),
+
+  setShiftAmount: action((state, payload) => {
+    const { sectionId, shiftAmount } = payload;
+    state.shiftAmount[sectionId] = shiftAmount;
   }),
 
   modifyVisibleSectionIds: action((state, payload) => {

@@ -5,6 +5,7 @@ import { Flex } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionUI";
 import NestedSection from "./NestedSection";
+import {getTopLevelSectionId} from "../../../utils/sectionIds"
 
 const SectionContainer = ({
   sectionId,
@@ -15,7 +16,7 @@ const SectionContainer = ({
   const [focus, setFocus] = useState(false);
 
   const ref = useOnClickOutsideRef(() => setFocus(false));
-  const { setActiveObj } = useStoreActions((actions) => actions.master);
+  const { setActiveObj, setShiftAmount } = useStoreActions((actions) => actions.master);
   const { selected, activeObj } = useStoreState((state) => state.master);
   const {
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
