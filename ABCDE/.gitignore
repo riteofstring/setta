@@ -7,5 +7,5 @@ dist/
 site/
 venv/
 .vscode/
-.sqlite3
+*.sqlite3
 migrations/
