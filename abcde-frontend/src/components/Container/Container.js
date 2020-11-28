@@ -2,17 +2,20 @@ import React from "react";
 import SectionsPane from "../SectionsPane/SectionsPane";
 import DetailsPane from "../DetailsPane/DetailsPane";
 import Submit from "../Submit/Submit";
-import { Flex } from "@chakra-ui/react";
+import { Flex, Box, css, chakra } from "@chakra-ui/react";
+import styled from "@emotion/styled";
 
 const Container = () => {
   return (
-    <Flex align="center" justify="center" h="100vh">
-      <Flex w="95vw" maxWidth={1600} h="100%" p="5rem">
-        <SectionsPane />
-        <DetailsPane />
-        <Submit />
+    <>
+      <DetailsPane />
+      <Flex align="center" justify="center">
+        <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">
+          <SectionsPane />
+        </Flex>
       </Flex>
-    </Flex>
+      <Submit />
+    </>
   );
 };
 

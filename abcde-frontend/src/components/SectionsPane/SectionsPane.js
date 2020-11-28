@@ -16,7 +16,7 @@ const SectionsPane = () => {
   }, [loadSections]);
 
   return (
-    <Flex direction="column" mr="5rem">
+    <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />
       {Object.keys(visibleSectionIds).map((e, idx) => (
         <SectionContainer
