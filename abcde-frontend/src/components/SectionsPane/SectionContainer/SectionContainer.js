@@ -55,6 +55,7 @@ const SectionContainer = ({
         sectionId: getTopLevelSectionId(sectionId),
         shiftAmount: depth,
       });
+      setFocus(true);
       setCurrSectionName(sectionId);
       maybeResetCurrModuleNameThunk();
       maybeResetCurrObjNameThunk();
@@ -75,6 +76,8 @@ const SectionContainer = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
+
+  console.log(focus);
 
   return (
     <Flex
