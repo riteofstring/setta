@@ -17,7 +17,7 @@ const TheBreadcrumb = ({ breadCrumbPath, fullPath }) => {
         <BreadcrumbItem key={`crumbitem-${idx}`}>
           <BreadcrumbLink
             onClick={() => setFocus(idx)}
-            href="#"
+            href={`#${fullPath[idx]}`}
             key={`crumblink-${idx}`}
           >
             {e}

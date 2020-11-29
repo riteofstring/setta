@@ -96,6 +96,7 @@ const SectionContainer = ({
         borderRadius="md"
         border="1px"
         borderColor="gray.200"
+        id={sectionId}
       >
         <SectionHeading heading={theSection.name} />
         <SectionUI
