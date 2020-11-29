@@ -44,19 +44,17 @@ const SectionContainer = ({
     setGlobalCurrThunk: setGlobalCurrSectionThunk,
   } = useStoreActions((actions) => actions.globalCurrSection);
 
+  const applyFocus = () => {
+    setActiveObj(sectionId);
+    setFocus(true);
+  };
+
   useEffect(() => {
-    if (focus) {
-      setActiveObj(sectionId);
+    if (activeObj === sectionId) {
       setShiftAmount({
         sectionId: getTopLevelSectionId(sectionId),
         shiftAmount: depth,
       });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus]);
-
-  useEffect(() => {
-    if (activeObj === sectionId) {
       setCurrSectionName(sectionId);
       maybeResetCurrModuleNameThunk();
       maybeResetCurrObjNameThunk();
@@ -78,8 +76,6 @@ const SectionContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
-  console.log(sectionId);
-
   return (
     <Flex
       direction="column"
@@ -89,7 +85,7 @@ const SectionContainer = ({
       <Flex
         width="100%"
         bg={focus ? "gray.50" : "white"}
-        onClick={() => setFocus(true)}
+        onClick={() => applyFocus()}
         ref={ref}
         direction="column"
         padding="1rem 1.25rem"
