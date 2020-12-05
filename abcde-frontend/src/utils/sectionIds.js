@@ -3,9 +3,58 @@ const SEPARATOR = ",";
 const MODULE = "M:";
 const OBJ = "O:";
 const PARAM = "P:";
+const LIST_POSITION = "L:";
 
-export const createId = (sectionName, moduleName, objName, paramName) => {
-  return (
+export const modifyId = ({
+  id,
+  sectionName = null,
+  moduleName = null,
+  objName = null,
+  paramName = null,
+  listPosition = null,
+}) => {
+
+  const childId = getChildId(id);
+  let parentId = getParentId(id);
+  let {
+    moduleName: oldModuleName,
+    objName: oldObjName,
+    paramName: oldParamName,
+    listPosition: oldListPosition,
+  } = parseNestedId(childId);
+
+  if (sectionName !== null) {
+    parentId = sectionName;
+  }
+  if (moduleName !== null) {
+    oldModuleName = moduleName;
+  }
+  if (objName !== null) {
+    oldObjName = objName;
+  }
+  if (paramName !== null) {
+    oldParamName = paramName;
+  }
+  if (listPosition !== null) {
+    oldListPosition = listPosition;
+  }
+  return createId(
+    parentId,
+    oldModuleName,
+    oldObjName,
+    oldParamName,
+    oldListPosition
+  );
+};
+
+export const createId = (
+  sectionName,
+  moduleName,
+  objName,
+  paramName,
+  listPosition = null
+) => {
+  let id =
     sectionName +
     NESTED +
     MODULE +
@@ -15,8 +64,11 @@ export const createId = (sectionName, moduleName, objName, paramName) => {
     objName +
     SEPARATOR +
     PARAM +
-    paramName
-  );
+    paramName;
+  if (listPosition !== null) {
+    id += SEPARATOR + LIST_POSITION + listPosition;
+  }
+  return id;
 };
 
 export const parseNestedId = (id) => {
@@ -24,7 +76,11 @@ export const parseNestedId = (id) => {
   const moduleName = splitId[0].split(MODULE)[1];
   const objName = splitId[1].split(OBJ)[1];
   const paramName = splitId[2].split(PARAM)[1];
-  return { moduleName, objName, paramName };
+  let listPosition = null;
+  if (splitId.length === 4) {
+    listPosition = splitId[3].split(LIST_POSITION)[1];
+  }
+  return { moduleName, objName, paramName, listPosition };
 };
 
 export const getSplitId = (id) => {
@@ -117,17 +173,39 @@ export const getBreadCrumbPath = (
   isTopLevel = true,
   parentId = ""
 ) => {
-  const longPath = isTopLevel ? sectionId : combineIds(parentId, sectionId)
-  let shortOutput = isTopLevel ? [sectionId] : [parseNestedId(sectionId).paramName];
-  let longOutput = [longPath]
+  const longPath = isTopLevel ? sectionId : combineIds(parentId, sectionId);
+  let shortOutput = isTopLevel
+    ? [sectionId]
+    : [parseNestedId(sectionId).paramName];
+  let longOutput = [longPath];
   const nested = visibleSectionIds[sectionId];
   if (nested) {
     const keys = Object.keys(nested);
     if (keys.length > 0) {
-      const {breadCrumbPath, fullPath} = getBreadCrumbPath(keys[0], nested, false, longPath);
-      shortOutput.push(...breadCrumbPath)
-      longOutput.push(...fullPath)
+      const { breadCrumbPath, fullPath } = getBreadCrumbPath(
+        keys[0],
+        nested,
+        false,
+        longPath
+      );
+      shortOutput.push(...breadCrumbPath);
+      longOutput.push(...fullPath);
     }
   }
-  return {breadCrumbPath: shortOutput, fullPath: longOutput}
+  return { breadCrumbPath: shortOutput, fullPath: longOutput };
+};
+
+export const getNestedListLength = (
+  sectionId,
+  visibleSectionIds,
+  paramName
+) => {
+  const nested = visibleSectionIds[sectionId];
+  let length = 0;
+  for (let id of Object.keys(nested)) {
+    if (paramName === parseNestedId(id).paramName) {
+      length += 1;
+    }
+  }
+  return length;
 };

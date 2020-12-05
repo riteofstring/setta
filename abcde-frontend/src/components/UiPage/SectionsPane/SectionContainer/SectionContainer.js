@@ -22,7 +22,9 @@ const SectionContainer = ({
     (actions) => actions.master
   );
   const { shiftAmount } = useStoreState((state) => state.master);
-  const { selected, activeObj } = useStoreState((state) => state.master);
+  const { selected, activeObj, isList } = useStoreState(
+    (state) => state.master
+  );
   const {
     maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
     resetGlobalCurr: resetGlobalCurrParams,
@@ -79,7 +81,19 @@ const SectionContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
-  console.log(getTopLevelSectionId(sectionId));
+  const maybeIncludeNestedIncrementer = () => {
+    if (isList[sectionId]) {
+      return (
+        <>
+          <NestedIncrementer
+            sectionId={sectionId}
+          />
+          <CloseButton size="md" />
+        </>
+      );
+    }
+    return <></>;
+  };
 
   return (
     <Flex
@@ -103,8 +117,7 @@ const SectionContainer = ({
         {getTopLevelSectionId(activeObj) === sectionId && <Breadcrumbs />}
         <HStack mb="1rem">
           <SectionHeading heading={theSection.name} />
-          <NestedIncrementer />
-          <CloseButton size="md" />
+          {maybeIncludeNestedIncrementer()}
         </HStack>
 
         <SectionUI

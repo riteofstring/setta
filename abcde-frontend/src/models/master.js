@@ -8,6 +8,7 @@ import {
   parseNestedId,
   getTopLevelSectionId,
   createExportableObject,
+  modifyId,
 } from "../utils/sectionIds";
 
 const master = {
@@ -20,6 +21,7 @@ const master = {
   activeObj: "",
   visible: {},
   shiftAmount: {},
+  isList: {},
 
   // actions
   // Load DATA
@@ -63,6 +65,11 @@ const master = {
   setShiftAmount: action((state, payload) => {
     const { sectionId, shiftAmount } = payload;
     state.shiftAmount[sectionId] = shiftAmount;
+  }),
+
+  setIsList: action((state, payload) => {
+    const { sectionId, isList } = payload;
+    state.isList[sectionId] = isList;
   }),
 
   modifyVisibleSectionIds: action((state, payload) => {
@@ -120,17 +127,21 @@ const master = {
     }
   }),
 
-  addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    let id = action.getSectionId("");
-    if (id !== null) {
-      action.setSectionIdExParam(id);
-      id += payload;
-      action.modifyVisibleSectionIds({
-        fullId: id,
-        command: "add",
-      });
+  addToVisibleSectionIdsThunk: thunk(
+    (action, { name, isList = false }, helpers) => {
+      let id = action.getSectionId({ paramName: "", isList });
+      if (id !== null) {
+        action.setSectionIdExParam(id);
+        const listPosition = isList ? "0" : null;
+        id = modifyId({ id, paramName: name, listPosition });
+        action.setIsList({ sectionId: id, isList });
+        action.modifyVisibleSectionIds({
+          fullId: id,
+          command: "add",
+        });
+      }
     }
-  }),
+  ),
 
   deleteCurrFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
     const {

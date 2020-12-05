@@ -30,7 +30,6 @@ const TheParam = ({ parameters }) => {
   );
 
   const [value, setValue] = useState(default_val);
-  const [addedNestedId, setAddedNestedId] = useState(false);
 
   const sendState = (name, value) => {
     setValue(value);
@@ -38,9 +37,10 @@ const TheParam = ({ parameters }) => {
   };
 
   useEffect(() => {
-    setAddedNestedId(false);
     if (ui_type === "NESTED_OBJECT") {
-      setLocalAndGlobalState();
+      addToVisibleSectionIdsThunk({name});
+    } else if (ui_type === "LIST_NESTED_OBJECT") {
+      addToVisibleSectionIdsThunk({ name, isList: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters]);
@@ -49,11 +49,6 @@ const TheParam = ({ parameters }) => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters, currObjName]);
-
-  const setLocalAndGlobalState = () => {
-    addToVisibleSectionIdsThunk(name);
-    setAddedNestedId(true);
-  };
 
   const inputSwitch = () => {
     switch (ui_type) {
@@ -67,8 +62,8 @@ const TheParam = ({ parameters }) => {
             </NumberInputStepper>
           </NumberInput>
         );
+      case "LIST_NESTED_OBJECT":
       case "NESTED_OBJECT":
-        // Value for nested object has to be obtained here somehow
         return <Box>Nested Function</Box>;
       case "LIST":
         return <Box>It's a list bro!</Box>;
