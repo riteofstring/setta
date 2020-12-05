@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Flex } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { getSection } from "../../utils/sectionIds";
+import { getSection } from "../../../utils/sectionIds";
 import PaneHeading from "../PaneHeading/PaneHeading";
 
 import SectionContainer from "./SectionContainer/SectionContainer";

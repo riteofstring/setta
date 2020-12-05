@@ -3,7 +3,11 @@ import { useStoreState } from "easy-peasy";
 import SectionContainer from "./SectionContainer";
 import { Flex, Box } from "@chakra-ui/react";
 
-import { getSection, combineIds, getVisible } from "../../../utils/sectionIds";
+import {
+  getSection,
+  combineIds,
+  getVisible,
+} from "../../../../utils/sectionIds";
 
 import { FiCornerDownRight } from "react-icons/fi";
 

@@ -4,7 +4,7 @@ import { useStoreState } from "easy-peasy";
 import {
   getTopLevelSectionId,
   getBreadCrumbPath,
-} from "../../../utils/sectionIds";
+} from "../../../../utils/sectionIds";
 
 import { Flex } from "@chakra-ui/react";
 import TheBreadCrumb from "./TheBreadcrumb/TheBreadCrumb";
@@ -13,7 +13,7 @@ const Breadcrumbs = () => {
   const { visibleSectionIds, activeObj } = useStoreState(
     (state) => state.master
   );
-  const {breadCrumbPath, fullPath} = getBreadCrumbPath(
+  const { breadCrumbPath, fullPath } = getBreadCrumbPath(
     getTopLevelSectionId(activeObj),
     visibleSectionIds
   );

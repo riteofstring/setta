@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionHeading from "./SectionHeading";
 import { Flex } from "@chakra-ui/react";
-import useOnClickOutsideRef from "../../../utils/useOnClickOutsideRef";
+import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionUI";
 import NestedSection from "./NestedSection";
-import { getTopLevelSectionId } from "../../../utils/sectionIds";
+import { getTopLevelSectionId } from "../../../../utils/sectionIds";
 
 const SectionContainer = ({
   sectionId,
