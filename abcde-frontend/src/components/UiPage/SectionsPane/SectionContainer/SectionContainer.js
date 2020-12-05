@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionHeading from "./SectionElements/SectionHeading";
-import { Flex } from "@chakra-ui/react";
+import { Flex, HStack, CloseButton } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionElements/SectionUI";
 import NestedSection from "./NestedSection";
 import { getTopLevelSectionId } from "../../../../utils/sectionIds";
 import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
+import NestedIncrementer from "./SectionElements/NestedIncrementer";
 
 const SectionContainer = ({
   sectionId,
@@ -100,7 +101,12 @@ const SectionContainer = ({
         id={sectionId}
       >
         {getTopLevelSectionId(activeObj) === sectionId && <Breadcrumbs />}
-        <SectionHeading heading={theSection.name} />
+        <HStack mb="1rem">
+          <SectionHeading heading={theSection.name} />
+          <NestedIncrementer />
+          <CloseButton size="md" />
+        </HStack>
+
         <SectionUI
           sectionId={sectionId}
           visibleSectionIds={visibleSectionIds}
