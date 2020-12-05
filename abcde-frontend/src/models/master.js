@@ -1,13 +1,11 @@
-import { action, thunk } from "easy-peasy";
-import { getUISpecs } from "../data/fetchData";
-import Data from "../data/longList.json";
+import { action, debug, thunk } from "easy-peasy";
+import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 import {
   createId,
   getSplitId,
   parseNestedId,
   getTopLevelSectionId,
-  createExportableObject,
 } from "../utils/sectionIds";
 
 const master = {
@@ -18,14 +16,12 @@ const master = {
   prevSectionIdExParam: null,
   currSectionIdExParam: null,
   activeObj: "",
-  visible: {},
-  shiftAmount: {},
 
   // actions
   // Load DATA
-  _loadSections: action((state, payload) => {
-    for (let key of Object.keys(payload)) {
-      state.sections[key] = new Section(key, payload[key]);
+  loadObjects: action((state) => {
+    for (let key of Object.keys(Data)) {
+      state.sections[key] = new Section(key, Data[key]);
     }
     state.selected = Object.keys(state.sections).reduce(
       (acc, curr) => ({ ...acc, [curr]: {} }),
@@ -34,19 +30,12 @@ const master = {
     for (let k of Object.keys(state.selected)) {
       state.visibleSectionIds[k] = {};
       state.visibleSectionIdsHistory[k] = {};
-      state.shiftAmount[k] = 0;
     }
   }),
 
-  loadSections: thunk((action, payload, helpers) => {
-    // getUISpecs().then((res) => action._loadSections(res.data));
-    action._loadSections(Data);
-  }),
-
-  // Show/Collapse button
-  setVisible: action((state, payload) => {
-    const { sectionId, newVisible } = payload;
-    state.visible[sectionId] = newVisible;
+  resetObjects: action((state) => {
+    state.objectList = {};
+    state.sections = [];
   }),
 
   // stores what fields to show
@@ -58,11 +47,6 @@ const master = {
   // string name of currently active object
   setActiveObj: action((state, payload) => {
     state.activeObj = payload;
-  }),
-
-  setShiftAmount: action((state, payload) => {
-    const { sectionId, shiftAmount } = payload;
-    state.shiftAmount[sectionId] = shiftAmount;
   }),
 
   modifyVisibleSectionIds: action((state, payload) => {
@@ -82,7 +66,7 @@ const master = {
         if (id in currHistory) {
           const previouslySelectedObj = state.selected[fullId].name;
           for (let k of Object.keys(currHistory[id])) {
-            if (parseNestedId(k).objName === previouslySelectedObj) {
+            if (parseNestedId(k).objName == previouslySelectedObj) {
               curr[id][k] = currHistory[id][k];
             }
           }
@@ -152,13 +136,6 @@ const master = {
         });
       }
     }
-  }),
-
-  exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurrSection;
-    const { selected } = helpers.getState();
-    let output = createExportableObject(selected, globalCurr);
-    output = JSON.stringify(output);
   }),
 };
 

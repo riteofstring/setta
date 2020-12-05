@@ -1,34 +1,34 @@
 import React, { useEffect } from "react";
-import { Flex } from "@chakra-ui/react";
+import { Heading, Flex } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { getSection } from "../../utils/sectionIds";
-import PaneHeading from "../PaneHeading/PaneHeading";
 
-import SectionContainer from "./SectionContainer/SectionContainer";
+import ObjectContainer from "./ObjectContainer/ObjectContainer";
 
-const SectionsPane = () => {
-  const { loadSections } = useStoreActions((actions) => actions.master);
+const ObjectsPane = () => {
+  const { loadObjects } = useStoreActions((actions) => actions.master);
   const { sections, visibleSectionIds } = useStoreState(
     (state) => state.master
   );
   useEffect(() => {
-    loadSections();
-  }, [loadSections]);
+    loadObjects();
+  }, [loadObjects]);
 
   return (
-    <Flex direction="column" mr="5rem" mt="2.5rem">
-      <PaneHeading heading="Sections" />
+    <Flex direction="column" mr="5rem">
+      <Heading as="h1" size="2xl" color="gray.600">
+        Objects
+      </Heading>
       {Object.keys(visibleSectionIds).map((e, idx) => (
-        <SectionContainer
+        <ObjectContainer
           sectionId={e}
           visibleSectionIds={visibleSectionIds[e]}
           theSection={getSection(sections, e)}
           key={`${e}-${idx}`}
-          depth={0}
         />
       ))}
     </Flex>
   );
 };
 
-export default React.memo(SectionsPane);
+export default React.memo(ObjectsPane);

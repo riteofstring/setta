@@ -16,11 +16,9 @@ const DetailsContainer = () => {
   };
 
   useLayoutEffect(() => {
-    if (activeObj && selected[activeObj].params) {
+    if (selected[activeObj].params) {
       let paramList = selected[activeObj].params;
       loadParams(paramList);
-    } else {
-      setParamsArr([]);
     }
   }, [selected, activeObj]);
 
