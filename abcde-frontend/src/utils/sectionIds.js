@@ -194,19 +194,20 @@ export const getBreadCrumbPath = (
   return { breadCrumbPath: shortOutput, fullPath: longOutput };
 };
 
-export const getNestedListLength = (
+export const getMaxListPosition = (
   sectionId,
   visibleSectionIds,
   paramName
 ) => {
   const nested = visibleSectionIds[sectionId];
-  let length = 0;
+  let maxPosition = 0;
   for (let id of Object.keys(nested)) {
-    if (paramName === parseNestedId(id).paramName) {
-      length += 1;
+    const {paramName: currParamName, listPosition} = parseNestedId(id)
+    if (paramName === currParamName) {
+      maxPosition = Math.max(listPosition, maxPosition);
     }
   }
-  return length;
+  return maxPosition;
 };
 
 export const getSectionOrder = (visibleSectionIds) => {

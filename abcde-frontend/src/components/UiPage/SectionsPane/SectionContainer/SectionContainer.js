@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionHeading from "./SectionElements/SectionHeading";
-import { Flex, HStack, CloseButton } from "@chakra-ui/react";
+import { Flex, HStack } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionElements/SectionUI";
 import NestedSection from "./NestedSection";
@@ -86,12 +86,7 @@ const SectionContainer = ({
 
   const maybeIncludeNestedIncrementer = () => {
     if (isList[sectionId]) {
-      return (
-        <>
-          <NestedIncrementer sectionId={sectionId} />
-          <CloseButton size="md" />
-        </>
-      );
+      return <NestedIncrementer sectionId={sectionId} />;
     }
     return <></>;
   };

@@ -1,17 +1,23 @@
 import React from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { HStack, Button, Input, useNumberInput } from "@chakra-ui/react";
+import {
+  HStack,
+  Button,
+  Input,
+  useNumberInput,
+  CloseButton,
+} from "@chakra-ui/react";
 import {
   getParentId,
   getChildId,
   parseNestedId,
-  getNestedListLength,
+  getMaxListPosition,
   modifyId,
 } from "../../../../../utils/sectionIds";
 
 const NestedIncrementer = ({ sectionId }) => {
   const { visibleSectionIds } = useStoreState((state) => state.master);
-  const { modifyVisibleSectionIds } = useStoreActions(
+  const { modifyVisibleSectionIds, setIsList } = useStoreActions(
     (actions) => actions.master
   );
 
@@ -27,34 +33,44 @@ const NestedIncrementer = ({ sectionId }) => {
   const dec = getDecrementButtonProps();
   const input = getInputProps({ isReadOnly: true });
 
+  const listPosition = parseNestedId(getChildId(sectionId)).listPosition;
+
   const modifySections = (command) => {
     const parentId = getParentId(sectionId);
     const paramName = parseNestedId(getChildId(sectionId)).paramName;
-    const listLength = getNestedListLength(
+    const currMaxPosition = getMaxListPosition(
       parentId,
       visibleSectionIds,
       paramName
     );
-    if (command === "delete" && listLength === 1) {
+    if (command === "delete" && currMaxPosition === 0) {
       return;
     }
     const newId = modifyId({
       id: sectionId,
-      paramName,
-      listPosition: command === "add" ? listLength : listLength - 1,
+      listPosition: command === "add" ? currMaxPosition + 1 : currMaxPosition,
     });
     modifyVisibleSectionIds({
       fullId: newId,
       command: command,
     });
+    return newId;
   };
 
   const addSection = () => {
-    modifySections("add");
+    const newId = modifySections("add");
+    setIsList({ sectionId: newId, isList: true });
   };
 
   const deleteSection = () => {
     modifySections("delete");
+  };
+
+  const deleteThisSection = () => {
+    modifyVisibleSectionIds({
+      fullId: sectionId,
+      command: "delete",
+    });
   };
 
   return (
@@ -65,6 +81,7 @@ const NestedIncrementer = ({ sectionId }) => {
       <Button {...inc} onClick={() => addSection()}>
         +
       </Button>
+      {(listPosition !== "0") && <CloseButton size="md" onClick={() => deleteThisSection()} />}
     </HStack>
   );
 };
