@@ -3,7 +3,7 @@ import { useStoreState } from "easy-peasy";
 import { HiChevronDown } from "react-icons/hi";
 import { MenuButton, Button } from "@chakra-ui/react";
 
-const ObjectMenuButton = ({ theSection, sectionId }) => {
+const SectionMenuButton = ({ theSection, sectionId }) => {
   const { selected } = useStoreState((state) => state.master);
 
   const currObjectName = selected[sectionId].name;
@@ -21,4 +21,4 @@ const ObjectMenuButton = ({ theSection, sectionId }) => {
   );
 };
 
-export default React.memo(ObjectMenuButton);
+export default React.memo(SectionMenuButton);

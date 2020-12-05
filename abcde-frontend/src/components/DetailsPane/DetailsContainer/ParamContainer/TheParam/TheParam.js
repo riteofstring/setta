@@ -39,13 +39,11 @@ const TheParam = ({ parameters }) => {
 
   useEffect(() => {
     setAddedNestedId(false);
-  }, [parameters]);
-
-  useEffect(() => {
-    if (ui_type === "NESTED_OBJECT" && !addedNestedId) {
+    if (ui_type === "NESTED_OBJECT") {
       setLocalAndGlobalState();
     }
-  }, [name]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parameters]);
 
   useEffect(() => {
     setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);

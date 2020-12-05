@@ -1,7 +1,8 @@
 import React, { useState, useLayoutEffect } from "react";
-import { Box, Flex, HStack, Heading, css } from "@chakra-ui/react";
+import { VStack, Flex } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import DetailsContainer from "./DetailsContainer/DetailsContainer";
+import PaneHeading from "../PaneHeading/PaneHeading";
 
 const DetailsPane = () => {
   const { activeObj } = useStoreState((state) => state.master);
@@ -18,10 +19,12 @@ const DetailsPane = () => {
   });
 
   return (
-    <Box
-    // css={css`
-    //   align-items: flex-start;
-    // `}
+    <VStack
+      position="fixed"
+      zIndex="5"
+      right="2.5rem"
+      top="7.5rem"
+      visibility={activeObj ? "visible" : "hidden"}
     >
       <Flex
         align="flex-start"
@@ -30,14 +33,14 @@ const DetailsPane = () => {
         bg="gray.50"
         borderRadius="3xl"
         padding="5rem"
+        minHeight="50vh"
+        width="50vw"
       >
-        <Heading as="h1" size="2xl" color="gray.600">
-          Details
-        </Heading>
+        <PaneHeading heading="Details" />
 
         {loaded && <DetailsContainer />}
       </Flex>
-    </Box>
+    </VStack>
   );
 };
 
