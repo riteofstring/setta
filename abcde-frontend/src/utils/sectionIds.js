@@ -13,7 +13,6 @@ export const modifyId = ({
   paramName = null,
   listPosition = null,
 }) => {
-
   const childId = getChildId(id);
   let parentId = getParentId(id);
   let {
@@ -208,4 +207,27 @@ export const getNestedListLength = (
     }
   }
   return length;
+};
+
+export const getSectionOrder = (visibleSectionIds) => {
+  const allIds = Object.keys(visibleSectionIds)
+  let ordered = [];
+  let done = {};
+  for (let k of allIds) {
+    if (!done[k]) {
+      const listPosition = parseNestedId(k).listPosition;
+      if (listPosition !== null) {
+        const prefix = k.replace(/\d+$/, "");
+        const subList = allIds.filter((x) => x.startsWith(prefix));
+        ordered.push(...subList);
+        for (let k2 of subList) {
+          done[k2] = true;
+        }
+      } else {
+        ordered.push(k)
+        done[k] = true;
+      }
+    }
+  }
+  return ordered;
 };

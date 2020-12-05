@@ -5,7 +5,10 @@ import { Flex, HStack, CloseButton } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionElements/SectionUI";
 import NestedSection from "./NestedSection";
-import { getTopLevelSectionId } from "../../../../utils/sectionIds";
+import {
+  getTopLevelSectionId,
+  getSectionOrder,
+} from "../../../../utils/sectionIds";
 import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
 import NestedIncrementer from "./SectionElements/NestedIncrementer";
 
@@ -85,9 +88,7 @@ const SectionContainer = ({
     if (isList[sectionId]) {
       return (
         <>
-          <NestedIncrementer
-            sectionId={sectionId}
-          />
+          <NestedIncrementer sectionId={sectionId} />
           <CloseButton size="md" />
         </>
       );
@@ -127,7 +128,7 @@ const SectionContainer = ({
         />
       </Flex>
       {Object.keys(visibleSectionIds).length > 0 &&
-        Object.keys(visibleSectionIds).map((e, idx) => (
+        getSectionOrder(visibleSectionIds).map((e, idx) => (
           <NestedSection
             sectionId={sectionId}
             visibleSectionIds={visibleSectionIds}
