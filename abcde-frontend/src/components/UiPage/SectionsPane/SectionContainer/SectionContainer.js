@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import SectionHeading from "./SectionHeading";
+import SectionHeading from "./SectionElements/SectionHeading";
 import { Flex } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
-import SectionUI from "./SectionUI";
+import SectionUI from "./SectionElements/SectionUI";
 import NestedSection from "./NestedSection";
 import { getTopLevelSectionId } from "../../../../utils/sectionIds";
+import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
 
 const SectionContainer = ({
   sectionId,
@@ -77,7 +78,7 @@ const SectionContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
 
-  console.log(focus);
+  console.log(getTopLevelSectionId(sectionId));
 
   return (
     <Flex
@@ -98,6 +99,7 @@ const SectionContainer = ({
         borderColor="gray.200"
         id={sectionId}
       >
+        {getTopLevelSectionId(activeObj) === sectionId && <Breadcrumbs />}
         <SectionHeading heading={theSection.name} />
         <SectionUI
           sectionId={sectionId}

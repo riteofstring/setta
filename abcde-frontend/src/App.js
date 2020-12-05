@@ -1,11 +1,11 @@
 import "./App.css";
 import { ChakraProvider } from "@chakra-ui/react";
-import Container from "./components/UiPage/Container/Container";
+import AppContainer from "./components/AppContainer/AppContainer";
 
 function App() {
   return (
     <ChakraProvider>
-      <Container />
+      <AppContainer />
     </ChakraProvider>
   );
 }

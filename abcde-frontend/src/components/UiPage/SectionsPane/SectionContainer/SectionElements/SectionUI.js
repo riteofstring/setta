@@ -2,8 +2,8 @@ import React from "react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import SectionMenu from "./SectionMenu/SectionMenu";
 import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
-import SectionMenuButton from "./SectionMenuButton/SectionMenuButton";
-import { getVisible } from "../../../../utils/sectionIds";
+import SectionMenuButton from "./SectionMenuButton";
+import { getVisible } from "../../../../../utils/sectionIds";
 
 const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
   const { setVisible } = useStoreActions((actions) => actions.master);
