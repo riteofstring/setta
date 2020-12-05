@@ -1,6 +1,6 @@
 import { action, thunk } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/big.json"
+import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
   createId,
@@ -40,7 +40,7 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     // getUISpecs().then((res) => action._loadSections(res.data));
-    action._loadSections(Data)
+    action._loadSections(Data);
   }),
 
   // Show/Collapse button
