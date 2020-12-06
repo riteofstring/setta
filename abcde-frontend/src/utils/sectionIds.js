@@ -163,22 +163,23 @@ export const createExportableObject = (selected, globalCurr) => {
 export const getBreadCrumbPath = (
   sectionId,
   idHierarchy,
+  rootIdHierarchy,
   isVisible,
   sectionIdsToSectionNames
 ) => {
-  const x = idHierarchy[sectionId];
+  const x = findId(sectionId, idHierarchy, rootIdHierarchy)
   let headOfBreadCrumbPath = [];
   let headOfIdLineage = [];
   if (isVisible[sectionId]) {
     headOfBreadCrumbPath = [sectionIdsToSectionNames[sectionId]];
     headOfIdLineage = [sectionId];
     const children = x.children;
-    const childrenKeys = Object.keys(children);
-    const nextId = childrenKeys.filter((x) => isVisible[x])[0];
+    const nextId = children.filter((x) => isVisible[x])[0];
     if (nextId) {
       const { breadCrumbPath, idLineage } = getBreadCrumbPath(
         nextId,
-        children,
+        idHierarchy,
+        rootIdHierarchy,
         isVisible,
         sectionIdsToSectionNames
       );
@@ -224,33 +225,27 @@ export const getSectionOrder = (idHierarchy) => {
   return ordered;
 };
 
-export const findId = (id, idHierarchy) => {
-  let output = null;
-  for (let x of Object.keys(idHierarchy)) {
-    if (x === id) {
-      output = idHierarchy[x];
-    } else {
-      output = findId(id, idHierarchy[x].children);
-    }
-    if (output !== null) {
-      break;
-    }
+export const findId = (id, idHierarchy, rootIdHierarchy) => {
+  let idObj = rootIdHierarchy[id] 
+  if (!idObj){
+    idObj = idHierarchy[id]
   }
-  return output;
+  return idObj
 };
 
 export const setChildrenVisibility = (
   children,
+  idHierarchy,
   isVisible,
   visibility,
   parentModuleName = null,
   parentObjName = null
 ) => {
-  for (let x of Object.keys(children)) {
-    const child = children[x];
+  for (let x of children) {
+    const child = idHierarchy[x];
     if (parentModuleName === null) {
       isVisible[x] = visibility;
-      setChildrenVisibility(child.children, isVisible, visibility);
+      setChildrenVisibility(child.children, idHierarchy, isVisible, visibility);
     } else if (
       child.parentModuleName === parentModuleName &&
       child.parentObjName === parentObjName

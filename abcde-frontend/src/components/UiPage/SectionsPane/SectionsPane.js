@@ -10,8 +10,8 @@ const SectionsPane = () => {
     (actions) => actions.master.loadSections
   );
   const sections = useStoreState((state) => state.master.sections);
-  const idHierarchy = useStoreState(
-    (state) => state.master.idHierarchy
+  const rootIdHierarchy = useStoreState(
+    (state) => state.master.rootIdHierarchy
   );
   useEffect(() => {
     loadSections();
@@ -22,11 +22,11 @@ const SectionsPane = () => {
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />
-      {Object.keys(idHierarchy).map((e, idx) => (
+      {Object.keys(rootIdHierarchy).map((e, idx) => (
         <SectionContainer
           sectionId={e}
           rootId={e}
-          idHierarchy={idHierarchy[e].children}
+          childrenIds={rootIdHierarchy[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}
           depth={0}

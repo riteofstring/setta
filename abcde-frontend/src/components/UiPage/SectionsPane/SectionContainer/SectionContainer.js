@@ -12,7 +12,7 @@ import NestedIncrementer from "./SectionElements/NestedIncrementer";
 const SectionContainer = ({
   sectionId,
   rootId,
-  idHierarchy,
+  childrenIds,
   theSection,
   depth,
 }) => {
@@ -32,8 +32,6 @@ const SectionContainer = ({
   const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
 
   const isList = useStoreState((state) => state.master.isList[sectionId]);
-
-  const visibleSectionIdsKeys = Object.keys(idHierarchy);
 
   console.log("SectionContainer", theSection.name);
 
@@ -67,7 +65,7 @@ const SectionContainer = ({
       ml={depth === 0 && `${shiftAmount * -2.5}rem`}
       borderRadius="md"
     >
-      {rootId === sectionId && visibleSectionIdsKeys.length > 0 && (
+      {rootId === sectionId && childrenIds.length > 0 && (
         <Breadcrumbs rootId={rootId} />
       )}
       <Flex
@@ -89,17 +87,16 @@ const SectionContainer = ({
 
         <SectionUI
           sectionId={sectionId}
-          idHierarchy={idHierarchy}
+          childrenIds={childrenIds}
           theSection={theSection}
         />
       </Flex>
-      {visibleSectionIdsKeys.length > 0 &&
-        visibleSectionIdsKeys.map((e, idx) => (
+      {childrenIds.length > 0 &&
+        childrenIds.map((e, idx) => (
           <NestedSection
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}
-            idHierarchy={idHierarchy[e].children}
             idx={idx}
             key={`Nested-Sec-${e}-${idx}`}
             depth={depth + 1}

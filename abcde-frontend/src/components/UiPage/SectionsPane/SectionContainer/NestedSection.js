@@ -8,13 +8,13 @@ const NestedSection = ({
   parentId,
   rootId,
   sectionId,
-  idHierarchy,
   idx,
   depth,
 }) => {
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const isShown = useStoreState((state) => state.master.isShown[parentId]);
   const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
+  const idHierarchy = useStoreState((state) => state.master.idHierarchy[sectionId]);
 
   console.log("NestedSection", sectionId, rootId);
 
@@ -36,7 +36,7 @@ const NestedSection = ({
         <SectionContainer
           sectionId={sectionId}
           rootId={rootId}
-          idHierarchy={idHierarchy}
+          childrenIds={idHierarchy.children}
           theSection={theSection}
           depth={depth}
         />

@@ -4,7 +4,7 @@ import SectionMenu from "./SectionMenu/SectionMenu";
 import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
 import SectionMenuButton from "./SectionMenuButton";
 
-const SectionUI = ({ sectionId, idHierarchy, theSection }) => {
+const SectionUI = ({ sectionId, childrenIds, theSection }) => {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
   const isShown = useStoreState((state) => state.master.isShown[sectionId]);
 
@@ -19,7 +19,7 @@ const SectionUI = ({ sectionId, idHierarchy, theSection }) => {
         <SectionMenu sectionId={sectionId} theSection={theSection} />
       </Menu>
       <Spacer />
-      {Object.keys(idHierarchy).length > 0 && (
+      {childrenIds.length > 0 && (
         <Button onClick={flipVisible}>{!!isShown ? "Collapse" : "Show"}</Button>
       )}
     </HStack>

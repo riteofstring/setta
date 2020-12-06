@@ -18,6 +18,7 @@ const master = {
   sections: {},
   selected: {},
   idHierarchy: {},
+  rootIdHierarchy: {},
   isVisible: {},
   isShown: {},
   shiftAmount: {},
@@ -34,8 +35,8 @@ const master = {
     for (let key of Object.keys(payload)) {
       let id = state.sectionCount;
       state.sections[id] = new Section(key, payload[key]);
-      state.idHierarchy[id] = {
-        children: {},
+      state.rootIdHierarchy[id] = {
+        children: [],
         moduleName: null,
         objName: null,
         parentModuleName: null,
@@ -99,7 +100,11 @@ const master = {
   addToVisibleSectionIds: action((state, payload) => {
     const { id, name, moduleName, objName, parentId } = payload;
     console.log("********ADD**********", parentId, moduleName, objName, name);
-    const parentIdObj = findId(parentId, state.idHierarchy);
+    const parentIdObj = findId(
+      parentId,
+      state.idHierarchy,
+      state.rootIdHierarchy
+    );
     parentIdObj.moduleName = moduleName;
     parentIdObj.objName = objName;
     if (!(id in state.selected)) {
@@ -110,8 +115,9 @@ const master = {
         ].type;
       state.inFocus.splice(id, 0, false);
 
-      parentIdObj.children[id] = {
-        children: {},
+      parentIdObj.children.push(id);
+      state.idHierarchy[id] = {
+        children: [],
         parentModuleName: moduleName,
         parentObjName: objName,
       };
@@ -135,8 +141,13 @@ const master = {
 
   deleteFromVisibleSectionIds: action((state, payload) => {
     console.log("********DELETE**********", payload);
-    let foundId = findId(payload, state.idHierarchy);
-    setChildrenVisibility(foundId.children, state.isVisible, false);
+    const foundId = findId(payload, state.idHierarchy, state.rootIdHierarchy);
+    setChildrenVisibility(
+      foundId.children,
+      state.idHierarchy,
+      state.isVisible,
+      false
+    );
   }),
 
   deleteFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
@@ -173,7 +184,7 @@ const master = {
     );
     let id = helpers.getState().stringIdsToSectionIds[stringId];
     if (id === undefined) {
-      id = helpers.getState().sectionCount;
+      id = helpers.getState().sectionCount.toString();
       action.incrementSectionCount();
       action.setStringId({ sectionId: id, stringId, name });
       action.setIsList({ sectionId: id, isList });
