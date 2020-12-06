@@ -93,7 +93,11 @@ const SectionContainer = ({
           {/* {maybeIncludeNestedIncrementer()} */}
         </HStack>
 
-        <SectionUI sectionId={sectionId} theSection={theSection} />
+        <SectionUI
+          sectionId={sectionId}
+          theSection={theSection}
+          sectionModuleObjHasNested={sectionModuleObjHasNested}
+        />
       </Flex>
       {childrenIds.length > 0 &&
         childrenIds.map((e, idx) => (

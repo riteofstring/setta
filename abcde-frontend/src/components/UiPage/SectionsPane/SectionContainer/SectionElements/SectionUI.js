@@ -5,20 +5,15 @@ import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
 import SectionMenuButton from "./SectionMenuButton";
 import { createStringId } from "../../../../../utils/sectionIds";
 
-const SectionUI = ({ sectionId, theSection }) => {
+const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
   const isShown = useStoreState((state) => state.master.isShown[sectionId]);
-  const selected = useStoreState((state) => state.master.selected[sectionId]);
-  const stringId = createStringId(sectionId, selected.moduleName, selected.name);
-  const sectionModuleObjHasNested = useStoreState(
-    (state) => state.master.sectionModuleObjHasNested[stringId]
-  );
-
-  console.log("SectionUI", stringId)
 
   const flipShown = () => {
     setIsShown({ sectionId, isShown: !isShown });
   };
+
+  console.log("####################SectionUI", sectionId);
 
   return (
     <HStack spacing="2rem" w="100%">
