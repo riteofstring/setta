@@ -25,8 +25,8 @@ const SectionContainer = ({
     (prev, next) => prev[sectionId] === next[sectionId]
   );
   const shiftAmount = useStoreState(
-    (state) => state.master.shiftAmount
-    // (prev, next) => prev[sectionId] === next[sectionId]
+    (state) => state.master.shiftAmount,
+    (prev, next) => prev[sectionId] === next[sectionId]
   );
 
   const setShiftAmount = useStoreActions(
@@ -73,6 +73,9 @@ const SectionContainer = ({
       ml={depth === 0 && `${shiftAmount[sectionId] * -2.5}rem`}
       borderRadius="md"
     >
+      {rootId === sectionId && visibleSectionIdsKeys.length > 0 && (
+        <Breadcrumbs rootId={rootId} />
+      )}
       <Flex
         width="100%"
         bg={thisInFocus ? "gray.50" : "white"}
@@ -85,7 +88,6 @@ const SectionContainer = ({
         borderColor="gray.200"
         id={sectionId}
       >
-        {/* {getTopLevelSectionId(sectionId) === sectionId && <Breadcrumbs />} */}
         <HStack mb="1rem">
           <SectionHeading heading={theSection.name} />
           {/* {maybeIncludeNestedIncrementer()} */}

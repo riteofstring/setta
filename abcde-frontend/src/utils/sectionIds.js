@@ -169,29 +169,28 @@ export const createExportableObject = (selected, globalCurr) => {
 export const getBreadCrumbPath = (
   sectionId,
   visibleSectionIds,
-  isTopLevel = true,
-  parentId = ""
+  sectionIdsToSectionNames,
 ) => {
-  const longPath = isTopLevel ? sectionId : combineIds(parentId, sectionId);
-  let shortOutput = isTopLevel
-    ? [sectionId]
-    : [parseNestedId(sectionId).paramName];
-  let longOutput = [longPath];
-  const nested = visibleSectionIds[sectionId];
-  if (nested) {
-    const keys = Object.keys(nested);
-    if (keys.length > 0) {
-      const { breadCrumbPath, fullPath } = getBreadCrumbPath(
-        keys[0],
-        nested,
-        false,
-        longPath
+  const x = visibleSectionIds[sectionId];
+  let headOfBreadCrumbPath = [];
+  let headOfIdLineage = [];
+  if (x.visible) {
+    headOfBreadCrumbPath = [sectionIdsToSectionNames[sectionId]];
+    headOfIdLineage = [sectionId];
+    const children = x.children;
+    const childrenKeys = Object.keys(children);
+    const nextId = childrenKeys.filter(x=>children[x].visible)[0];
+    if (nextId) {
+      const { breadCrumbPath, idLineage } = getBreadCrumbPath(
+        nextId,
+        children,
+        sectionIdsToSectionNames
       );
-      shortOutput.push(...breadCrumbPath);
-      longOutput.push(...fullPath);
+      headOfBreadCrumbPath.push(...breadCrumbPath);
+      headOfIdLineage.push(...idLineage);
     }
   }
-  return { breadCrumbPath: shortOutput, fullPath: longOutput };
+  return { breadCrumbPath: headOfBreadCrumbPath, idLineage: headOfIdLineage };
 };
 
 export const getMaxListPosition = (sectionId, visibleSectionIds, paramName) => {
@@ -242,10 +241,6 @@ export const findId = (id, visibleSectionIds) => {
     }
   }
   return output;
-};
-
-export const moduleObj = (moduleName, objName) => {
-  return moduleName + SEPARATOR + objName;
 };
 
 export const setChildrenVisibility = (

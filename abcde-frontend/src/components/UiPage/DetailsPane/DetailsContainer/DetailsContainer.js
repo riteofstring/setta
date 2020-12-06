@@ -8,15 +8,21 @@ const DetailsContainer = () => {
   const sectionId = useStoreState((state) => state.globalCurr.sectionId);
   const moduleName = useStoreState((state) => state.globalCurr.moduleName);
   const objName = useStoreState((state) => state.globalCurr.objName);
+  const selected = useStoreState((state) => state.master.selected);
   const getParamsArr = () => {
     try {
       let output = [];
-      const paramSource =
-        sections[sectionId].moduleInfos[moduleName].objs[objName].params;
-      for (let key of Object.keys(paramSource)) {
-        output.push(paramSource[key]);
+      const { moduleName: localModuleName, name: localObjName } = selected[
+        sectionId
+      ];
+      if (moduleName === localModuleName && objName === localObjName) {
+        const paramSource =
+          sections[sectionId].moduleInfos[moduleName].objs[objName].params;
+        for (let key of Object.keys(paramSource)) {
+          output.push(paramSource[key]);
+        }
       }
-      return output
+      return output;
     } catch (err) {
       return [];
     }
@@ -24,7 +30,7 @@ const DetailsContainer = () => {
 
   const paramsArr = getParamsArr();
 
-  console.log("DetailsContainer");
+  console.log("DetailsContainer paramsArr", paramsArr);
 
   return (
     <HStack>

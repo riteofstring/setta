@@ -1,31 +1,27 @@
 import React from "react";
 import { useStoreState } from "easy-peasy";
 
-import {
-  getTopLevelSectionId,
-  getBreadCrumbPath,
-} from "../../../../../../utils/sectionIds";
+import { getBreadCrumbPath } from "../../../../../../utils/sectionIds";
 
 import TheBreadCrumb from "./TheBreadcrumb/TheBreadCrumb";
 
-const Breadcrumbs = () => {
+const Breadcrumbs = ({ rootId }) => {
   const visibleSectionIds = useStoreState(
     (state) => state.master.visibleSectionIds
   );
-  const sectionId = useStoreState((state) => state.globalCurr.sectionId);
-  const { breadCrumbPath, fullPath } = getBreadCrumbPath(
-    getTopLevelSectionId(sectionId),
-    visibleSectionIds
+  const sectionIdsToSectionNames = useStoreState(
+    (state) => state.master.sectionIdsToSectionNames
+  );
+  const { breadCrumbPath, idLineage } = getBreadCrumbPath(
+    rootId,
+    visibleSectionIds,
+    sectionIdsToSectionNames
   );
 
-  console.log("BreadCrumbs")
+  console.log("BreadCrumbs");
 
   return (
-    <>
-      {visibleSectionIds.length > 0 && (
-        <TheBreadCrumb breadCrumbPath={breadCrumbPath} fullPath={fullPath} />
-      )}
-    </>
+    <TheBreadCrumb breadCrumbPath={breadCrumbPath} idLineage={idLineage} />
   );
 };
 

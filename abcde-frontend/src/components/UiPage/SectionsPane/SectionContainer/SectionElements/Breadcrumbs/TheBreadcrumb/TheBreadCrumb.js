@@ -4,22 +4,32 @@ import { useStoreActions } from "easy-peasy";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink } from "@chakra-ui/react";
 import { BiChevronRight } from "react-icons/bi";
 
-const TheBreadcrumb = ({ breadCrumbPath, fullPath }) => {
-  const setSectionId = useStoreActions((actions) => actions.globalCurr.setSectionId);
+const TheBreadcrumb = ({ breadCrumbPath, idLineage }) => {
+  const setSectionId = useStoreActions(
+    (actions) => actions.globalCurr.setSectionId
+  );
 
-  const setFocus = (breadcrumbIdx) => {
-    setSectionId(fullPath[breadcrumbIdx]);
+  const setShiftAmount = useStoreActions(
+    (actions) => actions.master.setShiftAmount
+  );
+  const setInFocus = useStoreActions((actions) => actions.master.setInFocus);
+
+  const applyFocus = (breadcrumbIdx) => {
+    const sectionId = idLineage[breadcrumbIdx];
+    setInFocus(sectionId);
+    setSectionId(sectionId);
+    setShiftAmount({ rootId: idLineage[0], shiftAmount: breadcrumbIdx });
   };
 
-  console.log("TheBreadcrumb")
+  console.log("TheBreadcrumb", idLineage);
 
   return (
     <Breadcrumb spacing="8px" separator={<BiChevronRight color="gray.500" />}>
       {breadCrumbPath.map((e, idx) => (
         <BreadcrumbItem key={`crumbitem-${idx}`}>
           <BreadcrumbLink
-            onClick={() => setFocus(idx)}
-            href={`#${fullPath[idx]}`}
+            onClick={() => applyFocus(idx)}
+            href={`#${idLineage[idx]}`}
             key={`crumblink-${idx}`}
           >
             {e}

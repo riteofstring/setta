@@ -1,6 +1,6 @@
 import { action, thunk, debug } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/data.json";
+import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -10,7 +10,6 @@ import {
   createExportableObject,
   modifyId,
   findId,
-  moduleObj,
   setChildrenVisibility,
 } from "../utils/sectionIds";
 
@@ -22,8 +21,9 @@ const master = {
   visible: {},
   shiftAmount: {},
   isList: {},
-  stringIds: {},
-  takenStringIds: {},
+  sectionIdsToStringIds: {},
+  sectionIdsToSectionNames: {},
+  stringIdsToSectionIds: {},
   inFocus: [false],
   hasNested: {},
 
@@ -42,8 +42,9 @@ const master = {
         parentObjName: null,
       };
       state.shiftAmount[id] = 0;
-      state.stringIds[id] = key;
-      state.takenStringIds[key] = id;
+      state.sectionIdsToStringIds[id] = key;
+      state.sectionIdsToSectionNames[id] = key;
+      state.stringIdsToSectionIds[key] = id;
       state.sectionCount += 1;
       state.inFocus.push(false);
       state.hasNested[id] = false
@@ -82,9 +83,10 @@ const master = {
   }),
 
   setStringId: action((state, payload) => {
-    const { sectionId, stringId } = payload;
-    state.stringIds[sectionId] = stringId;
-    state.takenStringIds[stringId] = sectionId;
+    const { sectionId, stringId, name } = payload;
+    state.sectionIdsToStringIds[sectionId] = stringId;
+    state.sectionIdsToSectionNames[sectionId] = name;
+    state.stringIdsToSectionIds[stringId] = sectionId;
   }),
 
   setInFocus: action((state, payload) => {
@@ -151,9 +153,9 @@ const master = {
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    console.log("in ADD");
     const { name, sectionId: parentId, moduleName, objName, isList } = payload;
-    const parentStringId = helpers.getState().stringIds[parentId];
+    console.log("in ADD", parentId, moduleName, objName, name);
+    const parentStringId = helpers.getState().sectionIdsToStringIds[parentId];
     const listPosition = isList ? "0" : null;
     const stringId = createStringId(
       parentStringId,
@@ -162,11 +164,11 @@ const master = {
       name,
       listPosition
     );
-    let id = helpers.getState().takenStringIds[stringId];
+    let id = helpers.getState().stringIdsToSectionIds[stringId];
     if (id === undefined) {
       id = helpers.getState().sectionCount
       action.incrementSectionCount()
-      action.setStringId({ sectionId: id, stringId });
+      action.setStringId({ sectionId: id, stringId, name });
       action.setIsList({ sectionId: id, isList });
     }
     action.addToVisibleSectionIds({
