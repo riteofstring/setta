@@ -3,16 +3,16 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { MenuItem } from "@chakra-ui/react";
 
 const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
-  const { setSelected, deleteVisibleSectionIds } = useStoreActions(
-    (actions) => actions.master
+  const setSelected = useStoreActions((actions) => actions.master.setSelected);
+  const deleteVisibleSectionIds = useStoreActions(
+    (actions) => actions.master.deleteVisibleSectionIds
   );
-  const { setCurr } = useStoreActions((actions) => actions.globalCurr);
-  const {
-    sectionId: prevSectionId,
-    moduleName: prevModuleName,
-    objName: prevObjName,
-  } = useStoreState((state) => state.globalCurr);
+  const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
+  const prevSectionId = useStoreState((state) => state.globalCurr.sectionId);
+  const prevModuleName = useStoreState((state) => state.globalCurr.moduleName);
+  const prevObjName = useStoreState((state) => state.globalCurr.objName);
 
+  
   const setSelectedAndCurrObj = () => {
     if (
       sectionId === prevSectionId &&

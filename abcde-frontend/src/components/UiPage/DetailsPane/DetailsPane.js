@@ -1,11 +1,14 @@
-import React, { useState, useLayoutEffect } from "react";
+import React from "react";
 import { VStack, Flex } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import DetailsContainer from "./DetailsContainer/DetailsContainer";
 import PaneHeading from "../PaneHeading/PaneHeading";
 
 const DetailsPane = () => {
-  const { activeObj } = useStoreState((state) => state.master);
+  const activeObj = useStoreState(
+    (state) => state.master.activeObj,
+    (prev, next) => prev && next
+  );
 
   return (
     <VStack

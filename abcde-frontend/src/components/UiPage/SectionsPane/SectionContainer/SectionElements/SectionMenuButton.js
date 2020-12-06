@@ -4,7 +4,7 @@ import { HiChevronDown } from "react-icons/hi";
 import { MenuButton, Button } from "@chakra-ui/react";
 
 const SectionMenuButton = ({ theSection, sectionId }) => {
-  const { selected } = useStoreState((state) => state.master);
+  const selected = useStoreState((state) => state.master.selected);
 
   const currObjectName = selected[sectionId].name;
 

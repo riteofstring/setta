@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import {
   Input,
@@ -14,32 +14,48 @@ import {
 const TheParam = ({ parameters }) => {
   const { name, ui_type, default_val } = parameters;
 
-  const { setCurrParam } = useStoreActions((actions) => actions.globalCurr);
-
-  const { addToVisibleSectionIdsThunk } = useStoreActions(
-    (actions) => actions.master
+  const setCurrParam = useStoreActions(
+    (actions) => actions.globalCurr.setCurrParam
   );
 
-  const { globalCurr, sectionId, moduleName, objName } = useStoreState(
-    (state) => state.globalCurr
+  const addToVisibleSectionIdsThunk = useStoreActions(
+    (actions) => actions.master.addToVisibleSectionIdsThunk
   );
+
+  const globalCurr = useStoreState(
+    (state) => state.globalCurr.globalCurr,
+    (prev, next) => checkGlobalCurrEquality(prev, next)
+  );
+  const sectionId = useStoreState((state) => state.globalCurr.sectionId);
+  const moduleName = useStoreState((state) => state.globalCurr.moduleName);
+  const objName = useStoreState((state) => state.globalCurr.objName);
 
   const [value, setValue] = useState(default_val);
+
+  const checkGlobalCurrEquality = (prev, next) => {
+    let prevParam = null;
+    let nextParam = null;
+    try {
+      prevParam = prev[sectionId][moduleName][objName][name];
+    } catch (err) {}
+    try {
+      nextParam = next[sectionId][moduleName][objName][name];
+    } catch (err) {}
+    return prevParam === nextParam;
+  };
 
   const sendState = (name, value) => {
     setValue(value);
     setCurrParam({ paramName: name, paramValue: value });
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let savedParam = null;
-    if (sectionId in globalCurr) {
-      if (moduleName in globalCurr[sectionId]) {
-        if (objName in globalCurr[sectionId][moduleName]) {
-          savedParam = globalCurr[sectionId][moduleName][objName][name];
-        }
-      }
-    }
+
+    try {
+      savedParam = globalCurr[sectionId][moduleName][objName][name];
+    } catch (err) {}
+
     setValue(savedParam !== null ? savedParam : default_val);
 
     if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
@@ -52,7 +68,7 @@ const TheParam = ({ parameters }) => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parameters]);
+  }, [sectionId, moduleName, objName]);
 
   const inputSwitch = () => {
     switch (ui_type) {

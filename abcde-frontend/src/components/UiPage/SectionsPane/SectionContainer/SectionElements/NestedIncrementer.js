@@ -16,10 +16,13 @@ import {
 } from "../../../../../utils/sectionIds";
 
 const NestedIncrementer = ({ sectionId }) => {
-  const { visibleSectionIds } = useStoreState((state) => state.master);
-  const { modifyVisibleSectionIds, setIsList } = useStoreActions(
-    (actions) => actions.master
+  const visibleSectionIds = useStoreState(
+    (state) => state.master.visibleSectionIds
   );
+  const modifyVisibleSectionIds = useStoreActions(
+    (actions) => actions.master.modifyVisibleSectionIds
+  );
+  const setIsList = useStoreActions((actions) => actions.master.setIsList);
 
   const {
     getInputProps,
@@ -81,7 +84,9 @@ const NestedIncrementer = ({ sectionId }) => {
       <Button {...inc} onClick={() => addSection()}>
         +
       </Button>
-      {(listPosition !== "0") && <CloseButton size="md" onClick={() => deleteThisSection()} />}
+      {listPosition !== "0" && (
+        <CloseButton size="md" onClick={() => deleteThisSection()} />
+      )}
     </HStack>
   );
 };

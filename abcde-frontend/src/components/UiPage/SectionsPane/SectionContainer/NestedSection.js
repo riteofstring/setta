@@ -14,7 +14,8 @@ const NestedSection = ({
   idx,
   depth,
 }) => {
-  const { sections, visible } = useStoreState((state) => state.master);
+  const sections = useStoreState((state) => state.master.sections);
+  const visible = useStoreState((state) => state.master.visible);
 
   return (
     <>

@@ -4,7 +4,8 @@ import { useStoreState } from "easy-peasy";
 import ParamContainer from "./ParamContainer/ParamContainer";
 
 const DetailsContainer = () => {
-  const { selected, activeObj } = useStoreState((state) => state.master);
+  const selected = useStoreState((state) => state.master.selected);
+  const activeObj = useStoreState((state) => state.master.activeObj);
   const [paramsArr, setParamsArr] = useState([]);
 
   const loadParams = (paramList) => {
@@ -14,6 +15,8 @@ const DetailsContainer = () => {
     }
     setParamsArr(localParams);
   };
+
+  console.log("DetailsContainer")
 
   useLayoutEffect(() => {
     if (activeObj && selected[activeObj].params) {

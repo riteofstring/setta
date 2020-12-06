@@ -6,8 +6,8 @@ import SectionMenuButton from "./SectionMenuButton";
 import { getVisible } from "../../../../../utils/sectionIds";
 
 const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
-  const { setVisible } = useStoreActions((actions) => actions.master);
-  const { visible } = useStoreState((state) => state.master);
+  const setVisible = useStoreActions((actions) => actions.master.setVisible);
+  const visible = useStoreState((state) => state.master.visible);
 
   const flipVisible = () => {
     setVisible({ sectionId, newVisible: !getVisible(visible, sectionId) });
