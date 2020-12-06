@@ -8,6 +8,7 @@ import { createStringId } from "../../../../../utils/sectionIds";
 const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
   const isShown = useStoreState((state) => state.master.isShown[sectionId]);
+  console.log("SectionUI", sectionId);
 
   const flipShown = () => {
     setIsShown({ sectionId, isShown: !isShown });

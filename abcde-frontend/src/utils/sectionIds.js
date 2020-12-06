@@ -51,12 +51,11 @@ export const createStringId = (
   moduleName = null,
   objName = null,
   paramName = null,
-  listPosition = null
+  extraIdentifier = null
 ) => {
-  let id =
-    sectionId
+  let id = sectionId;
   if (moduleName != null) {
-    id += SEPARATOR + MODULE + moduleName
+    id += SEPARATOR + MODULE + moduleName;
   }
   if (objName != null) {
     id += SEPARATOR + OBJ + objName;
@@ -64,8 +63,8 @@ export const createStringId = (
   if (paramName !== null) {
     id += SEPARATOR + PARAM + paramName;
   }
-  if (listPosition !== null) {
-    id += SEPARATOR + LIST_POSITION + listPosition;
+  if (extraIdentifier !== null) {
+    id += SEPARATOR + LIST_POSITION + extraIdentifier;
   }
   return id;
 };
@@ -173,7 +172,7 @@ export const getBreadCrumbPath = (
   isVisible,
   sectionIdsToSectionNames
 ) => {
-  const x = findId(sectionId, idHierarchy, rootIdHierarchy)
+  const x = findId(sectionId, idHierarchy, rootIdHierarchy);
   let headOfBreadCrumbPath = [];
   let headOfIdLineage = [];
   if (isVisible[sectionId]) {
@@ -232,11 +231,11 @@ export const getSectionOrder = (idHierarchy) => {
 };
 
 export const findId = (id, idHierarchy, rootIdHierarchy) => {
-  let idObj = rootIdHierarchy[id] 
-  if (!idObj){
-    idObj = idHierarchy[id]
+  let idObj = rootIdHierarchy[id];
+  if (!idObj) {
+    idObj = idHierarchy[id];
   }
-  return idObj
+  return idObj;
 };
 
 export const setChildrenVisibility = (
@@ -268,3 +267,16 @@ export const setChildrenVisibility = (
     }
   }
 };
+
+export const tryPushingToList = (maybeList, newItem) => {
+  if (maybeList !== undefined) {
+    maybeList.push(newItem);
+  } else {
+    maybeList = [newItem];
+  }
+  return maybeList
+};
+
+export const tryGettingLength = (maybeList) => {
+  return maybeList !== undefined ? maybeList.length : 0
+}

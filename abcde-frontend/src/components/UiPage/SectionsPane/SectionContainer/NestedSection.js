@@ -36,6 +36,7 @@ const NestedSection = ({
         <SectionContainer
           sectionId={sectionId}
           rootId={rootId}
+          parentId={parentId}
           childrenIds={idHierarchy.children}
           theSection={theSection}
           depth={depth}

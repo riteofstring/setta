@@ -5,15 +5,15 @@ import { MenuItem } from "@chakra-ui/react";
 const TheMenuObj = ({ sectionId, moduleName, name }) => {
   const sectionHasNested = useStoreState((state) => state.master.sectionHasNested[sectionId]);
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
-  const deleteFromVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.deleteFromVisibleSectionIdsThunk
+  const deleteChildrenFromVisibleSectionIdsThunk = useStoreActions(
+    (actions) => actions.master.deleteChildrenFromVisibleSectionIdsThunk
   );
   const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
-  console.log("TheMenuObj", sectionId, moduleName, name);
+  // console.log("TheMenuObj", sectionId, moduleName, name);
 
   const setSelectedAndCurrObj = () => {
     if (sectionHasNested) {
-      deleteFromVisibleSectionIdsThunk({
+      deleteChildrenFromVisibleSectionIdsThunk({
         sectionId,
         moduleName,
         objName: name,

@@ -26,6 +26,7 @@ const SectionsPane = () => {
         <SectionContainer
           sectionId={e}
           rootId={e}
+          parentId={null}
           childrenIds={rootIdHierarchy[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}

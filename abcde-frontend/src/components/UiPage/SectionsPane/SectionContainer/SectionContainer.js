@@ -12,6 +12,7 @@ import NestedIncrementer from "./SectionElements/NestedIncrementer";
 const SectionContainer = ({
   sectionId,
   rootId,
+  parentId,
   childrenIds,
   theSection,
   depth,
@@ -62,7 +63,7 @@ const SectionContainer = ({
 
   const maybeIncludeNestedIncrementer = () => {
     if (isList) {
-      return <NestedIncrementer sectionId={sectionId} />;
+      return <NestedIncrementer sectionId={sectionId} parentId={parentId} />;
     }
     return <></>;
   };
@@ -90,7 +91,7 @@ const SectionContainer = ({
       >
         <HStack mb="1rem">
           <SectionHeading heading={theSection.name} />
-          {/* {maybeIncludeNestedIncrementer()} */}
+          {maybeIncludeNestedIncrementer()}
         </HStack>
 
         <SectionUI

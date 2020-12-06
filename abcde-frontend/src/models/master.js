@@ -1,6 +1,6 @@
 import { action, thunk, debug } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/big.json";
+import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -11,6 +11,8 @@ import {
   modifyId,
   findId,
   setChildrenVisibility,
+  tryPushingToList,
+  tryGettingLength,
 } from "../utils/sectionIds";
 
 const master = {
@@ -23,7 +25,10 @@ const master = {
   isShown: {},
   shiftAmount: {},
   isList: {},
+  listSiblings: {},
+  listCount: {},
   sectionIdsToSectionNames: {},
+  sectionIdsToStringIds: {},
   stringIdsToSectionIds: {},
   inFocus: [false],
   sectionHasNested: {},
@@ -44,12 +49,15 @@ const master = {
       };
       state.shiftAmount[id] = 0;
       state.sectionIdsToSectionNames[id] = key;
+      state.sectionIdsToStringIds[id] = id;
       state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
       state.inFocus.push(false);
       state.sectionHasNested[id] = false;
       state.sectionModuleObjHasNested[id] = false;
-      state.isList[id] = false;
+      state.isList[id] = null;
+      state.listSiblings[id] = [];
+      state.listCount[id] = 0;
       state.isShown[id] = true;
       state.isVisible[id] = true;
     }
@@ -74,9 +82,12 @@ const master = {
   setSelected: action((state, payload) => {
     const { sectionId, moduleName, name } = payload;
     state.selected[sectionId] = { moduleName, name };
-    let h = sectionId in state.rootIdHierarchy ? state.rootIdHierarchy : state.idHierarchy
-    h[sectionId].moduleName = moduleName
-    h[sectionId].objName = name
+    let h =
+      sectionId in state.rootIdHierarchy
+        ? state.rootIdHierarchy
+        : state.idHierarchy;
+    h[sectionId].moduleName = moduleName;
+    h[sectionId].objName = name;
   }),
 
   setShiftAmount: action((state, payload) => {
@@ -92,6 +103,7 @@ const master = {
   setStringId: action((state, payload) => {
     const { sectionId, stringId, name } = payload;
     state.sectionIdsToSectionNames[sectionId] = name;
+    state.sectionIdsToStringIds[sectionId] = stringId;
     state.stringIdsToSectionIds[stringId] = sectionId;
   }),
 
@@ -101,8 +113,25 @@ const master = {
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
-    const { id, name, moduleName, objName, parentId } = payload;
-    console.log("********ADD**********", parentId, moduleName, objName, name);
+    const {
+      id,
+      name,
+      moduleName,
+      objName,
+      parentId,
+      isList,
+      siblingId,
+    } = payload;
+    console.log(
+      "********ADD**********",
+      id,
+      name,
+      moduleName,
+      objName,
+      parentId,
+      isList,
+      siblingId
+    );
     const parentIdObj = findId(
       parentId,
       state.idHierarchy,
@@ -118,7 +147,44 @@ const master = {
         ].type;
       state.inFocus.splice(id, 0, false);
 
-      parentIdObj.children.push(id);
+      if (isList) {
+        if (siblingId !== null) {
+          const spliceIdx = parentIdObj.children.indexOf(siblingId) + 1;
+          parentIdObj.children.splice(spliceIdx, 0, id);
+          state.listSiblings[siblingId] = tryPushingToList(
+            state.listSiblings[siblingId],
+            id
+          );
+          state.listCount[siblingId] += 1;
+          console.log(
+            "state.listSiblings BEFORE FOR LOOP",
+            debug(state.listSiblings)
+          );
+          for (let S of state.listSiblings[siblingId]) {
+            if (S !== id) {
+              state.listSiblings[S] = tryPushingToList(
+                state.listSiblings[S],
+                id
+              );
+              state.listCount[S] += 1;
+            }
+          }
+          console.log(
+            "state.listSiblings AFTER FOR LOOP",
+            debug(state.listSiblings)
+          );
+          state.listSiblings[id] = state.listSiblings[siblingId]
+            .filter((x) => x !== id)
+            .concat([siblingId]);
+            state.listCount[id] = state.listCount[siblingId];
+          console.log("state.listSiblings FILTER", debug(state.listSiblings));
+        } else {
+          state.listCount[id] = 1;
+          parentIdObj.children.push(id);
+        }
+      } else {
+        parentIdObj.children.push(id);
+      }
       state.idHierarchy[id] = {
         children: [],
         parentModuleName: moduleName,
@@ -144,6 +210,32 @@ const master = {
   }),
 
   deleteFromVisibleSectionIds: action((state, payload) => {
+    // console.log("********DELETE**********", payload);
+    // setChildrenVisibility([payload], state.idHierarchy, state.isVisible, false);
+    console.log("********DELETE**********", payload);
+    const { sectionId, parentId } = payload;
+    // delete state.idHierarchy[sectionId];
+    // delete state.shiftAmount[sectionId];
+    // delete state.sectionIdsToSectionNames[sectionId];
+    const stringId = state.sectionIdsToStringIds[sectionId];
+    // delete state.sectionIdsToStringIds[sectionId]
+    delete state.stringIdsToSectionIds[stringId];
+    // state.inFocus = state.inFocus.filter((x) => x !== sectionId);
+    // delete state.sectionHasNested[sectionId];
+    // delete state.isList[sectionId];
+    delete state.listSiblings[sectionId];
+    // delete state.isShown[sectionId];
+    // delete state.isVisible[sectionId];
+    for (let k of Object.keys(state.listSiblings)) {
+      state.listSiblings[k] = state.listSiblings[k].filter(
+        (x) => x !== sectionId
+      );
+    }
+    const foundId = findId(parentId, state.idHierarchy, state.rootIdHierarchy);
+    foundId.children = foundId.children.filter((x) => x !== sectionId);
+  }),
+
+  deleteChildrenFromVisibleSectionIds: action((state, payload) => {
     console.log("********DELETE**********", payload);
     const foundId = findId(payload, state.idHierarchy, state.rootIdHierarchy);
     setChildrenVisibility(
@@ -154,39 +246,64 @@ const master = {
     );
   }),
 
-  deleteFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const {
-      sectionId: prevSectionId,
-      moduleName: prevModuleName,
-      objName: prevObjName,
-    } = helpers.getStoreState().globalCurr;
-    const x = createStringId(prevSectionId, prevModuleName, prevObjName);
-    if (helpers.getState().sectionModuleObjHasNested[x]) {
-      const { sectionId, moduleName, objName } = payload;
-      if (
-        sectionId === prevSectionId &&
-        (moduleName != prevModuleName) | (objName != prevObjName)
-      ) {
-        action.deleteFromVisibleSectionIds(prevSectionId);
+  deleteChildrenFromVisibleSectionIdsThunk: thunk(
+    (action, payload, helpers) => {
+      const {
+        sectionId: prevSectionId,
+        moduleName: prevModuleName,
+        objName: prevObjName,
+      } = helpers.getStoreState().globalCurr;
+      const x = createStringId(prevSectionId, prevModuleName, prevObjName);
+      if (helpers.getState().sectionModuleObjHasNested[x]) {
+        const { sectionId, moduleName, objName } = payload;
+        if (
+          sectionId === prevSectionId &&
+          (moduleName != prevModuleName) | (objName != prevObjName)
+        ) {
+          action.deleteChildrenFromVisibleSectionIds(prevSectionId);
+        }
       }
     }
-  }),
+  ),
 
   incrementSectionCount: action((state, payload) => {
     state.sectionCount += 1;
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const { name, sectionId: parentId, moduleName, objName, isList } = payload;
-    const listPosition = isList ? "0" : null;
+    const {
+      name,
+      sectionId: parentId,
+      moduleName,
+      objName,
+      isList,
+      siblingId,
+    } = payload;
+    let extraIdentifier = null;
+    if (isList) {
+      if (siblingId !== null) {
+        extraIdentifier = (
+          helpers.getState().listCount[siblingId] + 1
+        ).toString();
+        console.log(
+          "state.listSiblings",
+          debug(helpers.getState().listSiblings)
+        );
+        console.log("state.listCount", debug(helpers.getState().listCount));
+      } else {
+        extraIdentifier = "0";
+      }
+    }
     const stringId = createStringId(
       parentId.toString(),
       moduleName,
       objName,
       name,
-      listPosition
+      extraIdentifier
     );
+    console.log("stringId", stringId);
     let id = helpers.getState().stringIdsToSectionIds[stringId];
+    console.log("retrieved id", id);
     if (id === undefined) {
       id = helpers.getState().sectionCount.toString();
       action.incrementSectionCount();
@@ -200,6 +317,8 @@ const master = {
         moduleName,
         objName,
         parentId,
+        isList,
+        siblingId,
       });
     }
   }),

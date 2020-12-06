@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 
 const TheParam = ({ parameters }) => {
-  console.log("TheParam")
+  console.log("TheParam");
 
   const { name, ui_type, default_val } = parameters;
 
@@ -66,7 +66,8 @@ const TheParam = ({ parameters }) => {
         sectionId,
         moduleName,
         objName,
-        isList: ui_type == "LIST_NESTED_OBJECT",
+        isList: ui_type === "LIST_NESTED_OBJECT",
+        siblingId: null,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

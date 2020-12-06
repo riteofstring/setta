@@ -6,6 +6,7 @@ import {
   Input,
   useNumberInput,
   CloseButton,
+  list,
 } from "@chakra-ui/react";
 import {
   getParentId,
@@ -15,7 +16,28 @@ import {
   modifyId,
 } from "../../../../../utils/sectionIds";
 
-const NestedIncrementer = ({ sectionId }) => {
+const NestedIncrementer = ({ sectionId, parentId }) => {
+  const deleteFromVisibleSectionIds = useStoreActions(
+    (actions) => actions.master.deleteFromVisibleSectionIds
+  );
+
+  const addToVisibleSectionIdsThunk = useStoreActions(
+    (actions) => actions.master.addToVisibleSectionIdsThunk
+  );
+
+  const selected = useStoreState(
+    (actions) => actions.master.selected[parentId]
+  );
+  const sectionIdsToSectionNames = useStoreState(
+    (actions) => actions.master.sectionIdsToSectionNames[sectionId]
+  );
+
+  const listSiblings = useStoreState(
+    (state) => state.master.listSiblings[sectionId]
+  );
+
+  console.log("NestedIncrementer", sectionId, parentId);
+
   const {
     getInputProps,
     getIncrementButtonProps,
@@ -28,43 +50,30 @@ const NestedIncrementer = ({ sectionId }) => {
   const dec = getDecrementButtonProps();
   const input = getInputProps({ isReadOnly: true });
 
-  // const idHierarchy = useStoreState(
-  //   (state) => state.master.idHierarchy
-  // );
-  // const modifyVisibleSectionIds = useStoreActions(
-  //   (actions) => actions.master.modifyVisibleSectionIds
-  // );
-  // const setIsList = useStoreActions((actions) => actions.master.setIsList);
+  const addSection = () => {
+    addToVisibleSectionIdsThunk({
+      name: sectionIdsToSectionNames,
+      sectionId: parentId,
+      moduleName: selected.moduleName,
+      objName: selected.name,
+      isList: true,
+      siblingId: sectionId,
+    });
+  };
 
-  // const listPosition = parseNestedId(getChildId(sectionId)).listPosition;
+  const deleteSection = () => {
+    if (listSiblings && listSiblings.length > 0){
+      const id = listSiblings[listSiblings.length-1]
+      deleteFromVisibleSectionIds({sectionId: id, parentId});
+    }
+    else{
+      deleteFromVisibleSectionIds({sectionId, parentId});
+    }
+  };
 
-  // const modifySections = (command) => {
-  //   const parentId = getParentId(sectionId);
-  //   const paramName = parseNestedId(getChildId(sectionId)).paramName;
-  //   const currMaxPosition = getMaxListPosition(
-  //     parentId,
-  //     idHierarchy,
-  //     paramName
-  //   );
-  //   if (command === "delete" && currMaxPosition === 0) {
-  //     return;
-  //   }
-  //   const newId = modifyId({
-  //     id: sectionId,
-  //     listPosition: command === "add" ? currMaxPosition + 1 : currMaxPosition,
-  //   });
-  //   modifyVisibleSectionIds({
-  //     fullId: newId,
-  //     command: command,
-  //   });
-  //   return newId;
-  // };
-
-  const addSection = () => {};
-
-  const deleteSection = () => {};
-
-  const deleteThisSection = () => {};
+  const deleteThisSection = () => {
+    deleteFromVisibleSectionIds({sectionId, parentId});
+  };
 
   console.log("NestedIncrementer");
 
