@@ -16,9 +16,9 @@ import {
   modifyId,
 } from "../../../../../utils/sectionIds";
 
-const NestedIncrementer = ({ sectionId, parentId }) => {
-  const deleteFromVisibleSectionIds = useStoreActions(
-    (actions) => actions.master.deleteFromVisibleSectionIds
+const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
+  const permanentlyDeleteSection = useStoreActions(
+    (actions) => actions.master.permanentlyDeleteSection
   );
 
   const addToVisibleSectionIdsThunk = useStoreActions(
@@ -37,6 +37,11 @@ const NestedIncrementer = ({ sectionId, parentId }) => {
   );
 
   console.log("NestedIncrementer", sectionId, parentId);
+
+  const decrementButtonCondition = () => {
+    const minLength = isListRoot ? 0 : 1;
+    return listSiblings && listSiblings.length > minLength;
+  };
 
   const {
     getInputProps,
@@ -62,30 +67,31 @@ const NestedIncrementer = ({ sectionId, parentId }) => {
   };
 
   const deleteSection = () => {
-    if (listSiblings && listSiblings.length > 0){
-      const id = listSiblings[listSiblings.length-1]
-      deleteFromVisibleSectionIds({sectionId: id, parentId});
-    }
-    else{
-      deleteFromVisibleSectionIds({sectionId, parentId});
+    if (listSiblings && listSiblings.length > 0) {
+      const id = listSiblings[listSiblings.length - 1];
+      permanentlyDeleteSection({ sectionId: id, parentId });
     }
   };
 
   const deleteThisSection = () => {
-    deleteFromVisibleSectionIds({sectionId, parentId});
+    permanentlyDeleteSection({ sectionId, parentId });
   };
 
   console.log("NestedIncrementer");
 
   return (
     <HStack maxW="10rem">
-      <Button {...dec} onClick={() => deleteSection()}>
-        -
-      </Button>
+      {decrementButtonCondition() && (
+        <Button {...dec} onClick={() => deleteSection()}>
+          -
+        </Button>
+      )}
       <Button {...inc} onClick={() => addSection()}>
         +
       </Button>
-      <CloseButton size="md" onClick={() => deleteThisSection()} />
+      {!isListRoot && (
+        <CloseButton size="md" onClick={() => deleteThisSection()} />
+      )}
     </HStack>
   );
 };

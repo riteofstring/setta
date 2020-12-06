@@ -41,6 +41,9 @@ const SectionContainer = ({
   const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
 
   const isList = useStoreState((state) => state.master.isList[sectionId]);
+  const isListRoot = useStoreState(
+    (state) => state.master.isListRoot[sectionId]
+  );
 
   console.log("SectionContainer", theSection.name);
 
@@ -63,9 +66,40 @@ const SectionContainer = ({
 
   const maybeIncludeNestedIncrementer = () => {
     if (isList) {
-      return <NestedIncrementer sectionId={sectionId} parentId={parentId} />;
+      return (
+        <NestedIncrementer
+          sectionId={sectionId}
+          parentId={parentId}
+          isListRoot={isListRoot}
+        />
+      );
     }
     return <></>;
+  };
+
+  const getSectionHeadingAndUI = () => {
+    if (!isListRoot) {
+      return (
+        <>
+          <HStack mb="1rem">
+            <SectionHeading heading={theSection.name} />
+            {maybeIncludeNestedIncrementer()}
+          </HStack>
+          <SectionUI
+            sectionId={sectionId}
+            theSection={theSection}
+            sectionModuleObjHasNested={sectionModuleObjHasNested}
+          />
+        </>
+      );
+    } else {
+      return (
+        <HStack mb="1rem">
+          <SectionHeading heading={"List for "+theSection.name} />
+          {maybeIncludeNestedIncrementer()}
+        </HStack>
+      );
+    }
   };
 
   return (
@@ -89,16 +123,7 @@ const SectionContainer = ({
         borderColor="gray.200"
         id={sectionId}
       >
-        <HStack mb="1rem">
-          <SectionHeading heading={theSection.name} />
-          {maybeIncludeNestedIncrementer()}
-        </HStack>
-
-        <SectionUI
-          sectionId={sectionId}
-          theSection={theSection}
-          sectionModuleObjHasNested={sectionModuleObjHasNested}
-        />
+        {getSectionHeadingAndUI()}
       </Flex>
       {childrenIds.length > 0 &&
         childrenIds.map((e, idx) => (

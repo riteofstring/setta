@@ -25,6 +25,7 @@ const master = {
   isShown: {},
   shiftAmount: {},
   isList: {},
+  isListRoot: {},
   listSiblings: {},
   listCount: {},
   sectionIdsToSectionNames: {},
@@ -56,6 +57,7 @@ const master = {
       state.sectionHasNested[id] = false;
       state.sectionModuleObjHasNested[id] = false;
       state.isList[id] = null;
+      state.isListRoot[id] = false
       state.listSiblings[id] = [];
       state.listCount[id] = 0;
       state.isShown[id] = true;
@@ -122,16 +124,6 @@ const master = {
       isList,
       siblingId,
     } = payload;
-    console.log(
-      "********ADD**********",
-      id,
-      name,
-      moduleName,
-      objName,
-      parentId,
-      isList,
-      siblingId
-    );
     const parentIdObj = findId(
       parentId,
       state.idHierarchy,
@@ -156,10 +148,6 @@ const master = {
             id
           );
           state.listCount[siblingId] += 1;
-          console.log(
-            "state.listSiblings BEFORE FOR LOOP",
-            debug(state.listSiblings)
-          );
           for (let S of state.listSiblings[siblingId]) {
             if (S !== id) {
               state.listSiblings[S] = tryPushingToList(
@@ -169,16 +157,12 @@ const master = {
               state.listCount[S] += 1;
             }
           }
-          console.log(
-            "state.listSiblings AFTER FOR LOOP",
-            debug(state.listSiblings)
-          );
           state.listSiblings[id] = state.listSiblings[siblingId]
             .filter((x) => x !== id)
             .concat([siblingId]);
             state.listCount[id] = state.listCount[siblingId];
-          console.log("state.listSiblings FILTER", debug(state.listSiblings));
         } else {
+          state.isListRoot[id] = true;
           state.listCount[id] = 1;
           parentIdObj.children.push(id);
         }
@@ -209,23 +193,11 @@ const master = {
     }
   }),
 
-  deleteFromVisibleSectionIds: action((state, payload) => {
-    // console.log("********DELETE**********", payload);
-    // setChildrenVisibility([payload], state.idHierarchy, state.isVisible, false);
-    console.log("********DELETE**********", payload);
+  permanentlyDeleteSection: action((state, payload) => {
     const { sectionId, parentId } = payload;
-    // delete state.idHierarchy[sectionId];
-    // delete state.shiftAmount[sectionId];
-    // delete state.sectionIdsToSectionNames[sectionId];
     const stringId = state.sectionIdsToStringIds[sectionId];
-    // delete state.sectionIdsToStringIds[sectionId]
     delete state.stringIdsToSectionIds[stringId];
-    // state.inFocus = state.inFocus.filter((x) => x !== sectionId);
-    // delete state.sectionHasNested[sectionId];
-    // delete state.isList[sectionId];
     delete state.listSiblings[sectionId];
-    // delete state.isShown[sectionId];
-    // delete state.isVisible[sectionId];
     for (let k of Object.keys(state.listSiblings)) {
       state.listSiblings[k] = state.listSiblings[k].filter(
         (x) => x !== sectionId
@@ -236,7 +208,6 @@ const master = {
   }),
 
   deleteChildrenFromVisibleSectionIds: action((state, payload) => {
-    console.log("********DELETE**********", payload);
     const foundId = findId(payload, state.idHierarchy, state.rootIdHierarchy);
     setChildrenVisibility(
       foundId.children,
@@ -285,11 +256,6 @@ const master = {
         extraIdentifier = (
           helpers.getState().listCount[siblingId] + 1
         ).toString();
-        console.log(
-          "state.listSiblings",
-          debug(helpers.getState().listSiblings)
-        );
-        console.log("state.listCount", debug(helpers.getState().listCount));
       } else {
         extraIdentifier = "0";
       }
@@ -301,9 +267,7 @@ const master = {
       name,
       extraIdentifier
     );
-    console.log("stringId", stringId);
     let id = helpers.getState().stringIdsToSectionIds[stringId];
-    console.log("retrieved id", id);
     if (id === undefined) {
       id = helpers.getState().sectionCount.toString();
       action.incrementSectionCount();
