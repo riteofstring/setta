@@ -1,42 +1,20 @@
 import React from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { MenuItem } from "@chakra-ui/react";
 
 const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
-
-  const { globalCurr: globalCurrParams } = useStoreState(
-    (state) => state.globalCurrParams
-  );
-  const { setSelected, deleteCurrFromVisibleSectionIdsThunk } = useStoreActions((actions) => actions.master);
+  const { setSelected } = useStoreActions((actions) => actions.master);
   const {
-    maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
-  } = useStoreActions((actions) => actions.globalCurrParams);
-  const {
-    setCurrName: setCurrObjName,
-    setGlobalCurr: setGlobalCurrObj,
-    maybeInitGlobalCurrThunk: maybeInitGlobalCurrObjsThunk,
-  } = useStoreActions((actions) => actions.globalCurrObj);
-  const {
-    setCurrName: setCurrModuleName,
-    setGlobalCurrThunk: setGlobalCurrModuleThunk,
-    maybeInitGlobalCurrThunk: maybeInitGlobalCurrModuleThunk,
-  } = useStoreActions((actions) => actions.globalCurrModule);
-  const {
-    setCurrName: setCurrSectionName,
-    setGlobalCurrThunk: setGlobalCurrSectionThunk,
-  } = useStoreActions((actions) => actions.globalCurrSection);
+    setCurrSectionId,
+    setCurrModuleName,
+    setCurrObjName,
+  } = useStoreActions((actions) => actions.globalCurr);
 
   const setSelectedAndCurrObj = () => {
     setCurrObjName(name);
     setCurrModuleName(moduleName);
-    setCurrSectionName(sectionId);
-    setGlobalCurrObj(globalCurrParams);
-    setGlobalCurrModuleThunk();
-    setGlobalCurrSectionThunk();
-    maybeInitGlobalCurrModuleThunk();
-    maybeInitGlobalCurrObjsThunk();
-    maybeInitGlobalCurrParamsThunk();
-    deleteCurrFromVisibleSectionIdsThunk();
+    setCurrSectionId(sectionId);
+    // deleteCurrFromVisibleSectionIdsThunk();
     setSelected({ sectionId, moduleName, name, currParams });
   };
 

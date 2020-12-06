@@ -14,31 +14,26 @@ import {
 const TheParam = ({ parameters }) => {
   const { name, ui_type, default_val } = parameters;
 
-  const { setGlobalCurr: setGlobalCurrParams } = useStoreActions(
-    (actions) => actions.globalCurrParams
-  );
+  const { setGlobalCurr } = useStoreActions((actions) => actions.globalCurr);
 
   const { addToVisibleSectionIdsThunk } = useStoreActions(
     (actions) => actions.master
   );
 
-  const { globalCurr: globalCurrParams } = useStoreState(
-    (state) => state.globalCurrParams
-  );
-  const { currName: currObjName } = useStoreState(
-    (state) => state.globalCurrObj
+  const { globalCurr, sectionId, moduleName, objName } = useStoreState(
+    (state) => state.globalCurr
   );
 
   const [value, setValue] = useState(default_val);
 
   const sendState = (name, value) => {
     setValue(value);
-    setGlobalCurrParams({ name, value });
+    setGlobalCurr({ paramName: name, paramValue: value });
   };
 
   useEffect(() => {
     if (ui_type === "NESTED_OBJECT") {
-      addToVisibleSectionIdsThunk({name});
+      addToVisibleSectionIdsThunk({ name });
     } else if (ui_type === "LIST_NESTED_OBJECT") {
       addToVisibleSectionIdsThunk({ name, isList: true });
     }
@@ -46,9 +41,17 @@ const TheParam = ({ parameters }) => {
   }, [parameters]);
 
   useEffect(() => {
-    setValue(globalCurrParams[name] ? globalCurrParams[name] : default_val);
+    let savedParam = null;
+    if (sectionId in globalCurr) {
+      if (moduleName in globalCurr[sectionId]) {
+        if (objName in globalCurr[sectionId][moduleName]) {
+          savedParam = globalCurr[sectionId][moduleName][objName][name];
+        }
+      }
+    }
+    setValue(savedParam ? savedParam : default_val);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parameters, currObjName]);
+  }, [parameters, objName]);
 
   const inputSwitch = () => {
     switch (ui_type) {

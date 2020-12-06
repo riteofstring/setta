@@ -25,31 +25,7 @@ const SectionContainer = ({
     (actions) => actions.master
   );
   const { shiftAmount } = useStoreState((state) => state.master);
-  const { selected, activeObj, isList } = useStoreState(
-    (state) => state.master
-  );
-  const {
-    maybeInitGlobalCurrThunk: maybeInitGlobalCurrParamsThunk,
-    resetGlobalCurr: resetGlobalCurrParams,
-  } = useStoreActions((actions) => actions.globalCurrParams);
-  const {
-    maybeSetGlobalCurrThunk: maybeSetGlobalCurrObjThunk,
-    setCurrName: setCurrObjName,
-    maybeResetCurrNameThunk: maybeResetCurrObjNameThunk,
-    maybeInitGlobalCurrThunk: maybeInitGlobalCurrObjsThunk,
-    resetGlobalCurr: resetGlobalCurrObj,
-  } = useStoreActions((actions) => actions.globalCurrObj);
-  const {
-    maybeResetCurrNameThunk: maybeResetCurrModuleNameThunk,
-    maybeSetGlobalCurrThunk: maybeSetGlobalCurrModuleThunk,
-    setCurrName: setCurrModuleName,
-    maybeInitGlobalCurrThunk: maybeInitGlobalCurrModuleThunk,
-    resetGlobalCurr: resetGlobalCurrModule,
-  } = useStoreActions((actions) => actions.globalCurrModule);
-  const {
-    setCurrName: setCurrSectionName,
-    setGlobalCurrThunk: setGlobalCurrSectionThunk,
-  } = useStoreActions((actions) => actions.globalCurrSection);
+  const { activeObj, isList } = useStoreState((state) => state.master);
 
   const applyFocus = () => {
     setActiveObj(sectionId);
@@ -63,23 +39,6 @@ const SectionContainer = ({
         shiftAmount: depth,
       });
       setFocus(true);
-      setCurrSectionName(sectionId);
-      maybeResetCurrModuleNameThunk();
-      maybeResetCurrObjNameThunk();
-      maybeSetGlobalCurrObjThunk();
-      maybeSetGlobalCurrModuleThunk();
-      setGlobalCurrSectionThunk();
-      if (selected[activeObj] && Object.keys(selected[activeObj]).length > 0) {
-        maybeInitGlobalCurrModuleThunk();
-        setCurrModuleName(selected[activeObj].moduleName);
-        maybeInitGlobalCurrObjsThunk();
-        setCurrObjName(selected[activeObj].name);
-        maybeInitGlobalCurrParamsThunk();
-      } else {
-        resetGlobalCurrModule();
-        resetGlobalCurrObj();
-        resetGlobalCurrParams();
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);

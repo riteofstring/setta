@@ -1,93 +1,41 @@
-import { action, thunk } from "easy-peasy";
+import { action } from "easy-peasy";
 
-const createGlobalCurr = ({
-  parentName,
-  childName,
-  overrideFunctions = {},
-}) => {
-  const maybeUseOverrideFunction = (inputName, defaultFunction) => {
-    return overrideFunctions[inputName]
-      ? overrideFunctions[inputName]
-      : defaultFunction;
-  };
+const globalCurr = {
+  globalCurr: {},
+  sectionId: null,
+  moduleName: null,
+  objName: null,
 
-  const globalCurr = {
-    prevName: null,
-    currName: null,
-    globalCurr: {},
-    nameChanged: false,
+  setGlobalCurr: action((state, payload) => {
+    const { paramName, paramValue } = payload;
+    if (!(state.sectionId in state.globalCurr)) {
+      state.globalCurr[state.sectionId] = {};
+    }
+    if (!(state.moduleName in state.globalCurr[state.sectionId])) {
+      state.globalCurr[state.sectionId][state.moduleName] = {};
+    }
+    if (!(state.objName in state.globalCurr[state.sectionId][state.moduleName])) {
+      state.globalCurr[state.sectionId][state.moduleName][state.objName] = {};
+    }
+    state.globalCurr[state.sectionId][state.moduleName][state.objName][paramName] = paramValue;
+  }),
 
-    //actions
+  resetGlobalCurr: action((state) => {
+    state.globalCurr = {};
+  }),
 
-    // compare curr/prev objects to determine whether user has changed obj
-    setCurrName: action((state, payload) => {
-      state.prevName = state.currName;
-      state.currName = payload;
-      state.nameChanged = state.prevName !== state.currName;
-    }),
+  setCurrSectionId: action((state, payload) => {
+    state.sectionId = payload
+  }),
 
-    // called onClick to assign params to previous object name
-    setGlobalCurr: maybeUseOverrideFunction(
-      "setGlobalCurr",
-      action((state, payload) => {
-        if (
-          state.nameChanged &&
-          state.prevName &&
-          Object.keys(payload).length > 0
-        ) {
-          state.globalCurr[state.prevName] = payload;
-        }
-      })
-    ),
+  setCurrModuleName: action((state, payload) => {
+    state.moduleName = payload
+  }),
 
-    resetGlobalCurr: action((state, payload) => {
-      state.globalCurr = {};
-    }),
+  setCurrObjName: action((state, payload) => {
+    state.objName = payload
+  }),
 
-    // update globalCurrModule state with latest globalCurrObjs
-    setGlobalCurrThunk: thunk((action, payload, helpers) => {
-      const { globalCurr } = helpers.getStoreState()[childName];
-      action.setGlobalCurr(globalCurr);
-    }),
-
-    maybeSetGlobalCurrThunk: thunk((action, payload, helpers) => {
-      const { nameChanged } = helpers.getStoreState().globalCurrSection;
-      const { globalCurr } = helpers.getStoreState()[childName];
-      if (nameChanged) {
-        action.setGlobalCurr(globalCurr);
-      }
-    }),
-
-    maybeResetCurrNameThunk: thunk((action, payload, helpers) => {
-      const { nameChanged } = helpers.getStoreState()[parentName];
-      if (nameChanged) {
-        action.setCurrName(null);
-      }
-    }),
-
-    // called when user switches to a different module.
-    // if there is info in the module, it will assign it to globalCurrObjs.
-    initGlobalCurr: action((state, payload) => {
-      if (payload) {
-        state.globalCurr = payload;
-      } else {
-        state.globalCurr = {};
-      }
-    }),
-
-    // called on click, but only executes if moduleChanged is true.
-    // gets state from globalCurrModules
-    maybeInitGlobalCurrThunk: thunk((action, payload, helpers) => {
-      const { currName, nameChanged, globalCurr } = helpers.getStoreState()[
-        parentName
-      ];
-      if (nameChanged) {
-        action.initGlobalCurr(globalCurr[currName]);
-      }
-    }),
-  };
-
-  return globalCurr;
 };
 
-export default createGlobalCurr;
+export default globalCurr;

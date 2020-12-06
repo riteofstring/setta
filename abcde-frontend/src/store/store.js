@@ -1,16 +1,10 @@
 import { createStore } from "easy-peasy";
 import master from "../models/master";
-import globalCurrObj from "../models/globalCurrObj";
-import globalCurrParams from "../models/globalCurrParams";
-import globalCurrModule from "../models/globalCurrModule";
-import globalCurrSection from "../models/globalCurrSection";
+import globalCurr from "../models/globalCurr";
 
 const store = createStore({
   master: master,
-  globalCurrObj: globalCurrObj,
-  globalCurrParams: globalCurrParams,
-  globalCurrModule: globalCurrModule,
-  globalCurrSection: globalCurrSection,
+  globalCurr: globalCurr,
 });
 
 export default store;
