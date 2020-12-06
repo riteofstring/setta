@@ -17,15 +17,16 @@ const master = {
   sectionCount: 1,
   sections: {},
   selected: {},
-  visibleSectionIds: {},
-  visible: {},
+  idHierarchy: {},
+  isVisible: {},
+  isShown: {},
   shiftAmount: {},
   isList: {},
-  sectionIdsToStringIds: {},
   sectionIdsToSectionNames: {},
   stringIdsToSectionIds: {},
   inFocus: [false],
-  hasNested: {},
+  sectionHasNested: {},
+  sectionModuleObjHasNested: {},
 
   // actions
   // Load DATA
@@ -33,21 +34,23 @@ const master = {
     for (let key of Object.keys(payload)) {
       let id = state.sectionCount;
       state.sections[id] = new Section(key, payload[key]);
-      state.visibleSectionIds[id] = {
+      state.idHierarchy[id] = {
         children: {},
-        visible: true,
         moduleName: null,
         objName: null,
         parentModuleName: null,
         parentObjName: null,
       };
       state.shiftAmount[id] = 0;
-      state.sectionIdsToStringIds[id] = key;
       state.sectionIdsToSectionNames[id] = key;
-      state.stringIdsToSectionIds[key] = id;
+      state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
       state.inFocus.push(false);
-      state.hasNested[id] = false
+      state.sectionHasNested[id] = false;
+      state.sectionModuleObjHasNested[id] = false;
+      state.isList[id] = false;
+      state.isShown[id] = true;
+      state.isVisible[id] = true;
     }
     state.selected = Object.keys(state.sections).reduce(
       (acc, curr) => ({ ...acc, [curr]: {} }),
@@ -61,9 +64,9 @@ const master = {
   }),
 
   // Show/Collapse button
-  setVisible: action((state, payload) => {
-    const { sectionId, newVisible } = payload;
-    state.visible[sectionId] = newVisible;
+  setIsShown: action((state, payload) => {
+    const { sectionId, isShown } = payload;
+    state.isShown[sectionId] = isShown;
   }),
 
   // stores what fields to show
@@ -84,7 +87,6 @@ const master = {
 
   setStringId: action((state, payload) => {
     const { sectionId, stringId, name } = payload;
-    state.sectionIdsToStringIds[sectionId] = stringId;
     state.sectionIdsToSectionNames[sectionId] = name;
     state.stringIdsToSectionIds[stringId] = sectionId;
   }),
@@ -95,14 +97,9 @@ const master = {
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
-    const {
-      id,
-      name,
-      moduleName,
-      objName,
-      parentId,
-    } = payload;
-    const parentIdObj = findId(parentId, state.visibleSectionIds);
+    const { id, name, moduleName, objName, parentId } = payload;
+    console.log("********ADD**********", parentId, moduleName, objName, name);
+    const parentIdObj = findId(parentId, state.idHierarchy);
     parentIdObj.moduleName = moduleName;
     parentIdObj.objName = objName;
     if (!(id in state.selected)) {
@@ -113,24 +110,33 @@ const master = {
         ].type;
       state.inFocus.splice(id, 0, false);
 
-      // const moduleObjName = moduleObj(moduleName, objName)
       parentIdObj.children[id] = {
         children: {},
-        visible: true,
         parentModuleName: moduleName,
         parentObjName: objName,
       };
 
-      state.hasNested[parentId] = true
-
+      state.sectionHasNested[parentId] = true;
+      state.sectionModuleObjHasNested[
+        createStringId(parentId, moduleName, objName)
+      ] = true;
+      state.isShown[id] = true;
+      state.isVisible[id] = true;
     } else {
-      setChildrenVisibility(parentIdObj.children, true, moduleName, objName);
+      setChildrenVisibility(
+        parentIdObj.children,
+        state.isVisible,
+        true,
+        moduleName,
+        objName
+      );
     }
   }),
 
   deleteFromVisibleSectionIds: action((state, payload) => {
-    let foundId = findId(payload, state.visibleSectionIds);
-    setChildrenVisibility(foundId.children, false);
+    console.log("********DELETE**********", payload);
+    let foundId = findId(payload, state.idHierarchy);
+    setChildrenVisibility(foundId.children, state.isVisible, false);
   }),
 
   deleteFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
@@ -139,26 +145,27 @@ const master = {
       moduleName: prevModuleName,
       objName: prevObjName,
     } = helpers.getStoreState().globalCurr;
-    const { sectionId, moduleName, objName } = payload;
-    if (
-      sectionId === prevSectionId &&
-      (moduleName != prevModuleName) | (objName != prevObjName)
-    ) {
-      action.deleteFromVisibleSectionIds(prevSectionId);
+    const x = createStringId(prevSectionId, prevModuleName, prevObjName);
+    if (helpers.getState().sectionModuleObjHasNested[x]) {
+      const { sectionId, moduleName, objName } = payload;
+      if (
+        sectionId === prevSectionId &&
+        (moduleName != prevModuleName) | (objName != prevObjName)
+      ) {
+        action.deleteFromVisibleSectionIds(prevSectionId);
+      }
     }
   }),
 
   incrementSectionCount: action((state, payload) => {
-    state.sectionCount += 1
+    state.sectionCount += 1;
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
     const { name, sectionId: parentId, moduleName, objName, isList } = payload;
-    console.log("in ADD", parentId, moduleName, objName, name);
-    const parentStringId = helpers.getState().sectionIdsToStringIds[parentId];
     const listPosition = isList ? "0" : null;
     const stringId = createStringId(
-      parentStringId,
+      parentId.toString(),
       moduleName,
       objName,
       name,
@@ -166,18 +173,20 @@ const master = {
     );
     let id = helpers.getState().stringIdsToSectionIds[stringId];
     if (id === undefined) {
-      id = helpers.getState().sectionCount
-      action.incrementSectionCount()
+      id = helpers.getState().sectionCount;
+      action.incrementSectionCount();
       action.setStringId({ sectionId: id, stringId, name });
       action.setIsList({ sectionId: id, isList });
     }
-    action.addToVisibleSectionIds({
-      id,
-      name,
-      moduleName,
-      objName,
-      parentId,
-    });
+    if (!helpers.getState().isVisible[id]) {
+      action.addToVisibleSectionIds({
+        id,
+        name,
+        moduleName,
+        objName,
+        parentId,
+      });
+    }
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

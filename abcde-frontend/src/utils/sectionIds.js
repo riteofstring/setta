@@ -47,23 +47,17 @@ export const modifyId = ({
 };
 
 export const createStringId = (
-  sectionName,
+  sectionId,
   moduleName,
   objName,
-  paramName,
+  paramName = null,
   listPosition = null
 ) => {
   let id =
-    sectionName +
-    NESTED +
-    MODULE +
-    moduleName +
-    SEPARATOR +
-    OBJ +
-    objName +
-    SEPARATOR +
-    PARAM +
-    paramName;
+    sectionId + SEPARATOR + MODULE + moduleName + SEPARATOR + OBJ + objName;
+  if (paramName !== null) {
+    id += SEPARATOR + PARAM + paramName;
+  }
   if (listPosition !== null) {
     id += SEPARATOR + LIST_POSITION + listPosition;
   }
@@ -168,22 +162,24 @@ export const createExportableObject = (selected, globalCurr) => {
 
 export const getBreadCrumbPath = (
   sectionId,
-  visibleSectionIds,
-  sectionIdsToSectionNames,
+  idHierarchy,
+  isVisible,
+  sectionIdsToSectionNames
 ) => {
-  const x = visibleSectionIds[sectionId];
+  const x = idHierarchy[sectionId];
   let headOfBreadCrumbPath = [];
   let headOfIdLineage = [];
-  if (x.visible) {
+  if (isVisible[sectionId]) {
     headOfBreadCrumbPath = [sectionIdsToSectionNames[sectionId]];
     headOfIdLineage = [sectionId];
     const children = x.children;
     const childrenKeys = Object.keys(children);
-    const nextId = childrenKeys.filter(x=>children[x].visible)[0];
+    const nextId = childrenKeys.filter((x) => isVisible[x])[0];
     if (nextId) {
       const { breadCrumbPath, idLineage } = getBreadCrumbPath(
         nextId,
         children,
+        isVisible,
         sectionIdsToSectionNames
       );
       headOfBreadCrumbPath.push(...breadCrumbPath);
@@ -193,8 +189,8 @@ export const getBreadCrumbPath = (
   return { breadCrumbPath: headOfBreadCrumbPath, idLineage: headOfIdLineage };
 };
 
-export const getMaxListPosition = (sectionId, visibleSectionIds, paramName) => {
-  const nested = visibleSectionIds[sectionId];
+export const getMaxListPosition = (sectionId, idHierarchy, paramName) => {
+  const nested = idHierarchy[sectionId];
   let maxPosition = 0;
   for (let id of Object.keys(nested)) {
     const { paramName: currParamName, listPosition } = parseNestedId(id);
@@ -205,8 +201,8 @@ export const getMaxListPosition = (sectionId, visibleSectionIds, paramName) => {
   return maxPosition;
 };
 
-export const getSectionOrder = (visibleSectionIds) => {
-  const allIds = Object.keys(visibleSectionIds);
+export const getSectionOrder = (idHierarchy) => {
+  const allIds = Object.keys(idHierarchy);
   let ordered = [];
   let done = {};
   for (let k of allIds) {
@@ -228,13 +224,13 @@ export const getSectionOrder = (visibleSectionIds) => {
   return ordered;
 };
 
-export const findId = (id, visibleSectionIds) => {
+export const findId = (id, idHierarchy) => {
   let output = null;
-  for (let x of Object.keys(visibleSectionIds)) {
+  for (let x of Object.keys(idHierarchy)) {
     if (x === id) {
-      output = visibleSectionIds[x];
+      output = idHierarchy[x];
     } else {
-      output = findId(id, visibleSectionIds[x].children);
+      output = findId(id, idHierarchy[x].children);
     }
     if (output !== null) {
       break;
@@ -245,6 +241,7 @@ export const findId = (id, visibleSectionIds) => {
 
 export const setChildrenVisibility = (
   children,
+  isVisible,
   visibility,
   parentModuleName = null,
   parentObjName = null
@@ -252,15 +249,16 @@ export const setChildrenVisibility = (
   for (let x of Object.keys(children)) {
     const child = children[x];
     if (parentModuleName === null) {
-      child.visible = visibility;
-      setChildrenVisibility(child.children, visibility);
+      isVisible[x] = visibility;
+      setChildrenVisibility(child.children, isVisible, visibility);
     } else if (
       child.parentModuleName === parentModuleName &&
       child.parentObjName === parentObjName
     ) {
-      child.visible = visibility;
+      isVisible[x] = visibility;
       setChildrenVisibility(
         child.children,
+        isVisible,
         visibility,
         child.moduleName,
         child.objName

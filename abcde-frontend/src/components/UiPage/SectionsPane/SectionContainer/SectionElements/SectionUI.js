@@ -3,14 +3,13 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import SectionMenu from "./SectionMenu/SectionMenu";
 import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
 import SectionMenuButton from "./SectionMenuButton";
-import { getVisible } from "../../../../../utils/sectionIds";
 
-const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
-  const setVisible = useStoreActions((actions) => actions.master.setVisible);
-  const visible = useStoreState((state) => state.master.visible);
+const SectionUI = ({ sectionId, idHierarchy, theSection }) => {
+  const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
+  const isShown = useStoreState((state) => state.master.isShown[sectionId]);
 
   const flipVisible = () => {
-    setVisible({ sectionId, newVisible: !getVisible(visible, sectionId) });
+    setIsShown({ sectionId, isShown: !isShown });
   };
 
   return (
@@ -20,10 +19,8 @@ const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
         <SectionMenu sectionId={sectionId} theSection={theSection} />
       </Menu>
       <Spacer />
-      {Object.keys(visibleSectionIds).length > 0 && (
-        <Button onClick={flipVisible}>
-          {!!getVisible(visible, sectionId) ? "Collapse" : "Show"}
-        </Button>
+      {Object.keys(idHierarchy).length > 0 && (
+        <Button onClick={flipVisible}>{!!isShown ? "Collapse" : "Show"}</Button>
       )}
     </HStack>
   );

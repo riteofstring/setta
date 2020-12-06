@@ -12,7 +12,7 @@ import NestedIncrementer from "./SectionElements/NestedIncrementer";
 const SectionContainer = ({
   sectionId,
   rootId,
-  visibleSectionIds,
+  idHierarchy,
   theSection,
   depth,
 }) => {
@@ -20,31 +20,25 @@ const SectionContainer = ({
   const setSectionId = useStoreActions(
     (actions) => actions.globalCurr.setSectionId
   );
-  const selected = useStoreState(
-    (state) => state.master.selected,
-    (prev, next) => prev[sectionId] === next[sectionId]
-  );
+  const selected = useStoreState((state) => state.master.selected[sectionId]);
   const shiftAmount = useStoreState(
-    (state) => state.master.shiftAmount,
-    (prev, next) => prev[sectionId] === next[sectionId]
+    (state) => state.master.shiftAmount[sectionId]
   );
 
   const setShiftAmount = useStoreActions(
     (actions) => actions.master.setShiftAmount
   );
   const setInFocus = useStoreActions((actions) => actions.master.setInFocus);
-  const inFocus = useStoreState(
-    (state) => state.master.inFocus,
-    (prev, next) => prev[sectionId] === next[sectionId]
-  );
+  const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
 
-  const thisInFocus = inFocus[sectionId];
-  const visibleSectionIdsKeys = Object.keys(visibleSectionIds);
+  const isList = useStoreState((state) => state.master.isList[sectionId]);
+
+  const visibleSectionIdsKeys = Object.keys(idHierarchy);
 
   console.log("SectionContainer", theSection.name);
 
   const applyFocus = () => {
-    if (!thisInFocus) {
+    if (!inFocus) {
       setInFocus(sectionId);
       setSectionId(sectionId);
       setShiftAmount({ rootId, shiftAmount: depth });
@@ -52,25 +46,25 @@ const SectionContainer = ({
   };
 
   useEffect(() => {
-    if (thisInFocus) {
-      const { moduleName, name: objName } = selected[sectionId];
+    if (inFocus) {
+      const { moduleName, name: objName } = selected;
       if (moduleName !== undefined) {
         setCurr({ moduleName, objName });
       }
     }
-  }, [thisInFocus]);
+  }, [inFocus]);
 
-  // const maybeIncludeNestedIncrementer = () => {
-  //   if (isList[sectionId]) {
-  //     return <NestedIncrementer sectionId={sectionId} />;
-  //   }
-  //   return <></>;
-  // };
+  const maybeIncludeNestedIncrementer = () => {
+    if (isList) {
+      return <NestedIncrementer sectionId={sectionId} />;
+    }
+    return <></>;
+  };
 
   return (
     <Flex
       direction="column"
-      ml={depth === 0 && `${shiftAmount[sectionId] * -2.5}rem`}
+      ml={depth === 0 && `${shiftAmount * -2.5}rem`}
       borderRadius="md"
     >
       {rootId === sectionId && visibleSectionIdsKeys.length > 0 && (
@@ -78,7 +72,7 @@ const SectionContainer = ({
       )}
       <Flex
         width="100%"
-        bg={thisInFocus ? "gray.50" : "white"}
+        bg={inFocus ? "gray.50" : "white"}
         onClick={() => applyFocus()}
         direction="column"
         padding="1rem 1.25rem"
@@ -95,26 +89,22 @@ const SectionContainer = ({
 
         <SectionUI
           sectionId={sectionId}
-          visibleSectionIds={visibleSectionIds}
+          idHierarchy={idHierarchy}
           theSection={theSection}
         />
       </Flex>
       {visibleSectionIdsKeys.length > 0 &&
-        visibleSectionIdsKeys.map((e, idx) =>
-          visibleSectionIds[e].visible ? (
-            <NestedSection
-              parentId={sectionId}
-              rootId={rootId}
-              sectionId={e}
-              visibleSectionIds={visibleSectionIds[e].children}
-              idx={idx}
-              key={`Nested-Sec-${e}-${idx}`}
-              depth={depth + 1}
-            />
-          ) : (
-            <> </>
-          )
-        )}
+        visibleSectionIdsKeys.map((e, idx) => (
+          <NestedSection
+            parentId={sectionId}
+            rootId={rootId}
+            sectionId={e}
+            idHierarchy={idHierarchy[e].children}
+            idx={idx}
+            key={`Nested-Sec-${e}-${idx}`}
+            depth={depth + 1}
+          />
+        ))}
     </Flex>
   );
 };

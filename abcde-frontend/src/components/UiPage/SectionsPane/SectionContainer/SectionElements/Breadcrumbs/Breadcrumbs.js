@@ -6,15 +6,16 @@ import { getBreadCrumbPath } from "../../../../../../utils/sectionIds";
 import TheBreadCrumb from "./TheBreadcrumb/TheBreadCrumb";
 
 const Breadcrumbs = ({ rootId }) => {
-  const visibleSectionIds = useStoreState(
-    (state) => state.master.visibleSectionIds
-  );
+  const idHierarchy = useStoreState((state) => state.master.idHierarchy);
+
+  const isVisible = useStoreState((state) => state.master.isVisible);
   const sectionIdsToSectionNames = useStoreState(
     (state) => state.master.sectionIdsToSectionNames
   );
   const { breadCrumbPath, idLineage } = getBreadCrumbPath(
     rootId,
-    visibleSectionIds,
+    idHierarchy,
+    isVisible,
     sectionIdsToSectionNames
   );
 
