@@ -1,18 +1,12 @@
 import { action, thunk, debug } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/longList.json";
+import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
-  getSplitId,
-  parseNestedId,
-  getTopLevelSectionId,
-  createExportableObject,
-  modifyId,
   findId,
   setChildrenVisibility,
   tryPushingToList,
-  tryGettingLength,
 } from "../utils/sectionIds";
 
 const master = {
@@ -288,10 +282,10 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurr;
-    const { selected } = helpers.getState();
-    let output = createExportableObject(selected, globalCurr);
-    output = JSON.stringify(output);
+    // const { globalCurr } = helpers.getStoreState().globalCurr;
+    // const { selected } = helpers.getState();
+    // let output = createExportableObject(selected, globalCurr);
+    // output = JSON.stringify(output);
   }),
 };
 
