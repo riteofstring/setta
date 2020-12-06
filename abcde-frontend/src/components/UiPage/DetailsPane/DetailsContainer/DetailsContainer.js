@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from "react";
+import React from "react";
 import { HStack } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import ParamContainer from "./ParamContainer/ParamContainer";

@@ -3,7 +3,6 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import SectionMenu from "./SectionMenu/SectionMenu";
 import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
 import SectionMenuButton from "./SectionMenuButton";
-import { createStringId } from "../../../../../utils/sectionIds";
 
 const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);

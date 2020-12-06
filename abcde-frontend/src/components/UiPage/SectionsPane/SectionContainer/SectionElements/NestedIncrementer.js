@@ -8,13 +8,6 @@ import {
   CloseButton,
   list,
 } from "@chakra-ui/react";
-import {
-  getParentId,
-  getChildId,
-  parseNestedId,
-  getMaxListPosition,
-  modifyId,
-} from "../../../../../utils/sectionIds";
 
 const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
   const permanentlyDeleteSection = useStoreActions(

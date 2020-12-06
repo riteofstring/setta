@@ -1,21 +1,15 @@
 import React, { useEffect } from "react";
 import { Flex } from "@chakra-ui/react";
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import PaneHeading from "../PaneHeading/PaneHeading";
 
 import SectionContainer from "./SectionContainer/SectionContainer";
 
 const SectionsPane = () => {
-  const loadSections = useStoreActions(
-    (actions) => actions.master.loadSections
-  );
   const sections = useStoreState((state) => state.master.sections);
   const rootIdHierarchy = useStoreState(
     (state) => state.master.rootIdHierarchy
   );
-  useEffect(() => {
-    loadSections();
-  }, [loadSections]);
 
   console.log("SectionsPane");
 

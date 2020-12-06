@@ -1,4 +1,3 @@
-const NESTED = "~";
 const SEPARATOR = ",";
 const MODULE = "M:";
 const OBJ = "O:";

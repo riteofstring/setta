@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionHeading from "./SectionElements/SectionHeading";
 import { Flex, HStack } from "@chakra-ui/react";
-import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionElements/SectionUI";
 import NestedSection from "./NestedSection";
 import { createStringId } from "../../../../utils/sectionIds";
@@ -62,7 +61,7 @@ const SectionContainer = ({
         setCurr({ moduleName, objName });
       }
     }
-  }, [inFocus]);
+  }, [inFocus, selected, setCurr]);
 
   const maybeIncludeNestedIncrementer = () => {
     if (isList) {

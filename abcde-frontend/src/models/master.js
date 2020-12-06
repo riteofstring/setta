@@ -12,6 +12,7 @@ import {
 const master = {
   sectionCount: 1,
   sections: {},
+  loadSectionsIsDone: false,
   selected: {},
   idHierarchy: {},
   rootIdHierarchy: {},
@@ -51,7 +52,7 @@ const master = {
       state.sectionHasNested[id] = false;
       state.sectionModuleObjHasNested[id] = false;
       state.isList[id] = null;
-      state.isListRoot[id] = false
+      state.isListRoot[id] = false;
       state.listSiblings[id] = [];
       state.listCount[id] = 0;
       state.isShown[id] = true;
@@ -61,6 +62,7 @@ const master = {
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
+    state.loadSectionsIsDone = true;
   }),
 
   loadSections: thunk((action, payload, helpers) => {
@@ -154,7 +156,7 @@ const master = {
           state.listSiblings[id] = state.listSiblings[siblingId]
             .filter((x) => x !== id)
             .concat([siblingId]);
-            state.listCount[id] = state.listCount[siblingId];
+          state.listCount[id] = state.listCount[siblingId];
         } else {
           state.isListRoot[id] = true;
           state.listCount[id] = 1;
@@ -223,7 +225,7 @@ const master = {
         const { sectionId, moduleName, objName } = payload;
         if (
           sectionId === prevSectionId &&
-          (moduleName != prevModuleName) | (objName != prevObjName)
+          (moduleName !== prevModuleName) | (objName !== prevObjName)
         ) {
           action.deleteChildrenFromVisibleSectionIds(prevSectionId);
         }
