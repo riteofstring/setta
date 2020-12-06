@@ -253,6 +253,7 @@ export const setChildrenVisibility = (
       isVisible[x] = visibility;
       setChildrenVisibility(
         child.children,
+        idHierarchy,
         isVisible,
         visibility,
         child.moduleName,

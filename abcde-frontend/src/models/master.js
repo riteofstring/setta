@@ -74,6 +74,9 @@ const master = {
   setSelected: action((state, payload) => {
     const { sectionId, moduleName, name } = payload;
     state.selected[sectionId] = { moduleName, name };
+    let h = sectionId in state.rootIdHierarchy ? state.rootIdHierarchy : state.idHierarchy
+    h[sectionId].moduleName = moduleName
+    h[sectionId].objName = name
   }),
 
   setShiftAmount: action((state, payload) => {
@@ -131,6 +134,7 @@ const master = {
     } else {
       setChildrenVisibility(
         parentIdObj.children,
+        state.idHierarchy,
         state.isVisible,
         true,
         moduleName,
