@@ -1,7 +1,7 @@
 import React from "react";
 import TheMenuObj from "./TheMenuObj";
 
-const MenuObjs = ({ currModuleInfo, sectionId, theSection }) => {
+const MenuObjs = ({ currModuleInfo, sectionId }) => {
   const currObjNames = Object.keys(currModuleInfo.objs);
   return (
     <>

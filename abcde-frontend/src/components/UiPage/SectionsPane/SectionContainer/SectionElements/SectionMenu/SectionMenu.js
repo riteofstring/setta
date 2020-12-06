@@ -6,6 +6,8 @@ const SectionMenu = ({ sectionId, theSection }) => {
   const { moduleInfos } = theSection;
   const moduleInfosArr = Object.keys(moduleInfos);
 
+  console.log("SectionMenu")
+
   return (
     <MenuList>
       {moduleInfosArr.map((e, idx) => (
@@ -15,7 +17,6 @@ const SectionMenu = ({ sectionId, theSection }) => {
           <MenuObjs
             currModuleInfo={moduleInfos[e]}
             sectionId={sectionId}
-            theSection={theSection}
           />
         </MenuGroup>
       ))}

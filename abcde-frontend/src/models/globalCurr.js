@@ -34,6 +34,7 @@ const globalCurr = {
 
   setCurr: action((state, payload) => {
     const {sectionId, moduleName, objName} = payload
+    console.log("setting curr", sectionId, moduleName, objName)
     state.sectionId = sectionId
     state.moduleName = moduleName
     state.objName = objName

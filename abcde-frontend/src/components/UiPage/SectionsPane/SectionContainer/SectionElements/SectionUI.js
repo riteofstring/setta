@@ -20,7 +20,7 @@ const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
         <SectionMenu sectionId={sectionId} theSection={theSection} />
       </Menu>
       <Spacer />
-      {Object.keys(visibleSectionIds).length > 0 && (
+      {visibleSectionIds.length > 0 && (
         <Button onClick={flipVisible}>
           {!!getVisible(visible, sectionId) ? "Collapse" : "Show"}
         </Button>

@@ -19,7 +19,7 @@ const Breadcrumbs = () => {
 
   return (
     <>
-      {Object.keys(visibleSectionIds).length > 0 && (
+      {visibleSectionIds.length > 0 && (
         <TheBreadCrumb breadCrumbPath={breadCrumbPath} fullPath={fullPath} />
       )}
     </>

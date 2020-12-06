@@ -32,15 +32,6 @@ const TheParam = ({ parameters }) => {
   };
 
   useEffect(() => {
-    if (ui_type === "NESTED_OBJECT") {
-      addToVisibleSectionIdsThunk({ name });
-    } else if (ui_type === "LIST_NESTED_OBJECT") {
-      addToVisibleSectionIdsThunk({ name, isList: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parameters]);
-
-  useEffect(() => {
     let savedParam = null;
     if (sectionId in globalCurr) {
       if (moduleName in globalCurr[sectionId]) {
@@ -49,9 +40,19 @@ const TheParam = ({ parameters }) => {
         }
       }
     }
-    setValue(savedParam ? savedParam : default_val);
+    setValue(savedParam !== null ? savedParam : default_val);
+
+    if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
+      addToVisibleSectionIdsThunk({
+        name,
+        sectionId,
+        moduleName,
+        objName,
+        isList: ui_type == "LIST_NESTED_OBJECT",
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parameters, objName]);
+  }, [parameters]);
 
   const inputSwitch = () => {
     switch (ui_type) {

@@ -194,15 +194,11 @@ export const getBreadCrumbPath = (
   return { breadCrumbPath: shortOutput, fullPath: longOutput };
 };
 
-export const getMaxListPosition = (
-  sectionId,
-  visibleSectionIds,
-  paramName
-) => {
+export const getMaxListPosition = (sectionId, visibleSectionIds, paramName) => {
   const nested = visibleSectionIds[sectionId];
   let maxPosition = 0;
   for (let id of Object.keys(nested)) {
-    const {paramName: currParamName, listPosition} = parseNestedId(id)
+    const { paramName: currParamName, listPosition } = parseNestedId(id);
     if (paramName === currParamName) {
       maxPosition = Math.max(listPosition, maxPosition);
     }
@@ -211,7 +207,7 @@ export const getMaxListPosition = (
 };
 
 export const getSectionOrder = (visibleSectionIds) => {
-  const allIds = Object.keys(visibleSectionIds)
+  const allIds = Object.keys(visibleSectionIds);
   let ordered = [];
   let done = {};
   for (let k of allIds) {
@@ -225,10 +221,32 @@ export const getSectionOrder = (visibleSectionIds) => {
           done[k2] = true;
         }
       } else {
-        ordered.push(k)
+        ordered.push(k);
         done[k] = true;
       }
     }
   }
   return ordered;
 };
+
+export const findId = (id, visibleSectionIds) => {
+  let output = null;
+  for (let x of visibleSectionIds) {
+    if (x.id === id) {
+      output = x;
+    } else {
+      output = findId(id, x.children);
+    }
+    if (output !== null) {
+      break;
+    }
+  }
+  return output;
+};
+
+export class VisibleSection {
+  constructor(id, children = []) {
+    this.id = id;
+    this.children = children;
+  }
+}

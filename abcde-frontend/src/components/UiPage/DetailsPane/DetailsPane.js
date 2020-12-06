@@ -7,17 +7,6 @@ import PaneHeading from "../PaneHeading/PaneHeading";
 const DetailsPane = () => {
   const { activeObj } = useStoreState((state) => state.master);
 
-  const [loaded, isLoaded] = useState(false);
-
-  const setLoaded = () => {
-    isLoaded(true);
-  };
-  useLayoutEffect(() => {
-    if (activeObj) {
-      setLoaded();
-    }
-  });
-
   return (
     <VStack
       position="fixed"
@@ -38,7 +27,7 @@ const DetailsPane = () => {
       >
         <PaneHeading heading="Details" />
 
-        {loaded && <DetailsContainer />}
+        <DetailsContainer />
       </Flex>
     </VStack>
   );
