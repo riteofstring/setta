@@ -13,17 +13,17 @@ const SectionsPane = () => {
     loadSections();
   }, [loadSections]);
 
-  console.log("SectionsPane");
+  console.log("SectionsPane", visibleSectionIds);
 
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />
-      {visibleSectionIds.map((e, idx) => (
+      {Object.keys(visibleSectionIds).map((e, idx) => (
         <SectionContainer
-          sectionId={e.id}
-          visibleSectionIds={e.children}
-          theSection={sections[e.id]}
-          key={`${e.id}-${idx}`}
+          sectionId={e}
+          visibleSectionIds={visibleSectionIds[e].children}
+          theSection={sections[e]}
+          key={`${e}-${idx}`}
           depth={0}
         />
       ))}

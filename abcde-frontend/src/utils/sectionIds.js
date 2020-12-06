@@ -231,11 +231,11 @@ export const getSectionOrder = (visibleSectionIds) => {
 
 export const findId = (id, visibleSectionIds) => {
   let output = null;
-  for (let x of visibleSectionIds) {
-    if (x.id === id) {
-      output = x;
+  for (let x of Object.keys(visibleSectionIds)) {
+    if (x === id) {
+      output = visibleSectionIds[x];
     } else {
-      output = findId(id, x.children);
+      output = findId(id, visibleSectionIds[x].children);
     }
     if (output !== null) {
       break;
@@ -243,10 +243,3 @@ export const findId = (id, visibleSectionIds) => {
   }
   return output;
 };
-
-export class VisibleSection {
-  constructor(id, children = []) {
-    this.id = id;
-    this.children = children;
-  }
-}

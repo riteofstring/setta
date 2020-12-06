@@ -30,8 +30,9 @@ const SectionContainer = ({
   );
 
   const thisInFocus = inFocus[sectionId];
+  const visibleSectionIdsKeys = Object.keys(visibleSectionIds)
 
-  console.log("SectionContainer");
+  console.log("SectionContainer", theSection.name, inFocus);
 
   const applyFocus = () => {
     if (!thisInFocus){
@@ -90,12 +91,12 @@ const SectionContainer = ({
           theSection={theSection}
         />
       </Flex>
-      {visibleSectionIds.length > 0 &&
-        visibleSectionIds.map((e, idx) => (
+      {visibleSectionIdsKeys.length > 0 &&
+        visibleSectionIdsKeys.map((e, idx) => (
           <NestedSection
-            sectionId={sectionId}
-            visibleSectionIds={visibleSectionIds}
-            e={e}
+            parentId={sectionId}
+            sectionId={e}
+            visibleSectionIds={visibleSectionIds[e].children}
             idx={idx}
             key={`Nested-Sec-${e}-${idx}`}
             depth={depth + 1}

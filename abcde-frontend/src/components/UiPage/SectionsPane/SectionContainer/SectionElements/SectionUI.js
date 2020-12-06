@@ -13,7 +13,7 @@ const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
     setVisible({ sectionId, newVisible: !getVisible(visible, sectionId) });
   };
 
-  console.log("SectionUI");
+  console.log("SectionUI", theSection.name, visibleSectionIds);
 
   return (
     <HStack spacing="2rem" w="100%">
@@ -22,7 +22,7 @@ const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
         <SectionMenu sectionId={sectionId} theSection={theSection} />
       </Menu>
       <Spacer />
-      {visibleSectionIds.length > 0 && (
+      {Object.keys(visibleSectionIds).length > 0 && (
         <Button onClick={flipVisible}>
           {!!getVisible(visible, sectionId) ? "Collapse" : "Show"}
         </Button>
