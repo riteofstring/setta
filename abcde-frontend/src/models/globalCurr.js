@@ -6,7 +6,7 @@ const globalCurr = {
   moduleName: null,
   objName: null,
 
-  setGlobalCurr: action((state, payload) => {
+  setCurrParam: action((state, payload) => {
     const { paramName, paramValue } = payload;
     if (!(state.sectionId in state.globalCurr)) {
       state.globalCurr[state.sectionId] = {};
@@ -20,10 +20,6 @@ const globalCurr = {
     state.globalCurr[state.sectionId][state.moduleName][state.objName][paramName] = paramValue;
   }),
 
-  resetGlobalCurr: action((state) => {
-    state.globalCurr = {};
-  }),
-
   setCurrSectionId: action((state, payload) => {
     state.sectionId = payload
   }),
@@ -34,6 +30,13 @@ const globalCurr = {
 
   setCurrObjName: action((state, payload) => {
     state.objName = payload
+  }),
+
+  setCurr: action((state, payload) => {
+    const {sectionId, moduleName, objName} = payload
+    state.sectionId = sectionId
+    state.moduleName = moduleName
+    state.objName = objName
   }),
 
 };

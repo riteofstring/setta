@@ -117,9 +117,11 @@ const master = {
   }),
 
   getSectionId: thunk((action, payload, helpers) => {
-    const { currName: sectionId } = helpers.getStoreState().globalCurrSection;
-    const { currName: moduleName } = helpers.getStoreState().globalCurrModule;
-    const { currName: objName } = helpers.getStoreState().globalCurrObj;
+    const {
+      sectionId,
+      moduleName,
+      objName,
+    } = helpers.getStoreState().globalCurr;
     if ([sectionId, moduleName, objName].indexOf(null) === -1) {
       return createId(sectionId, moduleName, objName, payload);
     } else {
@@ -144,9 +146,7 @@ const master = {
   ),
 
   deleteCurrFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const {
-      currName: parentSectionId,
-    } = helpers.getStoreState().globalCurrSection;
+    const { sectionId: parentSectionId } = helpers.getStoreState().globalCurr;
     let id = action.getSectionId("");
     if (id !== null) {
       action.setSectionIdExParam(id);
@@ -166,7 +166,7 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurrSection;
+    const { globalCurr } = helpers.getStoreState().globalCurr;
     const { selected } = helpers.getState();
     let output = createExportableObject(selected, globalCurr);
     output = JSON.stringify(output);

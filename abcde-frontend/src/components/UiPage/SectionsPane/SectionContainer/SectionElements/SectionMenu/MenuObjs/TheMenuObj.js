@@ -4,16 +4,10 @@ import { MenuItem } from "@chakra-ui/react";
 
 const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
   const { setSelected } = useStoreActions((actions) => actions.master);
-  const {
-    setCurrSectionId,
-    setCurrModuleName,
-    setCurrObjName,
-  } = useStoreActions((actions) => actions.globalCurr);
+  const { setCurr } = useStoreActions((actions) => actions.globalCurr);
 
   const setSelectedAndCurrObj = () => {
-    setCurrObjName(name);
-    setCurrModuleName(moduleName);
-    setCurrSectionId(sectionId);
+    setCurr({ sectionId, moduleName, objName: name });
     // deleteCurrFromVisibleSectionIdsThunk();
     setSelected({ sectionId, moduleName, name, currParams });
   };

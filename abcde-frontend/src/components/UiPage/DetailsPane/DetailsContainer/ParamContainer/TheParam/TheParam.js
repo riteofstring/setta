@@ -14,7 +14,7 @@ import {
 const TheParam = ({ parameters }) => {
   const { name, ui_type, default_val } = parameters;
 
-  const { setGlobalCurr } = useStoreActions((actions) => actions.globalCurr);
+  const { setCurrParam } = useStoreActions((actions) => actions.globalCurr);
 
   const { addToVisibleSectionIdsThunk } = useStoreActions(
     (actions) => actions.master
@@ -28,7 +28,7 @@ const TheParam = ({ parameters }) => {
 
   const sendState = (name, value) => {
     setValue(value);
-    setGlobalCurr({ paramName: name, paramValue: value });
+    setCurrParam({ paramName: name, paramValue: value });
   };
 
   useEffect(() => {

@@ -24,8 +24,10 @@ const SectionContainer = ({
   const { setActiveObj, setShiftAmount } = useStoreActions(
     (actions) => actions.master
   );
-  const { shiftAmount } = useStoreState((state) => state.master);
-  const { activeObj, isList } = useStoreState((state) => state.master);
+  const { setCurr } = useStoreActions((actions) => actions.globalCurr);
+  const { selected, activeObj, isList, shiftAmount } = useStoreState(
+    (state) => state.master
+  );
 
   const applyFocus = () => {
     setActiveObj(sectionId);
@@ -39,6 +41,10 @@ const SectionContainer = ({
         shiftAmount: depth,
       });
       setFocus(true);
+      if (selected[activeObj] && Object.keys(selected[activeObj]).length > 0) {
+        const { moduleName, name: objName } = selected[activeObj];
+        setCurr({ sectionId, moduleName, objName });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObj]);
