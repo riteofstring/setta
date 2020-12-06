@@ -6,26 +6,31 @@ import PaneHeading from "../PaneHeading/PaneHeading";
 import SectionContainer from "./SectionContainer/SectionContainer";
 
 const SectionsPane = () => {
-  const loadSections = useStoreActions((actions) => actions.master.loadSections);
+  const loadSections = useStoreActions(
+    (actions) => actions.master.loadSections
+  );
   const sections = useStoreState((state) => state.master.sections);
-  const visibleSectionIds = useStoreState((state) => state.master.visibleSectionIds);
+  const visibleSectionIds = useStoreState(
+    (state) => state.master.visibleSectionIds
+  );
   useEffect(() => {
     loadSections();
   }, [loadSections]);
 
-  console.log("SectionsPane", visibleSectionIds);
+  console.log("SectionsPane");
 
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />
-      {Object.keys(visibleSectionIds).map((e, idx) => ( visibleSectionIds[e].visible ?
+      {Object.keys(visibleSectionIds).map((e, idx) => (
         <SectionContainer
           sectionId={e}
+          rootId={e}
           visibleSectionIds={visibleSectionIds[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}
           depth={0}
-        /> : <> </>
+        />
       ))}
     </Flex>
   );

@@ -9,6 +9,7 @@ import { FiCornerDownRight } from "react-icons/fi";
 
 const NestedSection = ({
   parentId,
+  rootId,
   sectionId,
   visibleSectionIds,
   idx,
@@ -17,7 +18,7 @@ const NestedSection = ({
   const sections = useStoreState((state) => state.master.sections);
   const visible = useStoreState((state) => state.master.visible);
 
-  console.log("NestedSection", sectionId, visibleSectionIds);
+  console.log("NestedSection", sectionId, rootId);
 
   return (
     <>
@@ -36,6 +37,7 @@ const NestedSection = ({
         </Box>
         <SectionContainer
           sectionId={sectionId}
+          rootId={rootId}
           visibleSectionIds={visibleSectionIds}
           theSection={sections[sectionId]}
           depth={depth}

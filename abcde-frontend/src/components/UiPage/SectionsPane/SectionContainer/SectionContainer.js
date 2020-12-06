@@ -11,6 +11,7 @@ import NestedIncrementer from "./SectionElements/NestedIncrementer";
 
 const SectionContainer = ({
   sectionId,
+  rootId,
   visibleSectionIds,
   theSection,
   depth,
@@ -23,8 +24,14 @@ const SectionContainer = ({
     (state) => state.master.selected,
     (prev, next) => prev[sectionId] === next[sectionId]
   );
-  const shiftAmount = useStoreState((state) => state.master.shiftAmount);
+  const shiftAmount = useStoreState(
+    (state) => state.master.shiftAmount
+    // (prev, next) => prev[sectionId] === next[sectionId]
+  );
 
+  const setShiftAmount = useStoreActions(
+    (actions) => actions.master.setShiftAmount
+  );
   const setInFocus = useStoreActions((actions) => actions.master.setInFocus);
   const inFocus = useStoreState(
     (state) => state.master.inFocus,
@@ -34,17 +41,14 @@ const SectionContainer = ({
   const thisInFocus = inFocus[sectionId];
   const visibleSectionIdsKeys = Object.keys(visibleSectionIds);
 
-  console.log("SectionContainer", theSection.name, inFocus);
+  console.log("SectionContainer", theSection.name);
 
   const applyFocus = () => {
     if (!thisInFocus) {
       setInFocus(sectionId);
       setSectionId(sectionId);
+      setShiftAmount({ rootId, shiftAmount: depth });
     }
-    // //     // setShiftAmount({
-    // //     //   sectionId: getTopLevelSectionId(sectionId),
-    // //     //   shiftAmount: depth,
-    // //     // });
   };
 
   useEffect(() => {
@@ -98,6 +102,7 @@ const SectionContainer = ({
           visibleSectionIds[e].visible ? (
             <NestedSection
               parentId={sectionId}
+              rootId={rootId}
               sectionId={e}
               visibleSectionIds={visibleSectionIds[e].children}
               idx={idx}

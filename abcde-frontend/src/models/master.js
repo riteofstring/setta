@@ -25,6 +25,7 @@ const master = {
   stringIds: {},
   takenStringIds: {},
   inFocus: [false],
+  hasNested: {},
 
   // actions
   // Load DATA
@@ -45,6 +46,7 @@ const master = {
       state.takenStringIds[key] = id;
       state.sectionCount += 1;
       state.inFocus.push(false);
+      state.hasNested[id] = false
     }
     state.selected = Object.keys(state.sections).reduce(
       (acc, curr) => ({ ...acc, [curr]: {} }),
@@ -70,8 +72,8 @@ const master = {
   }),
 
   setShiftAmount: action((state, payload) => {
-    const { sectionId, shiftAmount } = payload;
-    state.shiftAmount[sectionId] = shiftAmount;
+    const { rootId, shiftAmount } = payload;
+    state.shiftAmount[rootId] = shiftAmount;
   }),
 
   setIsList: action((state, payload) => {
@@ -116,6 +118,9 @@ const master = {
         parentModuleName: moduleName,
         parentObjName: objName,
       };
+
+      state.hasNested[parentId] = true
+
     } else {
       setChildrenVisibility(parentIdObj.children, true, moduleName, objName);
     }
@@ -141,10 +146,8 @@ const master = {
     }
   }),
 
-  getSectionId: thunk((action, payload, helpers) => {
-    const id = helpers.getState().sectionCount;
-    helpers.getState().sectionCount += 1;
-    return id;
+  incrementSectionCount: action((state, payload) => {
+    state.sectionCount += 1
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
@@ -161,7 +164,8 @@ const master = {
     );
     let id = helpers.getState().takenStringIds[stringId];
     if (id === undefined) {
-      id = action.getSectionId();
+      id = helpers.getState().sectionCount
+      action.incrementSectionCount()
       action.setStringId({ sectionId: id, stringId });
       action.setIsList({ sectionId: id, isList });
     }
