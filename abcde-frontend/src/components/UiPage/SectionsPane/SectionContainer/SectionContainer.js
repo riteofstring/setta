@@ -16,7 +16,9 @@ const SectionContainer = ({
   depth,
 }) => {
   const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
-  const setSectionId = useStoreActions((actions) => actions.globalCurr.setSectionId);
+  const setSectionId = useStoreActions(
+    (actions) => actions.globalCurr.setSectionId
+  );
   const selected = useStoreState(
     (state) => state.master.selected,
     (prev, next) => prev[sectionId] === next[sectionId]
@@ -30,12 +32,12 @@ const SectionContainer = ({
   );
 
   const thisInFocus = inFocus[sectionId];
-  const visibleSectionIdsKeys = Object.keys(visibleSectionIds)
+  const visibleSectionIdsKeys = Object.keys(visibleSectionIds);
 
   console.log("SectionContainer", theSection.name, inFocus);
 
   const applyFocus = () => {
-    if (!thisInFocus){
+    if (!thisInFocus) {
       setInFocus(sectionId);
       setSectionId(sectionId);
     }
@@ -92,16 +94,20 @@ const SectionContainer = ({
         />
       </Flex>
       {visibleSectionIdsKeys.length > 0 &&
-        visibleSectionIdsKeys.map((e, idx) => (
-          <NestedSection
-            parentId={sectionId}
-            sectionId={e}
-            visibleSectionIds={visibleSectionIds[e].children}
-            idx={idx}
-            key={`Nested-Sec-${e}-${idx}`}
-            depth={depth + 1}
-          />
-        ))}
+        visibleSectionIdsKeys.map((e, idx) =>
+          visibleSectionIds[e].visible ? (
+            <NestedSection
+              parentId={sectionId}
+              sectionId={e}
+              visibleSectionIds={visibleSectionIds[e].children}
+              idx={idx}
+              key={`Nested-Sec-${e}-${idx}`}
+              depth={depth + 1}
+            />
+          ) : (
+            <> </>
+          )
+        )}
     </Flex>
   );
 };

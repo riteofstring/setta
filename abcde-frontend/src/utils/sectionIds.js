@@ -37,7 +37,7 @@ export const modifyId = ({
   if (listPosition !== null) {
     oldListPosition = listPosition;
   }
-  return createId(
+  return createStringId(
     parentId,
     oldModuleName,
     oldObjName,
@@ -46,7 +46,7 @@ export const modifyId = ({
   );
 };
 
-export const createId = (
+export const createStringId = (
   sectionName,
   moduleName,
   objName,
@@ -138,7 +138,7 @@ const createExportableParams = (selected, globalCurr, id) => {
     let fullObjName = moduleName + "." + objName;
     output[fullObjName] = {};
     for (let paramName of Object.keys(params)) {
-      let nextId = createId(id, moduleName, objName, paramName);
+      let nextId = createStringId(id, moduleName, objName, paramName);
       if (nextId in selected) {
         output[fullObjName][paramName] = createExportableParams(
           selected,
@@ -242,4 +242,34 @@ export const findId = (id, visibleSectionIds) => {
     }
   }
   return output;
+};
+
+export const moduleObj = (moduleName, objName) => {
+  return moduleName + SEPARATOR + objName;
+};
+
+export const setChildrenVisibility = (
+  children,
+  visibility,
+  parentModuleName = null,
+  parentObjName = null
+) => {
+  for (let x of Object.keys(children)) {
+    const child = children[x];
+    if (parentModuleName === null) {
+      child.visible = visibility;
+      setChildrenVisibility(child.children, visibility);
+    } else if (
+      child.parentModuleName === parentModuleName &&
+      child.parentObjName === parentObjName
+    ) {
+      child.visible = visibility;
+      setChildrenVisibility(
+        child.children,
+        visibility,
+        child.moduleName,
+        child.objName
+      );
+    }
+  }
 };

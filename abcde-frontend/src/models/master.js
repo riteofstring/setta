@@ -3,13 +3,15 @@ import { getUISpecs } from "../data/fetchData";
 import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 import {
-  createId,
+  createStringId,
   getSplitId,
   parseNestedId,
   getTopLevelSectionId,
   createExportableObject,
   modifyId,
   findId,
+  moduleObj,
+  setChildrenVisibility,
 } from "../utils/sectionIds";
 
 const master = {
@@ -17,7 +19,6 @@ const master = {
   sections: {},
   selected: {},
   visibleSectionIds: {},
-  visibleSectionIdsHistory: {},
   visible: {},
   shiftAmount: {},
   isList: {},
@@ -31,8 +32,14 @@ const master = {
     for (let key of Object.keys(payload)) {
       let id = state.sectionCount;
       state.sections[id] = new Section(key, payload[key]);
-      state.visibleSectionIds[id] = { id, children: {} };
-      state.visibleSectionIdsHistory[id] = { id, children: {} };
+      state.visibleSectionIds[id] = {
+        children: {},
+        visible: true,
+        moduleName: null,
+        objName: null,
+        parentModuleName: null,
+        parentObjName: null,
+      };
       state.shiftAmount[id] = 0;
       state.stringIds[id] = key;
       state.takenStringIds[key] = id;
@@ -84,21 +91,16 @@ const master = {
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
-    const { id, name, moduleName, objName, parentId } = payload;
-    let curr = state.visibleSectionIds;
-    let currHistory = state.visibleSectionIdsHistory;
-    const parentIdObj = findId(parentId, curr);
-    const parentIdObjHistory = findId(parentId, currHistory);
-    const idObj = findId(id, parentIdObj.children);
-    if (idObj === null) {
-      const historyObj = findId(id, parentIdObjHistory.children);
-      if (historyObj !== null) {
-        parentIdObj.children[id] = JSON.parse(JSON.stringify(historyObj));
-      } else {
-        parentIdObj.children[id] = { id, children: {} };
-        parentIdObjHistory.children[id] = { id, children: {} };
-      }
-    }
+    const {
+      id,
+      name,
+      moduleName,
+      objName,
+      parentId,
+    } = payload;
+    const parentIdObj = findId(parentId, state.visibleSectionIds);
+    parentIdObj.moduleName = moduleName;
+    parentIdObj.objName = objName;
     if (!(id in state.selected)) {
       state.selected[id] = {};
       state.sections[id] =
@@ -106,10 +108,25 @@ const master = {
           name
         ].type;
       state.inFocus.splice(id, 0, false);
+
+      // const moduleObjName = moduleObj(moduleName, objName)
+      parentIdObj.children[id] = {
+        children: {},
+        visible: true,
+        parentModuleName: moduleName,
+        parentObjName: objName,
+      };
+    } else {
+      setChildrenVisibility(parentIdObj.children, true, moduleName, objName);
     }
   }),
 
-  deleteVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
+  deleteFromVisibleSectionIds: action((state, payload) => {
+    let foundId = findId(payload, state.visibleSectionIds);
+    setChildrenVisibility(foundId.children, false);
+  }),
+
+  deleteFromVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
     const {
       sectionId: prevSectionId,
       moduleName: prevModuleName,
@@ -120,10 +137,7 @@ const master = {
       sectionId === prevSectionId &&
       (moduleName != prevModuleName) | (objName != prevObjName)
     ) {
-      console.log("DELETE", prevSectionId, sectionId)
-      let foundId = findId(prevSectionId, helpers.getState().visibleSectionIds)
-      console.log("foundId", foundId)
-      foundId.children = {}
+      action.deleteFromVisibleSectionIds(prevSectionId);
     }
   }),
 
@@ -138,27 +152,26 @@ const master = {
     const { name, sectionId: parentId, moduleName, objName, isList } = payload;
     const parentStringId = helpers.getState().stringIds[parentId];
     const listPosition = isList ? "0" : null;
-    const newStringId = createId(
+    const stringId = createStringId(
       parentStringId,
       moduleName,
       objName,
       name,
       listPosition
     );
-    let id = helpers.getState().takenStringIds[newStringId];
+    let id = helpers.getState().takenStringIds[stringId];
     if (id === undefined) {
       id = action.getSectionId();
-      action.setStringId({ sectionId: id, stringId: newStringId });
+      action.setStringId({ sectionId: id, stringId });
       action.setIsList({ sectionId: id, isList });
-      action.addToVisibleSectionIds({
-        id,
-        name,
-        moduleName,
-        objName,
-        parentId,
-      });
     }
-    // console.log("visibleSectionIds", debug(helpers.getState().visibleSectionIds))
+    action.addToVisibleSectionIds({
+      id,
+      name,
+      moduleName,
+      objName,
+      parentId,
+    });
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

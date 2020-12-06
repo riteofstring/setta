@@ -4,14 +4,14 @@ import { MenuItem } from "@chakra-ui/react";
 
 const TheMenuObj = ({ sectionId, moduleName, name }) => {
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
-  const deleteVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.deleteVisibleSectionIdsThunk
+  const deleteFromVisibleSectionIdsThunk = useStoreActions(
+    (actions) => actions.master.deleteFromVisibleSectionIdsThunk
   );
   const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
   console.log("TheMenuObj")
 
   const setSelectedAndCurrObj = () => {
-    // deleteVisibleSectionIdsThunk({sectionId, moduleName, objName: name});
+    deleteFromVisibleSectionIdsThunk({sectionId, moduleName, objName: name});
     setCurr({ moduleName, objName: name });
     setSelected({ sectionId, moduleName, name });
   };

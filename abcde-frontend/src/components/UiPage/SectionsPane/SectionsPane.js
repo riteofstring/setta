@@ -18,14 +18,14 @@ const SectionsPane = () => {
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />
-      {Object.keys(visibleSectionIds).map((e, idx) => (
+      {Object.keys(visibleSectionIds).map((e, idx) => ( visibleSectionIds[e].visible ?
         <SectionContainer
           sectionId={e}
           visibleSectionIds={visibleSectionIds[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}
           depth={0}
-        />
+        /> : <> </>
       ))}
     </Flex>
   );
