@@ -4,28 +4,27 @@ import { useStoreState } from "easy-peasy";
 import ParamContainer from "./ParamContainer/ParamContainer";
 
 const DetailsContainer = () => {
-  const selected = useStoreState((state) => state.master.selected);
-  const activeObj = useStoreState((state) => state.master.activeObj);
-  const [paramsArr, setParamsArr] = useState([]);
-
-  const loadParams = (paramList) => {
-    let localParams = [];
-    for (let key in paramList) {
-      localParams.push(Object.assign(paramList[key], { name: key }));
+  const sections = useStoreState((state) => state.master.sections);
+  const sectionId = useStoreState((state) => state.globalCurr.sectionId);
+  const moduleName = useStoreState((state) => state.globalCurr.moduleName);
+  const objName = useStoreState((state) => state.globalCurr.objName);
+  const getParamsArr = () => {
+    try {
+      let output = [];
+      const paramSource =
+        sections[sectionId].moduleInfos[moduleName].objs[objName].params;
+      for (let key of Object.keys(paramSource)) {
+        output.push(paramSource[key]);
+      }
+      return output
+    } catch (err) {
+      return [];
     }
-    setParamsArr(localParams);
   };
 
-  console.log("DetailsContainer")
+  const paramsArr = getParamsArr();
 
-  useLayoutEffect(() => {
-    if (activeObj && selected[activeObj].params) {
-      let paramList = selected[activeObj].params;
-      loadParams(paramList);
-    } else {
-      setParamsArr([]);
-    }
-  }, [selected, activeObj]);
+  console.log("DetailsContainer", sectionId, moduleName, objName, paramsArr);
 
   return (
     <HStack>

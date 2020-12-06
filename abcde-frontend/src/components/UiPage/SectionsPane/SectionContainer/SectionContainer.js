@@ -15,10 +15,8 @@ const SectionContainer = ({
   theSection,
   depth,
 }) => {
-  const setActiveObj = useStoreActions(
-    (actions) => actions.master.setActiveObj
-  );
   const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
+  const setSectionId = useStoreActions((actions) => actions.globalCurr.setSectionId);
   const selected = useStoreState(
     (state) => state.master.selected,
     (prev, next) => prev[sectionId] === next[sectionId]
@@ -36,8 +34,10 @@ const SectionContainer = ({
   console.log("sectionContainer");
 
   const applyFocus = () => {
-    setInFocus(sectionId);
-    setActiveObj(sectionId);
+    if (!thisInFocus){
+      setInFocus(sectionId);
+      setSectionId(sectionId);
+    }
     // //     // setShiftAmount({
     // //     //   sectionId: getTopLevelSectionId(sectionId),
     // //     //   shiftAmount: depth,
@@ -46,10 +46,9 @@ const SectionContainer = ({
 
   useEffect(() => {
     if (thisInFocus) {
-      const thisSelected = selected[sectionId];
-      if (thisSelected) {
-        const { moduleName, name: objName } = thisSelected;
-        setCurr({ sectionId, moduleName, objName });
+      const { moduleName, name: objName } = selected[sectionId];
+      if (moduleName !== undefined) {
+        setCurr({ moduleName, objName });
       }
     }
   }, [thisInFocus]);
@@ -79,7 +78,7 @@ const SectionContainer = ({
         borderColor="gray.200"
         id={sectionId}
       >
-        {/* {getTopLevelSectionId(activeObj) === sectionId && <Breadcrumbs />} */}
+        {/* {getTopLevelSectionId(sectionId) === sectionId && <Breadcrumbs />} */}
         <HStack mb="1rem">
           <SectionHeading heading={theSection.name} />
           {/* {maybeIncludeNestedIncrementer()} */}

@@ -5,10 +5,10 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink } from "@chakra-ui/react";
 import { BiChevronRight } from "react-icons/bi";
 
 const TheBreadcrumb = ({ breadCrumbPath, fullPath }) => {
-  const setActiveObj = useStoreActions((actions) => actions.master.setActiveObj);
+  const setSectionId = useStoreActions((actions) => actions.globalCurr.setSectionId);
 
   const setFocus = (breadcrumbIdx) => {
-    setActiveObj(fullPath[breadcrumbIdx]);
+    setSectionId(fullPath[breadcrumbIdx]);
   };
 
   return (

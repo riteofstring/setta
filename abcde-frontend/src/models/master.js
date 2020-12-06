@@ -19,7 +19,6 @@ const master = {
   selected: {},
   visibleSectionIds: [],
   visibleSectionIdsHistory: [],
-  activeObj: null,
   visible: {},
   shiftAmount: {},
   isList: {},
@@ -60,13 +59,8 @@ const master = {
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    const { sectionId, moduleName, name, currParams } = payload;
-    state.selected[sectionId] = { moduleName, name, params: currParams };
-  }),
-
-  // string name of currently active object
-  setActiveObj: action((state, payload) => {
-    state.activeObj = payload;
+    const { sectionId, moduleName, name } = payload;
+    state.selected[sectionId] = { moduleName, name };
   }),
 
   setShiftAmount: action((state, payload) => {
@@ -87,7 +81,6 @@ const master = {
 
   setInFocus: action((state, payload) => {
     state.inFocus = state.inFocus.map((e, idx) => idx === payload);
-    console.log("state.inFocus", debug(state.inFocus))
   }),
 
   addVisibleSectionIds: action((state, payload) => {

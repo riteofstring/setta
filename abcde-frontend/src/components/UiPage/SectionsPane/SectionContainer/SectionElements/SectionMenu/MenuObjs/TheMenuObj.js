@@ -20,8 +20,8 @@ const TheMenuObj = ({ sectionId, moduleName, name, currParams }) => {
     ) {
       deleteVisibleSectionIds(sectionId);
     }
-    setCurr({ sectionId, moduleName, objName: name });
-    setSelected({ sectionId, moduleName, name, currParams });
+    setCurr({ moduleName, objName: name });
+    setSelected({ sectionId, moduleName, name });
   };
 
   return <MenuItem onClick={() => setSelectedAndCurrObj()}>{name}</MenuItem>;

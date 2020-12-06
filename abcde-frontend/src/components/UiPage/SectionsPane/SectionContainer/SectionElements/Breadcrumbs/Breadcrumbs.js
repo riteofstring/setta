@@ -12,9 +12,9 @@ const Breadcrumbs = () => {
   const visibleSectionIds = useStoreState(
     (state) => state.master.visibleSectionIds
   );
-  const activeObj = useStoreState((state) => state.master.activeObj);
+  const sectionId = useStoreState((state) => state.globalCurr.sectionId);
   const { breadCrumbPath, fullPath } = getBreadCrumbPath(
-    getTopLevelSectionId(activeObj),
+    getTopLevelSectionId(sectionId),
     visibleSectionIds
   );
 

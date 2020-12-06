@@ -5,8 +5,8 @@ import DetailsContainer from "./DetailsContainer/DetailsContainer";
 import PaneHeading from "../PaneHeading/PaneHeading";
 
 const DetailsPane = () => {
-  const activeObj = useStoreState(
-    (state) => state.master.activeObj,
+  const sectionId = useStoreState(
+    (state) => state.globalCurr.sectionId,
     (prev, next) => prev && next
   );
 
@@ -16,7 +16,7 @@ const DetailsPane = () => {
       zIndex="5"
       right="2.5rem"
       top="7.5rem"
-      visibility={activeObj ? "visible" : "hidden"}
+      visibility={sectionId ? "visible" : "hidden"}
     >
       <Flex
         align="flex-start"

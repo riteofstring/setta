@@ -20,22 +20,21 @@ const globalCurr = {
     state.globalCurr[state.sectionId][state.moduleName][state.objName][paramName] = paramValue;
   }),
 
-  setCurrSectionId: action((state, payload) => {
+  setSectionId: action((state, payload) => {
     state.sectionId = payload
   }),
 
-  setCurrModuleName: action((state, payload) => {
+  setModuleName: action((state, payload) => {
     state.moduleName = payload
   }),
 
-  setCurrObjName: action((state, payload) => {
+  setObjName: action((state, payload) => {
     state.objName = payload
   }),
 
   setCurr: action((state, payload) => {
-    const {sectionId, moduleName, objName} = payload
-    console.log("setting curr", sectionId, moduleName, objName)
-    state.sectionId = sectionId
+    const {moduleName, objName} = payload
+    console.log("setting curr", moduleName, objName)
     state.moduleName = moduleName
     state.objName = objName
   }),
