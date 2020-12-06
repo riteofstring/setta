@@ -48,13 +48,19 @@ export const modifyId = ({
 
 export const createStringId = (
   sectionId,
-  moduleName,
-  objName,
+  moduleName = null,
+  objName = null,
   paramName = null,
   listPosition = null
 ) => {
   let id =
-    sectionId + SEPARATOR + MODULE + moduleName + SEPARATOR + OBJ + objName;
+    sectionId
+  if (moduleName != null) {
+    id += SEPARATOR + MODULE + moduleName
+  }
+  if (objName != null) {
+    id += SEPARATOR + OBJ + objName;
+  }
   if (paramName !== null) {
     id += SEPARATOR + PARAM + paramName;
   }

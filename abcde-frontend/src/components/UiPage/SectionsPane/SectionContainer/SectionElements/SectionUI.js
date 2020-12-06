@@ -3,12 +3,20 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import SectionMenu from "./SectionMenu/SectionMenu";
 import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
 import SectionMenuButton from "./SectionMenuButton";
+import { createStringId } from "../../../../../utils/sectionIds";
 
-const SectionUI = ({ sectionId, childrenIds, theSection }) => {
+const SectionUI = ({ sectionId, theSection }) => {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
   const isShown = useStoreState((state) => state.master.isShown[sectionId]);
+  const selected = useStoreState((state) => state.master.selected[sectionId]);
+  const stringId = createStringId(sectionId, selected.moduleName, selected.name);
+  const sectionModuleObjHasNested = useStoreState(
+    (state) => state.master.sectionModuleObjHasNested[stringId]
+  );
 
-  const flipVisible = () => {
+  console.log("SectionUI", stringId)
+
+  const flipShown = () => {
     setIsShown({ sectionId, isShown: !isShown });
   };
 
@@ -19,8 +27,8 @@ const SectionUI = ({ sectionId, childrenIds, theSection }) => {
         <SectionMenu sectionId={sectionId} theSection={theSection} />
       </Menu>
       <Spacer />
-      {childrenIds.length > 0 && (
-        <Button onClick={flipVisible}>{!!isShown ? "Collapse" : "Show"}</Button>
+      {sectionModuleObjHasNested && (
+        <Button onClick={flipShown}>{!!isShown ? "Collapse" : "Show"}</Button>
       )}
     </HStack>
   );

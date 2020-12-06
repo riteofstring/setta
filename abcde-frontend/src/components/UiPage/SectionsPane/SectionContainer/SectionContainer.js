@@ -5,7 +5,7 @@ import { Flex, HStack } from "@chakra-ui/react";
 import useOnClickOutsideRef from "../../../../utils/useOnClickOutsideRef";
 import SectionUI from "./SectionElements/SectionUI";
 import NestedSection from "./NestedSection";
-import { getTopLevelSectionId } from "../../../../utils/sectionIds";
+import { createStringId } from "../../../../utils/sectionIds";
 import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
 import NestedIncrementer from "./SectionElements/NestedIncrementer";
 
@@ -21,6 +21,14 @@ const SectionContainer = ({
     (actions) => actions.globalCurr.setSectionId
   );
   const selected = useStoreState((state) => state.master.selected[sectionId]);
+  const stringId = createStringId(
+    sectionId,
+    selected.moduleName,
+    selected.name
+  );
+  const sectionModuleObjHasNested = useStoreState(
+    (state) => state.master.sectionModuleObjHasNested[stringId]
+  );
   const shiftAmount = useStoreState(
     (state) => state.master.shiftAmount[sectionId]
   );
@@ -65,7 +73,7 @@ const SectionContainer = ({
       ml={depth === 0 && `${shiftAmount * -2.5}rem`}
       borderRadius="md"
     >
-      {rootId === sectionId && childrenIds.length > 0 && (
+      {rootId === sectionId && sectionModuleObjHasNested > 0 && (
         <Breadcrumbs rootId={rootId} />
       )}
       <Flex
@@ -85,11 +93,7 @@ const SectionContainer = ({
           {/* {maybeIncludeNestedIncrementer()} */}
         </HStack>
 
-        <SectionUI
-          sectionId={sectionId}
-          childrenIds={childrenIds}
-          theSection={theSection}
-        />
+        <SectionUI sectionId={sectionId} theSection={theSection} />
       </Flex>
       {childrenIds.length > 0 &&
         childrenIds.map((e, idx) => (
