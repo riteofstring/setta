@@ -18,6 +18,8 @@ const Breadcrumbs = () => {
     visibleSectionIds
   );
 
+  console.log("BreadCrumbs")
+
   return (
     <>
       {visibleSectionIds.length > 0 && (

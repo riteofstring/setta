@@ -76,6 +76,8 @@ const NestedIncrementer = ({ sectionId }) => {
     });
   };
 
+  console.log("NestedIncrementer")
+
   return (
     <HStack maxW="10rem">
       <Button {...dec} onClick={() => deleteSection()}>

@@ -17,6 +17,8 @@ const NestedSection = ({
   const sections = useStoreState((state) => state.master.sections);
   const visible = useStoreState((state) => state.master.visible);
 
+  console.log("NestedSection");
+
   return (
     <>
       <Flex

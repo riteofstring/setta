@@ -13,7 +13,7 @@ const SectionsPane = () => {
     loadSections();
   }, [loadSections]);
 
-  console.log("SectionsPane UPDATE");
+  console.log("SectionsPane");
 
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">

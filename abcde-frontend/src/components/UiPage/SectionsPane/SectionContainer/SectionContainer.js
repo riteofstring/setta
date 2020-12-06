@@ -31,7 +31,7 @@ const SectionContainer = ({
 
   const thisInFocus = inFocus[sectionId];
 
-  console.log("sectionContainer");
+  console.log("SectionContainer");
 
   const applyFocus = () => {
     if (!thisInFocus){

@@ -11,6 +11,8 @@ const TheBreadcrumb = ({ breadCrumbPath, fullPath }) => {
     setSectionId(fullPath[breadcrumbIdx]);
   };
 
+  console.log("TheBreadcrumb")
+
   return (
     <Breadcrumb spacing="8px" separator={<BiChevronRight color="gray.500" />}>
       {breadCrumbPath.map((e, idx) => (

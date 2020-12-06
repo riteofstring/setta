@@ -12,6 +12,8 @@ import {
 } from "@chakra-ui/react";
 
 const TheParam = ({ parameters }) => {
+  console.log("TheParam")
+
   const { name, ui_type, default_val } = parameters;
 
   const setCurrParam = useStoreActions(

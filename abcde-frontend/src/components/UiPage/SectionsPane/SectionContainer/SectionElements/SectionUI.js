@@ -13,6 +13,8 @@ const SectionUI = ({ sectionId, visibleSectionIds, theSection }) => {
     setVisible({ sectionId, newVisible: !getVisible(visible, sectionId) });
   };
 
+  console.log("SectionUI");
+
   return (
     <HStack spacing="2rem" w="100%">
       <Menu>

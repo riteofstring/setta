@@ -24,7 +24,7 @@ const DetailsContainer = () => {
 
   const paramsArr = getParamsArr();
 
-  console.log("DetailsContainer", sectionId, moduleName, objName, paramsArr);
+  console.log("DetailsContainer");
 
   return (
     <HStack>

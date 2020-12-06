@@ -3,19 +3,16 @@ import { MenuList, MenuGroup, MenuDivider } from "@chakra-ui/react";
 import MenuObjs from "./MenuObjs/MenuObjs";
 
 const SectionMenu = ({ sectionId, theSection }) => {
-  const { moduleInfos } = theSection;
-  const moduleInfosArr = Object.keys(moduleInfos);
-
   console.log("SectionMenu")
 
   return (
     <MenuList>
-      {moduleInfosArr.map((e, idx) => (
+      {Object.keys(theSection.moduleInfos).map((e, idx) => (
         <MenuGroup title={e} key={`${e}-${idx}`}>
           <MenuDivider />
           {/* List Classes */}
           <MenuObjs
-            currModuleInfo={moduleInfos[e]}
+            currModuleInfo={theSection.moduleInfos[e]}
             sectionId={sectionId}
           />
         </MenuGroup>
