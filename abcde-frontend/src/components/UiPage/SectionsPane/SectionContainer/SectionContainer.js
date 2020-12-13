@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionHeading from "./SectionElements/SectionHeading";
 import { Flex, HStack } from "@chakra-ui/react";
@@ -7,6 +7,10 @@ import NestedSection from "./NestedSection";
 import { createStringId } from "../../../../utils/sectionIds";
 import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
 import NestedIncrementer from "./SectionElements/NestedIncrementer";
+import { motion } from "framer-motion";
+import { usePositionReorder } from "../../../../utils/framerDragPos/usePositionReorder";
+
+const Draggable = motion.custom(Flex);
 
 const SectionContainer = ({
   sectionId,
@@ -15,6 +19,7 @@ const SectionContainer = ({
   childrenIds,
   theSection,
   depth,
+  idx,
 }) => {
   const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
   const setSectionId = useStoreActions(
@@ -44,7 +49,7 @@ const SectionContainer = ({
     (state) => state.master.isListRoot[sectionId]
   );
 
-  console.log("SectionContainer", theSection.name);
+  console.log("SectionContainer", theSection.name, ref);
 
   const applyFocus = () => {
     if (!inFocus) {
@@ -94,18 +99,43 @@ const SectionContainer = ({
     } else {
       return (
         <HStack mb="1rem">
-          <SectionHeading heading={"List for "+theSection.name} />
+          <SectionHeading heading={"List for " + theSection.name} />
           {maybeIncludeNestedIncrementer()}
         </HStack>
       );
     }
   };
 
+  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
+
+  const [isDragging, setDragging] = useState(false);
+
   return (
-    <Flex
+    <Draggable
       direction="column"
       ml={depth === 0 && `${shiftAmount * -2.5}rem`}
       borderRadius="md"
+      ref={ref ? ref : null}
+      layout
+      initial={false}
+      style={{
+        background: "white",
+        borderRadius: 5,
+      }}
+      whileHover={{
+        scale: 1.03,
+        boxShadow: "0px 3px 3px rgba(0,0,0,0.15)",
+      }}
+      whileTap={{
+        scale: 1.12,
+        boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
+      }}
+      drag="y"
+      onDragStart={() => setDragging(true)}
+      onDragEnd={() => setDragging(false)}
+      onViewportBoxUpdate={(_viewportBox, delta) => {
+        isDragging && updateOrder(idx, delta.y.translate);
+      }}
     >
       {rootId === sectionId && sectionModuleObjHasNested > 0 && (
         <Breadcrumbs rootId={rootId} />
@@ -133,9 +163,11 @@ const SectionContainer = ({
             idx={idx}
             key={`Nested-Sec-${e}-${idx}`}
             depth={depth + 1}
+            childrenIds={childrenIds}
+            updatePosition={updatePosition}
           />
         ))}
-    </Flex>
+    </Draggable>
   );
 };
 
