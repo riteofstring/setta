@@ -1,6 +1,6 @@
 import { action, thunk, debug } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/data.json";
+import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,

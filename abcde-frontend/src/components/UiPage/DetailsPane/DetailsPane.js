@@ -1,8 +1,9 @@
 import React from "react";
-import { VStack, Flex } from "@chakra-ui/react";
+import { VStack, Flex, Spacer, Box } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import DetailsContainer from "./DetailsContainer/DetailsContainer";
 import PaneHeading from "../PaneHeading/PaneHeading";
+import ParamSweep from "./ParamSweep/ParamSweep";
 
 const DetailsPane = () => {
   const sectionId = useStoreState(
@@ -10,7 +11,7 @@ const DetailsPane = () => {
     (prev, next) => prev && next
   );
 
-  console.log("DetailsPane")
+  console.log("DetailsPane");
 
   return (
     <VStack
@@ -29,10 +30,14 @@ const DetailsPane = () => {
         padding="5rem"
         minHeight="50vh"
         width="50vw"
+        border="1px"
+        borderColor="white"
       >
         <PaneHeading heading="Details" />
 
         <DetailsContainer />
+        <Spacer />
+        <ParamSweep />
       </Flex>
     </VStack>
   );
