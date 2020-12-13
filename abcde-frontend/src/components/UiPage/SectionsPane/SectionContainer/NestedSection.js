@@ -4,28 +4,19 @@ import SectionContainer from "./SectionContainer";
 import { Flex, Box } from "@chakra-ui/react";
 import { FiCornerDownRight } from "react-icons/fi";
 
-import { useMeasurePosition } from "../../../../utils/framerDragPos/useMeasurePosition";
-
 const NestedSection = ({
   parentId,
   rootId,
   sectionId,
   idx,
   depth,
-  childrenIds,
-  updatePosition,
 }) => {
-  const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
-
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const isShown = useStoreState((state) => state.master.isShown[parentId]);
   const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
-  const idHierarchy = useStoreState(
-    (state) => state.master.idHierarchy[sectionId]
-  );
+  const idHierarchy = useStoreState((state) => state.master.idHierarchy[sectionId]);
 
-  console.log("NestedSection", sectionId, rootId, ref);
-  console.log("NestedSection childrenIds", childrenIds);
+  console.log("NestedSection", sectionId, rootId);
 
   return isVisible ? (
     <>
@@ -49,9 +40,6 @@ const NestedSection = ({
           childrenIds={idHierarchy.children}
           theSection={theSection}
           depth={depth}
-          idx={idx}
-          // ref={ref}
-          // updateOrder={updateOrder}
         />
       </Flex>
     </>
