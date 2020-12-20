@@ -1,5 +1,10 @@
 from ui_specifier.utils import common_functions as c_f, yaml_parsing as yp
-from ui_specifier.utils.constants import MODULE_INFO, CLASS_INFO, PARAMETER_INFO, ALL_KEYWORD
+from ui_specifier.utils.constants import (
+    MODULE_INFO,
+    CLASS_INFO,
+    PARAMETER_INFO,
+    ALL_KEYWORD,
+)
 import ui_specifier.registration as registration
 import json
 import typing

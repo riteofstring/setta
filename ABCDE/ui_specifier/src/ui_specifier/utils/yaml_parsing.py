@@ -1,7 +1,7 @@
 import yaml
 import importlib
-from ..registration.global_dicts import GLOBAL_REF_DICT
-from .constants import REF_KEYWORD, DO_NOT_INIT_KEYWORD
+from .constants import REF_KEYWORD, SEPARATOR
+from .common_functions import merge_dicts, get_the_only_value
 
 
 def load_yaml(fname):
@@ -40,36 +40,50 @@ def is_ref(x):
     return isinstance(x, str) and x.startswith(REF_KEYWORD)
 
 
-def get_ref(x):
-    return GLOBAL_REF_DICT[x.replace(REF_KEYWORD, "")]
+def get_ref(x, refs, ref_kwargs):
+    without_keyword = x.replace(REF_KEYWORD, "")
+    search_terms = without_keyword.split(SEPARATOR)
+    out_refs = refs
+    out_kwargs = ref_kwargs
+    for i, st in enumerate(search_terms):
+        out_refs = out_refs[st]
+        if out_kwargs is not None:
+            out_kwargs = out_kwargs[st]
+            if i == len(search_terms) - 1:
+                out_kwargs = get_the_only_value(out_kwargs)
+    if out_kwargs is None:
+        out_kwargs = {}
+    return out_refs, out_kwargs
 
 
-def create_objects(x):
+def create_objects(x, init=True, refs=None, ref_kwargs=None):
     if isinstance(x, dict) and len(x) > 0:
         output = {}
+        obj_kwargs = {}
         for k, v in x.items():
             if is_ref(v):
-                obj = get_ref(v)
+                obj, obj_kwargs = get_ref(v, refs, ref_kwargs)
             elif represents_object(k):
                 obj = string_to_attr(k)
-                if v != DO_NOT_INIT_KEYWORD:
+                if init:
                     params = {} if v is None else v
-                    params = create_objects(params)
+                    params = create_objects(params, init, refs, ref_kwargs)
                     if isinstance(params, (list, tuple)):
                         params = {k: params}
                     obj = obj(**params)
             else:
-                obj = create_objects(v)
+                obj = create_objects(v, init, refs, ref_kwargs)
             if not represents_object(k):
                 output[k] = obj
+                output = merge_dicts(output, obj_kwargs)
             else:
                 return obj
         return output
     elif isinstance(x, (list, tuple)) and len(x) > 0:
-        return [create_objects(sub_x) for sub_x in x]
+        return [create_objects(sub_x, init, refs, ref_kwargs) for sub_x in x]
     else:
         if is_ref(x):
-            x = get_ref(x)
+            x, _ = get_ref(x, refs, ref_kwargs)
         return x
 
 
@@ -82,3 +96,28 @@ def run(config):
                 created_obj = create_objects(args)
                 collected_args[name] = created_obj
             F(**collected_args)
+
+
+def create_objs_from_ui_selections(ui_selections, factory_specs):
+    objs = {}
+    remaining = {k: True for k in ui_selections}
+    curr_length = len(remaining)
+    prev_length = curr_length
+    exceptions = []
+    while curr_length > 0:
+        for name, args in ui_selections.items():
+            if name in remaining:
+                try:
+                    objs[name] = create_objects(
+                        args, init=name not in factory_specs, refs=objs
+                    )
+                    del remaining[name]
+                except KeyError as e:
+                    exceptions.append((name, e))
+        prev_length = curr_length
+        curr_length = len(remaining)
+        if prev_length == curr_length:
+            raise KeyError(exceptions)
+    for name, args in factory_specs.items():
+        objs[name] = create_objects(args, refs=objs, ref_kwargs=ui_selections)
+    return objs

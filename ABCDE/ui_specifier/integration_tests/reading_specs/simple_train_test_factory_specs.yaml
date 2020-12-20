@@ -1,0 +1,4 @@
+Optimizer:
+  integration_tests.reading_specs.test_simple_read.optimizer_factory:
+    model: ~REF~Model
+    optimizer: ~REF~Optimizer
