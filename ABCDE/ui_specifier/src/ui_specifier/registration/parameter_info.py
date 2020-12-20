@@ -3,7 +3,7 @@ from .base_info import BaseInfo
 
 
 class ParameterInfo(BaseInfo):
-    defaults = {"default": "", "type": ""}
+    defaults = {"default_val": "", "type": ""}
 
     def __init__(self, **kwargs):
         self.params = {}

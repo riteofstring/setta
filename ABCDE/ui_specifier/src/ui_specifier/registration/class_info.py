@@ -13,7 +13,7 @@ class ClassInfo(BaseInfo):
         self.cls_args = {
             k: (
                 {
-                    "default": v.default,
+                    "default_val": v.default,
                     "type": v.annotation,
                     "ui_type": TYPE_MAP.get_ui_type(v.annotation, v.kind),
                 }
@@ -40,4 +40,4 @@ class ClassInfo(BaseInfo):
         self.cls_args[arg_name]["ui_type"] = new_type
 
     def set_default(self, arg_name, new_default):
-        self.cls_args[arg_name]["default"] = new_default
+        self.cls_args[arg_name]["default_val"] = new_default
