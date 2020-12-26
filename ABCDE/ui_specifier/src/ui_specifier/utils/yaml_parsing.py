@@ -27,11 +27,6 @@ def string_to_attr(input_string):
     return getattr(imported_module, attr_name)
 
 
-def get_func_dict(config):
-    order = sorted([int(x) for x in keys_as_list(config)])
-    return {i: {x: string_to_attr(x) for x in keys_as_list(config[i])} for i in order}
-
-
 def represents_object(x):
     return "." in x
 
@@ -87,15 +82,10 @@ def create_objects(x, init=True, refs=None, ref_kwargs=None):
         return x
 
 
-def run(config):
-    ordered_funcs = get_func_dict(config)
-    for i, funcs in ordered_funcs.items():
-        for func_name, F in funcs.items():
-            collected_args = {}
-            for name, args in config[i][func_name].items():
-                created_obj = create_objects(args)
-                collected_args[name] = created_obj
-            F(**collected_args)
+def run(objs, funcs):
+    for F, args in funcs.items():
+        collected_kwargs = create_objects(args, refs=objs)
+        string_to_attr(F)(**collected_kwargs)
 
 
 def create_objs_from_ui_selections(ui_selections, factory_specs):
