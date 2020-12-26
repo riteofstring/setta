@@ -47,7 +47,7 @@ const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
     <HStack spacing="2rem" w="100%">
       <Stack direction="column">
         <SectionSearch searchOnClick={searchOnClick} />
-        {!!inFocus && !!inFocus && (
+        {!!inFocus && !!searchFocus && (
           <Stack maxHeight="10rem" overflowY="auto">
             {options.map((value) => {
               const radio = getRadioProps({ value });
