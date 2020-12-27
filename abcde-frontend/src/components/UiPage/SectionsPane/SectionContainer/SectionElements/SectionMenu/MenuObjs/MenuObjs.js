@@ -4,6 +4,8 @@ import { useRadioGroup } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 
 const MenuObjs = ({ currModuleInfo, sectionId }) => {
+  const selected = useStoreState((state) => state.master.selected[sectionId]);
+
   const searchTerm = useStoreState(
     (state) => state.master.sectionSearchVal[sectionId]
   );
@@ -29,8 +31,16 @@ const MenuObjs = ({ currModuleInfo, sectionId }) => {
     }
   }, [searchTerm]);
 
+  const getDefaultSelection = () => {
+    if (selected.moduleName == currModuleInfo.name) {
+      return selected.name;
+    }
+    return null;
+  };
+
   const { getRadioProps } = useRadioGroup({
     name: sectionId,
+    defaultValue: getDefaultSelection(),
   });
 
   return (
