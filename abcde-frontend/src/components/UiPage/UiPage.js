@@ -11,19 +11,28 @@ const UiPage = () => {
     (actions) => actions.master.loadSections
   );
 
+  const resetSections = useStoreActions(
+    (actions) => actions.master.resetSections
+  );
+
   const loadSectionsIsDone = useStoreState(
     (state) => state.master.loadSectionsIsDone
   );
 
   const showTerminal = useStoreState((state) => state.master.showTerminal);
 
+  const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
+
+  console.log("UiPage");
+
   useLayoutEffect(() => {
-    if (!loadSectionsIsDone) {
+    if (specsAreReady && !loadSectionsIsDone) {
+      resetSections();
       loadSections();
     }
-  }, [loadSectionsIsDone]);
+  }, [specsAreReady]);
 
-  return (
+  return specsAreReady ? (
     <>
       <DetailsPane />
       <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">
@@ -32,6 +41,8 @@ const UiPage = () => {
       {!!showTerminal && <TheTerminal />}
       <RunContainer />
     </>
+  ) : (
+    <></>
   );
 };
 
