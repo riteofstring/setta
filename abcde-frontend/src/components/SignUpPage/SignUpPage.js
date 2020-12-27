@@ -1,110 +1,178 @@
 import React from "react";
-import { useForm } from "react-hook-form";
+import { useFormik } from "formik";
 import {
   FormErrorMessage,
   FormLabel,
   FormControl,
   Flex,
   Text,
-  Box,
   Button,
   InputGroup,
-  InputLeftAddon,
   Input,
-  Spacer,
+  InputRightElement,
   Grid,
 } from "@chakra-ui/react";
+import * as Yup from "yup";
 
-const SignUpPage = () => {
-  const { handleSubmit, errors, register, formState } = useForm();
+const LoginPage = () => {
+  const {
+    handleSubmit,
+    handleChange,
+    values,
+    touched,
+    errors,
+    handleBlur,
+  } = useFormik({
+    initialValues: {
+      username: "",
+      password: "",
+    },
+    validationSchema: Yup.object({
+      email: Yup.string().email("Invalid email").required("Required"),
+      username: Yup.string()
+        .max(10, "Username must be shorter than 10 characters")
+        .required("Required"),
+      password: Yup.string()
+        .min(6, "Password should be longer than 6 characters")
+        .required(),
+      confirmpassword: Yup.string().oneOf(
+        [Yup.ref("password"), null],
+        "Passwords must match"
+      ),
+    }),
+    onSubmit: ({ username, password }) => {
+      alert(`username: ${username}, password: ${password}`);
+    },
+  });
 
-  function validateName(value) {
-    if (!value) {
-      return "Username is required";
-    } else if (value !== "Naruto") {
-      return "Jeez! You're not a fan 😱";
-    } else return true;
-  }
-
-  function onSubmit(values) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        alert(JSON.stringify(values, null, 2));
-        resolve();
-      }, 3000);
-    });
-  }
   return (
     <Flex
       flexDirection="column"
-      width="300px"
+      width="800px"
       minHeight="200px"
       mt="200px"
       justifyContent="center"
       alignItems="center"
     >
-      {/* <Box>
-        <Text fontSize="4xl">Login</Text>
-      </Box>
-      <Spacer />
-      <InputGroup>
-        <InputLeftAddon>Username</InputLeftAddon>
-        <Input />
-      </InputGroup>
-      <Spacer />
-      <InputGroup>
-        <InputLeftAddon>Password</InputLeftAddon>
-        <Input />
-      </InputGroup>
-      <Grid
-        templateColumns="0.5fr 1fr"
-        gap={6}
-        width="500px"
-        minHeight="200px"
-        templateRows="0.5fr 0.5fr"
-      >
-        <Text>Text value</Text>
-        <Input />
-        <Text>Text value</Text>
-        <Input />
-      </Grid>
-      <Spacer />
-      <Button variant="solid" size="md">
-        Button text
-      </Button> */}
-
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <Text fontSize="4xl" mb="1rem">
+        Login
+      </Text>
+      <form onSubmit={handleSubmit}>
         <FormControl isInvalid={errors.username}>
-          <FormLabel htmlFor="username">Username</FormLabel>
-          <Input
-            name="username"
-            placeholder="username"
-            ref={register({ validate: validateName })}
-          />
-          <FormErrorMessage>
-            {errors.username && errors.username.message}
-          </FormErrorMessage>
-          <FormLabel htmlFor="password">Password</FormLabel>
-          <Input
-            name="password"
-            placeholder="password"
-            ref={register({ validate: validateName })}
-          />
-          <FormErrorMessage>
-            {errors.password && errors.password.message}
-          </FormErrorMessage>
+          <Grid
+            gap="1rem"
+            templateColumns="[left] 0.25fr [middle] 0.75fr [right] 10vw [error]"
+            mr="-10vw"
+          >
+            {/* email */}
+            <FormLabel
+              alignSelf="center"
+              htmlFor="email"
+              gridColumn="left/middle"
+            >
+              Email
+            </FormLabel>
+
+            <Input
+              id="email"
+              name="email"
+              placeholder="email"
+              w="300px"
+              value={values.email}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              gridColumn="middle/right"
+            />
+
+            <FormErrorMessage gridColumn="right/error">
+              {touched.email && errors.email ? (
+                <Text>{errors.email}</Text>
+              ) : null}
+            </FormErrorMessage>
+
+            {/* username */}
+            <FormLabel
+              alignSelf="center"
+              htmlFor="username"
+              gridColumn="left/middle"
+            >
+              Username
+            </FormLabel>
+
+            <Input
+              id="username"
+              name="username"
+              placeholder="username"
+              w="300px"
+              value={values.username}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              gridColumn="middle/right"
+            />
+
+            <FormErrorMessage gridColumn="right/error">
+              {touched.username && errors.username ? (
+                <Text>{errors.username}</Text>
+              ) : null}
+            </FormErrorMessage>
+
+            {/* password */}
+            <FormLabel
+              alignSelf="center"
+              htmlFor="password"
+              gridColumn="left/middle"
+            >
+              Password
+            </FormLabel>
+            <Input
+              id="password"
+              name="password"
+              placeholder="password"
+              value={values.password}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              w="300px"
+              gridColumn="middle/right"
+            />
+
+            <FormErrorMessage gridColumn="right/error">
+              {touched.password && errors.password ? (
+                <Text>{errors.password}</Text>
+              ) : null}
+            </FormErrorMessage>
+
+            {/* confirm password */}
+
+            <Input
+              id="confirmpassword"
+              name="confirmpassword"
+              placeholder="confirm password"
+              value={values.confirm}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              w="300px"
+              gridColumn="middle/right"
+            />
+
+            <FormErrorMessage gridColumn="right/error">
+              {touched.password && errors.password ? (
+                <Text>{errors.password}</Text>
+              ) : null}
+            </FormErrorMessage>
+            <Button
+              alignSelf="flex-end"
+              mt={4}
+              colorScheme="teal"
+              type="submit"
+              gridColumn="middle/right"
+            >
+              Sign Up!
+            </Button>
+          </Grid>
         </FormControl>
-        <Button
-          mt={4}
-          colorScheme="teal"
-          isLoading={formState.isSubmitting}
-          type="submit"
-        >
-          Submit
-        </Button>
       </form>
     </Flex>
   );
 };
 
-export default React.memo(SignUpPage);
+export default React.memo(LoginPage);

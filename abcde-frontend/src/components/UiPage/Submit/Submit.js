@@ -13,6 +13,7 @@ const Submit = () => {
       bg="gray.500"
       justifyContent="center"
       alignItems="center"
+      zIndex="5"
     >
       <Run />
     </Flex>

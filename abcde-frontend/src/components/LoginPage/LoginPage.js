@@ -62,6 +62,7 @@ const LoginPage = () => {
             templateColumns="[left] 0.25fr [middle] 0.75fr [right] 10vw [error]"
             mr="-10vw"
           >
+            {/* username */}
             <FormLabel
               alignSelf="center"
               htmlFor="username"
@@ -86,6 +87,8 @@ const LoginPage = () => {
                 <Text>{errors.username}</Text>
               ) : null}
             </FormErrorMessage>
+
+            {/* password */}
             <FormLabel
               alignSelf="center"
               htmlFor="password"
@@ -115,6 +118,8 @@ const LoginPage = () => {
                 <Text>{errors.password}</Text>
               ) : null}
             </FormErrorMessage>
+
+            {/* button */}
             <Button
               alignSelf="flex-end"
               mt={4}
@@ -122,7 +127,7 @@ const LoginPage = () => {
               type="submit"
               gridColumn="middle/right"
             >
-              Submit
+              Login
             </Button>
           </Grid>
         </FormControl>
