@@ -13,6 +13,7 @@ const SectionContainer = ({
   sectionId,
   rootId,
   parentId,
+  nextId,
   childrenIds,
   theSection,
   depth,
@@ -21,6 +22,11 @@ const SectionContainer = ({
   const setSectionId = useStoreActions(
     (actions) => actions.globalCurr.setSectionId
   );
+
+  const setChildrenIds = useStoreActions(
+    (action) => action.master.setChildrenIds
+  );
+
   const selected = useStoreState((state) => state.master.selected[sectionId]);
   const stringId = createStringId(
     sectionId,
@@ -45,6 +51,7 @@ const SectionContainer = ({
     (state) => state.master.isListRoot[sectionId]
   );
 
+  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
   const applyFocus = () => {
     if (!inFocus) {
       setInFocus(sectionId);
@@ -62,13 +69,19 @@ const SectionContainer = ({
     }
   }, [inFocus, selected, setCurr]);
 
+  useEffect(() => {
+    if (order.length > 0) {
+      setChildrenIds({sectionId, childrenIds: order})
+    }
+  }, [order]);
+
   const maybeIncludeNestedIncrementer = () => {
     if (isList) {
       return (
         <NestedIncrementer
           sectionId={sectionId}
           parentId={parentId}
-          isListRoot={isListRoot}
+          nextId={nextId}
         />
       );
     }
@@ -103,7 +116,6 @@ const SectionContainer = ({
       );
     }
   };
-  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
   return (
     <Flex
@@ -135,6 +147,7 @@ const SectionContainer = ({
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}
+            nextId={order[idx+1]}
             idx={idx}
             key={`Nested-Sec-${e}`}
             depth={depth + 1}

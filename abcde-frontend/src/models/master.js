@@ -21,7 +21,6 @@ const master = {
   shiftAmount: {},
   isList: {},
   isListRoot: {},
-  listSiblings: {},
   listCount: {},
   sectionIdsToSectionNames: {},
   sectionIdsToStringIds: {},
@@ -55,7 +54,6 @@ const master = {
       state.sectionModuleObjHasNested[id] = false;
       state.isList[id] = null;
       state.isListRoot[id] = false;
-      state.listSiblings[id] = [];
       state.listCount[id] = 0;
       state.isShown[id] = true;
       state.isVisible[id] = true;
@@ -93,6 +91,16 @@ const master = {
   setShiftAmount: action((state, payload) => {
     const { rootId, shiftAmount } = payload;
     state.shiftAmount[rootId] = shiftAmount;
+  }),
+
+  setChildrenIds: action((state, payload) => {
+    const { sectionId, childrenIds } = payload;
+    if (sectionId in state.rootIdHierarchy){
+      state.rootIdHierarchy[sectionId].children = childrenIds
+    }
+    else{
+      state.idHierarchy[sectionId].children = childrenIds
+    }
   }),
 
   setIsList: action((state, payload) => {
@@ -141,29 +149,11 @@ const master = {
         if (siblingId !== null) {
           const spliceIdx = parentIdObj.children.indexOf(siblingId) + 1;
           parentIdObj.children.splice(spliceIdx, 0, id);
-          state.listSiblings[siblingId] = tryPushingToList(
-            state.listSiblings[siblingId],
-            id
-          );
-          state.listCount[siblingId] += 1;
-          for (let S of state.listSiblings[siblingId]) {
-            if (S !== id) {
-              state.listSiblings[S] = tryPushingToList(
-                state.listSiblings[S],
-                id
-              );
-              state.listCount[S] += 1;
-            }
-          }
-          state.listSiblings[id] = state.listSiblings[siblingId]
-            .filter((x) => x !== id)
-            .concat([siblingId]);
-          state.listCount[id] = state.listCount[siblingId];
         } else {
           state.isListRoot[id] = true;
-          state.listCount[id] = 1;
           parentIdObj.children.push(id);
         }
+        state.listCount[parentId] += 1;
       } else {
         parentIdObj.children.push(id);
       }
@@ -195,12 +185,6 @@ const master = {
     const { sectionId, parentId } = payload;
     const stringId = state.sectionIdsToStringIds[sectionId];
     delete state.stringIdsToSectionIds[stringId];
-    delete state.listSiblings[sectionId];
-    for (let k of Object.keys(state.listSiblings)) {
-      state.listSiblings[k] = state.listSiblings[k].filter(
-        (x) => x !== sectionId
-      );
-    }
     const foundId = findId(parentId, state.idHierarchy, state.rootIdHierarchy);
     foundId.children = foundId.children.filter((x) => x !== sectionId);
   }),
@@ -252,7 +236,7 @@ const master = {
     if (isList) {
       if (siblingId !== null) {
         extraIdentifier = (
-          helpers.getState().listCount[siblingId] + 1
+          helpers.getState().listCount[parentId] + 1
         ).toString();
       } else {
         extraIdentifier = "0";

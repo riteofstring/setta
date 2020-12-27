@@ -10,6 +10,7 @@ const NestedSection = ({
   parentId,
   rootId,
   sectionId,
+  nextId,
   idx,
   depth,
   updatePosition,
@@ -66,6 +67,7 @@ const NestedSection = ({
           sectionId={sectionId}
           rootId={rootId}
           parentId={parentId}
+          nextId={nextId}
           childrenIds={idHierarchy.children}
           theSection={theSection}
           depth={depth}
