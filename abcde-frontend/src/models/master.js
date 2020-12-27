@@ -7,7 +7,6 @@ import {
   findId,
   setChildrenVisibility,
   tryPushingToList,
-  createExportableObject,
 } from "../utils/sectionIds";
 
 const master = {
@@ -285,21 +284,9 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurr;
-    const {
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-    } = helpers.getState();
-    let output = createExportableObject({
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-      globalCurr,
-    });
-    console.log("output", output);
+    // const { globalCurr } = helpers.getStoreState().globalCurr;
+    // const { selected } = helpers.getState();
+    // let output = createExportableObject(selected, globalCurr);
     // output = JSON.stringify(output);
   }),
 };
