@@ -5,7 +5,6 @@ import SectionSearch from "./ListBox/SectionSearch";
 import SectionMenu from "./SectionMenu/SectionMenu";
 
 const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
-  const { moduleInfos } = theSection;
   const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
   const [searchFocus, setSearchFocus] = useState(false);
   const searchOnClick = (e) => {

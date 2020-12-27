@@ -1,5 +1,5 @@
 import React from "react";
-import { VStack, Flex, Spacer, Box } from "@chakra-ui/react";
+import { VStack, Flex, Spacer } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import DetailsContainer from "./DetailsContainer/DetailsContainer";
 import PaneHeading from "../PaneHeading/PaneHeading";

@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex, HStack, Box, Heading } from "@chakra-ui/react";
+import { Flex, HStack, Heading } from "@chakra-ui/react";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 import { Link } from "react-router-dom";
 const AppContainer = () => {

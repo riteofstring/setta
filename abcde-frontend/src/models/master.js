@@ -1,5 +1,5 @@
-import { action, thunk, debug } from "easy-peasy";
-import { getUISpecs } from "../data/fetchData";
+import { action, thunk } from "easy-peasy";
+// import { getUISpecs } from "../data/fetchData";
 import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
@@ -29,6 +29,7 @@ const master = {
   inFocus: [false],
   sectionHasNested: {},
   sectionModuleObjHasNested: {},
+  sectionSearchVal: "",
 
   // actions
   // Load DATA
@@ -288,6 +289,10 @@ const master = {
     // const { selected } = helpers.getState();
     // let output = createExportableObject(selected, globalCurr);
     // output = JSON.stringify(output);
+  }),
+
+  setSectionSearchVal: action((state, payload) => {
+    state.sectionSearchVal = payload;
   }),
 };
 

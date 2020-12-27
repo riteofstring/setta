@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Flex } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import PaneHeading from "../PaneHeading/PaneHeading";

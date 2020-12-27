@@ -1,13 +1,6 @@
 import React from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import {
-  HStack,
-  Button,
-  Input,
-  useNumberInput,
-  CloseButton,
-  list,
-} from "@chakra-ui/react";
+import { HStack, Button, useNumberInput, CloseButton } from "@chakra-ui/react";
 
 const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
   const permanentlyDeleteSection = useStoreActions(

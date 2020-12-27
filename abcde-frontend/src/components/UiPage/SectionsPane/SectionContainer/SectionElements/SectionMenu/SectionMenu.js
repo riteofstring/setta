@@ -12,6 +12,7 @@ const SectionMenu = ({ sectionId, theSection }) => {
 
   return (
     <Stack {...group} maxHeight="20rem" overflowY="auto">
+      {sectionId}
       <Divider />
       {Object.keys(moduleInfos).map((e, idx) => (
         <MenuObjs

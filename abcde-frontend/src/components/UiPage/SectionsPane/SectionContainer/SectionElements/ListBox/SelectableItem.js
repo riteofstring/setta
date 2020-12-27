@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, useRadio, UseRadioProps, chakra } from "@chakra-ui/react";
+import { Box, useRadio } from "@chakra-ui/react";
 
 const SelectableItem = (props) => {
   const { getInputProps, getCheckboxProps } = useRadio(props);
