@@ -3,7 +3,9 @@ import { useStoreActions } from "easy-peasy";
 import { Button } from "@chakra-ui/react";
 
 const Run = () => {
-  const exportSelected = useStoreActions((actions) => actions.master.exportSelected);
+  const exportSelected = useStoreActions(
+    (actions) => actions.master.exportSelected
+  );
   const runExport = () => {
     exportSelected();
   };

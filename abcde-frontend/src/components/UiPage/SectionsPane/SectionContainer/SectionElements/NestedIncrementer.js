@@ -1,15 +1,10 @@
 import React from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import {
-  HStack,
-  Button,
-  Input,
-  useNumberInput,
-  CloseButton,
-  list,
-} from "@chakra-ui/react";
+import { HStack, Button, useNumberInput, CloseButton } from "@chakra-ui/react";
 
-const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
+const NestedIncrementer = ({ sectionId, parentId, nextId }) => {
+  const isListRoot = useStoreState((state) => state.master.isListRoot);
+
   const permanentlyDeleteSection = useStoreActions(
     (actions) => actions.master.permanentlyDeleteSection
   );
@@ -25,28 +20,16 @@ const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
     (actions) => actions.master.sectionIdsToSectionNames[sectionId]
   );
 
-  const listSiblings = useStoreState(
-    (state) => state.master.listSiblings[sectionId]
-  );
-
-  console.log("NestedIncrementer", sectionId, parentId);
-
   const decrementButtonCondition = () => {
-    const minLength = isListRoot ? 0 : 1;
-    return listSiblings && listSiblings.length > minLength;
+    return nextId && !isListRoot[nextId];
   };
 
-  const {
-    getInputProps,
-    getIncrementButtonProps,
-    getDecrementButtonProps,
-  } = useNumberInput({
+  const { getIncrementButtonProps, getDecrementButtonProps } = useNumberInput({
     step: 1,
   });
 
   const inc = getIncrementButtonProps();
   const dec = getDecrementButtonProps();
-  const input = getInputProps({ isReadOnly: true });
 
   const addSection = () => {
     addToVisibleSectionIdsThunk({
@@ -60,17 +43,14 @@ const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
   };
 
   const deleteSection = () => {
-    if (listSiblings && listSiblings.length > 0) {
-      const id = listSiblings[listSiblings.length - 1];
-      permanentlyDeleteSection({ sectionId: id, parentId });
+    if (decrementButtonCondition()) {
+      permanentlyDeleteSection({ sectionId: nextId, parentId});
     }
   };
 
   const deleteThisSection = () => {
-    permanentlyDeleteSection({ sectionId, parentId });
+    permanentlyDeleteSection({ sectionId, parentId});
   };
-
-  console.log("NestedIncrementer");
 
   return (
     <HStack maxW="10rem">
@@ -82,7 +62,7 @@ const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
       <Button {...inc} onClick={() => addSection()}>
         +
       </Button>
-      {!isListRoot && (
+      {!isListRoot[sectionId] && (
         <CloseButton size="md" onClick={() => deleteThisSection()} />
       )}
     </HStack>

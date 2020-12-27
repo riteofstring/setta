@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Flex } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import PaneHeading from "../PaneHeading/PaneHeading";
@@ -11,16 +11,17 @@ const SectionsPane = () => {
     (state) => state.master.rootIdHierarchy
   );
 
-  console.log("SectionsPane");
+  const idKeys = Object.keys(rootIdHierarchy)
 
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />
-      {Object.keys(rootIdHierarchy).map((e, idx) => (
+      {idKeys.map((e, idx) => (
         <SectionContainer
           sectionId={e}
           rootId={e}
           parentId={null}
+          nextId={idKeys[idx+1]}
           childrenIds={rootIdHierarchy[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}

@@ -2,7 +2,8 @@ import React, { useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionsPane from "./SectionsPane/SectionsPane";
 import DetailsPane from "./DetailsPane/DetailsPane";
-import Submit from "./Submit/Submit";
+import RunContainer from "./RunContainer/RunContainer";
+import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex } from "@chakra-ui/react";
 
 const UiPage = () => {
@@ -17,6 +18,8 @@ const UiPage = () => {
   const loadSectionsIsDone = useStoreState(
     (state) => state.master.loadSectionsIsDone
   );
+
+  const showTerminal = useStoreState((state) => state.master.showTerminal);
 
   const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
 
@@ -35,7 +38,8 @@ const UiPage = () => {
       <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">
         <SectionsPane />
       </Flex>
-      <Submit />
+      {!!showTerminal && <TheTerminal />}
+      <RunContainer />
     </>
   ) : (
     <></>
