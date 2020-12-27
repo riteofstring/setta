@@ -14,8 +14,11 @@ const UiPage = () => {
     (state) => state.master.loadSectionsIsDone
   );
 
+  console.log("UiPage");
+
   useLayoutEffect(() => {
     if (!loadSectionsIsDone) {
+      console.log("loading sections");
       loadSections();
     }
   }, [loadSectionsIsDone]);

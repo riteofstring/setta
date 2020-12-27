@@ -8,6 +8,8 @@ const SectionMenuButton = ({ theSection, sectionId }) => {
 
   const currObjectName = selected.name;
 
+  console.log("SectionMenuButton");
+
   return (
     <>
       {Object.keys(theSection.moduleInfos).length > 0 ? (

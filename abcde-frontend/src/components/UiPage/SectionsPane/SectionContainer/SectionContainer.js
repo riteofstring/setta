@@ -44,6 +44,8 @@ const SectionContainer = ({
     (state) => state.master.isListRoot[sectionId]
   );
 
+  console.log("SectionContainer", theSection.name);
+
   const applyFocus = () => {
     if (!inFocus) {
       setInFocus(sectionId);
@@ -79,7 +81,7 @@ const SectionContainer = ({
       return (
         <>
           <HStack mb="1rem">
-            <SectionHeading theSection={theSection} sectionId={sectionId} />
+            <SectionHeading heading={theSection.name} />
             {maybeIncludeNestedIncrementer()}
           </HStack>
           <SectionUI
@@ -92,11 +94,7 @@ const SectionContainer = ({
     } else {
       return (
         <HStack mb="1rem">
-          <SectionHeading
-            theSection={theSection}
-            sectionId={sectionId}
-            isListRoot={true}
-          />
+          <SectionHeading heading={"List for "+theSection.name} />
           {maybeIncludeNestedIncrementer()}
         </HStack>
       );

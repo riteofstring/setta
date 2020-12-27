@@ -1,7 +1,6 @@
 import React from "react";
 import { Route, Switch } from "react-router-dom";
-// import StartPage from "../../StartPage/StartPage";
-import Testbed from "../../Testbed/Testbed";
+import StartPage from "../../StartPage/StartPage";
 import DevPage from "../../DevPage/DevPage";
 import UiPage from "../../UiPage/UiPage";
 
@@ -16,9 +15,6 @@ const SwitchContainer = () => {
       </Route> */}
       <Route path="/developer">
         <DevPage />
-      </Route>
-      <Route path="/test">
-        <Testbed />
       </Route>
     </Switch>
   );
