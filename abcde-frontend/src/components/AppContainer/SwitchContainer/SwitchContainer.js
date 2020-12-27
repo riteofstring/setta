@@ -5,6 +5,7 @@ import LoginPage from "../../LoginPage/LoginPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
 import DevPage from "../../DevPage/DevPage";
 import UiPage from "../../UiPage/UiPage";
+import TerminalPage from "../../TerminalPage/TerminalPage";
 
 const SwitchContainer = () => {
   const items = ["te", "st", "on", "e"];
@@ -25,6 +26,9 @@ const SwitchContainer = () => {
       </Route>
       <Route path="/signup">
         <SignUpPage />
+      </Route>
+      <Route path="/terminal">
+        <TerminalPage />
       </Route>
     </Switch>
   );

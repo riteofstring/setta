@@ -17,7 +17,7 @@ const RunContainer = () => {
       zIndex="5"
     >
       <Run />
-      <TerminalButton />
+      {/* <TerminalButton /> */}
     </Flex>
   );
 };
