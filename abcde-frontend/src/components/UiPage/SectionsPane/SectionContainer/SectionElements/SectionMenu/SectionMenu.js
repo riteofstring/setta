@@ -1,26 +1,21 @@
 import React from "react";
-import { Stack, Divider, useRadioGroup } from "@chakra-ui/react";
+import { MenuList, MenuGroup, MenuDivider } from "@chakra-ui/react";
 import MenuObjs from "./MenuObjs/MenuObjs";
 
 const SectionMenu = ({ sectionId, theSection }) => {
   const { moduleInfos } = theSection;
-  const { getRootProps } = useRadioGroup({
-    name: sectionId,
-  });
-  const group = getRootProps();
+  console.log("SectionMenu");
 
   return (
-    <Stack {...group} maxHeight="20rem" overflowY="auto">
-      {sectionId}
-      <Divider />
+    <MenuList>
       {Object.keys(moduleInfos).map((e, idx) => (
-        <MenuObjs
-          currModuleInfo={moduleInfos[e]}
-          sectionId={sectionId}
-          key={`mo-${e}-${idx}`}
-        />
+        <MenuGroup title={e} key={`${e}-${idx}`}>
+          <MenuDivider />
+          {/* List Classes */}
+          <MenuObjs currModuleInfo={moduleInfos[e]} sectionId={sectionId} />
+        </MenuGroup>
       ))}
-    </Stack>
+    </MenuList>
   );
 };
 

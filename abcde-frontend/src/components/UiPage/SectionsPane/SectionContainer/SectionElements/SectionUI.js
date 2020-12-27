@@ -1,39 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { HStack, Button, Spacer, Stack } from "@chakra-ui/react";
-import SectionSearch from "./ListBox/SectionSearch";
 import SectionMenu from "./SectionMenu/SectionMenu";
+import { HStack, Menu, Button, Spacer } from "@chakra-ui/react";
+import SectionMenuButton from "./SectionMenuButton";
 
 const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
-  const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
-  const [searchFocus, setSearchFocus] = useState(false);
-  const searchOnClick = (e) => {
-    setSearchFocus(e);
-  };
-
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
   const isShown = useStoreState((state) => state.master.isShown[sectionId]);
+  console.log("SectionUI", sectionId);
 
   const flipShown = () => {
     setIsShown({ sectionId, isShown: !isShown });
   };
 
-  useEffect(() => {
-    if (!inFocus) {
-      searchOnClick(false);
-    }
-  });
+  console.log("####################SectionUI", sectionId);
 
   return (
     <HStack spacing="2rem" w="100%">
-      <Stack direction="column">
-        <SectionSearch searchOnClick={searchOnClick} sectionId={sectionId} />
-        {!!inFocus && !!searchFocus && (
-          <SectionMenu sectionId={sectionId} theSection={theSection} />
-        )}
-      </Stack>
+      <Menu>
+        <SectionMenuButton sectionId={sectionId} theSection={theSection} />
+        <SectionMenu sectionId={sectionId} theSection={theSection} />
+      </Menu>
       <Spacer />
-
       {sectionModuleObjHasNested && (
         <Button onClick={flipShown}>{!!isShown ? "Collapse" : "Show"}</Button>
       )}

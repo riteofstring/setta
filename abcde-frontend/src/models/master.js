@@ -1,5 +1,5 @@
-import { action, thunk } from "easy-peasy";
-// import { getUISpecs } from "../data/fetchData";
+import { action, thunk, debug } from "easy-peasy";
+import { getUISpecs } from "../data/fetchData";
 import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
@@ -7,7 +7,10 @@ import {
   findId,
   setChildrenVisibility,
   tryPushingToList,
+  createExportableObject,
 } from "../utils/sectionIds";
+
+const { ipcRenderer } = window.require("electron");
 
 const master = {
   sectionCount: 1,
@@ -29,7 +32,6 @@ const master = {
   inFocus: [false],
   sectionHasNested: {},
   sectionModuleObjHasNested: {},
-  sectionSearchVal: {},
 
   // actions
   // Load DATA
@@ -285,15 +287,29 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    // const { globalCurr } = helpers.getStoreState().globalCurr;
-    // const { selected } = helpers.getState();
-    // let output = createExportableObject(selected, globalCurr);
+    const { globalCurr } = helpers.getStoreState().globalCurr;
+    const {
+      idHierarchy,
+      rootIdHierarchy,
+      sectionIdsToSectionNames,
+      isList,
+    } = helpers.getState();
+    let output = createExportableObject({
+      idHierarchy,
+      rootIdHierarchy,
+      sectionIdsToSectionNames,
+      isList,
+      globalCurr,
+    });
+    console.log("output", output);
     // output = JSON.stringify(output);
-  }),
 
-  setSectionSearchVal: action((state, payload) => {
-    const {sectionId, value} = payload
-    state.sectionSearchVal[sectionId] = value;
+    console.log(ipcRenderer.sendSync("synchronous-message", "ping")); // prints "pong"
+
+    ipcRenderer.on("asynchronous-reply", (event, arg) => {
+      console.log(arg); // prints "pong"
+    });
+    ipcRenderer.send("asynchronous-message", "ping");
   }),
 };
 
