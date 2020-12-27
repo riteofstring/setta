@@ -6,6 +6,8 @@ const BrowserWindow = electron.BrowserWindow;
 
 const path = require("path");
 const isDev = require("electron-is-dev");
+const appPath = app.getAppPath();
+const backendPath = appPath + "\\..\\ABCDE\\ui_specifier"
 
 console.log("***electron.js isDev =", isDev);
 
@@ -61,7 +63,7 @@ ipcMain.on("asynchronous-message", (event, payload) => {
     child = child_process.spawn("run_from_ui_selections.bat", [`"${data}"`], {
       encoding: "utf8",
       shell: true,
-      cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
+      cwd: backendPath,
     });
   }
   else if (arg == "create UI") {
@@ -70,7 +72,7 @@ ipcMain.on("asynchronous-message", (event, payload) => {
     child = child_process.spawn("create_ui.bat", [`"${data}"`], {
       encoding: "utf8",
       shell: true,
-      cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
+      cwd: backendPath,
     });
   }
   else if (arg == "get UI specs"){
