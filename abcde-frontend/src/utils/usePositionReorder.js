@@ -5,7 +5,7 @@ import move from "array-move";
 export function usePositionReorder(initialState) {
   const [order, setOrder] = useState(initialState);
 
-  if (order.length === 0 && initialState.length > 0) {
+  if (order.length !== initialState.length) {
     setOrder(initialState);
   }
 
