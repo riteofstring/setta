@@ -1,1 +1,0 @@
-activate abcde_env && python -u run.py %1

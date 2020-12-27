@@ -1,12 +1,11 @@
 import importlib
 from ..utils import yaml_parsing as yp
-
+import inspect
 
 class ImportsHolder:
     def set_import(self, name, package=None):
         if package is not None:
-            parent_module = importlib.import_module(package)
-            imported_module = getattr(parent_module, name)
+            imported_module = importlib.import_module("{}.{}".format(package, name))
         else:
             imported_module = importlib.import_module(name)
         setattr(self, name, imported_module)

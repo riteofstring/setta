@@ -122,4 +122,4 @@ class UICreator:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(self.sections, f, ensure_ascii=False, indent=4)
         else:
-            return json.dumps(self.sections, indent=4)
+            return json.dumps(self.sections)
