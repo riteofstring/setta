@@ -22,8 +22,10 @@ const SignUpPage = () => {
     handleBlur,
   } = useFormik({
     initialValues: {
+      email: "",
       username: "",
       password: "",
+      confirmpassword: "",
     },
     validationSchema: Yup.object({
       email: Yup.string().email("Invalid email").required("Required"),
@@ -38,8 +40,8 @@ const SignUpPage = () => {
         "Passwords must match"
       ),
     }),
-    onSubmit: ({ username, password }) => {
-      alert(`username: ${username}, password: ${password}`);
+    onSubmit: ({ email, username, password }) => {
+      alert(`email: ${email}, username: ${username}, password: ${password}`);
     },
   });
 
@@ -154,7 +156,7 @@ const SignUpPage = () => {
 
             <FormErrorMessage gridColumn="right/error">
               {touched.confirmpassword && errors.confirmpassword ? (
-                <Text>{errors.password}</Text>
+                <Text>{errors.confirmpassword}</Text>
               ) : null}
             </FormErrorMessage>
             <Button
