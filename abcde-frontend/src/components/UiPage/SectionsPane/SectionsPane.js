@@ -10,9 +10,6 @@ const SectionsPane = () => {
   const rootIdHierarchy = useStoreState(
     (state) => state.master.rootIdHierarchy
   );
-
-  console.log("SectionsPane");
-
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />

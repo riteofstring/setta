@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { HStack, Button, Spacer, Stack, useRadioGroup } from "@chakra-ui/react";
-import SectionSearch from "./SectionSearch";
-import SelectableItem from "./SelectableItem";
+import { HStack, Button, Spacer, Stack } from "@chakra-ui/react";
+import SectionSearch from "./ListBox/SectionSearch";
+import SectionMenu from "./SectionMenu/SectionMenu";
 
 const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
+  const { moduleInfos } = theSection;
   const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
   const [searchFocus, setSearchFocus] = useState(false);
   const searchOnClick = (e) => {
@@ -13,25 +14,10 @@ const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
 
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
   const isShown = useStoreState((state) => state.master.isShown[sectionId]);
-  console.log("SectionUI", sectionId);
 
   const flipShown = () => {
     setIsShown({ sectionId, isShown: !isShown });
   };
-
-  const options = [
-    "test one",
-    "test two",
-    "test three",
-    "test four",
-    "test five",
-  ];
-
-  const { getRootProps, getRadioProps } = useRadioGroup({
-    name: "framework",
-    defaultValue: "react",
-    onChange: console.log,
-  });
 
   useEffect(() => {
     if (!inFocus) {
@@ -39,32 +25,14 @@ const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
     }
   });
 
-  const group = getRootProps();
-
-  // console.log("####################SectionUI", sectionId);
-
   return (
     <HStack spacing="2rem" w="100%">
       <Stack direction="column">
         <SectionSearch searchOnClick={searchOnClick} />
         {!!inFocus && !!searchFocus && (
-          <Stack maxHeight="10rem" overflowY="auto">
-            {options.map((value) => {
-              const radio = getRadioProps({ value });
-              return (
-                <SelectableItem key={value} {...radio}>
-                  {value}
-                </SelectableItem>
-              );
-            })}
-          </Stack>
+          <SectionMenu sectionId={sectionId} theSection={theSection} />
         )}
       </Stack>
-
-      {/* <Menu>
-        <SectionMenuButton sectionId={sectionId} theSection={theSection} />
-        <SectionMenu sectionId={sectionId} theSection={theSection} />
-      </Menu> */}
       <Spacer />
 
       {sectionModuleObjHasNested && (

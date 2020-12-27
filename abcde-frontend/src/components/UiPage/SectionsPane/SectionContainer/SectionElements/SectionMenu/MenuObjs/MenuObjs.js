@@ -1,19 +1,27 @@
 import React from "react";
 import TheMenuObj from "./TheMenuObj";
+import { useRadioGroup } from "@chakra-ui/react";
 
 const MenuObjs = ({ currModuleInfo, sectionId }) => {
-  console.log("MenuObjs");
-
+  const { getRadioProps } = useRadioGroup({
+    name: sectionId,
+    defaultValue: "resnet101",
+  });
   return (
     <>
-      {Object.keys(currModuleInfo.objs).map((k, idx) => (
-        <TheMenuObj
-          name={k}
-          sectionId={sectionId}
-          moduleName={currModuleInfo.name}
-          key={`${k}-${idx}`}
-        />
-      ))}
+      {Object.keys(currModuleInfo.objs).map((e, idx) => {
+        const radio = getRadioProps({ value: e });
+
+        return (
+          <TheMenuObj
+            objName={e}
+            sectionId={sectionId}
+            moduleName={currModuleInfo.name}
+            key={`tmo-${e}-${idx}`}
+            {...radio}
+          />
+        );
+      })}
     </>
   );
 };
