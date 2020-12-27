@@ -3,7 +3,6 @@ import {
   VStack,
   HStack,
   Box,
-  Heading,
   Accordion,
   AccordionItem,
   AccordionIcon,

@@ -1,6 +1,6 @@
 import React from "react";
 import { Route, Switch } from "react-router-dom";
-import StartPage from "../../StartPage/StartPage";
+// import StartPage from "../../StartPage/StartPage";
 import DevPage from "../../DevPage/DevPage";
 import UiPage from "../../UiPage/UiPage";
 
