@@ -7,14 +7,12 @@ import {
   Flex,
   Text,
   Button,
-  InputGroup,
   Input,
-  InputRightElement,
   Grid,
 } from "@chakra-ui/react";
 import * as Yup from "yup";
 
-const LoginPage = () => {
+const SignUpPage = () => {
   const {
     handleSubmit,
     handleChange,
@@ -147,7 +145,7 @@ const LoginPage = () => {
               id="confirmpassword"
               name="confirmpassword"
               placeholder="confirm password"
-              value={values.confirm}
+              value={values.confirmpassword}
               onChange={handleChange}
               onBlur={handleBlur}
               w="300px"
@@ -155,7 +153,7 @@ const LoginPage = () => {
             />
 
             <FormErrorMessage gridColumn="right/error">
-              {touched.password && errors.password ? (
+              {touched.confirmpassword && errors.confirmpassword ? (
                 <Text>{errors.password}</Text>
               ) : null}
             </FormErrorMessage>
@@ -175,4 +173,4 @@ const LoginPage = () => {
   );
 };
 
-export default React.memo(LoginPage);
+export default React.memo(SignUpPage);

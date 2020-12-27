@@ -22,6 +22,7 @@ const AppContainer = () => {
           ABCDE
         </Heading>
         <Link to="/login">Login</Link>
+        <Link to="/signup">Sign Up</Link>
         <Link to="/start">Start</Link>
         <Link to="/developer">Dev</Link>
         <Link to="/">UI</Link>
