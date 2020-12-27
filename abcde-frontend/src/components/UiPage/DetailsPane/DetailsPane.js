@@ -11,6 +11,8 @@ const DetailsPane = () => {
     (prev, next) => prev && next
   );
 
+  console.log("DetailsPane");
+
   return (
     <VStack
       position="fixed"

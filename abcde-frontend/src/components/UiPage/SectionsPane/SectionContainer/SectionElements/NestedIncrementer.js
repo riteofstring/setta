@@ -29,6 +29,8 @@ const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
     (state) => state.master.listSiblings[sectionId]
   );
 
+  console.log("NestedIncrementer", sectionId, parentId);
+
   const decrementButtonCondition = () => {
     const minLength = isListRoot ? 0 : 1;
     return listSiblings && listSiblings.length > minLength;
@@ -67,6 +69,8 @@ const NestedIncrementer = ({ sectionId, parentId, isListRoot }) => {
   const deleteThisSection = () => {
     permanentlyDeleteSection({ sectionId, parentId });
   };
+
+  console.log("NestedIncrementer");
 
   return (
     <HStack maxW="10rem">
