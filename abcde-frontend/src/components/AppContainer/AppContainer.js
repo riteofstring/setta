@@ -24,6 +24,7 @@ const AppContainer = () => {
         <Link to="/start">Start</Link>
         <Link to="/developer">Dev</Link>
         <Link to="/">UI</Link>
+        <Link to="/test">Testbed</Link>
       </HStack>
       <SwitchContainer />
     </Flex>

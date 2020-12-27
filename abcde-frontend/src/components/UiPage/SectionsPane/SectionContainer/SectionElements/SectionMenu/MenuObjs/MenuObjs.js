@@ -32,7 +32,7 @@ const MenuObjs = ({ currModuleInfo, sectionId }) => {
   }, [searchTerm]);
 
   const getDefaultSelection = () => {
-    if (selected.moduleName == currModuleInfo.name) {
+    if (selected.moduleName === currModuleInfo.name) {
       return selected.name;
     }
     return null;
