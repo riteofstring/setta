@@ -13,8 +13,8 @@ let mainWindow;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 320,
+    width: 1920,
+    height: 1080,
     webPreferences: {
       nodeIntegration: false,
       preload: __dirname + "/preload.js",
@@ -47,27 +47,34 @@ app.on("activate", () => {
 
 const { ipcMain } = require("electron");
 const child_process = require("child_process");
-const fs = require('fs');
+const fs = require("fs");
 
 ipcMain.on("asynchronous-message", (event, payload) => {
-  const {arg, data} = payload;
+  const { arg, data } = payload;
   if (arg == "run program") {
-    console.log("Saving json")
+    console.log("Saving json");
     fs.writeFileSync("python_test.json", JSON.stringify(data));
     console.log("Opening terminal");
-    const child = child_process.spawn("start cmd.exe", ["/K", "ls"], {
-      encoding: "utf8",
-      shell: true,
-      cwd: "D:\\Documents\\App Development\\ABCDE",
-    });
+    const child = child_process.spawn(
+      "start cmd.exe",
+      ["/K", "python_test.bat"],
+      {
+        encoding: "utf8",
+        shell: true,
+        cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
+      }
+    );
 
     child.stdout.on("data", function (msg) {
       console.log(msg.toString());
     });
 
-    child.on('close', (code) => {
+    child.on("close", (code) => {
       console.log(`child process exited with code ${code}`);
     });
+
+    // child.stdin.setEncoding = 'utf-8';
+    // child.stdin.write('Hello\r\n');
 
     // event.reply('asynchronous-reply', 'pong')
   }
