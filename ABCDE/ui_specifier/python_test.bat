@@ -1,1 +1,1 @@
-activate abcde_env && python run.py "D:\Documents\App Development\abcde-frontend\python_test.json"
+activate abcde_env && python -u run.py %1

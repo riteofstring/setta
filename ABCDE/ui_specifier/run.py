@@ -12,11 +12,6 @@ def write_yaml(fname, input_dict, open_as):
     with open(fname, open_as) as outfile:
         yaml.dump(input_dict, outfile, default_flow_style=False, sort_keys=False)
 
-def load_json(fname):
-    with open(fname, "r") as f:
-        output = json.load(f)
-    return output
-
 def convert_strings(json_dict):
     new_dict = {}
 
@@ -33,14 +28,13 @@ def convert_strings(json_dict):
     return new_dict
 
 def main(args):
-
-    ui_selections = load_json(args.ui_selections)
+    ui_selections = json.loads(args.ui_selections)
     ui_selections = convert_strings(ui_selections)
 
     print("******NORMALIZE TRANSFORM******")
     print(ui_selections["Transform"]["torchvision.transforms.Compose"]["transforms"][1]["torchvision.transforms.Normalize"])
 
-    write_yaml("python_test.yaml", ui_selections, "w") # for debugging
+    # write_yaml("python_test.yaml", ui_selections, "w") # for debugging
 
     factory_specs = yp.load_yaml("D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_factory_specs.yaml")
     
