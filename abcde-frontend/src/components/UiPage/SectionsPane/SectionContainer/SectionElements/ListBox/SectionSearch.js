@@ -3,14 +3,14 @@ import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import { GrFormSearch } from "react-icons/gr";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-const SectionSearch = ({ searchOnClick }) => {
-  const searchTerm = useStoreState((state) => state.master.sectionSearchVal);
+const SectionSearch = ({ searchOnClick, sectionId }) => {
+  const searchTerm = useStoreState((state) => state.master.sectionSearchVal[sectionId]);
   const setSearchTerm = useStoreActions(
     (actions) => actions.master.setSectionSearchVal
   );
 
   const handleChange = (event) => {
-    setSearchTerm(event.target.value);
+    setSearchTerm({sectionId, value: event.target.value});
   };
 
   return (

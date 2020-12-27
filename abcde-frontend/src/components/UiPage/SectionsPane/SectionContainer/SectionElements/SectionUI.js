@@ -27,7 +27,7 @@ const SectionUI = ({ sectionId, theSection, sectionModuleObjHasNested }) => {
   return (
     <HStack spacing="2rem" w="100%">
       <Stack direction="column">
-        <SectionSearch searchOnClick={searchOnClick} />
+        <SectionSearch searchOnClick={searchOnClick} sectionId={sectionId} />
         {!!inFocus && !!searchFocus && (
           <SectionMenu sectionId={sectionId} theSection={theSection} />
         )}

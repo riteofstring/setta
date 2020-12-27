@@ -6,7 +6,6 @@ const SectionMenu = ({ sectionId, theSection }) => {
   const { moduleInfos } = theSection;
   const { getRootProps } = useRadioGroup({
     name: sectionId,
-    defaultValue: "resnet101",
   });
   const group = getRootProps();
 

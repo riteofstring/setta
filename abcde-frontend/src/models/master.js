@@ -29,7 +29,7 @@ const master = {
   inFocus: [false],
   sectionHasNested: {},
   sectionModuleObjHasNested: {},
-  sectionSearchVal: "",
+  sectionSearchVal: {},
 
   // actions
   // Load DATA
@@ -292,7 +292,8 @@ const master = {
   }),
 
   setSectionSearchVal: action((state, payload) => {
-    state.sectionSearchVal = payload;
+    const {sectionId, value} = payload
+    state.sectionSearchVal[sectionId] = value;
   }),
 };
 
