@@ -1,16 +1,13 @@
-import { action, thunk, debug } from "easy-peasy";
-import { getUISpecs } from "../data/fetchData";
-// import Data from "../data/fromUI.json";
+import { action, thunk } from "easy-peasy";
+// import { getUISpecs } from "../data/fetchData";
+import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
   findId,
   setChildrenVisibility,
   tryPushingToList,
-  createExportableObject,
 } from "../utils/sectionIds";
-
-const { ipcRenderer } = window.require("electron");
 
 const master = {
   sectionCount: 1,
@@ -32,6 +29,7 @@ const master = {
   inFocus: [false],
   sectionHasNested: {},
   sectionModuleObjHasNested: {},
+  sectionSearchVal: {},
 
   // actions
   // Load DATA
@@ -68,42 +66,9 @@ const master = {
     state.loadSectionsIsDone = true;
   }),
 
-  // temporary shitty code
-  resetSections: action((state) => {
-    state.sectionCount = 1;
-    state.sections = {};
-    state.loadSectionsIsDone = false;
-    state.selected = {};
-    state.idHierarchy = {};
-    state.rootIdHierarchy = {};
-    state.isVisible = {};
-    state.isShown = {};
-    state.shiftAmount = {};
-    state.isList = {};
-    state.isListRoot = {};
-    state.listSiblings = {};
-    state.listCount = {};
-    state.sectionIdsToSectionNames = {};
-    state.sectionIdsToStringIds = {};
-    state.stringIdsToSectionIds = {};
-    state.inFocus = [false];
-    state.sectionHasNested = {};
-    state.sectionModuleObjHasNested = {};
-  }),
-
   loadSections: thunk((action, payload, helpers) => {
     // getUISpecs().then((res) => action._loadSections(res.data));
-    ipcRenderer.send("asynchronous-message", {
-      arg: "get UI specs",
-      data: null,
-    });
-    ipcRenderer.once("asynchronous-reply", (event, arg) => {
-      action._loadSections(arg);
-    });
-  }),
-
-  setLoadSectionsIsDone: action((state, payload) => {
-    state.loadSectionsIsDone = payload;
+    action._loadSections(Data);
   }),
 
   // Show/Collapse button
@@ -320,24 +285,15 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurr;
-    const {
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-    } = helpers.getState();
-    let output = createExportableObject({
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-      globalCurr,
-    });
-    ipcRenderer.send("asynchronous-message", {
-      arg: "run program",
-      data: output,
-    });
+    // const { globalCurr } = helpers.getStoreState().globalCurr;
+    // const { selected } = helpers.getState();
+    // let output = createExportableObject(selected, globalCurr);
+    // output = JSON.stringify(output);
+  }),
+
+  setSectionSearchVal: action((state, payload) => {
+    const {sectionId, value} = payload
+    state.sectionSearchVal[sectionId] = value;
   }),
 };
 

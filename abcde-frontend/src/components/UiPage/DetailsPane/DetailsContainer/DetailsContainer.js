@@ -30,8 +30,6 @@ const DetailsContainer = () => {
 
   const paramsArr = getParamsArr();
 
-  console.log("DetailsContainer paramsArr", paramsArr);
-
   return (
     <HStack>
       {paramsArr.length > 0 &&

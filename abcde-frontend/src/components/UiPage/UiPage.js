@@ -10,26 +10,17 @@ const UiPage = () => {
     (actions) => actions.master.loadSections
   );
 
-  const resetSections = useStoreActions(
-    (actions) => actions.master.resetSections
-  );
-
   const loadSectionsIsDone = useStoreState(
     (state) => state.master.loadSectionsIsDone
   );
 
-  const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
-
-  console.log("UiPage");
-
   useLayoutEffect(() => {
-    if (specsAreReady && !loadSectionsIsDone) {
-      resetSections();
+    if (!loadSectionsIsDone) {
       loadSections();
     }
-  }, [specsAreReady]);
+  }, [loadSectionsIsDone]);
 
-  return specsAreReady ? (
+  return (
     <>
       <DetailsPane />
       <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">
@@ -37,8 +28,6 @@ const UiPage = () => {
       </Flex>
       <Submit />
     </>
-  ) : (
-    <></>
   );
 };
 

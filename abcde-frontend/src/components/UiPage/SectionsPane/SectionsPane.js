@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Flex } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import PaneHeading from "../PaneHeading/PaneHeading";
@@ -10,9 +10,6 @@ const SectionsPane = () => {
   const rootIdHierarchy = useStoreState(
     (state) => state.master.rootIdHierarchy
   );
-
-  console.log("SectionsPane");
-
   return (
     <Flex direction="column" mr="5rem" mt="2.5rem">
       <PaneHeading heading="Sections" />

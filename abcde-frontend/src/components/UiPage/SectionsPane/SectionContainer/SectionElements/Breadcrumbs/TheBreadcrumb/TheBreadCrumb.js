@@ -21,8 +21,6 @@ const TheBreadcrumb = ({ breadCrumbPath, idLineage }) => {
     setShiftAmount({ rootId: idLineage[0], shiftAmount: breadcrumbIdx });
   };
 
-  console.log("TheBreadcrumb", idLineage);
-
   return (
     <Breadcrumb spacing="8px" separator={<BiChevronRight color="gray.500" />}>
       {breadCrumbPath.map((e, idx) => (
