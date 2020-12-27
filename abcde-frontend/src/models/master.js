@@ -10,6 +10,8 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 
+const { ipcRenderer } = window.require("electron");
+
 const master = {
   sectionCount: 1,
   sections: {},
@@ -301,6 +303,13 @@ const master = {
     });
     console.log("output", output);
     // output = JSON.stringify(output);
+
+    console.log(ipcRenderer.sendSync("synchronous-message", "ping")); // prints "pong"
+
+    ipcRenderer.on("asynchronous-reply", (event, arg) => {
+      console.log(arg); // prints "pong"
+    });
+    ipcRenderer.send("asynchronous-message", "ping");
   }),
 };
 
