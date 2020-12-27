@@ -7,13 +7,11 @@ import NestedSection from "./NestedSection";
 import { createStringId } from "../../../../utils/sectionIds";
 import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
 import NestedIncrementer from "./SectionElements/NestedIncrementer";
-import { usePositionReorder } from "../../../../utils/usePositionReorder";
 
 const SectionContainer = ({
   sectionId,
   rootId,
   parentId,
-  nextId,
   childrenIds,
   theSection,
   depth,
@@ -22,11 +20,6 @@ const SectionContainer = ({
   const setSectionId = useStoreActions(
     (actions) => actions.globalCurr.setSectionId
   );
-
-  const setChildrenIds = useStoreActions(
-    (action) => action.master.setChildrenIds
-  );
-
   const selected = useStoreState((state) => state.master.selected[sectionId]);
   const stringId = createStringId(
     sectionId,
@@ -51,7 +44,8 @@ const SectionContainer = ({
     (state) => state.master.isListRoot[sectionId]
   );
 
-  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
+  console.log("SectionContainer", theSection.name);
+
   const applyFocus = () => {
     if (!inFocus) {
       setInFocus(sectionId);
@@ -69,19 +63,13 @@ const SectionContainer = ({
     }
   }, [inFocus, selected, setCurr]);
 
-  useEffect(() => {
-    if (order.length > 0) {
-      setChildrenIds({sectionId, childrenIds: order})
-    }
-  }, [order]);
-
   const maybeIncludeNestedIncrementer = () => {
     if (isList) {
       return (
         <NestedIncrementer
           sectionId={sectionId}
           parentId={parentId}
-          nextId={nextId}
+          isListRoot={isListRoot}
         />
       );
     }
@@ -93,7 +81,7 @@ const SectionContainer = ({
       return (
         <>
           <HStack mb="1rem">
-            <SectionHeading theSection={theSection} sectionId={sectionId} />
+            <SectionHeading heading={theSection.name} />
             {maybeIncludeNestedIncrementer()}
           </HStack>
           <SectionUI
@@ -106,11 +94,7 @@ const SectionContainer = ({
     } else {
       return (
         <HStack mb="1rem">
-          <SectionHeading
-            theSection={theSection}
-            sectionId={sectionId}
-            isListRoot={true}
-          />
+          <SectionHeading heading={"List for "+theSection.name} />
           {maybeIncludeNestedIncrementer()}
         </HStack>
       );
@@ -140,19 +124,15 @@ const SectionContainer = ({
       >
         {getSectionHeadingAndUI()}
       </Flex>
-
-      {order.length > 0 &&
-        order.map((e, idx) => (
+      {childrenIds.length > 0 &&
+        childrenIds.map((e, idx) => (
           <NestedSection
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}
-            nextId={order[idx+1]}
             idx={idx}
-            key={`Nested-Sec-${e}`}
+            key={`Nested-Sec-${e}-${idx}`}
             depth={depth + 1}
-            updatePosition={updatePosition}
-            updateOrder={updateOrder}
           />
         ))}
     </Flex>

@@ -7,9 +7,7 @@ import TheBreadCrumb from "./TheBreadcrumb/TheBreadCrumb";
 
 const Breadcrumbs = ({ rootId }) => {
   const idHierarchy = useStoreState((state) => state.master.idHierarchy);
-  const rootIdHierarchy = useStoreState(
-    (state) => state.master.rootIdHierarchy
-  );
+  const rootIdHierarchy = useStoreState((state) => state.master.rootIdHierarchy);
 
   const isVisible = useStoreState((state) => state.master.isVisible);
   const sectionIdsToSectionNames = useStoreState(
@@ -22,6 +20,8 @@ const Breadcrumbs = ({ rootId }) => {
     isVisible,
     sectionIdsToSectionNames
   );
+
+  console.log("BreadCrumbs");
 
   return (
     <TheBreadCrumb breadCrumbPath={breadCrumbPath} idLineage={idLineage} />

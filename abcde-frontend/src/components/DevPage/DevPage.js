@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex } from "@chakra-ui/react";
+import { Flex, HStack, Box, StackDivider } from "@chakra-ui/react";
 import DevPane from "./DevPane/DevPane";
 
 const AppContainer = () => {
