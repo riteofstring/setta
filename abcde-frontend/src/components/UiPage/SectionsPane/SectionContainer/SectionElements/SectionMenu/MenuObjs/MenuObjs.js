@@ -19,7 +19,7 @@ const MenuObjs = ({ currModuleInfo, sectionId }) => {
 
   const filterResults = () => {
     return Object.keys(currModuleInfo.objs).filter((res) =>
-      res.toLowerCase().includes(searchTerm)
+      res.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
 

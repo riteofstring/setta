@@ -8,7 +8,6 @@ const path = require("path");
 const isDev = require("electron-is-dev");
 
 console.log("***electron.js isDev =", isDev);
-console.log("process.env.npm_lifecycle_event", process.env.npm_lifecycle_event)
 
 let mainWindow;
 

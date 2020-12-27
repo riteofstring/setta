@@ -102,7 +102,6 @@ const master = {
       });
     }
     else{
-      console.log("loadSections", Data)
       action._loadSections(Data)
     }
   }),

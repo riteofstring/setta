@@ -56,7 +56,9 @@ const TheParam = ({ parameters }) => {
       savedParam = globalCurr[sectionId][moduleName][objName][name];
     } catch (err) {}
 
-    setValue(savedParam !== null ? savedParam : default_val);
+    setValue(
+      savedParam !== null && savedParam !== undefined ? savedParam : default_val
+    );
 
     if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
       addToVisibleSectionIdsThunk({
