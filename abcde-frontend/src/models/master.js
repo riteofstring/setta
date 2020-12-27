@@ -1,6 +1,6 @@
 import { action, thunk, debug } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/longList.json";
+import Data from "../data/simpleTrainTest.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -301,15 +301,13 @@ const master = {
       isList,
       globalCurr,
     });
-    console.log("output", output);
-    // output = JSON.stringify(output);
+    // console.log("output", output);
+    // console.log(ipcRenderer.sendSync("synchronous-message", "ping")); // prints "pong"
 
-    console.log(ipcRenderer.sendSync("synchronous-message", "ping")); // prints "pong"
-
-    ipcRenderer.on("asynchronous-reply", (event, arg) => {
-      console.log(arg); // prints "pong"
-    });
-    ipcRenderer.send("asynchronous-message", "ping");
+    // ipcRenderer.on("asynchronous-reply", (event, arg) => {
+    //   console.log(arg); // prints "pong"
+    // });
+    ipcRenderer.send("asynchronous-message", {arg: "run program", data: output});
   }),
 };
 

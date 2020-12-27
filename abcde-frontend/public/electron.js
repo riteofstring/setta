@@ -45,17 +45,35 @@ app.on("activate", () => {
   }
 });
 
+const { ipcMain } = require("electron");
+const child_process = require("child_process");
+const fs = require('fs');
 
+ipcMain.on("asynchronous-message", (event, payload) => {
+  const {arg, data} = payload;
+  if (arg == "run program") {
+    console.log("Saving json")
+    fs.writeFileSync("python_test.json", JSON.stringify(data));
+    console.log("Opening terminal");
+    const child = child_process.spawn("start cmd.exe", ["/K", "ls"], {
+      encoding: "utf8",
+      shell: true,
+      cwd: "D:\\Documents\\App Development\\ABCDE",
+    });
 
+    child.stdout.on("data", function (msg) {
+      console.log(msg.toString());
+    });
 
+    child.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+    });
 
-const { ipcMain } = require('electron')
-ipcMain.on('asynchronous-message', (event, arg) => {
-  console.log(arg) // prints "ping"
-  event.reply('asynchronous-reply', 'pong')
-})
+    // event.reply('asynchronous-reply', 'pong')
+  }
+});
 
-ipcMain.on('synchronous-message', (event, arg) => {
-  console.log(arg) // prints "ping"
-  event.returnValue = 'pong'
-})
+// ipcMain.on('synchronous-message', (event, arg) => {
+//   console.log(arg) // prints "ping"
+//   event.returnValue = 'pong'
+// })
