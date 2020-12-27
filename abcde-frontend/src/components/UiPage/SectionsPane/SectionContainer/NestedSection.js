@@ -4,19 +4,13 @@ import SectionContainer from "./SectionContainer";
 import { Flex, Box } from "@chakra-ui/react";
 import { FiCornerDownRight } from "react-icons/fi";
 
-const NestedSection = ({
-  parentId,
-  rootId,
-  sectionId,
-  idx,
-  depth,
-}) => {
+const NestedSection = ({ parentId, rootId, sectionId, idx, depth }) => {
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const isShown = useStoreState((state) => state.master.isShown[parentId]);
   const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
-  const idHierarchy = useStoreState((state) => state.master.idHierarchy[sectionId]);
-
-  console.log("NestedSection", sectionId, rootId);
+  const idHierarchy = useStoreState(
+    (state) => state.master.idHierarchy[sectionId]
+  );
 
   return isVisible ? (
     <>

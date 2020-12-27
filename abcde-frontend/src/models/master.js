@@ -7,10 +7,7 @@ import {
   findId,
   setChildrenVisibility,
   tryPushingToList,
-  createExportableObject,
 } from "../utils/sectionIds";
-
-const { ipcRenderer } = window.require("electron");
 
 const master = {
   sectionCount: 1,
@@ -287,29 +284,10 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurr;
-    const {
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-    } = helpers.getState();
-    let output = createExportableObject({
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-      globalCurr,
-    });
-    console.log("output", output);
+    // const { globalCurr } = helpers.getStoreState().globalCurr;
+    // const { selected } = helpers.getState();
+    // let output = createExportableObject(selected, globalCurr);
     // output = JSON.stringify(output);
-
-    console.log(ipcRenderer.sendSync("synchronous-message", "ping")); // prints "pong"
-
-    ipcRenderer.on("asynchronous-reply", (event, arg) => {
-      console.log(arg); // prints "pong"
-    });
-    ipcRenderer.send("asynchronous-message", "ping");
   }),
 };
 

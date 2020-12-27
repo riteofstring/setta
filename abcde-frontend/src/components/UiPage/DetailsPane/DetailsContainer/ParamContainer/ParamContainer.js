@@ -3,8 +3,6 @@ import { VStack, Heading } from "@chakra-ui/react";
 import TheParam from "./TheParam/TheParam";
 
 const ParamContainer = ({ parameters }) => {
-  console.log("ParamContainer")
-
   return (
     <VStack>
       <Heading as="h3" size="md" color="gray.500">
