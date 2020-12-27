@@ -7,22 +7,32 @@ const MenuObjs = ({ currModuleInfo, sectionId }) => {
   const searchTerm = useStoreState(
     (state) => state.master.sectionSearchVal[sectionId]
   );
-  const [searchResults, setSearchResults] = useState(
-    Object.keys(currModuleInfo.objs)
-  );
+  const getInitialSearchResults = () => {
+    if (searchTerm !== undefined) {
+      return filterResults();
+    } else {
+      return Object.keys(currModuleInfo.objs);
+    }
+  };
+
+  const filterResults = () => {
+    return Object.keys(currModuleInfo.objs).filter((res) =>
+      res.toLowerCase().includes(searchTerm)
+    );
+  };
+
+  const [searchResults, setSearchResults] = useState(getInitialSearchResults());
 
   useEffect(() => {
     if (searchTerm !== undefined) {
-      const results = Object.keys(currModuleInfo.objs).filter((res) =>
-        res.toLowerCase().includes(searchTerm)
-      );
-      setSearchResults(results);
+      setSearchResults(filterResults());
     }
   }, [searchTerm]);
 
   const { getRadioProps } = useRadioGroup({
     name: sectionId,
   });
+
   return (
     <>
       {searchResults.map((e, idx) => {
