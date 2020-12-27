@@ -1,9 +1,10 @@
 import React from "react";
 import Run from "./Run/Run";
+import TerminalButton from "./Terminal/TerminalButton";
 
 import { Flex } from "@chakra-ui/react";
 
-const Submit = () => {
+const RunContainer = () => {
   return (
     <Flex
       w="100vw"
@@ -16,8 +17,9 @@ const Submit = () => {
       zIndex="5"
     >
       <Run />
+      <TerminalButton />
     </Flex>
   );
 };
 
-export default React.memo(Submit);
+export default React.memo(RunContainer);

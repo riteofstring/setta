@@ -30,6 +30,7 @@ const master = {
   sectionHasNested: {},
   sectionModuleObjHasNested: {},
   sectionSearchVal: {},
+  showTerminal: false,
 
   // actions
   // Load DATA
@@ -292,8 +293,12 @@ const master = {
   }),
 
   setSectionSearchVal: action((state, payload) => {
-    const {sectionId, value} = payload
+    const { sectionId, value } = payload;
     state.sectionSearchVal[sectionId] = value;
+  }),
+
+  setShowTerminal: action((state, payload) => {
+    state.showTerminal = !state.showTerminal;
   }),
 };
 
