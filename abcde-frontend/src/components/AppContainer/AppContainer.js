@@ -21,6 +21,7 @@ const AppContainer = () => {
         <Heading fontSize="lg" color="gray.500" mr="1rem">
           ABCDE
         </Heading>
+        <Link to="/login">Login</Link>
         <Link to="/start">Start</Link>
         <Link to="/developer">Dev</Link>
         <Link to="/">UI</Link>
