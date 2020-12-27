@@ -9,6 +9,14 @@ Transform:
     - torchvision.transforms.ToTensor: {}
     - torchvision.transforms.Normalize:
         mean:
-        - 0.1307
+        - 0.23
         std:
-        - 0.3081
+        - 0.45
+TrainDataset:
+  torchvision.datasets.MNIST:
+    train: true
+    download: true
+ValDataset:
+  torchvision.datasets.MNIST:
+    train: false
+    download: true

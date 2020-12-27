@@ -49,6 +49,14 @@ SECTIONS:
   Transform:
     - <<: *transforms_module
 
+
+  TrainDataset:
+    - ModuleInfo:
+        name: torchvision.datasets
+
+  ValDataset:
+    - ModuleInfo:
+        name: torchvision.datasets
   
   # Various Params:
   #   - ParameterInfo:

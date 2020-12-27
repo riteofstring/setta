@@ -6,6 +6,7 @@ import yaml
 import json
 import os
 import ast
+import shutil
 
 def write_yaml(fname, input_dict, open_as):
     with open(fname, open_as) as outfile:
@@ -33,23 +34,22 @@ def convert_strings(json_dict):
 
 def main(args):
 
-    json_dict = load_json(args.ui_selections)
-    json_dict = convert_strings(json_dict)
-    write_yaml("python_test.yaml", json_dict, "w")
-    # print(ast.literal_eval(json_dict["Transform"]["torchvision.transforms.Compose"]["transforms"][1]["torchvision.transforms.Normalize"]["mean"]))
+    ui_selections = load_json(args.ui_selections)
+    ui_selections = convert_strings(ui_selections)
 
+    print("******NORMALIZE TRANSFORM******")
+    print(ui_selections["Transform"]["torchvision.transforms.Compose"]["transforms"][1]["torchvision.transforms.Normalize"])
+
+    write_yaml("python_test.yaml", ui_selections, "w") # for debugging
+
+    factory_specs = yp.load_yaml("D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_factory_specs.yaml")
     
+    funcs = yp.load_yaml("D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_functions.yaml")
+    objs = yp.create_objs_from_ui_selections(ui_selections, factory_specs)
 
-    # factory_specs = yp.load_yaml("D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_factory_specs.yaml")
-    # print(factory_specs)
-    
-    # funcs = yp.load_yaml("D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_functions.yaml")
-    # print(funcs)
-    # objs = yp.create_objs_from_ui_selections(ui_selections, factory_specs)
+    yp.run(objs, funcs)
 
-    # yp.run(objs, funcs)
-
-    # shutil.rmtree("MNIST")
+    shutil.rmtree("MNIST")
 
 
 if __name__ == "__main__":

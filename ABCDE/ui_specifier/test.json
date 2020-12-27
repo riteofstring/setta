@@ -684,5 +684,2627 @@
                 }
             }
         }
+    },
+    "TrainDataset": {
+        "ModuleInfo": {
+            "torchvision.datasets": {
+                "CIFAR10": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CIFAR100": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Caltech101": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_type": {
+                        "default_val": "category",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Caltech256": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CelebA": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_type": {
+                        "default_val": "attr",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Cityscapes": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "mode": {
+                        "default_val": "fine",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_type": {
+                        "default_val": "instance",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CocoCaptions": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annFile": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CocoDetection": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annFile": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "DatasetFolder": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "loader": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "is_valid_file": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "EMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "kwargs": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "TEXT"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "FakeData": {
+                    "size": {
+                        "default_val": "1000",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_size": {
+                        "default_val": "(3, 224, 224)",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_classes": {
+                        "default_val": "10",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "random_offset": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "FashionMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Flickr30k": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "ann_file": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Flickr8k": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "ann_file": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "HMDB51": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annotation_path": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frames_per_clip": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "step_between_clips": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frame_rate": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "fold": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_precomputed_metadata": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_workers": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_width": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_height": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_min_dimension": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_samples": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "ImageFolder": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "loader": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "is_valid_file": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "ImageNet": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "kwargs": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "TEXT"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "loader": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "is_valid_file": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "KMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Kinetics400": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frames_per_clip": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "step_between_clips": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frame_rate": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "('avi',)",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_precomputed_metadata": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_workers": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_width": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_height": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_min_dimension": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_samples": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_channels": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "LSUN": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "classes": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "LSUNClass": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "MNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Omniglot": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "background": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "PhotoTour": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "name": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "QMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "what": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "compat": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "kwargs": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "TEXT"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SBDataset": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_set": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "mode": {
+                        "default_val": "boundaries",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SBU": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SEMEION": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "STL10": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "folds": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SVHN": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "UCF101": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annotation_path": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frames_per_clip": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "step_between_clips": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frame_rate": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "fold": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_precomputed_metadata": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_workers": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_width": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_height": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_min_dimension": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_samples": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "USPS": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "VOCDetection": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "year": {
+                        "default_val": "2012",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_set": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "VOCSegmentation": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "year": {
+                        "default_val": "2012",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_set": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "VisionDataset": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                }
+            }
+        }
+    },
+    "ValDataset": {
+        "ModuleInfo": {
+            "torchvision.datasets": {
+                "CIFAR10": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CIFAR100": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Caltech101": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_type": {
+                        "default_val": "category",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Caltech256": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CelebA": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_type": {
+                        "default_val": "attr",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Cityscapes": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "mode": {
+                        "default_val": "fine",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_type": {
+                        "default_val": "instance",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CocoCaptions": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annFile": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "CocoDetection": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annFile": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "DatasetFolder": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "loader": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "is_valid_file": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "EMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "kwargs": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "TEXT"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "FakeData": {
+                    "size": {
+                        "default_val": "1000",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_size": {
+                        "default_val": "(3, 224, 224)",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_classes": {
+                        "default_val": "10",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "random_offset": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "FashionMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Flickr30k": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "ann_file": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Flickr8k": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "ann_file": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "HMDB51": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annotation_path": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frames_per_clip": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "step_between_clips": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frame_rate": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "fold": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_precomputed_metadata": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_workers": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_width": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_height": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_min_dimension": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_samples": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "ImageFolder": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "loader": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "is_valid_file": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "ImageNet": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "kwargs": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "TEXT"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "loader": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "is_valid_file": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "KMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Kinetics400": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frames_per_clip": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "step_between_clips": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frame_rate": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "extensions": {
+                        "default_val": "('avi',)",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_precomputed_metadata": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_workers": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_width": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_height": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_min_dimension": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_samples": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_channels": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "LSUN": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "classes": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "LSUNClass": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "MNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "Omniglot": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "background": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "PhotoTour": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "name": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "QMNIST": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "what": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "compat": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "kwargs": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "TEXT"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SBDataset": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_set": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "mode": {
+                        "default_val": "boundaries",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SBU": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SEMEION": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "STL10": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "folds": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "SVHN": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "split": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "UCF101": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "annotation_path": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frames_per_clip": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "step_between_clips": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "frame_rate": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "fold": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_precomputed_metadata": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "num_workers": {
+                        "default_val": "1",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_width": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_height": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_video_min_dimension": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "_audio_samples": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "USPS": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "train": {
+                        "default_val": "True",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "VOCDetection": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "year": {
+                        "default_val": "2012",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_set": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "VOCSegmentation": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "year": {
+                        "default_val": "2012",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "image_set": {
+                        "default_val": "train",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "download": {
+                        "default_val": "False",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                },
+                "VisionDataset": {
+                    "root": {
+                        "default_val": "_empty",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transforms": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    },
+                    "target_transform": {
+                        "default_val": "None",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                    }
+                }
+            }
+        }
     }
 }

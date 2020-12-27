@@ -1,4 +1,14 @@
 Optimizer:
   integration_tests.reading_specs.test_simple_read.optimizer_factory:
     model: ~REF~Model
-    optimizer: ~REF~Optimizer
+    optimizer: ~REF_WITH_KWARGS~Optimizer
+
+TrainDataset:
+  integration_tests.reading_specs.test_simple_read.dataset_factory:
+    dataset: ~REF_WITH_KWARGS~TrainDataset
+    transform: ~REF~Transform
+
+ValDataset:
+  integration_tests.reading_specs.test_simple_read.dataset_factory:
+    dataset: ~REF_WITH_KWARGS~ValDataset
+    transform: ~REF~Transform

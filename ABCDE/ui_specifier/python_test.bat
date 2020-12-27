@@ -1,0 +1,1 @@
+activate abcde_env && python run.py "D:\Documents\App Development\abcde-frontend\python_test.json"

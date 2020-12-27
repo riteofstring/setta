@@ -1,6 +1,6 @@
 import yaml
 import importlib
-from .constants import REF_KEYWORD, SEPARATOR
+from .constants import REF_KEYWORD, REF_WITH_KWARGS, SEPARATOR
 from .common_functions import merge_dicts, get_the_only_value
 
 
@@ -32,11 +32,13 @@ def represents_object(x):
 
 
 def is_ref(x):
-    return isinstance(x, str) and x.startswith(REF_KEYWORD)
+    return isinstance(x, str) and (x.startswith(REF_KEYWORD) or x.startswith(REF_WITH_KWARGS))
 
 
 def get_ref(x, refs, ref_kwargs):
-    without_keyword = x.replace(REF_KEYWORD, "")
+    assert x.startswith(REF_WITH_KWARGS) or x.startswith(REF_KEYWORD)
+    return_kwargs = x.startswith(REF_WITH_KWARGS)
+    without_keyword = x.replace(REF_WITH_KWARGS, "") if return_kwargs else x.replace(REF_KEYWORD, "")
     search_terms = without_keyword.split(SEPARATOR)
     out_refs = refs
     out_kwargs = ref_kwargs
@@ -48,7 +50,9 @@ def get_ref(x, refs, ref_kwargs):
                 out_kwargs = get_the_only_value(out_kwargs)
     if out_kwargs is None:
         out_kwargs = {}
-    return out_refs, out_kwargs
+    if return_kwargs:
+        return out_refs, out_kwargs
+    return out_refs, {}
 
 
 def create_objects(x, init=True, refs=None, ref_kwargs=None):

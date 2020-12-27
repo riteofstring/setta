@@ -10,6 +10,9 @@ def optimizer_factory(model, optimizer, **kwargs):
     model = model.to(device)
     return optimizer(model.parameters(), **kwargs)
 
+def dataset_factory(dataset, transform, **kwargs):
+    return dataset(root=".", transform=transform, **kwargs)
+
 
 class TestSimpleRead(unittest.TestCase):
     def test_simple_read(self):
