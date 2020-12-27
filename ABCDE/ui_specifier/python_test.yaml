@@ -1,0 +1,14 @@
+Model:
+  ui_specifier.templates.simple_train_test.Net: {}
+Optimizer:
+  torch.optim.Adadelta:
+    lr: 0.9
+Transform:
+  torchvision.transforms.Compose:
+    transforms:
+    - torchvision.transforms.ToTensor: {}
+    - torchvision.transforms.Normalize:
+        mean:
+        - 0.1307
+        std:
+        - 0.3081

@@ -42,9 +42,7 @@ class TestSimpleExport(unittest.TestCase):
         TYPE_MAP.register_from_dict(ui_types)
 
         sections = config.pop("SECTIONS", {})
-        # with open("test.yaml", "w") as outfile:
-        #     yaml.dump(sections, outfile, default_flow_style=False, sort_keys=False)
-
+        
         ui = UICreator()
         ui.create(sections, global_ih)
 
@@ -56,7 +54,7 @@ class TestSimpleExport(unittest.TestCase):
         x = subprocess.run(["node", os.path.join(curr_dir, "json_parsing.js")])
         self.assertTrue(x.returncode == 0)
 
-        os.remove(test_filepath)
+        # os.remove(test_filepath)
 
         # TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
         # # x = ClassInfo(torchvision.transforms.Compose)
