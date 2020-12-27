@@ -17,7 +17,7 @@ const SectionSearch = ({ searchOnClick, sectionId }) => {
     <InputGroup>
       <Input
         placeholder="search"
-        value={searchTerm}
+        value={searchTerm !== undefined ? searchTerm : ""}
         onChange={handleChange}
         focusBorderColor="brand.500"
         onClick={() => {
