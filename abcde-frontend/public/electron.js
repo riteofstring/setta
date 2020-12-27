@@ -50,27 +50,33 @@ const child_process = require("child_process");
 const fs = require("fs");
 
 ipcMain.on("asynchronous-message", (event, payload) => {
-  const { arg, data } = payload;
+  let { arg, data } = payload;
   if (arg == "run program") {
-    console.log("Saving json");
-    fs.writeFileSync("python_test.json", JSON.stringify(data));
-    console.log("Opening terminal");
-    const child = child_process.spawn(
-      "start cmd.exe",
-      ["/K", "python_test.bat"],
-      {
-        encoding: "utf8",
-        shell: true,
-        cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
-      }
-    );
+    // let data = JSON.stringify(
+    //   JSON.parse(fs.readFileSync("python_test_backup.json", "utf8"))
+    // );
+    data = JSON.stringify(data)
+    data = data.replace(/"/g, '\\"')
+    const child = child_process.spawn("python_test.bat", [`"${data}"`], {
+      encoding: "utf8",
+      shell: true,
+      cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
+    });
 
-    child.stdout.on("data", function (msg) {
-      console.log(msg.toString());
+    child.stdout.on("data", function (data) {
+      console.log(data.toString());
     });
 
     child.on("close", (code) => {
       console.log(`child process exited with code ${code}`);
+    });
+
+    child.stdout.on("end", () => {
+      console.log("There will be no more data.");
+    });
+
+    child.stderr.on("data", function (data) {
+      console.log(data.toString());
     });
 
     // child.stdin.setEncoding = 'utf-8';
