@@ -46,6 +46,7 @@ const TheMenuObj = (props) => {
         px={5}
         py={3}
         onClick={() => setSelectedAndCurrObj()}
+        onMouseEnter={() => {}}
       >
         {objName}
       </Box>
