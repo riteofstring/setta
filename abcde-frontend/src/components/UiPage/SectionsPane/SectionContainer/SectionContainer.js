@@ -7,6 +7,7 @@ import NestedSection from "./NestedSection";
 import { createStringId } from "../../../../utils/sectionIds";
 import Breadcrumbs from "../SectionContainer/SectionElements/Breadcrumbs/Breadcrumbs";
 import NestedIncrementer from "./SectionElements/NestedIncrementer";
+import { usePositionReorder } from "../../../../utils/usePositionReorder";
 
 const SectionContainer = ({
   sectionId,
@@ -102,6 +103,7 @@ const SectionContainer = ({
       );
     }
   };
+  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
   return (
     <Flex
@@ -126,15 +128,18 @@ const SectionContainer = ({
       >
         {getSectionHeadingAndUI()}
       </Flex>
-      {childrenIds.length > 0 &&
-        childrenIds.map((e, idx) => (
+
+      {order.length > 0 &&
+        order.map((e, idx) => (
           <NestedSection
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}
             idx={idx}
-            key={`Nested-Sec-${e}-${idx}`}
+            key={`Nested-Sec-${e}`}
             depth={depth + 1}
+            updatePosition={updatePosition}
+            updateOrder={updateOrder}
           />
         ))}
     </Flex>

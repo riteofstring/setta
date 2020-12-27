@@ -5,6 +5,10 @@ import move from "array-move";
 export function usePositionReorder(initialState) {
   const [order, setOrder] = useState(initialState);
 
+  if (order.length === 0 && initialState.length > 0) {
+    setOrder(initialState);
+  }
+
   // We need to collect an array of height and position data for all of this component's
   // `Item` children, so we can later us that in calculations to decide when a dragging
   // `Item` should swap places with its siblings.
