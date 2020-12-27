@@ -12,6 +12,8 @@ const NestedSection = ({ parentId, rootId, sectionId, idx, depth }) => {
     (state) => state.master.idHierarchy[sectionId]
   );
 
+  console.log(idHierarchy);
+
   return isVisible ? (
     <>
       <Flex
