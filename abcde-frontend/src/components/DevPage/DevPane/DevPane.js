@@ -2,8 +2,7 @@ import React, { useRef, useState } from "react";
 import { Flex, Button } from "@chakra-ui/react";
 import { ControlledEditor } from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-
-const { ipcRenderer } = window.require("electron");
+import { ipcRenderer } from "../../../utils/constants";
 
 const DevPane = () => {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -25,7 +24,7 @@ const DevPane = () => {
 
   const handleCreateUI = () => {
     createUI();
-    setLoadSectionsIsDone(false)
+    setLoadSectionsIsDone(false);
     ipcRenderer.once("asynchronous-reply", (event, arg) => {
       if (arg === "success") {
         console.log("success");

@@ -5,6 +5,7 @@ import DetailsPane from "./DetailsPane/DetailsPane";
 import RunContainer from "./RunContainer/RunContainer";
 import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex } from "@chakra-ui/react";
+import { USING_ELECTRON } from "../../utils/constants";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -23,16 +24,23 @@ const UiPage = () => {
 
   const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
 
+  const showUI = specsAreReady | !USING_ELECTRON;
+
   console.log("UiPage");
 
   useLayoutEffect(() => {
-    if (specsAreReady && !loadSectionsIsDone) {
+    if (USING_ELECTRON) {
+      if (specsAreReady && !loadSectionsIsDone) {
+        resetSections();
+        loadSections();
+      }
+    } else if (!loadSectionsIsDone) {
       resetSections();
       loadSections();
     }
   }, [specsAreReady]);
 
-  return specsAreReady ? (
+  return showUI ? (
     <>
       <DetailsPane />
       <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">

@@ -1,6 +1,6 @@
 import { action } from "easy-peasy";
 
-const { ipcRenderer } = window.require("electron");
+import { ipcRenderer } from "../utils/constants";
 
 const devPage = {
   uiSpecs: "// write your code here",

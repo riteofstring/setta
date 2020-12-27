@@ -9,8 +9,7 @@ import {
   tryPushingToList,
   createExportableObject,
 } from "../utils/sectionIds";
-
-const { ipcRenderer } = window.require("electron");
+import { USING_ELECTRON, ipcRenderer } from "../utils/constants";
 
 const master = {
   sectionCount: 1,
@@ -93,13 +92,19 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     // getUISpecs().then((res) => action._loadSections(res.data));
-    ipcRenderer.send("asynchronous-message", {
-      arg: "get UI specs",
-      data: null,
-    });
-    ipcRenderer.once("asynchronous-reply", (event, arg) => {
-      action._loadSections(arg);
-    });
+    if (USING_ELECTRON){
+      ipcRenderer.send("asynchronous-message", {
+        arg: "get UI specs",
+        data: null,
+      });
+      ipcRenderer.once("asynchronous-reply", (event, arg) => {
+        action._loadSections(arg);
+      });
+    }
+    else{
+      console.log("loadSections", Data)
+      action._loadSections(Data)
+    }
   }),
 
   setLoadSectionsIsDone: action((state, payload) => {
