@@ -51,24 +51,42 @@ const fs = require("fs");
 
 ipcMain.on("asynchronous-message", (event, payload) => {
   let { arg, data } = payload;
+  let child = null;
   if (arg == "run program") {
     // let data = JSON.stringify(
     //   JSON.parse(fs.readFileSync("python_test_backup.json", "utf8"))
     // );
     data = JSON.stringify(data)
     data = data.replace(/"/g, '\\"')
-    const child = child_process.spawn("python_test.bat", [`"${data}"`], {
+    child = child_process.spawn("run_from_ui_selections.bat", [`"${data}"`], {
       encoding: "utf8",
       shell: true,
       cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
     });
+  }
+  else if (arg == "create UI") {
+    data = data.replace(/"/g, '\\"')
+    data = data.replaceAll('\n', '\\n')
+    child = child_process.spawn("create_ui.bat", [`"${data}"`], {
+      encoding: "utf8",
+      shell: true,
+      cwd: "D:\\Documents\\App Development\\ABCDE\\ui_specifier",
+    });
+  }
+  else if (arg == "get UI specs"){
+    const uiSpecs = JSON.parse(fs.readFileSync("src\\data\\fromUI.json", "utf8"))
+    console.log("loading fromUI.json")
+    console.log(uiSpecs)
+    event.reply('asynchronous-reply', uiSpecs)
+  }
 
+  if (["run program", "create UI"].includes(arg)) {
     child.stdout.on("data", function (data) {
       console.log(data.toString());
     });
 
     child.on("close", (code) => {
-      console.log(`child process exited with code ${code}`);
+      event.reply('asynchronous-reply', code === 0 ? 'success' : 'fail')
     });
 
     child.stdout.on("end", () => {
@@ -78,12 +96,10 @@ ipcMain.on("asynchronous-message", (event, payload) => {
     child.stderr.on("data", function (data) {
       console.log(data.toString());
     });
-
-    // child.stdin.setEncoding = 'utf-8';
-    // child.stdin.write('Hello\r\n');
-
-    // event.reply('asynchronous-reply', 'pong')
   }
+
+
+
 });
 
 // ipcMain.on('synchronous-message', (event, arg) => {

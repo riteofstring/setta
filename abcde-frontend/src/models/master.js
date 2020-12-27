@@ -1,6 +1,6 @@
 import { action, thunk, debug } from "easy-peasy";
 import { getUISpecs } from "../data/fetchData";
-import Data from "../data/simpleTrainTest.json";
+// import Data from "../data/fromUI.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -68,9 +68,42 @@ const master = {
     state.loadSectionsIsDone = true;
   }),
 
+  // temporary shitty code
+  resetSections: action((state) => {
+    state.sectionCount = 1;
+    state.sections = {};
+    state.loadSectionsIsDone = false;
+    state.selected = {};
+    state.idHierarchy = {};
+    state.rootIdHierarchy = {};
+    state.isVisible = {};
+    state.isShown = {};
+    state.shiftAmount = {};
+    state.isList = {};
+    state.isListRoot = {};
+    state.listSiblings = {};
+    state.listCount = {};
+    state.sectionIdsToSectionNames = {};
+    state.sectionIdsToStringIds = {};
+    state.stringIdsToSectionIds = {};
+    state.inFocus = [false];
+    state.sectionHasNested = {};
+    state.sectionModuleObjHasNested = {};
+  }),
+
   loadSections: thunk((action, payload, helpers) => {
     // getUISpecs().then((res) => action._loadSections(res.data));
-    action._loadSections(Data);
+    ipcRenderer.send("asynchronous-message", {
+      arg: "get UI specs",
+      data: null,
+    });
+    ipcRenderer.once("asynchronous-reply", (event, arg) => {
+      action._loadSections(arg);
+    });
+  }),
+
+  setLoadSectionsIsDone: action((state, payload) => {
+    state.loadSectionsIsDone = payload;
   }),
 
   // Show/Collapse button
@@ -301,13 +334,10 @@ const master = {
       isList,
       globalCurr,
     });
-    // console.log("output", output);
-    // console.log(ipcRenderer.sendSync("synchronous-message", "ping")); // prints "pong"
-
-    // ipcRenderer.on("asynchronous-reply", (event, arg) => {
-    //   console.log(arg); // prints "pong"
-    // });
-    ipcRenderer.send("asynchronous-message", {arg: "run program", data: output});
+    ipcRenderer.send("asynchronous-message", {
+      arg: "run program",
+      data: output,
+    });
   }),
 };
 
