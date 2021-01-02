@@ -8,7 +8,6 @@ import UiPage from "../../UiPage/UiPage";
 import TerminalPage from "../../TerminalPage/TerminalPage";
 
 const SwitchContainer = () => {
-  const items = ["te", "st", "on", "e"];
 
   return (
     <Switch>
