@@ -17,4 +17,5 @@ from django.urls import path, include
 
 urlpatterns = [
 	path('', include('ui_specs.urls')),
+	path('', include('accounts.urls'))
 ]
