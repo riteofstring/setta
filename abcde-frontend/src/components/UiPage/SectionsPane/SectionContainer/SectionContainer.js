@@ -81,6 +81,7 @@ const SectionContainer = ({
         <NestedIncrementer
           sectionId={sectionId}
           parentId={parentId}
+          childrenIds={childrenIds}
           nextId={nextId}
         />
       );

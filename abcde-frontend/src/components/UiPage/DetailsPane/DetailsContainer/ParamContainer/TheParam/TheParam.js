@@ -29,6 +29,7 @@ const TheParam = ({ parameters }) => {
   const sectionId = useStoreState((state) => state.globalCurr.sectionId);
   const moduleName = useStoreState((state) => state.globalCurr.moduleName);
   const objName = useStoreState((state) => state.globalCurr.objName);
+  const isListRoot = useStoreState((state) => state.master.isListRoot[sectionId]);
 
   const [value, setValue] = useState(default_val);
 
@@ -60,10 +61,10 @@ const TheParam = ({ parameters }) => {
       savedParam !== null && savedParam !== undefined ? savedParam : default_val
     );
 
-    if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
+    if (!isListRoot && ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
       addToVisibleSectionIdsThunk({
         name,
-        sectionId,
+        parentId: sectionId,
         moduleName,
         objName,
         isList: ui_type === "LIST_NESTED_OBJECT",

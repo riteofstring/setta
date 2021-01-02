@@ -32,13 +32,13 @@ export const getBreadCrumbPath = (
   idHierarchy,
   rootIdHierarchy,
   isVisible,
-  sectionIdsToSectionNames
+  sectionIdsToSectionHeadings
 ) => {
   const x = findId(sectionId, idHierarchy, rootIdHierarchy);
   let headOfBreadCrumbPath = [];
   let headOfIdLineage = [];
   if (isVisible[sectionId]) {
-    headOfBreadCrumbPath = [sectionIdsToSectionNames[sectionId]];
+    headOfBreadCrumbPath = [sectionIdsToSectionHeadings[sectionId]];
     headOfIdLineage = [sectionId];
     const children = x.children;
     const nextId = children.filter((x) => isVisible[x])[0];
@@ -48,7 +48,7 @@ export const getBreadCrumbPath = (
         idHierarchy,
         rootIdHierarchy,
         isVisible,
-        sectionIdsToSectionNames
+        sectionIdsToSectionHeadings
       );
       headOfBreadCrumbPath.push(...breadCrumbPath);
       headOfIdLineage.push(...idLineage);
@@ -95,25 +95,17 @@ export const setChildrenVisibility = (
   }
 };
 
-export const tryPushingToList = (maybeList, newItem) => {
-  if (maybeList !== undefined) {
-    maybeList.push(newItem);
-  } else {
-    maybeList = [newItem];
-  }
-  return maybeList;
-};
-
 const createExportableParams = ({
   currSelected,
   idHierarchy,
-  sectionIdsToSectionNames,
+  sectionIdsToSectionHeadings,
   isList,
+  isListRoot,
   globalCurr,
   id,
 }) => {
   let output = {};
-  const { moduleName, objName, children } = currSelected;
+  const { moduleName, objName, children: originalChildren } = currSelected;
   if ((moduleName === null) | (moduleName === undefined)) {
     return output;
   }
@@ -124,26 +116,39 @@ const createExportableParams = ({
     params = globalCurr[id][moduleName][objName];
     output[fullObjName] = params;
   } catch (err) {}
-  for (let childId of children) {
-    const childSectionName = sectionIdsToSectionNames[childId];
-    const nextSelected = idHierarchy[childId];
-    const paramDict = createExportableParams({
-      currSelected: nextSelected,
-      idHierarchy,
-      sectionIdsToSectionNames,
-      isList,
-      globalCurr,
-      id: childId,
-    });
-    if (Object.keys(paramDict).length > 0) {
-      if (isList[childId]) {
-        if (childSectionName in output[fullObjName]) {
-          output[fullObjName][childSectionName].push(paramDict);
+
+  if (originalChildren) {
+    let children = originalChildren.slice();
+    for (let childId of originalChildren) {
+      if (isListRoot[childId]) {
+        children = children.filter((x) => x !== childId);
+        children.push(...idHierarchy[childId].children);
+      }
+    }
+
+    for (let childId of children) {
+      const childSectionName = sectionIdsToSectionHeadings[childId];
+      const nextSelected = idHierarchy[childId];
+      const paramDict = createExportableParams({
+        currSelected: nextSelected,
+        idHierarchy,
+        sectionIdsToSectionHeadings,
+        isList,
+        isListRoot,
+        globalCurr,
+        id: childId,
+      });
+
+      if (Object.keys(paramDict).length > 0) {
+        if (isList[childId]) {
+          if (childSectionName in output[fullObjName]) {
+            output[fullObjName][childSectionName].push(paramDict);
+          } else {
+            output[fullObjName][childSectionName] = [paramDict];
+          }
         } else {
-          output[fullObjName][childSectionName] = [paramDict];
+          output[fullObjName][childSectionName] = paramDict;
         }
-      } else {
-        output[fullObjName][childSectionName] = paramDict;
       }
     }
   }
@@ -153,19 +158,21 @@ const createExportableParams = ({
 export const createExportableObject = ({
   idHierarchy,
   rootIdHierarchy,
-  sectionIdsToSectionNames,
+  sectionIdsToSectionHeadings,
   isList,
+  isListRoot,
   globalCurr,
 }) => {
   let output = {};
   for (let id of Object.keys(rootIdHierarchy)) {
-    const sectionName = sectionIdsToSectionNames[id];
+    const sectionName = sectionIdsToSectionHeadings[id];
     const currSelected = rootIdHierarchy[id];
     output[sectionName] = createExportableParams({
       currSelected,
       idHierarchy,
-      sectionIdsToSectionNames,
+      sectionIdsToSectionHeadings,
       isList,
+      isListRoot,
       globalCurr,
       id,
     });

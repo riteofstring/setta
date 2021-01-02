@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 // import { getUISpecs } from "../data/fetchData";
 import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
@@ -6,7 +6,6 @@ import {
   createStringId,
   findId,
   setChildrenVisibility,
-  tryPushingToList,
   createExportableObject,
 } from "../utils/sectionIds";
 import { USING_ELECTRON, ipcRenderer } from "../utils/constants";
@@ -24,7 +23,7 @@ const master = {
   isList: {},
   isListRoot: {},
   listCount: {},
-  sectionIdsToSectionNames: {},
+  sectionIdsToSectionHeadings: {},
   sectionIdsToStringIds: {},
   stringIdsToSectionIds: {},
   inFocus: [false],
@@ -40,6 +39,7 @@ const master = {
       let id = state.sectionCount;
       state.sections[id] = new Section(key, payload[key]);
       state.rootIdHierarchy[id] = {
+        parent: null,
         children: [],
         moduleName: null,
         objName: null,
@@ -47,7 +47,7 @@ const master = {
         parentObjName: null,
       };
       state.shiftAmount[id] = 0;
-      state.sectionIdsToSectionNames[id] = key;
+      state.sectionIdsToSectionHeadings[id] = key;
       state.sectionIdsToStringIds[id] = id;
       state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
@@ -82,7 +82,7 @@ const master = {
     state.isListRoot = {};
     state.listSiblings = {};
     state.listCount = {};
-    state.sectionIdsToSectionNames = {};
+    state.sectionIdsToSectionHeadings = {};
     state.sectionIdsToStringIds = {};
     state.stringIdsToSectionIds = {};
     state.inFocus = [false];
@@ -148,7 +148,7 @@ const master = {
 
   setStringId: action((state, payload) => {
     const { sectionId, stringId, name } = payload;
-    state.sectionIdsToSectionNames[sectionId] = name;
+    state.sectionIdsToSectionHeadings[sectionId] = name;
     state.sectionIdsToStringIds[sectionId] = stringId;
     state.stringIdsToSectionIds[stringId] = sectionId;
   }),
@@ -176,27 +176,36 @@ const master = {
     parentIdObj.moduleName = moduleName;
     parentIdObj.objName = objName;
     if (!(id in state.selected)) {
-      state.selected[id] = {};
-      state.sections[id] =
-        state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
-          name
-        ].type;
+      if (isList && siblingId === null) {
+        state.sections[id] = state.sections[parentId];
+        state.selected[id] = state.selected[parentId];
+      } else {
+        state.sections[id] =
+          state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
+            name
+          ].type;
+        state.selected[id] = {};
+      }
       state.inFocus.splice(id, 0, false);
 
       if (isList) {
         if (siblingId !== null) {
           const spliceIdx = parentIdObj.children.indexOf(siblingId) + 1;
           parentIdObj.children.splice(spliceIdx, 0, id);
+          state.listCount[parentId] += 1;
         } else {
+          if (!(id in state.listCount)) {
+            state.listCount[id] = 0;
+          }
           state.isListRoot[id] = true;
           parentIdObj.children.push(id);
         }
-        state.listCount[parentId] += 1;
       } else {
         parentIdObj.children.push(id);
       }
       state.idHierarchy[id] = {
         children: [],
+        parent: parentId,
         parentModuleName: moduleName,
         parentObjName: objName,
       };
@@ -262,14 +271,7 @@ const master = {
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const {
-      name,
-      sectionId: parentId,
-      moduleName,
-      objName,
-      isList,
-      siblingId,
-    } = payload;
+    const { name, parentId, moduleName, objName, isList, siblingId } = payload;
     let extraIdentifier = null;
     if (isList) {
       if (siblingId !== null) {
@@ -312,14 +314,16 @@ const master = {
     const {
       idHierarchy,
       rootIdHierarchy,
-      sectionIdsToSectionNames,
+      sectionIdsToSectionHeadings,
       isList,
+      isListRoot,
     } = helpers.getState();
     let output = createExportableObject({
       idHierarchy,
       rootIdHierarchy,
-      sectionIdsToSectionNames,
+      sectionIdsToSectionHeadings,
       isList,
+      isListRoot,
       globalCurr,
     });
     ipcRenderer.send("asynchronous-message", {
