@@ -2,7 +2,7 @@ import { action } from "easy-peasy";
 
 const auth = {
   token: localStorage.getItem('token'),
-  isAuthenticated: null,
+  isAuthenticated: false,
   user: null,
 
   loginSuccess: action((state, payload) => {

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useFormik } from "formik";
+import { useHistory } from "react-router-dom";
 import {
   FormErrorMessage,
   FormLabel,
@@ -17,6 +18,8 @@ import { useStoreActions } from "easy-peasy";
 import { login } from "../../dbRequests/authentication.js";
 
 const LoginPage = () => {
+  let history = useHistory();
+
   const actionLoginSuccess = useStoreActions(
     (actions) => actions.auth.loginSuccess
   );
@@ -44,6 +47,11 @@ const LoginPage = () => {
         password,
         actionLoginSuccess,
         actionLoginFail,
+      }).then((x) => {
+        console.log("x", x)
+        if (x.type === "@action.auth.loginSuccess") {
+          history.push("/ui");
+        }
       });
     },
   });

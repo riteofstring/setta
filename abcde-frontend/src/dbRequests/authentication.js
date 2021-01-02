@@ -9,7 +9,7 @@ export const login = ({
   actionLoginFail,
 }) => {
   const body = JSON.stringify({ username, password });
-  axios
+  return axios
     .post(BACKEND.concat("api/auth/login"), body, tokenConfig(null))
     .then((res) => actionLoginSuccess(res.data))
     .catch((err) => actionLoginFail(null));
