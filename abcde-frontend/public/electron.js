@@ -7,7 +7,8 @@ const BrowserWindow = electron.BrowserWindow;
 const path = require("path");
 const isDev = require("electron-is-dev");
 const appPath = app.getAppPath();
-const backendPath = appPath + "\\..\\ABCDE\\ui_specifier"
+const backendPath = appPath + "\\..\\ABCDE\\ui_specifier";
+const nodePty = require("node-pty");
 
 console.log("***electron.js isDev =", isDev);
 
@@ -55,40 +56,52 @@ ipcMain.on("asynchronous-message", (event, payload) => {
   let { arg, data } = payload;
   let child = null;
   if (arg == "run program") {
-    // let data = JSON.stringify(
-    //   JSON.parse(fs.readFileSync("python_test_backup.json", "utf8"))
-    // );
-    data = JSON.stringify(data)
-    data = data.replace(/"/g, '\\"')
-    child = child_process.spawn("run_from_ui_selections.bat", [`"${data}"`], {
-      encoding: "utf8",
-      shell: true,
+    data = JSON.stringify(JSON.parse(fs.readFileSync("python_test_backup.json", "utf8")))
+    // data = JSON.stringify(data);
+    data = data.replace(/"/g, '\\"');
+
+    child = nodePty.spawn("cmd.exe", [], {
+      name: "xterm-color",
+      cols: 80,
+      rows: 30,
       cwd: backendPath,
+      env: process.env,
     });
-  }
-  else if (arg == "create UI") {
-    data = data.replace(/"/g, '\\"')
-    data = data.replaceAll('\n', '\\n')
+
+    child.on("data", function (data) {
+      mainWindow.webContents.send("terminal.incomingData", data);
+      console.log("Data sent");
+    });
+    ipcMain.on("terminal.keystroke", (event, key) => {
+      console.log("terminal.keystroke");
+      child.write(key);
+    });
+
+    child.write(`run_from_ui_selections.bat "${data}"\r\n`);
+  } else if (arg == "create UI") {
+    data = data.replace(/"/g, '\\"');
+    data = data.replaceAll("\n", "\\n");
     child = child_process.spawn("create_ui.bat", [`"${data}"`], {
       encoding: "utf8",
       shell: true,
       cwd: backendPath,
     });
-  }
-  else if (arg == "get UI specs"){
-    const uiSpecs = JSON.parse(fs.readFileSync("src\\data\\fromUI.json", "utf8"))
-    console.log("loading fromUI.json")
-    console.log(uiSpecs)
-    event.reply('asynchronous-reply', uiSpecs)
+  } else if (arg == "get UI specs") {
+    const uiSpecs = JSON.parse(
+      fs.readFileSync("src\\data\\fromUI.json", "utf8")
+    );
+    console.log("loading fromUI.json");
+    console.log(uiSpecs);
+    event.reply("asynchronous-reply", uiSpecs);
   }
 
-  if (["run program", "create UI"].includes(arg)) {
+  if (["create UI"].includes(arg)) {
     child.stdout.on("data", function (data) {
       console.log(data.toString());
     });
 
     child.on("close", (code) => {
-      event.reply('asynchronous-reply', code === 0 ? 'success' : 'fail')
+      event.reply("asynchronous-reply", code === 0 ? "success" : "fail");
     });
 
     child.stdout.on("end", () => {
@@ -99,12 +112,4 @@ ipcMain.on("asynchronous-message", (event, payload) => {
       console.log(data.toString());
     });
   }
-
-
-
 });
-
-// ipcMain.on('synchronous-message', (event, arg) => {
-//   console.log(arg) // prints "ping"
-//   event.returnValue = 'pong'
-// })

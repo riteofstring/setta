@@ -31,6 +31,7 @@ const master = {
   sectionModuleObjHasNested: {},
   sectionSearchVal: {},
   showTerminal: false,
+  terminalData: "",
 
   // actions
   // Load DATA
@@ -310,25 +311,29 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    const { globalCurr } = helpers.getStoreState().globalCurr;
-    const {
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionHeadings,
-      isList,
-      isListRoot,
-    } = helpers.getState();
-    let output = createExportableObject({
-      idHierarchy,
-      rootIdHierarchy,
-      sectionIdsToSectionHeadings,
-      isList,
-      isListRoot,
-      globalCurr,
-    });
+    // const { globalCurr } = helpers.getStoreState().globalCurr;
+    // const {
+    //   idHierarchy,
+    //   rootIdHierarchy,
+    //   sectionIdsToSectionHeadings,
+    //   isList,
+    //   isListRoot,
+    // } = helpers.getState();
+    // let output = createExportableObject({
+    //   idHierarchy,
+    //   rootIdHierarchy,
+    //   sectionIdsToSectionHeadings,
+    //   isList,
+    //   isListRoot,
+    //   globalCurr,
+    // });
+    // ipcRenderer.send("asynchronous-message", {
+    //   arg: "run program",
+    //   data: output,
+    // });
     ipcRenderer.send("asynchronous-message", {
       arg: "run program",
-      data: output,
+      data: null,
     });
   }),
 

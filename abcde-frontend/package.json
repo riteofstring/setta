@@ -14,10 +14,11 @@
     "array-move": "^3.0.1",
     "axios": "^0.21.0",
     "easy-peasy": "^4.0.1",
-    "formik": "^2.2.6",
     "electron-is-dev": "^1.2.0",
+    "formik": "^2.2.6",
     "framer-motion": "^2.9.4",
     "lodash": "^4.17.20",
+    "node-pty": "^0.9.0",
     "re-resizable": "^6.9.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
@@ -60,6 +61,7 @@
     "concurrently": "^5.3.0",
     "electron": "^11.1.1",
     "electron-builder": "^22.9.1",
+    "electron-rebuild": "^2.3.4",
     "wait-on": "^5.2.0"
   },
   "main": "public/electron.js"
