@@ -1,6 +1,6 @@
 import { action, thunk } from "easy-peasy";
 // import { getUISpecs } from "../data/fetchData";
-import Data from "../data/longList.json";
+import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -92,7 +92,7 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     // getUISpecs().then((res) => action._loadSections(res.data));
-    if (USING_ELECTRON){
+    if (USING_ELECTRON) {
       ipcRenderer.send("asynchronous-message", {
         arg: "get UI specs",
         data: null,
@@ -100,9 +100,8 @@ const master = {
       ipcRenderer.once("asynchronous-reply", (event, arg) => {
         action._loadSections(arg);
       });
-    }
-    else{
-      action._loadSections(Data)
+    } else {
+      action._loadSections(Data);
     }
   }),
 
@@ -135,11 +134,10 @@ const master = {
 
   setChildrenIds: action((state, payload) => {
     const { sectionId, childrenIds } = payload;
-    if (sectionId in state.rootIdHierarchy){
-      state.rootIdHierarchy[sectionId].children = childrenIds
-    }
-    else{
-      state.idHierarchy[sectionId].children = childrenIds
+    if (sectionId in state.rootIdHierarchy) {
+      state.rootIdHierarchy[sectionId].children = childrenIds;
+    } else {
+      state.idHierarchy[sectionId].children = childrenIds;
     }
   }),
 

@@ -71,7 +71,7 @@ const SectionContainer = ({
 
   useEffect(() => {
     if (order.length > 0) {
-      setChildrenIds({sectionId, childrenIds: order})
+      setChildrenIds({ sectionId, childrenIds: order });
     }
   }, [order]);
 
@@ -118,11 +118,7 @@ const SectionContainer = ({
   };
 
   return (
-    <Flex
-      direction="column"
-      ml={depth === 0 && `${shiftAmount * -2.5}rem`}
-      borderRadius="md"
-    >
+    <Flex direction="column" ml={depth === 0 && `${shiftAmount * -2.5}rem`}>
       {rootId === sectionId && sectionModuleObjHasNested > 0 && (
         <Breadcrumbs rootId={rootId} />
       )}
@@ -147,7 +143,7 @@ const SectionContainer = ({
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}
-            nextId={order[idx+1]}
+            nextId={order[idx + 1]}
             idx={idx}
             key={`Nested-Sec-${e}`}
             depth={depth + 1}
