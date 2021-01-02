@@ -6,7 +6,6 @@ import RunContainer from "./RunContainer/RunContainer";
 import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex } from "@chakra-ui/react";
 import { USING_ELECTRON } from "../../utils/constants";
-import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 
 const UiPage = () => {
   const loadSections = useStoreActions(

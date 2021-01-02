@@ -3,7 +3,6 @@ import Run from "./Run/Run";
 import TerminalButton from "./Terminal/TerminalButton";
 
 import { Flex } from "@chakra-ui/react";
-import TemplateUIToggle from "../TemplateUI/TemplateUIToggle";
 
 const RunContainer = () => {
   return (
@@ -18,7 +17,6 @@ const RunContainer = () => {
       zIndex="5"
     >
       <Run />
-      <TemplateUIToggle />
       {/* <TerminalButton /> */}
     </Flex>
   );

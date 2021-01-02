@@ -22,29 +22,28 @@ const NestedSection = ({
   const idHierarchy = useStoreState(
     (state) => state.master.idHierarchy[sectionId]
   );
-  const isListRoot = useStoreState(
-    (state) => state.master.isListRoot[sectionId]
-  );
 
   const [isDragging, setDragging] = useState(false);
 
-  const getSectionContainer = () => {
-    return (
-      <SectionContainer
-        sectionId={sectionId}
-        rootId={rootId}
-        parentId={parentId}
-        nextId={nextId}
-        childrenIds={idHierarchy.children}
-        theSection={theSection}
-        depth={depth}
-      />
-    );
-  };
+  const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
 
-  const NestedDraggable = (props) => {
-    const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
-    return (
+  return isVisible ? (
+    <Flex
+      mt="0rem"
+      ml="2.5rem"
+      display={!isShown ? "none" : "inherit"}
+      key={`nest-flex-${sectionId}`}
+      style={{
+        zIndex: isDragging ? 3 : 1,
+      }}
+    >
+      <Box mt="0" mr=".5rem" key={`ic-con-${sectionId}`}>
+        <FiCornerDownRight
+          size="2.4rem"
+          color="#CBD5E0"
+          key={`icon-${sectionId}`}
+        />
+      </Box>
       <motion.div
         ref={ref}
         layout
@@ -64,36 +63,16 @@ const NestedSection = ({
           isDragging && updateOrder(idx, delta.y.translate);
         }}
       >
-        {props.children}
-      </motion.div>
-    );
-  };
-
-  console.log("isListRoot", sectionId, isListRoot);
-
-  return isVisible ? (
-    <Flex
-      mt="0rem"
-      ml="2.5rem"
-      display={!isShown ? "none" : "inherit"}
-      key={`nest-flex-${sectionId}`}
-      style={{
-        zIndex: isDragging ? 3 : 1,
-      }}
-    >
-      <Box mt="0" mr=".5rem" key={`ic-con-${sectionId}`}>
-        <FiCornerDownRight
-          size="2.4rem"
-          color="#CBD5E0"
-          key={`icon-${sectionId}`}
+        <SectionContainer
+          sectionId={sectionId}
+          rootId={rootId}
+          parentId={parentId}
+          nextId={nextId}
+          childrenIds={idHierarchy.children}
+          theSection={theSection}
+          depth={depth}
         />
-      </Box>
-
-      {!isListRoot ? (
-        <NestedDraggable>{getSectionContainer()}</NestedDraggable>
-      ) : (
-        getSectionContainer()
-      )}
+      </motion.div>
     </Flex>
   ) : (
     <></>
