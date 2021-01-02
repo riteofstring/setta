@@ -56,8 +56,8 @@ ipcMain.on("asynchronous-message", (event, payload) => {
   let { arg, data } = payload;
   let child = null;
   if (arg == "run program") {
-    data = JSON.stringify(JSON.parse(fs.readFileSync("python_test_backup.json", "utf8")))
-    // data = JSON.stringify(data);
+    // data = JSON.stringify(JSON.parse(fs.readFileSync("python_test_backup.json", "utf8")))
+    data = JSON.stringify(data);
     data = data.replace(/"/g, '\\"');
 
     child = nodePty.spawn("cmd.exe", [], {
@@ -70,7 +70,6 @@ ipcMain.on("asynchronous-message", (event, payload) => {
 
     child.on("data", function (data) {
       mainWindow.webContents.send("terminal.incomingData", data);
-      console.log("Data sent");
     });
     ipcMain.on("terminal.keystroke", (event, key) => {
       console.log("terminal.keystroke");

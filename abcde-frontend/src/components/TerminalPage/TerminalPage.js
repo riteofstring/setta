@@ -1,14 +1,9 @@
-import React, { useState, useLayoutEffect, useEffect } from "react";
-import { useStoreState } from "easy-peasy";
+import React, { useState, useEffect } from "react";
 import { Box } from "@chakra-ui/react";
-// import { Terminal } from "xterm";
 import Xterm from "./Terminal";
 import { FitAddon } from "xterm-addon-fit";
 import "./xterm.module.css";
 import "./TerminalPage.module.css";
-import { Resizable } from "re-resizable";
-import ResizeObserver from "react-resize-observer";
-import c from "ansi-colors";
 import { ipcRenderer } from "../../utils/constants";
 
 const fitAddon = new FitAddon();
