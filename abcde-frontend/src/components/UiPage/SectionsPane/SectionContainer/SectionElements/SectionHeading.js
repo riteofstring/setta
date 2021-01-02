@@ -3,9 +3,7 @@ import { useStoreState } from "easy-peasy";
 import { Heading, Stack } from "@chakra-ui/react";
 
 const SectionHeading = ({ theSection, sectionId, isListRoot = false }) => {
-  const sectionHeading = useStoreState(
-    (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
-  );
+  const sectionHeading = theSection.name;
 
   const selected = useStoreState((state) => state.master.selected[sectionId]);
 

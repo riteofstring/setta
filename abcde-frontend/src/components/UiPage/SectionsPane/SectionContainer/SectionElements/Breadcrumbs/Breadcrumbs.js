@@ -12,15 +12,15 @@ const Breadcrumbs = ({ rootId }) => {
   );
 
   const isVisible = useStoreState((state) => state.master.isVisible);
-  const sectionIdsToSectionHeadings = useStoreState(
-    (state) => state.master.sectionIdsToSectionHeadings
+  const sectionIdsToSectionNames = useStoreState(
+    (state) => state.master.sectionIdsToSectionNames
   );
   const { breadCrumbPath, idLineage } = getBreadCrumbPath(
     rootId,
     idHierarchy,
     rootIdHierarchy,
     isVisible,
-    sectionIdsToSectionHeadings
+    sectionIdsToSectionNames
   );
 
   return (
