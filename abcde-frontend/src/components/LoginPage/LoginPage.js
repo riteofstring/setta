@@ -13,8 +13,15 @@ import {
   Grid,
 } from "@chakra-ui/react";
 import * as Yup from "yup";
+import { useStoreActions } from "easy-peasy";
+import { login } from "../../dbRequests/authentication.js";
 
 const LoginPage = () => {
+  const actionLoginSuccess = useStoreActions(
+    (actions) => actions.auth.loginSuccess
+  );
+  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
+
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
 
@@ -30,16 +37,14 @@ const LoginPage = () => {
       username: "",
       password: "",
     },
-    validationSchema: Yup.object({
-      username: Yup.string()
-        .max(10, "Username must be shorter than 10 characters")
-        .required("Required"),
-      password: Yup.string()
-        .min(6, "Password should be longer than 6 characters")
-        .required(),
-    }),
     onSubmit: ({ username, password }) => {
-      alert(`username: ${username}, password: ${password}`);
+      // alert(`username: ${username}, password: ${password}`);
+      login({
+        username,
+        password,
+        actionLoginSuccess,
+        actionLoginFail,
+      });
     },
   });
 

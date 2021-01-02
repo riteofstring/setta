@@ -4,3 +4,5 @@ export let ipcRenderer = null;
 if (USING_ELECTRON) {
   ipcRenderer = window.require("electron").ipcRenderer;
 }
+
+export const BACKEND = "http://localhost:8000/";

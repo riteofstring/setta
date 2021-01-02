@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-// import { getUISpecs } from "../data/fetchData";
+// import { getUISpecs } from "../dbRequests/fetchData";
 import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
