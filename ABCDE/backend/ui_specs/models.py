@@ -10,3 +10,8 @@ class SavedUIs(models.Model):
     sections = models.TextField()
     selections = models.TextField()
     globalCurr = models.TextField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "uiName"], name="unique_uiName")
+        ]
