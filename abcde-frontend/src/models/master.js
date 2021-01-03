@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-// import { getUISpecs } from "../data/fetchData";
+// import { getUISpecs } from "../dbRequests/fetchData";
 import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
@@ -9,6 +9,7 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { USING_ELECTRON, ipcRenderer } from "../utils/constants";
+import { saveUI as saveUIBackend } from "../dbRequests/ui";
 
 const master = {
   sectionCount: 1,
@@ -35,9 +36,15 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    for (let key of Object.keys(payload)) {
+    const {isJson, data} = payload
+    if (!isJson){
+      state.sections = data
+    }
+    for (let key of Object.keys(data)) {
       let id = state.sectionCount;
-      state.sections[id] = new Section(key, payload[key]);
+      if (isJson){
+        state.sections[id] = new Section(key, data[key]);
+      }
       state.rootIdHierarchy[id] = {
         parent: null,
         children: [],
@@ -47,7 +54,7 @@ const master = {
         parentObjName: null,
       };
       state.shiftAmount[id] = 0;
-      state.sectionIdsToSectionHeadings[id] = key;
+      state.sectionIdsToSectionHeadings[id] = isJson ? key : state.sections[id].name
       state.sectionIdsToStringIds[id] = id;
       state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
@@ -98,10 +105,10 @@ const master = {
         data: null,
       });
       ipcRenderer.once("asynchronous-reply", (event, arg) => {
-        action._loadSections(arg);
+        action._loadSections({isJson: true, data: arg});
       });
     } else {
-      action._loadSections(Data);
+      action._loadSections({isJson: true, data: Data});
     }
   }),
 
@@ -318,7 +325,7 @@ const master = {
       isList,
       isListRoot,
     } = helpers.getState();
-    let output = createExportableObject({
+    const selections = createExportableObject({
       idHierarchy,
       rootIdHierarchy,
       sectionIdsToSectionHeadings,
@@ -326,10 +333,20 @@ const master = {
       isListRoot,
       globalCurr,
     });
+    return { selections, globalCurr };
+  }),
+
+  runSelected: action((state, payload) => {
     ipcRenderer.send("asynchronous-message", {
       arg: "run program",
-      data: output,
+      data: payload.selections,
     });
+  }),
+
+  saveUI: action((state, payload) => {
+    const { token, uiName, selections, globalCurr } = payload;
+    const sections = state.sections;
+    saveUIBackend({ token, uiName, sections, selections, globalCurr });
   }),
 
   setSectionSearchVal: action((state, payload) => {
