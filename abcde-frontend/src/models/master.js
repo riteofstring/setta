@@ -9,6 +9,7 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { USING_ELECTRON, ipcRenderer } from "../utils/constants";
+import { saveUI as saveUIBackend } from "../dbRequests/ui";
 
 const master = {
   sectionCount: 1,
@@ -318,7 +319,7 @@ const master = {
       isList,
       isListRoot,
     } = helpers.getState();
-    let output = createExportableObject({
+    const selections = createExportableObject({
       idHierarchy,
       rootIdHierarchy,
       sectionIdsToSectionHeadings,
@@ -326,10 +327,22 @@ const master = {
       isListRoot,
       globalCurr,
     });
+    return { selections, globalCurr };
+  }),
+
+  runSelected: action((state, payload) => {
     ipcRenderer.send("asynchronous-message", {
       arg: "run program",
-      data: output,
+      data: payload.selections,
     });
+  }),
+
+  saveUI: thunk((action, payload, helpers) => {
+    const { selections, globalCurr } = payload;
+    const { token } = helpers.getStoreState().auth;
+    const { sections } = helpers.getState();
+    const uiName = "testUI"
+    saveUIBackend({ token, uiName, sections, selections, globalCurr });
   }),
 
   setSectionSearchVal: action((state, payload) => {

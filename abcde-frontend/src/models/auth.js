@@ -14,6 +14,7 @@ const auth = {
     console.log("state.token");
     console.log(state.token);
     state.user = payload.user;
+    console.log("user", state.user)
     state.isAuthenticated = true;
   }),
 
