@@ -337,11 +337,10 @@ const master = {
     });
   }),
 
-  saveUI: thunk((action, payload, helpers) => {
-    const { selections, globalCurr } = payload;
-    const { token } = helpers.getStoreState().auth;
-    const { sections } = helpers.getState();
-    const uiName = "testUI"
+  saveUI: action((state, payload) => {
+    const { token, selections, globalCurr } = payload;
+    const sections = state.sections;
+    const uiName = "testUI3";
     saveUIBackend({ token, uiName, sections, selections, globalCurr });
   }),
 

@@ -12,3 +12,12 @@ export const saveUI = ({ token, uiName, sections, selections, globalCurr }) => {
     .then((res) => {})
     .catch((err) => {});
 };
+
+
+export const loadUINames = ({ token,  }) => {
+  return axios
+    .get(BACKEND.concat("api/saved_ui_names"), tokenConfig(token))
+    .then((res) => res.data["uiNames"])
+    .catch((err) => {});
+};
+
