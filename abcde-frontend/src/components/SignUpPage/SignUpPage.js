@@ -11,15 +11,8 @@ import {
   Grid,
 } from "@chakra-ui/react";
 import * as Yup from "yup";
-import { useStoreActions } from "easy-peasy";
-import { register } from "../../dbRequests/authentication.js";
 
 const SignUpPage = () => {
-  const actionLoginSuccess = useStoreActions(
-    (actions) => actions.auth.loginSuccess
-  );
-  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
-
   const {
     handleSubmit,
     handleChange,
@@ -48,14 +41,7 @@ const SignUpPage = () => {
       ),
     }),
     onSubmit: ({ email, username, password }) => {
-      // alert(`email: ${email}, username: ${username}, password: ${password}`);
-      register({
-        username,
-        email,
-        password,
-        actionLoginSuccess,
-        actionLoginFail,
-      });
+      alert(`email: ${email}, username: ${username}, password: ${password}`);
     },
   });
 
@@ -69,10 +55,10 @@ const SignUpPage = () => {
       alignItems="center"
     >
       <Text fontSize="4xl" mb="1rem">
-        Sign Up
+        Login
       </Text>
       <form onSubmit={handleSubmit}>
-        <FormControl isInvalid={errors.email}>
+        <FormControl isInvalid={errors.username}>
           <Grid
             gap="1rem"
             templateColumns="[left] 0.25fr [middle] 0.75fr [right] 10vw [error]"

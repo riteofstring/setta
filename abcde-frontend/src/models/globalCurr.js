@@ -41,10 +41,6 @@ const globalCurr = {
     state.moduleName = moduleName;
     state.objName = objName;
   }),
-
-  setGlobalCurr: action((state, payload) => {
-    state.globalCurr = payload;
-  }),
 };
 
 export default globalCurr;

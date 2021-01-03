@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useFormik } from "formik";
-import { useHistory } from "react-router-dom";
 import {
   FormErrorMessage,
   FormLabel,
@@ -14,17 +13,8 @@ import {
   Grid,
 } from "@chakra-ui/react";
 import * as Yup from "yup";
-import { useStoreActions } from "easy-peasy";
-import { login } from "../../dbRequests/authentication.js";
 
 const LoginPage = () => {
-  let history = useHistory();
-
-  const actionLoginSuccess = useStoreActions(
-    (actions) => actions.auth.loginSuccess
-  );
-  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
-
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
 
@@ -40,19 +30,16 @@ const LoginPage = () => {
       username: "",
       password: "",
     },
+    validationSchema: Yup.object({
+      username: Yup.string()
+        .max(10, "Username must be shorter than 10 characters")
+        .required("Required"),
+      password: Yup.string()
+        .min(6, "Password should be longer than 6 characters")
+        .required(),
+    }),
     onSubmit: ({ username, password }) => {
-      // alert(`username: ${username}, password: ${password}`);
-      login({
-        username,
-        password,
-        actionLoginSuccess,
-        actionLoginFail,
-      }).then((x) => {
-        console.log("x", x)
-        if (x.type === "@action.auth.loginSuccess") {
-          history.push("/ui");
-        }
-      });
+      alert(`username: ${username}, password: ${password}`);
     },
   });
 

@@ -34,12 +34,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "start-no-auth": "SET REACT_APP_NO_AUTH=true&&yarn start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "electron-dev": "concurrently \"SET BROWSER=none&&SET REACT_APP_USING_ELECTRON=true&&yarn start\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron-dev-no-auth": "concurrently \"SET BROWSER=none&&SET REACT_APP_USING_ELECTRON=true&&yarn start-no-auth\" \"wait-on http://localhost:3000 && electron .\""
+    "electron-dev": "concurrently \"SET BROWSER=none&&SET REACT_APP_USING_ELECTRON=true&&yarn start\" \"wait-on http://localhost:3000 && electron .\""
   },
   "eslintConfig": {
     "extends": [

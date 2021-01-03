@@ -41,7 +41,7 @@ const UiPage = () => {
     }
   }, [specsAreReady]);
 
-  return true ? (
+  return showUI ? (
     <>
       <DetailsPane />
       <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">

@@ -1,49 +1,35 @@
 import React from "react";
-import { Route, Switch, Redirect, IndexRoute } from "react-router-dom";
+import { Route, Switch } from "react-router-dom";
 // import StartPage from "../../StartPage/StartPage";
 import LoginPage from "../../LoginPage/LoginPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
 import DevPage from "../../DevPage/DevPage";
 import UiPage from "../../UiPage/UiPage";
 import TerminalPage from "../../TerminalPage/TerminalPage";
-import LogoutPage from "../../LogoutPage/LogoutPage";
-import { useStoreState } from "easy-peasy";
 
 const SwitchContainer = () => {
+
   return (
     <Switch>
       <Route exact path="/">
+        <UiPage />
+      </Route>
+      {/* <Route path="/start">
+        <StartPage />
+      </Route> */}
+      <Route path="/developer">
+        <DevPage />
+      </Route>
+      <Route path="/login">
         <LoginPage />
       </Route>
-      <Route exact path="/signup">
+      <Route path="/signup">
         <SignUpPage />
       </Route>
-      <PrivateRoute exact path="/ui">
-        <UiPage />
-      </PrivateRoute>
-      <PrivateRoute exact path="/developer">
-        <DevPage />
-      </PrivateRoute>
-      <PrivateRoute exact path="/terminal">
+      <Route path="/terminal">
         <TerminalPage />
-      </PrivateRoute>
-      <PrivateRoute exact path="/logout">
-        <LogoutPage />
-      </PrivateRoute>
+      </Route>
     </Switch>
-  );
-};
-
-const PrivateRoute = ({ children, ...rest }) => {
-  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
-  console.log("isAuthenticated", isAuthenticated);
-  return (
-    <Route
-      {...rest}
-      render={(props) =>
-        isAuthenticated ? children : <Redirect to="/" />
-      }
-    />
   );
 };
 
