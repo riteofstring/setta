@@ -1,8 +1,9 @@
 import { action } from "easy-peasy";
+import { NO_AUTH } from "../utils/constants";
 
 const auth = {
   token: localStorage.getItem('token'),
-  isAuthenticated: false,
+  isAuthenticated: NO_AUTH,
   user: null,
 
   loginSuccess: action((state, payload) => {
