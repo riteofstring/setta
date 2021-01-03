@@ -22,7 +22,9 @@ const TemplateUIToggle = () => {
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
   const token = useStoreState((state) => state.auth.token);
 
+  const resetSections = useStoreActions((actions) => actions.master.resetSections);
   const loadSections = useStoreActions((actions) => actions.master._loadSections);
+  const setGlobalCurr = useStoreActions((actions) => actions.globalCurr.setGlobalCurr);
 
   const [selectedUIName, setSelectedUIName] = useState(null);
 
@@ -45,7 +47,9 @@ const TemplateUIToggle = () => {
       token,
       uiName: selectedUIName,
     });
+    resetSections()
     loadSections({isJson: false, data: sections})
+    setGlobalCurr(globalCurr)
     onClose();
   };
 

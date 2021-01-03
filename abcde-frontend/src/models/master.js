@@ -344,9 +344,8 @@ const master = {
   }),
 
   saveUI: action((state, payload) => {
-    const { token, selections, globalCurr } = payload;
+    const { token, uiName, selections, globalCurr } = payload;
     const sections = state.sections;
-    const uiName = "testUI3";
     saveUIBackend({ token, uiName, sections, selections, globalCurr });
   }),
 
