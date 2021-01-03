@@ -1,6 +1,8 @@
-from ..utils import common_functions as c_f, yaml_parsing as yp
-from ..utils.constants import REGEX_KEYWORD
 import re
+
+from ..utils import common_functions as c_f
+from ..utils import yaml_parsing as yp
+from ..utils.constants import REGEX_KEYWORD
 
 
 class BaseInfo:

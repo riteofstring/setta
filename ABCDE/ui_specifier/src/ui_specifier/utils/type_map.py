@@ -1,10 +1,11 @@
-import typing
-import inspect
-from inspect import Parameter
 import importlib
+import inspect
+import typing
+from inspect import Parameter
+
 from . import common_functions as c_f
 from . import yaml_parsing as yp
-from .constants import UNKNOWN_UI_TYPE, REF_KEYWORD, MODULE_INFO, CLASS_INFO
+from .constants import CLASS_INFO, MODULE_INFO, REF_KEYWORD, UNKNOWN_UI_TYPE
 
 
 class NestedObject:

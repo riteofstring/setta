@@ -1,7 +1,9 @@
-import torch
-import unittest
 import os
 import shutil
+import unittest
+
+import torch
+
 from ui_specifier.utils import yaml_parsing as yp
 
 
@@ -9,6 +11,7 @@ def optimizer_factory(model, optimizer, **kwargs):
     device = torch.device("cuda")
     model = model.to(device)
     return optimizer(model.parameters(), **kwargs)
+
 
 def dataset_factory(dataset, transform, **kwargs):
     return dataset(root=".", transform=transform, **kwargs)

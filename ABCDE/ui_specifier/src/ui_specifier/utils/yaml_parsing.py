@@ -1,7 +1,9 @@
-import yaml
 import importlib
+
+import yaml
+
+from .common_functions import get_the_only_value, merge_dicts
 from .constants import REF_KEYWORD, REF_WITH_KWARGS, SEPARATOR
-from .common_functions import merge_dicts, get_the_only_value
 
 
 def load_yaml(fname):
@@ -32,13 +34,17 @@ def represents_object(x):
 
 
 def is_ref(x):
-    return isinstance(x, str) and (x.startswith(REF_KEYWORD) or x.startswith(REF_WITH_KWARGS))
+    return isinstance(x, str) and (
+        x.startswith(REF_KEYWORD) or x.startswith(REF_WITH_KWARGS)
+    )
 
 
 def get_ref(x, refs, ref_kwargs):
     assert x.startswith(REF_WITH_KWARGS) or x.startswith(REF_KEYWORD)
     return_kwargs = x.startswith(REF_WITH_KWARGS)
-    without_keyword = x.replace(REF_WITH_KWARGS, "") if return_kwargs else x.replace(REF_KEYWORD, "")
+    without_keyword = (
+        x.replace(REF_WITH_KWARGS, "") if return_kwargs else x.replace(REF_KEYWORD, "")
+    )
     search_terms = without_keyword.split(SEPARATOR)
     out_refs = refs
     out_kwargs = ref_kwargs

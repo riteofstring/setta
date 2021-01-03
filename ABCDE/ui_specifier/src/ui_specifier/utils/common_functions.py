@@ -1,5 +1,5 @@
-import inspect
 import builtins
+import inspect
 
 
 def is_class_or_function(x):

@@ -1,6 +1,8 @@
 import importlib
-from ..utils import yaml_parsing as yp
 import inspect
+
+from ..utils import yaml_parsing as yp
+
 
 class ImportsHolder:
     def set_import(self, name, package=None):

@@ -1,7 +1,9 @@
-from ui_specifier.registration.imports_holder import ImportsHolder
 import unittest
+
 import torch
 import torchvision
+
+from ui_specifier.registration.imports_holder import ImportsHolder
 
 
 class TestClassInfo(unittest.TestCase):

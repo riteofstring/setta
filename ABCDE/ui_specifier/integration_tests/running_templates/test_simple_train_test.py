@@ -1,8 +1,10 @@
-from ui_specifier.utils import yaml_parsing as yp
-import unittest
 import os
 import shutil
+import unittest
+
 import torch
+
+from ui_specifier.utils import yaml_parsing as yp
 
 
 class TestSimpleTrainTest(unittest.TestCase):

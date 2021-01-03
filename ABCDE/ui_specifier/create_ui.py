@@ -1,10 +1,14 @@
 import sys
+
 sys.path.insert(0, "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\src")
-import argparse        
+import argparse
+
 import yaml
+
 from ui_specifier.registration.imports_holder import ImportsHolder
 from ui_specifier.registration.ui_creator import UICreator
 from ui_specifier.utils.type_map import TYPE_MAP
+
 
 def main(args):
     ui_specs = args.ui_specs.replace("\\n", "\n")
@@ -18,11 +22,13 @@ def main(args):
     TYPE_MAP.register_from_dict(ui_types)
 
     sections = ui_specs.pop("SECTIONS", {})
-    
+
     ui = UICreator()
     ui.create(sections, global_ih)
 
-    test_filepath = "D:\\Documents\\App Development\\abcde-frontend\\src\\data\\fromUI.json"
+    test_filepath = (
+        "D:\\Documents\\App Development\\abcde-frontend\\src\\data\\fromUI.json"
+    )
     ui.export(test_filepath)
 
 

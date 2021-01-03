@@ -1,7 +1,8 @@
-from ..utils import common_functions as c_f
-from .class_info import ClassInfo
-from .base_info import BaseInfo
 import inspect
+
+from ..utils import common_functions as c_f
+from .base_info import BaseInfo
+from .class_info import ClassInfo
 
 
 class ModuleInfo(BaseInfo):

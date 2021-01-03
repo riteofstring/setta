@@ -1,6 +1,8 @@
-from ui_specifier.registration.module_info import ModuleInfo
-import torch
 import unittest
+
+import torch
+
+from ui_specifier.registration.module_info import ModuleInfo
 
 
 class TestModuleInfo(unittest.TestCase):

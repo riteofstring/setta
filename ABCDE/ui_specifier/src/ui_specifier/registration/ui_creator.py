@@ -1,15 +1,18 @@
-from ui_specifier.utils import common_functions as c_f, yaml_parsing as yp
-from ui_specifier.utils.constants import (
-    MODULE_INFO,
-    CLASS_INFO,
-    PARAMETER_INFO,
-    ALL_KEYWORD,
-)
-import ui_specifier.registration as registration
 import json
 import typing
+
+import ui_specifier.registration as registration
+from ui_specifier.utils import common_functions as c_f
+from ui_specifier.utils import yaml_parsing as yp
+from ui_specifier.utils.constants import (
+    ALL_KEYWORD,
+    CLASS_INFO,
+    MODULE_INFO,
+    PARAMETER_INFO,
+)
+
+from ..utils.type_map import DictNestedObject, ListNestedObject, NestedObject
 from .imports_holder import ImportsHolder
-from ..utils.type_map import NestedObject, ListNestedObject, DictNestedObject
 
 
 class UICreator:

@@ -1,19 +1,19 @@
+import importlib
+import json
+import os
+import typing
+import unittest
+from typing import List
+
+import ui_specifier
 from ui_specifier.registration.class_info import ClassInfo
+from ui_specifier.registration.imports_holder import ImportsHolder
 from ui_specifier.registration.module_info import ModuleInfo
 from ui_specifier.registration.ui_creator import UICreator
-from ui_specifier.utils.type_map import TYPE_MAP, NestedObject
 from ui_specifier.templates import simple_train_test
 from ui_specifier.utils import common_functions as c_f
 from ui_specifier.utils import yaml_parsing as yp
-from ui_specifier.registration.imports_holder import ImportsHolder
-import ui_specifier
-import unittest
-
-import json
-from typing import List
-import typing
-import os
-import importlib
+from ui_specifier.utils.type_map import TYPE_MAP, NestedObject
 
 # def test_function(
 #     a: int,
@@ -42,7 +42,7 @@ class TestSimpleExport(unittest.TestCase):
         TYPE_MAP.register_from_dict(ui_types)
 
         sections = config.pop("SECTIONS", {})
-        
+
         ui = UICreator()
         ui.create(sections, global_ih)
 
