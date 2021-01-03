@@ -18,14 +18,22 @@ class UISpecsAPIView(APIView):
 
 
 class SavedUIsAPIView(APIView):
+    def get(self, request, **kwargs):
+        uiSpecs = SavedUIs.objects.values(
+            "uiName", "sections", "selections", "globalCurr"
+        ).get(owner=request.user, uiName=kwargs["uiName"])
+        serializer = SavedUIsSerializer(data=uiSpecs)
+        if serializer.is_valid():
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def post(self, request):
         serializer = SavedUIsSerializer(data=request.data)
 
         if serializer.is_valid():
             serializer.save(owner=request.user)
             return Response({"result": "success"}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SavedUINamesAPIView(APIView):
