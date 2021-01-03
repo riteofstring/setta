@@ -10,7 +10,7 @@ export const login = ({
 }) => {
   const body = JSON.stringify({ username, password });
   return axios
-    .post(BACKEND.concat("api/auth/login"), body, tokenConfig(null))
+    .post(BACKEND + "api/auth/login", body, tokenConfig(null))
     .then((res) => actionLoginSuccess(res.data))
     .catch((err) => actionLoginFail(null));
 };
@@ -18,7 +18,7 @@ export const login = ({
 // LOGIN USER
 export const logout = ({ actionLoginFail, authToken }) => {
   axios
-    .post(BACKEND.concat("api/auth/logout"), null, tokenConfig(authToken))
+    .post(BACKEND + "api/auth/logout", null, tokenConfig(authToken))
     .then((res) => {
       actionLoginFail(null);
     })
@@ -35,10 +35,10 @@ export const register = ({
   actionLoginSuccess,
   actionLoginFail,
 }) => {
-console.log("attempting register")
+  console.log("attempting register");
   const body = JSON.stringify({ username, email, password });
   axios
-    .post(BACKEND.concat("api/auth/register"), body, tokenConfig(null))
+    .post(BACKEND + "api/auth/register", body, tokenConfig(null))
     .then((res) => {
       actionLoginSuccess(res.data);
     })

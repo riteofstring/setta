@@ -1,17 +1,33 @@
 import { action, thunk } from "easy-peasy";
-import { loadUINames as loadUINamesBackend } from "../dbRequests/ui";
+import {
+  loadUINames as loadUINamesBackend,
+  loadUI as loadUIBackend,
+} from "../dbRequests/ui";
 
 const uiInfo = {
   uiNames: [],
 
   setUINames: action((state, payload) => {
-      console.log("setUINames", payload)
     state.uiNames = payload;
   }),
 
-  loadUINames: thunk((action, payload, helpers) => {
+  loadUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
-    loadUINamesBackend({ token }).then((uiNames) => action.setUINames(uiNames));
+    const uiNames = await loadUINamesBackend({ token });
+    action.setUINames(uiNames);
+  }),
+
+  loadUI: thunk(async (action, payload, helpers) => {
+    const { token, uiName } = payload;
+    const { sections, selections, globalCurr } = await loadUIBackend({
+      token,
+      uiName,
+    });
+    return {
+      sections: JSON.parse(sections),
+      selections: JSON.parse(selections),
+      globalCurr: JSON.parse(globalCurr),
+    };
   }),
 };
 

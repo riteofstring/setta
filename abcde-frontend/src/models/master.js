@@ -36,9 +36,15 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    for (let key of Object.keys(payload)) {
+    const {isJson, data} = payload
+    if (!isJson){
+      state.sections = data
+    }
+    for (let key of Object.keys(data)) {
       let id = state.sectionCount;
-      state.sections[id] = new Section(key, payload[key]);
+      if (isJson){
+        state.sections[id] = new Section(key, data[key]);
+      }
       state.rootIdHierarchy[id] = {
         parent: null,
         children: [],
@@ -48,7 +54,7 @@ const master = {
         parentObjName: null,
       };
       state.shiftAmount[id] = 0;
-      state.sectionIdsToSectionHeadings[id] = key;
+      state.sectionIdsToSectionHeadings[id] = isJson ? key : state.sections[id].name
       state.sectionIdsToStringIds[id] = id;
       state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
@@ -99,10 +105,10 @@ const master = {
         data: null,
       });
       ipcRenderer.once("asynchronous-reply", (event, arg) => {
-        action._loadSections(arg);
+        action._loadSections({isJson: true, data: arg});
       });
     } else {
-      action._loadSections(Data);
+      action._loadSections({isJson: true, data: Data});
     }
   }),
 
