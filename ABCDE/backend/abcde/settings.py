@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'abcde',
+    'ui_specs',
     'knox',
     'accounts'
 ]
