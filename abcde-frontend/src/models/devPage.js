@@ -1,4 +1,4 @@
-import { action } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import { createUI as createUIBackend } from "../dbRequests/ui";
 
 const devPage = {
@@ -13,10 +13,17 @@ const devPage = {
     state.specsAreReady = payload;
   }),
 
-  createUI: action((state, payload) => {
+  createUI: thunk(async (action, payload, helpers) => {
     const { token } = payload;
-    state.specsAreReady = false;
-    createUIBackend({ token, uiSpecs: state.uiSpecs });
+    action.setSpecsAreReady(false);
+    const result = await createUIBackend({
+      token,
+      uiSpecs: helpers.getState().uiSpecs,
+    });
+    if (result === "success"){
+      action.setSpecsAreReady(true);
+    }
+    return result;
   }),
 };
 

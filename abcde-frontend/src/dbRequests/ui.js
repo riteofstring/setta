@@ -6,7 +6,7 @@ export const createUI = ({ token, uiSpecs }) => {
   const body = JSON.stringify({ uiSpecs });
   return axios
     .post(BACKEND + "api/create_ui", body, tokenConfig(token))
-    .then((res) => {})
+    .then((res) => res.data["result"])
     .catch((err) => {});
 };
 

@@ -22,15 +22,11 @@ const DevPane = () => {
     valueGetter.current = _valueGetter;
   };
 
-  const handleCreateUI = () => {
-    createUI({ token });
-    setLoadSectionsIsDone(false);
-    // ipcRenderer.once("asynchronous-reply", (event, arg) => {
-    //   if (arg === "success") {
-    //     console.log("success");
-    //     setSpecsAreReady(true);
-    //   }
-    // });
+  const handleCreateUI = async () => {
+    const result = await createUI({ token });
+    if (result === "success"){
+      setLoadSectionsIsDone(false);
+    }
   };
 
   const onChange = (e, newValue) => {
