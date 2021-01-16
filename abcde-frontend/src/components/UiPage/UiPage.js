@@ -24,8 +24,7 @@ const UiPage = () => {
   const showTerminal = useStoreState((state) => state.master.showTerminal);
 
   const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
-
-  const showUI = specsAreReady | !USING_ELECTRON;
+  const uiAsJson = useStoreState((state) => state.devPage.uiAsJson);
 
   console.log("UiPage");
 
@@ -33,7 +32,7 @@ const UiPage = () => {
     if (USING_ELECTRON) {
       if (specsAreReady && !loadSectionsIsDone) {
         resetSections();
-        loadSections();
+        loadSections(uiAsJson);
       }
     } else if (!loadSectionsIsDone) {
       resetSections();
@@ -41,7 +40,7 @@ const UiPage = () => {
     }
   }, [specsAreReady]);
 
-  return true ? (
+  return (
     <>
       <DetailsPane />
       <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">
@@ -50,8 +49,6 @@ const UiPage = () => {
       {!!showTerminal && <TheTerminal />}
       <RunContainer />
     </>
-  ) : (
-    <></>
   );
 };
 

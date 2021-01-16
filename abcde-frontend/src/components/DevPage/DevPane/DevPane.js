@@ -9,9 +9,6 @@ const DevPane = () => {
   const uiSpecs = useStoreState((state) => state.devPage.uiSpecs);
   const setUISpecs = useStoreActions((actions) => actions.devPage.setUISpecs);
   const createUI = useStoreActions((actions) => actions.devPage.createUI);
-  const setSpecsAreReady = useStoreActions(
-    (actions) => actions.devPage.setSpecsAreReady
-  );
   const setLoadSectionsIsDone = useStoreActions(
     (actions) => actions.master.setLoadSectionsIsDone
   );
@@ -24,7 +21,7 @@ const DevPane = () => {
 
   const handleCreateUI = async () => {
     const result = await createUI({ token });
-    if (result === "success"){
+    if (result){
       setLoadSectionsIsDone(false);
     }
   };

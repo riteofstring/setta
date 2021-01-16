@@ -77,12 +77,5 @@ ipcMain.on("asynchronous-message", (event, payload) => {
     });
 
     child.write(`run_from_ui_selections.bat "${data}"\r\n`);
-  } else if (arg == "get UI specs") {
-    const uiSpecs = JSON.parse(
-      fs.readFileSync("src\\data\\fromUI.json", "utf8")
-    );
-    console.log("loading fromUI.json");
-    console.log(uiSpecs);
-    event.reply("asynchronous-reply", uiSpecs);
   }
 });

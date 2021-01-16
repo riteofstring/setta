@@ -1,5 +1,4 @@
 import { action, thunk, debug } from "easy-peasy";
-// import { getUISpecs } from "../dbRequests/fetchData";
 import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
@@ -8,7 +7,7 @@ import {
   setChildrenVisibility,
   createExportableObject,
 } from "../utils/sectionIds";
-import { USING_ELECTRON, ipcRenderer } from "../utils/constants";
+import { USING_ELECTRON, NO_AUTH, ipcRenderer } from "../utils/constants";
 import { saveUI as saveUIBackend } from "../dbRequests/ui";
 
 const master = {
@@ -98,17 +97,10 @@ const master = {
   }),
 
   loadSections: thunk((action, payload, helpers) => {
-    // getUISpecs().then((res) => action._loadSections(res.data));
-    if (USING_ELECTRON) {
-      ipcRenderer.send("asynchronous-message", {
-        arg: "get UI specs",
-        data: null,
-      });
-      ipcRenderer.once("asynchronous-reply", (event, arg) => {
-        action._loadSections({isJson: true, data: arg});
-      });
-    } else {
+    if (NO_AUTH) {
       action._loadSections({isJson: true, data: Data});
+    } else {
+      action._loadSections({isJson: true, data: payload})
     }
   }),
 
