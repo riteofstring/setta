@@ -6,15 +6,21 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from ui_specifier.creation.create_ui import create_ui
+
 from .models import SavedUIs
 from .serializers import SavedUIsSerializer
 
 
-class UISpecsAPIView(APIView):
-    def get(self, request, format=None):
-        with open("{}/../ui_specifier/test.json".format(settings.BASE_DIR)) as f:
-            d = json.load(f)
-        return Response(d)
+class CreateUIAPIView(APIView):
+    # def get(self, request, format=None):
+    #     with open("{}/../ui_specifier/test.json".format(settings.BASE_DIR)) as f:
+    #         d = json.load(f)
+    #     return Response(d)
+
+    def post(self, request):
+        create_ui(request.data["uiSpecs"])
+        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
 
 
 class SavedUIsAPIView(APIView):
