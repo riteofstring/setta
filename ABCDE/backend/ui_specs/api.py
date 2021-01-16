@@ -19,8 +19,8 @@ class CreateUIAPIView(APIView):
     #     return Response(d)
 
     def post(self, request):
-        create_ui(request.data["uiSpecs"])
-        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
+        ui_as_json = create_ui(request.data["uiSpecs"])
+        return Response({"uiAsJson": ui_as_json}, status=status.HTTP_201_CREATED)
 
 
 class SavedUIsAPIView(APIView):

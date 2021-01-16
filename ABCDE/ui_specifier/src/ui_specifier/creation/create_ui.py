@@ -20,8 +20,4 @@ def create_ui(ui_specs):
 
     ui = UICreator()
     ui.create(sections, global_ih)
-
-    test_filepath = (
-        "D:\\Documents\\App Development\\abcde-frontend\\src\\data\\fromUI.json"
-    )
-    ui.export(test_filepath)
+    return ui.export()
