@@ -2,7 +2,6 @@ import React, { useRef, useState } from "react";
 import { Flex, Button } from "@chakra-ui/react";
 import { ControlledEditor } from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { ipcRenderer } from "../../../utils/constants";
 
 const DevPane = () => {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -16,6 +15,7 @@ const DevPane = () => {
   const setLoadSectionsIsDone = useStoreActions(
     (actions) => actions.master.setLoadSectionsIsDone
   );
+  const token = useStoreState((state) => state.auth.token);
 
   const handleEditorDidMount = (_valueGetter) => {
     setIsEditorReady(true);
@@ -23,14 +23,14 @@ const DevPane = () => {
   };
 
   const handleCreateUI = () => {
-    createUI();
+    createUI({ token });
     setLoadSectionsIsDone(false);
-    ipcRenderer.once("asynchronous-reply", (event, arg) => {
-      if (arg === "success") {
-        console.log("success");
-        setSpecsAreReady(true);
-      }
-    });
+    // ipcRenderer.once("asynchronous-reply", (event, arg) => {
+    //   if (arg === "success") {
+    //     console.log("success");
+    //     setSpecsAreReady(true);
+    //   }
+    // });
   };
 
   const onChange = (e, newValue) => {

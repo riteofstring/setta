@@ -77,14 +77,6 @@ ipcMain.on("asynchronous-message", (event, payload) => {
     });
 
     child.write(`run_from_ui_selections.bat "${data}"\r\n`);
-  } else if (arg == "create UI") {
-    data = data.replace(/"/g, '\\"');
-    data = data.replaceAll("\n", "\\n");
-    child = child_process.spawn("create_ui.bat", [`"${data}"`], {
-      encoding: "utf8",
-      shell: true,
-      cwd: backendPath,
-    });
   } else if (arg == "get UI specs") {
     const uiSpecs = JSON.parse(
       fs.readFileSync("src\\data\\fromUI.json", "utf8")
@@ -92,23 +84,5 @@ ipcMain.on("asynchronous-message", (event, payload) => {
     console.log("loading fromUI.json");
     console.log(uiSpecs);
     event.reply("asynchronous-reply", uiSpecs);
-  }
-
-  if (["create UI"].includes(arg)) {
-    child.stdout.on("data", function (data) {
-      console.log(data.toString());
-    });
-
-    child.on("close", (code) => {
-      event.reply("asynchronous-reply", code === 0 ? "success" : "fail");
-    });
-
-    child.stdout.on("end", () => {
-      console.log("There will be no more data.");
-    });
-
-    child.stderr.on("data", function (data) {
-      console.log(data.toString());
-    });
   }
 });

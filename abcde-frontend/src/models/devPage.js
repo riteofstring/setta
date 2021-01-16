@@ -1,6 +1,5 @@
 import { action } from "easy-peasy";
-
-import { ipcRenderer } from "../utils/constants";
+import { createUI as createUIBackend } from "../dbRequests/ui";
 
 const devPage = {
   uiSpecs: "// write your code here",
@@ -14,12 +13,10 @@ const devPage = {
     state.specsAreReady = payload;
   }),
 
-  createUI: action((state) => {
-    state.specsAreReady = false
-    ipcRenderer.send("asynchronous-message", {
-      arg: "create UI",
-      data: state.uiSpecs,
-    });
+  createUI: action((state, payload) => {
+    const { token } = payload;
+    state.specsAreReady = false;
+    createUIBackend({ token, uiSpecs: state.uiSpecs });
   }),
 };
 

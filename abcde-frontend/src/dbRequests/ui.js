@@ -2,6 +2,14 @@ import axios from "axios";
 import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
 
+export const createUI = ({ token, uiSpecs }) => {
+  const body = JSON.stringify({ uiSpecs });
+  return axios
+    .post(BACKEND + "api/create_ui", body, tokenConfig(token))
+    .then((res) => {})
+    .catch((err) => {});
+};
+
 export const saveUI = ({ token, uiName, sections, selections, globalCurr }) => {
   sections = JSON.stringify(sections);
   selections = JSON.stringify(selections);
