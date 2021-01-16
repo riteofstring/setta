@@ -1,1 +1,0 @@
-activate abcde_env && python -u create_ui.py %1
