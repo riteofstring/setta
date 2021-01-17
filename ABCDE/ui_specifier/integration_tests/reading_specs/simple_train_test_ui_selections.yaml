@@ -40,4 +40,10 @@ Transform:
 #   test_batch_size: 1000
 #   epochs: 1
 
+# Various Params:
+#   mean: 500
+#   std: 100
+
+# mean: 500
+
 

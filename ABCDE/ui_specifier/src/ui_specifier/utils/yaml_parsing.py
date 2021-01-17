@@ -52,6 +52,16 @@ def remove_ref(x):
     return x.replace(REF_KEYWORD, "").replace(KWARGS_KEYWORD, "")
 
 
+def get_full_name(parent_name, name):
+    if parent_name is not None:
+        return f"{parent_name}{SEPARATOR}{name}"
+    return name
+
+
+def get_name_from_full_name(full_name):
+    return full_name.split(SEPARATOR)[-1]
+
+
 class SimpleRepr:
     def __init__(self, value, ignore_string=False):
         self.value = self.maybe_process_string(value, ignore_string)
@@ -174,19 +184,21 @@ class UIRepr:
             self.ref_var_reprs[name] = new_var
 
     def add_var(self, name=None, is_child=False, do_init=True):
-        original_name = name
+        original_full_name = name
         name = self.curr_var.name if name is None else name
+        name = get_name_from_full_name(name)
         name = self.create_unique_name(name)
-        self.add_name_to_var_name_map(original_name, name)
+        self.add_name_to_var_name_map(original_full_name, name)
         new_var = VarRepr(name, do_init=do_init)
         self.add_to_var_reprs(name, new_var, do_init)
         if is_child:
             new_var.depth = self.curr_var.depth + 1
-            if original_name is not None:
+            if original_full_name is not None:
+                original_name = get_name_from_full_name(original_full_name)
                 self.curr_var.obj.params.get(original_name).set_value(
                     name, ignore_string=True
                 )
-            else:  # if original_name is None, then it must be a list
+            else:  # if original_full_name is None, then it must be a list
                 self.curr_var.obj.append(name, ignore_string=True)
         return name
 
@@ -267,12 +279,13 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
                     ui_repr.curr_var.obj.add_param(name)
                     ui_repr.curr_var.obj.set_curr_param(name)
                 if not is_ref(value):
+                    full_name = get_full_name(parent_var_name, name)
                     ui_repr.add_var(
-                        name,
+                        full_name,
                         is_child=is_child,
                         do_init=do_init(name, vars_with_factories, is_child),
                     )
-                    ui_repr.set_curr_var(name)
+                    ui_repr.set_curr_var(full_name)
 
             create_objects(value, ui_repr, vars_with_factories, is_child=True)
             ui_repr.set_curr_var(parent_var_name)

@@ -24,7 +24,8 @@ class TestSimpleRead(unittest.TestCase):
 
         ui_repr = yp.generate_code(ui_selections, factory_specs)
 
-        # print(ui_repr)
+        print(ui_repr)
+        print(ui_repr.var_name_map)
 
         output_filename = os.path.join(curr_dir, "test_write_output.py")
         with open(output_filename, "w") as text_file:
