@@ -1,3 +1,4 @@
+import copy
 import importlib
 import string
 from collections import defaultdict
@@ -5,7 +6,7 @@ from collections import defaultdict
 import yaml
 
 from .common_functions import get_the_only_key, get_the_only_value, merge_dicts
-from .constants import REF_KEYWORD, KWARGS_KEYWORD, SEPARATOR
+from .constants import KWARGS_KEYWORD, REF_KEYWORD, SEPARATOR
 
 
 def load_yaml(fname):
@@ -34,14 +35,18 @@ def string_to_attr(input_string):
 def represents_object(x):
     return "." in x
 
+
 def is_simple_ref(x):
     return isinstance(x, str) and x.startswith(REF_KEYWORD)
+
 
 def is_kwargs_ref(x):
     return isinstance(x, str) and x.startswith(KWARGS_KEYWORD)
 
+
 def is_ref(x):
     return is_simple_ref(x) or is_kwargs_ref(x)
+
 
 def remove_ref(x):
     return x.replace(REF_KEYWORD, "").replace(KWARGS_KEYWORD, "")
@@ -66,16 +71,6 @@ class SimpleRepr:
             return "[{}]".format(output)
         else:
             return f"{self.value}"
-
-# class DictRepr:
-#     def __init__(self, input_dict=None):
-#         self.dict = {} if input_dict is None else input_dict
-
-#     # def add_key_value(self, key, value):
-#     #     self.dict[key] = SimpleRepr(value)
-
-#     def __repr__(self):
-#         return self.dict
 
 
 class ParamRepr:
@@ -159,14 +154,32 @@ class VarRepr:
 class UIRepr:
     import_reprs = {}
     var_reprs = {}
+    ref_var_reprs = {}
+    var_name_map = {}
+    reverse_var_name_map = {}
     curr_var = None
+
+    def add_name_to_var_name_map(self, original_name, name):
+        if original_name is not None:
+            self.var_name_map[original_name] = name
+            self.reverse_var_name_map[name] = original_name
+        else:
+            self.var_name_map[name] = name
+            self.reverse_var_name_map[name] = name
+
+    def add_to_var_reprs(self, name, new_var, do_init):
+        if do_init:
+            self.var_reprs[name] = new_var
+        else:
+            self.ref_var_reprs[name] = new_var
 
     def add_var(self, name=None, is_child=False, do_init=True):
         original_name = name
         name = self.curr_var.name if name is None else name
         name = self.create_unique_name(name)
+        self.add_name_to_var_name_map(original_name, name)
         new_var = VarRepr(name, do_init=do_init)
-        self.var_reprs[name] = new_var
+        self.add_to_var_reprs(name, new_var, do_init)
         if is_child:
             new_var.depth = self.curr_var.depth + 1
             if original_name is not None:
@@ -181,7 +194,11 @@ class UIRepr:
         if name is None:
             self.curr_var = None
         else:
-            self.curr_var = self.var_reprs[name]
+            name = self.var_name_map[name]
+            try:
+                self.curr_var = self.var_reprs[name]
+            except KeyError:
+                self.curr_var = self.ref_var_reprs[name]
 
     def create_unique_name(self, name):
         while name in self.import_reprs or name in self.var_reprs:
@@ -199,21 +216,25 @@ class UIRepr:
         alias = attr_name
         if not self.already_imported(alias, modules):
             alias = self.create_unique_name(alias)
-        self.import_reprs[attr_name] = ImportRepr(modules, attr_name, alias)
-        return attr_name
+        self.import_reprs[alias] = ImportRepr(modules, attr_name, alias)
+        return alias
+
+    def var_reprs_as_string(self, var_reprs):
+        strings = []
+        # do child vars in reverse order
+        strings.append(
+            "".join(reversed([f"{x}" for x in var_reprs.values() if x.depth > 0]))
+        )
+        # then do root vars
+        strings.append("".join([f"{x}" for x in var_reprs.values() if x.depth == 0]))
+        return "".join(strings)
 
     def __repr__(self):
         strings = []
         # first do imports
         strings.append("".join([f"{x}" for x in self.import_reprs.values()]))
-        # then do child vars in reverse order
-        strings.append(
-            "".join(reversed([f"{x}" for x in self.var_reprs.values() if x.depth > 0]))
-        )
-        # then do root vars
-        strings.append(
-            "".join([f"{x}" for x in self.var_reprs.values() if x.depth == 0])
-        )
+        strings.append(self.var_reprs_as_string(self.ref_var_reprs))
+        strings.append(self.var_reprs_as_string(self.var_reprs))
         return "".join(strings)
 
 
@@ -234,7 +255,7 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
     # if it's a set of parameters, then keys are parameter names, and the values are parameter values
     parent_var_name = None
     if ui_repr.curr_var is not None:
-        parent_var_name = ui_repr.curr_var.name
+        parent_var_name = ui_repr.reverse_var_name_map[ui_repr.curr_var.name]
 
     if isinstance(x, dict) and len(x) > 0:
         for name, value in x.items():
@@ -246,12 +267,12 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
                     ui_repr.curr_var.obj.add_param(name)
                     ui_repr.curr_var.obj.set_curr_param(name)
                 if not is_ref(value):
-                    returned_name = ui_repr.add_var(
+                    ui_repr.add_var(
                         name,
                         is_child=is_child,
                         do_init=do_init(name, vars_with_factories, is_child),
                     )
-                    ui_repr.set_curr_var(returned_name)
+                    ui_repr.set_curr_var(name)
 
             create_objects(value, ui_repr, vars_with_factories, is_child=True)
             ui_repr.set_curr_var(parent_var_name)
@@ -266,12 +287,14 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
 
     elif x is not None:
         if is_ref(x):
-            ref_var_name = remove_ref(x)
+            ref_var_name = ui_repr.var_name_map[remove_ref(x)]
             if is_simple_ref(x):
                 set_value(SimpleRepr(ref_var_name, ignore_string=True), ui_repr)
             elif is_kwargs_ref(x):
-                ref_var_kwargs = ui_repr.var_reprs[ref_var_name].obj.params
-                ref_var_kwargs = {k:v.value for k,v in ref_var_kwargs.param_reprs.items()}
+                ref_var_kwargs = ui_repr.ref_var_reprs[ref_var_name].obj.params
+                ref_var_kwargs = {
+                    k: v.value for k, v in ref_var_kwargs.param_reprs.items()
+                }
                 set_value(ref_var_kwargs, ui_repr)
         else:
             set_value(x, ui_repr)

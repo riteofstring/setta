@@ -24,17 +24,17 @@ class TestSimpleRead(unittest.TestCase):
 
         ui_repr = yp.generate_code(ui_selections, factory_specs)
 
-        print(ui_repr)
+        # print(ui_repr)
 
-        # output_filename = os.path.join(curr_dir, "test_write_output.py")
-        # with open(output_filename, "w") as text_file:
-        #     print("import sys", file=text_file)
-        #     print("sys.path.insert(0, '{}/../../src')".format(curr_dir), file=text_file)
-        #     print(ui_repr, file=text_file, end="")
+        output_filename = os.path.join(curr_dir, "test_write_output.py")
+        with open(output_filename, "w") as text_file:
+            print("import sys", file=text_file)
+            print("sys.path.insert(0, '{}/../../src')".format(curr_dir), file=text_file)
+            print(ui_repr, file=text_file, end="")
 
-        # import subprocess
+        import subprocess
 
-        # subprocess.run(["python", output_filename])
+        subprocess.run(["python", output_filename])
 
         # yp.run(objs, funcs)
 

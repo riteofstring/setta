@@ -1,7 +1,7 @@
 Model:
   ui_specifier.templates.simple_train_test.Net:
 
-Optimizer:
+Net:
   torch.optim.Adadelta:
     lr: 0.1
     

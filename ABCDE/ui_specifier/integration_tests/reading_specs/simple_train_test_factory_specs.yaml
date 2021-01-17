@@ -1,8 +1,8 @@
-Optimizer:
+Net:
   ui_specifier.templates.pytorch_factories.optimizer_factory:
     model: ~REF~Model
-    optimizer: ~REF~Optimizer
-    kwargs: ~KWARGS~Optimizer
+    optimizer: ~REF~Net
+    kwargs: ~KWARGS~Net
 
 TrainDataset:
   ui_specifier.templates.pytorch_factories.dataset_factory:
