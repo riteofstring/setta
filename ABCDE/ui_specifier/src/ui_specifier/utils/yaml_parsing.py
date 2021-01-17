@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import yaml
 
-from .common_functions import get_the_only_value, merge_dicts
+from .common_functions import get_the_only_key, get_the_only_value, merge_dicts
 from .constants import REF_KEYWORD, SEPARATOR
 
 # class ObjRepr:
@@ -95,7 +95,6 @@ def obj_creation_string(var_name, obj_name, params, init):
 
 
 def create_objects(x, init=True, var_name=None, ui_repr=None, is_child=False):
-    print("var_name", var_name, x)
     if isinstance(x, dict) and len(x) > 0:
         for k, v in x.items():
             if is_ref(v):
@@ -104,25 +103,31 @@ def create_objects(x, init=True, var_name=None, ui_repr=None, is_child=False):
                 params = {} if v is None else v
                 next_var_name = var_name
                 if is_child:
-                    next_var_name = ui_repr.create_unique_child_name(var_name)
+                    next_var_name = ui_repr.create_unique_child_name(var_name, k)
                 create_objects(
                     params, init, var_name=next_var_name, ui_repr=ui_repr, is_child=True
                 )
                 if represents_object(k):
                     obj_name = ui_repr.set_imports(k)
-                    ui_repr.set_vars_to_objs(next_var_name, obj_name, init, params, is_child)
+                    ui_repr.set_vars_to_objs(
+                        next_var_name, obj_name, init, params, is_child
+                    )
+                    implicit_refs = ui_repr.get_implicit_refs(next_var_name)
+                    ui_repr.replace_implicit_refs(next_var_name, implicit_refs)
 
     elif isinstance(x, (list, tuple)) and len(x) > 0:
-        # new_x = []
         for sub_x in x:
             create_objects(
                 sub_x, init, var_name=var_name, ui_repr=ui_repr, is_child=True
             )
-            # new_x.append(child_name)
-        # for i in range(len(x)):
-        #     x[i] = new_x[i]
 
-    # return var_name
+
+class VarRepr:
+    def __init__(self, var_name):
+        self.var_name = var_name
+
+    def __repr__(self):
+        return self.var_name
 
 
 class UIRepr:
@@ -131,6 +136,39 @@ class UIRepr:
     original_vars_to_unique = {}
     implicit_refs = defaultdict(list)
     saved_string_state = ""
+
+    def get_implicit_refs(self, original_var_name, depth=0, max_depth=1):
+        # key = self.original_vars_to_unique[key]
+        output = []
+        for var_name, full_obj_name in self.implicit_refs[original_var_name]:
+            # k = self.original_vars_to_unique[k]
+            if var_name in self.vars_to_objs:
+                output.append((var_name, full_obj_name))
+            if depth < max_depth:
+                output.extend(
+                    self.get_implicit_refs(
+                        var_name, depth=depth + 1, max_depth=max_depth
+                    )
+                )
+        return output
+
+    def replace_implicit_refs_helper(self, params, var_name, full_obj_name):
+        for name, value in params.items():
+            if isinstance(value, dict) and get_the_only_key(value) == full_obj_name:
+                params[name] = VarRepr(var_name)
+                return
+            elif isinstance(value, (list, tuple)):
+                for i, v in enumerate(value):
+                    if isinstance(v, dict) and get_the_only_key(v) == full_obj_name:
+                        value[i] = VarRepr(var_name)
+                        return
+
+    def replace_implicit_refs(self, original_var_name, implicit_refs):
+        objs = self.get_objs(original_var_name)
+        params = objs["params"]
+        if len(params) > 0:
+            for ir, full_obj_name in implicit_refs:
+                self.replace_implicit_refs_helper(params, ir, full_obj_name)
 
     def get_objs(self, original_var_name):
         var_name = self.original_vars_to_unique[original_var_name]
@@ -149,9 +187,9 @@ class UIRepr:
             attr_name in self.imports and self.imports[attr_name]["modules"] == modules
         )
 
-    def create_unique_child_name(self, name):
+    def create_unique_child_name(self, name, full_obj_name):
         new_name = "{}_{}".format(name, len(self.implicit_refs[name]))
-        self.implicit_refs[name].append(new_name)
+        self.implicit_refs[name].append((new_name, full_obj_name))
         return new_name
 
     def create_unique_name(self, name):
@@ -271,17 +309,7 @@ def create_objs_from_ui_selections(ui_selections, factory_specs):
     # print("\nui_repr.vars_to_objs\n")
     # print(ui_repr.vars_to_objs)
 
-    print("\nui_repr.implicit_refs\n")
-    # read_implicit_refs(ui_repr)
+    # print("\nui_repr.implicit_refs\n")
+    # print(ui_repr.get_implicit_refs("Transform"))
 
     return ui_repr.saved_string_state
-
-
-# def read_implicit_refs(ui_repr, key):
-#     for k,v in ui_repr.implicit_refs.items():
-#         print("****", k, "****")
-#         # if k in ui_repr.implicit_refs:
-#             # read_implicit_refs(k)
-#         for sub_v in v:
-#             if sub_v in ui_repr.vars_to_objs:
-#                 print(ui_repr.vars_to_objs[sub_v])
