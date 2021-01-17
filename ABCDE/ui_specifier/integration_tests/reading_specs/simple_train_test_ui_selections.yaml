@@ -35,15 +35,9 @@ Transform:
 #             - torchvision.models.resnet18:
 #       - ui_specifier.templates.simple_train_test.Net:            
 
-# Various Params:
-#   batch_size: 64
-#   test_batch_size: 1000
-#   epochs: 1
-
-# Various Params:
-#   mean: 500
-#   std: 100
-
-# mean: 500
+Various Params:
+  batch_size: 64
+  test_batch_size: 1000
+  epochs: 1
 
 

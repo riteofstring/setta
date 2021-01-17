@@ -62,6 +62,16 @@ def get_name_from_full_name(full_name):
     return full_name.split(SEPARATOR)[-1]
 
 
+def set_value(x, ui_repr, ignore_string=False):
+    obj = ui_repr.curr_var.obj
+    if isinstance(obj, DictRepr):
+        obj.set_value(x, ignore_string)
+    elif isinstance(obj, ObjRepr):
+        obj.curr_param.set_value(x, ignore_string)
+    else:
+        ui_repr.curr_var.set_obj(SimpleRepr(x, ignore_string))
+
+
 class SimpleRepr:
     def __init__(self, value, ignore_string=False):
         self.value = self.maybe_process_string(value, ignore_string)
@@ -81,6 +91,27 @@ class SimpleRepr:
             return "[{}]".format(output)
         else:
             return f"{self.value}"
+
+
+class DictRepr:
+    def __init__(self, input_dict=None):
+        self.dict = {} if input_dict is None else input_dict
+        self.curr_key = None
+
+    def add_key(self, key):
+        self.dict[key] = None
+
+    def set_curr_key(self, key):
+        self.curr_key = key
+
+    def set_value(self, value, ignore_string=False):
+        self.dict[self.curr_key] = SimpleRepr(value, ignore_string)
+
+    def __repr__(self):
+        # key_value_pairs = ["'{}':{}".format(k,v) for k,v in self.dict.items()]
+        # key_value_pairs = ",".join(key_value_pairs)
+        # return f"{{{key_value_pairs}}}"
+        return str(self.dict)
 
 
 class ParamRepr:
@@ -195,9 +226,7 @@ class UIRepr:
             new_var.depth = self.curr_var.depth + 1
             if original_full_name is not None:
                 original_name = get_name_from_full_name(original_full_name)
-                self.curr_var.obj.params.get(original_name).set_value(
-                    name, ignore_string=True
-                )
+                set_value(name, self, ignore_string=True)
             else:  # if original_full_name is None, then it must be a list
                 self.curr_var.obj.append(name, ignore_string=True)
         return name
@@ -250,11 +279,20 @@ class UIRepr:
         return "".join(strings)
 
 
-def set_value(x, ui_repr):
-    try:
-        ui_repr.curr_var.obj.curr_param.set_value(x)
-    except AttributeError:
-        ui_repr.curr_var.set_obj(SimpleRepr(x))
+def add_param(ui_repr, name):
+    obj = ui_repr.curr_var.obj
+    if obj is not None:
+        if isinstance(obj, ObjRepr):
+            obj.add_param(name)
+            obj.set_curr_param(name)
+        elif isinstance(obj, DictRepr):
+            obj.add_key(name)
+            obj.set_curr_key(name)
+    else:
+        obj = DictRepr({})
+        obj.add_key(name)
+        obj.set_curr_key(name)
+        ui_repr.curr_var.obj = obj
 
 
 def do_init(name, vars_with_factories, is_child):
@@ -276,8 +314,7 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
                 ui_repr.curr_var.set_obj(obj_name)
             else:
                 if ui_repr.curr_var is not None:
-                    ui_repr.curr_var.obj.add_param(name)
-                    ui_repr.curr_var.obj.set_curr_param(name)
+                    add_param(ui_repr, name)
                 if not is_ref(value):
                     full_name = get_full_name(parent_var_name, name)
                     ui_repr.add_var(
