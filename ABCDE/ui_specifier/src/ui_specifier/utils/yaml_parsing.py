@@ -216,7 +216,6 @@ def create_objects(x, ui_repr, is_child=False):
     # x is either an object or a set of parameters
     # if it's an object, then the key is the object name, and the value is another dictionary
     # if it's a set of parameters, then keys are parameter names, and the values are parameter values
-    print(ui_repr)
     parent_var_name = None
     if ui_repr.curr_var is not None:
         parent_var_name = ui_repr.curr_var.name
@@ -230,8 +229,8 @@ def create_objects(x, ui_repr, is_child=False):
                 if ui_repr.curr_var is not None:
                     ui_repr.curr_var.obj.add_param(name)
                     ui_repr.curr_var.obj.set_curr_param(name)
-                ui_repr.add_var(name, is_child=is_child)
-                ui_repr.set_curr_var(name)
+                returned_name = ui_repr.add_var(name, is_child=is_child)
+                ui_repr.set_curr_var(returned_name)
 
             create_objects(value, ui_repr, is_child=True)
             ui_repr.set_curr_var(parent_var_name)

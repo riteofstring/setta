@@ -11,6 +11,6 @@ Transform:
       - ui_specifier.templates.simple_train_test.Net:
   
 
-# Transform2:
-#   torchvision.transforms.Compose:
-#     transforms: ["5", "10"]
+Transform2:
+  torchvision.transforms.Compose:
+    transforms: ["5", "10"]
