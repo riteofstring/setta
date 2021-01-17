@@ -64,24 +64,51 @@ def is_ref(x):
 #             )
 
 
+class SimpleRepr:
+    def __init__(self, value, ignore_string=False):
+        self.value = self.maybe_process_string(value, ignore_string)
+
+    def append(self, value, ignore_string=False):
+        self.value.append(self.maybe_process_string(value, ignore_string))
+
+    def maybe_process_string(self, x, ignore_string=False):
+        if not ignore_string:
+            if isinstance(x, str):
+                return f'"{x}"'
+        return x
+
+    def __repr__(self):
+        if isinstance(self.value, (list, tuple)):
+            output = ",".join(self.value)
+            return "[{}]".format(output)
+        else:
+            return f"{self.value}"
+
+
 class ParamRepr:
     def __init__(self, name, value=None):
         self.name = name
-        self.value = value
-        if isinstance(value, str):
-            self.value = f'"{self.value}"'
+        self.set_value(value)
+
+    def set_value(self, value, ignore_string=False):
+        self.value = SimpleRepr(value, ignore_string)
 
     def __repr__(self):
-        # assert self.value is not None
         return f"{self.name}={self.value}"
 
 
 class ParamsRepr:
-    def __init__(self, param_reprs_dict):
-        self.param_reprs_dict = param_reprs_dict
+    def __init__(self, param_reprs):
+        self.param_reprs = param_reprs
+
+    def add_param(self, name):
+        self.param_reprs[name] = ParamRepr(name)
+
+    def get(self, name):
+        return self.param_reprs[name]
 
     def __repr__(self):
-        return ",".join([f"{x}" for x in self.param_reprs_dict.values()])
+        return ",".join([f"{x}" for x in self.param_reprs.values()])
 
 
 class ImportRepr:
@@ -101,11 +128,17 @@ class ImportRepr:
 class ObjRepr:
     def __init__(self, name, params=None, do_init=True):
         self.name = name
-        self.params = params
+        self.params = ParamsRepr({}) if params is None else params
         self.do_init = do_init
+        self.curr_param = None
+
+    def add_param(self, name):
+        self.params.add_param(name)
+
+    def set_curr_param(self, name):
+        self.curr_param = self.params.get(name)
 
     def __repr__(self):
-        # assert self.params is not None
         output = f"{self.name}"
         if self.do_init:
             output += f"({self.params})"
@@ -127,11 +160,24 @@ class UIRepr:
     var_reprs = {}
     curr_var = None
 
-    def add_var(self, name):
-        self.var_reprs[name] = VarRepr(name)
+    def add_var(self, name=None, is_child=False):
+        original_name = name
+        name = self.curr_var.name if name is None else name
+        name = self.create_unique_name(name)
+        new_var = VarRepr(name)
+        self.var_reprs[name] = new_var
+        if is_child:
+            if original_name is not None:
+                self.curr_var.obj.params.get(original_name).set_value(
+                    name, ignore_string=True
+                )
+            else:  # if original_name is None, then it must be a list
+                self.curr_var.obj.append(name, ignore_string=True)
+        return name
 
     def set_curr_var(self, name):
-        self.curr_var = self.var_reprs[name]
+        if name is not None:
+            self.curr_var = self.var_reprs[name]
 
     def create_unique_name(self, name):
         while name in self.import_reprs or name in self.var_reprs:
@@ -155,32 +201,53 @@ class UIRepr:
     def __repr__(self):
         strings = []
         for r in [self.import_reprs, self.var_reprs]:
-            strings.append("".join([f"{x}" for x in r.values()]))
+            strings.append("".join(reversed([f"{x}" for x in r.values()])))
         return "".join(strings)
 
 
-def create_objects(x, ui_repr):
+def set_value(x, ui_repr):
+    try:
+        ui_repr.curr_var.obj.curr_param.set_value(x)
+    except AttributeError:
+        ui_repr.curr_var.obj = SimpleRepr(x)
+
+
+def create_objects(x, ui_repr, is_child=False):
     # x is either an object or a set of parameters
     # if it's an object, then the key is the object name, and the value is another dictionary
     # if it's a set of parameters, then keys are parameter names, and the values are parameter values
+    print(ui_repr)
+    parent_var_name = None
+    if ui_repr.curr_var is not None:
+        parent_var_name = ui_repr.curr_var.name
+
     if isinstance(x, dict) and len(x) > 0:
         for name, value in x.items():
             if represents_object(name):
                 obj_name = ui_repr.add_import(name)
-                obj = ObjRepr(obj_name)
-                ui_repr.curr_var.obj = obj
+                ui_repr.curr_var.obj = ObjRepr(obj_name)
             else:
-                ui_repr.add_var(name)
+                if ui_repr.curr_var is not None:
+                    ui_repr.curr_var.obj.add_param(name)
+                    ui_repr.curr_var.obj.set_curr_param(name)
+                ui_repr.add_var(name, is_child=is_child)
                 ui_repr.set_curr_var(name)
-            create_objects(value, ui_repr)
+
+            create_objects(value, ui_repr, is_child=True)
+            ui_repr.set_curr_var(parent_var_name)
 
     elif isinstance(x, (list, tuple)) and len(x) > 0:
+        set_value([], ui_repr)
         for sub_x in x:
-            create_objects(sub_x, ui_repr)
+            name = ui_repr.add_var(is_child=is_child)
+            ui_repr.set_curr_var(name)
+            create_objects(sub_x, ui_repr, is_child=True)
+            ui_repr.set_curr_var(parent_var_name)
 
-    # base case, x is a simple value like int, float, str etc.
-    else:
-        ui_repr.curr_var.obj = x
+    elif x is not None:
+        set_value(x, ui_repr)
+
+    ui_repr.set_curr_var(parent_var_name)
 
 
 # class VarRepr:

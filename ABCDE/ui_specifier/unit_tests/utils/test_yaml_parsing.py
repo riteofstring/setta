@@ -12,8 +12,8 @@ class TestParamRepr(unittest.TestCase):
         R = yp.ParamRepr("x", 3)
         self.assertTrue(str(R) == "x=3")
 
-        R = yp.ParamRepr("x")
-        # self.assertRaises(AssertionError, lambda: str(R) == "x=None")
+        # R = yp.ParamRepr("x")
+        # self.assertRaises(AssertionError, lambda: str(R))
 
         R = yp.ParamRepr("x", DumbClass())
         self.assertTrue(str(R) == "x=10")
