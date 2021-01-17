@@ -67,6 +67,4 @@ class TestReprFromYaml(unittest.TestCase):
             os.path.join(curr_dir, "yaml_example.yaml")
         )
         ui_repr = yp.UIRepr()
-        yp.create_objects(ui_selections, ui_repr)
-        print("")
-        print(ui_repr)
+        yp.create_objects(ui_selections, ui_repr, {})

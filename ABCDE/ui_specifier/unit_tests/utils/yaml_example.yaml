@@ -5,8 +5,8 @@ Transform:
           transforms:
             - torchvision.transforms.ToTensor:
             - torchvision.transforms.Normalize:
-                mean: 0.1307
-                std: 0.3081
+                mean: [0.1307]
+                std: [0.3081]
             - torchvision.models.resnet18:
       - ui_specifier.templates.simple_train_test.Net:
   

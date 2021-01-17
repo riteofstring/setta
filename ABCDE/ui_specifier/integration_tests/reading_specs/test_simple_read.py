@@ -22,7 +22,10 @@ class TestSimpleRead(unittest.TestCase):
         #     os.path.join(curr_dir, "{}_functions.yaml".format(script_name))
         # )
 
-        ui_repr = yp.create_objs_from_ui_selections(ui_selections, factory_specs)
+        ui_repr = yp.generate_code(ui_selections, factory_specs)
+
+        print(ui_repr)
+
         # output_filename = os.path.join(curr_dir, "test_write_output.py")
         # with open(output_filename, "w") as text_file:
         #     print("import sys", file=text_file)

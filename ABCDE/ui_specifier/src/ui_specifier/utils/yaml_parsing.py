@@ -146,9 +146,18 @@ class ObjRepr:
 
 
 class VarRepr:
-    def __init__(self, name, obj=None):
+    # depth == how nested this variable is
+    def __init__(self, name, obj=None, depth=0, do_init=True):
         self.name = name
         self.obj = obj
+        self.depth = depth
+        self.do_init = do_init
+
+    def set_obj(self, x):
+        if isinstance(x, str):
+            self.obj = ObjRepr(x, do_init=self.do_init)
+        else:
+            self.obj = x
 
     def __repr__(self):
         # assert self.obj is not None
@@ -160,13 +169,14 @@ class UIRepr:
     var_reprs = {}
     curr_var = None
 
-    def add_var(self, name=None, is_child=False):
+    def add_var(self, name=None, is_child=False, do_init=True):
         original_name = name
         name = self.curr_var.name if name is None else name
         name = self.create_unique_name(name)
-        new_var = VarRepr(name)
+        new_var = VarRepr(name, do_init=do_init)
         self.var_reprs[name] = new_var
         if is_child:
+            new_var.depth = self.curr_var.depth + 1
             if original_name is not None:
                 self.curr_var.obj.params.get(original_name).set_value(
                     name, ignore_string=True
@@ -176,7 +186,9 @@ class UIRepr:
         return name
 
     def set_curr_var(self, name):
-        if name is not None:
+        if name is None:
+            self.curr_var = None
+        else:
             self.curr_var = self.var_reprs[name]
 
     def create_unique_name(self, name):
@@ -200,8 +212,16 @@ class UIRepr:
 
     def __repr__(self):
         strings = []
-        for r in [self.import_reprs, self.var_reprs]:
-            strings.append("".join(reversed([f"{x}" for x in r.values()])))
+        # first do imports
+        strings.append("".join([f"{x}" for x in self.import_reprs.values()]))
+        # then do child vars in reverse order
+        strings.append(
+            "".join(reversed([f"{x}" for x in self.var_reprs.values() if x.depth > 0]))
+        )
+        # then do root vars
+        strings.append(
+            "".join([f"{x}" for x in self.var_reprs.values() if x.depth == 0])
+        )
         return "".join(strings)
 
 
@@ -209,10 +229,14 @@ def set_value(x, ui_repr):
     try:
         ui_repr.curr_var.obj.curr_param.set_value(x)
     except AttributeError:
-        ui_repr.curr_var.obj = SimpleRepr(x)
+        ui_repr.curr_var.set_obj(SimpleRepr(x))
 
 
-def create_objects(x, ui_repr, is_child=False):
+def do_init(name, vars_with_factories, is_child):
+    return is_child or name not in vars_with_factories
+
+
+def create_objects(x, ui_repr, vars_with_factories, is_child=False):
     # x is either an object or a set of parameters
     # if it's an object, then the key is the object name, and the value is another dictionary
     # if it's a set of parameters, then keys are parameter names, and the values are parameter values
@@ -224,15 +248,19 @@ def create_objects(x, ui_repr, is_child=False):
         for name, value in x.items():
             if represents_object(name):
                 obj_name = ui_repr.add_import(name)
-                ui_repr.curr_var.obj = ObjRepr(obj_name)
+                ui_repr.curr_var.set_obj(obj_name)
             else:
                 if ui_repr.curr_var is not None:
                     ui_repr.curr_var.obj.add_param(name)
                     ui_repr.curr_var.obj.set_curr_param(name)
-                returned_name = ui_repr.add_var(name, is_child=is_child)
+                returned_name = ui_repr.add_var(
+                    name,
+                    is_child=is_child,
+                    do_init=do_init(name, vars_with_factories, is_child),
+                )
                 ui_repr.set_curr_var(returned_name)
 
-            create_objects(value, ui_repr, is_child=True)
+            create_objects(value, ui_repr, vars_with_factories, is_child=True)
             ui_repr.set_curr_var(parent_var_name)
 
     elif isinstance(x, (list, tuple)) and len(x) > 0:
@@ -240,13 +268,31 @@ def create_objects(x, ui_repr, is_child=False):
         for sub_x in x:
             name = ui_repr.add_var(is_child=is_child)
             ui_repr.set_curr_var(name)
-            create_objects(sub_x, ui_repr, is_child=True)
+            create_objects(sub_x, ui_repr, vars_with_factories, is_child=True)
             ui_repr.set_curr_var(parent_var_name)
 
     elif x is not None:
         set_value(x, ui_repr)
 
     ui_repr.set_curr_var(parent_var_name)
+
+
+def delete_unused_factories(ui_selections, factory_specs):
+    unused_factories = []
+    for name, args in factory_specs.items():
+        if name not in ui_selections:
+            unused_factories.append(name)
+    for name in unused_factories:
+        del factory_specs[name]
+
+def generate_code(ui_selections, factory_specs):
+    ui_repr = UIRepr()
+    delete_unused_factories(ui_selections, factory_specs)
+    vars_with_factories = {k: True for k in factory_specs.keys()}
+    create_objects(ui_selections, ui_repr, vars_with_factories)
+    create_objects(factory_specs, ui_repr, {})
+
+    return ui_repr
 
 
 # class VarRepr:
@@ -400,45 +446,45 @@ def create_objects(x, ui_repr, is_child=False):
 #         self.saved_string_state += "".join(output)
 
 
-def create_objs_from_ui_selections(ui_selections, factory_specs):
-    remaining = {k: True for k in ui_selections}
-    curr_length = len(remaining)
-    prev_length = curr_length
-    exceptions = []
-    ui_repr = UIRepr()
-    while curr_length > 0:
-        for name, args in ui_selections.items():
-            if name in remaining:
-                # try:
-                create_objects(
-                    args,
-                    init=name not in factory_specs,
-                    var_name=name,
-                    ui_repr=ui_repr,
-                )
-                del remaining[name]
-                # except KeyError as e:
-                #     exceptions.append((name, e))
-        prev_length = curr_length
-        curr_length = len(remaining)
-        if prev_length == curr_length:
-            raise KeyError(exceptions)
+# def create_objs_from_ui_selections(ui_selections, factory_specs):
+#     remaining = {k: True for k in ui_selections}
+#     curr_length = len(remaining)
+#     prev_length = curr_length
+#     exceptions = []
+#     ui_repr = UIRepr()
+#     while curr_length > 0:
+#         for name, args in ui_selections.items():
+#             if name in remaining:
+#                 # try:
+#                 create_objects(
+#                     args,
+#                     init=name not in factory_specs,
+#                     var_name=name,
+#                     ui_repr=ui_repr,
+#                 )
+#                 del remaining[name]
+#                 # except KeyError as e:
+#                 #     exceptions.append((name, e))
+#         prev_length = curr_length
+#         curr_length = len(remaining)
+#         if prev_length == curr_length:
+#             raise KeyError(exceptions)
 
-    ui_repr.update_saved_string_state()
+#     ui_repr.update_saved_string_state()
 
-    for name, args in factory_specs.items():
-        if name in ui_selections:
-            create_objects(args, init=True, var_name=name, ui_repr=ui_repr)
+#     for name, args in factory_specs.items():
+#         if name in ui_selections:
+#             create_objects(args, init=True, var_name=name, ui_repr=ui_repr)
 
-    ui_repr.update_saved_string_state()
+#     ui_repr.update_saved_string_state()
 
-    print("ui_repr\n")
-    print(ui_repr.saved_string_state)
+#     print("ui_repr\n")
+#     print(ui_repr.saved_string_state)
 
-    # print("\nui_repr.vars_to_objs\n")
-    # print(ui_repr.vars_to_objs)
+#     # print("\nui_repr.vars_to_objs\n")
+#     # print(ui_repr.vars_to_objs)
 
-    print("\nui_repr.implicit_refs\n")
-    print(ui_repr.implicit_refs)
+#     print("\nui_repr.implicit_refs\n")
+#     print(ui_repr.implicit_refs)
 
-    return ui_repr.saved_string_state
+#     return ui_repr.saved_string_state
