@@ -2,6 +2,7 @@ Optimizer:
   ui_specifier.templates.pytorch_factories.optimizer_factory:
     model: ~REF~Model
     optimizer: ~REF~Optimizer
+    kwargs: ~KWARGS~Optimizer
 
 TrainDataset:
   ui_specifier.templates.pytorch_factories.dataset_factory:

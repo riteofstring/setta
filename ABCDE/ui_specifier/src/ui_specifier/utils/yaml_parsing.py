@@ -5,7 +5,7 @@ from collections import defaultdict
 import yaml
 
 from .common_functions import get_the_only_key, get_the_only_value, merge_dicts
-from .constants import REF_KEYWORD, SEPARATOR
+from .constants import REF_KEYWORD, KWARGS_KEYWORD, SEPARATOR
 
 
 def load_yaml(fname):
@@ -34,34 +34,17 @@ def string_to_attr(input_string):
 def represents_object(x):
     return "." in x
 
+def is_simple_ref(x):
+    return isinstance(x, str) and x.startswith(REF_KEYWORD)
+
+def is_kwargs_ref(x):
+    return isinstance(x, str) and x.startswith(KWARGS_KEYWORD)
 
 def is_ref(x):
-    return isinstance(x, str) and (x.startswith(REF_KEYWORD))
+    return is_simple_ref(x) or is_kwargs_ref(x)
 
-
-# def create_objects(x, init=True, var_name=None, ui_repr=None, is_child=False):
-#     if isinstance(x, dict) and len(x) > 0:
-#         for k, v in x.items():
-#             if is_ref(v):
-#                 ui_repr.update_ref(var_name, k, v)
-#             else:
-#                 params = {} if v is None else v
-#                 create_objects(
-#                     params, init, var_name=var_name, ui_repr=ui_repr, is_child=True
-#                 )
-#                 if represents_object(k):
-#                     obj_name = ui_repr.set_imports(k)
-#                     var_name = ui_repr.set_vars_to_objs(
-#                         var_name, obj_name, init, params, is_child, k
-#                     )
-#                     implicit_refs = ui_repr.get_implicit_refs(var_name)
-#                     ui_repr.replace_implicit_refs(var_name, implicit_refs)
-
-#     elif isinstance(x, (list, tuple)) and len(x) > 0:
-#         for sub_x in x:
-#             create_objects(
-#                 sub_x, init, var_name=var_name, ui_repr=ui_repr, is_child=True
-#             )
+def remove_ref(x):
+    return x.replace(REF_KEYWORD, "").replace(KWARGS_KEYWORD, "")
 
 
 class SimpleRepr:
@@ -83,6 +66,16 @@ class SimpleRepr:
             return "[{}]".format(output)
         else:
             return f"{self.value}"
+
+# class DictRepr:
+#     def __init__(self, input_dict=None):
+#         self.dict = {} if input_dict is None else input_dict
+
+#     # def add_key_value(self, key, value):
+#     #     self.dict[key] = SimpleRepr(value)
+
+#     def __repr__(self):
+#         return self.dict
 
 
 class ParamRepr:
@@ -160,7 +153,6 @@ class VarRepr:
             self.obj = x
 
     def __repr__(self):
-        # assert self.obj is not None
         return f"{self.name}={self.obj}\n"
 
 
@@ -253,12 +245,13 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
                 if ui_repr.curr_var is not None:
                     ui_repr.curr_var.obj.add_param(name)
                     ui_repr.curr_var.obj.set_curr_param(name)
-                returned_name = ui_repr.add_var(
-                    name,
-                    is_child=is_child,
-                    do_init=do_init(name, vars_with_factories, is_child),
-                )
-                ui_repr.set_curr_var(returned_name)
+                if not is_ref(value):
+                    returned_name = ui_repr.add_var(
+                        name,
+                        is_child=is_child,
+                        do_init=do_init(name, vars_with_factories, is_child),
+                    )
+                    ui_repr.set_curr_var(returned_name)
 
             create_objects(value, ui_repr, vars_with_factories, is_child=True)
             ui_repr.set_curr_var(parent_var_name)
@@ -272,7 +265,16 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
             ui_repr.set_curr_var(parent_var_name)
 
     elif x is not None:
-        set_value(x, ui_repr)
+        if is_ref(x):
+            ref_var_name = remove_ref(x)
+            if is_simple_ref(x):
+                set_value(SimpleRepr(ref_var_name, ignore_string=True), ui_repr)
+            elif is_kwargs_ref(x):
+                ref_var_kwargs = ui_repr.var_reprs[ref_var_name].obj.params
+                ref_var_kwargs = {k:v.value for k,v in ref_var_kwargs.param_reprs.items()}
+                set_value(ref_var_kwargs, ui_repr)
+        else:
+            set_value(x, ui_repr)
 
     ui_repr.set_curr_var(parent_var_name)
 
@@ -285,12 +287,15 @@ def delete_unused_factories(ui_selections, factory_specs):
     for name in unused_factories:
         del factory_specs[name]
 
+
 def generate_code(ui_selections, factory_specs):
     ui_repr = UIRepr()
     delete_unused_factories(ui_selections, factory_specs)
     vars_with_factories = {k: True for k in factory_specs.keys()}
-    create_objects(ui_selections, ui_repr, vars_with_factories)
-    create_objects(factory_specs, ui_repr, {})
+    if len(ui_selections) > 0:
+        create_objects(ui_selections, ui_repr, vars_with_factories)
+    if len(factory_specs) > 0:
+        create_objects(factory_specs, ui_repr, {})
 
     return ui_repr
 

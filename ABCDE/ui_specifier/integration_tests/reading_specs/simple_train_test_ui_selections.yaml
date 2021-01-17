@@ -3,7 +3,7 @@ Model:
 
 Optimizer:
   torch.optim.Adadelta:
-    lr: 1
+    lr: 0.1
     
 # TrainDataset:
 #   torchvision.datasets.MNIST:

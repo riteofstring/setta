@@ -5,6 +5,7 @@ from torch.optim import Adadelta
 from torchvision.transforms import Compose
 from torchvision.transforms import ToTensor
 from torchvision.transforms import Normalize
+from ui_specifier.templates.pytorch_factories import optimizer_factory
 stdx=0.3081
 std=[stdx]
 meanx=0.1307
@@ -12,7 +13,9 @@ mean=[meanx]
 transformsxx=Normalize(mean=mean,std=std)
 transformsx=ToTensor()
 transforms=[transformsx,transformsxx]
-lr=1
+lr=0.1
 Model=Net()
 Optimizer=Adadelta
 Transform=Compose(transforms=transforms)
+Optimizerx=optimizer_factory(model=Model,optimizer=Optimizer,kwargs={'lr': lr})
+print(Optimizerx)
