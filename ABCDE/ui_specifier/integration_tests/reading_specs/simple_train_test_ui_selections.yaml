@@ -1,13 +1,10 @@
-Model:
-  ui_specifier.templates.simple_train_test.Net:
+# Model:
+#   ui_specifier.templates.simple_train_test.Net:
 
-Optimizer:
-  torch.optim.Adadelta:
-    lr: 1
-
-Adadelta:
-  ui_specifier.templates.simple_train_test.Net:
-
+# Optimizer:
+#   torch.optim.Adadelta:
+#     lr: 1
+    
 # TrainDataset:
 #   torchvision.datasets.MNIST:
 #     train: True
@@ -19,13 +16,17 @@ Adadelta:
 #     download: True
 
 
-# Transform:
-#   torchvision.transforms.Compose:
-#     transforms:
-#       - torchvision.transforms.ToTensor:
-#       - torchvision.transforms.Normalize:
-#           mean: [0.1307]
-#           std: [0.3081]
+Transform:
+  torchvision.transforms.Compose:
+    transforms:
+      - torchvision.transforms.Compose:
+          transforms:
+            - torchvision.transforms.ToTensor:
+            - torchvision.transforms.Normalize:
+                mean: [0.1307]
+                std: [0.3081]
+          color:
+            - torchvision.models.resnet18:            
 
 # Various Params:
 #   batch_size: 64

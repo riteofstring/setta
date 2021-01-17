@@ -88,56 +88,48 @@ def is_ref(x):
     return isinstance(x, str) and (x.startswith(REF_KEYWORD))
 
 
-def get_ref(x, refs, ref_kwargs):
-    assert x.startswith(REF_KEYWORD)
-    var_name = x.replace(REF_KEYWORD, "")
-    search_terms = var_name.split(SEPARATOR)
-    out_refs = refs
-    out_kwargs = ref_kwargs
-    for i, st in enumerate(search_terms):
-        out_refs = out_refs[st]
-        if out_kwargs is not None:
-            out_kwargs = out_kwargs[st]
-            if i == len(search_terms) - 1:
-                out_kwargs = get_the_only_value(out_kwargs)
-    if out_kwargs is None:
-        out_kwargs = {}
-    return var_name, out_refs, out_kwargs
-
-
 def obj_creation_string(var_name, obj_name, params, init):
     if init:
         return "{}={}({})\n".format(var_name, obj_name, params)
     return "{}={}\n".format(var_name, obj_name)
 
 
-def create_objects(x, init=True, var_name=None, ui_repr=None):
+def create_objects(x, init=True, var_name=None, ui_repr=None, is_child=False):
+    print("var_name", var_name, x)
     if isinstance(x, dict) and len(x) > 0:
         for k, v in x.items():
-            print("k,v", k, v)
-            if represents_object(k):
-                obj_name = ui_repr.set_imports(k)
-                params = {} if v is None else v
-                create_objects(
-                    params,
-                    init,
-                    var_name=var_name,
-                    ui_repr=ui_repr,
-                )
-                ui_repr.set_vars_to_objs(var_name, obj_name, init, params)
-            elif is_ref(v):
+            if is_ref(v):
                 ui_repr.update_ref(var_name, k, v)
+            else:
+                params = {} if v is None else v
+                next_var_name = var_name
+                if is_child:
+                    next_var_name = ui_repr.create_unique_child_name(var_name)
+                create_objects(
+                    params, init, var_name=next_var_name, ui_repr=ui_repr, is_child=True
+                )
+                if represents_object(k):
+                    obj_name = ui_repr.set_imports(k)
+                    ui_repr.set_vars_to_objs(next_var_name, obj_name, init, params, is_child)
 
     elif isinstance(x, (list, tuple)) and len(x) > 0:
-        print("is list or tuple", x)
-    else:
-        print("is something else", x)
+        # new_x = []
+        for sub_x in x:
+            create_objects(
+                sub_x, init, var_name=var_name, ui_repr=ui_repr, is_child=True
+            )
+            # new_x.append(child_name)
+        # for i in range(len(x)):
+        #     x[i] = new_x[i]
+
+    # return var_name
 
 
 class UIRepr:
     imports = {}
     vars_to_objs = {}
     original_vars_to_unique = {}
+    implicit_refs = defaultdict(list)
     saved_string_state = ""
 
     def get_objs(self, original_var_name):
@@ -149,7 +141,7 @@ class UIRepr:
         ref_var_name = original_ref_var_name.replace(REF_KEYWORD, "")
         parent_objs = self.get_objs(parent_var_name)
         self.update_params(parent_objs, self.get_objs(ref_var_name)["params"])
-        parent_objs["params"][parent_key] = ref_var_name
+        parent_objs["params"][parent_key] = self.original_vars_to_unique[ref_var_name]
         parent_objs["printed"] = False
 
     def already_imported(self, attr_name, modules):
@@ -157,10 +149,15 @@ class UIRepr:
             attr_name in self.imports and self.imports[attr_name]["modules"] == modules
         )
 
-    def create_unique_name(self, zzz):
-        while zzz in self.imports or zzz in self.vars_to_objs:
-            zzz = zzz + "x"
-        return zzz
+    def create_unique_child_name(self, name):
+        new_name = "{}_{}".format(name, len(self.implicit_refs[name]))
+        self.implicit_refs[name].append(new_name)
+        return new_name
+
+    def create_unique_name(self, name):
+        while name in self.imports or name in self.vars_to_objs:
+            name = name + "x"
+        return name
 
     def set_imports(self, input_string):
         modules, original_attr_name = split_attr_from_modules(input_string)
@@ -188,7 +185,7 @@ class UIRepr:
         old_params = objs["params"]
         objs["params"] = merge_dicts(new_params, old_params)
 
-    def set_vars_to_objs(self, original_var_name, obj_name, init, params):
+    def set_vars_to_objs(self, original_var_name, obj_name, init, params, is_child):
         if original_var_name not in self.original_vars_to_unique:
             var_name = self.create_unique_name(original_var_name)
             self.original_vars_to_unique[original_var_name] = var_name
@@ -263,11 +260,28 @@ def create_objs_from_ui_selections(ui_selections, factory_specs):
     ui_repr.update_saved_string_state()
 
     for name, args in factory_specs.items():
-        create_objects(args, init=True, var_name=name, ui_repr=ui_repr)
+        if name in ui_selections:
+            create_objects(args, init=True, var_name=name, ui_repr=ui_repr)
 
     ui_repr.update_saved_string_state()
 
     print("ui_repr\n")
     print(ui_repr.saved_string_state)
 
+    # print("\nui_repr.vars_to_objs\n")
+    # print(ui_repr.vars_to_objs)
+
+    print("\nui_repr.implicit_refs\n")
+    # read_implicit_refs(ui_repr)
+
     return ui_repr.saved_string_state
+
+
+# def read_implicit_refs(ui_repr, key):
+#     for k,v in ui_repr.implicit_refs.items():
+#         print("****", k, "****")
+#         # if k in ui_repr.implicit_refs:
+#             # read_implicit_refs(k)
+#         for sub_v in v:
+#             if sub_v in ui_repr.vars_to_objs:
+#                 print(ui_repr.vars_to_objs[sub_v])
