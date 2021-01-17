@@ -5,17 +5,18 @@ Optimizer:
   torch.optim.Adadelta:
     lr: 1
 
+Adadelta:
+  ui_specifier.templates.simple_train_test.Net:
+
 # TrainDataset:
 #   torchvision.datasets.MNIST:
 #     train: True
 #     download: True
-#     transform: ~REF~Transform
 
 # ValDataset:
 #   torchvision.datasets.MNIST:
 #     train: False
 #     download: True
-#     transform: ~REF~Transform
 
 
 # Transform:
