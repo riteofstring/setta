@@ -3,12 +3,12 @@ Optimizer:
     model: ~REF~Model
     optimizer: ~REF~Optimizer
 
-# TrainDataset:
-#   ui_specifier.templates.pytorch_factories.dataset_factory:
-#     dataset: ~REF~TrainDataset
-    # transform: ~REF~Transform
+TrainDataset:
+  ui_specifier.templates.pytorch_factories.dataset_factory:
+    dataset: ~REF~TrainDataset
+    transform: ~REF~Transform
 
-# ValDataset:
-#   integration_tests.reading_specs.test_simple_read.dataset_factory:
-#     dataset: ~REF_WITH_KWARGS~ValDataset
-#     transform: ~REF~Transform
+ValDataset:
+  ui_specifier.templates.pytorch_factories.dataset_factory:
+    dataset: ~REF~ValDataset
+    transform: ~REF~Transform
