@@ -72,7 +72,7 @@ class ParamRepr:
             self.value = f'"{self.value}"'
 
     def __repr__(self):
-        assert self.value is not None
+        # assert self.value is not None
         return f"{self.name}={self.value}"
 
 
@@ -92,7 +92,7 @@ class ImportRepr:
 
     def __repr__(self):
         import_string = f"from {self.modules} import {self.attr_name}"
-        if self.alias is not None:
+        if self.alias is not None and self.alias != self.attr_name:
             import_string += f" as {self.alias}"
         import_string += "\n"
         return import_string
@@ -105,7 +105,7 @@ class ObjRepr:
         self.do_init = do_init
 
     def __repr__(self):
-        assert self.params is not None
+        # assert self.params is not None
         output = f"{self.name}"
         if self.do_init:
             output += f"({self.params})"
@@ -118,37 +118,69 @@ class VarRepr:
         self.obj = obj
 
     def __repr__(self):
+        # assert self.obj is not None
         return f"{self.name}={self.obj}\n"
 
 
 class UIRepr:
-    def __init__(self, var_reprs_dict):
-        self.var_reprs_dict = var_reprs_dict
+    import_reprs = {}
+    var_reprs = {}
+    curr_var = None
+
+    def add_var(self, name):
+        self.var_reprs[name] = VarRepr(name)
+
+    def set_curr_var(self, name):
+        self.curr_var = self.var_reprs[name]
+
+    def create_unique_name(self, name):
+        while name in self.import_reprs or name in self.var_reprs:
+            name = name + "x"
+        return name
+
+    def already_imported(self, attr_name, modules):
+        return (
+            attr_name in self.import_reprs
+            and self.import_reprs[attr_name].modules == modules
+        )
+
+    def add_import(self, input_string):
+        modules, attr_name = split_attr_from_modules(input_string)
+        alias = attr_name
+        if not self.already_imported(alias, modules):
+            alias = self.create_unique_name(alias)
+        self.import_reprs[attr_name] = ImportRepr(modules, attr_name, alias)
+        return attr_name
 
     def __repr__(self):
-        return "".join([f"{x}" for x in self.var_reprs_dict.values()])
+        strings = []
+        for r in [self.import_reprs, self.var_reprs]:
+            strings.append("".join([f"{x}" for x in r.values()]))
+        return "".join(strings)
 
 
-def create_objects(x):
+def create_objects(x, ui_repr):
     # x is either an object or a set of parameters
     # if it's an object, then the key is the object name, and the value is another dictionary
     # if it's a set of parameters, then keys are parameter names, and the values are parameter values
     if isinstance(x, dict) and len(x) > 0:
         for name, value in x.items():
-            print(name, value)
             if represents_object(name):
-                pass
+                obj_name = ui_repr.add_import(name)
+                obj = ObjRepr(obj_name)
+                ui_repr.curr_var.obj = obj
             else:
-                create_objects(value)
+                ui_repr.add_var(name)
+                ui_repr.set_curr_var(name)
+            create_objects(value, ui_repr)
 
     elif isinstance(x, (list, tuple)) and len(x) > 0:
-        created = []
         for sub_x in x:
-            created.append(create_objects(sub_x))
+            create_objects(sub_x, ui_repr)
 
     # base case, x is a simple value like int, float, str etc.
     else:
-        return x
+        ui_repr.curr_var.obj = x
 
 
 # class VarRepr:
