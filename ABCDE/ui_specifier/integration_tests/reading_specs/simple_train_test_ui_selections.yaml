@@ -1,19 +1,21 @@
 Model:
   ui_specifier.templates.simple_train_test.Net:
 
-Net:
+Optimizer:
   torch.optim.Adadelta:
     lr: 0.1
     
-# TrainDataset:
-#   torchvision.datasets.MNIST:
-#     train: True
-#     download: True
+TrainDataset:
+  torchvision.datasets.MNIST:
+    root: .
+    train: True
+    download: True
 
-# ValDataset:
-#   torchvision.datasets.MNIST:
-#     train: False
-#     download: True
+ValDataset:
+  torchvision.datasets.MNIST:
+    root: .
+    train: False
+    download: True
 
 Transform:
   torchvision.transforms.Compose:
@@ -39,5 +41,3 @@ Various Params:
   batch_size: 64
   test_batch_size: 1000
   epochs: 1
-
-

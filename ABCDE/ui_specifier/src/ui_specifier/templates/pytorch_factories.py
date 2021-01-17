@@ -7,5 +7,5 @@ def optimizer_factory(model, optimizer, kwargs):
     return optimizer(model.parameters(), **kwargs)
 
 
-def dataset_factory(dataset, transform, **kwargs):
-    return dataset(root=".", transform=transform, **kwargs)
+def dataset_factory(dataset, transform, kwargs):
+    return dataset(transform=transform, **kwargs)

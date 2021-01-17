@@ -18,25 +18,26 @@ class TestSimpleRead(unittest.TestCase):
         factory_specs = yp.load_yaml(
             os.path.join(curr_dir, "{}_factory_specs.yaml".format(script_name))
         )
-        # funcs = yp.load_yaml(
-        #     os.path.join(curr_dir, "{}_functions.yaml".format(script_name))
-        # )
+        funcs = yp.load_yaml(
+            os.path.join(curr_dir, "{}_functions.yaml".format(script_name))
+        )
 
-        ui_repr = yp.generate_code(ui_selections, factory_specs)
+        ui_repr = yp.generate_code(ui_selections, factory_specs, funcs)
 
         print(ui_repr)
-        # print(ui_repr.var_name_map)
 
-        # output_filename = os.path.join(curr_dir, "test_write_output.py")
-        # with open(output_filename, "w") as text_file:
-        #     print("import sys", file=text_file)
-        #     print("sys.path.insert(0, '{}/../../src')".format(curr_dir), file=text_file)
-        #     print(ui_repr, file=text_file, end="")
+        output_filename = os.path.join(curr_dir, "test_write_output.py")
+        with open(output_filename, "w") as text_file:
+            print("def run():", file=text_file)
+            print("\timport sys", file=text_file)
+            print(
+                "\tsys.path.insert(0, '{}/../../src')".format(curr_dir), file=text_file
+            )
+            print(ui_repr, file=text_file, end="")
+            print("if __name__ == '__main__':\n\trun()", file=text_file)
 
-        # import subprocess
+        import subprocess
 
-        # subprocess.run(["python", output_filename])
+        subprocess.run(["python", output_filename])
 
-        # yp.run(objs, funcs)
-
-        # shutil.rmtree("MNIST")
+        shutil.rmtree("MNIST")
