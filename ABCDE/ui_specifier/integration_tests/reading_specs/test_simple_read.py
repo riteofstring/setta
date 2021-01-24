@@ -7,11 +7,20 @@ import torch
 from ui_specifier.utils import yaml_parsing as yp
 
 
+def optimizer_factory(model, optimizer, **kwargs):
+    device = torch.device("cuda")
+    model = model.to(device)
+    return optimizer(model.parameters(), **kwargs)
+
+
+def dataset_factory(dataset, transform, **kwargs):
+    return dataset(root=".", transform=transform, **kwargs)
+
+
 class TestSimpleRead(unittest.TestCase):
     def test_simple_read(self):
         script_name = "simple_train_test"
         curr_dir = os.path.dirname(os.path.abspath(__file__))
-        curr_dir = curr_dir.replace("\\", "\\\\")
         ui_selections = yp.load_yaml(
             os.path.join(curr_dir, "{}_ui_selections.yaml".format(script_name))
         )
@@ -22,18 +31,8 @@ class TestSimpleRead(unittest.TestCase):
             os.path.join(curr_dir, "{}_functions.yaml".format(script_name))
         )
 
-        ui_repr = yp.generate_code(ui_selections, factory_specs, funcs)
+        objs = yp.create_objs_from_ui_selections(ui_selections, factory_specs)
 
-        print(ui_repr)
-
-        output_filename = os.path.join(curr_dir, "test_write_output.py")
-        with open(output_filename, "w") as text_file:
-            print(ui_repr, file=text_file, end="")
-
-        import subprocess
-
-        subprocess.run(["python", output_filename])
+        yp.run(objs, funcs)
 
         shutil.rmtree("MNIST")
-
-        os.remove(output_filename)

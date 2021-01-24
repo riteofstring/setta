@@ -16,8 +16,7 @@ from .imports_holder import ImportsHolder
 
 
 class UICreator:
-    def __init__(self):
-        self.sections = {}
+    sections = {}
 
     def create(self, yaml_specs, global_ih):
         self.global_ih = global_ih

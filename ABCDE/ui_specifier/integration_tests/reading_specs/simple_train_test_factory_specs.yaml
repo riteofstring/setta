@@ -1,17 +1,14 @@
 Optimizer:
-  ui_specifier.templates.pytorch_factories.optimizer_factory:
+  integration_tests.reading_specs.test_simple_read.optimizer_factory:
     model: ~REF~Model
-    optimizer: ~REF~Optimizer
-    kwargs: ~KWARGS~Optimizer
+    optimizer: ~REF_WITH_KWARGS~Optimizer
 
 TrainDataset:
-  ui_specifier.templates.pytorch_factories.dataset_factory:
-    dataset: ~REF~TrainDataset
+  integration_tests.reading_specs.test_simple_read.dataset_factory:
+    dataset: ~REF_WITH_KWARGS~TrainDataset
     transform: ~REF~Transform
-    kwargs: ~KWARGS~TrainDataset
 
 ValDataset:
-  ui_specifier.templates.pytorch_factories.dataset_factory:
-    dataset: ~REF~ValDataset
+  integration_tests.reading_specs.test_simple_read.dataset_factory:
+    dataset: ~REF_WITH_KWARGS~ValDataset
     transform: ~REF~Transform
-    kwargs: ~KWARGS~ValDataset

@@ -2,7 +2,7 @@ import typing
 
 SEPARATOR: typing.Final = "~"
 REF_KEYWORD: typing.Final = "~REF~"
-KWARGS_KEYWORD: typing.Final = "~KWARGS~"
+REF_WITH_KWARGS: typing.Final = "~REF_WITH_KWARGS~"
 UNKNOWN_UI_TYPE: typing.Final = "UNKNOWN"
 
 MODULE_INFO: typing.Final = "ModuleInfo"

@@ -3,19 +3,22 @@ Model:
 
 Optimizer:
   torch.optim.Adadelta:
-    lr: 0.1
-    
+    lr: 1
+
 TrainDataset:
   torchvision.datasets.MNIST:
-    root: .
+    root: ~REF~Various Params~dataset_root
     train: True
     download: True
+    transform: ~REF~Transform
 
 ValDataset:
   torchvision.datasets.MNIST:
-    root: .
+    root: ~REF~Various Params~dataset_root
     train: False
     download: True
+    transform: ~REF~Transform
+
 
 Transform:
   torchvision.transforms.Compose:
@@ -23,23 +26,12 @@ Transform:
       - torchvision.transforms.ToTensor:
       - torchvision.transforms.Normalize:
           mean: [0.1307]
-          std: [0.3081]         
+          std: [0.3081]
 
 Various Params:
+  dataset_root: "."
   batch_size: 64
   test_batch_size: 1000
   epochs: 1
 
 
-
-# Transform:
-#   torchvision.transforms.Compose:
-#     transforms:
-#       - torchvision.transforms.Compose:
-#           transforms:
-#             - torchvision.transforms.ToTensor:
-#             - torchvision.transforms.Normalize:
-#                 mean: [0.1307]
-#                 std: [0.3081]
-#             - torchvision.models.resnet18:
-#       - ui_specifier.templates.simple_train_test.Net:   

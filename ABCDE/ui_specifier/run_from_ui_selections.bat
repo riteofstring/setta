@@ -1,0 +1,1 @@
+activate abcde_env && python -u run_from_ui_selections.py %1
