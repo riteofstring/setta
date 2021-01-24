@@ -8,7 +8,7 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { USING_ELECTRON, NO_AUTH, ipcRenderer } from "../utils/constants";
-import { saveUI as saveUIBackend, generateCode as generateCodeBackend } from "../dbRequests/ui";
+import { saveUI as saveUIBackend } from "../dbRequests/ui";
 
 const master = {
   sectionCount: 1,
@@ -328,15 +328,10 @@ const master = {
     return { selections, globalCurr };
   }),
 
-  runSelected: thunk(async (action, payload, helpers) => {
-    const {token, selections} = payload
-    const generatedCode = await generateCodeBackend({
-      token,
-      uiSelections: selections
-    });    
+  runSelected: action((state, payload) => {
     ipcRenderer.send("asynchronous-message", {
       arg: "run program",
-      data: generatedCode,
+      data: payload.selections,
     });
   }),
 

@@ -7,7 +7,7 @@ const BrowserWindow = electron.BrowserWindow;
 const path = require("path");
 const isDev = require("electron-is-dev");
 const appPath = app.getAppPath();
-const usersPath = "D:\\Downloads";
+const backendPath = appPath + "\\..\\ABCDE\\ui_specifier";
 const nodePty = require("node-pty");
 
 console.log("***electron.js isDev =", isDev);
@@ -56,15 +56,15 @@ ipcMain.on("asynchronous-message", (event, payload) => {
   let { arg, data } = payload;
   let child = null;
   if (arg == "run program") {
-    fs.writeFileSync(usersPath+"\\abcde_temp.py", data)
-    let bat_file = "activate abcde_env && python -u abcde_temp.py"
-    fs.writeFileSync(usersPath+"\\run_abcde_temp.bat", bat_file)
+    // data = JSON.stringify(JSON.parse(fs.readFileSync("python_test_backup.json", "utf8")))
+    data = JSON.stringify(data);
+    data = data.replace(/"/g, '\\"');
 
     child = nodePty.spawn("cmd.exe", [], {
       name: "xterm-color",
       cols: 80,
       rows: 30,
-      cwd: usersPath,
+      cwd: backendPath,
       env: process.env,
     });
 
@@ -76,6 +76,6 @@ ipcMain.on("asynchronous-message", (event, payload) => {
       child.write(key);
     });
 
-    child.write("run_abcde_temp.bat\r\nrm abcde_temp.py\r\nrm run_abcde_temp.bat\r\n");
+    child.write(`run_from_ui_selections.bat "${data}"\r\n`);
   }
 });
