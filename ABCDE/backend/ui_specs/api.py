@@ -7,9 +7,23 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ui_specifier.creation.create_ui import create_ui
+from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
 from .models import SavedUIs
 from .serializers import SavedUIsSerializer
+
+
+class GenerateCodeAPIView(APIView):
+    def post(self, request):
+        ## hard-coded for now
+        factory_specs = load_yaml(
+            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_factory_specs.yaml"
+        )
+        funcs = load_yaml(
+            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_functions.yaml"
+        )
+        ui_repr = generate_code(request.data["uiSelections"], factory_specs, funcs)
+        return Response({"generatedCode": str(ui_repr)}, status=status.HTTP_201_CREATED)
 
 
 class CreateUIAPIView(APIView):

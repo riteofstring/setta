@@ -1,3 +1,4 @@
+import ast
 import copy
 import importlib
 import string
@@ -70,6 +71,17 @@ def set_value(x, ui_repr, ignore_string=False):
         obj.curr_param.set_value(x, ignore_string)
     else:
         ui_repr.curr_var.set_obj(SimpleRepr(x, ignore_string))
+
+
+class WrapperRepr:
+    def __init__(self, ui_repr):
+        self.ui_repr = ui_repr
+        self.def_run = "def run():\n"
+        self.set_path = "\timport sys\n\tsys.path.insert(0, 'D:\\\\Documents\\\\App Development\\\\ABCDE\\\\ui_specifier\\\\src')\n"
+        self.main_entry = "if __name__ == '__main__':\n\trun()"
+
+    def __repr__(self):
+        return f"{self.def_run}{self.set_path}{self.ui_repr}{self.main_entry}"
 
 
 class SimpleRepr:
@@ -190,12 +202,13 @@ class VarRepr:
 
 
 class UIRepr:
-    import_reprs = {}
-    var_reprs = {}
-    ref_var_reprs = {}
-    var_name_map = {}
-    reverse_var_name_map = {}
-    curr_var = None
+    def __init__(self):
+        self.import_reprs = {}
+        self.var_reprs = {}
+        self.ref_var_reprs = {}
+        self.var_name_map = {}
+        self.reverse_var_name_map = {}
+        self.curr_var = None
 
     def add_name_to_var_name_map(self, original_name, name):
         if original_name is not None:
@@ -333,7 +346,7 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
             create_objects(sub_x, ui_repr, vars_with_factories, is_child=True)
             ui_repr.set_curr_var(parent_var_name)
 
-    elif x is not None:
+    elif x not in [None, {}]:
         if is_ref(x):
             ref_var_name = ui_repr.var_name_map[remove_ref(x)]
             if is_simple_ref(x):
@@ -350,6 +363,21 @@ def create_objects(x, ui_repr, vars_with_factories, is_child=False):
     ui_repr.set_curr_var(parent_var_name)
 
 
+def convert_strings(json_dict):
+    new_dict = {}
+    for k, v in json_dict.items():
+        try:
+            new_v = ast.literal_eval(v)
+        except (ValueError, SyntaxError):
+            new_v = v
+        if isinstance(new_v, dict):
+            new_v = convert_strings(new_v)
+        elif isinstance(new_v, (list, tuple)):
+            new_v = [convert_strings(x) if isinstance(x, dict) else x for x in new_v]
+        new_dict[k] = new_v
+    return new_dict
+
+
 def delete_unused_factories(ui_selections, factory_specs):
     unused_factories = []
     for name, args in factory_specs.items():
@@ -360,6 +388,9 @@ def delete_unused_factories(ui_selections, factory_specs):
 
 
 def generate_code(ui_selections, factory_specs, funcs):
+    [ui_selections, factory_specs, funcs] = [
+        convert_strings(x) for x in [ui_selections, factory_specs, funcs]
+    ]
     ui_repr = UIRepr()
     delete_unused_factories(ui_selections, factory_specs)
     vars_with_factories = {k: True for k in factory_specs.keys()}
@@ -370,4 +401,4 @@ def generate_code(ui_selections, factory_specs, funcs):
     if len(funcs) > 0:
         create_objects(funcs, ui_repr, {})
 
-    return ui_repr
+    return WrapperRepr(ui_repr)

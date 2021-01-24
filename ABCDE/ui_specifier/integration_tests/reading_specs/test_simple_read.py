@@ -28,16 +28,12 @@ class TestSimpleRead(unittest.TestCase):
 
         output_filename = os.path.join(curr_dir, "test_write_output.py")
         with open(output_filename, "w") as text_file:
-            print("def run():", file=text_file)
-            print("\timport sys", file=text_file)
-            print(
-                "\tsys.path.insert(0, '{}/../../src')".format(curr_dir), file=text_file
-            )
             print(ui_repr, file=text_file, end="")
-            print("if __name__ == '__main__':\n\trun()", file=text_file)
 
         import subprocess
 
         subprocess.run(["python", output_filename])
 
         shutil.rmtree("MNIST")
+
+        os.remove(output_filename)

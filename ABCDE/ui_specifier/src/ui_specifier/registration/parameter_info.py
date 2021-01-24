@@ -3,9 +3,8 @@ from .base_info import BaseInfo
 
 
 class ParameterInfo(BaseInfo):
-    defaults = {"default_val": "", "type": ""}
-
     def __init__(self, **kwargs):
+        self.defaults = {"default_val": "", "type": ""}
         self.params = {}
         for param_name, properties in kwargs.items():
             if properties is None:
