@@ -2,6 +2,16 @@ import axios from "axios";
 import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
 
+
+export const generateCode = ({ token, uiSelections }) => {
+  const body = JSON.stringify({ uiSelections });
+  return axios
+    .post(BACKEND + "api/generate_code", body, tokenConfig(token))
+    .then((res) => res.data["generatedCode"])
+    .catch((err) => {});
+};
+
+
 export const createUI = ({ token, uiSpecs }) => {
   const body = JSON.stringify({ uiSpecs });
   return axios
