@@ -333,12 +333,11 @@ const master = {
     const generatedCode = await generateCodeBackend({
       token,
       uiSelections: selections
+    });    
+    ipcRenderer.send("asynchronous-message", {
+      arg: "run program",
+      data: generatedCode,
     });
-    console.log(generatedCode)
-    // ipcRenderer.send("asynchronous-message", {
-    //   arg: "run program",
-    //   data: payload.selections,
-    // });
   }),
 
   saveUI: action((state, payload) => {
