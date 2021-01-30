@@ -12,6 +12,7 @@
     "easy-peasy": "^4.0.1",
     "formik": "^2.2.6",
     "framer-motion": "^3.2.2-rc.1",
+    "node-pty": "^0.9.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-router-dom": "^5.2.0",
@@ -23,7 +24,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "build-electron": "(robocopy public build/electron electron.js) ^& IF %ERRORLEVEL% LEQ 1 exit /B 0",
+    "build-electron": "(robocopy public/electron build/electron) ^& IF %ERRORLEVEL% LEQ 1 exit /B 0",
     "package": "electron-builder build --win -c.extraMetadata.main=build/electron/electron.js --publish never",
     "dist": "yarn build && yarn build-electron && yarn package",
     "electron-dev": "concurrently \"SET BROWSER=none&&yarn start\" \"wait-on http://localhost:4534 &&SET ELECTRON_IS_DEV=true&&electron .\""
@@ -50,6 +51,7 @@
     "concurrently": "^5.3.0",
     "electron": "^11.2.1",
     "electron-builder": "^22.9.1",
+    "electron-rebuild": "^2.3.4",
     "wait-on": "^5.2.1"
   },
   "build": {
@@ -65,6 +67,6 @@
     },
     "win": {}
   },
-  "main": "public/electron.js",
+  "main": "public/electron/electron.js",
   "homepage": "./"
 }
