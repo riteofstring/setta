@@ -7,7 +7,7 @@ import {
   setChildrenVisibility,
   createExportableObject,
 } from "../utils/sectionIds";
-import { USING_ELECTRON, NO_AUTH, ipcRenderer } from "../utils/constants";
+import { NO_AUTH } from "../utils/constants";
 import { saveUI as saveUIBackend, generateCode as generateCodeBackend } from "../dbRequests/ui";
 
 const master = {
@@ -334,10 +334,10 @@ const master = {
       token,
       uiSelections: selections
     });    
-    ipcRenderer.send("asynchronous-message", {
-      arg: "run program",
-      data: generatedCode,
-    });
+    // ipcRenderer.send("asynchronous-message", {
+    //   arg: "run program",
+    //   data: generatedCode,
+    // });
   }),
 
   saveUI: action((state, payload) => {

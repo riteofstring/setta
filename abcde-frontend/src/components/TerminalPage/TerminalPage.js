@@ -4,7 +4,6 @@ import Xterm from "./Terminal";
 import { FitAddon } from "xterm-addon-fit";
 import "./xterm.module.css";
 import "./TerminalPage.module.css";
-import { ipcRenderer } from "../../utils/constants";
 
 const fitAddon = new FitAddon();
 
@@ -12,9 +11,9 @@ const TerminalPage = () => {
   const [terminalData, setTerminalData] = useState("");
   const xtermRef = React.createRef();
 
-  ipcRenderer.on("terminal.incomingData", (event, data) => {
-    setTerminalData(data);
-  });
+  // ipcRenderer.on("terminal.incomingData", (event, data) => {
+  //   setTerminalData(data);
+  // });
 
   useEffect(() => {
     xtermRef.current.terminal.write(terminalData);

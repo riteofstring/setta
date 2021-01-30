@@ -15,6 +15,7 @@ const AppContainer = () => {
         <Link to="/ui">UI</Link>
         <Link to="/terminal">Terminal</Link>
         <Link to="/logout">Logout</Link>
+        <a href="abcde://test">Open Electron</a>
       </>
     );
   };

@@ -5,7 +5,7 @@ import DetailsPane from "./DetailsPane/DetailsPane";
 import RunContainer from "./RunContainer/RunContainer";
 import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex } from "@chakra-ui/react";
-import { USING_ELECTRON } from "../../utils/constants";
+import { NO_AUTH } from "../../utils/constants";
 import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 
 const UiPage = () => {
@@ -29,7 +29,7 @@ const UiPage = () => {
   console.log("UiPage");
 
   useLayoutEffect(() => {
-    if (USING_ELECTRON) {
+    if (!NO_AUTH) {
       if (specsAreReady && !loadSectionsIsDone) {
         resetSections();
         loadSections(uiAsJson);
