@@ -46,13 +46,13 @@ function createWindow() {
   })
 
   // and load the index.html of the app.
-  mainWindow.loadURL(
-    url.format({
-      pathname: path.join(__dirname, 'index.html'),
-      protocol: 'file:',
-      slashes: true
-    })
-  )
+  console.log("process.env.ELECTRON_IS_DEV", process.env.ELECTRON_IS_DEV)
+  const startURL = process.env.ELECTRON_IS_DEV ? "http://localhost:4534" : url.format({
+    pathname: path.join(__dirname, '../index.html'),
+    protocol: 'file:',
+    slashes: true,
+  });
+  mainWindow.loadURL(startURL)
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools()

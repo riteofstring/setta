@@ -1,16 +1,49 @@
 {
   "name": "abcde-electron",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
-  "main": "main.js",
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.11.4",
+    "@testing-library/react": "^11.1.0",
+    "@testing-library/user-event": "^12.1.10",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "react-scripts": "4.0.1",
+    "web-vitals": "^0.2.4"
+  },
   "scripts": {
-    "start": "electron .",
-    "pack": "build --dir",
-    "dist": "build"
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "build-electron": "(robocopy public build/electron electron.js) ^& IF %ERRORLEVEL% LEQ 1 exit /B 0",
+    "package": "electron-builder build --win -c.extraMetadata.main=build/electron/electron.js --publish never",
+    "dist": "yarn build && yarn build-electron && yarn package",
+    "electron-dev": "concurrently \"SET BROWSER=none&&SET PORT=4534&&yarn start\" \"wait-on http://localhost:4534 &&SET ELECTRON_IS_DEV=true&&electron .\""
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   },
   "devDependencies": {
-    "electron": "^5.0.1",
-    "electron-builder": "^20.40.2"
+    "concurrently": "^5.3.0",
+    "electron": "^11.2.1",
+    "electron-builder": "^22.9.1",
+    "wait-on": "^5.2.1"
   },
   "build": {
     "appId": "abcde.electron",
@@ -24,5 +57,7 @@
       "category": "public.app-category.Reference"
     },
     "win": {}
-  }
+  },
+  "main": "public/electron.js",
+  "homepage": "./"
 }
