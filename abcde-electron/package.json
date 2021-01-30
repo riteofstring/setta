@@ -3,23 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@chakra-ui/react": "^1.1.6",
+    "@emotion/react": "^11.1.4",
+    "@emotion/styled": "^11.0.0",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
+    "easy-peasy": "^4.0.1",
+    "formik": "^2.2.6",
+    "framer-motion": "^3.2.2-rc.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
+    "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.1",
     "web-vitals": "^0.2.4"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "SET PORT=4534&&react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "build-electron": "(robocopy public build/electron electron.js) ^& IF %ERRORLEVEL% LEQ 1 exit /B 0",
     "package": "electron-builder build --win -c.extraMetadata.main=build/electron/electron.js --publish never",
     "dist": "yarn build && yarn build-electron && yarn package",
-    "electron-dev": "concurrently \"SET BROWSER=none&&SET PORT=4534&&yarn start\" \"wait-on http://localhost:4534 &&SET ELECTRON_IS_DEV=true&&electron .\""
+    "electron-dev": "concurrently \"SET BROWSER=none&&yarn start\" \"wait-on http://localhost:4534 &&SET ELECTRON_IS_DEV=true&&electron .\""
   },
   "eslintConfig": {
     "extends": [
