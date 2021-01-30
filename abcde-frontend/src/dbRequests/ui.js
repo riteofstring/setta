@@ -3,12 +3,12 @@ import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
 
 
-export const generateCode = ({ token, uiSelections }) => {
-  const body = JSON.stringify({ uiSelections });
+export const generateCode = ({ token, codeToken, uiSelections }) => {
+  const body = JSON.stringify({ codeToken, uiSelections});
   return axios
     .post(BACKEND + "api/generate_code", body, tokenConfig(token))
-    .then((res) => res.data["generatedCode"])
-    .catch((err) => {});
+    .then((res) => true)
+    .catch((err) => false);
 };
 
 

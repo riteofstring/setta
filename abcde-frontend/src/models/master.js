@@ -9,6 +9,7 @@ import {
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
 import { saveUI as saveUIBackend, generateCode as generateCodeBackend } from "../dbRequests/ui";
+import { v4 as uuidv4 } from 'uuid';
 
 const master = {
   sectionCount: 1,
@@ -330,10 +331,17 @@ const master = {
 
   runSelected: thunk(async (action, payload, helpers) => {
     const {token, selections} = payload
-    const generatedCode = await generateCodeBackend({
+    const codeToken = uuidv4()
+    const result = await generateCodeBackend({
       token,
+      codeToken,
       uiSelections: selections
-    });    
+    });
+    if (result){
+      console.log("result", result)
+      window.open("abcde://"+codeToken, "_self")
+    }
+
     // ipcRenderer.send("asynchronous-message", {
     //   arg: "run program",
     //   data: generatedCode,
