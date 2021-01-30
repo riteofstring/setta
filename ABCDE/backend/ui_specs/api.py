@@ -5,12 +5,11 @@ from django.contrib.auth.models import User
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from ui_specifier.creation.create_ui import create_ui
 from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
 from .models import SavedUIs
-from .serializers import SavedUIsSerializer
+from .serializers import LatestCodeSerializer, SavedUIsSerializer
 
 
 class GenerateCodeAPIView(APIView):
@@ -23,7 +22,13 @@ class GenerateCodeAPIView(APIView):
             "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_functions.yaml"
         )
         ui_repr = generate_code(request.data["uiSelections"], factory_specs, funcs)
-        return Response({"generatedCode": str(ui_repr)}, status=status.HTTP_201_CREATED)
+        serializer = LatestCodeSerializer(
+            data={"codeToken": request.data["codeToken"], "code": str(ui_repr)}
+        )
+        if serializer.is_valid():
+            serializer.save(owner=request.user)
+            return Response({"result": "success"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CreateUIAPIView(APIView):

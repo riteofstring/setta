@@ -5,7 +5,6 @@ import typing
 import unittest
 from typing import List
 
-import ui_specifier
 from ui_specifier.registration.class_info import ClassInfo
 from ui_specifier.registration.imports_holder import ImportsHolder
 from ui_specifier.registration.module_info import ModuleInfo
@@ -14,6 +13,8 @@ from ui_specifier.templates import simple_train_test
 from ui_specifier.utils import common_functions as c_f
 from ui_specifier.utils import yaml_parsing as yp
 from ui_specifier.utils.type_map import TYPE_MAP, NestedObject
+
+import ui_specifier
 
 # def test_function(
 #     a: int,

@@ -1,7 +1,6 @@
 import unittest
 
 import torch
-
 from ui_specifier.registration.module_info import ModuleInfo
 
 

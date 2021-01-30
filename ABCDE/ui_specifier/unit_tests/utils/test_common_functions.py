@@ -2,7 +2,6 @@ import inspect
 import unittest
 
 import torch
-
 from ui_specifier.registration.class_info import ClassInfo
 from ui_specifier.utils import common_functions as c_f
 

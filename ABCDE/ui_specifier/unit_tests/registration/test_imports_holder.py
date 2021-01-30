@@ -2,7 +2,6 @@ import unittest
 
 import torch
 import torchvision
-
 from ui_specifier.registration.imports_holder import ImportsHolder
 
 
