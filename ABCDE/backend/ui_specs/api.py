@@ -8,11 +8,20 @@ from rest_framework.views import APIView
 from ui_specifier.creation.create_ui import create_ui
 from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
-from .models import SavedUIs
+from .models import LatestCode, SavedUIs
 from .serializers import LatestCodeSerializer, SavedUIsSerializer
 
 
 class GenerateCodeAPIView(APIView):
+    def get(self, request, **kwargs):
+        latest_code = LatestCode.objects.values("code", "codeToken").get(
+            owner=request.user
+        )
+        serializer = LatestCodeSerializer(data=latest_code)
+        if serializer.is_valid():
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def post(self, request):
         ## hard-coded for now
         factory_specs = load_yaml(
@@ -26,7 +35,13 @@ class GenerateCodeAPIView(APIView):
             data={"codeToken": request.data["codeToken"], "code": str(ui_repr)}
         )
         if serializer.is_valid():
-            serializer.save(owner=request.user)
+            try:
+                LC = LatestCode.objects.get(owner=request.user)
+                LC.code = serializer.data["code"]
+                LC.codeToken = serializer.data["codeToken"]
+                LC.save(update_fields=["code", "codeToken"])
+            except (LatestCode.DoesNotExist):
+                serializer.save(owner=request.user)
             return Response({"result": "success"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
