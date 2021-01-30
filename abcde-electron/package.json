@@ -1,0 +1,28 @@
+{
+  "name": "abcde-electron",
+  "version": "0.0.1",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "build --dir",
+    "dist": "build"
+  },
+  "devDependencies": {
+    "electron": "^5.0.1",
+    "electron-builder": "^20.40.2"
+  },
+  "build": {
+    "appId": "abcde.electron",
+    "protocols": {
+      "name": "abcde.electron",
+      "schemes": [
+        "abcde"
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.Reference"
+    },
+    "win": {}
+  }
+}
