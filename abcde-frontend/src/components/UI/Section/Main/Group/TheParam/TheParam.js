@@ -4,7 +4,12 @@ import PinButton from "./PinButton/PinButton";
 import React, { useState, useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
-export default function TheParam({ sectionId, moduleName, objName, parameters }) {
+export default function TheParam({
+  sectionId,
+  moduleName,
+  objName,
+  parameters,
+}) {
   const { name, ui_type, default_val } = parameters;
 
   const setCurrParam = useStoreActions(
@@ -39,7 +44,13 @@ export default function TheParam({ sectionId, moduleName, objName, parameters })
 
   const sendState = (name, value) => {
     setValue(value);
-    setCurrParam({ paramName: name, paramValue: value });
+    setCurrParam({
+      sectionId,
+      moduleName,
+      objName,
+      paramName: name,
+      paramValue: value,
+    });
   };
 
   useLayoutEffect(() => {
@@ -113,7 +124,7 @@ export default function TheParam({ sectionId, moduleName, objName, parameters })
       </FormLabel>
       <PinButton />
       <Spacer />
-      <ParamSweepButton key={name}/>
+      <ParamSweepButton key={name} />
       {inputSwitch()}
     </HStack>
   );

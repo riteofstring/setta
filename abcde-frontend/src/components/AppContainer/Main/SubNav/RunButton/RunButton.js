@@ -15,11 +15,29 @@ import {
 } from "@chakra-ui/react";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { ChevronDownIcon } from "@chakra-ui/icons";
+import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function RunButton() {
+  const token = useStoreState((state) => state.auth.token);
+
+  const runSelected = useStoreActions((actions) => actions.master.runSelected);
+  const exportSelected = useStoreActions(
+    (actions) => actions.master.exportSelected
+  );
+  const runExport = () => {
+    const { selections } = exportSelected();
+    console.log("selections", selections)
+    // runSelected({ token, selections });
+  };
+
   return (
     <ButtonGroup variant="outline" size="sm" isAttached mr=".25rem">
-      <Button bg="whiteAlpha" leftIcon={<Icon as={RiPlayMiniFill} />} mr="-px">
+      <Button
+        bg="whiteAlpha"
+        leftIcon={<Icon as={RiPlayMiniFill} />}
+        mr="-px"
+        onClick={() => runExport()}
+      >
         Run
       </Button>
       <Popover>

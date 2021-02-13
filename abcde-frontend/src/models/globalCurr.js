@@ -1,45 +1,25 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 
 const globalCurr = {
   globalCurr: {},
-  sectionId: null,
-  moduleName: null,
-  objName: null,
 
   setCurrParam: action((state, payload) => {
-    const { paramName, paramValue } = payload;
-    if (!(state.sectionId in state.globalCurr)) {
-      state.globalCurr[state.sectionId] = {};
+    const { sectionId, moduleName, objName, paramName, paramValue } = payload;
+    if (!(sectionId in state.globalCurr)) {
+      state.globalCurr[sectionId] = {};
     }
-    if (!(state.moduleName in state.globalCurr[state.sectionId])) {
-      state.globalCurr[state.sectionId][state.moduleName] = {};
+    if (!(moduleName in state.globalCurr[sectionId])) {
+      state.globalCurr[sectionId][moduleName] = {};
     }
     if (
-      !(state.objName in state.globalCurr[state.sectionId][state.moduleName])
+      !(objName in state.globalCurr[sectionId][moduleName])
     ) {
-      state.globalCurr[state.sectionId][state.moduleName][state.objName] = {};
+      state.globalCurr[sectionId][moduleName][objName] = {};
     }
-    state.globalCurr[state.sectionId][state.moduleName][state.objName][
+    state.globalCurr[sectionId][moduleName][objName][
       paramName
     ] = paramValue;
-  }),
-
-  setSectionId: action((state, payload) => {
-    state.sectionId = payload;
-  }),
-
-  setModuleName: action((state, payload) => {
-    state.moduleName = payload;
-  }),
-
-  setObjName: action((state, payload) => {
-    state.objName = payload;
-  }),
-
-  setCurr: action((state, payload) => {
-    const { moduleName, objName } = payload;
-    state.moduleName = moduleName;
-    state.objName = objName;
+    console.log("state.globalCurr", debug(state.globalCurr))
   }),
 
   setGlobalCurr: action((state, payload) => {

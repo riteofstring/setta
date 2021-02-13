@@ -18,11 +18,6 @@ export default function SectionContainer({
   theSection,
   depth,
 }) {
-  const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
-  const setSectionId = useStoreActions(
-    (actions) => actions.globalCurr.setSectionId
-  );
-
   const setChildrenIds = useStoreActions(
     (action) => action.master.setChildrenIds
   );
@@ -55,19 +50,9 @@ export default function SectionContainer({
   const applyFocus = () => {
     if (!inFocus) {
       setInFocus(sectionId);
-      setSectionId(sectionId);
       setShiftAmount({ rootId, shiftAmount: depth });
     }
   };
-
-  useEffect(() => {
-    if (inFocus) {
-      const { moduleName, name: objName } = selected;
-      if (moduleName !== undefined) {
-        setCurr({ moduleName, objName });
-      }
-    }
-  }, [inFocus, selected, setCurr]);
 
   useEffect(() => {
     if (order.length > 0) {
@@ -88,9 +73,6 @@ export default function SectionContainer({
 
   const searchItems = getSearchItems();
 
-  console.log("sectionId", sectionId);
-  console.log("searchItems", searchItems);
-
   return (
     <Stack
       bg="gray.50"
@@ -100,16 +82,16 @@ export default function SectionContainer({
       w="700px"
       onClick={() => applyFocus()}
     >
-      <SectionHeader sectionId={sectionId} />
       {!isListRoot ? (
         <Stack>
+          <SectionHeader sectionId={sectionId} />
           <SectionSearch sectionId={sectionId} items={searchItems} />
           <GroupContainer sectionId={sectionId} />
+          <SectionFooter />
         </Stack>
       ) : (
         <></>
       )}
-      <SectionFooter />
 
       {order.length > 0 &&
         order.map((e, idx) => (

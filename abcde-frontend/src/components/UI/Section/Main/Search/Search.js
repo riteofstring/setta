@@ -19,7 +19,6 @@ export default function SectionSearch({ sectionId, items }) {
   const deleteChildrenFromVisibleSectionIdsThunk = useStoreActions(
     (actions) => actions.master.deleteChildrenFromVisibleSectionIdsThunk
   );
-  const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
@@ -30,7 +29,6 @@ export default function SectionSearch({ sectionId, items }) {
         objName,
       });
     }
-    setCurr({ moduleName, objName });
     setSelected({ sectionId, moduleName, name: objName });
   };
 
