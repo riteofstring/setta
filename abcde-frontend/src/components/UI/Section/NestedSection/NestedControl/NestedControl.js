@@ -1,7 +1,16 @@
 import { HStack, Button, Heading } from "@chakra-ui/react";
 import Incrementer from "./Incrementer";
+import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function NestedControl() {
+export default function NestedControl({ sectionId, parentId, nextId }) {
+  const isList = useStoreState((state) => state.master.isList[sectionId]);
+  const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
+  const isShown = useStoreState((state) => state.master.isShown[parentId]);
+
+  const flipShown = () => {
+    setIsShown({ sectionId: parentId, isShown: !isShown });
+  };
+
   return (
     <HStack justifyContent="space-between" w="100%">
       <Heading
@@ -13,8 +22,14 @@ export default function NestedControl() {
       >
         Nested Sections
       </Heading>
-      <Incrementer />
-      <Button size="sm">Hide</Button>
+      {isList ? (
+        <Incrementer sectionId={sectionId} parentId={parentId} nextId={nextId}/>
+      ) : (
+        <></>
+      )}
+      <Button size="sm" onClick={flipShown}>
+        {!!isShown ? "Collapse" : "Show"}
+      </Button>
     </HStack>
   );
 }

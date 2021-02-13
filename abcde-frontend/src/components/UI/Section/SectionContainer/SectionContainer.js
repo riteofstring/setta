@@ -46,11 +46,6 @@ export default function SectionContainer({
   const setInFocus = useStoreActions((actions) => actions.master.setInFocus);
   const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
 
-  const isList = useStoreState((state) => state.master.isList[sectionId]);
-  const isListRoot = useStoreState(
-    (state) => state.master.isListRoot[sectionId]
-  );
-
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
   const applyFocus = () => {
     if (!inFocus) {
@@ -88,8 +83,8 @@ export default function SectionContainer({
 
   const searchItems = getSearchItems();
 
-  console.log("sectionId", sectionId)
-  console.log("searchItems", searchItems)
+  console.log("sectionId", sectionId);
+  console.log("searchItems", searchItems);
 
   return (
     <Stack
@@ -100,13 +95,9 @@ export default function SectionContainer({
       w="700px"
       onClick={() => applyFocus()}
     >
-      <SectionHeader
-        theSection={theSection}
-        sectionId={sectionId}
-        isListRoot={true}
-      />
+      <SectionHeader sectionId={sectionId} />
       <SectionSearch sectionId={sectionId} items={searchItems} />
-      <GroupContainer sectionId={sectionId}/>
+      <GroupContainer sectionId={sectionId} />
       <SectionFooter />
 
       {order.length > 0 &&
@@ -123,7 +114,6 @@ export default function SectionContainer({
             updateOrder={updateOrder}
           />
         ))}
-
     </Stack>
   );
 }

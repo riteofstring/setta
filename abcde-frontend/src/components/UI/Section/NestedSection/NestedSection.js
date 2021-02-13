@@ -22,6 +22,8 @@ export default function NestedSection({
     (state) => state.master.idHierarchy[sectionId]
   );
 
+  console.log("isShown", parentId, isShown)
+
   return isVisible ? (
     <Stack
       direction="column"
@@ -30,16 +32,20 @@ export default function NestedSection({
       boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
     >
       <Grid gap={2}>
-        <NestedControl />
-        <SectionContainer
-          sectionId={sectionId}
-          rootId={rootId}
-          parentId={parentId}
-          nextId={nextId}
-          childrenIds={idHierarchy.children}
-          theSection={theSection}
-          depth={depth}
-        />
+        {idx === 0 ? <NestedControl sectionId={sectionId} parentId={parentId} nextId={nextId}/> : <></>}
+        {isShown ? (
+          <SectionContainer
+            sectionId={sectionId}
+            rootId={rootId}
+            parentId={parentId}
+            nextId={nextId}
+            childrenIds={idHierarchy.children}
+            theSection={theSection}
+            depth={depth}
+          />
+        ) : (
+          <></>
+        )}
       </Grid>
     </Stack>
   ) : (
