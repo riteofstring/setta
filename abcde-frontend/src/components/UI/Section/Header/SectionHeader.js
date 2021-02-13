@@ -1,5 +1,4 @@
-import { Stack, Icon, IconButton, Spacer } from "@chakra-ui/react";
-import { HiX } from "react-icons/hi";
+import { Stack, Spacer } from "@chakra-ui/react";
 import SectionTitle from "./Title/SectionTitle";
 import { useStoreState } from "easy-peasy";
 import Incrementer from "../Incrementer/Incrementer";
@@ -36,9 +35,6 @@ export default function SectionHeader({
           childrenIds={childrenIds}
           isListRoot={isListRoot}
         />
-      )}
-      {isList && !isListRoot && (
-        <IconButton bg="whiteAlpha" icon={<Icon as={HiX} />} />
       )}
     </Stack>
   );

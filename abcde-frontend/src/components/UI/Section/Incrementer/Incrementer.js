@@ -1,6 +1,14 @@
-import { HStack, Input, useNumberInput, IconButton } from "@chakra-ui/react";
+import React, { useState } from "react";
+import {
+  HStack,
+  Input,
+  useNumberInput,
+  Icon,
+  IconButton,
+} from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { HiX } from "react-icons/hi";
 
 export default function Incrementer({
   sectionId,
@@ -11,6 +19,10 @@ export default function Incrementer({
 }) {
   const permanentlyDeleteSection = useStoreActions(
     (actions) => actions.master.permanentlyDeleteSection
+  );
+
+  const permanentlyDeleteMultipleSections = useStoreActions(
+    (actions) => actions.master.permanentlyDeleteMultipleSections
   );
 
   const addToVisibleSectionIdsThunk = useStoreActions(
@@ -28,25 +40,25 @@ export default function Incrementer({
     return (isListRoot && childrenIds.length > 0) | (!isListRoot && nextId);
   };
 
-  const addSection = () => {
-    addToVisibleSectionIdsThunk({
-      name: sectionIdsToSectionHeadings,
-      parentId: isListRoot ? sectionId : parentId,
-      moduleName: selected.moduleName,
-      objName: selected.name,
-      isList: true,
-      siblingId: sectionId,
-    });
+  const addSections = (numSections) => {
+    for (let i = 0; i < numSections; i++) {
+      addToVisibleSectionIdsThunk({
+        name: sectionIdsToSectionHeadings,
+        parentId: isListRoot ? sectionId : parentId,
+        moduleName: selected.moduleName,
+        objName: selected.name,
+        isList: true,
+        siblingId: sectionId,
+      });
+    }
   };
 
-  const deleteSection = () => {
-    if (isListRoot && childrenIds.length > 0) {
-      permanentlyDeleteSection({
-        sectionId: childrenIds[0],
+  const deleteSections = (numSections) => {
+    if ((isListRoot && childrenIds.length > 0) | nextId) {
+      permanentlyDeleteMultipleSections({
         parentId: sectionId,
+        numSectionsToDelete: numSections,
       });
-    } else if (nextId) {
-      permanentlyDeleteSection({ sectionId: nextId, parentId });
     }
   };
 
@@ -54,37 +66,34 @@ export default function Incrementer({
     permanentlyDeleteSection({ sectionId, parentId });
   };
 
-  const {
-    getInputProps,
-    getIncrementButtonProps,
-    getDecrementButtonProps,
-  } = useNumberInput({
-    step: 1,
-    defaultValue: 1,
-    min: 0,
-    precision: 0,
-  });
+  const [numSections, setNumSections] = useState(1);
 
-  const inc = getIncrementButtonProps();
-  const dec = getDecrementButtonProps();
-  const input = getInputProps({ isReadOnly: false });
   return (
     <HStack maxW="320px">
       {decrementButtonCondition() && (
         <IconButton
           icon={<MinusIcon />}
           size="xs"
-          {...dec}
-          onClick={() => deleteSection()}
+          onClick={() => deleteSections(numSections)}
         />
       )}
-      <Input size="sm" {...input} maxW="5ch" />
+      <Input
+        size="sm"
+        maxW="5ch"
+        value={numSections}
+        onChange={(e) => setNumSections(e.target.value)}
+      />
       <IconButton
         icon={<AddIcon />}
         size="xs"
-        {...inc}
-        onClick={() => addSection()}
+        onClick={() => addSections(numSections)}
       />
+      {!isListRoot && (
+        <IconButton
+          bg="whiteAlpha"
+          icon={<Icon as={HiX} onClick={() => deleteThisSection()} />}
+        />
+      )}
     </HStack>
   );
 }
