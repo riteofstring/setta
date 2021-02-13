@@ -22,7 +22,11 @@ export default function NestedSection({
     (state) => state.master.idHierarchy[sectionId]
   );
 
-  console.log("isShown", parentId, isShown)
+  const isListRoot = useStoreState(
+    (state) => state.master.isListRoot[sectionId]
+  );
+
+  console.log("isShown", parentId, isShown);
 
   return isVisible ? (
     <Stack
@@ -32,7 +36,17 @@ export default function NestedSection({
       boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
     >
       <Grid gap={2}>
-        {idx === 0 ? <NestedControl sectionId={sectionId} parentId={parentId} nextId={nextId}/> : <></>}
+        {(idx === 0) | isListRoot ? (
+          <NestedControl
+            sectionId={sectionId}
+            parentId={parentId}
+            nextId={nextId}
+            isListRoot={isListRoot}
+            idx={idx}
+          />
+        ) : (
+          <></>
+        )}
         {isShown ? (
           <SectionContainer
             sectionId={sectionId}

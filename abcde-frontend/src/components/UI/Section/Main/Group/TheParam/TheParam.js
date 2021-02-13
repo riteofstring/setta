@@ -4,12 +4,7 @@ import PinButton from "./PinButton/PinButton";
 import React, { useState, useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
-export default function TheParam({
-  sectionId,
-  moduleName,
-  objName,
-  parameters,
-}) {
+export default function TheParam({ sectionId, moduleName, objName, parameters }) {
   const { name, ui_type, default_val } = parameters;
 
   const setCurrParam = useStoreActions(
@@ -23,6 +18,9 @@ export default function TheParam({
   const globalCurr = useStoreState(
     (state) => state.globalCurr.globalCurr,
     (prev, next) => checkGlobalCurrEquality(prev, next)
+  );
+  const isListRoot = useStoreState(
+    (state) => state.master.isListRoot[sectionId]
   );
 
   const [value, setValue] = useState(default_val);
@@ -55,7 +53,10 @@ export default function TheParam({
       savedParam !== null && savedParam !== undefined ? savedParam : default_val
     );
 
-    if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
+    if (
+      !isListRoot &&
+      ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)
+    ) {
       addToVisibleSectionIdsThunk({
         name,
         parentId: sectionId,
@@ -112,7 +113,7 @@ export default function TheParam({
       </FormLabel>
       <PinButton />
       <Spacer />
-      <ParamSweepButton key={name} />
+      <ParamSweepButton key={name}/>
       {inputSwitch()}
     </HStack>
   );

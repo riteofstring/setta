@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/simpleTrainTest.json";
+import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -8,11 +8,8 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
-import {
-  saveUI as saveUIBackend,
-  generateCode as generateCodeBackend,
-} from "../dbRequests/ui";
-import { v4 as uuidv4 } from "uuid";
+import { saveUI as saveUIBackend, generateCode as generateCodeBackend } from "../dbRequests/ui";
+import { v4 as uuidv4 } from 'uuid';
 
 const master = {
   sectionCount: 1,
@@ -25,6 +22,7 @@ const master = {
   isShown: {},
   shiftAmount: {},
   isList: {},
+  isListRoot: {},
   listCount: {},
   sectionIdsToSectionHeadings: {},
   sectionIdsToStringIds: {},
@@ -38,13 +36,13 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    const { isJson, data } = payload;
-    if (!isJson) {
-      state.sections = data;
+    const {isJson, data} = payload
+    if (!isJson){
+      state.sections = data
     }
     for (let key of Object.keys(data)) {
       let id = state.sectionCount;
-      if (isJson) {
+      if (isJson){
         state.sections[id] = new Section(key, data[key]);
       }
       state.rootIdHierarchy[id] = {
@@ -56,9 +54,7 @@ const master = {
         parentObjName: null,
       };
       state.shiftAmount[id] = 0;
-      state.sectionIdsToSectionHeadings[id] = isJson
-        ? key
-        : state.sections[id].name;
+      state.sectionIdsToSectionHeadings[id] = isJson ? key : state.sections[id].name
       state.sectionIdsToStringIds[id] = id;
       state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
@@ -66,6 +62,7 @@ const master = {
       state.sectionHasNested[id] = false;
       state.sectionModuleObjHasNested[id] = false;
       state.isList[id] = null;
+      state.isListRoot[id] = false;
       state.listCount[id] = 0;
       state.isShown[id] = true;
       state.isVisible[id] = true;
@@ -89,6 +86,7 @@ const master = {
     state.isShown = {};
     state.shiftAmount = {};
     state.isList = {};
+    state.isListRoot = {};
     state.listSiblings = {};
     state.listCount = {};
     state.sectionIdsToSectionHeadings = {};
@@ -101,9 +99,9 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     if (NO_AUTH) {
-      action._loadSections({ isJson: true, data: Data });
+      action._loadSections({isJson: true, data: Data});
     } else {
-      action._loadSections({ isJson: true, data: payload });
+      action._loadSections({isJson: true, data: payload})
     }
   }),
 
@@ -146,7 +144,6 @@ const master = {
   setIsList: action((state, payload) => {
     const { sectionId, isList } = payload;
     state.isList[sectionId] = isList;
-    console.log("setIsList", sectionId)
   }),
 
   setStringId: action((state, payload) => {
@@ -179,11 +176,16 @@ const master = {
     parentIdObj.moduleName = moduleName;
     parentIdObj.objName = objName;
     if (!(id in state.selected)) {
-      state.sections[id] =
-        state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
-          name
-        ].type;
-      state.selected[id] = {};
+      if (isList && siblingId === null) {
+        state.sections[id] = state.sections[parentId];
+        state.selected[id] = state.selected[parentId];
+      } else {
+        state.sections[id] =
+          state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
+            name
+          ].type;
+        state.selected[id] = {};
+      }
       state.inFocus.splice(id, 0, false);
 
       if (isList) {
@@ -195,6 +197,7 @@ const master = {
           if (!(id in state.listCount)) {
             state.listCount[id] = 0;
           }
+          state.isListRoot[id] = true;
           parentIdObj.children.push(id);
         }
       } else {
@@ -313,28 +316,30 @@ const master = {
       rootIdHierarchy,
       sectionIdsToSectionHeadings,
       isList,
+      isListRoot,
     } = helpers.getState();
     const selections = createExportableObject({
       idHierarchy,
       rootIdHierarchy,
       sectionIdsToSectionHeadings,
       isList,
+      isListRoot,
       globalCurr,
     });
     return { selections, globalCurr };
   }),
 
   runSelected: thunk(async (action, payload, helpers) => {
-    const { token, selections } = payload;
-    const codeToken = uuidv4();
+    const {token, selections} = payload
+    const codeToken = uuidv4()
     const result = await generateCodeBackend({
       token,
       codeToken,
-      uiSelections: selections,
+      uiSelections: selections
     });
-    if (result) {
-      console.log("result", result);
-      window.open("abcde://" + codeToken, "_self");
+    if (result){
+      console.log("result", result)
+      window.open("abcde://"+codeToken, "_self")
     }
 
     // ipcRenderer.send("asynchronous-message", {
