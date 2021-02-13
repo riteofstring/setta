@@ -88,17 +88,21 @@ export default function SectionContainer({
   const searchItems = getSearchItems();
 
   return (
-    <Stack bg="gray.50" px="1.5rem" py="1rem" borderRadius="md" w="700px">
+    <Stack
+      bg="gray.50"
+      px="1.5rem"
+      py="1rem"
+      borderRadius="md"
+      w="700px"
+      onClick={() => applyFocus()}
+    >
       <SectionHeader
         theSection={theSection}
         sectionId={sectionId}
         isListRoot={true}
       />
-      <SectionSearch
-        sectionId={sectionId}
-        items={searchItems}
-      />
-      <GroupContainer />
+      <SectionSearch sectionId={sectionId} items={searchItems} />
+      <GroupContainer sectionId={sectionId}/>
       <SectionFooter />
     </Stack>
   );

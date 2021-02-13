@@ -6,6 +6,8 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, items }) {
+  console.log("SectionSearch sectionId", sectionId)
+
   const itemToString = (x) => {
     return x ? x[1] : "";
   };

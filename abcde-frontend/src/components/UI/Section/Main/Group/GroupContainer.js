@@ -1,9 +1,31 @@
 import { Stack, HStack, Heading, FormControl } from "@chakra-ui/react";
 import TheParam from "./TheParam/TheParam";
-
 import PinButton from "./TheParam/PinButton/PinButton";
+import { useStoreState } from "easy-peasy";
 
-export default function GroupContainer() {
+export default function GroupContainer({ sectionId }) {
+  const sections = useStoreState((state) => state.master.sections);
+  const selected = useStoreState((state) => state.master.selected);
+
+  const getParamsArr = () => {
+    try {
+      let output = [];
+      const { moduleName, name } = selected[
+        sectionId
+      ];
+      const paramSource =
+        sections[sectionId].moduleInfos[moduleName].objs[name].params;
+      for (let key of Object.keys(paramSource)) {
+        output.push(paramSource[key]);
+      }
+      return output;
+    } catch (err) {
+      return [];
+    }
+  };
+
+  const paramsArr = getParamsArr();
+
   return (
     <Stack
       px="1.5rem"
@@ -19,7 +41,10 @@ export default function GroupContainer() {
         <PinButton />
       </HStack>
       <FormControl id="groupone">
-        <TheParam />
+        {paramsArr.length > 0 &&
+          paramsArr.map((e, idx) => (
+            <TheParam key={`${e.name}-${idx}`} parameters={e} />
+          ))}
       </FormControl>
     </Stack>
   );

@@ -23,7 +23,7 @@ const TextInput = React.forwardRef((props, ref) => {
   );
 });
 
-export default function ParamSweepPopover({ firstFieldRef, onCancel }) {
+export default function ParamSweepPopover({ firstFieldRef, onCancel, paramName }) {
   return (
     <Flex direction="column">
       <Heading as="h4" fontSize="md" color="gray.500">
@@ -35,9 +35,10 @@ export default function ParamSweepPopover({ firstFieldRef, onCancel }) {
           id="ParamSweepFrom"
           ref={firstFieldRef}
           defaultValue="1"
+          key={`${paramName}-ParamSweepFrom`}
         />
-        <TextInput label="To" id="ParamSweepTo" defaultValue="5" />
-        <TextInput label="Step" id="ParamSweepStep" defaultValue="1" />
+        <TextInput label="To" id="ParamSweepTo" defaultValue="5" key={`${paramName}-ParamSweepTo`}/>
+        <TextInput label="Step" id="ParamSweepStep" defaultValue="1" key={`${paramName}-ParamSweepStep`}/>
       </HStack>
 
       <FormControl width="100%" display="flex" alignItems="center">
