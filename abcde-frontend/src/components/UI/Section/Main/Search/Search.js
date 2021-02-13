@@ -6,7 +6,7 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, items }) {
-  console.log("SectionSearch sectionId", sectionId)
+  console.log("SectionSearch sectionId", sectionId);
 
   const itemToString = (x) => {
     return x ? x[1] : "";
@@ -16,17 +16,15 @@ export default function SectionSearch({ sectionId, items }) {
     (state) => state.master.sectionHasNested[sectionId]
   );
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
-  const deleteChildrenFromVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.deleteChildrenFromVisibleSectionIdsThunk
+  const deleteChildrenFromVisibleSectionIds = useStoreActions(
+    (actions) => actions.master.deleteChildrenFromVisibleSectionIds
   );
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
     if (sectionHasNested) {
-      deleteChildrenFromVisibleSectionIdsThunk({
+      deleteChildrenFromVisibleSectionIds({
         sectionId,
-        moduleName,
-        objName,
       });
     }
     setSelected({ sectionId, moduleName, name: objName });

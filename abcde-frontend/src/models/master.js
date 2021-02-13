@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/longList.json";
+import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -266,7 +266,8 @@ const master = {
   }),
 
   deleteChildrenFromVisibleSectionIds: action((state, payload) => {
-    const foundId = findId(payload, state.idHierarchy, state.rootIdHierarchy);
+    const { sectionId } = payload;
+    const foundId = findId(sectionId, state.idHierarchy, state.rootIdHierarchy);
     setChildrenVisibility(
       foundId.children,
       state.idHierarchy,
@@ -274,26 +275,6 @@ const master = {
       false
     );
   }),
-
-  deleteChildrenFromVisibleSectionIdsThunk: thunk(
-    (action, payload, helpers) => {
-      const {
-        sectionId: prevSectionId,
-        moduleName: prevModuleName,
-        objName: prevObjName,
-      } = helpers.getStoreState().globalCurr;
-      const x = createStringId(prevSectionId, prevModuleName, prevObjName);
-      if (helpers.getState().sectionModuleObjHasNested[x]) {
-        const { sectionId, moduleName, objName } = payload;
-        if (
-          sectionId === prevSectionId &&
-          (moduleName !== prevModuleName) | (objName !== prevObjName)
-        ) {
-          action.deleteChildrenFromVisibleSectionIds(prevSectionId);
-        }
-      }
-    }
-  ),
 
   incrementSectionCount: action((state, payload) => {
     state.sectionCount += 1;
