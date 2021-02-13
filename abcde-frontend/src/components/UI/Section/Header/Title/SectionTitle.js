@@ -1,6 +1,6 @@
 import { Stack, Heading } from "@chakra-ui/react";
 
-export default function SectionTitle() {
+export default function SectionTitle({ sectionHeading, currObjName }) {
   return (
     <Stack mb="0.5rem">
       <Heading
@@ -10,10 +10,10 @@ export default function SectionTitle() {
         color="gray.500"
         as="h2"
       >
-        Generative Adversarial Network Optimizer
+        {sectionHeading}
       </Heading>
       <Heading size="sm" fontWeight="light" as="h3">
-        GlobalEmbeddingSpaceTester
+        {currObjName}
       </Heading>
     </Stack>
   );

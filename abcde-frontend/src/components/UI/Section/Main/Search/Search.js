@@ -3,10 +3,23 @@ import { useCombobox } from "downshift";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
+import { useStoreState, useStoreActions } from "easy-peasy";
 
-const items = ["Seattle", "San Francisco", "Springfield", "New York", "Boston"];
+export default function SectionSearch({ theSection }) {
+  const { moduleInfos } = theSection;
 
-export default function SectionSearch() {
+  const getItems = () => {
+    let output = [];
+    for (let moduleName of Object.keys(moduleInfos)) {
+      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
+        output.push(objName);
+      }
+    }
+    return output;
+  };
+
+  const items = getItems();
+
   const [inputItems, setInputItems] = useState(items);
   const {
     isOpen,

@@ -76,8 +76,12 @@ export default function SectionContainer({
 
   return (
     <Stack bg="gray.50" px="1.5rem" py="1rem" borderRadius="md" w="700px">
-      <SectionHeader />
-      <SectionSearch />
+      <SectionHeader
+        theSection={theSection}
+        sectionId={sectionId}
+        isListRoot={true}
+      />
+      <SectionSearch theSection={theSection} />
       <GroupContainer />
       <SectionFooter />
     </Stack>
