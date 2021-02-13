@@ -5,7 +5,9 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 export default function Incrementer({
   sectionId,
   parentId,
+  childrenIds,
   nextId,
+  isListRoot,
 }) {
   const permanentlyDeleteSection = useStoreActions(
     (actions) => actions.master.permanentlyDeleteSection
@@ -22,11 +24,14 @@ export default function Incrementer({
     (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
   );
 
+  const decrementButtonCondition = () => {
+    return (isListRoot && childrenIds.length > 0) | (!isListRoot && nextId);
+  };
 
   const addSection = () => {
     addToVisibleSectionIdsThunk({
       name: sectionIdsToSectionHeadings,
-      parentId: parentId,
+      parentId: isListRoot ? sectionId : parentId,
       moduleName: selected.moduleName,
       objName: selected.name,
       isList: true,
@@ -35,7 +40,12 @@ export default function Incrementer({
   };
 
   const deleteSection = () => {
-    if (nextId) {
+    if (isListRoot && childrenIds.length > 0) {
+      permanentlyDeleteSection({
+        sectionId: childrenIds[0],
+        parentId: sectionId,
+      });
+    } else if (nextId) {
       permanentlyDeleteSection({ sectionId: nextId, parentId });
     }
   };
@@ -60,12 +70,14 @@ export default function Incrementer({
   const input = getInputProps({ isReadOnly: false });
   return (
     <HStack maxW="320px">
-      <IconButton
-        icon={<MinusIcon />}
-        size="xs"
-        {...dec}
-        onClick={() => deleteSection()}
-      />
+      {decrementButtonCondition() && (
+        <IconButton
+          icon={<MinusIcon />}
+          size="xs"
+          {...dec}
+          onClick={() => deleteSection()}
+        />
+      )}
       <Input size="sm" {...input} maxW="5ch" />
       <IconButton
         icon={<AddIcon />}

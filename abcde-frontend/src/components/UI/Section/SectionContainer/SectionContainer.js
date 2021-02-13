@@ -82,20 +82,26 @@ export default function SectionContainer({
       w="700px"
       onClick={() => applyFocus()}
     >
-      {!isListRoot ? (
+      <SectionHeader
+        sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
+        childrenIds={childrenIds}
+        isList={isList}
+        isListRoot={isListRoot}
+      />
+      {!isListRoot && (
         <Stack>
-          <SectionHeader sectionId={sectionId} />
           <SectionSearch sectionId={sectionId} items={searchItems} />
           <GroupContainer sectionId={sectionId} />
-          <SectionFooter />
+          <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
         </Stack>
-      ) : (
-        <></>
       )}
 
       {order.length > 0 &&
         order.map((e, idx) => (
           <NestedSection
+            grandparentId={parentId}
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}

@@ -1,6 +1,11 @@
 import { Stack, Heading } from "@chakra-ui/react";
 
-export default function SectionTitle({ sectionHeading, currObjName }) {
+export default function SectionTitle({ sectionHeading, currObjName, isListRoot }) {
+
+  const getTitle = () => {
+    return isListRoot ? "List for " + sectionHeading : sectionHeading
+  }
+
   return (
     <Stack mb="0.5rem">
       <Heading
@@ -10,7 +15,7 @@ export default function SectionTitle({ sectionHeading, currObjName }) {
         color="gray.500"
         as="h2"
       >
-        {sectionHeading}
+        {getTitle()}
       </Heading>
       <Heading size="sm" fontWeight="light" as="h3">
         {currObjName}

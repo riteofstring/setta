@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 
 const globalCurr = {
   globalCurr: {},
@@ -19,7 +19,6 @@ const globalCurr = {
     state.globalCurr[sectionId][moduleName][objName][
       paramName
     ] = paramValue;
-    console.log("state.globalCurr", debug(state.globalCurr))
   }),
 
   setGlobalCurr: action((state, payload) => {
