@@ -5,12 +5,16 @@ import store from "./store/store";
 import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
+import { ChakraProvider } from "@chakra-ui/react";
+import { AppTheme } from "./styles/Theme";
 
 ReactDOM.render(
   <React.StrictMode>
-    <StoreProvider store={store}>
-      <App />
-    </StoreProvider>
+    <ChakraProvider theme={AppTheme}>
+      <StoreProvider store={store}>
+        <App />
+      </StoreProvider>
+    </ChakraProvider>
   </React.StrictMode>,
   document.getElementById("root")
 );

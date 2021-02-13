@@ -1,13 +1,14 @@
 import React from "react";
-import { Route, Switch, Redirect, IndexRoute } from "react-router-dom";
-// import StartPage from "../../StartPage/StartPage";
+import { Route, Switch, Redirect } from "react-router-dom";
 import LoginPage from "../../LoginPage/LoginPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
 import DevPage from "../../DevPage/DevPage";
-import UiPage from "../../UiPage/UiPage";
+// import UiPage from "../../UiPage/UiPage";
 import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
 import { useStoreState } from "easy-peasy";
+import HeaderContainer from "../Header/Header";
+import MainContainer from "../Main/MainContainer";
 
 const SwitchContainer = () => {
   return (
@@ -19,17 +20,19 @@ const SwitchContainer = () => {
         <SignUpPage />
       </Route>
       <PrivateRoute exact path="/ui">
-        <UiPage />
+        {/* <UiPage /> */}
+        <HeaderContainer />
+        <MainContainer />
       </PrivateRoute>
-      <PrivateRoute exact path="/developer">
+      {/* <PrivateRoute exact path="/developer">
         <DevPage />
-      </PrivateRoute>
-      <PrivateRoute exact path="/terminal">
+      </PrivateRoute> */}
+      {/* <PrivateRoute exact path="/terminal">
         <TerminalPage />
-      </PrivateRoute>
-      <PrivateRoute exact path="/logout">
+      </PrivateRoute> */}
+      {/* <PrivateRoute exact path="/logout">
         <LogoutPage />
-      </PrivateRoute>
+      </PrivateRoute> */}
     </Switch>
   );
 };
@@ -40,9 +43,7 @@ const PrivateRoute = ({ children, ...rest }) => {
   return (
     <Route
       {...rest}
-      render={(props) =>
-        isAuthenticated ? children : <Redirect to="/" />
-      }
+      render={(props) => (isAuthenticated ? children : <Redirect to="/" />)}
     />
   );
 };
