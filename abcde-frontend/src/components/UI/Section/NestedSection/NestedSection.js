@@ -1,6 +1,9 @@
+import React, { useState } from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
 import SectionContainer from "../SectionContainer/SectionContainer";
 import { useStoreState } from "easy-peasy";
+import { motion } from "framer-motion";
+import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
 
 const borderLeft = theme.colors.gray;
 
@@ -21,11 +24,59 @@ export default function NestedSection({
     (state) => state.master.idHierarchy[sectionId]
   );
 
+  const isList = useStoreState((state) => state.master.isList[sectionId]);
+
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
   );
 
   console.log("isShown", parentId, isShown);
+
+  const getNestedSection = () => {
+    return (
+      isShown && (
+        <SectionContainer
+          sectionId={sectionId}
+          rootId={rootId}
+          parentId={parentId}
+          nextId={nextId}
+          childrenIds={idHierarchy.children}
+          theSection={theSection}
+          depth={depth}
+        />
+      )
+    );
+  };
+
+  const MotionDivWrapper = (inner) => {
+    const [isDragging, setDragging] = useState(false);
+
+    const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
+
+    return (
+      <motion.div
+        ref={ref}
+        layout
+        initial={false}
+        whileHover={{
+          scale: 1.01,
+          boxShadow: "0px 3px 3px rgba(0,0,0,0.15)",
+        }}
+        whileTap={{
+          scale: 1.03,
+          boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
+        }}
+        drag="y"
+        onDragStart={() => setDragging(true)}
+        onDragEnd={() => setDragging(false)}
+        onViewportBoxUpdate={(_viewportBox, delta) => {
+          isDragging && updateOrder(idx, delta.y.translate);
+        }}
+      >
+        {inner}
+      </motion.div>
+    );
+  };
 
   return (
     isVisible && (
@@ -36,17 +87,10 @@ export default function NestedSection({
         boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
       >
         <Grid gap={2}>
-          {isShown && (
-            <SectionContainer
-              sectionId={sectionId}
-              rootId={rootId}
-              parentId={parentId}
-              nextId={nextId}
-              childrenIds={idHierarchy.children}
-              theSection={theSection}
-              depth={depth}
-            />
-          )}
+          {isList && !isListRoot
+            ? MotionDivWrapper(getNestedSection())
+            : getNestedSection()}
+          {/* {getNestedSection()} */}
         </Grid>
       </Stack>
     )
