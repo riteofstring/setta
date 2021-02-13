@@ -5,25 +5,37 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function SectionSearch({ theSection }) {
-  const { moduleInfos } = theSection;
-
-  const getItems = () => {
-    let output = [];
-    for (let moduleName of Object.keys(moduleInfos)) {
-      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
-        output.push(objName);
-      }
-    }
-    return output;
+export default function SectionSearch({ sectionId, items }) {
+  const itemToString = (x) => {
+    return x ? x[1] : "";
   };
 
-  const items = getItems();
+  const sectionHasNested = useStoreState(
+    (state) => state.master.sectionHasNested[sectionId]
+  );
+  const setSelected = useStoreActions((actions) => actions.master.setSelected);
+  const deleteChildrenFromVisibleSectionIdsThunk = useStoreActions(
+    (actions) => actions.master.deleteChildrenFromVisibleSectionIdsThunk
+  );
+  const setCurr = useStoreActions((actions) => actions.globalCurr.setCurr);
+
+  const onSelectedItemChange = ({ selectedItem }) => {
+    const [moduleName, objName] = selectedItem;
+    if (sectionHasNested) {
+      deleteChildrenFromVisibleSectionIdsThunk({
+        sectionId,
+        moduleName,
+        objName,
+      });
+    }
+    setCurr({ moduleName, objName });
+    setSelected({ sectionId, moduleName, name: objName });
+  };
 
   const [inputItems, setInputItems] = useState(items);
   const {
     isOpen,
-    // selectedItem,
+    selectedItem,
     getToggleButtonProps,
     // getLabelProps,
     getMenuProps,
@@ -33,14 +45,20 @@ export default function SectionSearch({ theSection }) {
     getItemProps,
   } = useCombobox({
     items: inputItems,
+    itemToString,
+    onSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
       setInputItems(
         items.filter((item) =>
-          item.toLowerCase().startsWith(inputValue.toLowerCase())
+          itemToString(item).toLowerCase().startsWith(inputValue.toLowerCase())
         )
       );
     },
   });
+
+  console.log("selectedItem", selectedItem);
+  console.log("highlightedIndex", highlightedIndex);
+
   return (
     <Flex direction="column" align="center" overflow="visible" h="2.5rem">
       {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
@@ -85,7 +103,7 @@ export default function SectionSearch({ theSection }) {
               highlightedIndex={highlightedIndex}
               key={index}
             >
-              {item}
+              {itemToString(item)}
             </ComboboxItem>
           ))}
         </ComboboxList>

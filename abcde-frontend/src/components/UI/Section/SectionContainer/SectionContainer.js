@@ -74,6 +74,19 @@ export default function SectionContainer({
     }
   }, [order]);
 
+  const getSearchItems = () => {
+    const { moduleInfos } = theSection;
+    let output = [];
+    for (let moduleName of Object.keys(moduleInfos)) {
+      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
+        output.push([moduleName, objName]);
+      }
+    }
+    return output;
+  };
+
+  const searchItems = getSearchItems();
+
   return (
     <Stack bg="gray.50" px="1.5rem" py="1rem" borderRadius="md" w="700px">
       <SectionHeader
@@ -81,7 +94,10 @@ export default function SectionContainer({
         sectionId={sectionId}
         isListRoot={true}
       />
-      <SectionSearch theSection={theSection} />
+      <SectionSearch
+        sectionId={sectionId}
+        items={searchItems}
+      />
       <GroupContainer />
       <SectionFooter />
     </Stack>
