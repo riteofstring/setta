@@ -1,11 +1,28 @@
 import { Grid, Stack, theme } from "@chakra-ui/react";
 import NestedControl from "./NestedControl/NestedControl";
 import SectionContainer from "../SectionContainer/SectionContainer";
+import { useStoreState } from "easy-peasy";
 
 const borderLeft = theme.colors.gray;
 
-export default function NestedSection() {
-  return (
+export default function NestedSection({
+  parentId,
+  rootId,
+  sectionId,
+  nextId,
+  idx,
+  depth,
+  updatePosition,
+  updateOrder,
+}) {
+  const theSection = useStoreState((state) => state.master.sections[sectionId]);
+  const isShown = useStoreState((state) => state.master.isShown[parentId]);
+  const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
+  const idHierarchy = useStoreState(
+    (state) => state.master.idHierarchy[sectionId]
+  );
+
+  return isVisible ? (
     <Stack
       direction="column"
       pl="1rem"
@@ -14,9 +31,18 @@ export default function NestedSection() {
     >
       <Grid gap={2}>
         <NestedControl />
-        <SectionContainer />
-        <SectionContainer />
+        <SectionContainer
+          sectionId={sectionId}
+          rootId={rootId}
+          parentId={parentId}
+          nextId={nextId}
+          childrenIds={idHierarchy.children}
+          theSection={theSection}
+          depth={depth}
+        />
       </Grid>
     </Stack>
+  ) : (
+    <></>
   );
 }

@@ -7,6 +7,7 @@ import SectionHeader from "../Header/SectionHeader";
 import SectionFooter from "../Footer/SectionFooter";
 import { createStringId } from "../../../../utils/sectionIds";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
+import NestedSection from "../NestedSection/NestedSection";
 
 export default function SectionContainer({
   sectionId,
@@ -87,6 +88,9 @@ export default function SectionContainer({
 
   const searchItems = getSearchItems();
 
+  console.log("sectionId", sectionId)
+  console.log("searchItems", searchItems)
+
   return (
     <Stack
       bg="gray.50"
@@ -104,6 +108,22 @@ export default function SectionContainer({
       <SectionSearch sectionId={sectionId} items={searchItems} />
       <GroupContainer sectionId={sectionId}/>
       <SectionFooter />
+
+      {order.length > 0 &&
+        order.map((e, idx) => (
+          <NestedSection
+            parentId={sectionId}
+            rootId={rootId}
+            sectionId={e}
+            nextId={order[idx + 1]}
+            idx={idx}
+            key={`Nested-Sec-${e}`}
+            depth={depth + 1}
+            updatePosition={updatePosition}
+            updateOrder={updateOrder}
+          />
+        ))}
+
     </Stack>
   );
 }

@@ -4,27 +4,29 @@ import PinButton from "./TheParam/PinButton/PinButton";
 import { useStoreState } from "easy-peasy";
 
 export default function GroupContainer({ sectionId }) {
-  const sections = useStoreState((state) => state.master.sections);
-  const selected = useStoreState((state) => state.master.selected);
+  const thisSectionInfo = useStoreState(
+    (state) => state.master.sections[sectionId]
+  );
+  const thisSectionSelected = useStoreState(
+    (state) => state.master.selected[sectionId]
+  );
 
   const getParamsArr = () => {
     try {
-      let output = [];
-      const { moduleName, name } = selected[
-        sectionId
-      ];
+      let parameters = [];
+      const { moduleName, name: objName } = thisSectionSelected;
       const paramSource =
-        sections[sectionId].moduleInfos[moduleName].objs[name].params;
+        thisSectionInfo.moduleInfos[moduleName].objs[objName].params;
       for (let key of Object.keys(paramSource)) {
-        output.push(paramSource[key]);
+        parameters.push(paramSource[key]);
       }
-      return output;
+      return { moduleName, objName, parameters };
     } catch (err) {
-      return [];
+      return { moduleName: null, objName: null, parameters: [] };
     }
   };
 
-  const paramsArr = getParamsArr();
+  const paramsInfo = getParamsArr();
 
   return (
     <Stack
@@ -41,9 +43,15 @@ export default function GroupContainer({ sectionId }) {
         <PinButton />
       </HStack>
       <FormControl id="groupone">
-        {paramsArr.length > 0 &&
-          paramsArr.map((e, idx) => (
-            <TheParam key={`${e.name}-${idx}`} parameters={e} />
+        {paramsInfo.parameters.length > 0 &&
+          paramsInfo.parameters.map((e, idx) => (
+            <TheParam
+              key={`${e.name}-${idx}`}
+              sectionId={sectionId}
+              moduleName={paramsInfo.moduleName}
+              objName={paramsInfo.objName}
+              parameters={e}
+            />
           ))}
       </FormControl>
     </Stack>

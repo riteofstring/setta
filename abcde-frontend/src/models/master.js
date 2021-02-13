@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/big.json";
+import Data from "../data/data.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,

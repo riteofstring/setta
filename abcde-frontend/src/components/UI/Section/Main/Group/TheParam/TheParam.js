@@ -4,7 +4,7 @@ import PinButton from "./PinButton/PinButton";
 import React, { useState, useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
-export default function TheParam({ parameters }) {
+export default function TheParam({ sectionId, moduleName, objName, parameters }) {
   const { name, ui_type, default_val } = parameters;
 
   const setCurrParam = useStoreActions(
@@ -19,9 +19,6 @@ export default function TheParam({ parameters }) {
     (state) => state.globalCurr.globalCurr,
     (prev, next) => checkGlobalCurrEquality(prev, next)
   );
-  const sectionId = useStoreState((state) => state.globalCurr.sectionId);
-  const moduleName = useStoreState((state) => state.globalCurr.moduleName);
-  const objName = useStoreState((state) => state.globalCurr.objName);
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
   );
