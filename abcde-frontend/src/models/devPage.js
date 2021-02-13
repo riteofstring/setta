@@ -15,7 +15,6 @@ const devPage = {
   }),
 
   setUIAsJson: action((state, payload) => {
-    console.log(payload)
     state.uiAsJson = payload;
   }),
 
@@ -27,8 +26,6 @@ const devPage = {
       uiSpecs: helpers.getState().uiSpecs,
     });
     if (uiAsJson){
-      console.log("setting uiAsJson")
-      action.setSpecsAreReady(true);
       action.setUIAsJson(JSON.parse(uiAsJson))
     }
     return uiAsJson;

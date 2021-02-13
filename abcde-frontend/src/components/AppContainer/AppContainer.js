@@ -9,18 +9,6 @@ import MainContainer from "./Main/MainContainer";
 const AppContainer = () => {
   const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
 
-  // const authLinks = () => {
-  //   return (
-  //     <>
-  //       {/* <Link to="/start">Start</Link> */}
-  //       <Link to="/developer">Dev</Link>
-  //       <Link to="/ui">UI</Link>
-  //       <Link to="/terminal">Terminal</Link>
-  //       <Link to="/logout">Logout</Link>
-  //     </>
-  //   );
-  // };
-
   const notAuthLinks = () => {
     return (
       <>
@@ -32,7 +20,7 @@ const AppContainer = () => {
 
   return (
     <BrowserRouter>
-      {!isAuthenticated ? (
+      {!isAuthenticated && (
         <Flex align="center" justify="center">
           <HStack
             as="nav"
@@ -52,14 +40,9 @@ const AppContainer = () => {
             </Heading>
             {notAuthLinks()}
           </HStack>
-          <SwitchContainer />
-        </Flex>
-      ) : (
-        <Flex width="100vw" height="100vh" flexDir="column" align="center">
-          <HeaderContainer />
-          <MainContainer />
         </Flex>
       )}
+      <SwitchContainer />
     </BrowserRouter>
   );
 };

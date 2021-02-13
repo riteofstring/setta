@@ -3,7 +3,6 @@ import { Route, Switch, Redirect } from "react-router-dom";
 import LoginPage from "../../LoginPage/LoginPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
 import DevPage from "../../DevPage/DevPage";
-// import UiPage from "../../UiPage/UiPage";
 import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
 import { useStoreState } from "easy-peasy";
@@ -20,7 +19,6 @@ const SwitchContainer = () => {
         <SignUpPage />
       </Route>
       <PrivateRoute exact path="/ui">
-        {/* <UiPage /> */}
         <HeaderContainer />
         <MainContainer />
       </PrivateRoute>

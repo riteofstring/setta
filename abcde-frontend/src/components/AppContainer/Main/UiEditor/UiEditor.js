@@ -3,6 +3,7 @@ import {
   HiChevronRight,
   // HiChevronLeft,
 } from "react-icons/hi";
+import TextEditor from "./TextEditor/TextEditor"
 
 export default function UiEditor() {
   return (
@@ -27,13 +28,7 @@ export default function UiEditor() {
           <Heading as="h1" size="md" color="gray.500">
             Edit YAML
           </Heading>
-          <Box
-            mt="1rem"
-            w="100%"
-            h="100%"
-            borderRadius=".5rem"
-            bg="gray.200"
-          ></Box>
+          <TextEditor/>
         </Flex>
 
         <IconButton

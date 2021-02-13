@@ -26,8 +26,7 @@ export default function RunButton() {
   );
   const runExport = () => {
     const { selections } = exportSelected();
-    console.log("selections", selections)
-    // runSelected({ token, selections });
+    runSelected({ token, selections });
   };
 
   return (

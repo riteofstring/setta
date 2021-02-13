@@ -347,15 +347,11 @@ const master = {
       codeToken,
       uiSelections: selections,
     });
+    console.log("runSelected result", result)
     if (result) {
       console.log("result", result);
       window.open("abcde://" + codeToken, "_self");
     }
-
-    // ipcRenderer.send("asynchronous-message", {
-    //   arg: "run program",
-    //   data: generatedCode,
-    // });
   }),
 
   saveUI: action((state, payload) => {
