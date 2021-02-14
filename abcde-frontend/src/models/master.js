@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/data.json";
+import Data from "../data/longList.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -347,7 +347,7 @@ const master = {
       codeToken,
       uiSelections: selections,
     });
-    console.log("runSelected result", result)
+    console.log("runSelected result", result);
     if (result) {
       console.log("result", result);
       window.open("abcde://" + codeToken, "_self");

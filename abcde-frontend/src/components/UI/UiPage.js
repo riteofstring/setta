@@ -41,7 +41,7 @@ const UiPage = () => {
 
   return (
     <>
-      <Flex justify="flex-start">
+      <Flex justify="flex-start" minW="700px">
         <Grid gap={2}>
           <SectionsPane />
         </Grid>

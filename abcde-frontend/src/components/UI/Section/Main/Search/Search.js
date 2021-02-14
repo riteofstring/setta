@@ -93,6 +93,9 @@ export default function SectionSearch({ sectionId, items }) {
           mt={2}
           bg="white"
           borderRadius="0.25rem"
+          boxShadow="xl"
+          border="1px"
+          borderColor="gray.300"
         >
           {inputItems.map((item, index) => (
             <ComboboxItem

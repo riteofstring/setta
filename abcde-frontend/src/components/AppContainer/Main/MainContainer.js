@@ -43,7 +43,6 @@ export default function MainContainer() {
               backgroundImage={`url(${graphPaperBg})`}
               padding="2.5rem"
               id="graphpaper"
-              overflow="auto"
             >
               <UIPage />
             </Box>

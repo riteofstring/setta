@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { Stack } from "@chakra-ui/react";
+import { Stack, HStack, Flex } from "@chakra-ui/react";
+import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "../Main/Group/GroupContainer";
 import SectionSearch from "../Main/Search/Search";
@@ -8,6 +9,7 @@ import SectionFooter from "../Footer/SectionFooter";
 import { createStringId } from "../../../../utils/sectionIds";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
+import { hidden } from "ansi-colors";
 
 export default function SectionContainer({
   sectionId,
@@ -74,31 +76,42 @@ export default function SectionContainer({
   const searchItems = getSearchItems();
 
   return (
-    <Stack>
-      <Stack
-        bg="gray.50"
-        px="1.5rem"
-        py="1rem"
-        borderRadius="md"
-        w="700px"
-        onClick={() => applyFocus()}
-      >
-        <SectionHeader
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          childrenIds={childrenIds}
-          isList={isList}
-          isListRoot={isListRoot}
-        />
-        {!isListRoot && (
-          <Stack>
-            <SectionSearch sectionId={sectionId} items={searchItems} />
-            <GroupContainer sectionId={sectionId} />
-            <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
-          </Stack>
-        )}
-      </Stack>
+    <Stack height="100%">
+      <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
+        <HStack
+          h="100%"
+          borderLeftRadius="inherit"
+          cursor="move"
+          px="0.5rem"
+          bg="gray.100"
+        >
+          <DragHandleIcon size="sm" color="gray.300" />
+        </HStack>
+
+        <Stack
+          pr="1.5rem"
+          pl="1rem"
+          py="1rem"
+          w="700px"
+          onClick={() => applyFocus()}
+        >
+          <SectionHeader
+            sectionId={sectionId}
+            parentId={parentId}
+            nextId={nextId}
+            childrenIds={childrenIds}
+            isList={isList}
+            isListRoot={isListRoot}
+          />
+          {!isListRoot && (
+            <Stack>
+              <SectionSearch sectionId={sectionId} items={searchItems} />
+              <GroupContainer sectionId={sectionId} />
+              <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
+            </Stack>
+          )}
+        </Stack>
+      </HStack>
       {order.length > 0 &&
         order.map((e, idx) => (
           <NestedSection

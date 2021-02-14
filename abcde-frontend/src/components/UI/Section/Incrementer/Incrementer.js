@@ -67,22 +67,23 @@ export default function Incrementer({
   };
 
   const [numSections, setNumSections] = useState(1);
-
+  console.log(decrementButtonCondition());
   return (
     <HStack maxW="320px">
-      {decrementButtonCondition() && (
-        <IconButton
-          icon={<MinusIcon />}
-          size="xs"
-          onClick={() => deleteSections(numSections)}
-        />
-      )}
       <Input
         size="sm"
         maxW="5ch"
         value={numSections}
         onChange={(e) => setNumSections(e.target.value)}
       />
+
+      <IconButton
+        icon={<MinusIcon />}
+        size="xs"
+        onClick={() => deleteSections(numSections)}
+        isDisabled={decrementButtonCondition() ? false : true}
+      />
+
       <IconButton
         icon={<AddIcon />}
         size="xs"
