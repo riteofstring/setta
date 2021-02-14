@@ -3,7 +3,7 @@ import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
 
 const paneWidth = 20;
-const minimizedWidth = 17.5;
+const minimizedWidth = paneWidth - 2.5;
 
 const paneProps = {
   variants: {

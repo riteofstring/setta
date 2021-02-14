@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Flex, IconButton, Box, forwardRef } from "@chakra-ui/react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import { motion, isValidMotionProp } from "framer-motion";
-import { render } from "@testing-library/react";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
@@ -68,6 +67,6 @@ export default function PaneContainer(props) {
       </Pane>
     );
   } else {
-    render(null);
+    return null;
   }
 }

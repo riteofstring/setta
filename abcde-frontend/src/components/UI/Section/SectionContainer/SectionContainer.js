@@ -78,15 +78,17 @@ export default function SectionContainer({
   return (
     <Stack height="100%">
       <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
-        <HStack
-          h="100%"
-          borderLeftRadius="inherit"
-          cursor="move"
-          px="0.5rem"
-          bg="gray.100"
-        >
-          <DragHandleIcon size="sm" color="gray.300" />
-        </HStack>
+        {!!isList & !isListRoot && (
+          <HStack
+            h="100%"
+            borderLeftRadius="inherit"
+            cursor="move"
+            px="0.5rem"
+            bg="gray.100"
+          >
+            <DragHandleIcon size="sm" color="gray.300" />
+          </HStack>
+        )}
 
         <Stack
           pr="1.5rem"
