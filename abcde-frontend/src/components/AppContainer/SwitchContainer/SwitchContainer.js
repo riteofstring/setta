@@ -8,31 +8,44 @@ import LogoutPage from "../../LogoutPage/LogoutPage";
 import { useStoreState } from "easy-peasy";
 import HeaderContainer from "../Header/Header";
 import MainContainer from "../Main/MainContainer";
+import { NO_AUTH } from "../../../utils/constants";
 
 const SwitchContainer = () => {
-  return (
-    <Switch>
-      <Route exact path="/">
-        <LoginPage />
-      </Route>
-      <Route exact path="/signup">
-        <SignUpPage />
-      </Route>
-      <PrivateRoute exact path="/ui">
-        <HeaderContainer />
-        <MainContainer />
-      </PrivateRoute>
-      {/* <PrivateRoute exact path="/developer">
-        <DevPage />
-      </PrivateRoute> */}
-      {/* <PrivateRoute exact path="/terminal">
-        <TerminalPage />
-      </PrivateRoute> */}
-      {/* <PrivateRoute exact path="/logout">
-        <LogoutPage />
-      </PrivateRoute> */}
-    </Switch>
-  );
+  const getRoute = () => {
+    if (NO_AUTH) {
+      return (
+        <Route exact path="/">
+          <HeaderContainer />
+          <MainContainer />
+        </Route>
+      );
+    } else {
+      return (
+        <Switch>
+          <Route exact path="/">
+            <LoginPage />
+          </Route>
+          <Route exact path="/signup">
+            <SignUpPage />
+          </Route>
+          <PrivateRoute exact path="/ui">
+            <HeaderContainer />
+            <MainContainer />
+          </PrivateRoute>
+          {/* <PrivateRoute exact path="/developer">
+            <DevPage />
+          </PrivateRoute> */}
+          {/* <PrivateRoute exact path="/terminal">
+            <TerminalPage />
+          </PrivateRoute> */}
+          {/* <PrivateRoute exact path="/logout">
+            <LogoutPage />
+          </PrivateRoute> */}
+        </Switch>
+      );
+    }
+  };
+  return getRoute();
 };
 
 const PrivateRoute = ({ children, ...rest }) => {
