@@ -1,4 +1,4 @@
-import { Grid, GridItem, Flex } from "@chakra-ui/react";
+import { Grid, GridItem, Flex, Box } from "@chakra-ui/react";
 import Overview from "../../UI/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
@@ -11,36 +11,46 @@ export default function MainContainer() {
   return (
     <Grid
       width="90vw"
-      height="calc(100% - 6rem)"
       border="1px"
       borderColor="gray.200"
       borderTopLeftRadius="1rem"
       borderTopRightRadius="1rem"
       overflow="hidden"
       templateRows="min-content 1fr"
-      templateColumns="min-content 1fr min-content"
+      templateColumns="1fr"
     >
       <SubNav />
 
-      <Overview />
-
       <GridItem
-        colStart="2"
-        colEnd="3"
+        colStart="1"
+        colEnd="2"
         rowStart="2"
         rowEnd="3"
-        w="100%"
-        h="100%"
-        backgroundImage={`url(${graphPaperBg})`}
-        overflow="auto"
+        minH="0"
+        minW="0"
       >
-        <Flex justify="flex-start" ml="2rem" mt="1rem">
-          <Grid width="700px" overflow="visible" my="1rem" gap={2}>
-            <UIPage />
-          </Grid>
+        <Flex>
+          <Overview />
+          <Box
+            height="calc(100vh - 10.5rem)"
+            overflow="auto"
+            flex="1"
+            minH="0"
+            minW="0"
+            id="graphpaperparent"
+          >
+            <Box
+              backgroundImage={`url(${graphPaperBg})`}
+              padding="2.5rem"
+              id="graphpaper"
+              overflow="auto"
+            >
+              <UIPage />
+            </Box>
+          </Box>
+          <UiEditor />
         </Flex>
       </GridItem>
-      <UiEditor />
     </Grid>
   );
 }

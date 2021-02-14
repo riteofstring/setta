@@ -3,7 +3,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import SectionsPane from "./Section/SectionsPane";
 // import RunContainer from "./RunContainer/RunContainer";
 // import TheTerminal from "./RunContainer/Terminal/TheTerminal";
-import { Flex } from "@chakra-ui/react";
+import { Flex, Grid } from "@chakra-ui/react";
 import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 
@@ -41,8 +41,10 @@ const UiPage = () => {
 
   return (
     <>
-      <Flex w="95vw" maxWidth={1600} minHeight="100vh" p="5rem">
-        <SectionsPane />
+      <Flex justify="flex-start">
+        <Grid gap={2}>
+          <SectionsPane />
+        </Grid>
       </Flex>
       {/* {!!showTerminal && <TheTerminal />} */}
     </>

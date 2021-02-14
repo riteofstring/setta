@@ -1,51 +1,55 @@
-import {
-  Flex,
-  Heading,
-  Box,
-  GridItem,
-  HStack,
-  Spacer,
-  IconButton,
-} from "@chakra-ui/react";
-import {
-  // HiChevronRight,
-  HiChevronLeft,
-} from "react-icons/hi";
+import { useState } from "react";
+import { Flex, Heading, IconButton } from "@chakra-ui/react";
+import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import SectionList from "./SectionList/SectionList";
+import { motion } from "framer-motion";
 
 export default function Overview() {
+  const [uiVis, setUiVis] = useState(true);
+  function uiToggle() {
+    setUiVis(!uiVis);
+  }
+
+  const variants = {
+    open: { marginLeft: "0rem" },
+    closed: { marginLeft: "-17.5rem" },
+  };
   return (
-    <GridItem colStart="1" colEnd="2" rowStart="2" rowEnd="3" zIndex="5">
-      <Box
-        display="inline-block"
+    <motion.div animate={uiVis ? "open" : "closed"} variants={variants}>
+      <Flex
+        zIndex="2"
+        py="2rem"
+        pr="0rem"
+        pl="3rem"
+        bg="gray.50"
+        w="20rem"
         height="100%"
-        borderRight="1px"
-        borderColor="gray.100"
       >
-        <HStack h="100%">
-          <Flex
-            bg="white"
-            flexDirection="column"
-            height="100%"
-            py="1.25rem"
-            px="1.5rem"
-            minWidth="15rem"
-          >
-            <Heading as="h2" size="md" color="gray.500" pb=".5rem">
-              Overview
-            </Heading>
-            <SectionList />
-          </Flex>
-          <Spacer />
-          <IconButton
-            icon={<HiChevronLeft />}
-            color="gray.500"
-            bg="whiteAlpha"
-            size="sm"
-            mr="0.25rem"
-          />
-        </HStack>
-      </Box>
-    </GridItem>
+        <Flex
+          bg="whiteAlpha"
+          flexDirection="column"
+          height="100%"
+          minW="12.5rem"
+          w="100%"
+          id="nestedFlexThing"
+        >
+          <Heading as="h2" size="md" color="gray.500" pb=".5rem">
+            Overview
+          </Heading>
+          <SectionList />
+        </Flex>
+
+        <IconButton
+          icon={uiVis ? <HiChevronLeft /> : <HiChevronRight />}
+          color="gray.500"
+          bg="whiteAlpha"
+          size="sm"
+          ml="0.25rem"
+          mr="0.5rem"
+          alignSelf="center"
+          onClick={uiToggle}
+        />
+      </Flex>
+    </motion.div>
   );
 }

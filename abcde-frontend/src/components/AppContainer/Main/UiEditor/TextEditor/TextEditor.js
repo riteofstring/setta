@@ -40,7 +40,7 @@ export default function TextEditor() {
         Create UI
       </Button>
       <ControlledEditor
-        height="90vh"
+        height="70vh"
         language="yaml"
         value={uiSpecs}
         editorDidMount={handleEditorDidMount}

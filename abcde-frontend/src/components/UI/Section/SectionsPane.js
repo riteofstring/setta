@@ -10,23 +10,23 @@ const SectionsPane = () => {
     (state) => state.master.rootIdHierarchy
   );
 
-  const idKeys = Object.keys(rootIdHierarchy)
+  const idKeys = Object.keys(rootIdHierarchy);
 
   return (
-    <Flex direction="column" mr="5rem" mt="2.5rem">
+    <>
       {idKeys.map((e, idx) => (
         <SectionContainer
           sectionId={e}
           rootId={e}
           parentId={null}
-          nextId={idKeys[idx+1]}
+          nextId={idKeys[idx + 1]}
           childrenIds={rootIdHierarchy[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}
           depth={0}
         />
       ))}
-    </Flex>
+    </>
   );
 };
 
