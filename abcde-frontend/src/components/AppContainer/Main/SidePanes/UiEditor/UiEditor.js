@@ -7,8 +7,8 @@ const minimizedWidth = 37.5;
 
 const paneProps = {
   variants: {
-    open: { marginRight: "0rem" },
-    closed: { marginRight: `-${minimizedWidth}rem` },
+    open: { x: "0rem" },
+    closed: { x: `-${minimizedWidth}rem` },
     initial: "open",
   },
   right: true,
@@ -18,7 +18,7 @@ const paneProps = {
 export default function UiEditor() {
   return (
     <PaneContainer paneProps={paneProps}>
-      <Heading as="h1" size="md" color="gray.500">
+      <Heading id="EDITOR" as="h1" size="md" color="gray.500">
         Edit YAML
       </Heading>
       <TextEditor />

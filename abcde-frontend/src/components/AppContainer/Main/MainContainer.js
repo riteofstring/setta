@@ -14,17 +14,15 @@ import graphPaperBg from "../../../assets/images/graph-paper.svg";
 // import NestedSection from "../../UI/Section/NestedSection/NestedSection";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
-import { SplitPane } from "react-collapse-pane";
+// import { SplitPane } from "react-collapse-pane";
 import "./PaneStyle.css";
 
 export default function MainContainer() {
   return (
     <Grid
-      width="90vw"
+      width="100vw"
       border="1px"
       borderColor="gray.200"
-      borderTopLeftRadius="1rem"
-      borderTopRightRadius="1rem"
       overflow="hidden"
       templateRows="min-content 1fr"
       templateColumns="1fr"
@@ -40,70 +38,25 @@ export default function MainContainer() {
         minW="0"
       >
         <Flex>
-          <SplitPane
-            resizerOptions={{
-              css: {
-                width: "1px",
-                background: "rgba(0, 0, 0, 0.1)",
-              },
-              hoverCss: {
-                width: "3px",
-                background: "1px solid rgba(102, 194, 255, 0.5)",
-              },
-              grabberSize: "1rem",
-            }}
-            collapseOptions={{
-              beforeToggleButton: (
-                <IconButton
-                  icon={<HiChevronRight />}
-                  color="gray.500"
-                  bg="whiteAlpha"
-                  size="sm"
-                  ml="0.25rem"
-                  mr="0.5rem"
-                  alignSelf="center"
-                />
-              ),
-              afterToggleButton: (
-                <IconButton
-                  icon={<HiChevronLeft />}
-                  color="gray.500"
-                  bg="whiteAlpha"
-                  size="sm"
-                  ml="0.25rem"
-                  mr="0.5rem"
-                  alignSelf="center"
-                />
-              ),
-              overlayCss: { backgroundColor: "black" },
-              buttonTransition: "zoom",
-              buttonPositionOffset: -20,
-              collapsedSize: 50,
-              collapseTransitionTimeout: 350,
-            }}
-            split="vertical"
+          <Overview />
+          <Box
+            height="calc(100vh - 10.5rem)"
+            overflow="auto"
+            flex="1"
+            minH="0"
+            minW="0"
+            id="graphpaperparent"
           >
-            <Overview />
-
             <Box
-              height="calc(100vh - 10.5rem)"
-              overflow="auto"
-              flex="1"
-              minH="0"
-              minW="0"
-              id="graphpaperparent"
+              backgroundImage={`url(${graphPaperBg})`}
+              padding="2.5rem"
+              id="graphpaper"
             >
-              <Box
-                backgroundImage={`url(${graphPaperBg})`}
-                padding="2.5rem"
-                id="graphpaper"
-              >
-                <UIPage />
-              </Box>
+              <UIPage />
             </Box>
+          </Box>
 
-            <UiEditor />
-          </SplitPane>
+          <UiEditor />
         </Flex>
       </GridItem>
     </Grid>
