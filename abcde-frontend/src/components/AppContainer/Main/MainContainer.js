@@ -1,11 +1,11 @@
 import { Grid, GridItem, Flex, Box } from "@chakra-ui/react";
-import Overview from "../../UI/Overview/Overview";
+import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
 // import SectionContainer from "../../UI/Section/SectionContainer";
 // import NestedSection from "../../UI/Section/NestedSection/NestedSection";
 import UIPage from "../../UI/UiPage";
-import UiEditor from "./UiEditor/UiEditor";
+import UiEditor from "./SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
   return (

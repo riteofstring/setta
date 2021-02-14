@@ -72,7 +72,7 @@ export default function SectionSearch({ sectionId, items }) {
         <IconButton
           {...getToggleButtonProps()}
           aria-label={"toggle menu"}
-          variantColor={isOpen ? "gray" : "teal"}
+          variantcolor={isOpen ? "gray" : "teal"}
           icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
         />
       </InputGroup>
