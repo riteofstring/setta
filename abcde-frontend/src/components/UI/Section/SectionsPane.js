@@ -1,7 +1,5 @@
 import React from "react";
-import { Flex } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-
 import SectionContainer from "./SectionContainer/SectionContainer";
 
 const SectionsPane = () => {

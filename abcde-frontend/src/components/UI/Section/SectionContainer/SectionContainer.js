@@ -74,30 +74,31 @@ export default function SectionContainer({
   const searchItems = getSearchItems();
 
   return (
-    <Stack
-      bg="gray.50"
-      px="1.5rem"
-      py="1rem"
-      borderRadius="md"
-      w="700px"
-      onClick={() => applyFocus()}
-    >
-      <SectionHeader
-        sectionId={sectionId}
-        parentId={parentId}
-        nextId={nextId}
-        childrenIds={childrenIds}
-        isList={isList}
-        isListRoot={isListRoot}
-      />
-      {!isListRoot && (
-        <Stack>
-          <SectionSearch sectionId={sectionId} items={searchItems} />
-          <GroupContainer sectionId={sectionId} />
-          <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
-        </Stack>
-      )}
-
+    <Stack>
+      <Stack
+        bg="gray.50"
+        px="1.5rem"
+        py="1rem"
+        borderRadius="md"
+        w="700px"
+        onClick={() => applyFocus()}
+      >
+        <SectionHeader
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          childrenIds={childrenIds}
+          isList={isList}
+          isListRoot={isListRoot}
+        />
+        {!isListRoot && (
+          <Stack>
+            <SectionSearch sectionId={sectionId} items={searchItems} />
+            <GroupContainer sectionId={sectionId} />
+            <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
+          </Stack>
+        )}
+      </Stack>
       {order.length > 0 &&
         order.map((e, idx) => (
           <NestedSection
