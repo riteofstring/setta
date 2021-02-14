@@ -32,14 +32,15 @@ export default function PaneContainer(props) {
 
   if (props) {
     return (
-      <Pane animate={uiVis ? "open" : "closed"} variants={variants}>
+      // animate={uiVis ? "open" : "closed"} variants={variants}
+      <Pane>
         <Flex
           zIndex="2"
           py="2rem"
           pr={right && "3rem"}
           pl={!right && "3rem"}
           bg="gray.50"
-          w={width}
+          w="100%"
           height="100%"
           direction={right && "row-reverse"}
         >
