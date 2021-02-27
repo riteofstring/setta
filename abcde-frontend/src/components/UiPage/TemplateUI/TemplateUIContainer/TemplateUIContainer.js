@@ -1,7 +1,4 @@
-import React, { useLayoutEffect } from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-
-import { Button } from "@chakra-ui/react";
+import React from "react";
 
 const TemplateUIContainer = () => {
   return <></>;

@@ -64,8 +64,8 @@ export default function PaneContainer(props) {
             setWidth(width + d.width);
             setHeight(height);
           }}
-          maxWidth="900px"
-          minWidth="200px"
+          maxWidth="50vw"
+          minWidth="10vw"
           enable={{
             top: false,
             right: uiVis && !right,
@@ -105,12 +105,14 @@ export default function PaneContainer(props) {
               <IconButton
                 icon={btnDir ? <HiChevronRight /> : <HiChevronLeft />}
                 color="gray.500"
-                bg="whiteAlpha"
+                variant="ghost"
                 size="sm"
                 ml="0.25rem"
                 mr="0.5rem"
                 alignSelf="center"
                 onClick={uiToggle}
+                h="100%"
+                tabIndex="-1"
               />
             </Flex>
           </Box>

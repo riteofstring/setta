@@ -6,7 +6,6 @@ import RunContainer from "./RunContainer/RunContainer";
 import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex } from "@chakra-ui/react";
 import { NO_AUTH } from "../../utils/constants";
-import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -25,8 +24,6 @@ const UiPage = () => {
 
   const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
   const uiAsJson = useStoreState((state) => state.devPage.uiAsJson);
-
-  console.log("UiPage");
 
   useLayoutEffect(() => {
     if (!NO_AUTH) {

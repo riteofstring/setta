@@ -3,7 +3,7 @@ import TextEditor from "./TextEditor/TextEditor";
 import PaneContainer from "../PaneContainer";
 
 const paneProps = {
-  defaultWidth: 400,
+  defaultWidth: 500,
   right: true,
   openOnLoad: false,
 };

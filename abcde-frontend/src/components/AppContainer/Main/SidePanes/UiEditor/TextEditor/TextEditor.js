@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
-import { Flex, Button } from "@chakra-ui/react";
-import { ControlledEditor } from "@monaco-editor/react";
+import { Button } from "@chakra-ui/react";
+import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function TextEditor() {
@@ -39,12 +39,13 @@ export default function TextEditor() {
       <Button onClick={handleCreateUI} disabled={!isEditorReady}>
         Create UI
       </Button>
-      <ControlledEditor
+      <Editor
         height="70vh"
         language="yaml"
         value={uiSpecs}
-        editorDidMount={handleEditorDidMount}
+        onMount={handleEditorDidMount}
         onChange={onChange}
+        automaticLayout={true}
       />
     </>
   );
