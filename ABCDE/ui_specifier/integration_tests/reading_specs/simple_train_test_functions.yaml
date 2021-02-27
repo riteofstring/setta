@@ -1,0 +1,19 @@
+# Main:
+#   ui_specifier.templates.simple_train_test.main:
+#     model: ~REF~Model
+#     optimizer: ~REF~Optimizer
+#     train_set: ~REF~TrainDataset
+#     val_set: ~REF~ValDataset
+#     batch_size: ~REF~Various Params~batch_size
+#     test_batch_size: ~REF~Various Params~test_batch_size
+#     epochs: ~REF~Various Params~epochs
+
+Main:
+  ui_specifier.templates.simple_train_test.main:
+    model: ~REF~Model
+    optimizer: ~REF~Optimizer
+    train_set: ~REF~TrainDataset
+    val_set: ~REF~ValDataset
+    batch_size: 64
+    test_batch_size: 1000
+    epochs: 1

@@ -4,21 +4,11 @@ from django.db import models
 # Create your models here.
 
 
-class DraftUI(models.Model):
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    sections = models.TextField()
-    selected = models.TextField()
-    globalCurr = models.TextField()
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=["owner"], name="unique_owner")]
-
-
 class SavedUIs(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     uiName = models.TextField()
     sections = models.TextField()
-    selected = models.TextField()
+    selections = models.TextField()
     globalCurr = models.TextField()
 
     class Meta:
