@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import TemplateListItem from "./TemplateListItem";
 
-export default function TemplateModal({ isOpen, onClose, uiNames, setSelectedUIName }) {
+export default function TemplateModal({ isOpen, onClose, savedUINames, setSelectedUIName }) {
   const { getRootProps, getRadioProps } = useRadioGroup({
     name: "framework",
     defaultValue: "react",
@@ -29,7 +29,7 @@ export default function TemplateModal({ isOpen, onClose, uiNames, setSelectedUIN
         <ModalCloseButton />
         <ModalBody>
           <VStack {...group} overflowY="scroll" height="30vh">
-            {uiNames.map((e) => {
+            {savedUINames.map((e) => {
               const radio = getRadioProps({ e });
               return (
                 <TemplateListItem

@@ -6,16 +6,19 @@ import {
 } from "../dbRequests/ui";
 
 const uiInfo = {
-  uiNames: [],
+  currUIName: "",
+  currVersionName: "",
+  savedUINames: [],
+  savedVersionNames: [],
 
-  setUINames: action((state, payload) => {
-    state.uiNames = payload;
+  setSavedUINames: action((state, payload) => {
+    state.setSavedUINames = payload;
   }),
 
   loadUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
     const uiNames = await loadUINamesBackend({ token });
-    action.setUINames(uiNames);
+    action.setSavedUINames(uiNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {

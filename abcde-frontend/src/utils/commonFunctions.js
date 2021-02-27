@@ -7,6 +7,7 @@ export const getAllNonFunctions = (x) => {
 
 export const setEntireState = (state, newState) => {
     for (let key of Object.keys(getAllNonFunctions(state))){
+        console.log("setEntireState key", key)
         state[key] = newState[key]
     }
 }

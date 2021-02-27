@@ -82,19 +82,20 @@ const master = {
     setEntireStateFunc(state, payload);
   }),
 
-  // temporary shitty code
-  resetSections: action((state) => {
+  resetRootIdHierarchy: action((state, payload) => {
+    state.rootIdHierarchy = {};
+  }),
+
+  _resetSections: action((state, payload) => {
     state.sectionCount = 1;
     state.sections = {};
     state.selected = {};
     state.idHierarchy = {};
-    state.rootIdHierarchy = {};
     state.isVisible = {};
     state.isShown = {};
     state.shiftAmount = {};
     state.isList = {};
     state.isListRoot = {};
-    state.listSiblings = {};
     state.listCount = {};
     state.sectionIdsToSectionHeadings = {};
     state.sectionIdsToStringIds = {};
@@ -102,6 +103,14 @@ const master = {
     state.inFocus = [false];
     state.sectionHasNested = {};
     state.sectionModuleObjHasNested = {};
+    state.sectionSearchVal = {};
+    state.showTerminal = false;
+  }),
+
+  // temporary shitty code
+  resetSections: thunk((action, payload, helpers) => {
+    action.resetRootIdHierarchy();
+    action._resetSections();
   }),
 
   loadSections: thunk((action, payload, helpers) => {

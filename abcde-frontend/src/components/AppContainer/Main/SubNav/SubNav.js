@@ -20,7 +20,6 @@ export default function SubNav() {
           <TerminalButton />
           <Spacer />
           <SelectMachine />
-
           <RunButton />
         </HStack>
       </Flex>

@@ -8,7 +8,7 @@ export default function TemplateButton() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedUIName, setSelectedUIName] = useState(null);
 
-  const uiNames = useStoreState((state) => state.uiInfo.uiNames);
+  const savedUINames = useStoreState((state) => state.uiInfo.savedUINames);
   const loadUINames = useStoreActions((actions) => actions.uiInfo.loadUINames);
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
   const token = useStoreState((state) => state.auth.token);
@@ -47,7 +47,7 @@ export default function TemplateButton() {
       <TemplateModal
         isOpen={isOpen}
         onClose={onCloseClick}
-        uiNames={uiNames}
+        savedUINames={savedUINames}
         setSelectedUIName={setSelectedUIName}
       />
     </>
