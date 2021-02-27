@@ -8,15 +8,13 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
-import {
-  saveUI as saveUIBackend,
-  generateCode as generateCodeBackend,
-} from "../dbRequests/ui";
+import { generateCode as generateCodeBackend } from "../dbRequests/ui";
 import { v4 as uuidv4 } from "uuid";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const master = {
   sectionCount: 1,
+  originalRootSections: {},
   sections: {},
   selected: {},
   idHierarchy: {},
@@ -47,6 +45,7 @@ const master = {
       let id = state.sectionCount;
       if (isJson) {
         state.sections[id] = new Section(key, data[key]);
+        state.originalRootSections[id] = new Section(key, data[key]);
       }
       state.rootIdHierarchy[id] = {
         parent: null,
@@ -88,6 +87,7 @@ const master = {
 
   _resetSections: action((state, payload) => {
     state.sectionCount = 1;
+    state.originalRootSections = {};
     state.sections = {};
     state.selected = {};
     state.idHierarchy = {};
@@ -367,12 +367,6 @@ const master = {
       console.log("result", result);
       window.open("abcde://" + codeToken, "_self");
     }
-  }),
-
-  saveUI: action((state, payload) => {
-    const { token, uiName, selected, globalCurr } = payload;
-    const sections = state.sections;
-    saveUIBackend({ token, uiName, sections, selected, globalCurr });
   }),
 
   setSectionSearchVal: action((state, payload) => {

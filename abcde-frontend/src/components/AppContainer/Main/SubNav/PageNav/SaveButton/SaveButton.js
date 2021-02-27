@@ -24,9 +24,15 @@ export default function SaveButton() {
   const token = useStoreState((state) => state.auth.token);
   const currUIName = useStoreState((state) => state.uiInfo.currUIName);
   const currVersionName = useStoreState((state) => state.uiInfo.currVersionName);
+  const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
 
   const [enteredUIName, setEnteredUIName] = useState(currUIName);
   const [enteredVersionName, setEnteredVersionName] = useState(currVersionName);
+  
+  const onSaveAs = () => {
+    saveUI({token, uiName: enteredUIName, versionName: enteredVersionName})
+  }
+
 
   return (
     <ButtonGroup variant="outline" size="sm" isAttached mr=".25rem">
@@ -56,7 +62,7 @@ export default function SaveButton() {
             </PopoverHeader>
             <PopoverCloseButton />
             <PopoverBody>
-              <Button colorScheme="blue">Save As</Button>
+              <Button colorScheme="blue" onClick={onSaveAs}>Save As</Button>
             </PopoverBody>
           </PopoverContent>
         </Portal>

@@ -22,14 +22,15 @@ export default function TemplateButton() {
     onOpen();
   };
 
-  const onCloseClick = async () => {
-    const { sections, selected, globalCurr } = await loadUI({
+  const onLoad = async () => {
+    const { originalRootSections } = await loadUI({
       token,
       uiName: selectedUIName,
     });
+    console.log("originalRootSections", originalRootSections)
     resetSections();
-    loadSections({ isJson: false, data: sections });
-    setGlobalCurr(globalCurr);
+    loadSections({ isJson: false, data: originalRootSections });
+    // setGlobalCurr(globalCurr);
     onClose();
   };
 
@@ -46,7 +47,8 @@ export default function TemplateButton() {
       </Button>
       <TemplateModal
         isOpen={isOpen}
-        onClose={onCloseClick}
+        onClose={onClose}
+        onLoad={onLoad}
         savedUINames={savedUINames}
         setSelectedUIName={setSelectedUIName}
       />

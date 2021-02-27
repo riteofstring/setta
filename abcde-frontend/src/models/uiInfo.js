@@ -2,8 +2,10 @@ import { action, thunk } from "easy-peasy";
 import {
   loadUINames as loadUINamesBackend,
   loadUI as loadUIBackend,
+  saveUI as saveUIBackend,
   saveDraftUI as saveDraftUIBackend,
 } from "../dbRequests/ui";
+import { getCompleteState } from "../utils/commonFunctions";
 
 const uiInfo = {
   currUIName: "",
@@ -12,7 +14,7 @@ const uiInfo = {
   savedVersionNames: [],
 
   setSavedUINames: action((state, payload) => {
-    state.setSavedUINames = payload;
+    state.savedUINames = payload;
   }),
 
   loadUINames: thunk(async (action, payload, helpers) => {
@@ -23,33 +25,32 @@ const uiInfo = {
 
   loadUI: thunk(async (action, payload, helpers) => {
     const { token, uiName } = payload;
-    const { sections, selected, globalCurr } = await loadUIBackend({
+    const { rootSections: originalRootSections } = await loadUIBackend({
       token,
       uiName,
     });
     return {
-      sections: JSON.parse(sections),
-      selected: JSON.parse(selected),
-      globalCurr: JSON.parse(globalCurr),
+      originalRootSections: JSON.parse(originalRootSections),
     };
+  }),
+
+  saveUI: thunk((action, payload, helpers) => {
+    const { token, uiName, versionName } = payload;
+    const originalRootSections = helpers.getStoreState().master.originalRootSections;
+    return saveUIBackend({
+      token,
+      uiName,
+      versionName,
+      rootSections: originalRootSections,
+      statesToSave: getCompleteState(helpers.getStoreState()),
+    });
   }),
 
   saveDraftUI: thunk((action, payload, helpers) => {
     const { token } = payload;
-    const masterState = helpers.getStoreState().master;
-    const globalCurrState = helpers.getStoreState().globalCurr;
-    const yamlEntryState = helpers.getStoreState().yamlEntry;
-    const factoriesInfoState = helpers.getStoreState().factoriesInfo;
-    const funcsInfoState = helpers.getStoreState().funcsInfo;
     return saveDraftUIBackend({
       token,
-      statesToSave: {
-        masterState,
-        globalCurrState,
-        yamlEntryState,
-        factoriesInfoState,
-        funcsInfoState,
-      },
+      statesToSave: getCompleteState(helpers.getStoreState()),
     });
   }),
 };

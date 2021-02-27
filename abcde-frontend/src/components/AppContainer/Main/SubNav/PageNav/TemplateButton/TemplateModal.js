@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import TemplateListItem from "./TemplateListItem";
 
-export default function TemplateModal({ isOpen, onClose, savedUINames, setSelectedUIName }) {
+export default function TemplateModal({ isOpen, onClose, onLoad, savedUINames, setSelectedUIName }) {
   const { getRootProps, getRadioProps } = useRadioGroup({
     name: "framework",
     defaultValue: "react",
@@ -45,7 +45,7 @@ export default function TemplateModal({ isOpen, onClose, savedUINames, setSelect
         </ModalBody>
 
         <ModalFooter>
-          <Button colorScheme="blue" mr={3} onClick={onClose}>
+          <Button colorScheme="blue" mr={3} onClick={onLoad}>
             Load
           </Button>
           <Button variant="ghost">Secondary Action</Button>
