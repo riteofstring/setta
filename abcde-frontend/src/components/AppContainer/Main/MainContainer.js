@@ -45,32 +45,29 @@ export default function MainContainer() {
         minW="0"
         h="100%"
       >
-        <Box h="inherit" overflow="auto" flex="1" minH="0" minW="0">
-          <Box
-            backgroundImage={`url(${graphPaperBg})`}
-            padding="2.5rem"
-            h="100%"
+        <Box
+          backgroundImage={`url(${graphPaperBg})`}
+          h="inherit"
+          overflow="auto"
+          flex="1"
+          minH="0"
+          minW="0"
+          id="graphpaper"
+        >
+          <CustomMapInteractionCSS
+            // showControls={true}
+            maxScale={2}
+            minScale={0.33}
+            scaleBase={1.5}
+            marginRatios={{ x: 1, y: 0.75 }}
+            contentSize={contentSize}
           >
-            <CustomMapInteractionCSS
-              // showControls={true}
-              maxScale={2}
-              minScale={0.33}
-              scaleBase={1.5}
-              marginRatios={{ x: 1, y: 0.75 }}
-              contentSize={contentSize}
-            >
-              <Box
-                backgroundImage={`url(${graphPaperBg})`}
-                padding="2.5rem"
-                id="graphpaper"
-              >
-                <CustomGrid gap={2} onSize={setContentSize}>
-                  <UIPage />
-                </CustomGrid>
-              </Box>
-            </CustomMapInteractionCSS>
-            <UIPage />
-          </Box>
+            <Box padding="2.5rem" h="100%">
+              <CustomGrid gap={2} onSize={setContentSize}>
+                <UIPage />
+              </CustomGrid>
+            </Box>
+          </CustomMapInteractionCSS>
         </Box>
       </GridItem>
     </Grid>
