@@ -43,9 +43,10 @@ function RadioCard(props) {
         <Text fontSize="sm">{props.children}</Text>
         <IconButton
           ml=".5rem"
-          bg="whiteAlpha"
-          size="sm"
+          variant="ghost"
+          size="xs"
           icon={<SmallCloseIcon color="gray.500" />}
+          borderRadius="full"
         />
       </Flex>
     </Box>
@@ -76,7 +77,7 @@ function TabNav() {
       <Flex>
         <IconButton
           ml={0.5}
-          bg="white"
+          variant="ghost"
           size="sm"
           icon={<AddIcon color="gray.500" />}
         />

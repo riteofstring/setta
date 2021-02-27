@@ -37,13 +37,13 @@ export default function TemplateButton() {
   return (
     <>
       <Button
-        bg="whiteAlpha"
         leftIcon={<Icon as={HiSave} />}
         size="sm"
         mr="-px"
         onClick={onOpenClick}
+        variant="ghost"
       >
-        Template
+        Load Template
       </Button>
       <TemplateModal
         isOpen={isOpen}

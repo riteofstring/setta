@@ -16,7 +16,7 @@ export default function HeaderContainer() {
   };
 
   return (
-    <Flex width="calc(90vw - 3rem)" height="2.5rem" mt="1rem" align="center">
+    <Flex width="calc(90vw)" height="2.5rem" mt="1rem" align="center">
       <Heading
         fontSize="md"
         fontWeight="normal"
@@ -32,9 +32,10 @@ export default function HeaderContainer() {
       <Spacer />
       <ColorModeToggle />
       <IconButton
+        borderRadius="full"
         icon={<HamburgerIcon />}
         size="sm"
-        bg="whiteAlpha"
+        variant="ghost"
         onClick={goToLogout}
       />
     </Flex>

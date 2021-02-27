@@ -1,30 +1,40 @@
 import { useState } from "react";
-import { Grid, GridItem, Flex, Box } from "@chakra-ui/react";
+import {
+  Grid,
+  GridItem,
+  Flex,
+  IconButton,
+  Box,
+  forwardRef,
+} from "@chakra-ui/react";
+import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
-// import SectionContainer from "../../UI/Section/SectionContainer";
-// import NestedSection from "../../UI/Section/NestedSection/NestedSection";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
+import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
 
   return (
     <Grid
-      width="90vw"
+      h="100%"
+      w="100vw"
       border="1px"
       borderColor="gray.200"
-      borderTopLeftRadius="1rem"
-      borderTopRightRadius="1rem"
       overflow="hidden"
       templateRows="min-content 1fr"
       templateColumns="1fr"
     >
       <SubNav />
+
+      <Overview />
+
+      <UiEditor />
 
       <GridItem
         colStart="1"
@@ -33,16 +43,13 @@ export default function MainContainer() {
         rowEnd="3"
         minH="0"
         minW="0"
+        h="100%"
       >
-        <Flex>
-          <Overview />
+        <Box h="inherit" overflow="auto" flex="1" minH="0" minW="0">
           <Box
-            height="calc(100vh - 10.5rem)"
-            overflow="auto"
-            flex="1"
-            minH="0"
-            minW="0"
-            id="graphpaperparent"
+            backgroundImage={`url(${graphPaperBg})`}
+            padding="2.5rem"
+            h="100%"
           >
             <CustomMapInteractionCSS
               // showControls={true}
@@ -62,9 +69,9 @@ export default function MainContainer() {
                 </CustomGrid>
               </Box>
             </CustomMapInteractionCSS>
+            <UIPage />
           </Box>
-          <UiEditor />
-        </Flex>
+        </Box>
       </GridItem>
     </Grid>
   );
