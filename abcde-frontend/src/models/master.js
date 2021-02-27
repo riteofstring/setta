@@ -17,7 +17,6 @@ import { v4 as uuidv4 } from "uuid";
 const master = {
   sectionCount: 1,
   sections: {},
-  loadSectionsIsDone: false,
   selected: {},
   idHierarchy: {},
   rootIdHierarchy: {},
@@ -76,14 +75,12 @@ const master = {
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
-    state.loadSectionsIsDone = true;
   }),
 
   // temporary shitty code
   resetSections: action((state) => {
     state.sectionCount = 1;
     state.sections = {};
-    state.loadSectionsIsDone = false;
     state.selected = {};
     state.idHierarchy = {};
     state.rootIdHierarchy = {};
@@ -108,10 +105,6 @@ const master = {
     } else {
       action._loadSections({ isJson: true, data: payload });
     }
-  }),
-
-  setLoadSectionsIsDone: action((state, payload) => {
-    state.loadSectionsIsDone = payload;
   }),
 
   // Show/Collapse button
@@ -347,7 +340,9 @@ const master = {
     const result = await generateCodeBackend({
       token,
       codeToken,
-      uiSelections: selections,
+      SELECTIONS: selections,
+      FACTORIES: helpers.getStoreState().factoriesInfo.factories,
+      FUNCS: helpers.getStoreState().funcsInfo.funcs,
     });
     console.log("runSelected result", result);
     if (result) {

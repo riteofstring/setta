@@ -2,33 +2,18 @@ import { action, thunk } from "easy-peasy";
 import { createUI as createUIBackend } from "../dbRequests/ui";
 
 const devPage = {
-  uiSpecs: "// write your code here",
-  uiAsJson: null,
-  specsAreReady: false,
+  enteredText: "// write your code here",
 
-  setUISpecs: action((state, payload) => {
-    state.uiSpecs = payload;
-  }),
-
-  setSpecsAreReady: action((state, payload) => {
-    state.specsAreReady = payload;
-  }),
-
-  setUIAsJson: action((state, payload) => {
-    state.uiAsJson = payload;
+  setEnteredText: action((state, payload) => {
+    state.enteredText = payload;
   }),
 
   createUI: thunk(async (action, payload, helpers) => {
     const { token } = payload;
-    action.setSpecsAreReady(false);
-    const uiAsJson = await createUIBackend({
+    return await createUIBackend({
       token,
-      uiSpecs: helpers.getState().uiSpecs,
+      enteredText: helpers.getState().enteredText,
     });
-    if (uiAsJson){
-      action.setUIAsJson(JSON.parse(uiAsJson))
-    }
-    return uiAsJson;
   }),
 };
 

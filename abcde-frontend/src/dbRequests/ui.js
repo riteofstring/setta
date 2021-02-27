@@ -3,8 +3,8 @@ import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
 
 
-export const generateCode = ({ token, codeToken, uiSelections }) => {
-  const body = JSON.stringify({ codeToken, uiSelections});
+export const generateCode = ({ token, codeToken, SELECTIONS, FACTORIES, FUNCS }) => {
+  const body = JSON.stringify({ codeToken, SELECTIONS, FACTORIES, FUNCS});
   return axios
     .post(BACKEND + "api/generate_code", body, tokenConfig(token))
     .then((res) => true)
@@ -12,11 +12,11 @@ export const generateCode = ({ token, codeToken, uiSelections }) => {
 };
 
 
-export const createUI = ({ token, uiSpecs }) => {
-  const body = JSON.stringify({ uiSpecs });
+export const createUI = ({ token, enteredText }) => {
+  const body = JSON.stringify({ enteredText });
   return axios
     .post(BACKEND + "api/create_ui", body, tokenConfig(token))
-    .then((res) => res.data["uiAsJson"])
+    .then((res) => res.data)
     .catch((err) => {});
 };
 

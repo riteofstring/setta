@@ -16,28 +16,14 @@ const UiPage = () => {
     (actions) => actions.master.resetSections
   );
 
-  const loadSectionsIsDone = useStoreState(
-    (state) => state.master.loadSectionsIsDone
-  );
-
-  const showTerminal = useStoreState((state) => state.master.showTerminal);
-
-  const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
-  const uiAsJson = useStoreState((state) => state.devPage.uiAsJson);
-
   console.log("UiPage");
 
   useLayoutEffect(() => {
-    if (!NO_AUTH) {
-      if (specsAreReady && !loadSectionsIsDone) {
-        resetSections();
-        loadSections(uiAsJson);
-      }
-    } else if (!loadSectionsIsDone) {
+    if (NO_AUTH) {
       resetSections();
       loadSections();
     }
-  }, [specsAreReady]);
+  }, []);
 
   return (
     <>
@@ -46,7 +32,6 @@ const UiPage = () => {
           <SectionsPane />
         </Grid>
       </Flex>
-      {/* {!!showTerminal && <TheTerminal />} */}
     </>
   );
 };
