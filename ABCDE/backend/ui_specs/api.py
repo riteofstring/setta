@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 
 from abcde_pip.creation.create_ui import create_ui
 from django.conf import settings
@@ -95,9 +96,11 @@ class SavedUIAndVersionNamesAPIView(APIView):
             "versionName",
             uiName=F("ui__uiName"),
         )
-        return Response(
-            {"uiAndVersionNames": uiAndVersionNames}, status=status.HTTP_200_OK
-        )
+        output = defaultdict(list)
+        for x in uiAndVersionNames:
+            output[x["uiName"]].append(x["versionName"])
+
+        return Response({"uiAndVersionNames": output}, status=status.HTTP_200_OK)
 
 
 # class SavedUINamesAPIView(APIView):
