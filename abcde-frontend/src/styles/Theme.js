@@ -5,8 +5,7 @@ export const AppTheme = extendTheme({
       body: {
         overflow: "hidden",
         scrollbarWidth: "thin",
-        scrollbarColor: "gray.300 transparent",
-        scrollbarHeight: "thin",
+        scrollbarColor: "gray.300",
       },
       "body::-webkit-scrollbar": {
         width: "0.5rem",
@@ -15,6 +14,11 @@ export const AppTheme = extendTheme({
       "body *::-webkit-scrollbar": {
         width: "0.5rem",
         height: "0.5rem",
+      },
+      body: {
+        scrollbarWidth: "thin",
+        scrollbarHeight: "thin",
+        scrollbarColor: "gray.300 transparent",
       },
       "body *": {
         scrollbarWidth: "thin",

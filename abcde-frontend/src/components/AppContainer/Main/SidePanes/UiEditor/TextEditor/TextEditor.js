@@ -1,20 +1,31 @@
 import React, { useRef, useState } from "react";
-import { Button } from "@chakra-ui/react";
-import Editor from "@monaco-editor/react";
+import { Flex, Button } from "@chakra-ui/react";
+import { ControlledEditor } from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
-  const uiSpecs = useStoreState((state) => state.devPage.uiSpecs);
-  const setUISpecs = useStoreActions((actions) => actions.devPage.setUISpecs);
-  const createUI = useStoreActions((actions) => actions.devPage.createUI);
-  const setLoadSectionsIsDone = useStoreActions(
-    (actions) => actions.master.setLoadSectionsIsDone
+  const enteredText = useStoreState((state) => state.yamlEntry.enteredText);
+  const setEnteredText = useStoreActions(
+    (actions) => actions.yamlEntry.setEnteredText
   );
-  const setSpecsAreReady = useStoreActions(
-    (actions) => actions.devPage.setSpecsAreReady
+  const loadSections = useStoreActions(
+    (actions) => actions.master.loadSections
   );
+
+  const resetSections = useStoreActions(
+    (actions) => actions.master.resetSections
+  );
+  const resetGlobalCurr = useStoreActions(
+    (actions) => actions.globalCurr.resetGlobalCurr
+  );
+  const setFactories = useStoreActions(
+    (actions) => actions.factoriesInfo.setFactories
+  );
+  const setFuncs = useStoreActions((actions) => actions.funcsInfo.setFuncs);
+  const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
+  const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
   const token = useStoreState((state) => state.auth.token);
 
   const handleEditorDidMount = (_valueGetter) => {
@@ -23,15 +34,19 @@ export default function TextEditor() {
   };
 
   const handleCreateUI = async () => {
-    const result = await createUI({ token });
-    if (result) {
-      setLoadSectionsIsDone(false);
-      setSpecsAreReady(true);
+    const { uiAsJson, factories, funcs } = await createUI({ token });
+    if (uiAsJson) {
+      resetGlobalCurr();
+      resetSections();
+      loadSections({isJson: true, data: JSON.parse(uiAsJson)});
+      setFactories(JSON.parse(factories));
+      setFuncs(JSON.parse(funcs));
+      saveDraftUI({ token });
     }
   };
 
   const onChange = (e, newValue) => {
-    setUISpecs(newValue);
+    setEnteredText(newValue);
   };
 
   return (
@@ -39,13 +54,12 @@ export default function TextEditor() {
       <Button onClick={handleCreateUI} disabled={!isEditorReady}>
         Create UI
       </Button>
-      <Editor
+      <ControlledEditor
         height="70vh"
         language="yaml"
-        value={uiSpecs}
-        onMount={handleEditorDidMount}
+        value={enteredText}
+        editorDidMount={handleEditorDidMount}
         onChange={onChange}
-        automaticLayout={true}
       />
     </>
   );
