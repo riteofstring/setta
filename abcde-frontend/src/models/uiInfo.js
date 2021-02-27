@@ -38,7 +38,7 @@ const uiInfo = {
     const yamlEntryState = helpers.getStoreState().yamlEntry;
     const factoriesInfoState = helpers.getStoreState().factoriesInfo;
     const funcsInfoState = helpers.getStoreState().funcsInfo;
-    saveDraftUIBackend({
+    return saveDraftUIBackend({
       token,
       statesToSave: {
         masterState,

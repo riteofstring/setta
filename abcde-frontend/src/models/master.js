@@ -79,7 +79,6 @@ const master = {
   }),
 
   setEntireState: action((state, payload) => {
-    console.log("master payload", payload)
     setEntireStateFunc(state, payload);
   }),
 

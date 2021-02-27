@@ -17,7 +17,7 @@ export default function SectionHeader({
 
   const selected = useStoreState((state) => state.master.selected[sectionId]);
 
-  const currObjectName = selected.name;
+  const currObjectName = selected ? selected.name : "" 
 
   return (
     <Stack direction="row" w="100%">

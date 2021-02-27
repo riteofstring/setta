@@ -44,7 +44,6 @@ const UiPage = () => {
   const tryLoadingDraftUI = async () => {
     const data = await loadDraftUI({ token });
     if (data) {
-      console.log("completeState", data.completeState);
       const {
         masterState,
         globalCurrState,

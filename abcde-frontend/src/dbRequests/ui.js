@@ -57,11 +57,9 @@ export const saveDraftUI = ({ token, statesToSave }) => {
   }
   completeState = JSON.stringify(completeState)
   const body = JSON.stringify({ completeState });
-  console.log("sending body:")
-  console.log(body)
   return axios
     .post(BACKEND + "api/draft_ui", body, tokenConfig(token))
-    .then((res) => {})
+    .then((res) => res.data)
     .catch((err) => {});
 };
 
