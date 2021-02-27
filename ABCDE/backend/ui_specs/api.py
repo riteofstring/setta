@@ -57,17 +57,14 @@ class SavedUIAndVersionsAPIView(APIView):
     serializer = SavedUIAndVersionSerializer
 
     def get_ui_specs(self, request, uiName, versionName):
-        rootSections = SavedUIs.objects.values("rootSections").get(
-            owner=request.user, uiName=uiName
-        )
-        completeState = SavedVersions.objects.values("completeState").get(
-            ui=ui, versionName=versionName
-        )
+        ui = SavedUIs.objects.get(owner=request.user, uiName=uiName)
+        version = SavedVersions.objects.get(ui=ui, versionName=versionName)
         return {
-            "uiName": uiName,
-            "versionName": versionName,
-            "rootSections": rootSections,
-            "completeState": completeState,
+            "ui": {"uiName": uiName, "rootSections": ui.rootSections},
+            "version": {
+                "versionName": versionName,
+                "completeState": version.completeState,
+            },
         }
 
     def actual_post_operation(self, serializer, request):
