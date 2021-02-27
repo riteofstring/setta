@@ -30,7 +30,7 @@ export default function TextEditor() {
     }
   };
 
-  const onChange = (e, newValue) => {
+  const onChange = (newValue, e) => {
     setUISpecs(newValue);
   };
 
