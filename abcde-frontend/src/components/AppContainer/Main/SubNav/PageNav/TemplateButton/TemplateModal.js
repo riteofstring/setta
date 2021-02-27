@@ -9,6 +9,7 @@ import {
   ModalFooter,
   VStack,
   useRadioGroup,
+  Heading,
 } from "@chakra-ui/react";
 import TemplateListItem from "./TemplateListItem";
 
@@ -19,7 +20,6 @@ export default function TemplateModal({
   savedUIAndVersionNames,
   setSelectedUIName,
 }) {
-
   const { getRootProps, getRadioProps } = useRadioGroup({
     name: "framework",
     defaultValue: "react",
@@ -27,6 +27,24 @@ export default function TemplateModal({
   });
 
   const group = getRootProps();
+
+  const uiNames = Object.keys(savedUIAndVersionNames);
+
+  const allVersionsForUI = (U) => {
+    return savedUIAndVersionNames[U].map((V) => {
+      const key = U + ": " + V;
+      const radio = getRadioProps({ key });
+      return (
+        <TemplateListItem
+          key={key}
+          radio={radio}
+          setSelectedUIName={setSelectedUIName}
+        >
+          {V}
+        </TemplateListItem>
+      );
+    });
+  };
 
   return (
     <Modal isOpen={isOpen} size="full" onClose={onClose}>
@@ -36,16 +54,14 @@ export default function TemplateModal({
         <ModalCloseButton />
         <ModalBody>
           <VStack {...group} overflowY="scroll" height="30vh">
-            {savedUIAndVersionNames.map((e) => {
-              const radio = getRadioProps({ e });
+            {uiNames.map((U) => {
               return (
-                <TemplateListItem
-                  key={e["uiName"] + e["versionName"]}
-                  radio={radio}
-                  setSelectedUIName={setSelectedUIName}
-                >
-                  {e["uiName"] + ": " + e["versionName"]}
-                </TemplateListItem>
+                <>
+                  <Heading as="h4" size="md">
+                    {U}
+                  </Heading>
+                  {allVersionsForUI(U)}
+                </>
               );
             })}
           </VStack>

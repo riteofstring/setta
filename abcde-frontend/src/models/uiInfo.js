@@ -10,7 +10,7 @@ import { getCompleteState } from "../utils/commonFunctions";
 const uiInfo = {
   currUIName: "",
   currVersionName: "",
-  savedUIAndVersionNames: [],
+  savedUIAndVersionNames: {},
 
   setSavedUIAndVersionNames: action((state, payload) => {
     state.savedUIAndVersionNames = payload;
