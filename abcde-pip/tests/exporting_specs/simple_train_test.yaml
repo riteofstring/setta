@@ -1,69 +1,101 @@
-IMPORTS:
-  torch.optim:
-  torchvision:
-  abcde_pip.templates:
-    - simple_train_test
+UI:
+  IMPORTS:
+    torch.optim:
+    torchvision:
+    abcde_pip.templates:
+      - simple_train_test
 
-transforms: &transforms
-  name: torchvision.transforms 
+  transforms: &transforms
+    name: torchvision.transforms 
 
-transforms_module_without_compose: &transforms_module_without_compose
-  - ModuleInfo:
-      <<: *transforms
-      exclude:
-        - Compose
-
-transforms_module: &transforms_module
-  - ModuleInfo:
-      <<: *transforms
-      include:
-        - Compose
-      set_type:
-        Compose:
-          transforms:
-            list:
-              - <<: *transforms_module_without_compose
-
-SECTIONS:
-  Model:
-    - IMPORTS:
-        torchvision:
-          - models
+  transforms_module_without_compose: &transforms_module_without_compose
     - ModuleInfo:
-        name: models
-        include:
-          - ~REGEX~resnet*
+        <<: *transforms
+        exclude:
+          - Compose
+
+  transforms_module: &transforms_module
     - ModuleInfo:
-        name: simple_train_test
+        <<: *transforms
         include:
-          - Net
-          
+          - Compose
+        set_type:
+          Compose:
+            transforms:
+              list:
+                - <<: *transforms_module_without_compose
+
+  SECTIONS:
+    Model:
+      - IMPORTS:
+          torchvision:
+            - models
+      - ModuleInfo:
+          name: models
+          include:
+            - ~REGEX~resnet*
+      - ModuleInfo:
+          name: simple_train_test
+          include:
+            - Net
+            
+    Optimizer:
+      - ModuleInfo:
+          name: torch.optim
+          include:
+            - SGD
+            - Adam
+            - Adadelta
+
+    Transform:
+      - <<: *transforms_module
+
+
+    TrainDataset:
+      - ModuleInfo:
+          name: torchvision.datasets
+
+    ValDataset:
+      - ModuleInfo:
+          name: torchvision.datasets
+    
+    # Various Params:
+    #   - ParameterInfo:
+    #       dataset_root: "."
+    #       batch_size: 64
+    #       test_batch_size: 1000
+    #       epochs: 1
+
+
+FACTORIES:
   Optimizer:
-    - ModuleInfo:
-        name: torch.optim
-        include:
-          - SGD
-          - Adam
-          - Adadelta
-
-  Transform:
-    - <<: *transforms_module
-
+    abcde_pip.templates.pytorch_factories.optimizer_factory:
+      model: ~REF~Model
+      optimizer: ~REF~Optimizer
+      kwargs: ~KWARGS~Optimizer
 
   TrainDataset:
-    - ModuleInfo:
-        name: torchvision.datasets
+    abcde_pip.templates.pytorch_factories.dataset_factory:
+      dataset: ~REF~TrainDataset
+      transform: ~REF~Transform
+      kwargs: ~KWARGS~TrainDataset
 
   ValDataset:
-    - ModuleInfo:
-        name: torchvision.datasets
-  
-  # Various Params:
-  #   - ParameterInfo:
-  #       dataset_root: "."
-  #       batch_size: 64
-  #       test_batch_size: 1000
-  #       epochs: 1
+    abcde_pip.templates.pytorch_factories.dataset_factory:
+      dataset: ~REF~ValDataset
+      transform: ~REF~Transform
+      kwargs: ~KWARGS~ValDataset
 
+
+FUNCS:
+  Main:
+    abcde_pip.templates.simple_train_test.main:
+      model: ~REF~Model
+      optimizer: ~REF~Optimizer
+      train_set: ~REF~TrainDataset
+      val_set: ~REF~ValDataset
+      batch_size: 64
+      test_batch_size: 1000
+      epochs: 1
 
 

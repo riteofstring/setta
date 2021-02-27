@@ -1,3 +1,5 @@
+import json
+
 import yaml
 
 from ..registration.imports_holder import ImportsHolder
@@ -5,9 +7,11 @@ from ..utils.type_map import TYPE_MAP
 from .ui_creator import UICreator
 
 
-def create_ui(ui_specs):
-    ui_specs = ui_specs.replace("\\n", "\n")
-    ui_specs = yaml.safe_load(ui_specs)
+def create_ui(entered_text):
+    entered_text = entered_text.replace("\\n", "\n")
+    entered_text = yaml.safe_load(entered_text)
+
+    ui_specs = entered_text["UI"]
 
     imports = ui_specs.pop("IMPORTS", {})
     global_ih = ImportsHolder()
@@ -20,4 +24,8 @@ def create_ui(ui_specs):
 
     ui = UICreator()
     ui.create(sections, global_ih)
-    return ui.export()
+
+    factories = json.dumps(entered_text["FACTORIES"])
+    funcs = json.dumps(entered_text["FUNCS"])
+
+    return ui.export(), factories, funcs
