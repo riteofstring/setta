@@ -3,6 +3,7 @@ import json
 from abcde_pip.creation.create_ui import create_ui
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db.models import F
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,8 +14,6 @@ from .serializers import (
     DraftUISerializer,
     LatestCodeSerializer,
     SavedUIAndVersionSerializer,
-    SavedUIsSerializer,
-    SavedVersionsSerializer,
 )
 
 
@@ -53,7 +52,7 @@ class CreateUIAPIView(APIView):
         )
 
 
-class SavedUIsAPIView(APIView):
+class SavedUIAndVersionsAPIView(APIView):
     serializer = SavedUIAndVersionSerializer
 
     def get_ui_specs(self, request, uiName, versionName):
@@ -90,12 +89,23 @@ class SavedUIsAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SavedUINamesAPIView(APIView):
+class SavedUIAndVersionNamesAPIView(APIView):
     def get(self, request):
-        uiNames = SavedUIs.objects.filter(owner=request.user).values_list(
-            "uiName", flat=True
+        uiAndVersionNames = SavedVersions.objects.filter(ui__owner=request.user).values(
+            "versionName",
+            uiName=F("ui__uiName"),
         )
-        return Response({"uiNames": uiNames}, status=status.HTTP_200_OK)
+        return Response(
+            {"uiAndVersionNames": uiAndVersionNames}, status=status.HTTP_200_OK
+        )
+
+
+# class SavedUINamesAPIView(APIView):
+#     def get(self, request):
+#         uiNames = SavedUIs.objects.filter(owner=request.user).values_list(
+#             "uiName", flat=True
+#         )
+#         return Response({"uiNames": uiNames}, status=status.HTTP_200_OK)
 
 
 # class SavedVersionsAPIView(SavedUIsAPIView):
@@ -121,7 +131,7 @@ class SavedUINamesAPIView(APIView):
 #         return Response({"versionNames": versionNames}, status=status.HTTP_200_OK)
 
 
-class DraftUIAPIView(SavedUIsAPIView):
+class DraftUIAPIView(SavedUIAndVersionsAPIView):
     serializer = DraftUISerializer
 
     def get_ui_specs(self, request):
