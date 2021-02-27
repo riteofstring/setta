@@ -23,14 +23,10 @@ class GenerateCodeAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
-        ## hard-coded for now
-        factory_specs = load_yaml(
-            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\tests\\reading_specs\\simple_train_test_factory_specs.yaml"
-        )
-        funcs = load_yaml(
-            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\tests\\reading_specs\\simple_train_test_functions.yaml"
-        )
-        ui_repr = generate_code(request.data["uiSelections"], factory_specs, funcs)
+        ui_selections = request.data["SELECTIONS"]
+        factory_specs = request.data["FACTORIES"]
+        funcs = request.data["FUNCS"]
+        ui_repr = generate_code(ui_selections, factory_specs, funcs)
         serializer = LatestCodeSerializer(
             data={"codeToken": request.data["codeToken"], "code": str(ui_repr)}
         )
@@ -53,8 +49,11 @@ class CreateUIAPIView(APIView):
     #     return Response(d)
 
     def post(self, request):
-        ui_as_json = create_ui(request.data["uiSpecs"])
-        return Response({"uiAsJson": ui_as_json}, status=status.HTTP_201_CREATED)
+        ui_as_json, factories, funcs = create_ui(request.data["enteredText"])
+        return Response(
+            {"uiAsJson": ui_as_json, "factories": factories, "funcs": funcs},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SavedUIsAPIView(APIView):

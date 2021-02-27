@@ -11,16 +11,10 @@ class TestSimpleRead(unittest.TestCase):
         script_name = "simple_train_test"
         curr_dir = os.path.dirname(os.path.abspath(__file__))
         curr_dir = curr_dir.replace("\\", "\\\\")
-        ui_selections = yp.load_yaml(
-            os.path.join(curr_dir, "{}_ui_selections.yaml".format(script_name))
-        )
-        factory_specs = yp.load_yaml(
-            os.path.join(curr_dir, "{}_factory_specs.yaml".format(script_name))
-        )
-        funcs = yp.load_yaml(
-            os.path.join(curr_dir, "{}_functions.yaml".format(script_name))
-        )
-
+        all_specs = yp.load_yaml(os.path.join(curr_dir, "{}.yaml".format(script_name)))
+        ui_selections = all_specs["SELECTIONS"]
+        factory_specs = all_specs["FACTORIES"]
+        funcs = all_specs["FUNCS"]
         ui_repr = yp.generate_code(ui_selections, factory_specs, funcs)
 
         print(ui_repr)
