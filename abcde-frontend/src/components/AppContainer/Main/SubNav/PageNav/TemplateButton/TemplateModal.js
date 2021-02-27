@@ -18,7 +18,7 @@ export default function TemplateModal({
   onClose,
   onLoad,
   savedUIAndVersionNames,
-  setSelectedUIName,
+  setSelectedUIAndVersionName,
 }) {
   const { getRootProps, getRadioProps } = useRadioGroup({
     name: "framework",
@@ -38,7 +38,9 @@ export default function TemplateModal({
         <TemplateListItem
           key={key}
           radio={radio}
-          setSelectedUIName={setSelectedUIName}
+          setSelectedUIAndVersionName={setSelectedUIAndVersionName}
+          uiName={U}
+          versionName={V}
         >
           {V}
         </TemplateListItem>

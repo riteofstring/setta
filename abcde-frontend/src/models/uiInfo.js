@@ -23,19 +23,20 @@ const uiInfo = {
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
-    const { token, uiName } = payload;
-    const { rootSections: originalRootSections } = await loadUIBackend({
+    const { token, uiName, versionName } = payload;
+    // ui is unused for now
+    const { ui, version } = await loadUIBackend({
       token,
       uiName,
+      versionName,
     });
-    return {
-      originalRootSections: JSON.parse(originalRootSections),
-    };
+    return version.completeState;
   }),
 
   saveUI: thunk((action, payload, helpers) => {
     const { token, uiName, versionName } = payload;
-    const originalRootSections = helpers.getStoreState().master.originalRootSections;
+    const originalRootSections = helpers.getStoreState().master
+      .originalRootSections;
     return saveUIBackend({
       token,
       uiName,

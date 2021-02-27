@@ -1,5 +1,5 @@
 import axios from "axios";
-import { BACKEND } from "../utils/constants";
+import { BACKEND, UI_VERSION_NAME_SEPARATOR } from "../utils/constants";
 import { stringifyCompleteState } from "../utils/commonFunctions";
 import { tokenConfig } from "./authentication";
 
@@ -50,9 +50,10 @@ export const loadUIAndVersionNames = ({ token }) => {
     .catch((err) => {});
 };
 
-export const loadUI = ({ token, uiName }) => {
+export const loadUI = ({ token, uiName, versionName }) => {
+  const postString = uiName + UI_VERSION_NAME_SEPARATOR + versionName
   return axios
-    .get(BACKEND + "api/saved_uis/" + uiName, tokenConfig(token))
+    .get(BACKEND + "api/saved_uis/" + postString, tokenConfig(token))
     .then((res) => res.data)
     .catch((err) => {});
 };

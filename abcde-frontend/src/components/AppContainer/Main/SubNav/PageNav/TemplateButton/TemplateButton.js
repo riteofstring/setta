@@ -3,19 +3,46 @@ import { Button, Icon, useDisclosure } from "@chakra-ui/react";
 import { HiSave } from "react-icons/hi";
 import TemplateModal from "./TemplateModal";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { setCompleteState } from "../../../../../../utils/commonFunctions";
 
 export default function TemplateButton() {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [selectedUIName, setSelectedUIName] = useState(null);
+  const [selectedUIAndVersionName, setSelectedUIAndVersionName] = useState(
+    null
+  );
 
-  const savedUIAndVersionNames = useStoreState((state) => state.uiInfo.savedUIAndVersionNames);
-  const loadUIAndVersionNames = useStoreActions((actions) => actions.uiInfo.loadUIAndVersionNames);
+  const savedUIAndVersionNames = useStoreState(
+    (state) => state.uiInfo.savedUIAndVersionNames
+  );
+  const loadUIAndVersionNames = useStoreActions(
+    (actions) => actions.uiInfo.loadUIAndVersionNames
+  );
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
   const token = useStoreState((state) => state.auth.token);
 
-  const resetSections = useStoreActions((actions) => actions.master.resetSections);
-  const loadSections = useStoreActions((actions) => actions.master._loadSections);
-  const setGlobalCurr = useStoreActions((actions) => actions.globalCurr.setGlobalCurr);
+  const masterSetEntireState = useStoreActions(
+    (actions) => actions.master.setEntireState
+  );
+
+  const globalCurrSetEntireState = useStoreActions(
+    (actions) => actions.globalCurr.setEntireState
+  );
+
+  const yamlEntrySetEntireState = useStoreActions(
+    (actions) => actions.yamlEntry.setEntireState
+  );
+
+  const factoriesInfoSetEntireState = useStoreActions(
+    (actions) => actions.factoriesInfo.setEntireState
+  );
+
+  const funcsInfoSetEntireState = useStoreActions(
+    (actions) => actions.funcsInfo.setEntireState
+  );
+
+  const resetSections = useStoreActions(
+    (actions) => actions.master.resetSections
+  );
 
   const onOpenClick = () => {
     loadUIAndVersionNames({ token });
@@ -23,15 +50,22 @@ export default function TemplateButton() {
   };
 
   const onLoad = async () => {
-    const { originalRootSections } = await loadUI({
+    const completeState = await loadUI({
       token,
-      uiName: selectedUIName,
+      ...selectedUIAndVersionName,
     });
-    console.log("originalRootSections", originalRootSections)
-    resetSections();
-    loadSections({ isJson: false, data: originalRootSections });
-    // setGlobalCurr(globalCurr);
-    onClose();
+    if (completeState) {
+      resetSections();
+      setCompleteState({
+        completeState,
+        masterSetEntireState,
+        globalCurrSetEntireState,
+        yamlEntrySetEntireState,
+        factoriesInfoSetEntireState,
+        funcsInfoSetEntireState,
+      });
+      onClose();
+    }
   };
 
   return (
@@ -50,7 +84,7 @@ export default function TemplateButton() {
         onClose={onClose}
         onLoad={onLoad}
         savedUIAndVersionNames={savedUIAndVersionNames}
-        setSelectedUIName={setSelectedUIName}
+        setSelectedUIAndVersionName={setSelectedUIAndVersionName}
       />
     </>
   );
