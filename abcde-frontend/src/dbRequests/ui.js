@@ -46,11 +46,11 @@ export const loadUI = ({ token, uiName }) => {
 };
 
 
-export const saveDraftUI = ({ token, sections, selected, globalCurr }) => {
+export const saveDraftUI = ({ token, sections, selected, globalCurr, yamlText }) => {
   sections = JSON.stringify(sections);
   selected = JSON.stringify(selected);
   globalCurr = JSON.stringify(globalCurr);
-  const body = JSON.stringify({ sections, selected, globalCurr });
+  const body = JSON.stringify({ sections, selected, globalCurr, yamlText });
   return axios
     .post(BACKEND + "api/draft_ui", body, tokenConfig(token))
     .then((res) => {})

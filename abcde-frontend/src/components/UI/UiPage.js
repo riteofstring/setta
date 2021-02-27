@@ -17,6 +17,10 @@ const UiPage = () => {
     (actions) => actions.master.resetSections
   );
 
+  const setEnteredText = useStoreActions(
+    (actions) => actions.yamlEntry.setEnteredText
+  );
+
   const token = useStoreState((state) => state.auth.token);
 
   console.log("UiPage");
@@ -24,8 +28,9 @@ const UiPage = () => {
   const tryLoadingDraftUI = async () => {
     const data = await loadDraftUI({ token });
     if (data){
-      const {sections, selected, globalCurr} = data
+      const {sections, selected, globalCurr, yamlText} = data
       loadSections({isJson: false, data: JSON.parse(sections)})
+      setEnteredText(yamlText)
     }
   };
 

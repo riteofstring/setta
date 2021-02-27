@@ -35,7 +35,8 @@ const uiInfo = {
     const { token } = payload;
     const { sections, selected } = helpers.getStoreState().master;
     const { globalCurr } = helpers.getStoreState().globalCurr;
-    saveDraftUIBackend({ token, sections, selected, globalCurr });
+    const { enteredText } = helpers.getStoreState().yamlEntry;
+    saveDraftUIBackend({ token, sections, selected, globalCurr, yamlText: enteredText });
   }),
 };
 

@@ -179,3 +179,9 @@ export const createExportableObject = ({
   }
   return output;
 };
+
+
+export const getAllNonFunctions = (x) => {
+  return Object.fromEntries(
+    Object.entries(x).filter(([key, value]) => !value.fn))
+}
