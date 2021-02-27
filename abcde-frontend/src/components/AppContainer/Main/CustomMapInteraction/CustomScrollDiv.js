@@ -11,8 +11,6 @@ export default function CustomScrollDiv({
   children,
   className,
   isVertical,
-  leftEdge,
-  rightEdge,
   ...restProps
 }) {
   const [hovering, setHovering] = useState(false);
@@ -39,12 +37,10 @@ export default function CustomScrollDiv({
       } = scrollHostElement;
       return { clientDim, offsetDim };
     } else {
-      let {
+      const {
         clientWidth: clientDim,
         offsetWidth: offsetDim,
       } = scrollHostElement;
-      clientDim -= leftEdge + rightEdge
-      offsetDim -= leftEdge + rightEdge
       return { clientDim, offsetDim };
     }
   };
@@ -84,14 +80,10 @@ export default function CustomScrollDiv({
 
         setScrollThumbPosition(coordinate);
 
-        // const minCoord = isVertical ? 0 : leftEdge
-
         const newScrollBoxTop = Math.min(
           Math.max(0, scrollBoxTop + delta),
           offsetDim - scrollBoxHeight
         );
-
-        // console.log("newScrollBoxTop", newScrollBoxTop)
 
         setScrollBoxTop(newScrollBoxTop);
 
@@ -156,8 +148,8 @@ export default function CustomScrollDiv({
   };
 
   useEffect(() => {
-    setClientDim(getClientDim(scrollHostRef.current).clientDim);
-  }, [scrollHostUseEffectCondition(), leftEdge, rightEdge]);
+    setClientDim(scrollHostRef.current.clientHeight);
+  }, [scrollHostUseEffectCondition()]);
 
   return (
     <div

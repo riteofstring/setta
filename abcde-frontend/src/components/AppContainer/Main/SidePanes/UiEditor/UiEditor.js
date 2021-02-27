@@ -2,15 +2,15 @@ import { Heading } from "@chakra-ui/react";
 import TextEditor from "./TextEditor/TextEditor";
 import PaneContainer from "../PaneContainer";
 
-export const paneProps = {
+const paneProps = {
   defaultWidth: 500,
   right: true,
   openOnLoad: false,
 };
 
-export default function UiEditor({ onWidthChange }) {
+export default function UiEditor() {
   return (
-    <PaneContainer paneProps={paneProps} onWidthChange={onWidthChange}>
+    <PaneContainer paneProps={paneProps}>
       <Heading id="EDITOR" as="h1" size="md" color="gray.500">
         Edit YAML
       </Heading>

@@ -2,24 +2,23 @@ import { useState } from "react";
 import {
   Grid,
   GridItem,
+  Flex,
+  IconButton,
   Box,
+  forwardRef,
 } from "@chakra-ui/react";
-import Overview, {paneProps as overviewPaneProps} from "./SidePanes/Overview/Overview";
+import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
+import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
 import UIPage from "../../UI/UiPage";
-import UiEditor, {paneProps as uiEditorPaneProps} from "./SidePanes/UiEditor/UiEditor";
+import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
 import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
-  const [overviewWidth, setOverviewWidth] = useState(overviewPaneProps.openOnLoad ? overviewPaneProps.defaultWidth : 0);
-  const [uiEditorWidth, setUIEditorWidth] = useState(uiEditorPaneProps.openOnLoad ? uiEditorPaneProps.defaultWidth : 0);
-
-  console.log("overviewWidth", overviewWidth)
-  console.log("uiEditorWidth", uiEditorWidth)
 
   return (
     <Grid
@@ -33,9 +32,9 @@ export default function MainContainer() {
     >
       <SubNav />
 
-      <Overview onWidthChange={setOverviewWidth}/>
+      <Overview />
 
-      <UiEditor onWidthChange={setUIEditorWidth}/>
+      <UiEditor />
 
       <GridItem
         colStart="1"
@@ -62,9 +61,6 @@ export default function MainContainer() {
             scaleBase={1.5}
             marginRatios={{ x: 1, y: 0.75 }}
             contentSize={contentSize}
-            initialLeftEdge={overviewPaneProps.defaultWidth}
-            leftEdge={overviewWidth}
-            rightEdge={uiEditorWidth}
           >
             <Box padding="2.5rem" h="100%">
               <CustomGrid gap={2} onSize={setContentSize}>
