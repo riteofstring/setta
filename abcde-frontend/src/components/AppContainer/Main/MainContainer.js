@@ -20,7 +20,8 @@ import "./PaneStyle.css";
 export default function MainContainer() {
   return (
     <Grid
-      width="100vw"
+      h="100%"
+      w="100vw"
       border="1px"
       borderColor="gray.200"
       overflow="hidden"
@@ -29,6 +30,10 @@ export default function MainContainer() {
     >
       <SubNav />
 
+      <Overview />
+
+      <UiEditor />
+
       <GridItem
         colStart="1"
         colEnd="2"
@@ -36,28 +41,17 @@ export default function MainContainer() {
         rowEnd="3"
         minH="0"
         minW="0"
+        h="100%"
       >
-        <Flex>
-          <Overview />
+        <Box h="inherit" overflow="auto" flex="1" minH="0" minW="0">
           <Box
-            height="calc(100vh - 10.5rem)"
-            overflow="auto"
-            flex="1"
-            minH="0"
-            minW="0"
-            id="graphpaperparent"
+            backgroundImage={`url(${graphPaperBg})`}
+            padding="2.5rem"
+            h="100%"
           >
-            <Box
-              backgroundImage={`url(${graphPaperBg})`}
-              padding="2.5rem"
-              id="graphpaper"
-            >
-              <UIPage />
-            </Box>
+            <UIPage />
           </Box>
-
-          <UiEditor />
-        </Flex>
+        </Box>
       </GridItem>
     </Grid>
   );

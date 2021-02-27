@@ -25,8 +25,6 @@ const UiPage = () => {
   const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
   const uiAsJson = useStoreState((state) => state.devPage.uiAsJson);
 
-  console.log("UiPage");
-
   useLayoutEffect(() => {
     if (!NO_AUTH) {
       if (specsAreReady && !loadSectionsIsDone) {

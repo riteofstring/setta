@@ -5,7 +5,7 @@ import { AiFillPushpin } from "react-icons/ai";
 export default function PinButton() {
   return (
     <IconButton
-      tabindex="-1"
+      tabIndex="-1"
       bg="whiteAlpha"
       size="xs"
       cursor="pointer"

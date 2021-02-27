@@ -2,17 +2,10 @@ import { Heading } from "@chakra-ui/react";
 import TextEditor from "./TextEditor/TextEditor";
 import PaneContainer from "../PaneContainer";
 
-const paneWidth = 40;
-const minimizedWidth = 37.5;
-
 const paneProps = {
-  variants: {
-    open: { x: "0rem" },
-    closed: { x: `-${minimizedWidth}rem` },
-    initial: "open",
-  },
+  defaultWidth: 400,
   right: true,
-  width: `${paneWidth}rem`,
+  openOnLoad: false,
 };
 
 export default function UiEditor() {

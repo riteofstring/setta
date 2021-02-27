@@ -33,7 +33,7 @@ export default function ParamSweepButton({ paramName }) {
             cursor="pointer"
             icon={<BiRadar />}
             color="gray.300"
-            tabindex="-1"
+            tabIndex="-1"
           />
         </PopoverTrigger>
         <PopoverContent p={5}>
