@@ -8,12 +8,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
-from .models import DraftUI, LatestCode, SavedUIs
-from .serializers import DraftUISerializer, LatestCodeSerializer, SavedUIsSerializer
+from .models import DraftUI, LatestCode, SavedUIs, SavedVersions
+from .serializers import (
+    DraftUISerializer,
+    LatestCodeSerializer,
+    SavedUIAndVersionSerializer,
+    SavedUIsSerializer,
+    SavedVersionsSerializer,
+)
 
 
 class GenerateCodeAPIView(APIView):
-    def get(self, request, **kwargs):
+    def get(self, request):
         latest_code = LatestCode.objects.values("code", "codeToken").get(
             owner=request.user
         )
@@ -48,12 +54,21 @@ class CreateUIAPIView(APIView):
 
 
 class SavedUIsAPIView(APIView):
-    serializer = SavedUIsSerializer
+    serializer = SavedUIAndVersionSerializer
 
-    def get_ui_specs(self, request, **kwargs):
-        return SavedUIs.objects.values(
-            "uiName", "sections", "selected", "globalCurr", "yamlText"
-        ).get(owner=request.user, uiName=kwargs["uiName"])
+    def get_ui_specs(self, request, uiName, versionName):
+        rootSections = SavedUIs.objects.values("rootSections").get(
+            owner=request.user, uiName=uiName
+        )
+        completeState = SavedVersions.objects.values("completeState").get(
+            ui=ui, versionName=versionName
+        )
+        return {
+            "uiName": uiName,
+            "versionName": versionName,
+            "rootSections": rootSections,
+            "completeState": completeState,
+        }
 
     def actual_post_operation(self, serializer, request):
         serializer.save(owner=request.user)
@@ -83,10 +98,33 @@ class SavedUINamesAPIView(APIView):
         return Response({"uiNames": uiNames}, status=status.HTTP_200_OK)
 
 
+# class SavedVersionsAPIView(SavedUIsAPIView):
+#     serializer = SavedVersionsSerializer
+
+#     def get_ui_specs(self, request, uiName, versionName, **kwargs):
+#         ui = SavedUI(owner=request.user, uiName=uiName)
+#         return SavedVersions.objects.values(
+#             "completeState"
+#         ).get(ui=ui, versionName=versionName)
+
+#     def actual_post_operation(self, serializer, request):
+#         serializer.save(owner=request.user)
+#         return Response({"result": "success"}, status=status.HTTP_201_CREATED)
+
+
+# class SavedVersionNamesAPIView(APIView):
+#     def get(self, request, uiName):
+#         ui = SavedVersions(owner=request.user, uiName=uiName)
+#         versionNames = SavedVersions.objects.filter(ui=ui).values_list(
+#             "versionName", flat=True
+#         )
+#         return Response({"versionNames": versionNames}, status=status.HTTP_200_OK)
+
+
 class DraftUIAPIView(SavedUIsAPIView):
     serializer = DraftUISerializer
 
-    def get_ui_specs(self, request, **kwargs):
+    def get_ui_specs(self, request):
         return (
             DraftUI.objects.values("completeState").filter(owner=request.user).first()
         )
