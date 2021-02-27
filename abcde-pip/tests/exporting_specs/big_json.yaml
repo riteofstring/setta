@@ -1,0 +1,215 @@
+IMPORTS:
+  torch.optim:
+  torchvision:
+  abcde_pip.templates:
+    - simple_train_test
+
+UI_TYPES:
+  LIST: 
+    - torch.Tensor
+
+
+transforms: &transforms
+  name: torchvision.transforms 
+
+transforms_module_without_compose: &transforms_module_without_compose
+  - ModuleInfo:
+      <<: *transforms
+      include:
+        - RandomHorizontalFlip
+        - Compose
+      set_type:
+        Compose:
+          transforms:
+            - ModuleInfo:
+                <<: *transforms
+                include:
+                  - RandomHorizontalFlip
+                  - Compose
+                set_type:
+                  Compose:
+                    transforms:
+                      - ModuleInfo:
+                          <<: *transforms
+                          include:
+                            - RandomHorizontalFlip
+                            - Compose
+                          set_type:
+                            Compose:
+                              transforms:
+                                - ModuleInfo:
+                                    <<: *transforms
+                                    include:
+                                      - RandomHorizontalFlip
+                                      - Compose
+                                    set_type:
+                                      Compose:
+                                        transforms:
+                                          - ModuleInfo:
+                                              <<: *transforms
+                                              include:
+                                                - RandomHorizontalFlip
+                                                - Compose
+                                              set_type:
+                                                Compose:
+                                                  transforms:
+                                                    - ModuleInfo:
+                                                        <<: *transforms
+                                                        include:
+                                                          - RandomHorizontalFlip
+                                                          - Compose
+                                                        set_type:
+                                                          Compose:
+                                                            transforms:
+                                                              - ModuleInfo:
+                                                                  <<: *transforms
+                                                                  include:
+                                                                    - RandomHorizontalFlip
+                                                                    - Compose
+                                                                  set_type:
+                                                                    Compose:
+                                                                      transforms:
+                                                                        - ModuleInfo:
+                                                                            <<: *transforms
+                                                                            include:
+                                                                              - RandomHorizontalFlip
+                                                                              - Compose
+                                                                            set_type:
+                                                                              Compose:
+                                                                                transforms:
+                                                                                  - ModuleInfo:
+                                                                                      <<: *transforms
+                                                                                      include:
+                                                                                        - ~REGEX~Random*
+            
+transforms_module: &transforms_module
+  - ModuleInfo:
+      <<: *transforms
+      include:
+        - Compose
+      set_type:
+        Compose:
+          transforms:
+            - <<: *transforms_module_without_compose
+
+SECTIONS:
+  Model:
+    - IMPORTS:
+        torchvision:
+          - models
+    - ModuleInfo:
+        name: models
+        include:
+          - ~REGEX~resnet*
+        set_ui_type:
+          ~ALL~:
+            pretrained: CRAZY_SHIT
+        set_default:
+          ~ALL~:
+            pretrained: True
+    - ClassInfo:
+        name: torchvision.models.densenet161
+        set_ui_type:
+          pretrained: CRAZY_SHIT
+        set_default:
+          pretrained: True
+
+  Other Stuff:
+    - ParameterInfo:
+        dataset_root:
+          default: .
+        batch_size:
+          type: int
+        name:
+        weights: 
+          type: torch.Tensor
+  Dataset:
+    - ModuleInfo:
+        name: torchvision.datasets
+        include:
+          - ~REGEX~CIFAR*
+        set_type:
+          ~ALL~:
+            root: str
+
+  Transform:
+    - <<: *transforms_module
+
+
+  Optimizer:
+    - ModuleInfo:
+        name: torch.optim
+        include:
+          - SGD
+          - Adam
+
+  # TrainSet:
+  #   - ModuleInfo:
+  #       name: torchvision.datasets
+  
+  # ValSet:
+  #   - ModuleInfo:
+  #       name: torchvision.datasets
+
+
+
+
+
+
+
+        # set_type:
+        #   Compose:
+        #     transforms:
+        #       list:
+        #         - ~REF~transforms_module:
+        #             exclude:
+        #               - Compose
+        #   ColorJitter:
+        #     brightness: torch.Tensor
+        #     contrast: int
+        #     saturation: int
+
+
+
+# 0:
+#   abcde_pip.registration.global_dicts.add_to_ref_dict:
+#     transform:
+#       torchvision.transforms.Compose:
+#         transforms:
+#           - torchvision.transforms.ToTensor:
+#           - torchvision.transforms.Normalize:
+#               mean: [0.1307]
+#               std: [0.3081]
+#     dataset_root: "."
+#     model:
+#       abcde_pip.templates.simple_train_test.Net:
+
+# 1:
+#   abcde_pip.registration.global_dicts.add_to_ref_dict:
+#     train_set:
+#       torchvision.datasets.MNIST:
+#         root: ~REF~dataset_root
+#         train: True
+#         download: True
+#         transform: ~REF~transform
+#     val_set:
+#       torchvision.datasets.MNIST:
+#         root: ~REF~dataset_root
+#         train: False
+#         download: True
+#         transform: ~REF~transform
+
+#   integration_tests.running_templates.test_simple_train_test.create_optimizer:
+#     model: ~REF~model
+#     optimizer:
+#       torch.optim.Adadelta: ~DO_NOT_INIT~
+#     lr: 1.0
+
+#   abcde_pip.templates.simple_train_test.main:
+#     model: ~REF~model
+#     optimizer: ~REF~optimizer
+#     train_set: ~REF~train_set
+#     val_set: ~REF~val_set
+#     batch_size: 64
+#     test_batch_size: 1000
+#     epochs: 1

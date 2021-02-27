@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.nfs*
+build/
+dist/
+*.egg-info/
+site/
+venv/
+.vscode/
+*.sqlite3
+migrations/
