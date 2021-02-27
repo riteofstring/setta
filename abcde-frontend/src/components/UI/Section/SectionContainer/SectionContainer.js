@@ -28,7 +28,7 @@ export default function SectionContainer({
   const stringId = createStringId(
     sectionId,
     selected.moduleName,
-    selected.name,
+    selected.name
   );
   const sectionModuleObjHasNested = useStoreState(
     (state) => state.master.sectionModuleObjHasNested[stringId]
@@ -49,9 +49,6 @@ export default function SectionContainer({
   );
 
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
-
-  console.log("sectionId order", sectionId, order)
-
   const applyFocus = () => {
     if (!inFocus) {
       setInFocus(sectionId);

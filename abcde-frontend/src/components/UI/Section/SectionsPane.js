@@ -10,8 +10,6 @@ const SectionsPane = () => {
 
   const idKeys = Object.keys(rootIdHierarchy);
 
-  console.log("SectionsPane idKeys", idKeys)
-
   return (
     <>
       {idKeys.map((e, idx) => (
