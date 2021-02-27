@@ -9,6 +9,7 @@ class DraftUI(models.Model):
     sections = models.TextField()
     selected = models.TextField()
     globalCurr = models.TextField()
+    yamlText = models.TextField(default="")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["owner"], name="unique_owner")]
@@ -20,6 +21,7 @@ class SavedUIs(models.Model):
     sections = models.TextField()
     selected = models.TextField()
     globalCurr = models.TextField()
+    yamlText = models.TextField(default="")
 
     class Meta:
         constraints = [

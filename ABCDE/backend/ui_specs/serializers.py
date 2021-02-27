@@ -12,10 +12,10 @@ class LatestCodeSerializer(serializers.ModelSerializer):
 class SavedUIsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedUIs
-        fields = ("uiName", "sections", "selected", "globalCurr")
+        fields = ("uiName", "sections", "selected", "globalCurr", "yamlText")
 
 
 class DraftUISerializer(serializers.ModelSerializer):
     class Meta:
         model = DraftUI
-        fields = ("sections", "selected", "globalCurr")
+        fields = ("sections", "selected", "globalCurr", "yamlText")

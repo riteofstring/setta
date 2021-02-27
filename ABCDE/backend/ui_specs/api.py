@@ -52,7 +52,7 @@ class SavedUIsAPIView(APIView):
 
     def get_ui_specs(self, request, **kwargs):
         return SavedUIs.objects.values(
-            "uiName", "sections", "selected", "globalCurr"
+            "uiName", "sections", "selected", "globalCurr", "yamlText"
         ).get(owner=request.user, uiName=kwargs["uiName"])
 
     def actual_post_operation(self, serializer, request):
@@ -88,7 +88,7 @@ class DraftUIAPIView(SavedUIsAPIView):
 
     def get_ui_specs(self, request, **kwargs):
         return (
-            DraftUI.objects.values("sections", "selected", "globalCurr")
+            DraftUI.objects.values("sections", "selected", "globalCurr", "yamlText")
             .filter(owner=request.user)
             .first()
         )
