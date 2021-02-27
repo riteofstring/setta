@@ -26,10 +26,10 @@ class SavedUIAndVersionSerializer(serializers.Serializer):
     version = SavedVersionsSerializer()
 
     def create(self, validated_data):
-        new_ui = SavedUIs.objects.create(
+        new_ui, ui_was_created = SavedUIs.objects.get_or_create(
             owner=validated_data["owner"], **validated_data["ui"]
         )
-        new_version = SavedVersions.objects.create(
+        new_version, version_was_created = SavedVersions.objects.update_or_create(
             ui=new_ui, **validated_data["version"]
         )
         return new_ui, new_version
