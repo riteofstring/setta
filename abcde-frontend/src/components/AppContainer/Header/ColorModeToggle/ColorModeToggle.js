@@ -7,8 +7,7 @@ export default function ColorModeToggle() {
     <>
       <IconButton
         size="sm"
-        borderRadius="full"
-        variant="ghost"
+        bg="whiteAlpha"
         onClick={toggleColorMode}
         icon={colorMode === "light" ? <MoonIcon /> : <SunIcon />}
       />

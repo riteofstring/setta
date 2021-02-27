@@ -27,8 +27,8 @@ export default function SectionContainer({
   const selected = useStoreState((state) => state.master.selected[sectionId]);
   const stringId = createStringId(
     sectionId,
-    selected.moduleName,
-    selected.name
+    selected ? selected.moduleName : null,
+    selected ? selected.name : null
   );
   const sectionModuleObjHasNested = useStoreState(
     (state) => state.master.sectionModuleObjHasNested[stringId]

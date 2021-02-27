@@ -6,6 +6,7 @@ import SectionsPane from "./Section/SectionsPane";
 import { Flex, Grid } from "@chakra-ui/react";
 import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
+import { loadDraftUI } from "../../dbRequests/ui";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -16,26 +17,56 @@ const UiPage = () => {
     (actions) => actions.master.resetSections
   );
 
-  const loadSectionsIsDone = useStoreState(
-    (state) => state.master.loadSectionsIsDone
+  const masterSetEntireState = useStoreActions(
+    (actions) => actions.master.setEntireState
   );
 
-  const showTerminal = useStoreState((state) => state.master.showTerminal);
+  const globalCurrSetEntireState = useStoreActions(
+    (actions) => actions.globalCurr.setEntireState
+  );
 
-  const specsAreReady = useStoreState((state) => state.devPage.specsAreReady);
-  const uiAsJson = useStoreState((state) => state.devPage.uiAsJson);
+  const yamlEntrySetEntireState = useStoreActions(
+    (actions) => actions.yamlEntry.setEntireState
+  );
+
+  const factoriesInfoSetEntireState = useStoreActions(
+    (actions) => actions.factoriesInfo.setEntireState
+  );
+
+  const funcsInfoSetEntireState = useStoreActions(
+    (actions) => actions.funcsInfo.setEntireState
+  );
+
+  const token = useStoreState((state) => state.auth.token);
+
+  console.log("UiPage");
+
+  const tryLoadingDraftUI = async () => {
+    const data = await loadDraftUI({ token });
+    if (data) {
+      const {
+        masterState,
+        globalCurrState,
+        yamlEntryState,
+        factoriesInfoState,
+        funcsInfoState,
+      } = JSON.parse(data.completeState);
+      masterSetEntireState(JSON.parse(masterState));
+      globalCurrSetEntireState(JSON.parse(globalCurrState));
+      yamlEntrySetEntireState(JSON.parse(yamlEntryState));
+      factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
+      funcsInfoSetEntireState(JSON.parse(funcsInfoState));
+    }
+  };
 
   useLayoutEffect(() => {
-    if (!NO_AUTH) {
-      if (specsAreReady && !loadSectionsIsDone) {
-        resetSections();
-        loadSections(uiAsJson);
-      }
-    } else if (!loadSectionsIsDone) {
+    if (NO_AUTH) {
       resetSections();
       loadSections();
+    } else {
+      tryLoadingDraftUI();
     }
-  }, [specsAreReady]);
+  }, []);
 
   return (
     <>
@@ -44,7 +75,6 @@ const UiPage = () => {
           <SectionsPane />
         </Grid>
       </Flex>
-      {/* {!!showTerminal && <TheTerminal />} */}
     </>
   );
 };
