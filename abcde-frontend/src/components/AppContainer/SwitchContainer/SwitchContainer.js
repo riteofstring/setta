@@ -2,8 +2,9 @@ import React from "react";
 import { Route, Switch, Redirect } from "react-router-dom";
 import LoginPage from "../../LoginPage/LoginPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
+// import DevPage from "../../DevPage/DevPage";
 // import TerminalPage from "../../TerminalPage/TerminalPage";
-import LogoutPage from "../../LogoutPage/LogoutPage";
+// import LogoutPage from "../../LogoutPage/LogoutPage";
 import { useStoreState } from "easy-peasy";
 import HeaderContainer from "../Header/Header";
 import MainContainer from "../Main/MainContainer";
@@ -31,12 +32,15 @@ const SwitchContainer = () => {
             <HeaderContainer />
             <MainContainer />
           </PrivateRoute>
+          {/* <PrivateRoute exact path="/developer">
+            <DevPage />
+          </PrivateRoute> */}
           {/* <PrivateRoute exact path="/terminal">
             <TerminalPage />
           </PrivateRoute> */}
-          <PrivateRoute exact path="/logout">
+          {/* <PrivateRoute exact path="/logout">
             <LogoutPage />
-          </PrivateRoute>
+          </PrivateRoute> */}
         </Switch>
       );
     }

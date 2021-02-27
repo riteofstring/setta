@@ -25,8 +25,8 @@ export default function RunButton() {
     (actions) => actions.master.exportSelected
   );
   const runExport = () => {
-    const { selected } = exportSelected();
-    runSelected({ token, selected });
+    const { selections } = exportSelected();
+    runSelected({ token, selections });
   };
 
   return (

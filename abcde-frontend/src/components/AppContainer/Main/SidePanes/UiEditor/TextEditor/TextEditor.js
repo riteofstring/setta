@@ -6,26 +6,15 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
-  const enteredText = useStoreState((state) => state.yamlEntry.enteredText);
-  const setEnteredText = useStoreActions(
-    (actions) => actions.yamlEntry.setEnteredText
+  const uiSpecs = useStoreState((state) => state.devPage.uiSpecs);
+  const setUISpecs = useStoreActions((actions) => actions.devPage.setUISpecs);
+  const createUI = useStoreActions((actions) => actions.devPage.createUI);
+  const setLoadSectionsIsDone = useStoreActions(
+    (actions) => actions.master.setLoadSectionsIsDone
   );
-  const loadSections = useStoreActions(
-    (actions) => actions.master.loadSections
+  const setSpecsAreReady = useStoreActions(
+    (actions) => actions.devPage.setSpecsAreReady
   );
-
-  const resetSections = useStoreActions(
-    (actions) => actions.master.resetSections
-  );
-  const resetGlobalCurr = useStoreActions(
-    (actions) => actions.globalCurr.resetGlobalCurr
-  );
-  const setFactories = useStoreActions(
-    (actions) => actions.factoriesInfo.setFactories
-  );
-  const setFuncs = useStoreActions((actions) => actions.funcsInfo.setFuncs);
-  const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
-  const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
   const token = useStoreState((state) => state.auth.token);
 
   const handleEditorDidMount = (_valueGetter) => {
@@ -34,19 +23,15 @@ export default function TextEditor() {
   };
 
   const handleCreateUI = async () => {
-    const { uiAsJson, factories, funcs } = await createUI({ token });
-    if (uiAsJson) {
-      resetGlobalCurr();
-      resetSections();
-      loadSections({isJson: true, data: JSON.parse(uiAsJson)});
-      setFactories(JSON.parse(factories));
-      setFuncs(JSON.parse(funcs));
-      saveDraftUI({ token });
+    const result = await createUI({ token });
+    if (result) {
+      setLoadSectionsIsDone(false);
+      setSpecsAreReady(true);
     }
   };
 
   const onChange = (e, newValue) => {
-    setEnteredText(newValue);
+    setUISpecs(newValue);
   };
 
   return (
@@ -57,7 +42,7 @@ export default function TextEditor() {
       <ControlledEditor
         height="70vh"
         language="yaml"
-        value={enteredText}
+        value={uiSpecs}
         editorDidMount={handleEditorDidMount}
         onChange={onChange}
       />

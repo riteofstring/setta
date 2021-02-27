@@ -5,7 +5,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 const LogoutPage = () => {
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
   const authToken = useStoreState((state) => state.auth.token);
-  logout({ actionLoginFail, authToken })
+  logout({actionLoginFail, authToken});
   return null;
 };
 

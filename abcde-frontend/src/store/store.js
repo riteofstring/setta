@@ -1,20 +1,16 @@
 import { createStore } from "easy-peasy";
 import master from "../models/master";
 import globalCurr from "../models/globalCurr";
-import yamlEntry from "../models/yamlEntry";
+import devPage from "../models/devPage";
 import auth from "../models/auth";
 import uiInfo from "../models/uiInfo"
-import factoriesInfo from "../models/factoriesInfo"
-import funcsInfo from "../models/funcsInfo"
 
 const store = createStore({
   master: master,
   globalCurr: globalCurr,
-  yamlEntry: yamlEntry,
+  devPage: devPage,
   auth: auth,
-  uiInfo: uiInfo,
-  factoriesInfo: factoriesInfo,
-  funcsInfo: funcsInfo
+  uiInfo: uiInfo
 });
 
 export default store;

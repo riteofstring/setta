@@ -2,55 +2,32 @@ import { action, thunk } from "easy-peasy";
 import {
   loadUINames as loadUINamesBackend,
   loadUI as loadUIBackend,
-  saveDraftUI as saveDraftUIBackend,
 } from "../dbRequests/ui";
 
 const uiInfo = {
-  currUIName: "",
-  currVersionName: "",
-  savedUINames: [],
-  savedVersionNames: [],
+  uiNames: [],
 
-  setSavedUINames: action((state, payload) => {
-    state.setSavedUINames = payload;
+  setUINames: action((state, payload) => {
+    state.uiNames = payload;
   }),
 
   loadUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
     const uiNames = await loadUINamesBackend({ token });
-    action.setSavedUINames(uiNames);
+    action.setUINames(uiNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
     const { token, uiName } = payload;
-    const { sections, selected, globalCurr } = await loadUIBackend({
+    const { sections, selections, globalCurr } = await loadUIBackend({
       token,
       uiName,
     });
     return {
       sections: JSON.parse(sections),
-      selected: JSON.parse(selected),
+      selections: JSON.parse(selections),
       globalCurr: JSON.parse(globalCurr),
     };
-  }),
-
-  saveDraftUI: thunk((action, payload, helpers) => {
-    const { token } = payload;
-    const masterState = helpers.getStoreState().master;
-    const globalCurrState = helpers.getStoreState().globalCurr;
-    const yamlEntryState = helpers.getStoreState().yamlEntry;
-    const factoriesInfoState = helpers.getStoreState().factoriesInfo;
-    const funcsInfoState = helpers.getStoreState().funcsInfo;
-    return saveDraftUIBackend({
-      token,
-      statesToSave: {
-        masterState,
-        globalCurrState,
-        yamlEntryState,
-        factoriesInfoState,
-        funcsInfoState,
-      },
-    });
   }),
 };
 
