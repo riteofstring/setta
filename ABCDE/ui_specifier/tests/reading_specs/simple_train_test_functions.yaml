@@ -1,5 +1,5 @@
 # Main:
-#   ui_specifier.templates.simple_train_test.main:
+#   abcde_pip.templates.simple_train_test.main:
 #     model: ~REF~Model
 #     optimizer: ~REF~Optimizer
 #     train_set: ~REF~TrainDataset
@@ -9,7 +9,7 @@
 #     epochs: ~REF~Various Params~epochs
 
 Main:
-  ui_specifier.templates.simple_train_test.main:
+  abcde_pip.templates.simple_train_test.main:
     model: ~REF~Model
     optimizer: ~REF~Optimizer
     train_set: ~REF~TrainDataset

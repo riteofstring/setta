@@ -1,5 +1,5 @@
 Model:
-  ui_specifier.templates.simple_train_test.Net:
+  abcde_pip.templates.simple_train_test.Net:
 
 Optimizer:
   torch.optim.Adadelta:
@@ -42,4 +42,4 @@ Various Params:
 #                 mean: [0.1307]
 #                 std: [0.3081]
 #             - torchvision.models.resnet18:
-#       - ui_specifier.templates.simple_train_test.Net:   
+#       - abcde_pip.templates.simple_train_test.Net:   

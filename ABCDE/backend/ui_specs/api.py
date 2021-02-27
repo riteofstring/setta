@@ -1,11 +1,11 @@
 import json
 
+from abcde_pip.creation.create_ui import create_ui
 from django.conf import settings
 from django.contrib.auth.models import User
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from ui_specifier.creation.create_ui import create_ui
 from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
 from .models import LatestCode, SavedUIs
@@ -25,10 +25,10 @@ class GenerateCodeAPIView(APIView):
     def post(self, request):
         ## hard-coded for now
         factory_specs = load_yaml(
-            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_factory_specs.yaml"
+            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\tests\\reading_specs\\simple_train_test_factory_specs.yaml"
         )
         funcs = load_yaml(
-            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\integration_tests\\reading_specs\\simple_train_test_functions.yaml"
+            "D:\\Documents\\App Development\\ABCDE\\ui_specifier\\tests\\reading_specs\\simple_train_test_functions.yaml"
         )
         ui_repr = generate_code(request.data["uiSelections"], factory_specs, funcs)
         serializer = LatestCodeSerializer(

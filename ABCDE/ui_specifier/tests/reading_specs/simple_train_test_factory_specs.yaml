@@ -1,17 +1,17 @@
 Optimizer:
-  ui_specifier.templates.pytorch_factories.optimizer_factory:
+  abcde_pip.templates.pytorch_factories.optimizer_factory:
     model: ~REF~Model
     optimizer: ~REF~Optimizer
     kwargs: ~KWARGS~Optimizer
 
 TrainDataset:
-  ui_specifier.templates.pytorch_factories.dataset_factory:
+  abcde_pip.templates.pytorch_factories.dataset_factory:
     dataset: ~REF~TrainDataset
     transform: ~REF~Transform
     kwargs: ~KWARGS~TrainDataset
 
 ValDataset:
-  ui_specifier.templates.pytorch_factories.dataset_factory:
+  abcde_pip.templates.pytorch_factories.dataset_factory:
     dataset: ~REF~ValDataset
     transform: ~REF~Transform
     kwargs: ~KWARGS~ValDataset
