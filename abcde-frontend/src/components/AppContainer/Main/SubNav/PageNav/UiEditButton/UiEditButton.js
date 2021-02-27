@@ -7,11 +7,11 @@ export default function UiEditButton() {
   return (
     <>
       <Button
-        bg="whiteAlpha"
         leftIcon={<Icon as={BiCodeBlock} />}
         size="sm"
         mr="-px"
         onClick={onOpen}
+        variant="ghost"
       >
         Edit UI
       </Button>

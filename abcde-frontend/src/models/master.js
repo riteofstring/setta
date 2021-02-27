@@ -252,17 +252,15 @@ const master = {
   }),
 
   permanentlyDeleteMultipleSections: thunk((action, payload, helpers) => {
-    const { parentId, startingId, numSectionsToDelete } = payload;
+    const { parentId, numSectionsToDelete } = payload;
     const state = helpers.getState();
     const parentObj = findId(
       parentId,
       state.idHierarchy,
       state.rootIdHierarchy
     );
-    const startingIdx = startingId === null ? 0 : parentObj.children.indexOf(startingId)
-    const trueNumSectionsToDelete = Math.min(numSectionsToDelete, parentObj.children.length)
-    for (let i = 0; i < trueNumSectionsToDelete; i++) {
-      const sectionId = parentObj.children[startingIdx];
+    for (let i = 0; i < numSectionsToDelete; i++) {
+      const sectionId = parentObj.children[0];
       action._permanentlyDeleteSection({ sectionId, parentObj });
     }
   }),

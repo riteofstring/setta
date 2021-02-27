@@ -45,6 +45,7 @@ export default function SectionFooter({ sectionId, isListRoot }) {
           color="gray.500"
           aria-label="Search database"
           icon={<Icon cursor="pointer" as={HiChevronUp} />}
+          tabindex="-1"
         />
       </GridItem>
 
