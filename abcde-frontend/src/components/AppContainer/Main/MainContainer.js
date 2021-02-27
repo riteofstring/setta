@@ -1,12 +1,5 @@
-import {
-  Grid,
-  GridItem,
-  Flex,
-  IconButton,
-  Box,
-  forwardRef,
-} from "@chakra-ui/react";
-import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
+import { useState } from "react";
+import { Grid, GridItem, Flex, Box } from "@chakra-ui/react";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
@@ -14,15 +7,19 @@ import graphPaperBg from "../../../assets/images/graph-paper.svg";
 // import NestedSection from "../../UI/Section/NestedSection/NestedSection";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
-// import { SplitPane } from "react-collapse-pane";
-import "./PaneStyle.css";
+import CustomGrid from "./CustomMapInteraction/CustomGrid";
+import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
 
 export default function MainContainer() {
+  const [contentSize, setContentSize] = useState(0);
+
   return (
     <Grid
-      width="100vw"
+      width="90vw"
       border="1px"
       borderColor="gray.200"
+      borderTopLeftRadius="1rem"
+      borderTopRightRadius="1rem"
       overflow="hidden"
       templateRows="min-content 1fr"
       templateColumns="1fr"
@@ -47,15 +44,25 @@ export default function MainContainer() {
             minW="0"
             id="graphpaperparent"
           >
-            <Box
-              backgroundImage={`url(${graphPaperBg})`}
-              padding="2.5rem"
-              id="graphpaper"
+            <CustomMapInteractionCSS
+              // showControls={true}
+              maxScale={2}
+              minScale={0.33}
+              scaleBase={1.5}
+              marginRatios={{ x: 1, y: 0.75 }}
+              contentSize={contentSize}
             >
-              <UIPage />
-            </Box>
+              <Box
+                backgroundImage={`url(${graphPaperBg})`}
+                padding="2.5rem"
+                id="graphpaper"
+              >
+                <CustomGrid gap={2} onSize={setContentSize}>
+                  <UIPage />
+                </CustomGrid>
+              </Box>
+            </CustomMapInteractionCSS>
           </Box>
-
           <UiEditor />
         </Flex>
       </GridItem>

@@ -1,15 +1,14 @@
 import PaneContainer from "../PaneContainer";
 import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
+
 const paneWidth = 20;
 const minimizedWidth = paneWidth - 2.5;
 
 const paneProps = {
   variants: {
-    open: { x: "0rem" },
-    closed: { x: `-${minimizedWidth}rem` },
-    visible: { opacity: 1 },
-    invisible: { opacity: 0 },
+    open: { marginLeft: "0rem" },
+    closed: { marginLeft: `-${minimizedWidth}rem` },
     initial: "open",
   },
   right: false,

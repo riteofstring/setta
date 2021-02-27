@@ -12,7 +12,7 @@ import { BiRadar } from "react-icons/bi";
 // import FocusLock from "react-focus-lock";
 import ParamSweepPopover from "./ParamSweepPop";
 
-export default function ParamSweepButton({ paramName }) {
+export default function ParamSweepButton({paramName}) {
   const { onOpen, onClose, isOpen } = useDisclosure();
   const firstFieldRef = React.useRef(null);
   return (
@@ -33,19 +33,13 @@ export default function ParamSweepButton({ paramName }) {
             cursor="pointer"
             icon={<BiRadar />}
             color="gray.300"
-            tabindex="-1"
           />
         </PopoverTrigger>
         <PopoverContent p={5}>
           {/* <FocusLock returnFocus persistentFocus={false}> */}
           <PopoverArrow />
           <PopoverCloseButton />
-          <ParamSweepPopover
-            firstFieldRef={firstFieldRef}
-            onCancel={onClose}
-            key={paramName}
-            paramName={paramName}
-          />
+          <ParamSweepPopover firstFieldRef={firstFieldRef} onCancel={onClose} key={paramName} paramName={paramName} />
           {/* </FocusLock> */}
         </PopoverContent>
       </Popover>

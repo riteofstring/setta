@@ -10,12 +10,12 @@ export default function SubNav() {
     <GridItem colStart="1" colEnd="end" rowStart="1" rowEnd="2">
       <Flex
         justify="center"
-        width="100vw"
+        width="100%"
         borderBottom="1px"
         borderColor="gray.200"
         backgroundColor="gray.50"
       >
-        <HStack height="3.25rem" width="calc(90vw)" spacing={2}>
+        <HStack height="3.25rem" width="calc(100% - 1.25rem)" spacing={2}>
           <PageNav />
           <TerminalButton />
           <Spacer />
