@@ -37,7 +37,7 @@ export default function Incrementer({
   );
 
   const decrementButtonCondition = () => {
-    return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
+    return (isListRoot && childrenIds.length > 0) | (!isListRoot && nextId);
   };
 
   const addSections = (numSections) => {
@@ -54,10 +54,9 @@ export default function Incrementer({
   };
 
   const deleteSections = (numSections) => {
-    if ((isListRoot && childrenIds.length > 0) || nextId) {
+    if ((isListRoot && childrenIds.length > 0) | nextId) {
       permanentlyDeleteMultipleSections({
-        parentId: isListRoot ? sectionId : parentId,
-        startingId: isListRoot ? null : nextId,
+        parentId: sectionId,
         numSectionsToDelete: numSections,
       });
     }
@@ -68,6 +67,7 @@ export default function Incrementer({
   };
 
   const [numSections, setNumSections] = useState(1);
+  console.log(decrementButtonCondition());
   return (
     <HStack maxW="320px">
       <Input

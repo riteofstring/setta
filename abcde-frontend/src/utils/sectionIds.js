@@ -106,7 +106,7 @@ const createExportableParams = ({
 }) => {
   let output = {};
   const { moduleName, objName, children: originalChildren } = currSelected;
-  if ((moduleName === null) || (moduleName === undefined)) {
+  if ((moduleName === null) | (moduleName === undefined)) {
     return output;
   }
   const fullObjName = moduleName + "." + objName;

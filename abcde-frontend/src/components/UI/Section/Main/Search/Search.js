@@ -6,14 +6,12 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, items }) {
-  
+  console.log("SectionSearch sectionId", sectionId);
 
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
-  const selected = useStoreState(
-    (state) => state.master.selected[sectionId]
-  );
+
   const sectionHasNested = useStoreState(
     (state) => state.master.sectionHasNested[sectionId]
   );
@@ -21,19 +19,6 @@ export default function SectionSearch({ sectionId, items }) {
   const deleteChildrenFromVisibleSectionIds = useStoreActions(
     (actions) => actions.master.deleteChildrenFromVisibleSectionIds
   );
-
-  console.log("SectionSearch sectionId selected", sectionId, selected);
-
-  const initialSelectedItem = () => {
-    const info = selected ? selected : null
-    if (info === null){
-      return info
-    }
-    const {moduleName, name} = info
-    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name)
-    return items[index]
-
-  }
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
@@ -58,7 +43,6 @@ export default function SectionSearch({ sectionId, items }) {
     getItemProps,
   } = useCombobox({
     items: inputItems,
-    initialSelectedItem: initialSelectedItem(),
     itemToString,
     onSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {

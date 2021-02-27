@@ -13,11 +13,11 @@ import {
   generateCode as generateCodeBackend,
 } from "../dbRequests/ui";
 import { v4 as uuidv4 } from "uuid";
-import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const master = {
   sectionCount: 1,
   sections: {},
+  loadSectionsIsDone: false,
   selected: {},
   idHierarchy: {},
   rootIdHierarchy: {},
@@ -76,16 +76,14 @@ const master = {
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
-  }),
-
-  setEntireState: action((state, payload) => {
-    setEntireStateFunc(state, payload);
+    state.loadSectionsIsDone = true;
   }),
 
   // temporary shitty code
   resetSections: action((state) => {
     state.sectionCount = 1;
     state.sections = {};
+    state.loadSectionsIsDone = false;
     state.selected = {};
     state.idHierarchy = {};
     state.rootIdHierarchy = {};
@@ -108,8 +106,12 @@ const master = {
     if (NO_AUTH) {
       action._loadSections({ isJson: true, data: Data });
     } else {
-      action._loadSections(payload);
+      action._loadSections({ isJson: true, data: payload });
     }
+  }),
+
+  setLoadSectionsIsDone: action((state, payload) => {
+    state.loadSectionsIsDone = payload;
   }),
 
   // Show/Collapse button
@@ -250,21 +252,15 @@ const master = {
   }),
 
   permanentlyDeleteMultipleSections: thunk((action, payload, helpers) => {
-    const { parentId, startingId, numSectionsToDelete } = payload;
+    const { parentId, numSectionsToDelete } = payload;
     const state = helpers.getState();
     const parentObj = findId(
       parentId,
       state.idHierarchy,
       state.rootIdHierarchy
     );
-    const startingIdx =
-      startingId === null ? 0 : parentObj.children.indexOf(startingId);
-    const trueNumSectionsToDelete = Math.min(
-      numSectionsToDelete,
-      parentObj.children.length
-    );
-    for (let i = 0; i < trueNumSectionsToDelete; i++) {
-      const sectionId = parentObj.children[startingIdx];
+    for (let i = 0; i < numSectionsToDelete; i++) {
+      const sectionId = parentObj.children[0];
       action._permanentlyDeleteSection({ sectionId, parentObj });
     }
   }),
@@ -332,7 +328,7 @@ const master = {
       isList,
       isListRoot,
     } = helpers.getState();
-    const selected = createExportableObject({
+    const selections = createExportableObject({
       idHierarchy,
       rootIdHierarchy,
       sectionIdsToSectionHeadings,
@@ -340,18 +336,16 @@ const master = {
       isListRoot,
       globalCurr,
     });
-    return { selected, globalCurr };
+    return { selections, globalCurr };
   }),
 
   runSelected: thunk(async (action, payload, helpers) => {
-    const { token, selected } = payload;
+    const { token, selections } = payload;
     const codeToken = uuidv4();
     const result = await generateCodeBackend({
       token,
       codeToken,
-      SELECTED: selected,
-      FACTORIES: helpers.getStoreState().factoriesInfo.factories,
-      FUNCS: helpers.getStoreState().funcsInfo.funcs,
+      uiSelections: selections,
     });
     console.log("runSelected result", result);
     if (result) {
@@ -361,9 +355,9 @@ const master = {
   }),
 
   saveUI: action((state, payload) => {
-    const { token, uiName, selected, globalCurr } = payload;
+    const { token, uiName, selections, globalCurr } = payload;
     const sections = state.sections;
-    saveUIBackend({ token, uiName, sections, selected, globalCurr });
+    saveUIBackend({ token, uiName, sections, selections, globalCurr });
   }),
 
   setSectionSearchVal: action((state, payload) => {
