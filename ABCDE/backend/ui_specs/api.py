@@ -88,9 +88,7 @@ class DraftUIAPIView(SavedUIsAPIView):
 
     def get_ui_specs(self, request, **kwargs):
         return (
-            DraftUI.objects.values("sections", "selected", "globalCurr", "yamlText")
-            .filter(owner=request.user)
-            .first()
+            DraftUI.objects.values("completeState").filter(owner=request.user).first()
         )
 
     def actual_post_operation(self, serializer, request):

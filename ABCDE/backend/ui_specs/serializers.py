@@ -18,4 +18,4 @@ class SavedUIsSerializer(serializers.ModelSerializer):
 class DraftUISerializer(serializers.ModelSerializer):
     class Meta:
         model = DraftUI
-        fields = ("sections", "selected", "globalCurr", "yamlText")
+        fields = ("completeState",)

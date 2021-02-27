@@ -6,10 +6,7 @@ from django.db import models
 
 class DraftUI(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    sections = models.TextField()
-    selected = models.TextField()
-    globalCurr = models.TextField()
-    yamlText = models.TextField(default="")
+    completeState = models.TextField()
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["owner"], name="unique_owner")]
