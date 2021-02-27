@@ -1,16 +1,21 @@
 import axios from "axios";
 import { BACKEND } from "../utils/constants";
+import { getAllNonFunctions } from "../utils/commonFunctions"
 import { tokenConfig } from "./authentication";
 
-
-export const generateCode = ({ token, codeToken, SELECTED, FACTORIES, FUNCS }) => {
-  const body = JSON.stringify({ codeToken, SELECTED, FACTORIES, FUNCS});
+export const generateCode = ({
+  token,
+  codeToken,
+  SELECTED,
+  FACTORIES,
+  FUNCS,
+}) => {
+  const body = JSON.stringify({ codeToken, SELECTED, FACTORIES, FUNCS });
   return axios
     .post(BACKEND + "api/generate_code", body, tokenConfig(token))
     .then((res) => true)
     .catch((err) => false);
 };
-
 
 export const createUI = ({ token, enteredText }) => {
   const body = JSON.stringify({ enteredText });
@@ -45,18 +50,20 @@ export const loadUI = ({ token, uiName }) => {
     .catch((err) => {});
 };
 
-
-export const saveDraftUI = ({ token, sections, selected, globalCurr, yamlText }) => {
-  sections = JSON.stringify(sections);
-  selected = JSON.stringify(selected);
-  globalCurr = JSON.stringify(globalCurr);
-  const body = JSON.stringify({ sections, selected, globalCurr, yamlText });
+export const saveDraftUI = ({ token, statesToSave }) => {
+  let completeState = {}
+  for (let key of Object.keys(statesToSave)){
+    completeState[key] = JSON.stringify(getAllNonFunctions(statesToSave[key]))
+  }
+  completeState = JSON.stringify(completeState)
+  const body = JSON.stringify({ completeState });
+  console.log("sending body:")
+  console.log(body)
   return axios
     .post(BACKEND + "api/draft_ui", body, tokenConfig(token))
     .then((res) => {})
     .catch((err) => {});
 };
-
 
 export const loadDraftUI = ({ token }) => {
   return axios

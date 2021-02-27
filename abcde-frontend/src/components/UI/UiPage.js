@@ -17,8 +17,24 @@ const UiPage = () => {
     (actions) => actions.master.resetSections
   );
 
-  const setEnteredText = useStoreActions(
-    (actions) => actions.yamlEntry.setEnteredText
+  const masterSetEntireState = useStoreActions(
+    (actions) => actions.master.setEntireState
+  );
+
+  const globalCurrSetEntireState = useStoreActions(
+    (actions) => actions.globalCurr.setEntireState
+  );
+
+  const yamlEntrySetEntireState = useStoreActions(
+    (actions) => actions.yamlEntry.setEntireState
+  );
+
+  const factoriesInfoSetEntireState = useStoreActions(
+    (actions) => actions.factoriesInfo.setEntireState
+  );
+
+  const funcsInfoSetEntireState = useStoreActions(
+    (actions) => actions.funcsInfo.setEntireState
   );
 
   const token = useStoreState((state) => state.auth.token);
@@ -27,10 +43,20 @@ const UiPage = () => {
 
   const tryLoadingDraftUI = async () => {
     const data = await loadDraftUI({ token });
-    if (data){
-      const {sections, selected, globalCurr, yamlText} = data
-      loadSections({isJson: false, data: JSON.parse(sections)})
-      setEnteredText(yamlText)
+    if (data) {
+      console.log("completeState", data.completeState);
+      const {
+        masterState,
+        globalCurrState,
+        yamlEntryState,
+        factoriesInfoState,
+        funcsInfoState,
+      } = JSON.parse(data.completeState);
+      masterSetEntireState(JSON.parse(masterState));
+      globalCurrSetEntireState(JSON.parse(globalCurrState));
+      yamlEntrySetEntireState(JSON.parse(yamlEntryState));
+      factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
+      funcsInfoSetEntireState(JSON.parse(funcsInfoState));
     }
   };
 

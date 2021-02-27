@@ -33,10 +33,21 @@ const uiInfo = {
 
   saveDraftUI: thunk((action, payload, helpers) => {
     const { token } = payload;
-    const { sections, selected } = helpers.getStoreState().master;
-    const { globalCurr } = helpers.getStoreState().globalCurr;
-    const { enteredText } = helpers.getStoreState().yamlEntry;
-    saveDraftUIBackend({ token, sections, selected, globalCurr, yamlText: enteredText });
+    const masterState = helpers.getStoreState().master;
+    const globalCurrState = helpers.getStoreState().globalCurr;
+    const yamlEntryState = helpers.getStoreState().yamlEntry;
+    const factoriesInfoState = helpers.getStoreState().factoriesInfo;
+    const funcsInfoState = helpers.getStoreState().funcsInfo;
+    saveDraftUIBackend({
+      token,
+      statesToSave: {
+        masterState,
+        globalCurrState,
+        yamlEntryState,
+        factoriesInfoState,
+        funcsInfoState,
+      },
+    });
   }),
 };
 

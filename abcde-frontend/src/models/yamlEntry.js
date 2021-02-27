@@ -1,5 +1,6 @@
 import { action, thunk } from "easy-peasy";
 import { createUI as createUIBackend } from "../dbRequests/ui";
+import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const yamlEntry = {
   enteredText: "// write your code here",
@@ -14,6 +15,10 @@ const yamlEntry = {
       token,
       enteredText: helpers.getState().enteredText,
     });
+  }),
+
+  setEntireState: action((state, payload) => {
+    setEntireStateFunc(state, payload);
   }),
 };
 

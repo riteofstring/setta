@@ -13,6 +13,7 @@ import {
   generateCode as generateCodeBackend,
 } from "../dbRequests/ui";
 import { v4 as uuidv4 } from "uuid";
+import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const master = {
   sectionCount: 1,
@@ -41,7 +42,6 @@ const master = {
     const { isJson, data } = payload;
     if (!isJson) {
       state.sections = data;
-      console.log("state.sections", state.sections)
     }
     for (let key of Object.keys(data)) {
       let id = state.sectionCount;
@@ -76,6 +76,11 @@ const master = {
       (acc, curr) => ({ ...acc, [curr]: {} }),
       {}
     );
+  }),
+
+  setEntireState: action((state, payload) => {
+    console.log("master payload", payload)
+    setEntireStateFunc(state, payload);
   }),
 
   // temporary shitty code
@@ -253,8 +258,12 @@ const master = {
       state.idHierarchy,
       state.rootIdHierarchy
     );
-    const startingIdx = startingId === null ? 0 : parentObj.children.indexOf(startingId)
-    const trueNumSectionsToDelete = Math.min(numSectionsToDelete, parentObj.children.length)
+    const startingIdx =
+      startingId === null ? 0 : parentObj.children.indexOf(startingId);
+    const trueNumSectionsToDelete = Math.min(
+      numSectionsToDelete,
+      parentObj.children.length
+    );
     for (let i = 0; i < trueNumSectionsToDelete; i++) {
       const sectionId = parentObj.children[startingIdx];
       action._permanentlyDeleteSection({ sectionId, parentObj });
