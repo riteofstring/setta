@@ -1,0 +1,72 @@
+.scrollhost::-webkit-scrollbar {
+  display: none;
+}
+
+.vertical-scrollhost-container {
+  position: relative;
+  height: 100%;
+}
+.vertical-scrollhost {
+  overflow: hidden;
+  height: inherit;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  position: relative;
+}
+
+.vertical-scroll-bar {
+  width: 10px;
+  height: 100%;
+  right: 0;
+  top: 0px;
+  position: absolute;
+  border-radius: 7px;
+  bottom: 0px;
+  background-color: transparent;
+}
+
+.vertical-scroll-thumb {
+  width: 8px;
+  margin-left: 1px;
+  position: absolute;
+  border-radius: 7px;
+  opacity: 1;
+  top: 0;
+  padding: 2px;
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+.horizontal-scrollhost-container {
+  position: relative;
+  width: inherit;
+  height: inherit;
+  overflow: hidden;
+}
+.horizontal-scrollhost {
+  overflow: inherit;
+  width: inherit;
+  height: inherit;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  position: relative;
+}
+
+.horizontal-scroll-bar {
+  height: 10px;
+  width: inherit;
+  left: 0;
+  position: absolute;
+  border-radius: 7px;
+  bottom: 0rem;
+  background-color: transparent;
+}
+
+.horizontal-scroll-thumb {
+  height: 8px;
+  margin-left: 1px;
+  position: absolute;
+  border-radius: 7px;
+  opacity: 1;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.25);
+}

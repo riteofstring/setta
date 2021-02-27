@@ -1,8 +1,9 @@
 import React from "react";
 import { Box, useRadio } from "@chakra-ui/react";
 
-const SelectableItem = (props) => {
-  const { getInputProps, getCheckboxProps } = useRadio(props);
+const TemplateListItem = ({radio, setSelectedUIName, children}) => {
+  const { getInputProps, getCheckboxProps } = useRadio(radio);
+
   const input = getInputProps();
   const checkbox = getCheckboxProps();
 
@@ -22,11 +23,13 @@ const SelectableItem = (props) => {
         }}
         px={5}
         py={3}
+        onClick={() => setSelectedUIName(children)}
+        onMouseEnter={() => {}}
       >
-        {props.children}
+        {children}
       </Box>
     </Box>
   );
 };
 
-export default React.memo(SelectableItem);
+export default React.memo(TemplateListItem);

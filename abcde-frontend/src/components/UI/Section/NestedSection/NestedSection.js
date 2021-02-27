@@ -20,8 +20,8 @@ export default function NestedSection({
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const isShown = useStoreState((state) => state.master.isShown[parentId]);
   const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
-  const idHierarchy = useStoreState(
-    (state) => state.master.idHierarchy[sectionId]
+  const childrenIds = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].children
   );
 
   const isList = useStoreState((state) => state.master.isList[sectionId]);
@@ -29,8 +29,6 @@ export default function NestedSection({
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
   );
-
-  console.log("isShown", parentId, isShown);
 
   const getNestedSection = () => {
     return (
@@ -40,7 +38,7 @@ export default function NestedSection({
           rootId={rootId}
           parentId={parentId}
           nextId={nextId}
-          childrenIds={idHierarchy.children}
+          childrenIds={childrenIds}
           theSection={theSection}
           depth={depth}
         />
