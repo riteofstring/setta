@@ -1,4 +1,4 @@
-SELECTIONS:
+SELECTED:
   Model:
     abcde_pip.templates.simple_train_test.Net:
 
