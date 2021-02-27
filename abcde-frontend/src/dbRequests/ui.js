@@ -3,8 +3,8 @@ import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
 
 
-export const generateCode = ({ token, codeToken, SELECTIONS, FACTORIES, FUNCS }) => {
-  const body = JSON.stringify({ codeToken, SELECTIONS, FACTORIES, FUNCS});
+export const generateCode = ({ token, codeToken, SELECTED, FACTORIES, FUNCS }) => {
+  const body = JSON.stringify({ codeToken, SELECTED, FACTORIES, FUNCS});
   return axios
     .post(BACKEND + "api/generate_code", body, tokenConfig(token))
     .then((res) => true)
@@ -20,11 +20,11 @@ export const createUI = ({ token, enteredText }) => {
     .catch((err) => {});
 };
 
-export const saveUI = ({ token, uiName, sections, selections, globalCurr }) => {
+export const saveUI = ({ token, uiName, sections, selected, globalCurr }) => {
   sections = JSON.stringify(sections);
-  selections = JSON.stringify(selections);
+  selected = JSON.stringify(selected);
   globalCurr = JSON.stringify(globalCurr);
-  const body = JSON.stringify({ uiName, sections, selections, globalCurr });
+  const body = JSON.stringify({ uiName, sections, selected, globalCurr });
   return axios
     .post(BACKEND + "api/saved_uis", body, tokenConfig(token))
     .then((res) => {})
@@ -41,6 +41,26 @@ export const loadUINames = ({ token }) => {
 export const loadUI = ({ token, uiName }) => {
   return axios
     .get(BACKEND + "api/saved_uis/" + uiName, tokenConfig(token))
+    .then((res) => res.data)
+    .catch((err) => {});
+};
+
+
+export const saveDraftUI = ({ token, sections, selected, globalCurr }) => {
+  sections = JSON.stringify(sections);
+  selected = JSON.stringify(selected);
+  globalCurr = JSON.stringify(globalCurr);
+  const body = JSON.stringify({ sections, selected, globalCurr });
+  return axios
+    .post(BACKEND + "api/draft_ui", body, tokenConfig(token))
+    .then((res) => {})
+    .catch((err) => {});
+};
+
+
+export const loadDraftUI = ({ token }) => {
+  return axios
+    .get(BACKEND + "api/draft_ui", tokenConfig(token))
     .then((res) => res.data)
     .catch((err) => {});
 };

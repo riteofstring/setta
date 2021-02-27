@@ -6,8 +6,10 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
-  const enteredText = useStoreState((state) => state.devPage.enteredText);
-  const setEnteredText = useStoreActions((actions) => actions.devPage.setEnteredText);
+  const enteredText = useStoreState((state) => state.yamlEntry.enteredText);
+  const setEnteredText = useStoreActions(
+    (actions) => actions.yamlEntry.setEnteredText
+  );
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
   );
@@ -15,9 +17,15 @@ export default function TextEditor() {
   const resetSections = useStoreActions(
     (actions) => actions.master.resetSections
   );
-  const setFactories = useStoreActions((actions) => actions.factoriesInfo.setFactories);
+  const resetGlobalCurr = useStoreActions(
+    (actions) => actions.globalCurr.resetGlobalCurr
+  );
+  const setFactories = useStoreActions(
+    (actions) => actions.factoriesInfo.setFactories
+  );
   const setFuncs = useStoreActions((actions) => actions.funcsInfo.setFuncs);
-  const createUI = useStoreActions((actions) => actions.devPage.createUI);
+  const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
+  const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
   const token = useStoreState((state) => state.auth.token);
 
   const handleEditorDidMount = (_valueGetter) => {
@@ -26,12 +34,14 @@ export default function TextEditor() {
   };
 
   const handleCreateUI = async () => {
-    const {uiAsJson, factories, funcs} = await createUI({ token });
+    const { uiAsJson, factories, funcs } = await createUI({ token });
     if (uiAsJson) {
-      resetSections()
-      loadSections(JSON.parse(uiAsJson))
+      resetGlobalCurr();
+      resetSections();
+      loadSections({isJson: true, data: JSON.parse(uiAsJson)});
       setFactories(JSON.parse(factories));
-      setFuncs(JSON.parse(funcs))
+      setFuncs(JSON.parse(funcs));
+      saveDraftUI({ token });
     }
   };
 

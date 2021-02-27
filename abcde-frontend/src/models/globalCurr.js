@@ -24,6 +24,10 @@ const globalCurr = {
   setGlobalCurr: action((state, payload) => {
     state.globalCurr = payload;
   }),
+
+  resetGlobalCurr: action((state, payload) => {
+    state.globalCurr = {};
+  }),
 };
 
 export default globalCurr;

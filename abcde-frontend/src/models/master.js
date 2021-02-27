@@ -41,6 +41,7 @@ const master = {
     const { isJson, data } = payload;
     if (!isJson) {
       state.sections = data;
+      console.log("state.sections", state.sections)
     }
     for (let key of Object.keys(data)) {
       let id = state.sectionCount;
@@ -103,7 +104,7 @@ const master = {
     if (NO_AUTH) {
       action._loadSections({ isJson: true, data: Data });
     } else {
-      action._loadSections({ isJson: true, data: payload });
+      action._loadSections(payload);
     }
   }),
 
@@ -323,7 +324,7 @@ const master = {
       isList,
       isListRoot,
     } = helpers.getState();
-    const selections = createExportableObject({
+    const selected = createExportableObject({
       idHierarchy,
       rootIdHierarchy,
       sectionIdsToSectionHeadings,
@@ -331,16 +332,16 @@ const master = {
       isListRoot,
       globalCurr,
     });
-    return { selections, globalCurr };
+    return { selected, globalCurr };
   }),
 
   runSelected: thunk(async (action, payload, helpers) => {
-    const { token, selections } = payload;
+    const { token, selected } = payload;
     const codeToken = uuidv4();
     const result = await generateCodeBackend({
       token,
       codeToken,
-      SELECTIONS: selections,
+      SELECTED: selected,
       FACTORIES: helpers.getStoreState().factoriesInfo.factories,
       FUNCS: helpers.getStoreState().funcsInfo.funcs,
     });
@@ -352,9 +353,9 @@ const master = {
   }),
 
   saveUI: action((state, payload) => {
-    const { token, uiName, selections, globalCurr } = payload;
+    const { token, uiName, selected, globalCurr } = payload;
     const sections = state.sections;
-    saveUIBackend({ token, uiName, sections, selections, globalCurr });
+    saveUIBackend({ token, uiName, sections, selected, globalCurr });
   }),
 
   setSectionSearchVal: action((state, payload) => {

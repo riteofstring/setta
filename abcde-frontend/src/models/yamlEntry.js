@@ -1,7 +1,7 @@
 import { action, thunk } from "easy-peasy";
 import { createUI as createUIBackend } from "../dbRequests/ui";
 
-const devPage = {
+const yamlEntry = {
   enteredText: "// write your code here",
 
   setEnteredText: action((state, payload) => {
@@ -17,4 +17,4 @@ const devPage = {
   }),
 };
 
-export default devPage;
+export default yamlEntry;

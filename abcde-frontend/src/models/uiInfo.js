@@ -2,6 +2,7 @@ import { action, thunk } from "easy-peasy";
 import {
   loadUINames as loadUINamesBackend,
   loadUI as loadUIBackend,
+  saveDraftUI as saveDraftUIBackend,
 } from "../dbRequests/ui";
 
 const uiInfo = {
@@ -19,15 +20,22 @@ const uiInfo = {
 
   loadUI: thunk(async (action, payload, helpers) => {
     const { token, uiName } = payload;
-    const { sections, selections, globalCurr } = await loadUIBackend({
+    const { sections, selected, globalCurr } = await loadUIBackend({
       token,
       uiName,
     });
     return {
       sections: JSON.parse(sections),
-      selections: JSON.parse(selections),
+      selected: JSON.parse(selected),
       globalCurr: JSON.parse(globalCurr),
     };
+  }),
+
+  saveDraftUI: thunk((action, payload, helpers) => {
+    const { token } = payload;
+    const { sections, selected } = helpers.getStoreState().master;
+    const { globalCurr } = helpers.getStoreState().globalCurr;
+    saveDraftUIBackend({ token, sections, selected, globalCurr });
   }),
 };
 
