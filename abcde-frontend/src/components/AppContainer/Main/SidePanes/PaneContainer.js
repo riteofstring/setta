@@ -33,35 +33,37 @@ export default function PaneContainer(props) {
 
   if (props) {
     return (
-      <Pane
-        height="100%"
-        zIndex="10"
-        animate={uiVis ? "visible" : "invisible"}
-        variants={variants}
-        border="1px"
-        borderColor="gray.500"
+      <Rnd
+        style={{ zIndex: 9 }}
+        default={{
+          x: 500,
+          y: 0,
+          width: 320,
+          height: "100%",
+        }}
+        maxWidth="900px"
+        minWidth="200px"
+        enableResizing={{
+          top: false,
+          right: !right,
+          bottom: false,
+          left: right,
+          topRight: false,
+          bottomRight: false,
+          bottomLeft: false,
+          topLeft: false,
+        }}
+        bounds="parent"
+        disableDragging
       >
-        <Rnd
-          default={{
-            x: 0,
-            y: 0,
-            width: 320,
-            height: "100%",
-          }}
-          maxWidth="900px"
-          minWidth="200px"
-          enableResizing={{
-            top: false,
-            right: !right,
-            bottom: false,
-            left: right,
-            topRight: false,
-            bottomRight: false,
-            bottomLeft: false,
-            topLeft: false,
-          }}
-          bounds="parent"
-          disableDragging
+        <Pane
+          h="100%"
+          w="100%"
+          animate={uiVis ? "visible" : "invisible"}
+          variants={variants}
+          borderRight="1px"
+          borderColor="gray.200"
+          boxShadow="md"
         >
           <Flex
             zIndex="2"
@@ -70,7 +72,7 @@ export default function PaneContainer(props) {
             pl={!right && "3rem"}
             bg="gray.50"
             w="100%"
-            height="100%"
+            h="100%"
             direction={right && "row-reverse"}
             overflow="auto"
           >
@@ -94,8 +96,8 @@ export default function PaneContainer(props) {
               onClick={uiToggle}
             />
           </Flex>
-        </Rnd>
-      </Pane>
+        </Pane>
+      </Rnd>
     );
   } else {
     return null;
