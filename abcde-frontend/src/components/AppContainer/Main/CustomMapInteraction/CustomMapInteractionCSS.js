@@ -7,9 +7,10 @@ export default function CustomMapInteractionCSS(props) {
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;
+  const { initialLeftEdge, leftEdge, rightEdge } = props;
   const [panState, setPanState] = useState({
     scale: 1,
-    translation: { x: 0, y: 0 },
+    translation: { x: initialLeftEdge, y: 0 },
   });
   const [scaleOneHeight, setScaleOneHeight] = useState(contentHeight);
   const [scaleOneWidth, setScaleOneWidth] = useState(contentWidth);
@@ -21,6 +22,10 @@ export default function CustomMapInteractionCSS(props) {
   const [scrollWidth, setScrollWidth] = useState(0);
   const [relativeY, setRelativeY] = useState(0);
   const [relativeX, setRelativeX] = useState(0);
+
+  // console.log("clientWidth", clientWidth)
+  // console.log("clientHeight", clientHeight)
+  console.log("relativeX", relativeX)
 
   const _setPanState = (value) => {
     setPanState(value);
@@ -141,6 +146,18 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDim(getMargin(clientWidth, xMargin), false);
   }, [clientWidth, panState.scale, scaleOneWidth]);
 
+  // useEffect(() => {
+  //   const currX = panState.translation.x
+  //   if (minimumX > currX) {
+  //     const xDiff = minimumX - currX
+  //     console.log("xDiff", xDiff)
+  //     _setPanState({
+  //       scale: panState.scale,
+  //       translation: { x: currX + xDiff, y: panState.translation.y },
+  //     });
+  //   }
+  // }, [leftEdge]);
+
   return (
     <CustomScrollDiv
       relativePosition={relativeY}
@@ -155,16 +172,18 @@ export default function CustomMapInteractionCSS(props) {
         setRelativePosition={_setRelativeX}
         setClientDim={setClientWidth}
         isVertical={false}
+        leftEdge={leftEdge}
+        rightEdge={rightEdge}
       >
-      <MapInteractionCSS
-        value={panState}
-        onChange={_setPanState}
-        disableZoom={!panZoomState}
-        translationBounds={{ ...xRange, ...yRange }}
-        {...props}
-      >
-        {props.children}
-      </MapInteractionCSS>
+        <MapInteractionCSS
+          value={panState}
+          onChange={_setPanState}
+          disableZoom={!panZoomState}
+          translationBounds={{ ...xRange, ...yRange }}
+          {...props}
+        >
+          {props.children}
+        </MapInteractionCSS>
       </CustomScrollDiv>
     </CustomScrollDiv>
   );

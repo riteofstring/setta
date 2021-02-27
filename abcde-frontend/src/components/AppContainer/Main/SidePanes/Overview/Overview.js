@@ -2,15 +2,15 @@ import PaneContainer from "../PaneContainer";
 import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
 
-const paneProps = {
+export const paneProps = {
   defaultWidth: 320,
   right: false,
   openOnLoad: true,
 };
 
-export default function Overview() {
+export default function Overview({ onWidthChange }) {
   return (
-    <PaneContainer paneProps={paneProps}>
+    <PaneContainer paneProps={paneProps} onWidthChange={onWidthChange}>
       <Heading as="h2" size="md" color="gray.500" pb=".5rem">
         Overview
       </Heading>

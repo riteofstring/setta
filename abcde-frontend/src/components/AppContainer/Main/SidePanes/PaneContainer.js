@@ -15,10 +15,14 @@ const Pane = motion.custom(
 
 export default function PaneContainer(props) {
   const { defaultWidth, right, openOnLoad } = props.paneProps;
+  const onWidthChange = props.onWidthChange;
+  const [width, setWidth] = useState(defaultWidth);
+  const [height, setHeight] = useState("100%");
   const [uiVis, setUiVis] = useState(openOnLoad ? true : false);
   function uiToggle() {
     setUiVis(!uiVis);
     btnDirFlip();
+    onWidthChange(uiVis ? 0 : width);
   }
   const [btnDir, setBtnDir] = useState(uiVis);
   function btnDirFlip() {
@@ -30,9 +34,6 @@ export default function PaneContainer(props) {
       btnDirFlip();
     }
   }, []);
-
-  const [width, setWidth] = useState(defaultWidth);
-  const [height, setHeight] = useState("100%");
 
   const variants = {
     open: { x: "0rem" },
@@ -63,6 +64,7 @@ export default function PaneContainer(props) {
           onResizeStop={(e, direction, ref, d) => {
             setWidth(width + d.width);
             setHeight(height);
+            onWidthChange(width + d.width);
           }}
           maxWidth="50vw"
           minWidth="10vw"
