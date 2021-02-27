@@ -34,7 +34,7 @@ export const saveUI = ({
 }) => {
   const completeState = stringifyCompleteState(statesToSave);
   const body = JSON.stringify({
-    ui: { uiName, rootSections },
+    ui: { uiName, rootSections: JSON.stringify(rootSections) },
     version: { versionName, completeState },
   });
   return axios
@@ -43,10 +43,10 @@ export const saveUI = ({
     .catch((err) => {});
 };
 
-export const loadUINames = ({ token }) => {
+export const loadUIAndVersionNames = ({ token }) => {
   return axios
-    .get(BACKEND + "api/saved_ui_names", tokenConfig(token))
-    .then((res) => res.data["uiNames"])
+    .get(BACKEND + "api/saved_ui_and_version_names", tokenConfig(token))
+    .then((res) => res.data["uiAndVersionNames"])
     .catch((err) => {});
 };
 

@@ -1,6 +1,6 @@
 import { action, thunk } from "easy-peasy";
 import {
-  loadUINames as loadUINamesBackend,
+  loadUIAndVersionNames as loadUIAndVersionNamesBackend,
   loadUI as loadUIBackend,
   saveUI as saveUIBackend,
   saveDraftUI as saveDraftUIBackend,
@@ -10,17 +10,16 @@ import { getCompleteState } from "../utils/commonFunctions";
 const uiInfo = {
   currUIName: "",
   currVersionName: "",
-  savedUINames: [],
-  savedVersionNames: [],
+  savedUIAndVersionNames: [],
 
-  setSavedUINames: action((state, payload) => {
-    state.savedUINames = payload;
+  setSavedUIAndVersionNames: action((state, payload) => {
+    state.savedUIAndVersionNames = payload;
   }),
 
-  loadUINames: thunk(async (action, payload, helpers) => {
+  loadUIAndVersionNames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
-    const uiNames = await loadUINamesBackend({ token });
-    action.setSavedUINames(uiNames);
+    const uiAndVersionNames = await loadUIAndVersionNamesBackend({ token });
+    action.setSavedUIAndVersionNames(uiAndVersionNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {

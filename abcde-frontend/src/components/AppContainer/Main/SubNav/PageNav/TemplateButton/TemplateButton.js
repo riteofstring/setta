@@ -8,8 +8,8 @@ export default function TemplateButton() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedUIName, setSelectedUIName] = useState(null);
 
-  const savedUINames = useStoreState((state) => state.uiInfo.savedUINames);
-  const loadUINames = useStoreActions((actions) => actions.uiInfo.loadUINames);
+  const savedUIAndVersionNames = useStoreState((state) => state.uiInfo.savedUIAndVersionNames);
+  const loadUIAndVersionNames = useStoreActions((actions) => actions.uiInfo.loadUIAndVersionNames);
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
   const token = useStoreState((state) => state.auth.token);
 
@@ -18,7 +18,7 @@ export default function TemplateButton() {
   const setGlobalCurr = useStoreActions((actions) => actions.globalCurr.setGlobalCurr);
 
   const onOpenClick = () => {
-    loadUINames({ token });
+    loadUIAndVersionNames({ token });
     onOpen();
   };
 
@@ -49,7 +49,7 @@ export default function TemplateButton() {
         isOpen={isOpen}
         onClose={onClose}
         onLoad={onLoad}
-        savedUINames={savedUINames}
+        savedUIAndVersionNames={savedUIAndVersionNames}
         setSelectedUIName={setSelectedUIName}
       />
     </>
