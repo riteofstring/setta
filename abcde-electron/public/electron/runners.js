@@ -34,7 +34,7 @@ const createUI = (data) => {
   data = data.replaceAll("\n", "\\n");
 
   fs.copyFile(
-    "D:DocumentsApp Developmentabcde-electronpubliccreate_ui.py",
+    "D:Documents\\App Development\\abcde-electron\\public\\create_ui.py",
     usersPath + "\\create_ui.py"
   );
   let bat_file = "activate abcde_env && python -u create_ui.py %1";
@@ -54,8 +54,7 @@ const createUI = (data) => {
   );
 };
 
-
-exports.getCodeToken = getCodeToken
-exports.deleteCodeToken = deleteCodeToken
-exports.runProgram = runProgram
-exports.createUI = createUI
+exports.getCodeToken = getCodeToken;
+exports.deleteCodeToken = deleteCodeToken;
+exports.runProgram = runProgram;
+exports.createUI = createUI;

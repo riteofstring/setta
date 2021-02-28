@@ -10,9 +10,6 @@ let mainWindow;
 
 // Deep linked url
 let deeplinkingUrl;
-let requestType;
-
-const { parseUrl } = require("./utils");
 
 // Force Single Instance Application
 const gotTheLock = app.requestSingleInstanceLock();
@@ -27,11 +24,6 @@ if (gotTheLock) {
       deeplinkingUrl = argv.slice(2);
     }
     logEverywhere("app.makeSingleInstance# " + deeplinkingUrl);
-
-    if (deeplinkingUrl && deeplinkingUrl[0]) {
-      ({ deeplinkingUrl, requestType } = parseUrl(deeplinkingUrl));
-      mainWindow.webContents.send(requestType, true);
-    }
 
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -75,11 +67,6 @@ function createWindow() {
     deeplinkingUrl = process.argv.slice(1);
   }
   logEverywhere("createWindow# " + deeplinkingUrl);
-
-  if (deeplinkingUrl && deeplinkingUrl[0]) {
-    ({ deeplinkingUrl, requestType } = parseUrl(deeplinkingUrl));
-    mainWindow.webContents.send(requestType, true);
-  }
 
   // Emitted when the window is closed.
   mainWindow.on("closed", function () {
@@ -134,28 +121,37 @@ function logEverywhere(s) {
   }
 }
 
-const {
-  getCodeToken,
-  deleteCodeToken,
-  runProgram,
-  createUI,
-} = require("./runners");
-const { ipcMain } = require("electron");
 
-ipcMain.on("asynchronous-message", (event, payload) => {
-  let { arg, data } = payload;
-  if (arg === "getRequestType") {
-    if (requestType) {
-      event.reply(requestType, requestType);
-      requestType = null;
-    }
-  } else if (arg === "getCodeToken") {
-    deeplinkingUrl = getCodeToken(event, deeplinkingUrl, logEverywhere);
-  } else if (arg === "deleteCodeToken") {
-    deeplinkingUrl = deleteCodeToken(deeplinkingUrl, logEverywhere);
-  } else if (arg === "runProgram") {
-    runProgram(data);
-  } else if (arg === "createUI") {
-    createUI(deeplinkingUrl);
-  }
-});
+const {newGeneratedCodeSocket} = require("./notifications")
+
+newGeneratedCodeSocket.onmessage = function (event) {
+  var data = JSON.parse(event.data);
+  // do whatever required with received data ...
+};
+
+
+// const {
+//   getCodeToken,
+//   deleteCodeToken,
+//   runProgram,
+//   createUI,
+// } = require("./runners");
+// const { ipcMain } = require("electron");
+
+// ipcMain.on("asynchronous-message", (event, payload) => {
+//   let { arg, data } = payload;
+//   if (arg === "getRequestType") {
+//     if (requestType) {
+//       event.reply(requestType, requestType);
+//       requestType = null;
+//     }
+//   } else if (arg === "getCodeToken") {
+//     deeplinkingUrl = getCodeToken(event, deeplinkingUrl, logEverywhere);
+//   } else if (arg === "deleteCodeToken") {
+//     deeplinkingUrl = deleteCodeToken(deeplinkingUrl, logEverywhere);
+//   } else if (arg === "runProgram") {
+//     runProgram(data);
+//   } else if (arg === "createUI") {
+//     createUI(deeplinkingUrl);
+//   }
+// });
