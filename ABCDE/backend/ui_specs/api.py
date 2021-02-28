@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
 from .models import DraftUI, LatestCode, SavedUIs, SavedVersions
+from .routing import broadcast_newUI
 from .serializers import (
     DraftUISerializer,
     LatestCodeSerializer,
@@ -46,6 +47,7 @@ class GenerateCodeAPIView(APIView):
 
 class CreateUIAPIView(APIView):
     def post(self, request):
+        broadcast_newUI("WEBSOCKET BROS!!!!!!!!!!!")
         ui_as_json, factories, funcs = create_ui(request.data["enteredText"])
         return Response(
             {"uiAsJson": ui_as_json, "factories": factories, "funcs": funcs},
