@@ -11,6 +11,7 @@ import { NO_AUTH } from "../utils/constants";
 import { generateCode as generateCodeBackend } from "../dbRequests/ui";
 import { v4 as uuidv4 } from "uuid";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
+import {newUISocket} from "../utils/notifications"
 
 const master = {
   sectionCount: 1,
@@ -362,11 +363,11 @@ const master = {
       FACTORIES: helpers.getStoreState().factoriesInfo.factories,
       FUNCS: helpers.getStoreState().funcsInfo.funcs,
     });
-    console.log("runSelected result", result);
-    if (result) {
-      console.log("result", result);
-      window.open("abcde://" + codeToken, "_self");
-    }
+    // console.log("runSelected result", result);
+    // if (result) {
+    //   console.log("result", result);
+    //   window.open("abcde://newCodeToken" + codeToken, "_self");
+    // }
   }),
 
   setSectionSearchVal: action((state, payload) => {
