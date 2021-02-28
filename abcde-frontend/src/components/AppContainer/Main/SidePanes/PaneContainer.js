@@ -3,24 +3,27 @@ import { Flex, IconButton, Box, GridItem, forwardRef } from "@chakra-ui/react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";
+import useWindowSize from "../../../../utils/useWindowSize";
+import { clamp } from "../../../../utils/utils";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
     const chakraProps = Object.fromEntries(
       Object.entries(props).filter(([key]) => !isValidMotionProp(key))
     );
-    return <GridItem ref={ref} {...chakraProps} />;
+    return <Box ref={ref} {...chakraProps} />;
   })
 );
 
 export default function PaneContainer(props) {
+  const size = useWindowSize();
   const { defaultWidth, right, openOnLoad } = props.paneProps;
-  const [uiVis, setUiVis] = useState(openOnLoad ? true : false);
+  const [vis, setVis] = useState(openOnLoad ? true : false);
   function uiToggle() {
-    setUiVis(!uiVis);
+    setVis(!vis);
     btnDirFlip();
   }
-  const [btnDir, setBtnDir] = useState(uiVis);
+  const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
     setBtnDir(!btnDir);
   }
@@ -31,6 +34,21 @@ export default function PaneContainer(props) {
     }
   }, []);
 
+  const [vMax, setVMax] = useState(50);
+  const [vMin, setVMin] = useState(50);
+
+  useEffect(() => {
+    const newVMax = size.winWidth / 2.1;
+    const newVMin = clamp(size.winWidth / 5, 50, 250);
+    setVMax(newVMax);
+    setVMin(newVMin);
+    if (width > newVMax) {
+      setWidth(newVMax);
+    } else if (width < newVMin) {
+      setWidth(newVMin);
+    }
+  }, [vis, size.winWidth]);
+
   const [width, setWidth] = useState(defaultWidth);
   const [height, setHeight] = useState("100%");
 
@@ -39,38 +57,38 @@ export default function PaneContainer(props) {
     closed: { x: `${!right ? `-` : ``}${width / 16 - 2.5}rem` },
   };
 
-  console.log(uiVis);
   if (props) {
     return (
       <Pane
         h="100%"
-        colStart="1"
-        colEnd="2"
-        rowStart="2"
-        rowEnd="3"
-        minH="0"
-        minW="0"
+        // colStart="1"
+        // colEnd="2"
+        // rowStart="2"
+        // rowEnd="3"
+        // minH="0"
+        // minW="0"
+        position="absolute"
         justifySelf={right ? "flex-end" : "flex-start"}
         right={right ? 0 : "auto"}
         left={!right ? 0 : "auto"}
-        animate={uiVis ? "open" : "closed"}
+        animate={vis ? "open" : "closed"}
         variants={variants}
-        initial={uiVis ? "open" : "closed"}
+        initial={vis ? "open" : "closed"}
         zIndex={10}
       >
         <Resizable
           size={{ width, height }}
           onResizeStop={(e, direction, ref, d) => {
-            setWidth(width + d.width);
+            setWidth(clamp(width + d.width, vMin, vMax));
             setHeight(height);
           }}
-          maxWidth="50vw"
-          minWidth="10vw"
+          // maxWidth={vMax}
+          // minWidth={vMin}
           enable={{
             top: false,
-            right: uiVis && !right,
+            right: vis && !right,
             bottom: false,
-            left: uiVis && right,
+            left: vis && right,
             topRight: false,
             bottomRight: false,
             bottomLeft: false,
