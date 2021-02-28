@@ -1,3 +1,3 @@
 yarn install
-yarn package
+yarn dist
 then go to dist folder and run the setup exe.

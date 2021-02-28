@@ -23,10 +23,6 @@ const InfoPage = () => {
     }
   });
 
-  ipcRenderer.send("asynchronous-message", {
-    arg: "getCodeToken",
-    data: null,
-  });
   ipcRenderer.on("asynchronous-reply", (event, arg) => {
     // uuid4 has length 32
     if (arg.length === 36 && code !== arg) {
@@ -40,6 +36,12 @@ const InfoPage = () => {
 
   if (codeToken) {
     runLatestCode({ token: authToken });
+  }
+  else{
+    ipcRenderer.send("asynchronous-message", {
+      arg: "getRequestType",
+      data: null,
+    });
   }
 
   return <>{code}</>;

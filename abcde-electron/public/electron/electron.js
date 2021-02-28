@@ -10,6 +10,9 @@ let mainWindow;
 
 // Deep linked url
 let deeplinkingUrl;
+let requestType;
+
+const { parseUrl } = require("./utils");
 
 // Force Single Instance Application
 const gotTheLock = app.requestSingleInstanceLock();
@@ -25,10 +28,14 @@ if (gotTheLock) {
     }
     logEverywhere("app.makeSingleInstance# " + deeplinkingUrl);
 
+    if (deeplinkingUrl && deeplinkingUrl[0]) {
+      ({ deeplinkingUrl, requestType } = parseUrl(deeplinkingUrl));
+      mainWindow.webContents.send(requestType, true);
+    }
+
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
-      mainWindow.webContents.send("newCodeToken", true)
     }
   });
 } else {
@@ -68,6 +75,11 @@ function createWindow() {
     deeplinkingUrl = process.argv.slice(1);
   }
   logEverywhere("createWindow# " + deeplinkingUrl);
+
+  if (deeplinkingUrl && deeplinkingUrl[0]) {
+    ({ deeplinkingUrl, requestType } = parseUrl(deeplinkingUrl));
+    mainWindow.webContents.send(requestType, true);
+  }
 
   // Emitted when the window is closed.
   mainWindow.on("closed", function () {
@@ -122,66 +134,28 @@ function logEverywhere(s) {
   }
 }
 
-const usersPath = "D:\\Downloads";
+const {
+  getCodeToken,
+  deleteCodeToken,
+  runProgram,
+  createUI,
+} = require("./runners");
 const { ipcMain } = require("electron");
-// const nodePty = require("node-pty");
-const child_process = require("child_process");
-const fs = require("fs");
-// let numCalls = 0;
 
 ipcMain.on("asynchronous-message", (event, payload) => {
-  deeplinkingUrl = [deeplinkingUrl[0]
-    .replace("abcde://", "")
-    .replace(/\/+$/, "")];
   let { arg, data } = payload;
-  if (arg === "getCodeToken") {
-    // if (numCalls === 0) {
-    //   deeplinkingUrl = ["f2763de6-cb9a-4547-b7b2-fb8db062b774"];
-    //   numCalls += 1;
-    // }
-    logEverywhere(`getCodeToken ${deeplinkingUrl[0]}`);
-    event.reply("asynchronous-reply", deeplinkingUrl[0]);
+  if (arg === "getRequestType") {
+    if (requestType) {
+      event.reply(requestType, requestType);
+      requestType = null;
+    }
+  } else if (arg === "getCodeToken") {
+    deeplinkingUrl = getCodeToken(event, deeplinkingUrl, logEverywhere);
   } else if (arg === "deleteCodeToken") {
-    deeplinkingUrl = [""];
-    logEverywhere(`deleteCodeToken ${deeplinkingUrl[0]}`);
+    deeplinkingUrl = deleteCodeToken(deeplinkingUrl, logEverywhere);
   } else if (arg === "runProgram") {
-    fs.writeFileSync(usersPath + "\\abcde_temp.py", data);
-    let bat_file = "activate abcde_env && python -u abcde_temp.py";
-    fs.writeFileSync(usersPath + "\\run_abcde_temp.bat", bat_file);
-
-    // const child = nodePty.spawn("cmd.exe", [], {
-    //   name: "xterm-color",
-    //   cols: 80,
-    //   rows: 30,
-    //   cwd: usersPath,
-    //   env: process.env,
-    // });
-
-    // child.on("data", function (data) {
-    //   // mainWindow.webContents.send("terminal.incomingData", data);
-    //   console.log(data.toString())
-    // });
-
-    // child.write("run_abcde_temp.bat\r\nrm abcde_temp.py\r\nrm run_abcde_temp.bat\r\n");
-
-    const child = child_process.spawn(
-      "cmd.exe",
-      ["/c", "run_abcde_temp.bat & del abcde_temp.py & del run_abcde_temp.bat"],
-      {
-        encoding: "utf8",
-        detached: true,
-        shell: true,
-        cwd: usersPath,
-      }
-    );
-    // child.on("data", function (data) {
-    //   console.log(data.toString());
-    // });
-    // child.stdout.on("end", () => {
-    //   console.log("There will be no more data.");
-    // });
-    // child.stderr.on("data", function (data) {
-    //   console.log(data.toString());
-    // });
+    runProgram(data);
+  } else if (arg === "createUI") {
+    createUI(deeplinkingUrl);
   }
 });
