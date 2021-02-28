@@ -131,9 +131,10 @@ export default function PaneContainer(props) {
                 margin="0.33rem"
                 alignSelf="center"
                 onClick={uiToggle}
-                h="100%"
+                h="calc(100% - .66rem)"
                 tabIndex="-1"
                 position="absolute"
+                _focus={{ shadow: "none" }}
               />
             </Box>
           </Box>
