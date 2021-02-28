@@ -28,6 +28,10 @@ application = ProtocolTypeRouter(
                     f"ws/{settings.NEWUI_WEBSOCKET_GROUP_NAME}/",
                     consumers.NewUISyncConsumer(),
                 ),
+                path(
+                    f"ws/{settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME}/",
+                    consumers.NewGeneratedCodeSyncConsumer(),
+                ),
             ]
         ),
     }

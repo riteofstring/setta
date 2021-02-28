@@ -14,3 +14,14 @@ def broadcast_newUI(newUI):
             "content": json.dumps(newUI),
         },
     )
+
+
+def broadcast_newGeneratedCode(newGeneratedCode):
+    channel_layer = channels.layers.get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME,
+        {
+            "type": "newGeneratedCode",
+            "content": json.dumps(newGeneratedCode),
+        },
+    )

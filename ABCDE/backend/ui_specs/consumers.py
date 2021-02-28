@@ -25,3 +25,25 @@ class NewUISyncConsumer(SyncConsumer):
                 "text": event["content"],
             }
         )
+
+
+class NewGeneratedCodeSyncConsumer(SyncConsumer):
+    def websocket_connect(self, event):
+        self.send({"type": "websocket.accept"})
+
+        async_to_sync(self.channel_layer.group_add)(
+            settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME, self.channel_name
+        )
+
+    def websocket_disconnect(self, event):
+        async_to_sync(self.channel_layer.group_discard)(
+            settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME, self.channel_name
+        )
+
+    def newGeneratedCode(self, event):
+        self.send(
+            {
+                "type": "websocket.send",
+                "text": event["content"],
+            }
+        )

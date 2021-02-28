@@ -1,7 +1,6 @@
 import json
 from collections import defaultdict
 
-from abcde_pip.creation.create_ui import create_ui
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import F
@@ -11,7 +10,7 @@ from rest_framework.views import APIView
 from ui_specifier.utils.yaml_parsing import generate_code, load_yaml
 
 from .models import DraftUI, LatestCode, SavedUIs, SavedVersions
-from .routing import broadcast_newUI
+from .routing import broadcast_newGeneratedCode, broadcast_newUI
 from .serializers import (
     DraftUISerializer,
     LatestCodeSerializer,
@@ -20,39 +19,37 @@ from .serializers import (
 
 
 class GenerateCodeAPIView(APIView):
-    def get(self, request):
-        latest_code = LatestCode.objects.values("code", "codeToken").get(
-            owner=request.user
-        )
-        serializer = LatestCodeSerializer(data=latest_code)
-        if serializer.is_valid():
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # def get(self, request):
+    #     latest_code = LatestCode.objects.values("code", "codeToken").get(
+    #         owner=request.user
+    #     )
+    #     serializer = LatestCodeSerializer(data=latest_code)
+    #     if serializer.is_valid():
+    #         return Response(serializer.data, status=status.HTTP_200_OK)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
         ui_selections = request.data["SELECTED"]
         factory_specs = request.data["FACTORIES"]
         funcs = request.data["FUNCS"]
         ui_repr = generate_code(ui_selections, factory_specs, funcs)
-        serializer = LatestCodeSerializer(
-            data={"codeToken": request.data["codeToken"], "code": str(ui_repr)}
-        )
-        if serializer.is_valid():
-            obj, created = LatestCode.objects.update_or_create(
-                defaults=serializer.data, owner=request.user
-            )
-            return Response({"result": "success"}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        broadcast_newGeneratedCode(str(ui_repr))
+        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
+        # serializer = LatestCodeSerializer(
+        #     data={"codeToken": request.data["codeToken"], "code": str(ui_repr)}
+        # )
+        # if serializer.is_valid():
+        #     obj, created = LatestCode.objects.update_or_create(
+        #         defaults=serializer.data, owner=request.user
+        #     )
+        #     return Response({"result": "success"}, status=status.HTTP_201_CREATED)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CreateUIAPIView(APIView):
     def post(self, request):
-        broadcast_newUI("WEBSOCKET BROS!!!!!!!!!!!")
-        ui_as_json, factories, funcs = create_ui(request.data["enteredText"])
-        return Response(
-            {"uiAsJson": ui_as_json, "factories": factories, "funcs": funcs},
-            status=status.HTTP_201_CREATED,
-        )
+        broadcast_newUI(request.data)
+        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
 
 
 class SavedUIAndVersionsAPIView(APIView):
