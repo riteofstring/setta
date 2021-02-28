@@ -1,5 +1,5 @@
 import axios from "axios";
-import { BACKEND, UI_VERSION_NAME_SEPARATOR } from "../utils/constants";
+import { BACKEND } from "../utils/constants";
 import { stringifyCompleteState } from "../utils/commonFunctions";
 import { tokenConfig } from "./authentication";
 
@@ -34,7 +34,7 @@ export const saveUI = ({
 }) => {
   const completeState = stringifyCompleteState(statesToSave);
   const body = JSON.stringify({
-    ui: { uiName, rootSections: JSON.stringify(rootSections) },
+    ui: { uiName, rootSections },
     version: { versionName, completeState },
   });
   return axios
@@ -43,17 +43,16 @@ export const saveUI = ({
     .catch((err) => {});
 };
 
-export const loadUIAndVersionNames = ({ token }) => {
+export const loadUINames = ({ token }) => {
   return axios
-    .get(BACKEND + "api/saved_ui_and_version_names", tokenConfig(token))
-    .then((res) => res.data["uiAndVersionNames"])
+    .get(BACKEND + "api/saved_ui_names", tokenConfig(token))
+    .then((res) => res.data["uiNames"])
     .catch((err) => {});
 };
 
-export const loadUI = ({ token, uiName, versionName }) => {
-  const postString = uiName + UI_VERSION_NAME_SEPARATOR + versionName
+export const loadUI = ({ token, uiName }) => {
   return axios
-    .get(BACKEND + "api/saved_uis/" + postString, tokenConfig(token))
+    .get(BACKEND + "api/saved_uis/" + uiName, tokenConfig(token))
     .then((res) => res.data)
     .catch((err) => {});
 };

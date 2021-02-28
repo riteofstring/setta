@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, useRadio } from "@chakra-ui/react";
 
-const TemplateListItem = ({radio, setSelectedUIAndVersionName, uiName, versionName, children}) => {
+const TemplateListItem = ({radio, setSelectedUIName, children}) => {
   const { getInputProps, getCheckboxProps } = useRadio(radio);
 
   const input = getInputProps();
@@ -23,7 +23,7 @@ const TemplateListItem = ({radio, setSelectedUIAndVersionName, uiName, versionNa
         }}
         px={5}
         py={3}
-        onClick={() => setSelectedUIAndVersionName({uiName, versionName})}
+        onClick={() => setSelectedUIName(children)}
         onMouseEnter={() => {}}
       >
         {children}

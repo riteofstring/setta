@@ -7,7 +7,6 @@ import { Flex, Grid } from "@chakra-ui/react";
 import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { loadDraftUI } from "../../dbRequests/ui";
-import { setCompleteState } from "../../utils/commonFunctions";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -45,14 +44,18 @@ const UiPage = () => {
   const tryLoadingDraftUI = async () => {
     const data = await loadDraftUI({ token });
     if (data) {
-      setCompleteState({
-        completeState: data.completeState,
-        masterSetEntireState,
-        globalCurrSetEntireState,
-        yamlEntrySetEntireState,
-        factoriesInfoSetEntireState,
-        funcsInfoSetEntireState,
-      });
+      const {
+        masterState,
+        globalCurrState,
+        yamlEntryState,
+        factoriesInfoState,
+        funcsInfoState,
+      } = JSON.parse(data.completeState);
+      masterSetEntireState(JSON.parse(masterState));
+      globalCurrSetEntireState(JSON.parse(globalCurrState));
+      yamlEntrySetEntireState(JSON.parse(yamlEntryState));
+      factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
+      funcsInfoSetEntireState(JSON.parse(funcsInfoState));
     }
   };
 

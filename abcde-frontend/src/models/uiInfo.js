@@ -1,6 +1,6 @@
 import { action, thunk } from "easy-peasy";
 import {
-  loadUIAndVersionNames as loadUIAndVersionNamesBackend,
+  loadUINames as loadUINamesBackend,
   loadUI as loadUIBackend,
   saveUI as saveUIBackend,
   saveDraftUI as saveDraftUIBackend,
@@ -10,33 +10,33 @@ import { getCompleteState } from "../utils/commonFunctions";
 const uiInfo = {
   currUIName: "",
   currVersionName: "",
-  savedUIAndVersionNames: {},
+  savedUINames: [],
+  savedVersionNames: [],
 
-  setSavedUIAndVersionNames: action((state, payload) => {
-    state.savedUIAndVersionNames = payload;
+  setSavedUINames: action((state, payload) => {
+    state.savedUINames = payload;
   }),
 
-  loadUIAndVersionNames: thunk(async (action, payload, helpers) => {
+  loadUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
-    const uiAndVersionNames = await loadUIAndVersionNamesBackend({ token });
-    action.setSavedUIAndVersionNames(uiAndVersionNames);
+    const uiNames = await loadUINamesBackend({ token });
+    action.setSavedUINames(uiNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
-    const { token, uiName, versionName } = payload;
-    // ui is unused for now
-    const { ui, version } = await loadUIBackend({
+    const { token, uiName } = payload;
+    const { rootSections: originalRootSections } = await loadUIBackend({
       token,
       uiName,
-      versionName,
     });
-    return version.completeState;
+    return {
+      originalRootSections: JSON.parse(originalRootSections),
+    };
   }),
 
   saveUI: thunk((action, payload, helpers) => {
     const { token, uiName, versionName } = payload;
-    const originalRootSections = helpers.getStoreState().master
-      .originalRootSections;
+    const originalRootSections = helpers.getStoreState().master.originalRootSections;
     return saveUIBackend({
       token,
       uiName,

@@ -28,26 +28,3 @@ export const stringifyCompleteState = (statesToSave) => {
   completeState = JSON.stringify(completeState);
   return completeState;
 };
-
-export const setCompleteState = ({
-  completeState,
-  masterSetEntireState,
-  globalCurrSetEntireState,
-  yamlEntrySetEntireState,
-  factoriesInfoSetEntireState,
-  funcsInfoSetEntireState,
-}) => {
-  const {
-    masterState,
-    globalCurrState,
-    yamlEntryState,
-    factoriesInfoState,
-    funcsInfoState,
-  } = JSON.parse(completeState);
-
-  globalCurrSetEntireState(JSON.parse(globalCurrState));
-  masterSetEntireState(JSON.parse(masterState));
-  yamlEntrySetEntireState(JSON.parse(yamlEntryState));
-  factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
-  funcsInfoSetEntireState(JSON.parse(funcsInfoState));
-};
