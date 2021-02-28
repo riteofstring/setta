@@ -67,7 +67,6 @@ export default function PaneContainer(props) {
         rowEnd="3"
         minH="0"
         minW="0"
-        // position="absolute"
         justifySelf={right ? "flex-end" : "flex-start"}
         right={right ? 0 : "auto"}
         left={!right ? 0 : "auto"}
@@ -109,7 +108,6 @@ export default function PaneContainer(props) {
               bg="gray.50"
               w="inherit"
               h="inherit"
-              // direction={right && "row-reverse"}
               overflow="noscroll"
             >
               <Flex
