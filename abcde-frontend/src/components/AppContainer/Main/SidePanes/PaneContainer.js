@@ -11,7 +11,7 @@ const Pane = motion.custom(
     const chakraProps = Object.fromEntries(
       Object.entries(props).filter(([key]) => !isValidMotionProp(key))
     );
-    return <Box ref={ref} {...chakraProps} />;
+    return <GridItem ref={ref} {...chakraProps} />;
   })
 );
 
@@ -61,13 +61,13 @@ export default function PaneContainer(props) {
     return (
       <Pane
         h="100%"
-        // colStart="1"
-        // colEnd="2"
-        // rowStart="2"
-        // rowEnd="3"
-        // minH="0"
-        // minW="0"
-        position="absolute"
+        colStart="1"
+        colEnd="2"
+        rowStart="2"
+        rowEnd="3"
+        minH="0"
+        minW="0"
+        // position="absolute"
         justifySelf={right ? "flex-end" : "flex-start"}
         right={right ? 0 : "auto"}
         left={!right ? 0 : "auto"}
@@ -82,8 +82,8 @@ export default function PaneContainer(props) {
             setWidth(clamp(width + d.width, vMin, vMax));
             setHeight(height);
           }}
-          // maxWidth={vMax}
-          // minWidth={vMin}
+          maxWidth={vMax}
+          minWidth={vMin}
           enable={{
             top: false,
             right: vis && !right,
@@ -102,14 +102,14 @@ export default function PaneContainer(props) {
             boxShadow="md"
             w="100%"
           >
-            <Flex
+            <Box
+              display="inline-block"
               py="2rem"
-              pr={right && "3rem"}
-              pl={!right && "3rem"}
+              px="2.66rem"
               bg="gray.50"
               w="inherit"
               h="inherit"
-              direction={right && "row-reverse"}
+              // direction={right && "row-reverse"}
               overflow="noscroll"
             >
               <Flex
@@ -125,14 +125,17 @@ export default function PaneContainer(props) {
                 color="gray.500"
                 variant="ghost"
                 size="sm"
-                ml="0.25rem"
-                mr="0.5rem"
+                left={right ? 0 : "auto"}
+                right={!right ? 0 : "auto"}
+                top="0"
+                margin="0.33rem"
                 alignSelf="center"
                 onClick={uiToggle}
                 h="100%"
                 tabIndex="-1"
+                position="absolute"
               />
-            </Flex>
+            </Box>
           </Box>
         </Resizable>
       </Pane>
