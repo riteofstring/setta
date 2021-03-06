@@ -14,7 +14,7 @@ export default function CustomScrollDiv({
   className,
   isVertical,
 }) {
-  const [hovering, setHovering] = useState(false);
+  const hovering = useStoreState((state) => state.mapInteraction.hovering);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
   const [scrollBoxTop, setScrollBoxTop] = useState(0);
@@ -45,14 +45,6 @@ export default function CustomScrollDiv({
       return { clientDim, offsetDim };
     }
   };
-
-  const handleMouseOver = useCallback(() => {
-    !hovering && setHovering(true);
-  }, [hovering]);
-
-  const handleMouseOut = useCallback(() => {
-    !!hovering && setHovering(false);
-  }, [hovering]);
 
   const handleDocumentMouseUp = useCallback(
     (e) => {
@@ -153,11 +145,7 @@ export default function CustomScrollDiv({
   }, [scrollHostUseEffectCondition()]);
 
   return (
-    <CustomScrollDivMotionWrapper
-      isVertical={isVertical}
-      handleMouseOver={handleMouseOver}
-      handleMouseOut={handleMouseOut}
-    >
+    <CustomScrollDivMotionWrapper isVertical={isVertical}>
       <div
         ref={scrollHostRef}
         className={isVertical ? `vertical-scrollhost` : `horizontal-scrollhost`}
@@ -166,7 +154,7 @@ export default function CustomScrollDiv({
       </div>
       <div
         className={isVertical ? "vertical-scroll-bar" : "horizontal-scroll-bar"}
-        style={{ opacity: hovering ? 1 : 1 }}
+        style={{ opacity: hovering ? 0.75 : 0 }}
       >
         <div
           className={
@@ -184,29 +172,21 @@ export default function CustomScrollDiv({
   );
 }
 
-function CustomScrollDivMotionWrapper({
-  isVertical,
-  handleMouseOver,
-  handleMouseOut,
-  children,
-}) {
+function CustomScrollDivMotionWrapper({ isVertical, children }) {
   const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
   const width = useStoreState((state) => state.panes.width["uiEditor"]);
+  const isDragging = useStoreState(
+    (state) => state.panes.isDragging["uiEditor"]
+  );
 
   const variants = {
     closed: { x: "-2.5rem" },
     open: { x: `-${width / 16}rem` },
   };
 
-  return isVertical ? (
+  return isVertical && !isDragging ? (
     <motion.div
-      className={
-        isVertical
-          ? "vertical-scrollhost-container"
-          : "horizontal-scrollhost-container"
-      }
-      onMouseOver={handleMouseOver}
-      onMouseOut={handleMouseOut}
+      className="vertical-scrollhost-container"
       animate={vis ? "open" : "closed"}
       variants={variants}
       initial={vis ? "open" : "closed"}
@@ -220,8 +200,6 @@ function CustomScrollDivMotionWrapper({
           ? "vertical-scrollhost-container"
           : "horizontal-scrollhost-container"
       }
-      onMouseOver={handleMouseOver}
-      onMouseOut={handleMouseOut}
     >
       {children}
     </div>

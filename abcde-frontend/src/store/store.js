@@ -7,6 +7,7 @@ import uiInfo from "../models/uiInfo";
 import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
 import panes from "../models/panes";
+import mapInteraction from "../models/mapInteraction";
 
 const store = createStore({
   master: master,
@@ -17,6 +18,7 @@ const store = createStore({
   factoriesInfo: factoriesInfo,
   funcsInfo: funcsInfo,
   panes: panes,
+  mapInteraction: mapInteraction,
 });
 
 export default store;

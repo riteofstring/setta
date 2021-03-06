@@ -2,6 +2,7 @@ import { MapInteractionCSS } from "react-map-interaction";
 import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
+import { useStoreActions } from "easy-peasy";
 
 export default function CustomMapInteractionCSS(props) {
   const panZoomState = useKeyPress("Control");
@@ -141,6 +142,10 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDim(getMargin(clientWidth, xMargin), false);
   }, [clientWidth, panState.scale, scaleOneWidth]);
 
+  const setHovering = useStoreActions(
+    (actions) => actions.mapInteraction.setHovering
+  );
+
   return (
     <>
       <CustomScrollDiv
@@ -150,15 +155,20 @@ export default function CustomMapInteractionCSS(props) {
         setClientDim={setClientWidth}
         isVertical={false}
       >
-        <MapInteractionCSS
-          value={panState}
-          onChange={_setPanState}
-          disableZoom={!panZoomState}
-          translationBounds={{ ...xRange, ...yRange }}
-          {...props}
+        <div
+          onMouseOver={() => setHovering(true)}
+          onMouseOut={() => setHovering(false)}
         >
-          {props.children}
-        </MapInteractionCSS>
+          <MapInteractionCSS
+            value={panState}
+            onChange={_setPanState}
+            disableZoom={!panZoomState}
+            translationBounds={{ ...xRange, ...yRange }}
+            {...props}
+          >
+            {props.children}
+          </MapInteractionCSS>
+        </div>
         <CustomScrollDiv
           relativePosition={relativeY}
           scrollDim={scrollHeight}
