@@ -2,9 +2,13 @@ import { MapInteractionCSS } from "react-map-interaction";
 import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import {motion} from "framer-motion"
 
 export default function CustomMapInteractionCSS(props) {
+  const overviewCssWidth = useStoreState(
+    (state) => state.panes.trueWidth["overview"]
+  );
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;
@@ -207,9 +211,11 @@ export default function CustomMapInteractionCSS(props) {
         setClientDim={setClientHeight}
         isVertical={true}
       ></CustomScrollDiv>
-      <div
+      <motion.div
         onMouseOver={() => setHovering(true)}
         onMouseOut={() => setHovering(false)}
+        animate={{translateX: overviewCssWidth}}
+        initial={false}
       >
         <MapInteractionCSS
           value={panState}
@@ -220,7 +226,7 @@ export default function CustomMapInteractionCSS(props) {
         >
           {props.children}
         </MapInteractionCSS>
-      </div>
+      </motion.div>
       <CustomScrollDiv
         relativePosition={relativeX}
         scrollDim={scrollWidth}

@@ -3,7 +3,7 @@ import { action } from "easy-peasy";
 const panes = {
   vis: { overview: true, uiEditor: false },
   width: { overview: 320, uiEditor: 500 },
-  cssWidth: { overview: "320px", uiEditor: "2.5rem" },
+  trueWidth: { overview: 320, uiEditor: 40 },
   isDragging: { overview: false, uiEditor: false },
 
   setVis: action((state, payload) => {
@@ -21,10 +21,9 @@ const panes = {
     state.isDragging[paneName] = isDragging;
   }),
 
-  setCssWidth: action((state, payload) => {
-    const { paneName, cssWidth } = payload;
-    console.log("cssWidth", cssWidth)
-    state.cssWidth[paneName] = cssWidth;
+  setTrueWidth: action((state, payload) => {
+    const { paneName, trueWidth } = payload;
+    state.trueWidth[paneName] = trueWidth;
   }),
 };
 
