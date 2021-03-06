@@ -42,7 +42,7 @@
   width: inherit;
   height: inherit;
   overflow: hidden;
-  margin-top: calc(-100vh + 6.5rem);
+  /* margin-top: calc(-100vh + 6.5rem); */
 }
 .horizontal-scrollhost {
   overflow: inherit;

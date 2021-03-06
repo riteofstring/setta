@@ -158,14 +158,15 @@ export default function CustomMapInteractionCSS(props) {
         setRelativePosition={_setRelativeY}
         setClientDim={setClientHeight}
         isVertical={true}
-      ></CustomScrollDiv>
-      <CustomScrollDiv
-        relativePosition={relativeX}
-        scrollDim={scrollWidth}
-        setRelativePosition={_setRelativeX}
-        setClientDim={setClientWidth}
-        isVertical={false}
-      ></CustomScrollDiv>
+      >
+        <CustomScrollDiv
+          relativePosition={relativeX}
+          scrollDim={scrollWidth}
+          setRelativePosition={_setRelativeX}
+          setClientDim={setClientWidth}
+          isVertical={false}
+        ></CustomScrollDiv>
+      </CustomScrollDiv>
     </>
   );
 }
