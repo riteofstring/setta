@@ -3,10 +3,7 @@ import {
   HStack,
   VStack,
   Box,
-  ButtonGroup,
   Button,
-  IconButton,
-  Icon,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -16,22 +13,12 @@ import {
   ModalFooter,
   useDisclosure,
   Flex,
-  Popover,
-  PopoverBody,
-  PopoverTrigger,
-  Portal,
-  PopoverContent,
-  PopoverArrow,
-  PopoverHeader,
-  PopoverCloseButton,
   Input,
   InputGroup,
-  InputLeftAddon,
   MenuItem,
+  useRadio,
 } from "@chakra-ui/react";
-import { RiSave3Line } from "react-icons/ri";
-import { VscSave, VscSaveAs } from "react-icons/vsc";
-import { ChevronDownIcon } from "@chakra-ui/icons";
+import { VscSaveAs } from "react-icons/vsc";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function SaveAsButton() {
@@ -75,7 +62,7 @@ export default function SaveAsButton() {
                 px="1.5rem"
                 py="1rem"
               >
-                <Box>test</Box>
+                <FolderItem />
               </VStack>
               <Flex
                 h="inherit"
@@ -117,38 +104,37 @@ export default function SaveAsButton() {
         </ModalContent>
       </Modal>
     </>
-    // <ButtonGroup variant="outline" size="sm" isAttached mr=".25rem">
-    //   <Button bg="whiteAlpha" leftIcon={<Icon as={RiSave3Line} />} mr="-px">
-    //     Save
-    //   </Button>
-    //   <Popover>
-    //     <PopoverTrigger>
-    //       <IconButton
-    //         bg="whiteAlpha"
-    //         aria-label="Run Options"
-    //         icon={<ChevronDownIcon />}
-    //       />
-    //     </PopoverTrigger>
-    //     <Portal>
-    //       <PopoverContent>
-    //         <PopoverArrow />
-    //         <PopoverHeader>
-    //           <InputGroup size="sm">
-    //             <InputLeftAddon children="UI" />
-    //             <Input value={enteredUIName} onChange={(e)=>setEnteredUIName(e.target.value)} />
-    //           </InputGroup>
-    //           <InputGroup size="sm">
-    //             <InputLeftAddon children="Version" />
-    //             <Input value={enteredVersionName} onChange={(e)=>setEnteredVersionName(e.target.value)} />
-    //           </InputGroup>
-    //         </PopoverHeader>
-    //         <PopoverCloseButton />
-    //         <PopoverBody>
-    //           <Button colorScheme="blue" onClick={onSaveAs}>Save As</Button>
-    //         </PopoverBody>
-    //       </PopoverContent>
-    //     </Portal>
-    //   </Popover>
-    // </ButtonGroup>
+  );
+}
+
+function FolderItem(props) {
+  const { getInputProps, getCheckboxProps } = useRadio(props);
+
+  const input = getInputProps();
+  const checkbox = getCheckboxProps();
+
+  return (
+    <Box as="label">
+      <input {...input} />
+      <Box
+        {...checkbox}
+        cursor="pointer"
+        borderWidth="1px"
+        borderRadius="md"
+        boxShadow="md"
+        _checked={{
+          bg: "gray.600",
+          color: "white",
+          borderColor: "gray.600",
+        }}
+        _focus={{
+          boxShadow: "outline",
+        }}
+        px={5}
+        py={3}
+      >
+        {props.children}
+      </Box>
+    </Box>
   );
 }
