@@ -14,7 +14,8 @@ export default function CustomScrollDiv({
   className,
   isVertical,
 }) {
-  const hovering = useStoreState((state) => state.mapInteraction.hovering);
+  const [hovering, setHovering] = useState(false);
+  const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
   const [scrollBoxTop, setScrollBoxTop] = useState(0);
@@ -154,7 +155,9 @@ export default function CustomScrollDiv({
       </div>
       <div
         className={isVertical ? "vertical-scroll-bar" : "horizontal-scroll-bar"}
-        style={{ opacity: hovering ? 1 : 0.5 }}
+        style={{ opacity: mapHovering || hovering || isDragging ? 1 : 0.5 }}
+        onMouseOver={() => setHovering(true)}
+        onMouseOut={() => setHovering(false)}
       >
         <div
           className={
@@ -173,6 +176,12 @@ export default function CustomScrollDiv({
 }
 
 function CustomScrollDivMotionWrapper({ isVertical, children }) {
+  return isVertical
+    ? VerticalScrollDiv({ children })
+    : HorizontalScrollDiv({ children });
+}
+
+function VerticalScrollDiv({ children }) {
   const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
   const width = useStoreState((state) => state.panes.width["uiEditor"]);
   const draggingPane = useStoreState(
@@ -184,7 +193,7 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
     open: { x: `-${width / 16}rem` },
   };
 
-  return isVertical && !draggingPane ? (
+  return !draggingPane ? (
     <motion.div
       className="vertical-scrollhost-container"
       animate={vis ? "open" : "closed"}
@@ -195,12 +204,39 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
       {children}
     </motion.div>
   ) : (
+    <div className={"vertical-scrollhost-container"}>{children}</div>
+  );
+}
+
+function HorizontalScrollDiv({ children }) {
+  const overviewVis = useStoreState((state) => state.panes.vis["overview"]);
+  const uiEditorVis = useStoreState((state) => state.panes.vis["uiEditor"]);
+  const overviewWidth = useStoreState((state) => state.panes.width["overview"]);
+  const uiEditorWidth = useStoreState((state) => state.panes.width["uiEditor"]);
+  const anyPanesDragging = useStoreState((state) =>
+    Object.values(state.panes.isDragging).includes(true)
+  );
+
+  const getLeftMargin = () => {
+    return overviewVis ? `${overviewWidth}px` : "2.5rem";
+  };
+
+  const getRightMargin = () => {
+    return uiEditorVis ? `${uiEditorWidth}px` : "2.5rem";
+  };
+
+  const getTotalMargin = () => {
+    return `(${getLeftMargin()} + ${getRightMargin()})`;
+  };
+
+  return (
     <div
-      className={
-        isVertical
-          ? "vertical-scrollhost-container"
-          : "horizontal-scrollhost-container"
-      }
+      className={"horizontal-scrollhost-container"}
+      style={{
+        opacity: `${anyPanesDragging ? 0 : 1}`,
+        width: `calc(100% - ${getTotalMargin()})`,
+        left: `${getLeftMargin()}`,
+      }}
     >
       {children}
     </div>
