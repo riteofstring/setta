@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Button, Icon, useDisclosure } from "@chakra-ui/react";
-import { HiSave } from "react-icons/hi";
+import { Button, Icon, useDisclosure, MenuItem } from "@chakra-ui/react";
+import { ExternalLinkIcon } from "@chakra-ui/icons";
 import TemplateModal from "./TemplateModal";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
@@ -13,9 +13,15 @@ export default function TemplateButton() {
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
   const token = useStoreState((state) => state.auth.token);
 
-  const resetSections = useStoreActions((actions) => actions.master.resetSections);
-  const loadSections = useStoreActions((actions) => actions.master._loadSections);
-  const setGlobalCurr = useStoreActions((actions) => actions.globalCurr.setGlobalCurr);
+  const resetSections = useStoreActions(
+    (actions) => actions.master.resetSections
+  );
+  const loadSections = useStoreActions(
+    (actions) => actions.master._loadSections
+  );
+  const setGlobalCurr = useStoreActions(
+    (actions) => actions.globalCurr.setGlobalCurr
+  );
 
   const onOpenClick = () => {
     loadUINames({ token });
@@ -27,7 +33,7 @@ export default function TemplateButton() {
       token,
       uiName: selectedUIName,
     });
-    console.log("originalRootSections", originalRootSections)
+    console.log("originalRootSections", originalRootSections);
     resetSections();
     loadSections({ isJson: false, data: originalRootSections });
     // setGlobalCurr(globalCurr);
@@ -36,15 +42,10 @@ export default function TemplateButton() {
 
   return (
     <>
-      <Button
-        leftIcon={<Icon as={HiSave} />}
-        size="sm"
-        mr="-px"
-        onClick={onOpenClick}
-        variant="ghost"
-      >
-        Load Template
-      </Button>
+      <MenuItem onClick={onOpenClick} icon={<ExternalLinkIcon />}>
+        Load
+      </MenuItem>
+
       <TemplateModal
         isOpen={isOpen}
         onClose={onClose}

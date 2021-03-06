@@ -15,7 +15,6 @@ import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
-import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
