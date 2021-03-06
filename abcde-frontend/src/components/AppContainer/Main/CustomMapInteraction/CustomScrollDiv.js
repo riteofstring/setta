@@ -141,7 +141,7 @@ export default function CustomScrollDiv({
   };
 
   useEffect(() => {
-    setClientDim(scrollHostRef.current.clientHeight);
+    setClientDim(scrollHostUseEffectCondition());
   }, [scrollHostUseEffectCondition()]);
 
   return (

@@ -23,16 +23,6 @@ export default function CustomMapInteractionCSS(props) {
   const [relativeY, setRelativeY] = useState(0);
   const [relativeX, setRelativeX] = useState(0);
 
-  const _setPanState = (value) => {
-    setPanState(value);
-    setRelativeY(
-      getRelativePosition(value.translation.y, yRange.yMax, scrollHeight)
-    );
-    setRelativeX(
-      getRelativePosition(value.translation.x, xRange.xMax, scrollWidth)
-    );
-  };
-
   const _setRelative = (value, isVertical) => {
     isVertical ? setRelativeY(value) : setRelativeX(value);
     setPanState({
@@ -56,6 +46,32 @@ export default function CustomMapInteractionCSS(props) {
     _setRelative(value, false);
   };
 
+  const setRangeAndScrollDimAndRelativeCoord = (
+    isVertical,
+    currContentDim,
+    currClientDim,
+    currScaleOneDim,
+    currMargin,
+    currPanState
+  ) => {
+    const { newMax, newScrollDim } = setRangeAndScrollDim(
+      isVertical,
+      currContentDim,
+      currClientDim,
+      currScaleOneDim,
+      currMargin,
+      currPanState
+    );
+    const func = isVertical ? setRelativeY : setRelativeX;
+    func(
+      getRelativePosition(
+        isVertical ? currPanState.translation.y : currPanState.translation.x,
+        newMax,
+        newScrollDim
+      )
+    );
+  };
+
   const getRelativePosition = (coordinate, maxCoordinate, scrollDim) => {
     if (scrollDim > 0) {
       return Math.min(1, (maxCoordinate - coordinate) / scrollDim);
@@ -68,15 +84,13 @@ export default function CustomMapInteractionCSS(props) {
     contentDim,
     clientDim,
     scaleOneDim,
-    inputMargin
+    inputMargin,
+    scale
   ) => {
     if (contentDim) {
       return {
-        newMax: Math.max(clientDim - scaleOneDim * panState.scale, inputMargin),
-        newMin: Math.min(
-          0,
-          clientDim - scaleOneDim * panState.scale - inputMargin
-        ),
+        newMax: Math.max(clientDim - scaleOneDim * scale, inputMargin),
+        newMin: Math.min(0, clientDim - scaleOneDim * scale - inputMargin),
       };
     }
     return { newMax: 0, newMin: 0 };
@@ -86,65 +100,98 @@ export default function CustomMapInteractionCSS(props) {
     return clientDim * inputMargin;
   };
 
-  const setRangeAndScrollDim = (newMargin, isVertical) => {
-    if (isVertical) {
-      const { newMin, newMax } = getMinMaxCoordinate(
-        contentHeight,
-        clientHeight,
-        scaleOneHeight,
-        newMargin
-      );
-      setYRange({
-        yMin: newMin,
-        yMax: newMax,
-      });
-      setScrollHeight(newMax - newMin);
-    } else {
-      const { newMin, newMax } = getMinMaxCoordinate(
-        contentWidth,
-        clientWidth,
-        scaleOneWidth,
-        newMargin
-      );
-      setXRange({
-        xMin: newMin,
-        xMax: newMax,
-      });
-      setScrollWidth(newMax - newMin);
-    }
+  const setRangeAndScrollDim = (
+    isVertical,
+    currContentDim,
+    currClientDim,
+    currScaleOneDim,
+    currMargin,
+    currPanState
+  ) => {
+    const { newMin, newMax } = getMinMaxCoordinate(
+      currContentDim,
+      currClientDim,
+      currScaleOneDim,
+      currMargin,
+      currPanState.scale
+    );
+    const newScrollDim = newMax - newMin;
+    isVertical
+      ? setYRange({ yMin: newMin, yMax: newMax })
+      : setXRange({ xMin: newMin, xMax: newMax });
+    isVertical ? setScrollHeight(newScrollDim) : setScrollWidth(newScrollDim);
+    return { newMax, newScrollDim };
   };
 
   useEffect(() => {
-    setScaleOneHeight(contentHeight / panState.scale);
-  }, [contentHeight]);
-
-  useEffect(() => {
-    setScaleOneWidth(contentWidth / panState.scale);
-  }, [contentWidth]);
-
-  useEffect(() => {
-    setRelativeY(
-      getRelativePosition(panState.translation.y, yRange.yMax, scrollHeight)
+    const newScaleOneHeight = contentHeight / panState.scale;
+    setScaleOneHeight(newScaleOneHeight);
+    setRangeAndScrollDimAndRelativeCoord(
+      true,
+      contentHeight,
+      clientHeight,
+      newScaleOneHeight,
+      getMargin(clientHeight, yMargin),
+      panState
     );
-  }, [yRange.yMax, scrollHeight]);
+  }, [contentHeight, clientHeight]);
 
   useEffect(() => {
-    setRelativeX(
-      getRelativePosition(panState.translation.x, xRange.xMax, scrollWidth)
+    const newScaleOneWidth = contentWidth / panState.scale;
+    setScaleOneWidth(newScaleOneWidth);
+    setRangeAndScrollDimAndRelativeCoord(
+      false,
+      contentWidth,
+      clientWidth,
+      newScaleOneWidth,
+      getMargin(clientWidth, xMargin),
+      panState
     );
-  }, [xRange.xMax, scrollWidth]);
+  }, [contentWidth, clientWidth]);
 
   useEffect(() => {
-    setRangeAndScrollDim(getMargin(clientHeight, yMargin), true);
-  }, [clientHeight, panState.scale, scaleOneHeight]);
+    setRangeAndScrollDimAndRelativeCoord(
+      true,
+      contentHeight,
+      clientHeight,
+      scaleOneHeight,
+      getMargin(clientHeight, yMargin),
+      panState
+    );
+    setRangeAndScrollDimAndRelativeCoord(
+      false,
+      contentWidth,
+      clientWidth,
+      scaleOneWidth,
+      getMargin(clientWidth, xMargin),
+      panState
+    );
+  }, [panState]);
 
-  useEffect(() => {
-    setRangeAndScrollDim(getMargin(clientWidth, xMargin), false);
-  }, [clientWidth, panState.scale, scaleOneWidth]);
+  // console.log("relativeY", relativeY);
+
+  // useEffect(() => {
+  //   setRelativeY(
+  //     getRelativePosition(panState.translation.y, yRange.yMax, scrollHeight)
+  //   );
+  // }, [panState.translation.y]);
+
+  // useEffect(() => {
+  //   setRelativeX(
+  //     getRelativePosition(panState.translation.x, xRange.xMax, scrollWidth)
+  //   );
+  // }, [panState.translation.x]);
 
   const setHovering = useStoreActions(
     (actions) => actions.mapInteraction.setHovering
   );
+
+  // console.log("panState.scale", panState.scale);
+  // console.log("scaleOneHeight", scaleOneHeight);
+  // console.log("relativeY", relativeY);
+  // console.log("yRange", yRange.yMax, yRange.yMin);
+  // console.log("scrollHeight", scrollHeight);
+  // console.log("clientHeight", clientHeight);
 
   return (
     <>
@@ -168,7 +215,7 @@ export default function CustomMapInteractionCSS(props) {
         >
           <MapInteractionCSS
             value={panState}
-            onChange={_setPanState}
+            onChange={setPanState}
             disableZoom={!panZoomState}
             translationBounds={{ ...xRange, ...yRange }}
             {...props}
