@@ -168,7 +168,14 @@ export default function CustomMapInteractionCSS(props) {
     );
   }, [panState]);
 
+  // console.log("panState.translation.y", panState.translation.y);
+  // console.log("scaleOneHeight", scaleOneHeight);
   // console.log("relativeY", relativeY);
+  // console.log("clientHeight", clientHeight);
+  // console.log("yMax", yRange.yMax);
+  // console.log("yMin", yRange.yMin);
+  // console.log("relativeY", relativeY);
+  // console.log("scrollHeight", scrollHeight);
 
   // useEffect(() => {
   //   setRelativeY(
@@ -196,34 +203,33 @@ export default function CustomMapInteractionCSS(props) {
   return (
     <>
       <CustomScrollDiv
+        relativePosition={relativeY}
+        scrollDim={scrollHeight}
+        setRelativePosition={_setRelativeY}
+        setClientDim={setClientHeight}
+        isVertical={true}
+      ></CustomScrollDiv>
+      <div
+        onMouseOver={() => setHovering(true)}
+        onMouseOut={() => setHovering(false)}
+      >
+        <MapInteractionCSS
+          value={panState}
+          onChange={setPanState}
+          disableZoom={!panZoomState}
+          translationBounds={{ ...xRange, ...yRange }}
+          {...props}
+        >
+          {props.children}
+        </MapInteractionCSS>
+      </div>
+      <CustomScrollDiv
         relativePosition={relativeX}
         scrollDim={scrollWidth}
         setRelativePosition={_setRelativeX}
         setClientDim={setClientWidth}
         isVertical={false}
-      >
-        <CustomScrollDiv
-          relativePosition={relativeY}
-          scrollDim={scrollHeight}
-          setRelativePosition={_setRelativeY}
-          setClientDim={setClientHeight}
-          isVertical={true}
-        ></CustomScrollDiv>
-        <div
-          onMouseOver={() => setHovering(true)}
-          onMouseOut={() => setHovering(false)}
-        >
-          <MapInteractionCSS
-            value={panState}
-            onChange={setPanState}
-            disableZoom={!panZoomState}
-            translationBounds={{ ...xRange, ...yRange }}
-            {...props}
-          >
-            {props.children}
-          </MapInteractionCSS>
-        </div>
-      </CustomScrollDiv>
+      ></CustomScrollDiv>
     </>
   );
 }

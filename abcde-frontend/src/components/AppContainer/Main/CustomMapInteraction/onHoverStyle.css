@@ -39,16 +39,14 @@
 }
 
 .horizontal-scrollhost-container {
-  position: relative;
-  width: inherit;
-  height: inherit;
-  overflow: hidden;
+  position: absolute;
+  width: 100%;
+  bottom: 0
   /* margin-top: calc(-100vh + 6.5rem); */
 }
 .horizontal-scrollhost {
-  overflow: inherit;
+  overflow: hidden;
   width: inherit;
-  height: inherit;
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: relative;
@@ -56,11 +54,11 @@
 
 .horizontal-scroll-bar {
   height: 10px;
-  width: inherit;
+  width: 100%;
   left: 0;
   position: absolute;
   border-radius: 7px;
-  bottom: 0rem;
+  bottom: 0px;
   background-color: transparent;
 }
 

@@ -175,7 +175,7 @@ export default function CustomScrollDiv({
 function CustomScrollDivMotionWrapper({ isVertical, children }) {
   const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
   const width = useStoreState((state) => state.panes.width["uiEditor"]);
-  const isDragging = useStoreState(
+  const {isDragging: draggingPane} = useStoreState(
     (state) => state.panes.isDragging["uiEditor"]
   );
 
@@ -184,7 +184,7 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
     open: { x: `-${width / 16}rem` },
   };
 
-  return isVertical && !isDragging ? (
+  return isVertical && !draggingPane ? (
     <motion.div
       className="vertical-scrollhost-container"
       animate={vis ? "open" : "closed"}
