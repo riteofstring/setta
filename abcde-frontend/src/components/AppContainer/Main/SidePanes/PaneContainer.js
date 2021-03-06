@@ -5,6 +5,7 @@ import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";
 import useWindowSize from "../../../../utils/useWindowSize";
 import { clamp } from "../../../../utils/utils";
+import { useStoreActions, useStoreState } from "easy-peasy";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
@@ -17,10 +18,11 @@ const Pane = motion.custom(
 
 export default function PaneContainer(props) {
   const size = useWindowSize();
-  const { defaultWidth, right, openOnLoad } = props.paneProps;
-  const [vis, setVis] = useState(openOnLoad ? true : false);
+  const { right, paneName } = props.paneProps;
+  const vis = useStoreState((state) => state.panes.vis[paneName]);
+  const setVis = useStoreActions((actions) => actions.panes.setVis);
   function uiToggle() {
-    setVis(!vis);
+    setVis({ paneName, vis: !vis });
     btnDirFlip();
   }
   const [btnDir, setBtnDir] = useState(vis);
@@ -43,13 +45,14 @@ export default function PaneContainer(props) {
     setVMax(newVMax);
     setVMin(newVMin);
     if (width > newVMax) {
-      setWidth(newVMax);
+      setWidth({ paneName, width: newVMax });
     } else if (width < newVMin) {
-      setWidth(newVMin);
+      setWidth({ paneName, width: newVMin });
     }
   }, [vis, size.winWidth]);
 
-  const [width, setWidth] = useState(defaultWidth);
+  const width = useStoreState((state) => state.panes.width[paneName]);
+  const setWidth = useStoreActions((actions) => actions.panes.setWidth);
   const [height, setHeight] = useState("100%");
 
   const variants = {
@@ -78,7 +81,7 @@ export default function PaneContainer(props) {
         <Resizable
           size={{ width, height }}
           onResizeStop={(e, direction, ref, d) => {
-            setWidth(clamp(width + d.width, vMin, vMax));
+            setWidth({ paneName, width: clamp(width + d.width, vMin, vMax) });
             setHeight(height);
           }}
           maxWidth={vMax}

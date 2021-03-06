@@ -3,9 +3,10 @@ import master from "../models/master";
 import globalCurr from "../models/globalCurr";
 import yamlEntry from "../models/yamlEntry";
 import auth from "../models/auth";
-import uiInfo from "../models/uiInfo"
-import factoriesInfo from "../models/factoriesInfo"
-import funcsInfo from "../models/funcsInfo"
+import uiInfo from "../models/uiInfo";
+import factoriesInfo from "../models/factoriesInfo";
+import funcsInfo from "../models/funcsInfo";
+import panes from "../models/panes";
 
 const store = createStore({
   master: master,
@@ -14,7 +15,8 @@ const store = createStore({
   auth: auth,
   uiInfo: uiInfo,
   factoriesInfo: factoriesInfo,
-  funcsInfo: funcsInfo
+  funcsInfo: funcsInfo,
+  panes: panes,
 });
 
 export default store;
