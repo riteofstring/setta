@@ -190,6 +190,7 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
       animate={vis ? "open" : "closed"}
       variants={variants}
       initial={vis ? "open" : "closed"}
+      style={{ zIndex: "20" }}
     >
       {children}
     </motion.div>
