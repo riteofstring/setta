@@ -3,9 +3,8 @@ import TextEditor from "./TextEditor/TextEditor";
 import PaneContainer from "../PaneContainer";
 
 const paneProps = {
-  defaultWidth: 500,
   right: true,
-  openOnLoad: false,
+  paneName: "uiEditor",
 };
 
 export default function UiEditor() {

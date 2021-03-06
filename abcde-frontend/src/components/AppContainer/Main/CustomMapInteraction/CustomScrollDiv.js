@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
+import { motion } from "framer-motion";
+import { useStoreState } from "easy-peasy";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 
@@ -11,7 +13,6 @@ export default function CustomScrollDiv({
   children,
   className,
   isVertical,
-  ...restProps
 }) {
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
@@ -152,21 +153,16 @@ export default function CustomScrollDiv({
   }, [scrollHostUseEffectCondition()]);
 
   return (
-    <div
-      className={
-        isVertical
-          ? "vertical-scrollhost-container"
-          : "horizontal-scrollhost-container"
-      }
-      onMouseOver={handleMouseOver}
-      onMouseOut={handleMouseOut}
+    <CustomScrollDivMotionWrapper
+      isVertical={isVertical}
+      handleMouseOver={handleMouseOver}
+      handleMouseOut={handleMouseOut}
     >
       <div
         ref={scrollHostRef}
         className={isVertical ? `vertical-scrollhost` : `horizontal-scrollhost`}
-        {...restProps}
       >
-        {children}
+        {/* {children} */}
       </div>
       <div
         className={isVertical ? "vertical-scroll-bar" : "horizontal-scroll-bar"}
@@ -184,6 +180,50 @@ export default function CustomScrollDiv({
           onMouseDown={handleScrollThumbMouseDown}
         />
       </div>
+    </CustomScrollDivMotionWrapper>
+  );
+}
+
+function CustomScrollDivMotionWrapper({
+  isVertical,
+  handleMouseOver,
+  handleMouseOut,
+  children,
+}) {
+  const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
+  const width = useStoreState((state) => state.panes.width["uiEditor"]);
+
+  const variants = {
+    closed: { x: "-2.5rem" },
+    open: { x: `-${width / 16}rem` },
+  };
+
+  return isVertical ? (
+    <motion.div
+      className={
+        isVertical
+          ? "vertical-scrollhost-container"
+          : "horizontal-scrollhost-container"
+      }
+      onMouseOver={handleMouseOver}
+      onMouseOut={handleMouseOut}
+      animate={vis ? "open" : "closed"}
+      variants={variants}
+      initial={vis ? "open" : "closed"}
+    >
+      {children}
+    </motion.div>
+  ) : (
+    <div
+      className={
+        isVertical
+          ? "vertical-scrollhost-container"
+          : "horizontal-scrollhost-container"
+      }
+      onMouseOver={handleMouseOver}
+      onMouseOut={handleMouseOut}
+    >
+      {children}
     </div>
   );
 }
