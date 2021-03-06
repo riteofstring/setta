@@ -155,6 +155,13 @@ export default function CustomMapInteractionCSS(props) {
         setClientDim={setClientWidth}
         isVertical={false}
       >
+        <CustomScrollDiv
+          relativePosition={relativeY}
+          scrollDim={scrollHeight}
+          setRelativePosition={_setRelativeY}
+          setClientDim={setClientHeight}
+          isVertical={true}
+        ></CustomScrollDiv>
         <div
           onMouseOver={() => setHovering(true)}
           onMouseOut={() => setHovering(false)}
@@ -169,13 +176,6 @@ export default function CustomMapInteractionCSS(props) {
             {props.children}
           </MapInteractionCSS>
         </div>
-        <CustomScrollDiv
-          relativePosition={relativeY}
-          scrollDim={scrollHeight}
-          setRelativePosition={_setRelativeY}
-          setClientDim={setClientHeight}
-          isVertical={true}
-        ></CustomScrollDiv>
       </CustomScrollDiv>
     </>
   );
