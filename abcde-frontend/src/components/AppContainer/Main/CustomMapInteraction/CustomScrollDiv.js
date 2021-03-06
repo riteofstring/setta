@@ -162,7 +162,7 @@ export default function CustomScrollDiv({
         ref={scrollHostRef}
         className={isVertical ? `vertical-scrollhost` : `horizontal-scrollhost`}
       >
-        {children}
+        {/* {children} */}
       </div>
       <div
         className={isVertical ? "vertical-scroll-bar" : "horizontal-scroll-bar"}
