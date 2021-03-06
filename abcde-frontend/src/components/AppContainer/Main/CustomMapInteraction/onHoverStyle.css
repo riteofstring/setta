@@ -5,6 +5,7 @@
 .vertical-scrollhost-container {
   position: relative;
   height: 100%;
+  margin-top: calc(-100vh + 6.5rem);
 }
 .vertical-scrollhost {
   overflow: hidden;
@@ -41,6 +42,7 @@
   width: inherit;
   height: inherit;
   overflow: hidden;
+  margin-top: calc(-100vh + 6.5rem);
 }
 .horizontal-scrollhost {
   overflow: inherit;
