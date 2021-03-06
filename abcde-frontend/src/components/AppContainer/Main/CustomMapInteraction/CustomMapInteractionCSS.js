@@ -142,7 +142,20 @@ export default function CustomMapInteractionCSS(props) {
   }, [clientWidth, panState.scale, scaleOneWidth]);
 
   return (
-    <>
+    <CustomScrollDiv
+      relativePosition={relativeY}
+      scrollDim={scrollHeight}
+      setRelativePosition={_setRelativeY}
+      setClientDim={setClientHeight}
+      isVertical={true}
+    >
+      <CustomScrollDiv
+        relativePosition={relativeX}
+        scrollDim={scrollWidth}
+        setRelativePosition={_setRelativeX}
+        setClientDim={setClientWidth}
+        isVertical={false}
+      >
       <MapInteractionCSS
         value={panState}
         onChange={_setPanState}
@@ -152,20 +165,7 @@ export default function CustomMapInteractionCSS(props) {
       >
         {props.children}
       </MapInteractionCSS>
-      <CustomScrollDiv
-        relativePosition={relativeY}
-        scrollDim={scrollHeight}
-        setRelativePosition={_setRelativeY}
-        setClientDim={setClientHeight}
-        isVertical={true}
-      ></CustomScrollDiv>
-      <CustomScrollDiv
-        relativePosition={relativeX}
-        scrollDim={scrollWidth}
-        setRelativePosition={_setRelativeX}
-        setClientDim={setClientWidth}
-        isVertical={false}
-      ></CustomScrollDiv>
-    </>
+      </CustomScrollDiv>
+    </CustomScrollDiv>
   );
 }

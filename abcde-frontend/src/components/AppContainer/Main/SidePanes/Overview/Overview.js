@@ -3,8 +3,9 @@ import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
 
 const paneProps = {
+  defaultWidth: 320,
   right: false,
-  paneName: "overview",
+  openOnLoad: true,
 };
 
 export default function Overview() {

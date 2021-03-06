@@ -2,8 +2,12 @@ import { useState } from "react";
 import {
   Grid,
   GridItem,
+  Flex,
+  IconButton,
   Box,
+  forwardRef,
 } from "@chakra-ui/react";
+import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
@@ -11,7 +15,6 @@ import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
-import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
@@ -28,9 +31,9 @@ export default function MainContainer() {
     >
       <SubNav />
 
-      {/* <Overview /> */}
+      <Overview />
 
-      {/* <UiEditor /> */}
+      <UiEditor />
 
       <GridItem
         colStart="1"
