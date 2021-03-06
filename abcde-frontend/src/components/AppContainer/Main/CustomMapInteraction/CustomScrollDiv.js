@@ -14,8 +14,10 @@ export default function CustomScrollDiv({
   className,
   isVertical,
 }) {
-  const [hovering, setHovering] = useState(false);
   const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
+  const paneVis = useStoreState((state) => state.panes.vis);
+  const paneWidths = useStoreState((state) => state.panes.width);
+  const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
   const [scrollBoxTop, setScrollBoxTop] = useState(0);
@@ -143,7 +145,7 @@ export default function CustomScrollDiv({
 
   useEffect(() => {
     setClientDim(scrollHostUseEffectCondition());
-  }, [scrollHostUseEffectCondition()]);
+  }, [scrollHostUseEffectCondition(), paneWidths, paneVis]);
 
   return (
     <CustomScrollDivMotionWrapper isVertical={isVertical}>

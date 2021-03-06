@@ -67,10 +67,13 @@ export default function CustomMapInteractionCSS(props) {
     );
     const func = isVertical ? setRelativeY : setRelativeX;
     func(
-      getRelativePosition(
-        isVertical ? currPanState.translation.y : currPanState.translation.x,
-        newMax,
-        newScrollDim
+      Math.max(
+        0,
+        getRelativePosition(
+          isVertical ? currPanState.translation.y : currPanState.translation.x,
+          newMax,
+          newScrollDim
+        )
       )
     );
   };
