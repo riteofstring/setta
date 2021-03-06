@@ -175,7 +175,7 @@ export default function CustomScrollDiv({
 function CustomScrollDivMotionWrapper({ isVertical, children }) {
   const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
   const width = useStoreState((state) => state.panes.width["uiEditor"]);
-  const {isDragging: draggingPane} = useStoreState(
+  const draggingPane = useStoreState(
     (state) => state.panes.isDragging["uiEditor"]
   );
 
