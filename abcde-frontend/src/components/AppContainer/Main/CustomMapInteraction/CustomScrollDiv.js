@@ -166,7 +166,7 @@ export default function CustomScrollDiv({
       </div>
       <div
         className={isVertical ? "vertical-scroll-bar" : "horizontal-scroll-bar"}
-        style={{ opacity: hovering ? 1 : 0 }}
+        style={{ opacity: hovering ? 1 : 1 }}
       >
         <div
           className={
