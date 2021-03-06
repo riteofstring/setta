@@ -1,9 +1,5 @@
 import { useState } from "react";
-import {
-  Grid,
-  GridItem,
-  Box,
-} from "@chakra-ui/react";
+import { Grid, GridItem, Box } from "@chakra-ui/react";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
@@ -28,9 +24,9 @@ export default function MainContainer() {
     >
       <SubNav />
 
-      <Overview />
+      {/* <Overview />
 
-      <UiEditor />
+      <UiEditor /> */}
 
       <GridItem
         colStart="1"
@@ -44,11 +40,10 @@ export default function MainContainer() {
         <Box
           backgroundImage={`url(${graphPaperBg})`}
           h="inherit"
-          overflow="auto"
+          overflow="hidden"
           flex="1"
           minH="0"
           minW="0"
-          id="graphpaper"
         >
           <CustomMapInteractionCSS
             // showControls={true}
