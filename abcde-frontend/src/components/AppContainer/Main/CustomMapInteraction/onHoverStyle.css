@@ -6,6 +6,7 @@
   position: relative;
   height: 100%;
   margin-top: calc(-100vh + 6.5rem);
+  float: right;
 }
 .vertical-scrollhost {
   overflow: hidden;

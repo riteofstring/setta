@@ -143,28 +143,28 @@ export default function CustomMapInteractionCSS(props) {
 
   return (
     <>
-      <MapInteractionCSS
-        value={panState}
-        onChange={_setPanState}
-        disableZoom={!panZoomState}
-        translationBounds={{ ...xRange, ...yRange }}
-        {...props}
-      >
-        {props.children}
-      </MapInteractionCSS>
       <CustomScrollDiv
-        relativePosition={relativeY}
-        scrollDim={scrollHeight}
-        setRelativePosition={_setRelativeY}
-        setClientDim={setClientHeight}
-        isVertical={true}
+        relativePosition={relativeX}
+        scrollDim={scrollWidth}
+        setRelativePosition={_setRelativeX}
+        setClientDim={setClientWidth}
+        isVertical={false}
       >
+        <MapInteractionCSS
+          value={panState}
+          onChange={_setPanState}
+          disableZoom={!panZoomState}
+          translationBounds={{ ...xRange, ...yRange }}
+          {...props}
+        >
+          {props.children}
+        </MapInteractionCSS>
         <CustomScrollDiv
-          relativePosition={relativeX}
-          scrollDim={scrollWidth}
-          setRelativePosition={_setRelativeX}
-          setClientDim={setClientWidth}
-          isVertical={false}
+          relativePosition={relativeY}
+          scrollDim={scrollHeight}
+          setRelativePosition={_setRelativeY}
+          setClientDim={setClientHeight}
+          isVertical={true}
         ></CustomScrollDiv>
       </CustomScrollDiv>
     </>
