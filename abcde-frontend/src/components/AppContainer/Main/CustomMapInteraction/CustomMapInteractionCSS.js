@@ -22,9 +22,12 @@ export default function CustomMapInteractionCSS(props) {
   const [scrollWidth, setScrollWidth] = useState(0);
   const [relativeY, setRelativeY] = useState(0);
   const [relativeX, setRelativeX] = useState(0);
+  const [relativeYWasSet, setRelativeYWasSet] = useState(false);
+  const [relativeXWasSet, setRelativeXWasSet] = useState(false);
 
   const _setRelative = (value, isVertical) => {
     isVertical ? setRelativeY(value) : setRelativeX(value);
+    isVertical ? setRelativeYWasSet(true) : setRelativeXWasSet(true);
     setPanState({
       scale: panState.scale,
       translation: {
@@ -158,6 +161,7 @@ export default function CustomMapInteractionCSS(props) {
       getMargin(clientHeight, yMargin),
       panState
     );
+    setRelativeYWasSet(true);
     setRangeAndScrollDimAndRelativeCoord(
       false,
       contentWidth,
@@ -166,39 +170,30 @@ export default function CustomMapInteractionCSS(props) {
       getMargin(clientWidth, xMargin),
       panState
     );
-  }, [panState]);
+    setRelativeXWasSet(true);
+  }, [panState.scale]);
 
-  // console.log("panState.translation.y", panState.translation.y);
-  // console.log("scaleOneHeight", scaleOneHeight);
-  // console.log("relativeY", relativeY);
-  // console.log("clientHeight", clientHeight);
-  // console.log("yMax", yRange.yMax);
-  // console.log("yMin", yRange.yMin);
-  // console.log("relativeY", relativeY);
-  // console.log("scrollHeight", scrollHeight);
+  useEffect(() => {
+    if (!relativeYWasSet) {
+      setRelativeY(
+        getRelativePosition(panState.translation.y, yRange.yMax, scrollHeight)
+      );
+    }
+    setRelativeYWasSet(false);
+  }, [panState.translation.y]);
 
-  // useEffect(() => {
-  //   setRelativeY(
-  //     getRelativePosition(panState.translation.y, yRange.yMax, scrollHeight)
-  //   );
-  // }, [panState.translation.y]);
-
-  // useEffect(() => {
-  //   setRelativeX(
-  //     getRelativePosition(panState.translation.x, xRange.xMax, scrollWidth)
-  //   );
-  // }, [panState.translation.x]);
+  useEffect(() => {
+    if (!relativeXWasSet) {
+      setRelativeX(
+        getRelativePosition(panState.translation.x, xRange.xMax, scrollWidth)
+      );
+    }
+    setRelativeXWasSet(false);
+  }, [panState.translation.x]);
 
   const setHovering = useStoreActions(
     (actions) => actions.mapInteraction.setHovering
   );
-
-  // console.log("panState.scale", panState.scale);
-  // console.log("scaleOneHeight", scaleOneHeight);
-  // console.log("relativeY", relativeY);
-  // console.log("yRange", yRange.yMax, yRange.yMin);
-  // console.log("scrollHeight", scrollHeight);
-  // console.log("clientHeight", clientHeight);
 
   return (
     <>
