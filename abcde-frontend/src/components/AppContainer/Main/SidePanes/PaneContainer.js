@@ -21,9 +21,12 @@ export default function PaneContainer(props) {
   const { right, paneName } = props.paneProps;
   const vis = useStoreState((state) => state.panes.vis[paneName]);
   const setVis = useStoreActions((actions) => actions.panes.setVis);
+  const setCssWidth = useStoreActions((actions) => actions.panes.setCssWidth);
   function uiToggle() {
-    setVis({ paneName, vis: !vis });
+    const newVis = !vis;
+    setVis({ paneName, vis: newVis });
     btnDirFlip();
+    setCssWidth({ paneName, cssWidth: newVis ? `${width}px` : "2.5rem" });
   }
   const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
@@ -46,8 +49,10 @@ export default function PaneContainer(props) {
     setVMin(newVMin);
     if (width > newVMax) {
       setWidth({ paneName, width: newVMax });
+      setCssWidth({ paneName, cssWidth: vis ? `${newVMax}px` : "2.5rem" });
     } else if (width < newVMin) {
       setWidth({ paneName, width: newVMin });
+      setCssWidth({ paneName, cssWidth: vis ? `${newVMin}px` : "2.5rem" });
     }
   }, [vis, size.winWidth]);
 
@@ -88,7 +93,12 @@ export default function PaneContainer(props) {
             setIsDragging({ paneName, isDragging: true });
           }}
           onResizeStop={(e, direction, ref, d) => {
-            setWidth({ paneName, width: clamp(width + d.width, vMin, vMax) });
+            const newWidth = clamp(width + d.width, vMin, vMax);
+            setWidth({ paneName, width: newWidth });
+            setCssWidth({
+              paneName,
+              cssWidth: vis ? `${newWidth}px` : "2.5rem",
+            });
             setHeight(height);
             setIsDragging({ paneName, isDragging: false });
           }}
