@@ -15,12 +15,12 @@ const cliSocket = {
     const { token } = payload;
     helpers.getState().cliSocket = getCLISocket(token);
     helpers.getState().cliSocket.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        const {UI, FACTORIES, FUNCS} = JSON.parse(data["enteredText"])
-        action.setUiInfo(UI)
-        action.setFactories(FACTORIES)
-        action.setFuncs(FUNCS)
-      };
+      const data = JSON.parse(event.data);
+      const { UI, FACTORIES, FUNCS } = JSON.parse(data["enteredText"]);
+      action.setUiInfo(UI);
+      action.setFactories(FACTORIES);
+      action.setFuncs(FUNCS);
+    };
   }),
 
   setUiInfo: action((state, payload) => {
@@ -33,6 +33,16 @@ const cliSocket = {
 
   setFuncs: action((state, payload) => {
     state.funcs = payload;
+  }),
+
+  resetCLISocket: action((state, payload) => {
+    if (state.cliSocket) {
+      state.cliSocket.close();
+    }
+    state.cliSocket = null;
+    state.uiInfo = null;
+    state.factories = null;
+    state.funcs = null;
   }),
 };
 
