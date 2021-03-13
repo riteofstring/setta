@@ -1,48 +1,52 @@
 import json
 
 from asgiref.sync import async_to_sync
-from channels.consumer import SyncConsumer
+from backend_utils.utils import query_string_parser
+from channels.generic.websocket import WebsocketConsumer
 from django.conf import settings
 
-# https://stackoverflow.com/questions/56913676/dynamic-updates-in-real-time-to-a-django-template
+
+def get_group_name(scope):
+    userid = str(scope["user"].id)
+    query_string = scope["query_string"]
+    source = query_string_parser(query_string, "source")
+    return f"{settings.CLI_WEBSOCKET_GROUP_NAME}_{userid}_{source}", userid, source
 
 
-class CLISyncConsumer(SyncConsumer):
-    def websocket_connect(self, event):
-        self.send({"type": "websocket.accept"})
+def get_outgoing_group_name(scope):
+    _, userid, source = get_group_name(scope)
+    if source == "browser":
+        outgoing = "cli"
+    elif source == "cli":
+        outgoing = "browser"
+    return f"{settings.CLI_WEBSOCKET_GROUP_NAME}_{userid}_{outgoing}"
 
-        print("websocket_connect")
-        # print(self.scope)
 
-        async_to_sync(self.channel_layer.group_add)(
-            settings.CLI_WEBSOCKET_GROUP_NAME, self.channel_name
-        )
+class CLISyncConsumer(WebsocketConsumer):
+    def connect(self):
+        self.group_name, _, _ = get_group_name(self.scope)
+        async_to_sync(self.channel_layer.group_add)(self.group_name, self.channel_name)
+        print("connect", self.group_name, self.channel_name, self.scope["query_string"])
+        self.accept()
 
-    def websocket_disconnect(self, event):
+    def disconnect(self, close_code):
         async_to_sync(self.channel_layer.group_discard)(
-            settings.CLI_WEBSOCKET_GROUP_NAME, self.channel_name
+            self.group_name, self.channel_name
         )
 
-    def websocket_receive(self, event):
-
-        print("websocket_receive")
-        print(event)
-
+    def receive(self, text_data):
+        outgoing = get_outgoing_group_name(self.scope)
+        data_to_send = json.loads(text_data)["enteredText"]
         async_to_sync(self.channel_layer.group_send)(
-            settings.CLI_WEBSOCKET_GROUP_NAME,
+            outgoing,
             {
                 "type": "cli",
-                "content": event["text"],
+                "enteredText": data_to_send,
             },
         )
 
     def cli(self, event):
-        self.send(
-            {
-                "type": "websocket.send",
-                "text": event["content"],
-            }
-        )
+        self.send(text_data=json.dumps({"enteredText": event["enteredText"]}))
 
 
 # class NewGeneratedCodeSyncConsumer(SyncConsumer):

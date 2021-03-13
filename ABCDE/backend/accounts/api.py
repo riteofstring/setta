@@ -48,7 +48,7 @@ class LoginAPI(generics.GenericAPIView):
 
 
 # Tokens for making websocket connection
-class WebsocketTokenAPI(generics.GenericAPIView):
+class WebsocketAuthAPI(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         return Response(
             {

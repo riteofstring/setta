@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "ui_specs",
     "knox",
     "accounts",
+    "backend_utils",
 ]
 
 REST_FRAMEWORK = {

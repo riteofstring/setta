@@ -28,7 +28,7 @@ application = ProtocolTypeRouter(
                 [
                     path(
                         f"ws/{settings.CLI_WEBSOCKET_GROUP_NAME}/",
-                        consumers.CLISyncConsumer(),
+                        consumers.CLISyncConsumer().as_asgi(),
                     ),
                     # path(
                     #     f"ws/{settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME}/",
