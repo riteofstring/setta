@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/3.1/howto/deployment/asgi/
 
 import os
 
+from accounts.websocket_authentication import TokenAuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
@@ -22,17 +23,19 @@ from ui_specs import consumers
 
 application = ProtocolTypeRouter(
     {
-        "websocket": URLRouter(
-            [
-                path(
-                    f"ws/{settings.NEWUI_WEBSOCKET_GROUP_NAME}/",
-                    consumers.NewUISyncConsumer(),
-                ),
-                path(
-                    f"ws/{settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME}/",
-                    consumers.NewGeneratedCodeSyncConsumer(),
-                ),
-            ]
+        "websocket": TokenAuthMiddlewareStack(
+            URLRouter(
+                [
+                    path(
+                        f"ws/{settings.NEWUI_WEBSOCKET_GROUP_NAME}/",
+                        consumers.NewUISyncConsumer(),
+                    ),
+                    path(
+                        f"ws/{settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME}/",
+                        consumers.NewGeneratedCodeSyncConsumer(),
+                    ),
+                ]
+            )
         ),
     }
 )
