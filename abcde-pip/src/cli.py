@@ -18,8 +18,10 @@ async def hello(uri, token):
     async with websockets.connect(uri) as websocket:
         while True:
             ui_specs = await websocket.recv()
+            print("received")
             json_as_string = activate_env_and_get_json(ui_specs)
             await websocket.send(json_as_string)
+            print("sent")
 
 
 ADDRESS = "localhost:8000"
@@ -37,6 +39,8 @@ def try_login():
     login_fail = r.status_code != 200
     if login_fail:
         print("Incorrect username/password combination\n")
+    else:
+        print("Login success")
     return login_fail, r
 
 
@@ -79,7 +83,7 @@ def activate_env_and_get_json(ui_specs):
 
     script_dir = pathlib.Path(__file__).parent.absolute()
 
-    cmd = f"conda deactivate && activate abcde_env && python caller.py {in_file}"
+    cmd = f"conda deactivate && activate machine_learning && python caller.py {in_file}"
     process = Popen(
         cmd.split(" "), stdout=PIPE, stderr=PIPE, cwd=script_dir, shell=True
     )
