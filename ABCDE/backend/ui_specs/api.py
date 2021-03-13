@@ -48,7 +48,7 @@ class GenerateCodeAPIView(APIView):
 
 class CreateUIAPIView(APIView):
     def post(self, request):
-        broadcast_newUI(request.data)
+        broadcast_newUI(request.data["enteredText"])
         return Response({"result": "success"}, status=status.HTTP_201_CREATED)
 
 

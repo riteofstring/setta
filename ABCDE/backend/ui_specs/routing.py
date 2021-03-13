@@ -8,9 +8,9 @@ from django.conf import settings
 def broadcast_newUI(newUI):
     channel_layer = channels.layers.get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        settings.NEWUI_WEBSOCKET_GROUP_NAME,
+        settings.CLI_WEBSOCKET_GROUP_NAME,
         {
-            "type": "newUI",
+            "type": "cli",
             "content": json.dumps(newUI),
         },
     )

@@ -27,13 +27,13 @@ application = ProtocolTypeRouter(
             URLRouter(
                 [
                     path(
-                        f"ws/{settings.NEWUI_WEBSOCKET_GROUP_NAME}/",
-                        consumers.NewUISyncConsumer(),
+                        f"ws/{settings.CLI_WEBSOCKET_GROUP_NAME}/",
+                        consumers.CLISyncConsumer(),
                     ),
-                    path(
-                        f"ws/{settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME}/",
-                        consumers.NewGeneratedCodeSyncConsumer(),
-                    ),
+                    # path(
+                    #     f"ws/{settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME}/",
+                    #     consumers.NewGeneratedCodeSyncConsumer(),
+                    # ),
                 ]
             )
         ),
