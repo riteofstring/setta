@@ -1,10 +1,12 @@
 import { action } from "easy-peasy";
 import { NO_AUTH } from "../utils/constants";
+import { getCLISocket } from "../utils/websocket"
 
 const auth = {
   token: localStorage.getItem('token'),
   isAuthenticated: NO_AUTH,
   user: null,
+  cliSocket: null,
 
   loginSuccess: action((state, payload) => {
     console.log("LOGIN SUCCESS");
@@ -17,6 +19,7 @@ const auth = {
     state.user = payload.user;
     console.log("user", state.user)
     state.isAuthenticated = true;
+    state.cliSocket = getCLISocket(payload.token)
   }),
 
   loginFail: action((state, payload) => {

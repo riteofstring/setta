@@ -34,15 +34,16 @@ export default function TextEditor() {
   };
 
   const handleCreateUI = async () => {
-    const { uiAsJson, factories, funcs } = await createUI({ token });
-    if (uiAsJson) {
-      resetGlobalCurr();
-      resetSections();
-      loadSections({isJson: true, data: JSON.parse(uiAsJson)});
-      setFactories(JSON.parse(factories));
-      setFuncs(JSON.parse(funcs));
-      saveDraftUI({ token });
-    }
+    await createUI({ token })
+    // const { uiAsJson, factories, funcs } = await createUI({ token });
+    // if (uiAsJson) {
+    //   resetGlobalCurr();
+    //   resetSections();
+    //   loadSections({isJson: true, data: JSON.parse(uiAsJson)});
+    //   setFactories(JSON.parse(factories));
+    //   setFuncs(JSON.parse(funcs));
+    //   saveDraftUI({ token });
+    // }
   };
 
   const onChange = (newValue, e) => {
