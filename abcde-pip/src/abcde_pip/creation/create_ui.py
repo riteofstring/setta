@@ -25,7 +25,7 @@ def create_ui(entered_text):
     ui = UICreator()
     ui.create(sections, global_ih)
 
-    factories = json.dumps(entered_text["FACTORIES"])
-    funcs = json.dumps(entered_text["FUNCS"])
+    factories = entered_text["FACTORIES"]
+    funcs = entered_text["FUNCS"]
 
-    return ui.export(), factories, funcs
+    return {"UI": ui.export(), "FACTORIES": factories, "FUNCS": funcs}
