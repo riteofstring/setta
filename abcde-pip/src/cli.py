@@ -13,8 +13,9 @@ from websockets.http import Headers
 
 
 async def hello(uri, token):
-    header = Headers(authorization=f"Token {token}")
-    async with websockets.connect(uri, extra_headers=header) as websocket:
+    query_string = f"?token={token}&source=cli"
+    uri = f"{uri}{query_string}"
+    async with websockets.connect(uri) as websocket:
         while True:
             ui_specs = await websocket.recv()
             json_as_string = activate_env_and_get_json(ui_specs)
@@ -26,24 +27,40 @@ BACKEND = f"http://{ADDRESS}/"
 WEBSOCKET_BACKEND = f"ws://{ADDRESS}/ws/cli/"
 
 
+def try_login():
+    username = input("Username:")
+    password = getpass.getpass("Password:")
+    r = requests.post(
+        f"{BACKEND}api/auth/login",
+        data={"username": username, "password": password},
+    )
+    login_fail = r.status_code != 200
+    if login_fail:
+        print("Incorrect username/password combination\n")
+    return login_fail, r
+
+
+def get_websocket_token(token):
+    r = requests.post(
+        f"{BACKEND}api/auth/websocketAuth", headers={"Authorization": f"Token {token}"}
+    )
+    success = r.status_code == 200
+    return success, r
+
+
 def main():
     login_fail = True
 
     while login_fail:
-        username = input("Username:")
-        password = getpass.getpass("Password:")
-        r = requests.post(
-            f"{BACKEND}api/auth/login",
-            data={"username": username, "password": password},
+        login_fail, returned_data = try_login()
+
+    token = returned_data.json()["token"]
+    success, returned_data = get_websocket_token(token)
+    if success:
+        websocket_token = returned_data.json()["token"]
+        asyncio.get_event_loop().run_until_complete(
+            hello(WEBSOCKET_BACKEND, websocket_token)
         )
-        login_fail = r.status_code != 200
-        if login_fail:
-            print("Incorrect username/password combination\n")
-
-    token = r.json()["token"]
-
-    asyncio.get_event_loop().run_until_complete(hello(WEBSOCKET_BACKEND, token))
-    # asyncio.get_event_loop().run_forever()
 
     # stay_in_program = True
     # print("Listening to server...")
@@ -58,7 +75,7 @@ def activate_env_and_get_json(ui_specs):
     out_file = "temp_out.json"
 
     with open(in_file, "w") as text_file:
-        text_file.write(json.loads(ui_specs))
+        text_file.write(json.loads(ui_specs)["enteredText"])
 
     script_dir = pathlib.Path(__file__).parent.absolute()
 
@@ -71,11 +88,13 @@ def activate_env_and_get_json(ui_specs):
     with open(out_file, "r") as text_file:
         json_as_string = text_file.read()
 
-    # cmd = f"rm {in_file} && rm {out_file}"
-    # process = Popen(cmd.split(" "), stdout=PIPE, stderr=PIPE, cwd=script_dir, shell=True)
-    # process.communicate()
+    cmd = f"rm {in_file} && rm {out_file}"
+    process = Popen(
+        cmd.split(" "), stdout=PIPE, stderr=PIPE, cwd=script_dir, shell=True
+    )
+    process.communicate()
 
-    return json_as_string
+    return json.dumps({"enteredText": json_as_string})
 
 
 if __name__ == "__main__":
