@@ -6,7 +6,6 @@ const auth = {
   websocketToken: localStorage.getItem('websocketToken'),
   isAuthenticated: NO_AUTH,
   user: null,
-  cliSocket: null,
 
   loginSuccess: action((state, payload) => {
     localStorage.setItem("token", payload.token);
@@ -33,12 +32,6 @@ const auth = {
     localStorage.removeItem("websocketToken");
     state.websocketToken = null;
   }),
-
-  setCLISocket: action((state, payload) => {
-    state.cliSocket = payload;
-  }),
- 
-
 };
 
 export default auth

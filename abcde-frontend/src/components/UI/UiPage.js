@@ -8,7 +8,6 @@ import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { loadDraftUI } from "../../dbRequests/ui";
 import { websocketAuth } from "../../dbRequests/authentication.js";
-import { getCLISocket } from "../../utils/websocket";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -48,7 +47,7 @@ const UiPage = () => {
     (actions) => actions.auth.websocketTokenRetrievalFail
   );
 
-  const setCLISocket = useStoreActions((actions) => actions.auth.setCLISocket);
+  const setCLISocket = useStoreActions((actions) => actions.cliSocket.setCLISocket);
 
   console.log("UiPage");
 
@@ -82,7 +81,7 @@ const UiPage = () => {
         actionWebsocketTokenRetrievalFail,
       }).then((x) => {
         if (x) {
-          setCLISocket(getCLISocket(x));
+          setCLISocket({token: x});
         }
       });
     }

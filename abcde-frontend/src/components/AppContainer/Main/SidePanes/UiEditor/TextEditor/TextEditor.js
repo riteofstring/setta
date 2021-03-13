@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
@@ -27,6 +27,9 @@ export default function TextEditor() {
   const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
   const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
   const token = useStoreState((state) => state.auth.token);
+  const uiInfoFromCLI = useStoreState((state) => state.cliSocket.uiInfo);
+  const factoriesFromCLI = useStoreState((state) => state.cliSocket.factories);
+  const funcsFromCLI = useStoreState((state) => state.cliSocket.funcs);
 
   const handleEditorDidMount = (_valueGetter) => {
     setIsEditorReady(true);
@@ -34,17 +37,19 @@ export default function TextEditor() {
   };
 
   const handleCreateUI = async () => {
-    await createUI({ token })
-    // const { uiAsJson, factories, funcs } = await createUI({ token });
-    // if (uiAsJson) {
-    //   resetGlobalCurr();
-    //   resetSections();
-    //   loadSections({isJson: true, data: JSON.parse(uiAsJson)});
-    //   setFactories(JSON.parse(factories));
-    //   setFuncs(JSON.parse(funcs));
-    //   saveDraftUI({ token });
-    // }
+    createUI();
   };
+
+  useEffect(() => {
+    if (uiInfoFromCLI) {
+      resetGlobalCurr();
+      resetSections();
+      loadSections({ isJson: true, data: uiInfoFromCLI });
+      setFactories(factoriesFromCLI);
+      setFuncs(funcsFromCLI);
+      saveDraftUI({ token });
+    }
+  }, [uiInfoFromCLI, factoriesFromCLI, funcsFromCLI]);
 
   const onChange = (newValue, e) => {
     setEnteredText(newValue);

@@ -2,7 +2,6 @@ import axios from "axios";
 import { BACKEND } from "../utils/constants";
 import { stringifyCompleteState } from "../utils/commonFunctions";
 import { tokenConfig } from "./authentication";
-// import { cliSocket } from "../utils/websocket";
 
 export const generateCode = ({
   token,
@@ -18,9 +17,9 @@ export const generateCode = ({
     .catch((err) => false);
 };
 
-export const createUI = ({ token, enteredText }) => {
-  const body = JSON.stringify(enteredText);
-  // cliSocket.send(body)
+export const createUI = ({ cliSocket, enteredText }) => {
+  const body = JSON.stringify({enteredText});
+  cliSocket.send(body)
 };
 
 export const saveUI = ({

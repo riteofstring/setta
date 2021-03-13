@@ -8,6 +8,7 @@ import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
 import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
+import cliSocket from "../models/cliSocket"
 
 const store = createStore({
   master: master,
@@ -19,6 +20,7 @@ const store = createStore({
   funcsInfo: funcsInfo,
   panes: panes,
   mapInteraction: mapInteraction,
+  cliSocket: cliSocket,
 });
 
 export default store;
