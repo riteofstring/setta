@@ -48,8 +48,7 @@ const LoginPage = () => {
         actionLoginSuccess,
         actionLoginFail,
       }).then((x) => {
-        console.log("x", x)
-        if (x.type === "@action.auth.loginSuccess") {
+        if (x) {
           history.push("/ui");
         }
       });

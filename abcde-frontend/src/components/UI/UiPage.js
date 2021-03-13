@@ -7,6 +7,8 @@ import { Flex, Grid } from "@chakra-ui/react";
 import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { loadDraftUI } from "../../dbRequests/ui";
+import { websocketAuth } from "../../dbRequests/authentication.js";
+import { getCLISocket } from "../../utils/websocket";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -39,6 +41,15 @@ const UiPage = () => {
 
   const token = useStoreState((state) => state.auth.token);
 
+  const actionWebsocketTokenRetrievalSuccess = useStoreActions(
+    (actions) => actions.auth.websocketTokenRetrievalSuccess
+  );
+  const actionWebsocketTokenRetrievalFail = useStoreActions(
+    (actions) => actions.auth.websocketTokenRetrievalFail
+  );
+
+  const setCLISocket = useStoreActions((actions) => actions.auth.setCLISocket);
+
   console.log("UiPage");
 
   const tryLoadingDraftUI = async () => {
@@ -65,6 +76,15 @@ const UiPage = () => {
       loadSections();
     } else {
       tryLoadingDraftUI();
+      websocketAuth({
+        authToken: token,
+        actionWebsocketTokenRetrievalSuccess,
+        actionWebsocketTokenRetrievalFail,
+      }).then((x) => {
+        if (x) {
+          setCLISocket(getCLISocket(x));
+        }
+      });
     }
   }, []);
 
