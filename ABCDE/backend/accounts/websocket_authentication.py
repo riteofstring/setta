@@ -8,14 +8,9 @@ from knox.auth import TokenAuthentication
 
 # all from # https://gist.github.com/rluts/22e05ed8f53f97bdd02eafdf38f3d60a#gistcomment-3166469
 @database_sync_to_async
-def get_user(headers):
-    # try:
-    token_name, token_key = headers[b"authorization"].decode().split()
-    if token_name == "Token":
-        user, token = TokenAuthentication().authenticate_credentials(token_key.encode())
-        return user
-    # except AuthToken.DoesNotExist:
-    # return AnonymousUser()
+def get_user(token):
+    user, token = TokenAuthentication().authenticate_credentials(token.encode())
+    return user
 
 
 class TokenAuthMiddleware:
@@ -38,10 +33,10 @@ class TokenAuthMiddlewareInstance:
         self.inner = self.middleware.inner
 
     async def __call__(self, receive, send):
-        headers = dict(self.scope["headers"])
-        if b"authorization" in headers:
-            self.scope["user"] = await get_user(headers)
-            return await self.inner(self.scope, receive, send)
+        query_string = self.scope["query_string"]
+        token = query_string.decode().replace("token=", "", 1)
+        self.scope["user"] = await get_user(token)
+        return await self.inner(self.scope, receive, send)
 
 
 TokenAuthMiddlewareStack = lambda inner: TokenAuthMiddleware(AuthMiddlewareStack(inner))

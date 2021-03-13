@@ -46,12 +46,6 @@ class GenerateCodeAPIView(APIView):
         # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CreateUIAPIView(APIView):
-    def post(self, request):
-        broadcast_newUI(request.data["enteredText"])
-        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
-
-
 class SavedUIAndVersionsAPIView(APIView):
     serializer = SavedUIAndVersionSerializer
 

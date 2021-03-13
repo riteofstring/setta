@@ -3,7 +3,6 @@ from django.urls import include, path
 from rest_framework import routers
 
 from .api import (  # SavedVersionNamesAPIView,
-    CreateUIAPIView,
     DraftUIAPIView,
     GenerateCodeAPIView,
     SavedUIAndVersionNamesAPIView,
@@ -12,7 +11,6 @@ from .api import (  # SavedVersionNamesAPIView,
 
 urlpatterns = [
     path("api/generate_code", GenerateCodeAPIView.as_view()),
-    path("api/create_ui", CreateUIAPIView.as_view()),
     path("api/saved_uis", SavedUIAndVersionsAPIView.as_view()),
     path(
         "api/saved_uis/<str:uiName>:<str:versionName>",
