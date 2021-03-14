@@ -10,6 +10,7 @@ export default function SectionList({ listOfSectionIdsAndNames }) {
             sectionHeading={e.sectionHeading}
             isList={e.isList}
             isListRoot={e.isListRoot}
+            positionTop={e.positionTop}
             key={`${e.sectionId}-${idx}`}
           />
         </Stack>

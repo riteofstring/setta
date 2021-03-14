@@ -63,9 +63,11 @@ export const getOverviewListing = (
   isVisible,
   sectionIdsToSectionHeadings,
   isList,
-  isListRoot
+  isListRoot,
+  sectionSizes
 ) => {
   let outputList = [];
+  let position = 0;
   for (let sectionId of Object.keys(rootIdHierarchy)) {
     outputList.push(
       ...getOverviewListingHelper(
@@ -76,9 +78,14 @@ export const getOverviewListing = (
         isList,
         isListRoot,
         0,
+        position,
+        sectionSizes,
         rootIdHierarchy
       )
     );
+    if (outputList.length > 0) {
+      position = outputList[outputList.length - 1].positionBottom;
+    }
   }
   return outputList;
 };
@@ -91,16 +98,21 @@ export const getOverviewListingHelper = (
   isList,
   isListRoot,
   depth,
+  positionTop,
+  sectionSizes,
   rootIdHierarchy
 ) => {
   let outputList = [];
-  if (isVisible[sectionId]) {
+  if (isVisible[sectionId] && sectionSizes[sectionId]) {
+    const positionBottom = positionTop + sectionSizes[sectionId].height;
     outputList.push({
       sectionId,
       sectionHeading: sectionIdsToSectionHeadings[sectionId],
       isList: isList[sectionId],
       isListRoot: isListRoot[sectionId],
       depth: depth,
+      positionTop: positionTop,
+      positionBottom: positionBottom,
     });
     const loopThrough = rootIdHierarchy ? rootIdHierarchy : idHierarchy;
     for (let childId of loopThrough[sectionId].children) {
@@ -113,6 +125,8 @@ export const getOverviewListingHelper = (
           isList,
           isListRoot,
           depth + 1,
+          positionBottom,
+          sectionSizes,
           null
         )
       );

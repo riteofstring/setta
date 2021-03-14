@@ -7,6 +7,12 @@ import { motion } from "framer-motion";
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
 
 export default function CustomMapInteractionCSS(props) {
+  const setHovering = useStoreActions(
+    (actions) => actions.mapInteraction.setHovering
+  );
+
+  const goToHeight = useStoreState((state) => state.mapInteraction.goToHeight);
+
   const overviewCssWidth = useStoreState(
     (state) => state.panes.trueWidth["overview"]
   );
@@ -199,9 +205,15 @@ export default function CustomMapInteractionCSS(props) {
     setRelativeXWasSet(false);
   }, [panState.translation.x]);
 
-  const setHovering = useStoreActions(
-    (actions) => actions.mapInteraction.setHovering
-  );
+
+  useEffect(() => {
+    if (goToHeight !== null) {
+      setPanState({
+        scale: panState.scale,
+        translation: { x: panState.translation.x, y: -goToHeight },
+      });
+    }
+  }, [goToHeight]);
 
   return (
     <>
