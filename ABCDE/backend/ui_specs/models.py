@@ -12,31 +12,36 @@ class DraftUI(models.Model):
         constraints = [models.UniqueConstraint(fields=["owner"], name="unique_owner")]
 
 
-class SavedUIs(models.Model):
+class SavedFolders(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    uiName = models.TextField()
-    rootSections = models.TextField()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["owner", "uiName"], name="unique_uiName")
-        ]
-
-
-class SavedVersions(models.Model):
-    ui = models.ForeignKey(SavedUIs, on_delete=models.CASCADE)
-    versionName = models.TextField()
-    completeState = models.TextField()
+    folderName = models.TextField()
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["ui", "versionName"], name="unique_versionName"
+                fields=["owner", "folderName"], name="unique_folderName"
             )
         ]
 
 
-class LatestCode(models.Model):
-    owner = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
-    codeToken = models.TextField(default="")
-    code = models.TextField(default="")
+class SavedUIs(models.Model):
+    uiName = models.TextField()
+    folder = models.ForeignKey(SavedFolders, on_delete=models.CASCADE, default=None)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["uiName", "folder"], name="unique_uiName")
+        ]
+
+
+class SavedSections(models.Model):
+    sectionName = models.TextField()
+    ui = models.ForeignKey(SavedUIs, on_delete=models.CASCADE)
+    state = models.TextField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sectionName", "ui"], name="unique_sectionName"
+            )
+        ]

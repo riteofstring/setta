@@ -1,38 +1,32 @@
 from rest_framework import serializers
 
-from .models import DraftUI, LatestCode, SavedUIs, SavedVersions
-
-
-class LatestCodeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LatestCode
-        fields = ("code", "codeToken")
+from .models import DraftUI, SavedFolders, SavedUIs
 
 
 class SavedUIsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedUIs
-        fields = ("uiName", "rootSections")
+        fields = ("uiName", "folder")
 
 
-class SavedVersionsSerializer(serializers.ModelSerializer):
+class SavedFoldersSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SavedVersions
-        fields = ("versionName", "completeState")
+        model = SavedFolders
+        fields = ("folderName",)
 
 
-class SavedUIAndVersionSerializer(serializers.Serializer):
+class SavedFolderAndUISerializer(serializers.Serializer):
+    folder = SavedFoldersSerializer()
     ui = SavedUIsSerializer()
-    version = SavedVersionsSerializer()
 
     def create(self, validated_data):
-        new_ui, ui_was_created = SavedUIs.objects.get_or_create(
-            owner=validated_data["owner"], **validated_data["ui"]
+        new_folder, folder_was_created = SavedFolders.objects.get_or_create(
+            owner=validated_data["owner"], **validated_data["folder"]
         )
-        new_version, version_was_created = SavedVersions.objects.update_or_create(
-            ui=new_ui, **validated_data["version"]
+        new_ui, ui_was_created = SavedUIs.objects.update_or_create(
+            folder=new_folder, **validated_data["ui"]
         )
-        return new_ui, new_version
+        return new_folder, new_ui
 
 
 class DraftUISerializer(serializers.ModelSerializer):

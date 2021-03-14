@@ -8,16 +8,12 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import DraftUI, LatestCode, SavedUIs, SavedVersions
-from .serializers import (
-    DraftUISerializer,
-    LatestCodeSerializer,
-    SavedUIAndVersionSerializer,
-)
+from .models import DraftUI, SavedFolders, SavedSections, SavedUIs
+from .serializers import DraftUISerializer, SavedFolderAndUISerializer
 
 
 class SavedUIAndVersionsAPIView(APIView):
-    serializer = SavedUIAndVersionSerializer
+    serializer = SavedFolderAndUISerializer
 
     def get_ui_specs(self, request, uiName, versionName):
         ui = SavedUIs.objects.get(owner=request.user, uiName=uiName)
@@ -50,17 +46,17 @@ class SavedUIAndVersionsAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SavedUIAndVersionNamesAPIView(APIView):
+class SavedFolderAndUINamesAPIView(APIView):
     def get(self, request):
-        uiAndVersionNames = SavedVersions.objects.filter(ui__owner=request.user).values(
-            "versionName",
-            uiName=F("ui__uiName"),
+        folderAndUINames = SavedUIs.objects.filter(folder__owner=request.user).values(
+            "uiName",
+            folderName=F("folder__folderName"),
         )
         output = defaultdict(list)
-        for x in uiAndVersionNames:
-            output[x["uiName"]].append(x["versionName"])
+        for x in folderAndUINames:
+            output[x["folderName"]].append(x["uiName"])
 
-        return Response({"uiAndVersionNames": output}, status=status.HTTP_200_OK)
+        return Response({"folderAndUINames": output}, status=status.HTTP_200_OK)
 
 
 # class SavedUINamesAPIView(APIView):
