@@ -1,6 +1,6 @@
 import { action, thunk } from "easy-peasy";
 import {
-  loadUINames as loadUINamesBackend,
+  loadFolderAndUINames as loadFolderAndUINamesBackend,
   loadUI as loadUIBackend,
   saveUI as saveUIBackend,
   saveDraftUI as saveDraftUIBackend,
@@ -8,18 +8,15 @@ import {
 import { getCompleteState } from "../utils/commonFunctions";
 
 const uiInfo = {
-  currUIName: "",
-  currVersionName: "",
-  savedUINames: [],
-  savedVersionNames: [],
+  savedFolderAndUINames: {},
 
   setSavedUINames: action((state, payload) => {
-    state.savedUINames = payload;
+    state.savedFolderAndUINames = payload;
   }),
 
-  loadUINames: thunk(async (action, payload, helpers) => {
+  loadFolderAndUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
-    const uiNames = await loadUINamesBackend({ token });
+    const uiNames = await loadFolderAndUINamesBackend({ token });
     action.setSavedUINames(uiNames);
   }),
 

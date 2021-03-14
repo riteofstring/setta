@@ -14,21 +14,22 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
+
 export default function SaveAsButton(props) {
-  const { onClose, isOpen, ButtonText } = props;
-  // const { isOpen, onOpen, onClose } = useDisclosure();
-  const token = useStoreState((state) => state.auth.token);
-  const currUIName = useStoreState((state) => state.uiInfo.currUIName);
-  const currVersionName = useStoreState(
-    (state) => state.uiInfo.currVersionName
-  );
-  const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
+  const { onClose, isOpen, ButtonText, savedFolderAndUINames } = props;
+  
 
-  const [enteredUIName, setEnteredUIName] = useState(currUIName);
-  const [enteredVersionName, setEnteredVersionName] = useState(currVersionName);
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
-  const onSaveAs = () => {
-    saveUI({ token, uiName: enteredUIName, versionName: enteredVersionName });
+  const onSaveOrLoadClick = () => {
+
+    // if (ButtonText === "Save As") {
+
+    // } else if (ButtonText === "Load") {
+    // }
+
+    onClose();
   };
 
   return (
@@ -41,12 +42,16 @@ export default function SaveAsButton(props) {
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <FileExplorer />
+            <FileExplorer
+              folderAndFileInfo={savedFolderAndUINames}
+              onFileSelect={setSelectedFile}
+              onFolderSelect={setSelectedFolder}
+            />
             {ButtonText === "Save As" && <FileNameInput />}
           </ModalBody>
           <ModalFooter>
             <HStack justify="stretch" mb=".5rem" spacing={4}>
-              <Button colorScheme="blue" onClick={ButtonText && onSaveAs}>
+              <Button colorScheme="blue" onClick={onSaveOrLoadClick}>
                 {ButtonText}
               </Button>
               <Button onClick={onClose}>Close</Button>

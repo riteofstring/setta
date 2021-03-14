@@ -36,10 +36,10 @@ export const saveUI = ({
     .catch((err) => {});
 };
 
-export const loadUINames = ({ token }) => {
+export const loadFolderAndUINames = ({ token }) => {
   return axios
-    .get(BACKEND + "api/saved_ui_names", tokenConfig(token))
-    .then((res) => res.data["uiNames"])
+    .get(BACKEND + "api/saved_folder_and_ui_names", tokenConfig(token))
+    .then((res) => res.data["folderAndUINames"])
     .catch((err) => {});
 };
 

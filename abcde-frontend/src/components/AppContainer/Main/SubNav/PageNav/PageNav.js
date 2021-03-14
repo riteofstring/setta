@@ -25,7 +25,7 @@ export default function PageNav() {
           <SaveLoadButton ButtonText="Save As" />
         </MenuList>
       </Menu>
-      {/* <UiEditButton /> */}
+      <UiEditButton />
     </>
   );
 }
