@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   HStack,
   Button,
@@ -13,39 +13,63 @@ import {
 import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
+import { loadUI } from "../../dbRequests/ui";
 
 export default function SaveLoadModal(props) {
-  const savedFolderAndUINames = useStoreState(
-    (state) => state.uiInfo.savedFolderAndUINames
-  );
+  const { onClose, isOpen, buttonText, savedFolderAndUINames } = props;
 
-  const { onClose, isOpen, buttonText } = props;
+  const folderNames = Object.keys(savedFolderAndUINames);
 
   const [selectedFolder, setSelectedFolder] = useState("");
-  const [selectedFile, setSelectedFile] = useState("");
+  const [selectedFile, setSelectedFile] = useState({});
+  const [enteredFile, setEnteredFile] = useState("");
 
-  const [enteredFolder, setEnteredFolder] = useState("");
-  const [enteredField, setEnteredField] = useState("");
+  const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
+  const token = useStoreState((state) => state.auth.token);
 
+  const _setSelectedFolder = (value) => {
+    if (value !== undefined) {
+      setSelectedFolder(value);
+    }
+  };
+
+  const _setSelectedFile = (value) => {
+    if (value !== undefined) {
+      setSelectedFile({ ...selectedFile, [selectedFolder]: value });
+      setEnteredFile(value);
+    }
+  };
 
   const _onClose = () => {
     onClose();
-    setSelectedFolder("")
-    setSelectedFile("")
-    setEnteredFolder("")
-    setEnteredField("")
-  }
-
-  const onSaveOrLoadClick = () => {
-    // if (buttonText === "Save As") {
-
-    // } else if (buttonText === "Load") {
-    // }
-
-    _onClose()
+    _setSelectedFolder("");
+    _setSelectedFile("");
   };
 
-  console.log(enteredFolder, enteredField);
+  useEffect(() => {
+    if (!selectedFolder) {
+      _setSelectedFolder(folderNames[0]);
+    }
+  }, [folderNames]);
+
+  console.log("enteredFile", enteredFile);
+
+  const onSaveOrLoadClick = async () => {
+    if (buttonText === "Save As") {
+      saveUI({ token, folderName: selectedFolder, uiName: enteredFile });
+    } else if (buttonText === "Load") {
+      const data = await loadUI({
+        token,
+        folderName: selectedFolder,
+        uiName: enteredFile,
+      });
+      if (data) {
+        console.log(JSON.parse(data.ui.completeState));
+      }
+    }
+
+    _onClose();
+  };
 
   return (
     <>
@@ -58,20 +82,18 @@ export default function SaveLoadModal(props) {
           <ModalCloseButton />
           <ModalBody>
             <FileExplorer
+              folderNames={folderNames}
               folderAndFileInfo={savedFolderAndUINames}
-              onFileSelect={setSelectedFile}
-              onFolderSelect={setSelectedFolder}
+              onFileSelect={_setSelectedFile}
+              onFolderSelect={_setSelectedFolder}
+              selectedFolder={selectedFolder}
+              selectedFile={selectedFile}
             />
             {buttonText === "Save As" && (
               <HStack>
                 <FileNameInput
-                  value={enteredFolder}
-                  onChange={setEnteredFolder}
-                  placeholder="Folder"
-                />
-                <FileNameInput
-                  value={enteredField}
-                  onChange={setEnteredField}
+                  value={enteredFile}
+                  onChange={setEnteredFile}
                   placeholder="File"
                 />
               </HStack>

@@ -22,6 +22,10 @@ export default function FileMenu() {
   const loadFolderAndUINames = useStoreActions(
     (actions) => actions.uiInfo.loadFolderAndUINames
   );
+  const savedFolderAndUINames = useStoreState(
+    (state) => state.uiInfo.savedFolderAndUINames
+  );
+
 
   const _onOpen = (buttonText) => {
     setButtonText(buttonText);
@@ -64,6 +68,7 @@ export default function FileMenu() {
         onClose={onClose}
         isOpen={isOpen}
         buttonText={buttonText}
+        savedFolderAndUINames={savedFolderAndUINames}
       />
     </>
   );

@@ -1,7 +1,6 @@
 import { action, thunk } from "easy-peasy";
 import {
   loadFolderAndUINames as loadFolderAndUINamesBackend,
-  loadUI as loadUIBackend,
   saveUI as saveUIBackend,
   saveDraftUI as saveDraftUIBackend,
 } from "../dbRequests/ui";
@@ -20,25 +19,13 @@ const uiInfo = {
     action.setSavedUINames(uiNames);
   }),
 
-  loadUI: thunk(async (action, payload, helpers) => {
-    const { token, uiName } = payload;
-    const { rootSections: originalRootSections } = await loadUIBackend({
-      token,
-      uiName,
-    });
-    return {
-      originalRootSections: JSON.parse(originalRootSections),
-    };
-  }),
-
   saveUI: thunk((action, payload, helpers) => {
-    const { token, uiName, versionName } = payload;
-    const originalRootSections = helpers.getStoreState().master.originalRootSections;
+    const { token, folderName, uiName } = payload;
+    console.log("folderName, uiName", folderName, uiName)
     return saveUIBackend({
       token,
+      folderName,
       uiName,
-      versionName,
-      rootSections: originalRootSections,
       statesToSave: getCompleteState(helpers.getStoreState()),
     });
   }),

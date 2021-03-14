@@ -1,43 +1,24 @@
 import { HStack, useRadioGroup, Flex, Button, Spacer } from "@chakra-ui/react";
-import { useState, useEffect } from "react";
 import ListItem from "./ListItem";
 import FileListContainer from "./FileListContainer";
 
 export default function FileExplorer({
+  folderNames,
   folderAndFileInfo,
   onFolderSelect,
   onFileSelect,
+  selectedFolder,
+  selectedFile,
 }) {
-  const folderNames = Object.keys(folderAndFileInfo);
-
-  const [theFolder, setFolder] = useState(null);
-  const [theFile, setFile] = useState({});
-
-  const _onFolderSelect = (value) => {
-    setFolder(value);
-    onFolderSelect(value);
-    onFileSelect(theFile[value]);
-  };
-
-  const _onFileSelect = (value) => {
-    setFile({ ...theFile, [theFolder]: value });
-    onFileSelect(value);
-  };
-
-  useEffect(() => {
-    if (!theFolder){
-      setFolder(folderNames[0]);
-    }
-  }, [folderNames]);
 
   const {
     getRootProps: getRootPropsFolder,
     getRadioProps: getRadioPropsFolder,
   } = useRadioGroup({
     name: "folderSelection",
-    defaultValue: theFolder,
-    value: theFolder,
-    onChange: _onFolderSelect,
+    defaultValue: selectedFolder,
+    value: selectedFolder,
+    onChange: onFolderSelect,
   });
 
   const {
@@ -45,8 +26,8 @@ export default function FileExplorer({
     getRadioProps: getRadioPropsFile,
   } = useRadioGroup({
     name: "fileSelection",
-    value: theFile[theFolder],
-    onChange: _onFileSelect,
+    value: selectedFile[selectedFolder],
+    onChange: onFileSelect,
   });
 
   return (
@@ -60,7 +41,7 @@ export default function FileExplorer({
               key={`folderitem-${value}`}
               {...radio}
               isFolder={true}
-              isSelected={value === theFolder}
+              isSelected={value === selectedFolder}
             >
               {value}
             </ListItem>
@@ -83,8 +64,8 @@ export default function FileExplorer({
             Date
           </Button>
         </Flex>
-        {folderAndFileInfo[theFolder]
-          ? folderAndFileInfo[theFolder].map((value) => {
+        {folderAndFileInfo[selectedFolder]
+          ? folderAndFileInfo[selectedFolder].map((value) => {
               const radio = getRadioPropsFile({
                 value,
               });
