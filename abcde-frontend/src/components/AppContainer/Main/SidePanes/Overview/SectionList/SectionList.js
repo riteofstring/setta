@@ -1,20 +1,20 @@
-import SectionItem from "./SectionItem/SectionItem";
-import { Stack } from "@chakra-ui/react";
+import SectionListItems from "./SectionListItems";
+import PageAccordion from "./PageAccordion";
+
+const tempArray = [0];
 
 export default function SectionList({ listOfSectionIdsAndNames }) {
   return (
     <>
-      {listOfSectionIdsAndNames.map((e, idx) => (
-        <Stack pl={`${0.5 * e.depth}rem`}>
-          <SectionItem
-            sectionId={e.sectionId}
-            sectionHeading={e.sectionHeading}
-            isList={e.isList}
-            isListRoot={e.isListRoot}
-            key={`${e.sectionId}-${idx}`}
+      {tempArray.length > 1 ? (
+        <PageAccordion>
+          <SectionListItems
+            listOfSectionIdsAndNames={listOfSectionIdsAndNames}
           />
-        </Stack>
-      ))}
+        </PageAccordion>
+      ) : (
+        <SectionListItems listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
+      )}
     </>
   );
 }
