@@ -1,10 +1,14 @@
 import SectionItem from "./SectionItem/SectionItem";
 
-export default function SectionList({ listOfSectionNames }) {
+export default function SectionList({ listOfSectionIdsAndNames }) {
   return (
     <>
-      {listOfSectionNames.map((e, idx) => (
-        <SectionItem sectionName={e} key={`${e}-${idx}`}/>
+      {listOfSectionIdsAndNames.map((e, idx) => (
+        <SectionItem
+          sectionHeading={e.sectionHeading}
+          isList={e.isList}
+          key={`${e.sectionId}-${idx}`}
+        />
       ))}
     </>
   );

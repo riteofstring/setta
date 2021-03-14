@@ -120,7 +120,6 @@ export default function SectionContainer({
       {order.length > 0 &&
         order.map((e, idx) => (
           <NestedSection
-            grandparentId={parentId}
             parentId={sectionId}
             rootId={rootId}
             sectionId={e}
