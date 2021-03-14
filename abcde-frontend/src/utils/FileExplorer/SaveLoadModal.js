@@ -14,32 +14,46 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
-
 export default function SaveLoadModal(props) {
-  const savedFolderAndUINames = useStoreState((state) => state.uiInfo.savedFolderAndUINames);
+  const savedFolderAndUINames = useStoreState(
+    (state) => state.uiInfo.savedFolderAndUINames
+  );
 
-  const { onClose, isOpen, ButtonText } = props;
+  const { onClose, isOpen, buttonText } = props;
 
-  const [selectedFolder, setSelectedFolder] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFolder, setSelectedFolder] = useState("");
+  const [selectedFile, setSelectedFile] = useState("");
+
+  const [enteredFolder, setEnteredFolder] = useState("");
+  const [enteredField, setEnteredField] = useState("");
+
+
+  const _onClose = () => {
+    onClose();
+    setSelectedFolder("")
+    setSelectedFile("")
+    setEnteredFolder("")
+    setEnteredField("")
+  }
 
   const onSaveOrLoadClick = () => {
+    // if (buttonText === "Save As") {
 
-    // if (ButtonText === "Save As") {
-
-    // } else if (ButtonText === "Load") {
+    // } else if (buttonText === "Load") {
     // }
 
-    onClose();
+    _onClose()
   };
+
+  console.log(enteredFolder, enteredField);
 
   return (
     <>
-      <Modal onClose={onClose} isOpen={isOpen} isCentered size="6xl">
+      <Modal onClose={_onClose} isOpen={isOpen} isCentered size="6xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {ButtonText === "Save As" ? "Save Project As" : "Load Project"}
+            {buttonText === "Save As" ? "Save Project As" : "Load Project"}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -48,14 +62,27 @@ export default function SaveLoadModal(props) {
               onFileSelect={setSelectedFile}
               onFolderSelect={setSelectedFolder}
             />
-            {ButtonText === "Save As" && <FileNameInput />}
+            {buttonText === "Save As" && (
+              <HStack>
+                <FileNameInput
+                  value={enteredFolder}
+                  onChange={setEnteredFolder}
+                  placeholder="Folder"
+                />
+                <FileNameInput
+                  value={enteredField}
+                  onChange={setEnteredField}
+                  placeholder="File"
+                />
+              </HStack>
+            )}
           </ModalBody>
           <ModalFooter>
             <HStack justify="stretch" mb=".5rem" spacing={4}>
               <Button colorScheme="blue" onClick={onSaveOrLoadClick}>
-                {ButtonText}
+                {buttonText}
               </Button>
-              <Button onClick={onClose}>Close</Button>
+              <Button onClick={_onClose}>Close</Button>
             </HStack>
           </ModalFooter>
         </ModalContent>
