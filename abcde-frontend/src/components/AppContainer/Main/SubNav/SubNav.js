@@ -1,10 +1,10 @@
 import { Flex, HStack, Spacer, GridItem } from "@chakra-ui/react";
 
 import PageNav from "./PageNav/PageNav";
-import SelectMachine from "./SelectMachine/SelectMachine";
-import EnvSelectButton from "./EnvSelect/EnvSelectButton";
-import TerminalButton from "./TerminalButton/TerminalButton";
-import RunButton from "./RunButton/RunButton";
+// import SelectMachine from "./SelectMachine/SelectMachine";
+// import EnvSelectButton from "./EnvSelect/EnvSelectButton";
+// import TerminalButton from "./TerminalButton/TerminalButton";
+// import RunButton from "./RunButton/RunButton";
 
 export default function SubNav() {
   return (
@@ -18,11 +18,11 @@ export default function SubNav() {
       >
         <HStack height="3rem" width="calc(90vw)" spacing={2}>
           <PageNav />
-          <TerminalButton />
+          {/* <TerminalButton />
           <Spacer />
           <EnvSelectButton />
           <SelectMachine />
-          <RunButton />
+          <RunButton /> */}
         </HStack>
       </Flex>
     </GridItem>
