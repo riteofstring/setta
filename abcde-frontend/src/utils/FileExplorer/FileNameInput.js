@@ -1,21 +1,15 @@
-import { Input } from "@chakra-ui/react";
-import { useState } from "react";
+import { Input, InputGroup } from "@chakra-ui/react";
 
 export default function FileNameInput() {
-  const [value, setValue] = useState("");
-  const handleChange = (event) => {
-    console.log("event.target.value", event.target.value)
-    setValue(event.target.value);
-  }
-
-  console.log("value", value)
-
   return (
     <>
       <Input
-        value={value}
-        onChange={handleChange}
-        size="sm"
+        mt="1.25rem"
+        variant="flushed"
+        // value={enteredUIName}
+        placeholder="Project Name"
+        // onChange={(e) => setEnteredUIName(e.target.value)}
+        size="lg"
       />
     </>
   );

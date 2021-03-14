@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Grid, GridItem, Box } from "@chakra-ui/react";
-// import Overview from "./SidePanes/Overview/Overview";
+import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
-// import UIPage from "../../UI/UiPage";
-// import UiEditor from "./SidePanes/UiEditor/UiEditor";
-// import CustomGrid from "./CustomMapInteraction/CustomGrid";
-// import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
+import UIPage from "../../UI/UiPage";
+import UiEditor from "./SidePanes/UiEditor/UiEditor";
+import CustomGrid from "./CustomMapInteraction/CustomGrid";
+import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
@@ -22,7 +22,7 @@ export default function MainContainer() {
     >
       <SubNav />
 
-      {/* <Overview />
+      <Overview />
 
       <UiEditor />
 
@@ -51,7 +51,7 @@ export default function MainContainer() {
             </Box>
           </CustomMapInteractionCSS>
         </Box>
-      </GridItem> */}
+      </GridItem>
     </Grid>
   );
 }
