@@ -1,6 +1,7 @@
 import asyncio
 import getpass
 import json
+import os
 import pathlib
 import ssl
 from subprocess import PIPE, Popen
@@ -16,12 +17,19 @@ async def hello(uri, token):
     query_string = f"?token={token}&source=cli"
     uri = f"{uri}{query_string}"
     async with websockets.connect(uri) as websocket:
+        print("connected to websocket")
         while True:
             ui_specs = await websocket.recv()
+            ui_specs = json.loads(ui_specs)
             print("received")
-            json_as_string = activate_env_and_get_json(ui_specs)
-            await websocket.send(json_as_string)
-            print("sent")
+            if "enteredText" in ui_specs:
+                return_val = activate_env_and_get_json(ui_specs)
+                await websocket.send(return_val)
+                print("sent")
+            elif "code" in ui_specs:
+                print("running code")
+                run_code(ui_specs)
+                print("done!")
 
 
 ADDRESS = "localhost:8000"
@@ -66,20 +74,13 @@ def main():
             hello(WEBSOCKET_BACKEND, websocket_token)
         )
 
-    # stay_in_program = True
-    # print("Listening to server...")
-    # while stay_in_program:
-    #     cmd = input("abcde> ")
-    #     if cmd == "exit":
-    #         stay_in_program = False
-
 
 def activate_env_and_get_json(ui_specs):
     in_file = "temp_in.yaml"
     out_file = "temp_out.json"
 
     with open(in_file, "w") as text_file:
-        text_file.write(json.loads(ui_specs)["enteredText"])
+        text_file.write(ui_specs["enteredText"])
 
     script_dir = pathlib.Path(__file__).parent.absolute()
 
@@ -99,6 +100,35 @@ def activate_env_and_get_json(ui_specs):
     process.communicate()
 
     return json.dumps({"enteredText": json_as_string})
+
+
+def run_code(ui_specs):
+    directory = "D:\\Downloads"
+    in_file = os.path.join(directory, "temp_code.py")
+
+    with open(in_file, "w") as text_file:
+        text_file.write(ui_specs["code"])
+
+    cmd = f"conda deactivate && activate machine_learning && python {in_file}"
+    process = Popen(cmd.split(" "), stdout=PIPE, stderr=PIPE, cwd=directory, shell=True)
+    stdout, stderr = process.communicate()
+    print("stdout", stdout.decode())
+    print("\n\n\nstderr", stderr.decode())
+
+    cmd = f"rm {in_file}"
+    process = Popen(cmd.split(" "), stdout=PIPE, stderr=PIPE, cwd=directory, shell=True)
+    process.communicate()
+
+    # script_file = "temp_script.bat"
+    # with open(script_file, "w") as text_file:
+    #     text_file.write(f"deactivate && activate machine_learning && python {in_file}")
+
+    # os.system(f"start cmd /K {script_file}")
+    # cmd = f"rm {in_file} && rm {script_file} && rm -rf MNIST"
+    # process = Popen(
+    #     cmd.split(" "), stdout=PIPE, stderr=PIPE, shell=True
+    # )
+    # process.communicate()
 
 
 if __name__ == "__main__":
