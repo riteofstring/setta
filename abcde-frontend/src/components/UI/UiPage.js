@@ -6,34 +6,15 @@ import SectionsPane from "./Section/SectionsPane";
 import { Flex, Grid } from "@chakra-ui/react";
 import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
-import { loadDraftUI } from "../../dbRequests/ui";
 import { websocketAuth } from "../../dbRequests/authentication.js";
-import { resetState } from "../../store/store"
+import { resetState } from "../../store/store";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
   );
 
-  const masterSetEntireState = useStoreActions(
-    (actions) => actions.master.setEntireState
-  );
-
-  const globalCurrSetEntireState = useStoreActions(
-    (actions) => actions.globalCurr.setEntireState
-  );
-
-  const yamlEntrySetEntireState = useStoreActions(
-    (actions) => actions.yamlEntry.setEntireState
-  );
-
-  const factoriesInfoSetEntireState = useStoreActions(
-    (actions) => actions.factoriesInfo.setEntireState
-  );
-
-  const funcsInfoSetEntireState = useStoreActions(
-    (actions) => actions.funcsInfo.setEntireState
-  );
+  const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
 
   const token = useStoreState((state) => state.auth.token);
 
@@ -44,26 +25,14 @@ const UiPage = () => {
     (actions) => actions.auth.websocketTokenRetrievalFail
   );
 
-  const setCLISocket = useStoreActions((actions) => actions.cliSocket.setCLISocket);
+  const setCLISocket = useStoreActions(
+    (actions) => actions.cliSocket.setCLISocket
+  );
 
   console.log("UiPage");
 
-  const tryLoadingDraftUI = async () => {
-    const data = await loadDraftUI({ token });
-    if (data) {
-      const {
-        masterState,
-        globalCurrState,
-        yamlEntryState,
-        factoriesInfoState,
-        funcsInfoState,
-      } = JSON.parse(data.completeState);
-      globalCurrSetEntireState(JSON.parse(globalCurrState));
-      masterSetEntireState(JSON.parse(masterState));
-      yamlEntrySetEntireState(JSON.parse(yamlEntryState));
-      factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
-      funcsInfoSetEntireState(JSON.parse(funcsInfoState));
-    }
+  const tryLoadingDraftUI = () => {
+    loadUI({ token, loadType: "draft" });
   };
 
   useLayoutEffect(() => {
@@ -78,7 +47,7 @@ const UiPage = () => {
         actionWebsocketTokenRetrievalFail,
       }).then((x) => {
         if (x) {
-          setCLISocket({token: x});
+          setCLISocket({ token: x });
         }
       });
     }

@@ -13,7 +13,6 @@ import {
 import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
-import { loadUI } from "../../dbRequests/ui";
 
 export default function SaveLoadModal(props) {
   const { onClose, isOpen, buttonText, savedFolderAndUINames } = props;
@@ -25,6 +24,7 @@ export default function SaveLoadModal(props) {
   const [enteredFile, setEnteredFile] = useState("");
 
   const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
+  const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
   const token = useStoreState((state) => state.auth.token);
 
   const _setSelectedFolder = (value) => {
@@ -54,18 +54,11 @@ export default function SaveLoadModal(props) {
 
   console.log("enteredFile", enteredFile);
 
-  const onSaveOrLoadClick = async () => {
+  const onSaveOrLoadClick = () => {
     if (buttonText === "Save As") {
       saveUI({ token, folderName: selectedFolder, uiName: enteredFile });
     } else if (buttonText === "Load") {
-      const data = await loadUI({
-        token,
-        folderName: selectedFolder,
-        uiName: enteredFile,
-      });
-      if (data) {
-        console.log(JSON.parse(data.ui.completeState));
-      }
+      loadUI({ token, folderName: selectedFolder, uiName: enteredFile });
     }
 
     _onClose();
