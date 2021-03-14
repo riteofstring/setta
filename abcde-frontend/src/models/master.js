@@ -9,7 +9,6 @@ import {
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
 import { generateAndRunCode } from "../dbRequests/ui";
-import { v4 as uuidv4 } from "uuid";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const master = {

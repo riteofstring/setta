@@ -216,6 +216,7 @@ export default function CustomMapInteractionCSS(props) {
         onMouseOut={() => setHovering(false)}
         animate={{translateX: overviewCssWidth}}
         initial={false}
+        style={{ height: "inherit" }}
       >
         <MapInteractionCSS
           value={panState}
