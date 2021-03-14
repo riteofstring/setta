@@ -261,7 +261,14 @@ const master = {
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const { name: originalName, parentId, moduleName, objName, isList, siblingId } = payload;
+    const {
+      name: originalName,
+      parentId,
+      moduleName,
+      objName,
+      isList,
+      siblingId,
+    } = payload;
     let extraIdentifier = null;
     if (isList) {
       if (siblingId !== null) {
@@ -273,9 +280,9 @@ const master = {
       }
     }
 
-    let name = siblingId ? originalName : `List for ${originalName}`
-    if (helpers.getState().isListRoot[parentId]){
-      name = name.replace("List for ", "")
+    let name = !siblingId && isList ? `List for ${originalName}` : originalName;
+    if (helpers.getState().isListRoot[parentId]) {
+      name = name.replace("List for ", "");
     }
 
     const stringId = createStringId(
