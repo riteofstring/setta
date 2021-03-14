@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/longList.json";
+import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -8,8 +8,7 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
-import { generateCode as generateCodeBackend } from "../dbRequests/ui";
-import { v4 as uuidv4 } from "uuid";
+import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const master = {
@@ -79,38 +78,6 @@ const master = {
 
   setEntireState: action((state, payload) => {
     setEntireStateFunc(state, payload);
-  }),
-
-  resetRootIdHierarchy: action((state, payload) => {
-    state.rootIdHierarchy = {};
-  }),
-
-  _resetSections: action((state, payload) => {
-    state.sectionCount = 1;
-    state.originalRootSections = {};
-    state.sections = {};
-    state.selected = {};
-    state.idHierarchy = {};
-    state.isVisible = {};
-    state.isShown = {};
-    state.shiftAmount = {};
-    state.isList = {};
-    state.isListRoot = {};
-    state.listCount = {};
-    state.sectionIdsToSectionHeadings = {};
-    state.sectionIdsToStringIds = {};
-    state.stringIdsToSectionIds = {};
-    state.inFocus = [false];
-    state.sectionHasNested = {};
-    state.sectionModuleObjHasNested = {};
-    state.sectionSearchVal = {};
-    state.showTerminal = false;
-  }),
-
-  // temporary shitty code
-  resetSections: thunk((action, payload, helpers) => {
-    action.resetRootIdHierarchy();
-    action._resetSections();
   }),
 
   loadSections: thunk((action, payload, helpers) => {
@@ -294,7 +261,14 @@ const master = {
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const { name, parentId, moduleName, objName, isList, siblingId } = payload;
+    const {
+      name: originalName,
+      parentId,
+      moduleName,
+      objName,
+      isList,
+      siblingId,
+    } = payload;
     let extraIdentifier = null;
     if (isList) {
       if (siblingId !== null) {
@@ -305,6 +279,12 @@ const master = {
         extraIdentifier = "0";
       }
     }
+
+    let name = !siblingId && isList ? `List for ${originalName}` : originalName;
+    if (helpers.getState().isListRoot[parentId]) {
+      name = name.replace("List for ", "");
+    }
+
     const stringId = createStringId(
       parentId.toString(),
       moduleName,
@@ -312,6 +292,7 @@ const master = {
       name,
       extraIdentifier
     );
+
     let id = helpers.getState().stringIdsToSectionIds[stringId];
     if (id === undefined) {
       id = helpers.getState().sectionCount.toString();
@@ -353,20 +334,13 @@ const master = {
   }),
 
   runSelected: thunk(async (action, payload, helpers) => {
-    const { token, selected } = payload;
-    const codeToken = uuidv4();
-    const result = await generateCodeBackend({
-      token,
-      codeToken,
+    const { selected } = payload;
+    generateAndRunCode({
+      cliSocket: helpers.getStoreState().cliSocket.cliSocket,
       SELECTED: selected,
       FACTORIES: helpers.getStoreState().factoriesInfo.factories,
       FUNCS: helpers.getStoreState().funcsInfo.funcs,
     });
-    console.log("runSelected result", result);
-    if (result) {
-      console.log("result", result);
-      window.open("abcde://" + codeToken, "_self");
-    }
   }),
 
   setSectionSearchVal: action((state, payload) => {

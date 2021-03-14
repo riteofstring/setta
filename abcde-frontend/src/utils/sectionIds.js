@@ -27,34 +27,147 @@ export const createStringId = (
   return id;
 };
 
-export const getBreadCrumbPath = (
+export const getPositionOfSection = (
+  targetSectionId,
+  rootIdHierarchy,
+  idHierarchy,
+  isVisible,
+  isShown,
+  sectionSizes
+) => {
+  let position = 0;
+  let addToPosition = 0;
+  let foundTargetId = false;
+  for (let sectionId of Object.keys(rootIdHierarchy)) {
+    if (sectionId === targetSectionId || foundTargetId) {
+      return position;
+    }
+
+    position += sectionSizes[sectionId].height;
+
+    ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
+      targetSectionId,
+      sectionId,
+      idHierarchy,
+      isVisible,
+      isShown,
+      sectionSizes,
+      rootIdHierarchy
+    ));
+    if (isShown[sectionId]) {
+      position += addToPosition;
+    }
+    else if (foundTargetId){
+      position -= sectionSizes[sectionId].height;
+    }
+
+  }
+  return position;
+};
+
+export const getPositionOfSectionHelper = (
+  targetSectionId,
   sectionId,
   idHierarchy,
-  rootIdHierarchy,
   isVisible,
-  sectionIdsToSectionHeadings
+  isShown,
+  sectionSizes,
+  rootIdHierarchy
 ) => {
-  const x = findId(sectionId, idHierarchy, rootIdHierarchy);
-  let headOfBreadCrumbPath = [];
-  let headOfIdLineage = [];
+  let position = 0;
+  let addToPosition = 0;
+  let foundTargetId = false;
   if (isVisible[sectionId]) {
-    headOfBreadCrumbPath = [sectionIdsToSectionHeadings[sectionId]];
-    headOfIdLineage = [sectionId];
-    const children = x.children;
-    const nextId = children.filter((x) => isVisible[x])[0];
-    if (nextId) {
-      const { breadCrumbPath, idLineage } = getBreadCrumbPath(
-        nextId,
+    const loopThrough = rootIdHierarchy ? rootIdHierarchy : idHierarchy;
+    for (let childId of loopThrough[sectionId].children) {
+      if (childId === targetSectionId || foundTargetId) {
+        return { position, foundTargetId: true };
+      }
+
+      position += sectionSizes[childId].height;
+
+      ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
+        targetSectionId,
+        childId,
         idHierarchy,
-        rootIdHierarchy,
         isVisible,
-        sectionIdsToSectionHeadings
-      );
-      headOfBreadCrumbPath.push(...breadCrumbPath);
-      headOfIdLineage.push(...idLineage);
+        isShown,
+        sectionSizes,
+        null
+      ));
+      if (isShown[childId]) {
+        position += addToPosition;
+      }
+      else if (foundTargetId){
+        position -= sectionSizes[childId].height;
+      }
     }
   }
-  return { breadCrumbPath: headOfBreadCrumbPath, idLineage: headOfIdLineage };
+  return { position, foundTargetId };
+};
+
+export const getOverviewListing = (
+  rootIdHierarchy,
+  idHierarchy,
+  isVisible,
+  sectionIdsToSectionHeadings,
+  isList,
+  isListRoot
+) => {
+  let outputList = [];
+  for (let sectionId of Object.keys(rootIdHierarchy)) {
+    outputList.push(
+      ...getOverviewListingHelper(
+        sectionId,
+        idHierarchy,
+        isVisible,
+        sectionIdsToSectionHeadings,
+        isList,
+        isListRoot,
+        0,
+        rootIdHierarchy
+      )
+    );
+  }
+  return outputList;
+};
+
+export const getOverviewListingHelper = (
+  sectionId,
+  idHierarchy,
+  isVisible,
+  sectionIdsToSectionHeadings,
+  isList,
+  isListRoot,
+  depth,
+  rootIdHierarchy
+) => {
+  let outputList = [];
+  if (isVisible[sectionId]) {
+    outputList.push({
+      sectionId,
+      sectionHeading: sectionIdsToSectionHeadings[sectionId],
+      isList: isList[sectionId],
+      isListRoot: isListRoot[sectionId],
+      depth: depth,
+    });
+    const loopThrough = rootIdHierarchy ? rootIdHierarchy : idHierarchy;
+    for (let childId of loopThrough[sectionId].children) {
+      outputList.push(
+        ...getOverviewListingHelper(
+          childId,
+          idHierarchy,
+          isVisible,
+          sectionIdsToSectionHeadings,
+          isList,
+          isListRoot,
+          depth + 1,
+          null
+        )
+      );
+    }
+  }
+  return outputList;
 };
 
 export const findId = (id, idHierarchy, rootIdHierarchy) => {
@@ -106,7 +219,7 @@ const createExportableParams = ({
 }) => {
   let output = {};
   const { moduleName, objName, children: originalChildren } = currSelected;
-  if ((moduleName === null) || (moduleName === undefined)) {
+  if (moduleName === null || moduleName === undefined) {
     return output;
   }
   const fullObjName = moduleName + "." + objName;

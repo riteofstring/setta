@@ -22,10 +22,6 @@ const globalCurr = {
     state.globalCurr = payload;
   }),
 
-  resetGlobalCurr: action((state, payload) => {
-    state.globalCurr = {};
-  }),
-
   setEntireState: action((state, payload) => {
     setEntireStateFunc(state, payload);
   }),

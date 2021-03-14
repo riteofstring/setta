@@ -1,12 +1,20 @@
 import SectionItem from "./SectionItem/SectionItem";
+import { Stack } from "@chakra-ui/react";
 
-export default function SectionList() {
+export default function SectionList({ listOfSectionIdsAndNames }) {
   return (
     <>
-      <SectionItem />
-      <SectionItem />
-      <SectionItem />
-      <SectionItem />
+      {listOfSectionIdsAndNames.map((e, idx) => (
+        <Stack pl={`${0.5 * e.depth}rem`}>
+          <SectionItem
+            sectionId={e.sectionId}
+            sectionHeading={e.sectionHeading}
+            isList={e.isList}
+            isListRoot={e.isListRoot}
+            key={`${e.sectionId}-${idx}`}
+          />
+        </Stack>
+      ))}
     </>
   );
 }

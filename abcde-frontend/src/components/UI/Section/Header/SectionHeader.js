@@ -24,7 +24,6 @@ export default function SectionHeader({
       <SectionTitle
         sectionHeading={sectionHeading}
         currObjectName={currObjectName}
-        isListRoot={isListRoot}
       />
       <Spacer />
       {isList && (

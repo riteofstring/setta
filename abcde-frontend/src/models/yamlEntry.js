@@ -10,9 +10,9 @@ const yamlEntry = {
   }),
 
   createUI: thunk(async (action, payload, helpers) => {
-    const { token } = payload;
-    return await createUIBackend({
-      token,
+    const cliSocket = helpers.getStoreState().cliSocket.cliSocket
+    createUIBackend({
+      cliSocket,
       enteredText: helpers.getState().enteredText,
     });
   }),

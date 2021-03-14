@@ -1,7 +1,8 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { resetState } from "../../../../../../store/store"
 
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -13,13 +14,6 @@ export default function TextEditor() {
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
   );
-
-  const resetSections = useStoreActions(
-    (actions) => actions.master.resetSections
-  );
-  const resetGlobalCurr = useStoreActions(
-    (actions) => actions.globalCurr.resetGlobalCurr
-  );
   const setFactories = useStoreActions(
     (actions) => actions.factoriesInfo.setFactories
   );
@@ -27,6 +21,9 @@ export default function TextEditor() {
   const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
   const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
   const token = useStoreState((state) => state.auth.token);
+  const uiInfoFromCLI = useStoreState((state) => state.cliSocket.uiInfo);
+  const factoriesFromCLI = useStoreState((state) => state.cliSocket.factories);
+  const funcsFromCLI = useStoreState((state) => state.cliSocket.funcs);
 
   const handleEditorDidMount = (_valueGetter) => {
     setIsEditorReady(true);
@@ -34,16 +31,19 @@ export default function TextEditor() {
   };
 
   const handleCreateUI = async () => {
-    const { uiAsJson, factories, funcs } = await createUI({ token });
-    if (uiAsJson) {
-      resetGlobalCurr();
-      resetSections();
-      loadSections({isJson: true, data: JSON.parse(uiAsJson)});
-      setFactories(JSON.parse(factories));
-      setFuncs(JSON.parse(funcs));
+    createUI();
+  };
+
+  useEffect(() => {
+    if (uiInfoFromCLI) {
+      resetState("globalCurr");
+      resetState("master");
+      loadSections({ isJson: true, data: uiInfoFromCLI });
+      setFactories(factoriesFromCLI);
+      setFuncs(funcsFromCLI);
       saveDraftUI({ token });
     }
-  };
+  }, [uiInfoFromCLI, factoriesFromCLI, funcsFromCLI]);
 
   const onChange = (newValue, e) => {
     setEnteredText(newValue);
@@ -55,7 +55,7 @@ export default function TextEditor() {
         Create UI
       </Button>
       <Editor
-        height="70vh"
+        height="inherit"
         language="yaml"
         value={enteredText}
         onMount={handleEditorDidMount}

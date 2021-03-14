@@ -1,15 +1,33 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Grid, GridItem, Box } from "@chakra-ui/react";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
-import graphPaperBg from "../../../assets/images/graph-paper.svg";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
+import { useDropzone } from "react-dropzone";
+import { useStoreActions } from "easy-peasy";
+import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
+  const setEnteredText = useStoreActions(
+    (actions) => actions.yamlEntry.setEnteredText
+  );
+
+  const onDrop = useCallback((acceptedFiles) => {
+    for (let file of acceptedFiles) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Do whatever you want with the file contents
+        const text = reader.result;
+        setEnteredText(text);
+      };
+      reader.readAsText(file);
+    }
+  }, []);
+  const { getRootProps } = useDropzone({ onDrop });
 
   return (
     <Grid
@@ -20,6 +38,7 @@ export default function MainContainer() {
       overflow="hidden"
       templateRows="min-content 1fr"
       templateColumns="1fr"
+      {...getRootProps()}
     >
       <SubNav />
 
@@ -36,21 +55,13 @@ export default function MainContainer() {
         minW="0"
         h="100%"
       >
-        <Box
-          backgroundImage={`url(${graphPaperBg})`}
-          h="inherit"
-          overflow="auto"
-          flex="1"
-          minH="0"
-          minW="0"
-          id="graphpaper"
-        >
+        <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
           <CustomMapInteractionCSS
             // showControls={true}
             maxScale={2}
             minScale={0.33}
             scaleBase={1.5}
-            marginRatios={{ x: 1, y: 0.75 }}
+            marginRatios={{ x: 1, y: 1 }}
             contentSize={contentSize}
           >
             <Box padding="2.5rem" h="100%">

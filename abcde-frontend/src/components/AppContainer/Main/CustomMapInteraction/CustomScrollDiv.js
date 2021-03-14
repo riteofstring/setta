@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
+import { motion } from "framer-motion";
+import { useStoreState } from "easy-peasy";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 
@@ -11,8 +13,9 @@ export default function CustomScrollDiv({
   children,
   className,
   isVertical,
-  ...restProps
 }) {
+  const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
+  const paneTrueWidths = useStoreState((state) => state.panes.trueWidth);
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
@@ -44,14 +47,6 @@ export default function CustomScrollDiv({
       return { clientDim, offsetDim };
     }
   };
-
-  const handleMouseOver = useCallback(() => {
-    !hovering && setHovering(true);
-  }, [hovering]);
-
-  const handleMouseOut = useCallback(() => {
-    !!hovering && setHovering(false);
-  }, [hovering]);
 
   const handleDocumentMouseUp = useCallback(
     (e) => {
@@ -148,29 +143,22 @@ export default function CustomScrollDiv({
   };
 
   useEffect(() => {
-    setClientDim(scrollHostRef.current.clientHeight);
-  }, [scrollHostUseEffectCondition()]);
+    setClientDim(scrollHostUseEffectCondition());
+  }, [scrollHostUseEffectCondition(), paneTrueWidths]);
 
   return (
-    <div
-      className={
-        isVertical
-          ? "vertical-scrollhost-container"
-          : "horizontal-scrollhost-container"
-      }
-      onMouseOver={handleMouseOver}
-      onMouseOut={handleMouseOut}
-    >
+    <CustomScrollDivMotionWrapper isVertical={isVertical}>
       <div
         ref={scrollHostRef}
         className={isVertical ? `vertical-scrollhost` : `horizontal-scrollhost`}
-        {...restProps}
       >
         {children}
       </div>
       <div
         className={isVertical ? "vertical-scroll-bar" : "horizontal-scroll-bar"}
-        style={{ opacity: hovering ? 1 : 0 }}
+        style={{ opacity: mapHovering || hovering || isDragging ? 1 : 0.5 }}
+        onMouseOver={() => setHovering(true)}
+        onMouseOut={() => setHovering(false)}
       >
         <div
           className={
@@ -184,6 +172,64 @@ export default function CustomScrollDiv({
           onMouseDown={handleScrollThumbMouseDown}
         />
       </div>
+    </CustomScrollDivMotionWrapper>
+  );
+}
+
+function CustomScrollDivMotionWrapper({ isVertical, children }) {
+  return isVertical
+    ? VerticalScrollDiv({ children })
+    : HorizontalScrollDiv({ children });
+}
+
+function VerticalScrollDiv({ children }) {
+  const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
+  const trueWidth = useStoreState((state) => state.panes.trueWidth["uiEditor"]);
+  const draggingPane = useStoreState(
+    (state) => state.panes.isDragging["uiEditor"]
+  );
+
+  const variants = {
+    closed: { x: `-${trueWidth}px` },
+    open: { x: `-${trueWidth}px` },
+  };
+
+  return !draggingPane ? (
+    <motion.div
+      className="vertical-scrollhost-container"
+      animate={vis ? "open" : "closed"}
+      variants={variants}
+      initial={vis ? "open" : "closed"}
+      style={{ zIndex: "20" }}
+    >
+      {children}
+    </motion.div>
+  ) : (
+    <div className={"vertical-scrollhost-container"}>{children}</div>
+  );
+}
+
+function HorizontalScrollDiv({ children }) {
+  const overviewTrueWidth = useStoreState((state) => state.panes.trueWidth["overview"]);
+  const uiEditorTrueWidth = useStoreState((state) => state.panes.trueWidth["uiEditor"]);
+  const anyPanesDragging = useStoreState((state) =>
+    Object.values(state.panes.isDragging).includes(true)
+  );
+
+  const getTotalMargin = () => {
+    return `(${overviewTrueWidth}px + ${uiEditorTrueWidth}px)`;
+  };
+
+  return (
+    <div
+      className={"horizontal-scrollhost-container"}
+      style={{
+        opacity: `${anyPanesDragging ? 0 : 1}`,
+        width: `calc(100% - ${getTotalMargin()})`,
+        left: `${overviewTrueWidth}px`,
+      }}
+    >
+      {children}
     </div>
   );
 }
