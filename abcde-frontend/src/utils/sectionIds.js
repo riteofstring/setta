@@ -32,24 +32,35 @@ export const getPositionOfSection = (
   rootIdHierarchy,
   idHierarchy,
   isVisible,
+  isShown,
   sectionSizes
 ) => {
   let position = 0;
   let addToPosition = 0;
   let foundTargetId = false;
   for (let sectionId of Object.keys(rootIdHierarchy)) {
-    if ((sectionId === targetSectionId) || foundTargetId) {
+    if (sectionId === targetSectionId || foundTargetId) {
       return position;
     }
+
+    position += sectionSizes[sectionId].height;
+
     ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
       targetSectionId,
       sectionId,
       idHierarchy,
       isVisible,
+      isShown,
       sectionSizes,
       rootIdHierarchy
     ));
-    position += addToPosition;
+    if (isShown[sectionId]) {
+      position += addToPosition;
+    }
+    else if (foundTargetId){
+      position -= sectionSizes[sectionId].height;
+    }
+
   }
   return position;
 };
@@ -59,10 +70,11 @@ export const getPositionOfSectionHelper = (
   sectionId,
   idHierarchy,
   isVisible,
+  isShown,
   sectionSizes,
   rootIdHierarchy
 ) => {
-  let position = sectionSizes[sectionId].height;
+  let position = 0;
   let addToPosition = 0;
   let foundTargetId = false;
   if (isVisible[sectionId]) {
@@ -71,15 +83,24 @@ export const getPositionOfSectionHelper = (
       if (childId === targetSectionId || foundTargetId) {
         return { position, foundTargetId: true };
       }
+
+      position += sectionSizes[childId].height;
+
       ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
         targetSectionId,
         childId,
         idHierarchy,
         isVisible,
+        isShown,
         sectionSizes,
         null
       ));
-      position += addToPosition;
+      if (isShown[childId]) {
+        position += addToPosition;
+      }
+      else if (foundTargetId){
+        position -= sectionSizes[childId].height;
+      }
     }
   }
   return { position, foundTargetId };

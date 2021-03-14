@@ -29,12 +29,14 @@ const sectionSizes = {
     const rootIdHierarchy = globalState.master.rootIdHierarchy;
     const idHierarchy = globalState.master.idHierarchy;
     const isVisible = globalState.master.isVisible;
+    const isShown = globalState.master.isShown;
 
     return getPositionOfSection(
       payload,
       rootIdHierarchy,
       idHierarchy,
       isVisible,
+      isShown,
       state.sectionSizes
     );
   }),
