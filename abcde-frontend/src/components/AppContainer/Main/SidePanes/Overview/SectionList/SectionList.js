@@ -5,12 +5,12 @@ export default function SectionList({ listOfSectionIdsAndNames }) {
   return (
     <>
       {listOfSectionIdsAndNames.map((e, idx) => (
-        <Stack pl={`${.5*e.depth}rem`}>
+        <Stack pl={`${0.5 * e.depth}rem`}>
           <SectionItem
+            sectionId={e.sectionId}
             sectionHeading={e.sectionHeading}
             isList={e.isList}
             isListRoot={e.isListRoot}
-            positionTop={e.positionTop}
             key={`${e.sectionId}-${idx}`}
           />
         </Stack>

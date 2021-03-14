@@ -11,6 +11,10 @@ export default function CustomMapInteractionCSS(props) {
     (actions) => actions.mapInteraction.setHovering
   );
 
+  const setScale = useStoreActions(
+    (actions) => actions.mapInteraction.setScale
+  );
+
   const goToHeight = useStoreState((state) => state.mapInteraction.goToHeight);
 
   const overviewCssWidth = useStoreState(
@@ -185,6 +189,7 @@ export default function CustomMapInteractionCSS(props) {
       panState
     );
     setRelativeXWasSet(true);
+    setScale(panState.scale)
   }, [panState.scale]);
 
   useEffect(() => {

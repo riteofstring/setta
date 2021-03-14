@@ -20,9 +20,6 @@ export default function Overview() {
   const sectionIdsToSectionHeadings = useStoreState(
     (state) => state.master.sectionIdsToSectionHeadings
   );
-  const sectionSizes = useStoreState(
-    (state) => state.sectionSizes.sectionSizes
-  );
   const getListOfSectionIdsAndNames = () => {
     const overviewListing = getOverviewListing(
       rootIdHierarchy,
@@ -31,7 +28,6 @@ export default function Overview() {
       sectionIdsToSectionHeadings,
       isList,
       isListRoot,
-      sectionSizes
     );
     console.log("overviewListing", overviewListing);
     return overviewListing;
