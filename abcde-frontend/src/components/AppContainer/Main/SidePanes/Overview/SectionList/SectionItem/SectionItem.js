@@ -26,21 +26,7 @@ export default function SectionItem({
       ) : (
         <></>
       )}
-      <Text
-        cursor="pointer"
-        py={0.5}
-        px={2}
-        w="100%"
-        borderRadius="0.5rem"
-        _hover={{
-          boxShadow: "inset 0px 0px 0px 10px gray.500",
-          bg: "gray.400",
-          color: "gray.50",
-        }}
-        onClick={onClick}
-      >
-        {sectionHeading}
-      </Text>
+      <Text onClick={onClick}>{sectionHeading}</Text>
     </HStack>
   );
 }
