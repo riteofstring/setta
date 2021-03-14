@@ -3,28 +3,34 @@ import { NO_AUTH } from "../utils/constants";
 
 const auth = {
   token: localStorage.getItem('token'),
+  websocketToken: localStorage.getItem('websocketToken'),
   isAuthenticated: NO_AUTH,
   user: null,
 
   loginSuccess: action((state, payload) => {
-    console.log("LOGIN SUCCESS");
-    console.log("payload.token");
-    console.log(payload.token);
     localStorage.setItem("token", payload.token);
     state.token = payload.token;
-    console.log("state.token");
-    console.log(state.token);
     state.user = payload.user;
-    console.log("user", state.user)
     state.isAuthenticated = true;
   }),
 
   loginFail: action((state, payload) => {
-    console.log("LOGIN FAIL");
-    localStorage.removeItem("token");
+    localStorage.clear();
     state.token = null;
-    state.user = null;
+    state.websocketToken = null;
     state.isAuthenticated = false;
+    state.user = null;
+    state.cliSocket = null;
+  }),
+
+  websocketTokenRetrievalSuccess: action((state, payload) => {
+    localStorage.setItem("websocketToken", payload.token);
+    state.websocketToken = payload.token;
+  }),
+
+  websocketTokenRetrievalFail: action((state) => {
+    localStorage.removeItem("websocketToken");
+    state.websocketToken = null;
   }),
 };
 

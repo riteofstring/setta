@@ -1,0 +1,219 @@
+{
+  "Model": {
+    "ModuleInfo": {
+      "torchvision.models": {
+        "resnet101": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet152": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet18": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          },
+          "ANOTHER_ARG": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet34": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet50": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnext101_32x8d": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnext50_32x4d": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "wide_resnet101_2": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "wide_resnet50_2": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "densenet161": {
+          "pretrained": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        }
+      },
+      "another.Model": {
+        "testnet201": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "testnet252": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        }
+      }
+    }
+  }
+}

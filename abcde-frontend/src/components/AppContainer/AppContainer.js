@@ -3,8 +3,8 @@ import { Flex, HStack, Heading } from "@chakra-ui/react";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 import { Link, BrowserRouter } from "react-router-dom";
 import { useStoreState } from "easy-peasy";
-// import HeaderContainer from "./Header/Header";
-// import MainContainer from "./Main/MainContainer";
+import HeaderContainer from "./Header/Header";
+import MainContainer from "./Main/MainContainer";
 
 const AppContainer = () => {
   const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);

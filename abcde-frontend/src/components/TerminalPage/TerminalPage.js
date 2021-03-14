@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Box } from "@chakra-ui/react";
 import Xterm from "./Terminal";
-// import { FitAddon } from "xterm-addon-fit";
+import { FitAddon } from "xterm-addon-fit";
 import "./xterm.module.css";
 import "./TerminalPage.module.css";
 
-// const fitAddon = new FitAddon();
+const fitAddon = new FitAddon();
 
 const TerminalPage = () => {
   const [terminalData, setTerminalData] = useState("");

@@ -51,7 +51,6 @@ export default function GroupContainer({ sectionId }) {
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
               parameters={e}
-              idx={idx}
             />
           ))}
       </FormControl>

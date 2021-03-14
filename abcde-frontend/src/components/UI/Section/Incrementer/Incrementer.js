@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
+import {
+  HStack,
+  Input,
+  useNumberInput,
+  Icon,
+  IconButton,
+} from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { HiX } from "react-icons/hi";

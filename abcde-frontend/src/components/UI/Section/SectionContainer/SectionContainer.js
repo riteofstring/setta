@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Stack, HStack } from "@chakra-ui/react";
+import { Stack, HStack, Flex } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "../Main/Group/GroupContainer";
@@ -9,6 +9,7 @@ import SectionFooter from "../Footer/SectionFooter";
 import { createStringId } from "../../../../utils/sectionIds";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
+import { hidden } from "ansi-colors";
 
 export default function SectionContainer({
   sectionId,
@@ -24,17 +25,17 @@ export default function SectionContainer({
   );
 
   const selected = useStoreState((state) => state.master.selected[sectionId]);
-  // const stringId = createStringId(
-  //   sectionId,
-  //   selected.moduleName,
-  //   selected.name
-  // );
-  // const sectionModuleObjHasNested = useStoreState(
-  //   (state) => state.master.sectionModuleObjHasNested[stringId]
-  // );
-  // const shiftAmount = useStoreState(
-  //   (state) => state.master.shiftAmount[sectionId]
-  // );
+  const stringId = createStringId(
+    sectionId,
+    selected.moduleName,
+    selected.name,
+  );
+  const sectionModuleObjHasNested = useStoreState(
+    (state) => state.master.sectionModuleObjHasNested[stringId]
+  );
+  const shiftAmount = useStoreState(
+    (state) => state.master.shiftAmount[sectionId]
+  );
 
   const setShiftAmount = useStoreActions(
     (actions) => actions.master.setShiftAmount
@@ -49,7 +50,7 @@ export default function SectionContainer({
 
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
-  console.log("sectionId order", sectionId, order);
+  console.log("sectionId order", sectionId, order)
 
   const applyFocus = () => {
     if (!inFocus) {
