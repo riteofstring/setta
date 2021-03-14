@@ -15,9 +15,10 @@ import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
 
-export default function SaveAsButton(props) {
-  const { onClose, isOpen, ButtonText, savedFolderAndUINames } = props;
-  
+export default function SaveLoadModal(props) {
+  const savedFolderAndUINames = useStoreState((state) => state.uiInfo.savedFolderAndUINames);
+
+  const { onClose, isOpen, ButtonText } = props;
 
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
