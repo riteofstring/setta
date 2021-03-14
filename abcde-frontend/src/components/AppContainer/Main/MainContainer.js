@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { Grid, GridItem, Box } from "@chakra-ui/react";
+import {
+  Grid,
+  GridItem,
+  Flex,
+  IconButton,
+  Box,
+  forwardRef,
+} from "@chakra-ui/react";
+import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
+import graphPaperBg from "../../../assets/images/graph-paper.svg";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
-import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
@@ -37,11 +45,13 @@ export default function MainContainer() {
         h="100%"
       >
         <Box
+          backgroundImage={`url(${graphPaperBg})`}
           h="inherit"
-          overflow="hidden"
+          overflow="auto"
           flex="1"
           minH="0"
           minW="0"
+          id="graphpaper"
         >
           <CustomMapInteractionCSS
             // showControls={true}
