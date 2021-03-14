@@ -58,8 +58,8 @@ const UiPage = () => {
         factoriesInfoState,
         funcsInfoState,
       } = JSON.parse(data.completeState);
-      masterSetEntireState(JSON.parse(masterState));
       globalCurrSetEntireState(JSON.parse(globalCurrState));
+      masterSetEntireState(JSON.parse(masterState));
       yamlEntrySetEntireState(JSON.parse(yamlEntryState));
       factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
       funcsInfoSetEntireState(JSON.parse(funcsInfoState));
