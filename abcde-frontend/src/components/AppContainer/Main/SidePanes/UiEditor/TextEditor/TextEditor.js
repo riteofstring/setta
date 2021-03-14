@@ -55,7 +55,7 @@ export default function TextEditor() {
         Create UI
       </Button>
       <Editor
-        height="70vh"
+        height="inherit"
         language="yaml"
         value={enteredText}
         onMount={handleEditorDidMount}
