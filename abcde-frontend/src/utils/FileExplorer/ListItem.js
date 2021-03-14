@@ -4,10 +4,8 @@ import { BiFolder, BiFolderOpen } from "react-icons/bi";
 
 export default function ListItem(props) {
   const { getInputProps, getCheckboxProps } = useRadio(props);
-
   const input = getInputProps();
   const checkbox = getCheckboxProps();
-  console.log("checkbox", checkbox);
   return (
     <Box as="label">
       <input {...input} />

@@ -42,7 +42,7 @@ export default function SaveAsButton(props) {
           <ModalCloseButton />
           <ModalBody>
             <FileExplorer />
-            <FileNameInput />
+            {!!ButtonText === "Save As" && <FileNameInput />}
           </ModalBody>
           <ModalFooter>
             <HStack justify="stretch" mb=".5rem" spacing={4}>

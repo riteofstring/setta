@@ -1,5 +1,6 @@
 import { HStack, useRadioGroup, Flex, Button, Spacer } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+// import { useStoreActions, useStoreState } from "easy-peasy";
+import { useState } from "react";
 import ListItem from "./ListItem";
 import FileListContainer from "./FileListContainer";
 
@@ -27,17 +28,25 @@ export default function FileExplorer() {
   const { getRootProps, getRadioProps } = useRadioGroup({
     name: "framework",
     defaultValue: "react",
-    onChange: console.log,
   });
   const group = getRootProps();
+
+  const [value, setValue] = useState(tempFld[0]);
+
   return (
     <HStack h="40vh">
-      <FileListContainer width="40%" group={group}>
-        {tempFld.map((value) => {
-          const radio = getRadioProps({ value });
+      <FileListContainer
+        width="40%"
+        group={group}
+        onChange={setValue}
+        value={value}
+      >
+        {tempFld.map((e) => {
+          const radio = getRadioProps({ e });
+
           return (
-            <ListItem key={`folderitem-${value}`} {...radio}>
-              {value}
+            <ListItem key={`folderitem-${e}`} value={e} {...radio}>
+              {e}
             </ListItem>
           );
         })}
@@ -58,14 +67,16 @@ export default function FileExplorer() {
             Date
           </Button>
         </Flex>
-        {tempFld.map((value) => {
-          const radio = getRadioProps({ value });
-          return (
-            <ListItem key={`folderitem-${value}`} {...radio}>
-              {value}
-            </ListItem>
-          );
-        })}
+        {tempFld[value]
+          ? tempFld[value].map((e) => {
+              const radio = getRadioProps({ e });
+              return (
+                <ListItem key={`folderitem-${e}`} {...radio}>
+                  {e}
+                </ListItem>
+              );
+            })
+          : null}
       </FileListContainer>
     </HStack>
   );
