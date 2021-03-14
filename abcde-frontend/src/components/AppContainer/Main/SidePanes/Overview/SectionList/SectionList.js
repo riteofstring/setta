@@ -1,7 +1,7 @@
 import SectionListItems from "./SectionListItems";
 import PageAccordion from "./PageAccordion";
 
-const tempArray = [0];
+const tempArray = [0, 1, 2];
 
 export default function SectionList({ listOfSectionIdsAndNames }) {
   return (

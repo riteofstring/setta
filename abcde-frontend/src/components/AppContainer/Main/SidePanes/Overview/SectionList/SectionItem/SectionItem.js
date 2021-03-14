@@ -21,11 +21,13 @@ export default function SectionItem({
 
   return (
     <HStack py="0.125rem">
-      {isList && !isListRoot ? (
-        <DragHandleIcon cursor="move" size="sm" color="gray.200" />
-      ) : (
-        <></>
-      )}
+      <DragHandleIcon
+        cursor="move"
+        size="sm"
+        color="gray.200"
+        visibility={isList && !isListRoot ? "visible" : "hidden"}
+      />
+
       <Text
         cursor="pointer"
         py={0.5}
