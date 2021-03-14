@@ -211,7 +211,6 @@ const master = {
     const { sectionId, parentObj } = payload;
     const stringId = state.sectionIdsToStringIds[sectionId];
     delete state.stringIdsToSectionIds[stringId];
-    delete state.idHierarchy[sectionId]
     parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 
