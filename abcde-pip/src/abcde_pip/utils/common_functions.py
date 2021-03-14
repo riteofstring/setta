@@ -7,13 +7,18 @@ def is_class_or_function(x):
     return inspect.isclass(x) or inspect.isfunction(x)
 
 
-def add_signature_to_dict(input_obj, input_dict):
+def add_signature_to_dict(input_obj, input_dict, is_class):
     try:
-        signature = inspect.signature(input_obj)
+        to_inspect = input_obj.__init__ if is_class else input_obj
+        signature = inspect.signature(to_inspect)
     except ValueError:
         return
+    count = 0
     for k, v in signature.parameters.items():
-        input_dict[k] = v
+        # skip reference to self
+        if (not is_class) or (count > 0):
+            input_dict[k] = v
+        count += 1
 
 
 def get_args(input_obj):
@@ -22,10 +27,12 @@ def get_args(input_obj):
         obj_stack = [input_obj]
         while len(obj_stack) > 0:
             curr_obj = obj_stack.pop()
+            if curr_obj is object:
+                continue
             obj_stack += list(curr_obj.__bases__)
-            add_signature_to_dict(curr_obj, init_arguments)
+            add_signature_to_dict(curr_obj, init_arguments, is_class=True)
     elif inspect.isfunction(input_obj):
-        add_signature_to_dict(input_obj, init_arguments)
+        add_signature_to_dict(input_obj, init_arguments, is_class=False)
     else:
         raise TypeError("input_obj to get_args must be a class or function")
     return init_arguments
