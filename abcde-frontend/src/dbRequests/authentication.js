@@ -11,22 +11,9 @@ export const login = ({
   const body = JSON.stringify({ username, password });
   return axios
     .post(BACKEND + "api/auth/login", body, tokenConfig(null))
-    .then((res) => {actionLoginSuccess(res.data); return true})
-    .catch((err) => {actionLoginFail(null); return false});
+    .then((res) => actionLoginSuccess(res.data))
+    .catch((err) => actionLoginFail(null));
 };
-
-// LOGIN USER
-export const websocketAuth = ({
-  authToken,
-  actionWebsocketTokenRetrievalSuccess,
-  actionWebsocketTokenRetrievalFail,
-}) => {
-  return axios
-    .post(BACKEND + "api/auth/websocketAuth", null, tokenConfig(authToken))
-    .then((res) => {actionWebsocketTokenRetrievalSuccess(res.data); return res.data.token})
-    .catch((err) => {actionWebsocketTokenRetrievalFail(null); return false});
-};
-
 
 // LOGIN USER
 export const logout = ({ actionLoginFail, authToken }) => {

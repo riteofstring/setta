@@ -1,4 +1,4 @@
-import { Stack, Spacer, IconButton } from "@chakra-ui/react";
+import { Stack, Spacer } from "@chakra-ui/react";
 import SectionTitle from "./Title/SectionTitle";
 import { useStoreState } from "easy-peasy";
 import Incrementer from "../Incrementer/Incrementer";
@@ -17,13 +17,14 @@ export default function SectionHeader({
 
   const selected = useStoreState((state) => state.master.selected[sectionId]);
 
-  const currObjectName = selected.name
+  const currObjectName = selected.name;
 
   return (
     <Stack direction="row" w="100%">
       <SectionTitle
         sectionHeading={sectionHeading}
         currObjectName={currObjectName}
+        isListRoot={isListRoot}
       />
       <Spacer />
       {isList && (

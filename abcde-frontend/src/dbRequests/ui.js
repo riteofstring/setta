@@ -3,19 +3,26 @@ import { BACKEND } from "../utils/constants";
 import { stringifyCompleteState } from "../utils/commonFunctions";
 import { tokenConfig } from "./authentication";
 
-export const generateAndRunCode = ({
-  cliSocket,
+export const generateCode = ({
+  token,
+  codeToken,
   SELECTED,
   FACTORIES,
   FUNCS,
 }) => {
-  const body = JSON.stringify({code: { SELECTED, FACTORIES, FUNCS }});
-  cliSocket.send(body);
+  const body = JSON.stringify({ codeToken, SELECTED, FACTORIES, FUNCS });
+  return axios
+    .post(BACKEND + "api/generate_code", body, tokenConfig(token))
+    .then((res) => true)
+    .catch((err) => false);
 };
 
-export const createUI = ({ cliSocket, enteredText }) => {
+export const createUI = ({ token, enteredText }) => {
   const body = JSON.stringify({ enteredText });
-  cliSocket.send(body);
+  return axios
+    .post(BACKEND + "api/create_ui", body, tokenConfig(token))
+    .then((res) => res.data)
+    .catch((err) => {});
 };
 
 export const saveUI = ({

@@ -2,28 +2,8 @@ import { MapInteractionCSS } from "react-map-interaction";
 import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { motion } from "framer-motion";
-import graphPaperBg from "../../../../assets/images/graph-paper.svg";
 
 export default function CustomMapInteractionCSS(props) {
-  const setHovering = useStoreActions(
-    (actions) => actions.mapInteraction.setHovering
-  );
-
-  const setScale = useStoreActions(
-    (actions) => actions.mapInteraction.setScale
-  );
-
-  const setGoToHeight = useStoreActions(
-    (actions) => actions.mapInteraction.setGoToHeight
-  );
-
-  const goToHeight = useStoreState((state) => state.mapInteraction.goToHeight);
-
-  const overviewCssWidth = useStoreState(
-    (state) => state.panes.trueWidth["overview"]
-  );
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;
@@ -41,12 +21,19 @@ export default function CustomMapInteractionCSS(props) {
   const [scrollWidth, setScrollWidth] = useState(0);
   const [relativeY, setRelativeY] = useState(0);
   const [relativeX, setRelativeX] = useState(0);
-  const [relativeYWasSet, setRelativeYWasSet] = useState(false);
-  const [relativeXWasSet, setRelativeXWasSet] = useState(false);
+
+  const _setPanState = (value) => {
+    setPanState(value);
+    setRelativeY(
+      getRelativePosition(value.translation.y, yRange.yMax, scrollHeight)
+    );
+    setRelativeX(
+      getRelativePosition(value.translation.x, xRange.xMax, scrollWidth)
+    );
+  };
 
   const _setRelative = (value, isVertical) => {
     isVertical ? setRelativeY(value) : setRelativeX(value);
-    isVertical ? setRelativeYWasSet(true) : setRelativeXWasSet(true);
     setPanState({
       scale: panState.scale,
       translation: {
@@ -68,35 +55,6 @@ export default function CustomMapInteractionCSS(props) {
     _setRelative(value, false);
   };
 
-  const setRangeAndScrollDimAndRelativeCoord = (
-    isVertical,
-    currContentDim,
-    currClientDim,
-    currScaleOneDim,
-    currMargin,
-    currPanState
-  ) => {
-    const { newMax, newScrollDim } = setRangeAndScrollDim(
-      isVertical,
-      currContentDim,
-      currClientDim,
-      currScaleOneDim,
-      currMargin,
-      currPanState
-    );
-    const func = isVertical ? setRelativeY : setRelativeX;
-    func(
-      Math.max(
-        0,
-        getRelativePosition(
-          isVertical ? currPanState.translation.y : currPanState.translation.x,
-          newMax,
-          newScrollDim
-        )
-      )
-    );
-  };
-
   const getRelativePosition = (coordinate, maxCoordinate, scrollDim) => {
     if (scrollDim > 0) {
       return Math.min(1, (maxCoordinate - coordinate) / scrollDim);
@@ -109,13 +67,15 @@ export default function CustomMapInteractionCSS(props) {
     contentDim,
     clientDim,
     scaleOneDim,
-    inputMargin,
-    scale
+    inputMargin
   ) => {
     if (contentDim) {
       return {
-        newMax: Math.max(clientDim - scaleOneDim * scale, inputMargin),
-        newMin: Math.min(0, clientDim - scaleOneDim * scale - inputMargin),
+        newMax: Math.max(clientDim - scaleOneDim * panState.scale, inputMargin),
+        newMin: Math.min(
+          0,
+          clientDim - scaleOneDim * panState.scale - inputMargin
+        ),
       };
     }
     return { newMax: 0, newMin: 0 };
@@ -125,143 +85,87 @@ export default function CustomMapInteractionCSS(props) {
     return clientDim * inputMargin;
   };
 
-  const setRangeAndScrollDim = (
-    isVertical,
-    currContentDim,
-    currClientDim,
-    currScaleOneDim,
-    currMargin,
-    currPanState
-  ) => {
-    const { newMin, newMax } = getMinMaxCoordinate(
-      currContentDim,
-      currClientDim,
-      currScaleOneDim,
-      currMargin,
-      currPanState.scale
-    );
-    const newScrollDim = newMax - newMin;
-    isVertical
-      ? setYRange({ yMin: newMin, yMax: newMax })
-      : setXRange({ xMin: newMin, xMax: newMax });
-    isVertical ? setScrollHeight(newScrollDim) : setScrollWidth(newScrollDim);
-    return { newMax, newScrollDim };
+  const setRangeAndScrollDim = (newMargin, isVertical) => {
+    if (isVertical) {
+      const { newMin, newMax } = getMinMaxCoordinate(
+        contentHeight,
+        clientHeight,
+        scaleOneHeight,
+        newMargin
+      );
+      setYRange({
+        yMin: newMin,
+        yMax: newMax,
+      });
+      setScrollHeight(newMax - newMin);
+    } else {
+      const { newMin, newMax } = getMinMaxCoordinate(
+        contentWidth,
+        clientWidth,
+        scaleOneWidth,
+        newMargin
+      );
+      setXRange({
+        xMin: newMin,
+        xMax: newMax,
+      });
+      setScrollWidth(newMax - newMin);
+    }
   };
 
   useEffect(() => {
-    const newScaleOneHeight = contentHeight / panState.scale;
-    setScaleOneHeight(newScaleOneHeight);
-    setRangeAndScrollDimAndRelativeCoord(
-      true,
-      contentHeight,
-      clientHeight,
-      newScaleOneHeight,
-      getMargin(clientHeight, yMargin),
-      panState
+    setScaleOneHeight(contentHeight / panState.scale);
+  }, [contentHeight]);
+
+  useEffect(() => {
+    setScaleOneWidth(contentWidth / panState.scale);
+  }, [contentWidth]);
+
+  useEffect(() => {
+    setRelativeY(
+      getRelativePosition(panState.translation.y, yRange.yMax, scrollHeight)
     );
-  }, [contentHeight, clientHeight]);
+  }, [yRange.yMax, scrollHeight]);
 
   useEffect(() => {
-    const newScaleOneWidth = contentWidth / panState.scale;
-    setScaleOneWidth(newScaleOneWidth);
-    setRangeAndScrollDimAndRelativeCoord(
-      false,
-      contentWidth,
-      clientWidth,
-      newScaleOneWidth,
-      getMargin(clientWidth, xMargin),
-      panState
+    setRelativeX(
+      getRelativePosition(panState.translation.x, xRange.xMax, scrollWidth)
     );
-  }, [contentWidth, clientWidth]);
+  }, [xRange.xMax, scrollWidth]);
 
   useEffect(() => {
-    setRangeAndScrollDimAndRelativeCoord(
-      true,
-      contentHeight,
-      clientHeight,
-      scaleOneHeight,
-      getMargin(clientHeight, yMargin),
-      panState
-    );
-    setRelativeYWasSet(true);
-    setRangeAndScrollDimAndRelativeCoord(
-      false,
-      contentWidth,
-      clientWidth,
-      scaleOneWidth,
-      getMargin(clientWidth, xMargin),
-      panState
-    );
-    setRelativeXWasSet(true);
-    setScale(panState.scale);
-  }, [panState.scale]);
+    setRangeAndScrollDim(getMargin(clientHeight, yMargin), true);
+  }, [clientHeight, panState.scale, scaleOneHeight]);
 
   useEffect(() => {
-    if (!relativeYWasSet) {
-      setRelativeY(
-        getRelativePosition(panState.translation.y, yRange.yMax, scrollHeight)
-      );
-    }
-    setRelativeYWasSet(false);
-  }, [panState.translation.y]);
-
-  useEffect(() => {
-    if (!relativeXWasSet) {
-      setRelativeX(
-        getRelativePosition(panState.translation.x, xRange.xMax, scrollWidth)
-      );
-    }
-    setRelativeXWasSet(false);
-  }, [panState.translation.x]);
-
-  useEffect(() => {
-    if (goToHeight !== null) {
-      setPanState({
-        scale: panState.scale,
-        translation: { x: panState.translation.x, y: -goToHeight },
-      });
-    }
-    setGoToHeight(null)
-  }, [goToHeight]);
+    setRangeAndScrollDim(getMargin(clientWidth, xMargin), false);
+  }, [clientWidth, panState.scale, scaleOneWidth]);
 
   return (
-    <>
-      <CustomScrollDiv
-        relativePosition={relativeY}
-        scrollDim={scrollHeight}
-        setRelativePosition={_setRelativeY}
-        setClientDim={setClientHeight}
-        isVertical={true}
-      ></CustomScrollDiv>
-      <motion.div
-        onMouseOver={() => setHovering(true)}
-        onMouseOut={() => setHovering(false)}
-        animate={{ translateX: overviewCssWidth }}
-        initial={false}
-        style={{
-          height: "inherit",
-          backgroundImage: `url(${graphPaperBg})`,
-          transform: `scale(${panState.scale})`,
-          backgroundPosition: `${panState.translation.x}px ${panState.translation.y}px`,
-        }}
-      >
-        <MapInteractionCSS
-          value={panState}
-          onChange={setPanState}
-          disableZoom={!panZoomState}
-          translationBounds={{ ...xRange, ...yRange }}
-          {...props}
-        >
-          {props.children}
-        </MapInteractionCSS>
-      </motion.div>
+    <CustomScrollDiv
+      relativePosition={relativeY}
+      scrollDim={scrollHeight}
+      setRelativePosition={_setRelativeY}
+      setClientDim={setClientHeight}
+      isVertical={true}
+    >
       <CustomScrollDiv
         relativePosition={relativeX}
         scrollDim={scrollWidth}
         setRelativePosition={_setRelativeX}
         setClientDim={setClientWidth}
         isVertical={false}
-      ></CustomScrollDiv>
-    </>
+      >
+      <MapInteractionCSS
+        value={panState}
+        onChange={_setPanState}
+        disableZoom={!panZoomState}
+        translationBounds={{ ...xRange, ...yRange }}
+        {...props}
+      >
+        {props.children}
+      </MapInteractionCSS>
+      </CustomScrollDiv>
+    </CustomScrollDiv>
   );
 }

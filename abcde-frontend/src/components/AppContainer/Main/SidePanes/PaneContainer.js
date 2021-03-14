@@ -5,7 +5,6 @@ import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";
 import useWindowSize from "../../../../utils/useWindowSize";
 import { clamp } from "../../../../utils/utils";
-import { useStoreActions, useStoreState } from "easy-peasy";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
@@ -18,15 +17,11 @@ const Pane = motion.custom(
 
 export default function PaneContainer(props) {
   const size = useWindowSize();
-  const { right, paneName } = props.paneProps;
-  const vis = useStoreState((state) => state.panes.vis[paneName]);
-  const setVis = useStoreActions((actions) => actions.panes.setVis);
-  const setTrueWidth = useStoreActions((actions) => actions.panes.setTrueWidth);
+  const { defaultWidth, right, openOnLoad } = props.paneProps;
+  const [vis, setVis] = useState(openOnLoad ? true : false);
   function uiToggle() {
-    const newVis = !vis;
-    setVis({ paneName, vis: newVis });
+    setVis(!vis);
     btnDirFlip();
-    setTrueWidth({ paneName, trueWidth: newVis ? width : 40 });
   }
   const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
@@ -48,21 +43,14 @@ export default function PaneContainer(props) {
     setVMax(newVMax);
     setVMin(newVMin);
     if (width > newVMax) {
-      setWidth({ paneName, width: newVMax });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMax : 40 });
+      setWidth(newVMax);
     } else if (width < newVMin) {
-      setWidth({ paneName, width: newVMin });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMin : 40 });
+      setWidth(newVMin);
     }
   }, [vis, size.winWidth]);
 
-  const width = useStoreState((state) => state.panes.width[paneName]);
-  const setWidth = useStoreActions((actions) => actions.panes.setWidth);
+  const [width, setWidth] = useState(defaultWidth);
   const [height, setHeight] = useState("100%");
-
-  const setIsDragging = useStoreActions(
-    (actions) => actions.panes.setIsDragging
-  );
 
   const variants = {
     open: { x: "0rem" },
@@ -89,18 +77,9 @@ export default function PaneContainer(props) {
       >
         <Resizable
           size={{ width, height }}
-          onResizeStart={(e, dir, ref) => {
-            setIsDragging({ paneName, isDragging: true });
-          }}
           onResizeStop={(e, direction, ref, d) => {
-            const newWidth = clamp(width + d.width, vMin, vMax);
-            setWidth({ paneName, width: newWidth });
-            setTrueWidth({
-              paneName,
-              trueWidth: vis ? newWidth : 40,
-            });
+            setWidth(clamp(width + d.width, vMin, vMax));
             setHeight(height);
-            setIsDragging({ paneName, isDragging: false });
           }}
           maxWidth={vMax}
           minWidth={vMin}
