@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/longList.json";
+import Data from "../data/big.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -261,7 +261,7 @@ const master = {
   }),
 
   addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
-    const { name, parentId, moduleName, objName, isList, siblingId } = payload;
+    const { name: originalName, parentId, moduleName, objName, isList, siblingId } = payload;
     let extraIdentifier = null;
     if (isList) {
       if (siblingId !== null) {
@@ -272,6 +272,12 @@ const master = {
         extraIdentifier = "0";
       }
     }
+
+    let name = siblingId ? originalName : `List for ${originalName}`
+    if (helpers.getState().isListRoot[parentId]){
+      name = name.replace("List for ", "")
+    }
+
     const stringId = createStringId(
       parentId.toString(),
       moduleName,
@@ -279,6 +285,7 @@ const master = {
       name,
       extraIdentifier
     );
+
     let id = helpers.getState().stringIdsToSectionIds[stringId];
     if (id === undefined) {
       id = helpers.getState().sectionCount.toString();
