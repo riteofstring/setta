@@ -48,7 +48,7 @@ export default function MainContainer() {
             maxScale={2}
             minScale={0.33}
             scaleBase={1.5}
-            marginRatios={{ x: 1, y: 0.75 }}
+            marginRatios={{ x: 1, y: 1 }}
             contentSize={contentSize}
           >
             <Box padding="2.5rem" h="100%">

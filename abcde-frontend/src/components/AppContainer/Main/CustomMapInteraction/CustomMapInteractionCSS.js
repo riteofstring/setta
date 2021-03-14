@@ -15,6 +15,10 @@ export default function CustomMapInteractionCSS(props) {
     (actions) => actions.mapInteraction.setScale
   );
 
+  const setGoToHeight = useStoreActions(
+    (actions) => actions.mapInteraction.setGoToHeight
+  );
+
   const goToHeight = useStoreState((state) => state.mapInteraction.goToHeight);
 
   const overviewCssWidth = useStoreState(
@@ -189,7 +193,7 @@ export default function CustomMapInteractionCSS(props) {
       panState
     );
     setRelativeXWasSet(true);
-    setScale(panState.scale)
+    setScale(panState.scale);
   }, [panState.scale]);
 
   useEffect(() => {
@@ -210,7 +214,6 @@ export default function CustomMapInteractionCSS(props) {
     setRelativeXWasSet(false);
   }, [panState.translation.x]);
 
-
   useEffect(() => {
     if (goToHeight !== null) {
       setPanState({
@@ -218,6 +221,7 @@ export default function CustomMapInteractionCSS(props) {
         translation: { x: panState.translation.x, y: -goToHeight },
       });
     }
+    setGoToHeight(null)
   }, [goToHeight]);
 
   return (
