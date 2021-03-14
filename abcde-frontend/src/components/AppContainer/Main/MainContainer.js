@@ -33,11 +33,11 @@ export default function MainContainer() {
       h="100%"
       w="100vw"
       border="1px"
-      borderColor="gray.200"
       overflow="hidden"
       templateRows="min-content 1fr"
       templateColumns="1fr"
       {...getRootProps()}
+      borderColor="gray.200"
     >
       <SubNav />
 
