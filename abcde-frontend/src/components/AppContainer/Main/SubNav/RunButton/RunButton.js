@@ -18,15 +18,13 @@ import { ChevronDownIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function RunButton() {
-  const token = useStoreState((state) => state.auth.token);
-
   const runSelected = useStoreActions((actions) => actions.master.runSelected);
   const exportSelected = useStoreActions(
     (actions) => actions.master.exportSelected
   );
   const runExport = () => {
     const { selected } = exportSelected();
-    runSelected({ token, selected });
+    runSelected({ selected });
   };
 
   return (

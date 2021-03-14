@@ -8,7 +8,7 @@ import {
   createExportableObject,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
-import { generateCode as generateCodeBackend } from "../dbRequests/ui";
+import { generateAndRunCode } from "../dbRequests/ui";
 import { v4 as uuidv4 } from "uuid";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
@@ -321,20 +321,13 @@ const master = {
   }),
 
   runSelected: thunk(async (action, payload, helpers) => {
-    const { token, selected } = payload;
-    const codeToken = uuidv4();
-    const result = await generateCodeBackend({
-      token,
-      codeToken,
+    const { selected } = payload;
+    generateAndRunCode({
+      cliSocket: helpers.getStoreState().cliSocket.cliSocket,
       SELECTED: selected,
       FACTORIES: helpers.getStoreState().factoriesInfo.factories,
       FUNCS: helpers.getStoreState().funcsInfo.funcs,
     });
-    console.log("runSelected result", result);
-    if (result) {
-      console.log("result", result);
-      window.open("abcde://" + codeToken, "_self");
-    }
   }),
 
   setSectionSearchVal: action((state, payload) => {
