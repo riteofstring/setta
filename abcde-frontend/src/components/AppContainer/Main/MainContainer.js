@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Grid, GridItem, Box } from "@chakra-ui/react";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
@@ -6,27 +6,9 @@ import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
-import { useDropzone } from "react-dropzone";
-import { useStoreActions } from "easy-peasy";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
-  const setEnteredText = useStoreActions(
-    (actions) => actions.yamlEntry.setEnteredText
-  );
-
-  const onDrop = useCallback((acceptedFiles) => {
-    for (let file of acceptedFiles) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Do whatever you want with the file contents
-        const text = reader.result;
-        setEnteredText(text);
-      };
-      reader.readAsText(file);
-    }
-  }, []);
-  const { getRootProps } = useDropzone({ onDrop });
 
   return (
     <Grid
@@ -37,8 +19,6 @@ export default function MainContainer() {
       templateRows="min-content 1fr"
       templateColumns="1fr"
       borderColor="gray.200"
-      outline="none"
-      {...getRootProps()}
     >
       <SubNav />
 
