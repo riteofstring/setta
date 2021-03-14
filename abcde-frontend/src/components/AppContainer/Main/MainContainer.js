@@ -8,7 +8,6 @@ import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
 import { useDropzone } from "react-dropzone";
 import { useStoreActions } from "easy-peasy";
-import "./PaneStyle.css";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState(0);
