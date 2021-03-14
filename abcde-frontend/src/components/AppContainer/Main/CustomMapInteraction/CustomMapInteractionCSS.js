@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import {motion} from "framer-motion"
+import { motion } from "framer-motion";
+import graphPaperBg from "../../../../assets/images/graph-paper.svg";
 
 export default function CustomMapInteractionCSS(props) {
   const overviewCssWidth = useStoreState(
@@ -214,9 +215,14 @@ export default function CustomMapInteractionCSS(props) {
       <motion.div
         onMouseOver={() => setHovering(true)}
         onMouseOut={() => setHovering(false)}
-        animate={{translateX: overviewCssWidth}}
+        animate={{ translateX: overviewCssWidth }}
         initial={false}
-        style={{ height: "inherit" }}
+        style={{
+          height: "inherit",
+          backgroundImage: `url(${graphPaperBg})`,
+          transform: `scale(${panState.scale})`,
+          backgroundPosition: `${panState.translation.x}px ${panState.translation.y}px`,
+        }}
       >
         <MapInteractionCSS
           value={panState}

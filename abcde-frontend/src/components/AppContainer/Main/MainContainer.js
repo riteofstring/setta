@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Grid, GridItem, Box } from "@chakra-ui/react";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
-import graphPaperBg from "../../../assets/images/graph-paper.svg";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import CustomGrid from "./CustomMapInteraction/CustomGrid";
@@ -38,7 +37,6 @@ export default function MainContainer() {
         h="100%"
       >
         <Box
-          backgroundImage={`url(${graphPaperBg})`}
           h="inherit"
           overflow="hidden"
           flex="1"
