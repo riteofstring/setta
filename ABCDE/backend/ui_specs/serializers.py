@@ -6,7 +6,7 @@ from .models import DraftUI, SavedFolders, SavedUIs
 class SavedUIsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedUIs
-        fields = ("uiName", "folder")
+        fields = ("uiName", "folder", "completeState")
 
 
 class SavedFoldersSerializer(serializers.ModelSerializer):

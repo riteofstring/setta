@@ -27,6 +27,7 @@ class SavedFolders(models.Model):
 class SavedUIs(models.Model):
     uiName = models.TextField()
     folder = models.ForeignKey(SavedFolders, on_delete=models.CASCADE, default=None)
+    completeState = models.TextField(default="")
 
     class Meta:
         constraints = [

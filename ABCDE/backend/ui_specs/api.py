@@ -8,21 +8,21 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import DraftUI, SavedFolders, SavedSections, SavedUIs
+from .models import DraftUI, SavedFolders, SavedUIs
 from .serializers import DraftUISerializer, SavedFolderAndUISerializer
 
 
-class SavedUIAndVersionsAPIView(APIView):
+class SavedFolderAndUIAPIView(APIView):
     serializer = SavedFolderAndUISerializer
 
-    def get_ui_specs(self, request, uiName, versionName):
-        ui = SavedUIs.objects.get(owner=request.user, uiName=uiName)
-        version = SavedVersions.objects.get(ui=ui, versionName=versionName)
+    def get_ui_specs(self, request, folderName, uiName):
+        folder = SavedFolders.objects.get(owner=request.user, folderName=folderName)
+        ui = SavedUIs.objects.get(folder=folder, uiName=uiName)
         return {
-            "ui": {"uiName": uiName, "rootSections": ui.rootSections},
-            "version": {
-                "versionName": versionName,
-                "completeState": version.completeState,
+            "folder": {"folderName": folderName},
+            "ui": {
+                "uiName": uiName,
+                "completeState": ui.completeState,
             },
         }
 
@@ -43,6 +43,7 @@ class SavedUIAndVersionsAPIView(APIView):
         serializer = self.serializer(data=request.data)
         if serializer.is_valid():
             return self.actual_post_operation(serializer, request)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -90,7 +91,7 @@ class SavedFolderAndUINamesAPIView(APIView):
 #         return Response({"versionNames": versionNames}, status=status.HTTP_200_OK)
 
 
-class DraftUIAPIView(SavedUIAndVersionsAPIView):
+class DraftUIAPIView(SavedFolderAndUIAPIView):
     serializer = DraftUISerializer
 
     def get_ui_specs(self, request):
