@@ -81,38 +81,6 @@ const master = {
     setEntireStateFunc(state, payload);
   }),
 
-  resetRootIdHierarchy: action((state, payload) => {
-    state.rootIdHierarchy = {};
-  }),
-
-  _resetSections: action((state, payload) => {
-    state.sectionCount = 1;
-    state.originalRootSections = {};
-    state.sections = {};
-    state.selected = {};
-    state.idHierarchy = {};
-    state.isVisible = {};
-    state.isShown = {};
-    state.shiftAmount = {};
-    state.isList = {};
-    state.isListRoot = {};
-    state.listCount = {};
-    state.sectionIdsToSectionHeadings = {};
-    state.sectionIdsToStringIds = {};
-    state.stringIdsToSectionIds = {};
-    state.inFocus = [false];
-    state.sectionHasNested = {};
-    state.sectionModuleObjHasNested = {};
-    state.sectionSearchVal = {};
-    state.showTerminal = false;
-  }),
-
-  // temporary shitty code
-  resetSections: thunk((action, payload, helpers) => {
-    action.resetRootIdHierarchy();
-    action._resetSections();
-  }),
-
   loadSections: thunk((action, payload, helpers) => {
     if (NO_AUTH) {
       action._loadSections({ isJson: true, data: Data });

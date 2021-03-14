@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { resetState } from "../../../../../../store/store"
 
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -12,13 +13,6 @@ export default function TextEditor() {
   );
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
-  );
-
-  const resetSections = useStoreActions(
-    (actions) => actions.master.resetSections
-  );
-  const resetGlobalCurr = useStoreActions(
-    (actions) => actions.globalCurr.resetGlobalCurr
   );
   const setFactories = useStoreActions(
     (actions) => actions.factoriesInfo.setFactories
@@ -42,8 +36,8 @@ export default function TextEditor() {
 
   useEffect(() => {
     if (uiInfoFromCLI) {
-      resetGlobalCurr();
-      resetSections();
+      resetState("globalCurr");
+      resetState("master");
       loadSections({ isJson: true, data: uiInfoFromCLI });
       setFactories(factoriesFromCLI);
       setFuncs(funcsFromCLI);

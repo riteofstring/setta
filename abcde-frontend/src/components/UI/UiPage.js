@@ -8,14 +8,11 @@ import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { loadDraftUI } from "../../dbRequests/ui";
 import { websocketAuth } from "../../dbRequests/authentication.js";
+import { resetState } from "../../store/store"
 
 const UiPage = () => {
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
-  );
-
-  const resetSections = useStoreActions(
-    (actions) => actions.master.resetSections
   );
 
   const masterSetEntireState = useStoreActions(
@@ -71,7 +68,7 @@ const UiPage = () => {
 
   useLayoutEffect(() => {
     if (NO_AUTH) {
-      resetSections();
+      resetState("master");
       loadSections();
     } else {
       tryLoadingDraftUI();
