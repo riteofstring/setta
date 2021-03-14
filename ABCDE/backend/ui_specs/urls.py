@@ -4,13 +4,11 @@ from rest_framework import routers
 
 from .api import (  # SavedVersionNamesAPIView,
     DraftUIAPIView,
-    GenerateCodeAPIView,
     SavedUIAndVersionNamesAPIView,
     SavedUIAndVersionsAPIView,
 )
 
 urlpatterns = [
-    path("api/generate_code", GenerateCodeAPIView.as_view()),
     path("api/saved_uis", SavedUIAndVersionsAPIView.as_view()),
     path(
         "api/saved_uis/<str:uiName>:<str:versionName>",

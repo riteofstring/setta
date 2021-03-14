@@ -4,6 +4,15 @@ from asgiref.sync import async_to_sync
 from backend_utils.utils import query_string_parser
 from channels.generic.websocket import WebsocketConsumer
 from django.conf import settings
+from ui_specifier.utils.yaml_parsing import generate_code
+
+
+def generate_code_helper(input_dict):
+    ui_selections = input_dict["SELECTED"]
+    factory_specs = input_dict["FACTORIES"]
+    funcs = input_dict["FUNCS"]
+    ui_repr = generate_code(ui_selections, factory_specs, funcs)
+    return str(ui_repr)
 
 
 def get_group_name(scope):
@@ -36,36 +45,14 @@ class CLISyncConsumer(WebsocketConsumer):
 
     def receive(self, text_data):
         outgoing = get_outgoing_group_name(self.scope)
-        data_to_send = json.loads(text_data)["enteredText"]
-        async_to_sync(self.channel_layer.group_send)(
-            outgoing,
-            {
-                "type": "cli",
-                "enteredText": data_to_send,
-            },
-        )
+        data_to_send = json.loads(text_data)
+        if "enteredText" in data_to_send:
+            output_dict = {"enteredText": data_to_send["enteredText"]}
+        elif "code" in data_to_send:
+            gen_code = generate_code_helper(data_to_send["code"])
+            output_dict = {"code": gen_code}
+        output_dict["type"] = "cli"
+        async_to_sync(self.channel_layer.group_send)(outgoing, output_dict)
 
     def cli(self, event):
-        self.send(text_data=json.dumps({"enteredText": event["enteredText"]}))
-
-
-# class NewGeneratedCodeSyncConsumer(SyncConsumer):
-#     def websocket_connect(self, event):
-#         self.send({"type": "websocket.accept"})
-
-#         async_to_sync(self.channel_layer.group_add)(
-#             settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME, self.channel_name
-#         )
-
-#     def websocket_disconnect(self, event):
-#         async_to_sync(self.channel_layer.group_discard)(
-#             settings.NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME, self.channel_name
-#         )
-
-#     def newGeneratedCode(self, event):
-#         self.send(
-#             {
-#                 "type": "websocket.send",
-#                 "text": event["content"],
-#             }
-#         )
+        self.send(text_data=json.dumps(event))
