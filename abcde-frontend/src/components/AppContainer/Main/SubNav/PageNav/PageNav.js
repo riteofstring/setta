@@ -1,10 +1,9 @@
-import TemplateButton from "./TemplateButton/TemplateButton";
-import UiEditButton from "./UiEditButton/UiEditButton";
-import SaveAsButton from "./SaveAsButton/SaveAsButton";
-import { VscSave, VscSaveAs } from "react-icons/vsc";
+import { VscSave } from "react-icons/vsc";
 import { IoDocumentTextOutline } from "react-icons/io5";
-import { ChevronDownIcon, EditIcon, ExternalLinkIcon } from "@chakra-ui/icons";
+import { ChevronDownIcon } from "@chakra-ui/icons";
 import { Menu, MenuButton, MenuList, MenuItem, Button } from "@chakra-ui/react";
+import UiEditButton from "./UiEditButton/UiEditButton";
+import SaveLoadButton from "../../../../../utils/FileExplorer/SaveLoadButton";
 export default function PageNav() {
   return (
     <>
@@ -21,10 +20,9 @@ export default function PageNav() {
         </MenuButton>
         <MenuList zIndex="11">
           <MenuItem icon={<IoDocumentTextOutline />}>New Project</MenuItem>
-          <TemplateButton />
-
+          <SaveLoadButton ButtonText="Load" />
           <MenuItem icon={<VscSave />}>Save</MenuItem>
-          <SaveAsButton />
+          <SaveLoadButton ButtonText="Save As" />
         </MenuList>
       </Menu>
       <UiEditButton />

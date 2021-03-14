@@ -13,7 +13,6 @@ import {
   InputRightElement,
   Grid,
 } from "@chakra-ui/react";
-import * as Yup from "yup";
 import { useStoreActions } from "easy-peasy";
 import { login } from "../../dbRequests/authentication.js";
 
@@ -48,7 +47,7 @@ const LoginPage = () => {
         actionLoginSuccess,
         actionLoginFail,
       }).then((x) => {
-        console.log("x", x)
+        console.log("x", x);
         if (x.type === "@action.auth.loginSuccess") {
           history.push("/ui");
         }

@@ -9,6 +9,7 @@ export default function TheParam({
   moduleName,
   objName,
   parameters,
+  idx,
 }) {
   const { name, ui_type, default_val } = parameters;
 
@@ -124,7 +125,7 @@ export default function TheParam({
       </FormLabel>
       <PinButton />
       <Spacer />
-      <ParamSweepButton key={name} />
+      <ParamSweepButton key={`${name}-${idx}`} idx={idx} />
       {inputSwitch()}
     </HStack>
   );

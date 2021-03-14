@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  Grid,
-  GridItem,
-  Flex,
-  IconButton,
-  Box,
-  forwardRef,
-} from "@chakra-ui/react";
-import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
+import { Grid, GridItem, Box } from "@chakra-ui/react";
 import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import graphPaperBg from "../../../assets/images/graph-paper.svg";
