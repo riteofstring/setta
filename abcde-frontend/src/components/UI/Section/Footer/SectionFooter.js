@@ -25,12 +25,10 @@ export default function SectionFooter({ sectionId, isListRoot }) {
         rowStart="1"
         rowEnd="2"
       >
-        {sectionHasNested && !isListRoot ? (
+        {sectionHasNested && !isListRoot && (
           <Button size="sm" onClick={flipShown}>
-            {!!isShown ? "Hide Nested" : "Show Nested"}
+            {isShown ? "Hide Nested" : "Show Nested"}
           </Button>
-        ) : (
-          <></>
         )}
       </GridItem>
       <GridItem

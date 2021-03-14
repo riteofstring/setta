@@ -122,7 +122,7 @@ function SectionContainerCore({ sectionId, rootId, parentId, nextId, childrenIds
 
   return (
     <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
-      {!!isList & !isListRoot && (
+      {isList & !isListRoot && (
         <HStack
           h="100%"
           borderLeftRadius="inherit"
