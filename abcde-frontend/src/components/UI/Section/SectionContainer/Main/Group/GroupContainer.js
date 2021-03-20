@@ -34,6 +34,8 @@ export default function GroupContainer({ sectionId }) {
   };
 
   const paramsInfo = getParamsArr();
+
+  // temp_
   const tempKwargs = true;
   return (
     <Stack>

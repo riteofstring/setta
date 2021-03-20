@@ -129,6 +129,8 @@ function SectionContainerCore({
 
   const searchItems = getSearchItems();
 
+  // temp_
+  const tempBool = true;
   return (
     <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
       {!!isList & !isListRoot && (
@@ -154,7 +156,9 @@ function SectionContainerCore({
         />
         {!isListRoot && (
           <Stack>
-            <SectionSearch sectionId={sectionId} items={searchItems} />
+            {tempBool && (
+              <SectionSearch sectionId={sectionId} items={searchItems} />
+            )}
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>

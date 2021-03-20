@@ -4,6 +4,7 @@ import { useState } from "react";
 import ListItem from "./ListItem";
 import FileListContainer from "./FileListContainer";
 
+// temp_
 const tempStructure = {
   "folder one": {
     "one one": "one one",
@@ -22,6 +23,7 @@ const tempStructure = {
   },
 };
 
+// temp_
 const tempFld = Object.keys(tempStructure);
 
 export default function FileExplorer() {
