@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   HStack,
   Button,
@@ -14,42 +14,107 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
-export default function SaveAsButton(props) {
-  const { onClose, isOpen, ButtonText } = props;
-  // const { isOpen, onOpen, onClose } = useDisclosure();
-  const token = useStoreState((state) => state.auth.token);
-  const currUIName = useStoreState((state) => state.uiInfo.currUIName);
-  const currVersionName = useStoreState(
-    (state) => state.uiInfo.currVersionName
+export default function SaveLoadModal(props) {
+  const {
+    onClose,
+    isOpen,
+    buttonText,
+    foldersAndFiles: originalFoldersAndFiles,
+  } = props;
+
+  const isSaveAs = buttonText === "Save As";
+
+  const [folderNames, setFolderNames] = useState(
+    Object.keys(originalFoldersAndFiles)
   );
+  const [foldersAndFiles, setFoldersAndFiles] = useState(
+    originalFoldersAndFiles
+  );
+  const [selectedFolder, setSelectedFolder] = useState("");
+  const [selectedFile, setSelectedFile] = useState({});
+  const [enteredFile, setEnteredFile] = useState("");
+
   const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
+  const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
+  const token = useStoreState((state) => state.auth.token);
 
-  const [enteredUIName, setEnteredUIName] = useState(currUIName);
-  const [enteredVersionName, setEnteredVersionName] = useState(currVersionName);
+  const _setSelectedFolder = (value) => {
+    if (value !== undefined) {
+      setSelectedFolder(value);
+    }
+  };
 
-  const onSaveAs = () => {
-    saveUI({ token, uiName: enteredUIName, versionName: enteredVersionName });
+  const _setSelectedFile = (value) => {
+    if (value !== undefined) {
+      setSelectedFile({ ...selectedFile, [selectedFolder]: value });
+      setEnteredFile(value);
+    }
+  };
+
+  const _onClose = () => {
+    onClose();
+    _setSelectedFolder("");
+    _setSelectedFile("");
+  };
+
+  useEffect(() => {
+    if (!selectedFolder) {
+      _setSelectedFolder(folderNames[0]);
+    }
+  }, [folderNames]);
+
+  useEffect(() => {
+    setFolderNames(Object.keys(originalFoldersAndFiles));
+    setFoldersAndFiles(originalFoldersAndFiles);
+  }, [originalFoldersAndFiles]);
+
+  const onSaveOrLoadClick = () => {
+    if (isSaveAs) {
+      saveUI({ token, folderName: selectedFolder, uiName: enteredFile });
+    } else if (buttonText === "Load") {
+      loadUI({ token, folderName: selectedFolder, uiName: enteredFile });
+    }
+
+    _onClose();
   };
 
   return (
     <>
-      <Modal onClose={onClose} isOpen={isOpen} isCentered size="6xl">
+      <Modal onClose={_onClose} isOpen={isOpen} isCentered size="6xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {ButtonText === "Save As" ? "Save Project As" : "Load Project"}
+            {isSaveAs ? "Save Project As" : "Load Project"}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <FileExplorer />
-            {!!ButtonText === "Save As" && <FileNameInput />}
+            <FileExplorer
+              folderNames={folderNames}
+              foldersAndFiles={foldersAndFiles}
+              onFileSelect={_setSelectedFile}
+              onFolderSelect={_setSelectedFolder}
+              selectedFolder={selectedFolder}
+              selectedFile={selectedFile}
+              includeNewFolderButton={isSaveAs}
+              setFolderNames={setFolderNames}
+              setFoldersAndFiles={setFoldersAndFiles}
+            />
+            {isSaveAs && (
+              <HStack>
+                <FileNameInput
+                  value={enteredFile}
+                  onChange={setEnteredFile}
+                  placeholder="File"
+                />
+              </HStack>
+            )}
           </ModalBody>
           <ModalFooter>
             <HStack justify="stretch" mb=".5rem" spacing={4}>
-              <Button colorScheme="blue" onClick={ButtonText && onSaveAs}>
-                {ButtonText}
+              <Button colorScheme="blue" onClick={onSaveOrLoadClick}>
+                {buttonText}
               </Button>
-              <Button onClick={onClose}>Close</Button>
+              <Button onClick={_onClose}>Close</Button>
             </HStack>
           </ModalFooter>
         </ModalContent>
