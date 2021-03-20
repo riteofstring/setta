@@ -44,12 +44,10 @@ export default function SectionContainer({
     <Stack height="100%">
         <SectionContainerCoreWithSizeMe
           sectionId={sectionId}
-          rootId={rootId}
           parentId={parentId}
           nextId={nextId}
           childrenIds={childrenIds}
           theSection={theSection}
-          depth={depth}
           onSize={(size)=>setSectionSize({sectionId, size})}
         />
       {order.length > 0 &&
@@ -72,40 +70,11 @@ export default function SectionContainer({
 
 const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(SectionContainerCore)
 
-function SectionContainerCore({ sectionId, rootId, parentId, nextId, childrenIds, theSection, depth }) {
-  const selected = useStoreState((state) => state.master.selected[sectionId]);
-
-  const stringId = createStringId(
-    sectionId,
-    selected.moduleName,
-    selected.name
-  );
-
-  const sectionModuleObjHasNested = useStoreState(
-    (state) => state.master.sectionModuleObjHasNested[stringId]
-  );
-  const shiftAmount = useStoreState(
-    (state) => state.master.shiftAmount[sectionId]
-  );
+function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSection }) {
   const isList = useStoreState((state) => state.master.isList[sectionId]);
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
   );
-
-  const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
-
-  const setShiftAmount = useStoreActions(
-    (actions) => actions.master.setShiftAmount
-  );
-
-  const setInFocus = useStoreActions((actions) => actions.master.setInFocus);
-
-  const applyFocus = () => {
-    if (!inFocus) {
-      setInFocus(sectionId);
-      setShiftAmount({ rootId, shiftAmount: depth });
-    }
-  };
 
   const getSearchItems = () => {
     const { moduleInfos } = theSection;
@@ -139,7 +108,6 @@ function SectionContainerCore({ sectionId, rootId, parentId, nextId, childrenIds
         pl="1rem"
         py="1rem"
         w="700px"
-        onClick={() => applyFocus()}
       >
         <SectionHeader
           sectionId={sectionId}
