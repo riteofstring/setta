@@ -132,7 +132,7 @@ function SectionContainerCore({
   // temp_
   const tempBool = true;
   return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
+    <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
       {!!isList & !isListRoot && (
         <HStack
           h="100%"

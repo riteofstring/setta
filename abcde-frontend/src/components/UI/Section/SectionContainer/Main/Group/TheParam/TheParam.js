@@ -86,7 +86,15 @@ export default function TheParam({
   switch (tempKwargs) {
     case "KWARGS":
       return (
-        <HStack>
+        <HStack
+          px=".75rem"
+          pb="0.5rem"
+          pt="0.25rem"
+          borderRadius=".5rem"
+          _hover={{
+            backgroundColor: "white",
+          }}
+        >
           <Input
             type=""
             variant="flushed"
@@ -110,7 +118,15 @@ export default function TheParam({
       );
     default:
       return (
-        <HStack>
+        <HStack
+          px=".75rem"
+          pb="0.5rem"
+          pt="0.25rem"
+          borderRadius=".5rem"
+          _hover={{
+            backgroundColor: "white",
+          }}
+        >
           <FormLabel>
             <Text fontSize="sm" fontWeight="semibold" color="gray.700">
               {name}
