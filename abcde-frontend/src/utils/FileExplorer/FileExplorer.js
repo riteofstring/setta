@@ -1,59 +1,54 @@
 import { HStack, useRadioGroup, Flex, Button, Spacer } from "@chakra-ui/react";
-// import { useStoreActions, useStoreState } from "easy-peasy";
-import { useState } from "react";
 import ListItem from "./ListItem";
 import FileListContainer from "./FileListContainer";
 
-// temp_
-const tempStructure = {
-  "folder one": {
-    "one one": "one one",
-    "one two": "one two",
-    "one three": "one three",
-  },
-  "folder two": {
-    "two one": "two one",
-    "two two": "two two",
-    "two three": "two three",
-  },
-  "folder three": {
-    "three one": "three one",
-    "three two": "three two",
-    "three three": "three three",
-  },
-};
+export default function FileExplorer({
+  folderNames,
+  folderAndFileInfo,
+  onFolderSelect,
+  onFileSelect,
+  selectedFolder,
+  selectedFile,
+}) {
 
-// temp_
-const tempFld = Object.keys(tempStructure);
-
-export default function FileExplorer() {
-  const { getRootProps, getRadioProps } = useRadioGroup({
-    name: "framework",
-    defaultValue: "react",
+  const {
+    getRootProps: getRootPropsFolder,
+    getRadioProps: getRadioPropsFolder,
+  } = useRadioGroup({
+    name: "folderSelection",
+    defaultValue: selectedFolder,
+    value: selectedFolder,
+    onChange: onFolderSelect,
   });
-  const group = getRootProps();
 
-  const [value, setValue] = useState(tempFld[0]);
+  const {
+    getRootProps: getRootPropsFile,
+    getRadioProps: getRadioPropsFile,
+  } = useRadioGroup({
+    name: "fileSelection",
+    value: selectedFile[selectedFolder],
+    onChange: onFileSelect,
+  });
 
   return (
     <HStack h="40vh">
-      <FileListContainer
-        width="40%"
-        group={group}
-        onChange={setValue}
-        value={value}
-      >
-        {tempFld.map((e) => {
-          const radio = getRadioProps({ e });
+      <FileListContainer width="40%" group={getRootPropsFolder()}>
+        {folderNames.map((value) => {
+          const radio = getRadioPropsFolder({ value });
 
           return (
-            <ListItem key={`folderitem-${e}`} value={e} {...radio}>
-              {e}
+            <ListItem
+              key={`folderitem-${value}`}
+              {...radio}
+              isFolder={true}
+              isSelected={value === selectedFolder}
+            >
+              {value}
             </ListItem>
           );
         })}
       </FileListContainer>
-      <FileListContainer width="60%" group={group}>
+      <FileListContainer width="60%" group={getRootPropsFile()}>
         <Flex
           py={0}
           px={0}
@@ -69,12 +64,14 @@ export default function FileExplorer() {
             Date
           </Button>
         </Flex>
-        {tempFld[value]
-          ? tempFld[value].map((e) => {
-              const radio = getRadioProps({ e });
+        {folderAndFileInfo[selectedFolder]
+          ? folderAndFileInfo[selectedFolder].map((value) => {
+              const radio = getRadioPropsFile({
+                value,
+              });
               return (
-                <ListItem key={`folderitem-${e}`} {...radio}>
-                  {e}
+                <ListItem key={`fileitem-${value}`} {...radio} isFolder={false}>
+                  {value}
                 </ListItem>
               );
             })

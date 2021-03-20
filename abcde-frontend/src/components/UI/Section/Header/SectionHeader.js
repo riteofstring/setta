@@ -1,4 +1,4 @@
-import { Stack, Spacer, Select } from "@chakra-ui/react";
+import { Stack, Spacer } from "@chakra-ui/react";
 import SectionTitle from "./Title/SectionTitle";
 import { useStoreState } from "easy-peasy";
 import Incrementer from "../Incrementer/Incrementer";
@@ -20,29 +20,20 @@ export default function SectionHeader({
   const currObjectName = selected.name;
 
   return (
-    <Stack direction="row" align="center" w="100%">
-      {isList && (
-        <Select placeholder="List" size="sm" w="auto">
-          <option value="option1">List</option>
-          <option value="option2">Dictionary</option>
-        </Select>
-      )}
+    <Stack direction="row" w="100%">
       <SectionTitle
         sectionHeading={sectionHeading}
         currObjectName={currObjectName}
       />
-
+      <Spacer />
       {isList && (
-        <>
-          <Spacer />
-          <Incrementer
-            sectionId={sectionId}
-            parentId={parentId}
-            nextId={nextId}
-            childrenIds={childrenIds}
-            isListRoot={isListRoot}
-          />
-        </>
+        <Incrementer
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          childrenIds={childrenIds}
+          isListRoot={isListRoot}
+        />
       )}
     </Stack>
   );
