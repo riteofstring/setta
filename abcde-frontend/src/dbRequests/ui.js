@@ -9,7 +9,7 @@ export const generateAndRunCode = ({
   FACTORIES,
   FUNCS,
 }) => {
-  const body = JSON.stringify({ code: { SELECTED, FACTORIES, FUNCS } });
+  const body = JSON.stringify({code: { SELECTED, FACTORIES, FUNCS }});
   cliSocket.send(body);
 };
 
@@ -18,40 +18,41 @@ export const createUI = ({ cliSocket, enteredText }) => {
   cliSocket.send(body);
 };
 
-export const saveUI = ({ token, folderName, uiName, statesToSave }) => {
-  console.log("folderName, uiName", folderName, uiName)
+export const saveUI = ({
+  token,
+  uiName,
+  versionName,
+  rootSections,
+  statesToSave,
+}) => {
+  const completeState = stringifyCompleteState(statesToSave);
   const body = JSON.stringify({
-    ui: {
-      uiName,
-      completeState: stringifyCompleteState(statesToSave),
-    },
-    folder: { folderName },
+    ui: { uiName, rootSections },
+    version: { versionName, completeState },
   });
   return axios
-    .post(BACKEND + "api/saved_folder_and_ui", body, tokenConfig(token))
+    .post(BACKEND + "api/saved_uis", body, tokenConfig(token))
     .then((res) => {})
     .catch((err) => {});
 };
 
-export const loadFolderAndUINames = ({ token }) => {
+export const loadUINames = ({ token }) => {
   return axios
-    .get(BACKEND + "api/saved_folder_and_ui_names", tokenConfig(token))
-    .then((res) => res.data["folderAndUINames"])
+    .get(BACKEND + "api/saved_ui_names", tokenConfig(token))
+    .then((res) => res.data["uiNames"])
     .catch((err) => {});
 };
 
-export const loadUI = ({ token, folderName, uiName }) => {
-  const fullName = folderName + ":" + uiName
+export const loadUI = ({ token, uiName }) => {
   return axios
-    .get(BACKEND + "api/saved_folder_and_ui/" + fullName, tokenConfig(token))
+    .get(BACKEND + "api/saved_uis/" + uiName, tokenConfig(token))
     .then((res) => res.data)
     .catch((err) => {});
 };
 
 export const saveDraftUI = ({ token, statesToSave }) => {
-  const body = JSON.stringify({
-    completeState: stringifyCompleteState(statesToSave),
-  });
+  const completeState = stringifyCompleteState(statesToSave);
+  const body = JSON.stringify({ completeState });
   return axios
     .post(BACKEND + "api/draft_ui", body, tokenConfig(token))
     .then((res) => res.data)

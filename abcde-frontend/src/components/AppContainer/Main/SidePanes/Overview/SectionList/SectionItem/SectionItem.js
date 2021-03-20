@@ -21,8 +21,10 @@ export default function SectionItem({
 
   return (
     <HStack py="0.125rem">
-      {isList && !isListRoot && (
+      {isList && !isListRoot ? (
         <DragHandleIcon cursor="move" size="sm" color="gray.200" />
+      ) : (
+        <></>
       )}
       <Text onClick={onClick}>{sectionHeading}</Text>
     </HStack>
