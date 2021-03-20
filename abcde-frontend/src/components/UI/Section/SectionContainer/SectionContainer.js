@@ -2,10 +2,10 @@ import React, { useEffect } from "react";
 import { Stack, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import GroupContainer from "../Main/Group/GroupContainer";
-import SectionSearch from "../Main/Search/Search";
-import SectionHeader from "../Header/SectionHeader";
-import SectionFooter from "../Footer/SectionFooter";
+import GroupContainer from "./Main/Group/GroupContainer";
+import SectionSearch from "./Main/Search/Search";
+import SectionHeader from "./Header/SectionHeader";
+import SectionFooter from "./Footer/SectionFooter";
 import { createStringId } from "../../../../utils/sectionIds";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
@@ -21,7 +21,6 @@ export default function SectionContainer({
   theSection,
   depth,
 }) {
-
   const setSectionSize = useStoreActions(
     (action) => action.sectionSizes.setSectionSize
   );
@@ -42,14 +41,16 @@ export default function SectionContainer({
 
   return (
     <Stack height="100%">
-        <SectionContainerCoreWithSizeMe
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          childrenIds={childrenIds}
-          theSection={theSection}
-          onSize={(size)=>setSectionSize({sectionId, size})}
-        />
+      <SectionContainerCoreWithSizeMe
+        sectionId={sectionId}
+        rootId={rootId}
+        parentId={parentId}
+        nextId={nextId}
+        childrenIds={childrenIds}
+        theSection={theSection}
+        depth={depth}
+        onSize={(size) => setSectionSize({ sectionId, size })}
+      />
       {order.length > 0 &&
         order.map((e, idx) => (
           <NestedSection
@@ -68,13 +69,52 @@ export default function SectionContainer({
   );
 }
 
-const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(SectionContainerCore)
+const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(
+  SectionContainerCore
+);
 
-function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSection }) {
+function SectionContainerCore({
+  sectionId,
+  rootId,
+  parentId,
+  nextId,
+  childrenIds,
+  theSection,
+  depth,
+}) {
+  const selected = useStoreState((state) => state.master.selected[sectionId]);
+
+  const stringId = createStringId(
+    sectionId,
+    selected.moduleName,
+    selected.name
+  );
+
+  const sectionModuleObjHasNested = useStoreState(
+    (state) => state.master.sectionModuleObjHasNested[stringId]
+  );
+  const shiftAmount = useStoreState(
+    (state) => state.master.shiftAmount[sectionId]
+  );
   const isList = useStoreState((state) => state.master.isList[sectionId]);
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
   );
+
+  const inFocus = useStoreState((state) => state.master.inFocus[sectionId]);
+
+  const setShiftAmount = useStoreActions(
+    (actions) => actions.master.setShiftAmount
+  );
+
+  const setInFocus = useStoreActions((actions) => actions.master.setInFocus);
+
+  const applyFocus = () => {
+    if (!inFocus) {
+      setInFocus(sectionId);
+      setShiftAmount({ rootId, shiftAmount: depth });
+    }
+  };
 
   const getSearchItems = () => {
     const { moduleInfos } = theSection;
@@ -89,9 +129,11 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
 
   const searchItems = getSearchItems();
 
+  // temp_
+  const tempBool = true;
   return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
-      {isList & !isListRoot && (
+    <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
+      {!!isList & !isListRoot && (
         <HStack
           h="100%"
           borderLeftRadius="inherit"
@@ -103,12 +145,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
         </HStack>
       )}
 
-      <Stack
-        pr="1.5rem"
-        pl="1rem"
-        py="1rem"
-        w="700px"
-      >
+      <Stack px="1.5rem" py="1.5rem" w="700px" onClick={() => applyFocus()}>
         <SectionHeader
           sectionId={sectionId}
           parentId={parentId}
@@ -119,7 +156,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
         />
         {!isListRoot && (
           <Stack>
-            <SectionSearch sectionId={sectionId} items={searchItems} />
+            {tempBool && (
+              <SectionSearch sectionId={sectionId} items={searchItems} />
+            )}
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>

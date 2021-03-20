@@ -20,13 +20,18 @@ const master = {
   rootIdHierarchy: {},
   isVisible: {},
   isShown: {},
+  shiftAmount: {},
   isList: {},
   isListRoot: {},
   listCount: {},
   sectionIdsToSectionHeadings: {},
   sectionIdsToStringIds: {},
   stringIdsToSectionIds: {},
+  inFocus: [false],
   sectionHasNested: {},
+  sectionModuleObjHasNested: {},
+  sectionSearchVal: {},
+  showTerminal: false,
 
   // actions
   // Load DATA
@@ -49,13 +54,16 @@ const master = {
         parentModuleName: null,
         parentObjName: null,
       };
+      state.shiftAmount[id] = 0;
       state.sectionIdsToSectionHeadings[id] = isJson
         ? key
         : state.sections[id].name;
       state.sectionIdsToStringIds[id] = id;
       state.stringIdsToSectionIds[id] = id;
       state.sectionCount += 1;
+      state.inFocus.push(false);
       state.sectionHasNested[id] = false;
+      state.sectionModuleObjHasNested[id] = false;
       state.isList[id] = null;
       state.isListRoot[id] = false;
       state.listCount[id] = 0;
@@ -98,6 +106,11 @@ const master = {
     h[sectionId].objName = name;
   }),
 
+  setShiftAmount: action((state, payload) => {
+    const { rootId, shiftAmount } = payload;
+    state.shiftAmount[rootId] = shiftAmount;
+  }),
+
   setChildrenIds: action((state, payload) => {
     const { sectionId, childrenIds } = payload;
     if (sectionId in state.rootIdHierarchy) {
@@ -117,6 +130,11 @@ const master = {
     state.sectionIdsToSectionHeadings[sectionId] = name;
     state.sectionIdsToStringIds[sectionId] = stringId;
     state.stringIdsToSectionIds[stringId] = sectionId;
+  }),
+
+  setInFocus: action((state, payload) => {
+    const x = parseInt(payload);
+    state.inFocus = state.inFocus.map((e, idx) => idx === x);
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
@@ -147,6 +165,7 @@ const master = {
           ].type;
         state.selected[id] = {};
       }
+      state.inFocus.splice(id, 0, false);
 
       if (isList) {
         if (siblingId !== null) {
@@ -171,6 +190,9 @@ const master = {
       };
 
       state.sectionHasNested[parentId] = true;
+      state.sectionModuleObjHasNested[
+        createStringId(parentId, moduleName, objName)
+      ] = true;
       state.isShown[id] = true;
       state.isVisible[id] = true;
     } else {
@@ -189,7 +211,6 @@ const master = {
     const { sectionId, parentObj } = payload;
     const stringId = state.sectionIdsToStringIds[sectionId];
     delete state.stringIdsToSectionIds[stringId];
-    delete state.idHierarchy[sectionId]
     parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 
@@ -320,6 +341,15 @@ const master = {
       FACTORIES: helpers.getStoreState().factoriesInfo.factories,
       FUNCS: helpers.getStoreState().funcsInfo.funcs,
     });
+  }),
+
+  setSectionSearchVal: action((state, payload) => {
+    const { sectionId, value } = payload;
+    state.sectionSearchVal[sectionId] = value;
+  }),
+
+  setShowTerminal: action((state, payload) => {
+    state.showTerminal = !state.showTerminal;
   }),
 };
 

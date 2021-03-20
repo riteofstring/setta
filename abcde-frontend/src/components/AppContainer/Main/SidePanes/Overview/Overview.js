@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import PaneContainer from "../PaneContainer";
 import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
@@ -11,8 +10,6 @@ const paneProps = {
 };
 
 export default function Overview() {
-  const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([])
-
   const rootIdHierarchy = useStoreState(
     (state) => state.master.rootIdHierarchy
   );
@@ -30,22 +27,18 @@ export default function Overview() {
       isVisible,
       sectionIdsToSectionHeadings,
       isList,
-      isListRoot
+      isListRoot,
     );
     console.log("overviewListing", overviewListing);
     return overviewListing;
   };
-
-  useEffect(() => {
-    setListOfSectionIdsAndNames(getListOfSectionIdsAndNames())
-  }, [rootIdHierarchy, idHierarchy, isVisible, sectionIdsToSectionHeadings])
 
   return (
     <PaneContainer paneProps={paneProps}>
       <Heading as="h2" size="md" color="gray.500" pb=".5rem">
         Overview
       </Heading>
-      <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
+      <SectionList listOfSectionIdsAndNames={getListOfSectionIdsAndNames()} />
     </PaneContainer>
   );
 }

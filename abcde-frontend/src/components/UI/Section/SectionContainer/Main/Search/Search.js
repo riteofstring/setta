@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useCombobox } from "downshift";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
@@ -6,12 +6,14 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, items }) {
-  const [selectedItem, setSelectedItem] = useState(null);
+  
 
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
-  const selected = useStoreState((state) => state.master.selected[sectionId]);
+  const selected = useStoreState(
+    (state) => state.master.selected[sectionId]
+  );
   const sectionHasNested = useStoreState(
     (state) => state.master.sectionHasNested[sectionId]
   );
@@ -20,15 +22,18 @@ export default function SectionSearch({ sectionId, items }) {
     (actions) => actions.master.deleteChildrenFromVisibleSectionIds
   );
 
-  useEffect(() => {
-    const info = selected ? selected : null;
-    if (info === null) {
-      setSelectedItem(info);
+  console.log("SectionSearch sectionId selected", sectionId, selected);
+
+  const initialSelectedItem = () => {
+    const info = selected ? selected : null
+    if (info === null){
+      return info
     }
-    const { moduleName, name } = info;
-    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name);
-    setSelectedItem(items[index]);
-  }, [selected, items]);
+    const {moduleName, name} = info
+    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name)
+    return items[index]
+
+  }
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
@@ -43,6 +48,7 @@ export default function SectionSearch({ sectionId, items }) {
   const [inputItems, setInputItems] = useState(items);
   const {
     isOpen,
+    selectedItem,
     getToggleButtonProps,
     // getLabelProps,
     getMenuProps,
@@ -51,8 +57,8 @@ export default function SectionSearch({ sectionId, items }) {
     highlightedIndex,
     getItemProps,
   } = useCombobox({
-    selectedItem,
     items: inputItems,
+    initialSelectedItem: initialSelectedItem(),
     itemToString,
     onSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
@@ -63,6 +69,9 @@ export default function SectionSearch({ sectionId, items }) {
       );
     },
   });
+
+  console.log("selectedItem", selectedItem);
+  console.log("highlightedIndex", highlightedIndex);
 
   return (
     <Flex direction="column" align="center" overflow="visible" h="2.5rem">
