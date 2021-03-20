@@ -22,7 +22,8 @@ const uiInfo = {
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
-    const masterSetEntireState = helpers.getStoreActions().master.setEntireState;
+    const masterSetEntireState = helpers.getStoreActions().master
+      .setEntireState;
     const globalCurrSetEntireState = helpers.getStoreActions().globalCurr
       .setEntireState;
     const yamlEntrySetEntireState = helpers.getStoreActions().yamlEntry
@@ -32,14 +33,12 @@ const uiInfo = {
     const funcsInfoSetEntireState = helpers.getStoreActions().funcsInfo
       .setEntireState;
 
-    console.log("globalCurrSetEntireState", globalCurrSetEntireState)
-
     const { loadType } = payload;
     delete payload["loadType"];
     const loadFunc = loadType === "draft" ? loadDraftUIBackend : loadUIBackend;
     let data = await loadFunc(payload);
     if (data) {
-      data = loadType === "draft" ? data.completeState : data.ui.completeState
+      data = loadType === "draft" ? data.completeState : data.ui.completeState;
       const {
         masterState,
         globalCurrState,
