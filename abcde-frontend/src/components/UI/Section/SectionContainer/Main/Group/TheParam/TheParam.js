@@ -81,30 +81,14 @@ export default function TheParam({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId, moduleName, objName]);
 
-  const inputSwitch = () => {
-    switch (ui_type) {
-      // case "NUM":
-      //   return (
-      //     <NumberInput>
-      //       <NumberInputField />
-      //       <NumberInputStepper>
-      //         <NumberIncrementStepper />
-      //         <NumberDecrementStepper />
-      //       </NumberInputStepper>
-      //     </NumberInput>
-      //   );
-      // case "LIST_NESTED_OBJECT":
-      // case "NESTED_OBJECT":
-      //   return <Box>Nested Function</Box>;
-      // case "LIST":
-      //   return <Box>It's a list bro!</Box>;
-      // case "OPTION":
-      //   return <Switch />;
-      // case "TEXT":
-      default:
-        return (
+  const tempKwargs = "KWARGS";
+  // switch (ui_type) {
+  switch (tempKwargs) {
+    case "KWARGS":
+      return (
+        <HStack>
           <Input
-            type="groupone"
+            type=""
             variant="flushed"
             placeholder={default_val}
             size="xs"
@@ -112,21 +96,37 @@ export default function TheParam({
             value={value}
             onChange={(e) => sendState(name, e.target.value)}
           />
-        );
-    }
-  };
-
-  return (
-    <HStack>
-      <FormLabel>
-        <Text fontSize="sm" fontWeight="semibold" color="gray.700">
-          {name}
-        </Text>
-      </FormLabel>
-      <PinButton />
-      <Spacer />
-      <ParamSweepButton key={`${name}-${idx}`} idx={idx} />
-      {inputSwitch()}
-    </HStack>
-  );
+          <Spacer />
+          <Input
+            type=""
+            variant="flushed"
+            placeholder={default_val}
+            size="xs"
+            maxWidth="10rem"
+            value={value}
+            onChange={(e) => sendState(name, e.target.value)}
+          />
+        </HStack>
+      );
+    default:
+      return (
+        <HStack>
+          <FormLabel>
+            <Text fontSize="sm" fontWeight="semibold" color="gray.700">
+              {name}
+            </Text>
+          </FormLabel>
+          <Spacer />
+          <Input
+            type=""
+            variant="flushed"
+            placeholder={default_val}
+            size="xs"
+            maxWidth="10rem"
+            value={value}
+            onChange={(e) => sendState(name, e.target.value)}
+          />
+        </HStack>
+      );
+  }
 }

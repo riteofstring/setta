@@ -1,4 +1,11 @@
-import { Stack, HStack, Heading, FormControl } from "@chakra-ui/react";
+import {
+  Stack,
+  HStack,
+  Heading,
+  FormControl,
+  IconButton,
+} from "@chakra-ui/react";
+import { AddIcon } from "@chakra-ui/icons";
 import TheParam from "./TheParam/TheParam";
 import PinButton from "./TheParam/PinButton/PinButton";
 import { useStoreState } from "easy-peasy";
@@ -27,21 +34,23 @@ export default function GroupContainer({ sectionId }) {
   };
 
   const paramsInfo = getParamsArr();
-
+  const tempKwargs = true;
   return (
-    <Stack
-      px="1.5rem"
-      py="1rem"
-      border="1px"
-      borderColor="gray.300"
-      borderRadius="md"
-    >
-      <HStack>
-        <Heading as="h3" color="gray.400" size="md" fontWeight="bold">
-          Group One
-        </Heading>
-        <PinButton />
-      </HStack>
+    <Stack>
+      {paramsInfo.parameters.length > 0 && (
+        <HStack pt="1rem">
+          <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
+            {tempKwargs ? "KWARGS" : "Parameters"}
+          </Heading>
+          <IconButton
+            icon={<AddIcon w={2} />}
+            size="xs"
+            variant="outline"
+            borderRadius="full"
+          />
+        </HStack>
+      )}
+
       <FormControl id="groupone">
         {paramsInfo.parameters.length > 0 &&
           paramsInfo.parameters.map((e, idx) => (

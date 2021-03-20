@@ -1,4 +1,14 @@
-import { Grid, Icon, Button, GridItem, IconButton } from "@chakra-ui/react";
+import {
+  Grid,
+  Icon,
+  Button,
+  GridItem,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+} from "@chakra-ui/react";
 import {
   HiChevronUp,
   // HiChevronDown,
@@ -41,7 +51,7 @@ export default function SectionFooter({ sectionId, isListRoot }) {
         rowEnd="2"
       >
         <IconButton
-          bg="whiteAlpha"
+          variant="ghost"
           color="gray.500"
           aria-label="Search database"
           icon={<Icon cursor="pointer" as={HiChevronUp} />}
@@ -56,12 +66,20 @@ export default function SectionFooter({ sectionId, isListRoot }) {
         rowStart="1"
         rowEnd="2"
       >
-        <IconButton
-          bg="whiteAlpha"
-          color="gray.400"
-          aria-label="Search database"
-          icon={<SettingsIcon />}
-        />
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            aria-label="Options"
+            icon={<SettingsIcon />}
+            size="xs"
+            color="gray.500"
+            variant="ghost"
+          />
+          <MenuList>
+            <MenuItem>Parameter Sweeps</MenuItem>
+            <MenuItem>Settings</MenuItem>
+          </MenuList>
+        </Menu>
       </GridItem>
     </Grid>
   );

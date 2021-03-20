@@ -8,7 +8,7 @@ import { NO_AUTH } from "../../utils/constants";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { loadDraftUI } from "../../dbRequests/ui";
 import { websocketAuth } from "../../dbRequests/authentication.js";
-import { resetState } from "../../store/store"
+import { resetState } from "../../store/store";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -44,9 +44,9 @@ const UiPage = () => {
     (actions) => actions.auth.websocketTokenRetrievalFail
   );
 
-  const setCLISocket = useStoreActions((actions) => actions.cliSocket.setCLISocket);
-
-  console.log("UiPage");
+  const setCLISocket = useStoreActions(
+    (actions) => actions.cliSocket.setCLISocket
+  );
 
   const tryLoadingDraftUI = async () => {
     const data = await loadDraftUI({ token });
@@ -78,7 +78,7 @@ const UiPage = () => {
         actionWebsocketTokenRetrievalFail,
       }).then((x) => {
         if (x) {
-          setCLISocket({token: x});
+          setCLISocket({ token: x });
         }
       });
     }
