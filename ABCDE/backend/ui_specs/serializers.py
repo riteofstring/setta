@@ -20,11 +20,18 @@ class SavedFolderAndUISerializer(serializers.Serializer):
     ui = SavedUIsSerializer()
 
     def create(self, validated_data):
+
+        folderName = validated_data["folder"].pop("folderName")
         new_folder, folder_was_created = SavedFolders.objects.get_or_create(
-            owner=validated_data["owner"], **validated_data["folder"]
+            owner=validated_data["owner"],
+            folderName=folderName,
+            defaults=validated_data["folder"],
         )
+
+        uiName = validated_data["ui"].pop("uiName")
+
         new_ui, ui_was_created = SavedUIs.objects.update_or_create(
-            folder=new_folder, **validated_data["ui"]
+            folder=new_folder, uiName=uiName, defaults=validated_data["ui"]
         )
         return new_folder, new_ui
 
