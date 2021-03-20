@@ -2,10 +2,10 @@ import React, { useEffect } from "react";
 import { Stack, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import GroupContainer from "../Main/Group/GroupContainer";
-import SectionSearch from "../Main/Search/Search";
-import SectionHeader from "../Header/SectionHeader";
-import SectionFooter from "../Footer/SectionFooter";
+import GroupContainer from "./Main/Group/GroupContainer";
+import SectionSearch from "./Main/Search/Search";
+import SectionHeader from "./Header/SectionHeader";
+import SectionFooter from "./Footer/SectionFooter";
 import { createStringId } from "../../../../utils/sectionIds";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
@@ -21,7 +21,6 @@ export default function SectionContainer({
   theSection,
   depth,
 }) {
-
   const setSectionSize = useStoreActions(
     (action) => action.sectionSizes.setSectionSize
   );
@@ -68,7 +67,9 @@ export default function SectionContainer({
   );
 }
 
-const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(SectionContainerCore)
+const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(
+  SectionContainerCore
+);
 
 function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSection }) {
   const isList = useStoreState((state) => state.master.isList[sectionId]);
@@ -89,9 +90,11 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
 
   const searchItems = getSearchItems();
 
+  // temp_
+  const tempBool = true;
   return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w="700px">
-      {isList & !isListRoot && (
+    <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
+      {!!isList & !isListRoot && (
         <HStack
           h="100%"
           borderLeftRadius="inherit"
@@ -103,12 +106,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
         </HStack>
       )}
 
-      <Stack
-        pr="1.5rem"
-        pl="1rem"
-        py="1rem"
-        w="700px"
-      >
+      <Stack px="1.5rem" py="1.5rem" w="700px">
         <SectionHeader
           sectionId={sectionId}
           parentId={parentId}
@@ -119,7 +117,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
         />
         {!isListRoot && (
           <Stack>
-            <SectionSearch sectionId={sectionId} items={searchItems} />
+            {tempBool && (
+              <SectionSearch sectionId={sectionId} items={searchItems} />
+            )}
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>

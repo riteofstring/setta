@@ -29,8 +29,6 @@ const UiPage = () => {
     (actions) => actions.cliSocket.setCLISocket
   );
 
-  console.log("UiPage");
-
   const tryLoadingDraftUI = () => {
     loadUI({ token, loadType: "draft" });
   };
