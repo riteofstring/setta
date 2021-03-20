@@ -6,14 +6,10 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, items }) {
-  
-
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
-  const selected = useStoreState(
-    (state) => state.master.selected[sectionId]
-  );
+  const selected = useStoreState((state) => state.master.selected[sectionId]);
   const sectionHasNested = useStoreState(
     (state) => state.master.sectionHasNested[sectionId]
   );
@@ -25,15 +21,14 @@ export default function SectionSearch({ sectionId, items }) {
   console.log("SectionSearch sectionId selected", sectionId, selected);
 
   const initialSelectedItem = () => {
-    const info = selected ? selected : null
-    if (info === null){
-      return info
+    const info = selected ? selected : null;
+    if (info === null) {
+      return info;
     }
-    const {moduleName, name} = info
-    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name)
-    return items[index]
-
-  }
+    const { moduleName, name } = info;
+    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name);
+    return items[index];
+  };
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
@@ -73,58 +68,65 @@ export default function SectionSearch({ sectionId, items }) {
   console.log("selectedItem", selectedItem);
   console.log("highlightedIndex", highlightedIndex);
 
+  // temp_
+  const tempBool = true;
   return (
-    <Flex direction="column" align="center" overflow="visible" h="2.5rem">
-      {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
-        label
-      </Text> */}
+    <>
+      {tempBool && (
+        <Flex direction="column" align="center" overflow="visible" h="2.5rem">
+          {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
+      label
+    </Text> */}
 
-      <InputGroup width="100%">
-        <ComboboxInput
-          {...getInputProps()}
-          bg="white"
-          placeholder="Search..."
-        />
-        <IconButton
-          {...getToggleButtonProps()}
-          aria-label={"toggle menu"}
-          variantcolor={isOpen ? "gray" : "teal"}
-          icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-        />
-      </InputGroup>
+          <InputGroup width="100%">
+            <ComboboxInput
+              {...getInputProps()}
+              bg="white"
+              placeholder="Search..."
+            />
+            <IconButton
+              {...getToggleButtonProps()}
+              aria-label={"toggle menu"}
+              variantcolor={isOpen ? "gray" : "teal"}
+              icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            />
+          </InputGroup>
 
-      <Flex
-        {...getComboboxProps()}
-        direction="column"
-        flex="1 1 auto"
-        width="100%"
-        zIndex="10"
-      >
-        <ComboboxList
-          isOpen={isOpen}
-          {...getMenuProps()}
-          flex={1}
-          maxH="16rem"
-          overflowY="scroll"
-          mt={2}
-          bg="white"
-          borderRadius="0.25rem"
-          boxShadow="xl"
-          border="1px"
-          borderColor="gray.300"
-        >
-          {inputItems.map((item, index) => (
-            <ComboboxItem
-              {...getItemProps({ item, index })}
-              itemIndex={index}
-              highlightedIndex={highlightedIndex}
-              key={index}
+          <Flex
+            {...getComboboxProps()}
+            direction="column"
+            flex="1 1 auto"
+            width="100%"
+            zIndex="10"
+          >
+            <ComboboxList
+              isOpen={isOpen}
+              {...getMenuProps()}
+              flex={1}
+              maxH="16rem"
+              overflowY="scroll"
+              mt={2}
+              bg="white"
+              borderRadius="0.25rem"
+              boxShadow="xl"
+              border="1px"
+              borderColor="gray.300"
+              w="inherit"
             >
-              {itemToString(item)}
-            </ComboboxItem>
-          ))}
-        </ComboboxList>
-      </Flex>
-    </Flex>
+              {inputItems.map((item, index) => (
+                <ComboboxItem
+                  {...getItemProps({ item, index })}
+                  itemIndex={index}
+                  highlightedIndex={highlightedIndex}
+                  key={index}
+                >
+                  {itemToString(item)}
+                </ComboboxItem>
+              ))}
+            </ComboboxList>
+          </Flex>
+        </Flex>
+      )}
+    </>
   );
 }

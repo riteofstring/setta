@@ -1,86 +1,27 @@
-import {
-  Grid,
-  Icon,
-  Button,
-  GridItem,
-  IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-} from "@chakra-ui/react";
-import {
-  HiChevronUp,
-  // HiChevronDown,
-} from "react-icons/hi";
-import { SettingsIcon } from "@chakra-ui/icons";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { Grid, useDisclosure } from "@chakra-ui/react";
+
+import ParamSweepModal from "./ParamSweepModal/ParamSweepModal";
+import { createContext } from "react";
+
+import ViewNestedButton from "./ViewNestedButton/ViewNestedButton";
+import CollapseSectionButton from "./CollapseSectionButton/CollapseSectionButton";
+import GearMenu from "./GearMenu/GearMenu";
+
+export const MenuContext = createContext(null);
 
 export default function SectionFooter({ sectionId, isListRoot }) {
-  const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
-  const isShown = useStoreState((state) => state.master.isShown[sectionId]);
-  const sectionHasNested = useStoreState(
-    (state) => state.master.sectionHasNested[sectionId]
-  );
-  const flipShown = () => {
-    setIsShown({ sectionId, isShown: !isShown });
-  };
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   return (
-    <Grid w="100%" py="0.5rem" alignItems="center">
-      <GridItem
-        justifySelf="flex-start"
-        col="1"
-        colEnd="2"
-        rowStart="1"
-        rowEnd="2"
-      >
-        {sectionHasNested && !isListRoot ? (
-          <Button size="sm" onClick={flipShown}>
-            {!!isShown ? "Hide Nested" : "Show Nested"}
-          </Button>
-        ) : (
-          <></>
-        )}
-      </GridItem>
-      <GridItem
-        justifySelf="center"
-        colStart="1"
-        colEnd="2"
-        rowStart="1"
-        rowEnd="2"
-      >
-        <IconButton
-          variant="ghost"
-          color="gray.500"
-          aria-label="Search database"
-          icon={<Icon cursor="pointer" as={HiChevronUp} />}
-          tabIndex="-1"
-        />
-      </GridItem>
-
-      <GridItem
-        justifySelf="flex-end"
-        colStart="1"
-        colEnd="2"
-        rowStart="1"
-        rowEnd="2"
-      >
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            aria-label="Options"
-            icon={<SettingsIcon />}
-            size="xs"
-            color="gray.500"
-            variant="ghost"
-          />
-          <MenuList>
-            <MenuItem>Parameter Sweeps</MenuItem>
-            <MenuItem>Settings</MenuItem>
-          </MenuList>
-        </Menu>
-      </GridItem>
-    </Grid>
+    <>
+      <MenuContext.Provider value={{ isOpen, onOpen, onClose }}>
+        <Grid w="100%" py="0.5rem" alignItems="center">
+          <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} />
+          <CollapseSectionButton />
+          <GearMenu />
+        </Grid>
+        <ParamSweepModal />
+      </MenuContext.Provider>
+    </>
   );
 }
