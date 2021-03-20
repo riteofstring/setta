@@ -1,16 +1,26 @@
-import { HStack, useRadioGroup, Flex, Button, Spacer } from "@chakra-ui/react";
+import {
+  Input,
+  HStack,
+  useRadioGroup,
+  Flex,
+  Button,
+  Spacer,
+} from "@chakra-ui/react";
 import ListItem from "./ListItem";
 import FileListContainer from "./FileListContainer";
+import { useState, useEffect } from "react";
 
 export default function FileExplorer({
   folderNames,
-  folderAndFileInfo,
+  foldersAndFiles,
   onFolderSelect,
   onFileSelect,
   selectedFolder,
   selectedFile,
+  includeNewFolderButton,
+  setFolderNames,
+  setFoldersAndFiles,
 }) {
-
   const {
     getRootProps: getRootPropsFolder,
     getRadioProps: getRadioPropsFolder,
@@ -30,6 +40,22 @@ export default function FileExplorer({
     onChange: onFileSelect,
   });
 
+  const [newFolderName, setNewFolderName] = useState("");
+  const [showNewFolderField, setShowNewFolderField] = useState(false);
+
+  const onExitNewFolderField = () => {
+    if (newFolderName !== "" && folderNames.indexOf(newFolderName) === -1) {
+      setFolderNames([...folderNames, newFolderName]);
+      setFoldersAndFiles({ ...foldersAndFiles, [newFolderName]: [] });
+      setShowNewFolderField(false);
+      onFolderSelect(newFolderName);
+    }
+  };
+
+  const onNewFolderButtonClick = () => {
+    setShowNewFolderField(true);
+  };
+
   return (
     <HStack h="40vh">
       <FileListContainer width="40%" group={getRootPropsFolder()}>
@@ -47,6 +73,19 @@ export default function FileExplorer({
             </ListItem>
           );
         })}
+        {includeNewFolderButton && showNewFolderField && (
+          <Input
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="Enter Folder Name"
+            onBlur={onExitNewFolderField}
+          />
+        )}
+        {includeNewFolderButton && (
+          <Button onClick={onNewFolderButtonClick} size="s">
+            New Folder
+          </Button>
+        )}
       </FileListContainer>
       <FileListContainer width="60%" group={getRootPropsFile()}>
         <Flex
@@ -64,8 +103,8 @@ export default function FileExplorer({
             Date
           </Button>
         </Flex>
-        {folderAndFileInfo[selectedFolder]
-          ? folderAndFileInfo[selectedFolder].map((value) => {
+        {foldersAndFiles[selectedFolder]
+          ? foldersAndFiles[selectedFolder].map((value) => {
               const radio = getRadioPropsFile({
                 value,
               });

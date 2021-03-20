@@ -15,10 +15,21 @@ import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
 export default function SaveLoadModal(props) {
-  const { onClose, isOpen, buttonText, savedFolderAndUINames } = props;
+  const {
+    onClose,
+    isOpen,
+    buttonText,
+    foldersAndFiles: originalFoldersAndFiles,
+  } = props;
 
-  const folderNames = Object.keys(savedFolderAndUINames);
+  const isSaveAs = buttonText === "Save As";
 
+  const [folderNames, setFolderNames] = useState(
+    Object.keys(originalFoldersAndFiles)
+  );
+  const [foldersAndFiles, setFoldersAndFiles] = useState(
+    originalFoldersAndFiles
+  );
   const [selectedFolder, setSelectedFolder] = useState("");
   const [selectedFile, setSelectedFile] = useState({});
   const [enteredFile, setEnteredFile] = useState("");
@@ -52,10 +63,13 @@ export default function SaveLoadModal(props) {
     }
   }, [folderNames]);
 
-  console.log("enteredFile", enteredFile);
+  useEffect(() => {
+    setFolderNames(Object.keys(originalFoldersAndFiles));
+    setFoldersAndFiles(originalFoldersAndFiles);
+  }, [originalFoldersAndFiles]);
 
   const onSaveOrLoadClick = () => {
-    if (buttonText === "Save As") {
+    if (isSaveAs) {
       saveUI({ token, folderName: selectedFolder, uiName: enteredFile });
     } else if (buttonText === "Load") {
       loadUI({ token, folderName: selectedFolder, uiName: enteredFile });
@@ -70,19 +84,22 @@ export default function SaveLoadModal(props) {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {buttonText === "Save As" ? "Save Project As" : "Load Project"}
+            {isSaveAs ? "Save Project As" : "Load Project"}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <FileExplorer
               folderNames={folderNames}
-              folderAndFileInfo={savedFolderAndUINames}
+              foldersAndFiles={foldersAndFiles}
               onFileSelect={_setSelectedFile}
               onFolderSelect={_setSelectedFolder}
               selectedFolder={selectedFolder}
               selectedFile={selectedFile}
+              includeNewFolderButton={isSaveAs}
+              setFolderNames={setFolderNames}
+              setFoldersAndFiles={setFoldersAndFiles}
             />
-            {buttonText === "Save As" && (
+            {isSaveAs && (
               <HStack>
                 <FileNameInput
                   value={enteredFile}

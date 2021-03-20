@@ -68,7 +68,7 @@ export default function FileMenu() {
         onClose={onClose}
         isOpen={isOpen}
         buttonText={buttonText}
-        savedFolderAndUINames={savedFolderAndUINames}
+        foldersAndFiles={savedFolderAndUINames}
       />
     </>
   );
