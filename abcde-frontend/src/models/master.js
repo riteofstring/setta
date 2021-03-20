@@ -43,7 +43,7 @@ const master = {
         state.sections[id] = new Section(key, data[key]);
         state.originalRootSections[id] = new Section(key, data[key]);
       }
-      let pageNum = Math.trunc((id-1) / state.sectionsPerPage) + 1;
+      let pageNum = Math.trunc((id - 1) / state.sectionsPerPage) + 1;
       if (!(pageNum in state.rootIdHierarchy)) {
         state.rootIdHierarchy[pageNum] = {};
       }
@@ -74,6 +74,10 @@ const master = {
     );
   }),
 
+  setCurrPage: action((state, payload) => {
+    state.currPage = payload;
+  }),
+
   setEntireState: action((state, payload) => {
     setEntireStateFunc(state, payload);
   }),
@@ -97,8 +101,8 @@ const master = {
     const { sectionId, moduleName, name } = payload;
     state.selected[sectionId] = { moduleName, name };
     let h =
-      sectionId in state.rootIdHierarchy
-        ? state.rootIdHierarchy
+      sectionId in state.rootIdHierarchy[state.currPage]
+        ? state.rootIdHierarchy[state.currPage]
         : state.idHierarchy;
     h[sectionId].moduleName = moduleName;
     h[sectionId].objName = name;
@@ -106,8 +110,8 @@ const master = {
 
   setChildrenIds: action((state, payload) => {
     const { sectionId, childrenIds } = payload;
-    if (sectionId in state.rootIdHierarchy) {
-      state.rootIdHierarchy[sectionId].children = childrenIds;
+    if (sectionId in state.rootIdHierarchy[state.currPage]) {
+      state.rootIdHierarchy[state.currPage][sectionId].children = childrenIds;
     } else {
       state.idHierarchy[sectionId].children = childrenIds;
     }
@@ -138,7 +142,7 @@ const master = {
     const parentIdObj = findId(
       parentId,
       state.idHierarchy,
-      state.rootIdHierarchy
+      state.rootIdHierarchy[state.currPage]
     );
     parentIdObj.moduleName = moduleName;
     parentIdObj.objName = objName;
@@ -205,7 +209,7 @@ const master = {
     const parentObj = findId(
       parentId,
       state.idHierarchy,
-      state.rootIdHierarchy
+      state.rootIdHierarchy[state.currPage]
     );
     action._permanentlyDeleteSection({ sectionId, parentObj });
   }),
@@ -216,7 +220,7 @@ const master = {
     const parentObj = findId(
       parentId,
       state.idHierarchy,
-      state.rootIdHierarchy
+      state.rootIdHierarchy[state.currPage]
     );
     const startingIdx =
       startingId === null ? 0 : parentObj.children.indexOf(startingId);
@@ -232,7 +236,11 @@ const master = {
 
   deleteChildrenFromVisibleSectionIds: action((state, payload) => {
     const { sectionId } = payload;
-    const foundId = findId(sectionId, state.idHierarchy, state.rootIdHierarchy);
+    const foundId = findId(
+      sectionId,
+      state.idHierarchy,
+      state.rootIdHierarchy[state.currPage]
+    );
     setChildrenVisibility(
       foundId.children,
       state.idHierarchy,

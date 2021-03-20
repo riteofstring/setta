@@ -1,7 +1,7 @@
 import SectionItem from "./SectionItem/SectionItem";
 import { Stack } from "@chakra-ui/react";
 
-export default function SectionListItems({ listOfSectionIdsAndNames }) {
+export default function SectionListItems({ listOfSectionIdsAndNames, pageNum }) {
   return (
     <>
       {listOfSectionIdsAndNames &&
@@ -12,6 +12,7 @@ export default function SectionListItems({ listOfSectionIdsAndNames }) {
               sectionHeading={e.sectionHeading}
               isList={e.isList}
               isListRoot={e.isListRoot}
+              pageNum={pageNum}
               key={`${e.sectionId}-${idx}`}
             />
           </Stack>

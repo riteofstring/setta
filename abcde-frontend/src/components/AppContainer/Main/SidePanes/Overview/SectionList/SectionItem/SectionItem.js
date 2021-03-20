@@ -7,7 +7,12 @@ export default function SectionItem({
   sectionHeading,
   isList,
   isListRoot,
+  pageNum,
 }) {
+  const setCurrPage = useStoreActions(
+    (actions) => actions.master.setCurrPage
+  );
+
   const setGoToHeight = useStoreActions(
     (actions) => actions.mapInteraction.setGoToHeight
   );
@@ -16,6 +21,7 @@ export default function SectionItem({
   );
 
   const onClick = () => {
+    setCurrPage(pageNum)
     setGoToHeight(getCurrPositionOfSection(sectionId));
   };
 

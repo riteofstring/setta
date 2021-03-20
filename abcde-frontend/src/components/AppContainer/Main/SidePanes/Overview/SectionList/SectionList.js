@@ -6,13 +6,18 @@ export default function SectionList({ listOfSectionIdsAndNames }) {
     <>
       {listOfSectionIdsAndNames.length > 1 ? (
         listOfSectionIdsAndNames.map((e, idx) => (
-          <PageAccordion pageNum={idx + 1}>
-            <SectionListItems listOfSectionIdsAndNames={e} />
+          <PageAccordion pageNum={idx + 1} key={`PageAccordian-${idx}`}>
+            <SectionListItems
+              listOfSectionIdsAndNames={e}
+              pageNum={idx + 1}
+              key={`SectionListItems-${idx}`}
+            />
           </PageAccordion>
         ))
       ) : (
         <SectionListItems
           listOfSectionIdsAndNames={listOfSectionIdsAndNames[0]}
+          pageNum={1}
         />
       )}
     </>
