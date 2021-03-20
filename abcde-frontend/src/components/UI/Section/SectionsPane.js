@@ -4,13 +4,14 @@ import SectionContainer from "./SectionContainer/SectionContainer";
 
 const SectionsPane = () => {
   const sections = useStoreState((state) => state.master.sections);
+  const currPage = useStoreState((state) => state.master.currPage);
   const rootIdHierarchy = useStoreState(
-    (state) => state.master.rootIdHierarchy
+    (state) => state.master.rootIdHierarchy[currPage]
   );
 
-  const idKeys = Object.keys(rootIdHierarchy);
+  const idKeys = rootIdHierarchy ? Object.keys(rootIdHierarchy) : [];
 
-  console.log("SectionsPane idKeys", idKeys)
+  console.log("SectionsPane idKeys", idKeys);
 
   return (
     <>

@@ -2,7 +2,7 @@ import { HStack, Heading, Input } from "@chakra-ui/react";
 
 export default function SectionTitle({ sectionHeading }) {
   // temp_
-  const tempBool = true;
+  const tempBool = false;
   return (
     <>
       {tempBool ? (

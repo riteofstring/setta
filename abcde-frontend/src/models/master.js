@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/big.json";
+import Data from "../data/multiPage.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -12,6 +12,8 @@ import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
 const master = {
+  sectionsPerPage: 5,
+  currPage: 1,
   sectionCount: 1,
   originalRootSections: {},
   sections: {},
@@ -41,7 +43,11 @@ const master = {
         state.sections[id] = new Section(key, data[key]);
         state.originalRootSections[id] = new Section(key, data[key]);
       }
-      state.rootIdHierarchy[id] = {
+      let pageNum = Math.trunc((id-1) / state.sectionsPerPage) + 1;
+      if (!(pageNum in state.rootIdHierarchy)) {
+        state.rootIdHierarchy[pageNum] = {};
+      }
+      state.rootIdHierarchy[pageNum][id] = {
         parent: null,
         children: [],
         moduleName: null,
@@ -189,7 +195,7 @@ const master = {
     const { sectionId, parentObj } = payload;
     const stringId = state.sectionIdsToStringIds[sectionId];
     delete state.stringIdsToSectionIds[stringId];
-    delete state.idHierarchy[sectionId]
+    delete state.idHierarchy[sectionId];
     parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 

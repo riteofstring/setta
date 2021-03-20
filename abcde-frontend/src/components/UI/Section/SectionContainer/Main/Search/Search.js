@@ -6,7 +6,7 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, items }) {
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState("");
 
   const itemToString = (x) => {
     return x ? x[1] : "";
@@ -21,13 +21,15 @@ export default function SectionSearch({ sectionId, items }) {
   );
 
   useEffect(() => {
-    const info = selected ? selected : null;
-    if (info === null) {
+    const info = selected ? selected : "";
+    if (info === "") {
       setSelectedItem(info);
     }
     const { moduleName, name } = info;
     const index = items.findIndex((x) => x[0] === moduleName && x[1] === name);
-    setSelectedItem(items[index]);
+    if (index !== -1){
+      setSelectedItem(items[index]);
+    }
   }, [selected, items]);
 
   const onSelectedItemChange = ({ selectedItem }) => {

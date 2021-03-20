@@ -1,19 +1,19 @@
 import SectionListItems from "./SectionListItems";
 import PageAccordion from "./PageAccordion";
 
-const tempArray = [0, 1, 2];
-
 export default function SectionList({ listOfSectionIdsAndNames }) {
   return (
     <>
-      {tempArray.length > 1 ? (
-        <PageAccordion>
-          <SectionListItems
-            listOfSectionIdsAndNames={listOfSectionIdsAndNames}
-          />
-        </PageAccordion>
+      {listOfSectionIdsAndNames.length > 1 ? (
+        listOfSectionIdsAndNames.map((e, idx) => (
+          <PageAccordion pageNum={idx + 1}>
+            <SectionListItems listOfSectionIdsAndNames={e} />
+          </PageAccordion>
+        ))
       ) : (
-        <SectionListItems listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
+        <SectionListItems
+          listOfSectionIdsAndNames={listOfSectionIdsAndNames[0]}
+        />
       )}
     </>
   );

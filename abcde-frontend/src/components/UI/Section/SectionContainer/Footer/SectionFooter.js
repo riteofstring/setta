@@ -14,14 +14,14 @@ export default function SectionFooter({ sectionId, isListRoot }) {
 
   return (
     <>
-      {/* <MenuContext.Provider value={{ isOpen, onOpen, onClose }}>
+      <MenuContext.Provider value={{ isOpen, onOpen, onClose }}>
         <Grid w="100%" py="0.5rem" alignItems="center">
           <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} />
           <CollapseSectionButton />
           <GearMenu />
         </Grid>
         <GearModal />
-      </MenuContext.Provider> */}
+      </MenuContext.Provider>
     </>
   );
 }

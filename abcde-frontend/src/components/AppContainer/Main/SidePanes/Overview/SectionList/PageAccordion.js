@@ -14,7 +14,7 @@ export default function PageAccordion(props) {
         <h2>
           <AccordionButton>
             <Box flex="1" textAlign="left">
-              {`Page 1`}
+              {`Page ${props.pageNum}`}
             </Box>
             <AccordionIcon />
           </AccordionButton>

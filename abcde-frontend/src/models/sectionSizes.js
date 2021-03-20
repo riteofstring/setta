@@ -26,7 +26,8 @@ const sectionSizes = {
       state.mapScaleAtTimeOfRecording[sectionId] = currScale;
     }
 
-    const rootIdHierarchy = globalState.master.rootIdHierarchy;
+    const currPage = globalState.master.currPage
+    const rootIdHierarchy = globalState.master.rootIdHierarchy[currPage];
     const idHierarchy = globalState.master.idHierarchy;
     const isVisible = globalState.master.isVisible;
     const isShown = globalState.master.isShown;

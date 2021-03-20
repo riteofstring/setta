@@ -11,7 +11,7 @@ const paneProps = {
 };
 
 export default function Overview() {
-  const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([])
+  const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const rootIdHierarchy = useStoreState(
     (state) => state.master.rootIdHierarchy
@@ -37,8 +37,8 @@ export default function Overview() {
   };
 
   useEffect(() => {
-    setListOfSectionIdsAndNames(getListOfSectionIdsAndNames())
-  }, [rootIdHierarchy, idHierarchy, isVisible, sectionIdsToSectionHeadings])
+    setListOfSectionIdsAndNames(getListOfSectionIdsAndNames());
+  }, [rootIdHierarchy, idHierarchy, isVisible, sectionIdsToSectionHeadings]);
 
   return (
     <PaneContainer paneProps={paneProps}>

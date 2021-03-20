@@ -56,11 +56,9 @@ export const getPositionOfSection = (
     ));
     if (isShown[sectionId]) {
       position += addToPosition;
-    }
-    else if (foundTargetId){
+    } else if (foundTargetId) {
       position -= sectionSizes[sectionId].height;
     }
-
   }
   return position;
 };
@@ -97,8 +95,7 @@ export const getPositionOfSectionHelper = (
       ));
       if (isShown[childId]) {
         position += addToPosition;
-      }
-      else if (foundTargetId){
+      } else if (foundTargetId) {
         position -= sectionSizes[childId].height;
       }
     }
@@ -115,19 +112,23 @@ export const getOverviewListing = (
   isListRoot
 ) => {
   let outputList = [];
-  for (let sectionId of Object.keys(rootIdHierarchy)) {
-    outputList.push(
-      ...getOverviewListingHelper(
-        sectionId,
-        idHierarchy,
-        isVisible,
-        sectionIdsToSectionHeadings,
-        isList,
-        isListRoot,
-        0,
-        rootIdHierarchy
-      )
-    );
+  for (let pageNum of Object.keys(rootIdHierarchy)) {
+    outputList.push([]);
+    const rootIdHierarchyCurrPage = rootIdHierarchy[pageNum]
+    for (let sectionId of Object.keys(rootIdHierarchyCurrPage)) {
+      outputList[outputList.length - 1].push(
+        ...getOverviewListingHelper(
+          sectionId,
+          idHierarchy,
+          isVisible,
+          sectionIdsToSectionHeadings,
+          isList,
+          isListRoot,
+          0,
+          rootIdHierarchyCurrPage
+        )
+      );
+    }
   }
   return outputList;
 };
