@@ -5,12 +5,11 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  MenuDivider,
 } from "@chakra-ui/react";
 
 import { SettingsIcon } from "@chakra-ui/icons";
-
 import { MenuContext } from "../SectionFooter";
-
 import { useContext } from "react";
 
 export default function GearMenu() {
@@ -28,12 +27,14 @@ export default function GearMenu() {
           as={IconButton}
           aria-label="Options"
           icon={<SettingsIcon />}
-          size="xs"
+          size="sm"
           color="gray.500"
           variant="ghost"
         />
         <MenuList>
           <MenuItem onClick={onOpen}>Parameter Sweeps</MenuItem>
+          <MenuItem onClick={onOpen}>Load Section</MenuItem>
+          <MenuDivider />
           <MenuItem>Settings</MenuItem>
         </MenuList>
       </Menu>

@@ -11,8 +11,8 @@ import {
 import { useContext } from "react";
 import { MenuContext } from "../SectionFooter";
 
-export default function ParamSweepModal(props) {
-  const { isOpen, onClose } = useContext(MenuContext);
+export default function GearModal(props) {
+  const { isOpen, onClose, modalSelect } = useContext(MenuContext);
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <ModalOverlay />
