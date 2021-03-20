@@ -9,6 +9,8 @@ export default function SectionItem({
   isListRoot,
   pageNum,
 }) {
+  
+
   const setCurrPage = useStoreActions(
     (actions) => actions.master.setCurrPage
   );

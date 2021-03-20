@@ -32,14 +32,17 @@ const sectionSizes = {
     const isVisible = globalState.master.isVisible;
     const isShown = globalState.master.isShown;
 
-    return getPositionOfSection(
-      payload,
-      rootIdHierarchy,
-      idHierarchy,
-      isVisible,
-      isShown,
-      state.sectionSizes
-    );
+    if (state.sectionSizes[payload]){
+      return getPositionOfSection(
+        payload,
+        rootIdHierarchy,
+        idHierarchy,
+        isVisible,
+        isShown,
+        state.sectionSizes
+      );
+    }
+    return 0
   }),
 };
 
