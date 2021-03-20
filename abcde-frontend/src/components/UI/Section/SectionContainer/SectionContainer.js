@@ -41,14 +41,14 @@ export default function SectionContainer({
 
   return (
     <Stack height="100%">
-        <SectionContainerCoreWithSizeMe
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          childrenIds={childrenIds}
-          theSection={theSection}
-          onSize={(size)=>setSectionSize({sectionId, size})}
-        />
+      <SectionContainerCoreWithSizeMe
+        sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
+        childrenIds={childrenIds}
+        theSection={theSection}
+        onSize={(size) => setSectionSize({ sectionId, size })}
+      />
       {order.length > 0 &&
         order.map((e, idx) => (
           <NestedSection
@@ -71,7 +71,13 @@ const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(
   SectionContainerCore
 );
 
-function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSection }) {
+function SectionContainerCore({
+  sectionId,
+  parentId,
+  nextId,
+  childrenIds,
+  theSection,
+}) {
   const isList = useStoreState((state) => state.master.isList[sectionId]);
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
@@ -94,7 +100,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, childrenIds, theSec
   const tempBool = true;
   return (
     <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
-      {!!isList & !isListRoot && (
+      {isList && !isListRoot && (
         <HStack
           h="100%"
           borderLeftRadius="inherit"

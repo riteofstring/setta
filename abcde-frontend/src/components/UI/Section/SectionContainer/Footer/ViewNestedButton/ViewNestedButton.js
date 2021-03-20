@@ -21,7 +21,7 @@ export default function ViewNestedButton({ sectionId, isListRoot }) {
     >
       {sectionHasNested && !isListRoot ? (
         <Button size="sm" onClick={flipShown}>
-          {!!isShown ? "Hide Nested" : "Show Nested"}
+          {isShown ? "Hide Nested" : "Show Nested"}
         </Button>
       ) : (
         <></>
