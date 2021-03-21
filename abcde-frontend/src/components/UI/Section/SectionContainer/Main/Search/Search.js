@@ -37,12 +37,14 @@ export default function SectionSearch({ sectionId, items }) {
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
-    if (sectionHasNested) {
-      deleteChildrenFromVisibleSectionIds({
-        sectionId,
-      });
+    if (moduleName !== selected.moduleName || objName !== selected.objName) {
+      if (sectionHasNested) {
+        deleteChildrenFromVisibleSectionIds({
+          sectionId,
+        });
+      }
+      setSelected({ sectionId, moduleName, objName });
     }
-    setSelected({ sectionId, moduleName, objName });
   };
 
   const [inputItems, setInputItems] = useState(items);

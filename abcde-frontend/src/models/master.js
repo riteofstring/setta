@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/data.json";
+import Data from "../data/multiPage.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -78,7 +78,6 @@ const master = {
     state.idHierarchy[state.currPage][sectionId].children = childrenIds;
   }),
 
-
   addToVisibleSectionIds: action((state, payload) => {
     const {
       id,
@@ -104,6 +103,8 @@ const master = {
         stringId,
         isList,
       });
+      state.stringIdsToSectionIds[stringId] = id;
+
       if (isList && siblingId === null) {
         state.sections[id] = state.sections[parentId];
         currIdHierarchy[id].moduleName = moduleName;
