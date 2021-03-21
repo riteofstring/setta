@@ -7,7 +7,6 @@ export default function SectionHeader({
   sectionId,
   parentId,
   nextId,
-  childrenIds,
   isList,
   isListRoot,
 }) {
@@ -38,7 +37,6 @@ export default function SectionHeader({
             sectionId={sectionId}
             parentId={parentId}
             nextId={nextId}
-            childrenIds={childrenIds}
             isListRoot={isListRoot}
           />
         </>

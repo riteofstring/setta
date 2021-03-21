@@ -69,8 +69,8 @@ export default function SectionSearch({ sectionId, items }) {
     },
   });
 
-  console.log("selectedItem", selectedItem);
-  console.log("highlightedIndex", highlightedIndex);
+  // console.log("selectedItem", selectedItem);
+  // console.log("highlightedIndex", highlightedIndex);
 
   // temp_
   const tempBool = true;

@@ -17,14 +17,8 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
 }) {
-  const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const isShown = useStoreState((state) => state.master.isShown[parentId]);
   const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
-  const currPage = useStoreState((state) => state.master.currPage);
-
-  const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].children
-  );
 
   const isList = useStoreState((state) => state.master.isList[sectionId]);
 
@@ -40,8 +34,6 @@ export default function NestedSection({
           rootId={rootId}
           parentId={parentId}
           nextId={nextId}
-          childrenIds={childrenIds}
-          theSection={theSection}
           depth={depth}
         />
       )
@@ -91,7 +83,6 @@ export default function NestedSection({
           {isList && !isListRoot
             ? MotionDivWrapper(getNestedSection())
             : getNestedSection()}
-          {/* {getNestedSection()} */}
         </Grid>
       </Stack>
     )

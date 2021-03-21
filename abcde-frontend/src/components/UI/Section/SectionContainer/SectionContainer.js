@@ -6,21 +6,12 @@ import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionHeader from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
-import { createStringId } from "../../../../utils/sectionIds";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
-import { hidden } from "ansi-colors";
 import sizeMe from "react-sizeme";
+import { arraysAreEqual } from "../../../../utils/commonFunctions";
 
-export default function SectionContainer({
-  sectionId,
-  rootId,
-  parentId,
-  nextId,
-  childrenIds,
-  theSection,
-  depth,
-}) {
+function SectionContainer({ sectionId, rootId, parentId, nextId, depth }) {
   const setSectionSize = useStoreActions(
     (action) => action.sectionSizes.setSectionSize
   );
@@ -29,9 +20,15 @@ export default function SectionContainer({
     (action) => action.master.setChildrenIds
   );
 
+  const currPage = useStoreState((state) => state.master.currPage);
+  const childrenIds = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].children,
+    arraysAreEqual
+  );
+
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
-  console.log("sectionId order", sectionId, order);
+  console.log("sectionId nextId, order", sectionId, nextId, childrenIds, order);
 
   useEffect(() => {
     if (order.length > 0) {
@@ -45,8 +42,6 @@ export default function SectionContainer({
         sectionId={sectionId}
         parentId={parentId}
         nextId={nextId}
-        childrenIds={childrenIds}
-        theSection={theSection}
         onSize={(size) => setSectionSize({ sectionId, size })}
       />
       {order.length > 0 &&
@@ -67,17 +62,12 @@ export default function SectionContainer({
   );
 }
 
-const SectionContainerCoreWithSizeMe = sizeMe({ monitorHeight: true })(
-  SectionContainerCore
-);
+// const SectionContainerCoreWithSizeMe = React.memo(
+//   sizeMe({ monitorHeight: true })(SectionContainerCore)
+// );
 
-function SectionContainerCore({
-  sectionId,
-  parentId,
-  nextId,
-  childrenIds,
-  theSection,
-}) {
+function SectionContainerCore({ sectionId, parentId, nextId }) {
+  const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const isList = useStoreState((state) => state.master.isList[sectionId]);
   const isListRoot = useStoreState(
     (state) => state.master.isListRoot[sectionId]
@@ -117,7 +107,6 @@ function SectionContainerCore({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          childrenIds={childrenIds}
           isList={isList}
           isListRoot={isListRoot}
         />
@@ -134,3 +123,6 @@ function SectionContainerCore({
     </HStack>
   );
 }
+
+export default React.memo(SectionContainer);
+const SectionContainerCoreWithSizeMe = React.memo(SectionContainerCore)
