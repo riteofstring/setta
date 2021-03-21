@@ -11,7 +11,10 @@ export default function SectionSearch({ sectionId, items }) {
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
-  const selected = useStoreState((state) => state.master.selected[sectionId]);
+  const currPage = useStoreState((state) => state.master.currPage);
+  const selected = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId]
+  );
   const sectionHasNested = useStoreState(
     (state) => state.master.sectionHasNested[sectionId]
   );
@@ -27,7 +30,7 @@ export default function SectionSearch({ sectionId, items }) {
     }
     const { moduleName, name } = info;
     const index = items.findIndex((x) => x[0] === moduleName && x[1] === name);
-    if (index !== -1){
+    if (index !== -1) {
       setSelectedItem(items[index]);
     }
   }, [selected, items]);
@@ -39,7 +42,7 @@ export default function SectionSearch({ sectionId, items }) {
         sectionId,
       });
     }
-    setSelected({ sectionId, moduleName, name: objName });
+    setSelected({ sectionId, moduleName, objName });
   };
 
   const [inputItems, setInputItems] = useState(items);

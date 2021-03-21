@@ -26,23 +26,21 @@ const sectionSizes = {
       state.mapScaleAtTimeOfRecording[sectionId] = currScale;
     }
 
-    const currPage = globalState.master.currPage
-    const rootIdHierarchy = globalState.master.rootIdHierarchy[currPage];
-    const idHierarchy = globalState.master.idHierarchy;
+    const currPage = globalState.master.currPage;
+    const idHierarchy = globalState.master.idHierarchy[currPage];
     const isVisible = globalState.master.isVisible;
     const isShown = globalState.master.isShown;
 
-    if (state.sectionSizes[payload]){
+    if (state.sectionSizes[payload]) {
       return getPositionOfSection(
         payload,
-        rootIdHierarchy,
         idHierarchy,
         isVisible,
         isShown,
         state.sectionSizes
       );
     }
-    return 0
+    return 0;
   }),
 };
 

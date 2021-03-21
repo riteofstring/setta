@@ -14,14 +14,17 @@ export default function GroupContainer({ sectionId }) {
   const thisSectionInfo = useStoreState(
     (state) => state.master.sections[sectionId]
   );
+
+  const currPage = useStoreState((state) => state.master.currPage);
+
   const thisSectionSelected = useStoreState(
-    (state) => state.master.selected[sectionId]
+    (state) => state.master.idHierarchy[currPage][sectionId]
   );
 
   const getParamsArr = () => {
     try {
       let parameters = [];
-      const { moduleName, name: objName } = thisSectionSelected;
+      const { moduleName, objName } = thisSectionSelected;
       const paramSource =
         thisSectionInfo.moduleInfos[moduleName].objs[objName].params;
       for (let key of Object.keys(paramSource)) {

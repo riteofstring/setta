@@ -1,15 +1,16 @@
 import React from "react";
 import { useStoreState } from "easy-peasy";
 import SectionContainer from "./SectionContainer/SectionContainer";
+import { getRootIds } from "../../../utils/sectionIds";
 
 const SectionsPane = () => {
   const sections = useStoreState((state) => state.master.sections);
   const currPage = useStoreState((state) => state.master.currPage);
-  const rootIdHierarchy = useStoreState(
-    (state) => state.master.rootIdHierarchy[currPage]
+  const idHierarchy = useStoreState(
+    (state) => state.master.idHierarchy[currPage]
   );
 
-  const idKeys = rootIdHierarchy ? Object.keys(rootIdHierarchy) : [];
+  const idKeys = idHierarchy ? getRootIds(idHierarchy) : [];
 
   console.log("SectionsPane idKeys", idKeys);
 
@@ -21,7 +22,7 @@ const SectionsPane = () => {
           rootId={e}
           parentId={null}
           nextId={idKeys[idx + 1]}
-          childrenIds={rootIdHierarchy[e].children}
+          childrenIds={idHierarchy[e].children}
           theSection={sections[e]}
           key={`${e}-${idx}`}
           depth={0}

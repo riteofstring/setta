@@ -15,9 +15,8 @@ export default function SectionHeader({
     (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
   );
 
-  const selected = useStoreState((state) => state.master.selected[sectionId]);
-
-  const currObjectName = selected.name;
+  const currPage = useStoreState((state) => state.master.currPage);
+  const currObjectName = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].objName);
 
   return (
     <Stack direction="row" align="center" w="100%">

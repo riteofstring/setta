@@ -23,9 +23,14 @@ export default function Incrementer({
     (actions) => actions.master.addToVisibleSectionIdsThunk
   );
 
-  const selected = useStoreState(
-    (actions) => actions.master.selected[parentId]
+  const currPage = useStoreState(
+    (actions) => actions.master.currPage
   );
+
+  const selected = useStoreState(
+    (actions) => actions.master.idHierarchy[currPage][parentId]
+  );
+  
   const sectionIdsToSectionHeadings = useStoreState(
     (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
   );
@@ -40,7 +45,7 @@ export default function Incrementer({
         name: sectionIdsToSectionHeadings,
         parentId: isListRoot ? sectionId : parentId,
         moduleName: selected.moduleName,
-        objName: selected.name,
+        objName: selected.objName,
         isList: true,
         siblingId: sectionId,
       });
