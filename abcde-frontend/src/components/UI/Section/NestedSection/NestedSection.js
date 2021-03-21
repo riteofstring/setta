@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
-import SectionContainer from "../SectionContainer/SectionContainer";
+import {
+  SectionContainer,
+  DummySectionContainer,
+} from "../SectionContainer/SectionContainer";
 import { useStoreState } from "easy-peasy";
 import { motion, useDragControls } from "framer-motion";
 import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
@@ -16,7 +19,12 @@ export default function NestedSection({
   depth,
   updatePosition,
   updateOrder,
+  childIsDragging,
+  setChildIsDragging
 }) {
+
+  console.log("sectionId idx", sectionId, idx)
+
   const currPage = useStoreState((state) => state.master.currPage);
   const isShown = useStoreState(
     (state) => state.master.idHierarchy[currPage][parentId].isShown
@@ -31,9 +39,9 @@ export default function NestedSection({
     (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
   );
 
-  const getNestedSection = (dragControls) => {
-    return (
-      isShown && (
+  const getNestedSection = (dragControls, isDragging = false) => {
+    if (isShown && !childIsDragging) {
+      return (
         <SectionContainer
           sectionId={sectionId}
           rootId={rootId}
@@ -42,12 +50,14 @@ export default function NestedSection({
           depth={depth}
           dragControls={dragControls}
         />
-      )
-    );
+      );
+    } else if (isShown && childIsDragging) {
+      return <DummySectionContainer sectionId={sectionId} dragControls={dragControls} />;
+    }
   };
 
   const MotionDivWrapper = (inner) => {
-    const dragControls = useDragControls()
+    const dragControls = useDragControls();
     const [isDragging, setDragging] = useState(false);
 
     const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
@@ -63,15 +73,15 @@ export default function NestedSection({
           boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
         }}
         drag="y"
-        onDragStart={() => setDragging(true)}
-        onDragEnd={() => setDragging(false)}
+        onDragStart={() => {setDragging(true); setChildIsDragging(true)}}
+        onDragEnd={() => {setDragging(false); setChildIsDragging(false)}}
         onViewportBoxUpdate={(_viewportBox, delta) => {
           isDragging && updateOrder(idx, delta.y.translate);
         }}
         dragListener={false}
         dragControls={dragControls}
       >
-        {inner(dragControls)}
+        {inner(dragControls, isDragging)}
       </motion.div>
     );
   };
