@@ -10,12 +10,9 @@ export default function SectionHeader({
   isList,
   isListRoot,
 }) {
-  const sectionHeading = useStoreState(
-    (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
-  );
-
   const currPage = useStoreState((state) => state.master.currPage);
   const currObjectName = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].objName);
+  const sectionHeading = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].sectionHeading);
 
   return (
     <Stack direction="row" align="center" w="100%">

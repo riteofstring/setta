@@ -16,15 +16,21 @@ export default function GroupContainer({ sectionId }) {
   );
 
   const currPage = useStoreState((state) => state.master.currPage);
+  const isListRoot = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
+  );
 
-  const thisSectionSelected = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId]
+  const moduleName = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].moduleName
+  );
+
+  const objName = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].objName
   );
 
   const getParamsArr = () => {
     try {
       let parameters = [];
-      const { moduleName, objName } = thisSectionSelected;
       const paramSource =
         thisSectionInfo.moduleInfos[moduleName].objs[objName].params;
       for (let key of Object.keys(paramSource)) {
@@ -65,6 +71,7 @@ export default function GroupContainer({ sectionId }) {
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
               parameters={e}
+              isListRoot={isListRoot}
               idx={idx}
             />
           ))}

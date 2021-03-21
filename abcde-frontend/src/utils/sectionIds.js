@@ -12,6 +12,14 @@ export const newIdInHierarchy = (input) => {
     objName: null,
     parentModuleName: null,
     parentObjName: null,
+    hasNested: false,
+    isList: null,
+    isListRoot: false,
+    listCount: 0,
+    isShown: true,
+    isVisible: true,
+    sectionHeading: null,
+    stringId: null,
     ...input,
   };
 };
@@ -114,63 +122,34 @@ export const getPositionOfSectionHelper = (
   return { position, foundTargetId };
 };
 
-export const getOverviewListing = (
-  idHierarchy,
-  isVisible,
-  sectionIdsToSectionHeadings,
-  isList,
-  isListRoot
-) => {
+export const getOverviewListing = (idHierarchy) => {
   let outputList = [];
   for (let pageNum of Object.keys(idHierarchy)) {
     outputList.push([]);
     const idHierarchyCurrPage = idHierarchy[pageNum];
     for (let sectionId of getRootIds(idHierarchyCurrPage)) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(
-          sectionId,
-          idHierarchyCurrPage,
-          isVisible,
-          sectionIdsToSectionHeadings,
-          isList,
-          isListRoot,
-          0
-        )
+        ...getOverviewListingHelper(sectionId, idHierarchyCurrPage, 0)
       );
     }
   }
   return outputList;
 };
 
-export const getOverviewListingHelper = (
-  sectionId,
-  idHierarchy,
-  isVisible,
-  sectionIdsToSectionHeadings,
-  isList,
-  isListRoot,
-  depth
-) => {
+export const getOverviewListingHelper = (sectionId, idHierarchy, depth) => {
   let outputList = [];
-  if (isVisible[sectionId]) {
+  const currSection = idHierarchy[sectionId];
+  if (currSection.isVisible) {
     outputList.push({
       sectionId,
-      sectionHeading: sectionIdsToSectionHeadings[sectionId],
-      isList: isList[sectionId],
-      isListRoot: isListRoot[sectionId],
+      sectionHeading: currSection.sectionHeading,
+      isList: currSection.isList,
+      isListRoot: currSection.isListRoot,
       depth: depth,
     });
     for (let childId of idHierarchy[sectionId].children) {
       outputList.push(
-        ...getOverviewListingHelper(
-          childId,
-          idHierarchy,
-          isVisible,
-          sectionIdsToSectionHeadings,
-          isList,
-          isListRoot,
-          depth + 1
-        )
+        ...getOverviewListingHelper(childId, idHierarchy, depth + 1)
       );
     }
   }
@@ -180,7 +159,6 @@ export const getOverviewListingHelper = (
 export const setChildrenVisibility = (
   children,
   idHierarchy,
-  isVisible,
   visibility,
   parentModuleName = null,
   parentObjName = null
@@ -188,17 +166,16 @@ export const setChildrenVisibility = (
   for (let x of children) {
     const child = idHierarchy[x];
     if (parentModuleName === null) {
-      isVisible[x] = visibility;
-      setChildrenVisibility(child.children, idHierarchy, isVisible, visibility);
+      idHierarchy[x].isVisible = visibility;
+      setChildrenVisibility(child.children, idHierarchy, visibility);
     } else if (
       child.parentModuleName === parentModuleName &&
       child.parentObjName === parentObjName
     ) {
-      isVisible[x] = visibility;
+      idHierarchy[x].isVisible = visibility;
       setChildrenVisibility(
         child.children,
         idHierarchy,
-        isVisible,
         visibility,
         child.moduleName,
         child.objName

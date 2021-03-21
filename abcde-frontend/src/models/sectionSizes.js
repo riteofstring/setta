@@ -28,17 +28,9 @@ const sectionSizes = {
 
     const currPage = globalState.master.currPage;
     const idHierarchy = globalState.master.idHierarchy[currPage];
-    const isVisible = globalState.master.isVisible;
-    const isShown = globalState.master.isShown;
 
     if (state.sectionSizes[payload]) {
-      return getPositionOfSection(
-        payload,
-        idHierarchy,
-        isVisible,
-        isShown,
-        state.sectionSizes
-      );
+      return getPositionOfSection(payload, idHierarchy, state.sectionSizes);
     }
     return 0;
   }),

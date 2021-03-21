@@ -17,14 +17,11 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
 }) {
-  const isShown = useStoreState((state) => state.master.isShown[parentId]);
-  const isVisible = useStoreState((state) => state.master.isVisible[sectionId]);
-
-  const isList = useStoreState((state) => state.master.isList[sectionId]);
-
-  const isListRoot = useStoreState(
-    (state) => state.master.isListRoot[sectionId]
-  );
+  const currPage = useStoreState((state) => state.master.currPage);
+  const isShown = useStoreState((state) => state.master.idHierarchy[currPage][parentId].isShown);
+  const isVisible = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isVisible);
+  const isList = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isList);
+  const isListRoot = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isListRoot);
 
   const getNestedSection = () => {
     return (

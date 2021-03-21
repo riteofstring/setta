@@ -9,6 +9,7 @@ export default function TheParam({
   moduleName,
   objName,
   parameters,
+  isListRoot,
   idx,
 }) {
   const { name, ui_type, default_val } = parameters;
@@ -24,9 +25,6 @@ export default function TheParam({
   const globalCurr = useStoreState(
     (state) => state.globalCurr.globalCurr,
     (prev, next) => checkGlobalCurrEquality(prev, next)
-  );
-  const isListRoot = useStoreState(
-    (state) => state.master.isListRoot[sectionId]
   );
 
   const [value, setValue] = useState(default_val);

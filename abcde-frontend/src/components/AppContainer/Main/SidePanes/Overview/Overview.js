@@ -14,27 +14,17 @@ export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const idHierarchy = useStoreState((state) => state.master.idHierarchy);
-  const isVisible = useStoreState((state) => state.master.isVisible);
-  const isList = useStoreState((state) => state.master.isList);
-  const isListRoot = useStoreState((state) => state.master.isListRoot);
-  const sectionIdsToSectionHeadings = useStoreState(
-    (state) => state.master.sectionIdsToSectionHeadings
-  );
   const getListOfSectionIdsAndNames = () => {
-    const overviewListing = getOverviewListing(
-      idHierarchy,
-      isVisible,
-      sectionIdsToSectionHeadings,
-      isList,
-      isListRoot
-    );
+    const overviewListing = getOverviewListing(idHierarchy);
     console.log("overviewListing", overviewListing);
     return overviewListing;
   };
 
   useEffect(() => {
     setListOfSectionIdsAndNames(getListOfSectionIdsAndNames());
-  }, [idHierarchy, isVisible, sectionIdsToSectionHeadings]);
+  }, [idHierarchy]);
+
+  console.log("Overview");
 
   return (
     <PaneContainer paneProps={paneProps}>

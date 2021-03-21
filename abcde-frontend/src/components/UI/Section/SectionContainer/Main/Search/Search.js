@@ -16,7 +16,7 @@ export default function SectionSearch({ sectionId, items }) {
     (state) => state.master.idHierarchy[currPage][sectionId]
   );
   const sectionHasNested = useStoreState(
-    (state) => state.master.sectionHasNested[sectionId]
+    (state) => state.master.idHierarchy[currPage][sectionId].hasNested
   );
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
   const deleteChildrenFromVisibleSectionIds = useStoreActions(

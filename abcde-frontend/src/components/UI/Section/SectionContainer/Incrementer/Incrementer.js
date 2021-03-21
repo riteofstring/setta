@@ -23,9 +23,7 @@ export default function Incrementer({
     (actions) => actions.master.addToVisibleSectionIdsThunk
   );
 
-  const currPage = useStoreState(
-    (actions) => actions.master.currPage
-  );
+  const currPage = useStoreState((actions) => actions.master.currPage);
 
   const selected = useStoreState(
     (actions) => actions.master.idHierarchy[currPage][parentId]
@@ -36,8 +34,8 @@ export default function Incrementer({
     arraysAreEqual
   );
 
-  const sectionIdsToSectionHeadings = useStoreState(
-    (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
+  const sectionHeading = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].sectionHeading
   );
 
   const decrementButtonCondition = () => {
@@ -47,7 +45,7 @@ export default function Incrementer({
   const addSections = (numSections) => {
     for (let i = 0; i < numSections; i++) {
       addToVisibleSectionIdsThunk({
-        name: sectionIdsToSectionHeadings,
+        name: sectionHeading,
         parentId: isListRoot ? sectionId : parentId,
         moduleName: selected.moduleName,
         objName: selected.objName,

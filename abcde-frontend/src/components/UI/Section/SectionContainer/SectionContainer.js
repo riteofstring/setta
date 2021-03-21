@@ -68,10 +68,9 @@ function SectionContainer({ sectionId, rootId, parentId, nextId, depth }) {
 
 function SectionContainerCore({ sectionId, parentId, nextId }) {
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
-  const isList = useStoreState((state) => state.master.isList[sectionId]);
-  const isListRoot = useStoreState(
-    (state) => state.master.isListRoot[sectionId]
-  );
+  const currPage = useStoreState((state) => state.master.currPage);
+  const isList = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isList);
+  const isListRoot = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isListRoot);
 
   const getSearchItems = () => {
     const { moduleInfos } = theSection;
