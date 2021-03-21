@@ -28,8 +28,8 @@ export default function SectionSearch({ sectionId, items }) {
     if (info === "") {
       setSelectedItem(info);
     }
-    const { moduleName, name } = info;
-    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name);
+    const { moduleName, objName } = info;
+    const index = items.findIndex((x) => x[0] === moduleName && x[1] === objName);
     if (index !== -1) {
       setSelectedItem(items[index]);
     }
@@ -70,9 +70,6 @@ export default function SectionSearch({ sectionId, items }) {
       );
     },
   });
-
-  // console.log("selectedItem", selectedItem);
-  // console.log("highlightedIndex", highlightedIndex);
 
   // temp_
   const tempBool = true;
