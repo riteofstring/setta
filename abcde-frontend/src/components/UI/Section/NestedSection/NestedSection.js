@@ -18,10 +18,18 @@ export default function NestedSection({
   updateOrder,
 }) {
   const currPage = useStoreState((state) => state.master.currPage);
-  const isShown = useStoreState((state) => state.master.idHierarchy[currPage][parentId].isShown);
-  const isVisible = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isVisible);
-  const isList = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isList);
-  const isListRoot = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isListRoot);
+  const isShown = useStoreState(
+    (state) => state.master.idHierarchy[currPage][parentId].isShown
+  );
+  const isVisible = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].isVisible
+  );
+  const isList = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].isList
+  );
+  const isListRoot = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
+  );
 
   const getNestedSection = () => {
     return (
@@ -48,10 +56,10 @@ export default function NestedSection({
         ref={ref}
         layout
         initial={false}
-        whileHover={{
-          scale: 1.01,
-          boxShadow: "0px 3px 3px rgba(0,0,0,0.15)",
-        }}
+        // whileHover={{
+        //   scale: 1.01,
+        //   boxShadow: "0px 3px 3px rgba(0,0,0,0.15)",
+        // }}
         whileTap={{
           scale: 1.03,
           boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",

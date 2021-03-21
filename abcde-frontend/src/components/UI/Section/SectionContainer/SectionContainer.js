@@ -69,8 +69,15 @@ function SectionContainer({ sectionId, rootId, parentId, nextId, depth }) {
 function SectionContainerCore({ sectionId, parentId, nextId }) {
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const currPage = useStoreState((state) => state.master.currPage);
-  const isList = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isList);
-  const isListRoot = useStoreState((state) => state.master.idHierarchy[currPage][sectionId].isListRoot);
+  const isList = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].isList
+  );
+  const isListRoot = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
+  );
+  const setIsClickingDragHandle = useStoreActions(
+    (actions) => actions.mapInteraction.setIsClickingDragHandle
+  );
 
   const getSearchItems = () => {
     const { moduleInfos } = theSection;
@@ -89,18 +96,7 @@ function SectionContainerCore({ sectionId, parentId, nextId }) {
   const tempBool = true;
   return (
     <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
-      {isList && !isListRoot && (
-        <HStack
-          h="100%"
-          borderLeftRadius="inherit"
-          cursor="move"
-          px="0.5rem"
-          bg="gray.100"
-        >
-          <DragHandleIcon size="sm" color="gray.300" />
-        </HStack>
-      )}
-
+      {isList && !isListRoot && <DragHandle />}
       <Stack px="1.5rem" py="1.5rem" w="700px">
         <SectionHeader
           sectionId={sectionId}
@@ -123,5 +119,20 @@ function SectionContainerCore({ sectionId, parentId, nextId }) {
   );
 }
 
+function DragHandle() {
+  return (
+    <HStack
+      h="100%"
+      borderLeftRadius="inherit"
+      cursor="move"
+      px="0.5rem"
+      bg="gray.100"
+      className="DragHandle"
+    >
+      <DragHandleIcon size="sm" color="gray.300" />
+    </HStack>
+  );
+}
+
 export default React.memo(SectionContainer);
-const SectionContainerCoreWithSizeMe = React.memo(SectionContainerCore)
+const SectionContainerCoreWithSizeMe = React.memo(SectionContainerCore);
