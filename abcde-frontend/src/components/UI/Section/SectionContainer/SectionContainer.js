@@ -11,7 +11,7 @@ import NestedSection from "../NestedSection/NestedSection";
 import sizeMe from "react-sizeme";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
 
-function SectionContainer({ sectionId, rootId, parentId, nextId, depth }) {
+function SectionContainer({ sectionId, rootId, parentId, nextId, depth, dragControls }) {
   const setSectionSize = useStoreActions(
     (action) => action.sectionSizes.setSectionSize
   );
@@ -42,6 +42,7 @@ function SectionContainer({ sectionId, rootId, parentId, nextId, depth }) {
         sectionId={sectionId}
         parentId={parentId}
         nextId={nextId}
+        dragControls={dragControls}
         onSize={(size) => setSectionSize({ sectionId, size })}
       />
       {order.length > 0 &&
@@ -66,7 +67,7 @@ function SectionContainer({ sectionId, rootId, parentId, nextId, depth }) {
 //   sizeMe({ monitorHeight: true })(SectionContainerCore)
 // );
 
-function SectionContainerCore({ sectionId, parentId, nextId }) {
+function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const currPage = useStoreState((state) => state.master.currPage);
   const isList = useStoreState(
@@ -96,7 +97,7 @@ function SectionContainerCore({ sectionId, parentId, nextId }) {
   const tempBool = true;
   return (
     <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
-      {isList && !isListRoot && <DragHandle />}
+      {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
       <Stack px="1.5rem" py="1.5rem" w="700px">
         <SectionHeader
           sectionId={sectionId}
@@ -119,7 +120,8 @@ function SectionContainerCore({ sectionId, parentId, nextId }) {
   );
 }
 
-function DragHandle() {
+function DragHandle({dragControls}) {
+
   return (
     <HStack
       h="100%"
@@ -128,6 +130,7 @@ function DragHandle() {
       px="0.5rem"
       bg="gray.100"
       className="DragHandle"
+      onMouseDown={e => dragControls.start(e)} 
     >
       <DragHandleIcon size="sm" color="gray.300" />
     </HStack>

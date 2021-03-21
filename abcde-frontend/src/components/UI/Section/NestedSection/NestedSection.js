@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
 import SectionContainer from "../SectionContainer/SectionContainer";
 import { useStoreState } from "easy-peasy";
-import { motion } from "framer-motion";
+import { motion, useDragControls } from "framer-motion";
 import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
 
 const borderLeft = theme.colors.gray;
@@ -31,7 +31,7 @@ export default function NestedSection({
     (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
   );
 
-  const getNestedSection = () => {
+  const getNestedSection = (dragControls) => {
     return (
       isShown && (
         <SectionContainer
@@ -40,12 +40,14 @@ export default function NestedSection({
           parentId={parentId}
           nextId={nextId}
           depth={depth}
+          dragControls={dragControls}
         />
       )
     );
   };
 
   const MotionDivWrapper = (inner) => {
+    const dragControls = useDragControls()
     const [isDragging, setDragging] = useState(false);
 
     const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
@@ -56,11 +58,7 @@ export default function NestedSection({
         ref={ref}
         layout
         initial={false}
-        // whileHover={{
-        //   scale: 1.01,
-        //   boxShadow: "0px 3px 3px rgba(0,0,0,0.15)",
-        // }}
-        whileTap={{
+        whileDrag={{
           scale: 1.03,
           boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
         }}
@@ -70,8 +68,10 @@ export default function NestedSection({
         onViewportBoxUpdate={(_viewportBox, delta) => {
           isDragging && updateOrder(idx, delta.y.translate);
         }}
+        dragListener={false}
+        dragControls={dragControls}
       >
-        {inner}
+        {inner(dragControls)}
       </motion.div>
     );
   };
@@ -86,7 +86,7 @@ export default function NestedSection({
       >
         <Grid gap={2}>
           {isList && !isListRoot
-            ? MotionDivWrapper(getNestedSection())
+            ? MotionDivWrapper(getNestedSection)
             : getNestedSection()}
         </Grid>
       </Stack>
