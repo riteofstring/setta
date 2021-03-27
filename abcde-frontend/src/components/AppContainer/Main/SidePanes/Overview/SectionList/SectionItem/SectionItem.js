@@ -9,8 +9,8 @@ export default function SectionItem({
   isListRoot,
   pageNum,
 }) {
-  const setGoToHeight = useStoreActions(
-    (actions) => actions.mapInteraction.setGoToHeight
+  const setGoToCoordinates = useStoreActions(
+    (actions) => actions.mapInteraction.setGoToCoordinates
   );
   const getCurrPositionOfSection = useStoreActions(
     (actions) => actions.sectionPositions.getCurrPositionOfSection
@@ -18,7 +18,7 @@ export default function SectionItem({
 
   const onClick = async () => {
     const goToHeight = await getCurrPositionOfSection(sectionId);
-    setGoToHeight(goToHeight);
+    setGoToCoordinates({y: -goToHeight, x: -(pageNum-1)*(500+650)});
   };
 
   return (
