@@ -7,6 +7,8 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId }) {
   const [selectedItem, setSelectedItem] = useState("");
+  const [items, setItems] = useState([]);
+  const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
     return x ? x[1] : "";
@@ -40,6 +42,7 @@ export default function SectionSearch({ sectionId }) {
   const onClick = () => {
     if (items.length === 0) {
       setItems(getSearchItems());
+      setInputItems(getSearchItems());
     }
   };
 
@@ -61,8 +64,6 @@ export default function SectionSearch({ sectionId }) {
     }
   };
 
-  const [items, setItems] = useState([]);
-  const [inputItems, setInputItems] = useState([]);
   const {
     isOpen,
     getToggleButtonProps,
@@ -74,7 +75,7 @@ export default function SectionSearch({ sectionId }) {
     getItemProps,
   } = useCombobox({
     selectedItem,
-    items: items,
+    items: inputItems,
     itemToString,
     onSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
