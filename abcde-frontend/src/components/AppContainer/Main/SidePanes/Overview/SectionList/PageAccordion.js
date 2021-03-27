@@ -7,18 +7,9 @@ import {
   Box,
 } from "@chakra-ui/react";
 
-import { useState } from "react";
-
 export default function PageAccordion(props) {
-  const [reduceMotion, setReduceMotion] = useState(true);
-
   return (
-    <Accordion
-      defaultIndex={[0]}
-      allowMultiple
-      reduceMotion={reduceMotion}
-      onMouseOver={() => setReduceMotion(false)}
-    >
+    <Accordion defaultIndex={[0]} allowMultiple>
       <AccordionItem>
         <h2>
           <AccordionButton>

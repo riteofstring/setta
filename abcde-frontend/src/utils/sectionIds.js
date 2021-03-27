@@ -47,34 +47,89 @@ export const createStringId = (
   return id;
 };
 
-export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
-  const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
-  let output = [];
-  for (let x = 0; x < numPages; x++) {
-    output.push({
-      minId: x * sectionsPerPage + 1,
-      maxId: (x + 1) * sectionsPerPage,
-    });
+export const getRootIds = (idHierarchy) => {
+  return Object.keys(idHierarchy).filter((e) => idHierarchy[e].parent === null);
+};
+
+export const getPositionOfSection = (
+  targetSectionId,
+  idHierarchy,
+  isVisible,
+  isShown,
+  sectionSizes
+) => {
+  let position = 0;
+  let addToPosition = 0;
+  let foundTargetId = false;
+  for (let sectionId of getRootIds(idHierarchy)) {
+    if (sectionId === targetSectionId || foundTargetId) {
+      return position;
+    }
+
+    position += sectionSizes[sectionId].height;
+
+    ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
+      targetSectionId,
+      sectionId,
+      idHierarchy,
+      isVisible,
+      isShown,
+      sectionSizes
+    ));
+    if (isShown[sectionId]) {
+      position += addToPosition;
+    } else if (foundTargetId) {
+      position -= sectionSizes[sectionId].height;
+    }
   }
-  return output;
+  return position;
 };
 
-export const getRootIds = (idHierarchy, minId, maxId) => {
-  return Object.keys(idHierarchy).filter(
-    (e) =>
-      parseInt(e) >= minId &&
-      parseInt(e) <= maxId &&
-      idHierarchy[e].parent === null
-  );
+export const getPositionOfSectionHelper = (
+  targetSectionId,
+  sectionId,
+  idHierarchy,
+  isVisible,
+  isShown,
+  sectionSizes
+) => {
+  let position = 0;
+  let addToPosition = 0;
+  let foundTargetId = false;
+  if (isVisible[sectionId]) {
+    for (let childId of idHierarchy[sectionId].children) {
+      if (childId === targetSectionId || foundTargetId) {
+        return { position, foundTargetId: true };
+      }
+
+      position += sectionSizes[childId].height;
+
+      ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
+        targetSectionId,
+        childId,
+        idHierarchy,
+        isVisible,
+        isShown,
+        sectionSizes
+      ));
+      if (isShown[childId]) {
+        position += addToPosition;
+      } else if (foundTargetId) {
+        position -= sectionSizes[childId].height;
+      }
+    }
+  }
+  return { position, foundTargetId };
 };
 
-export const getOverviewListing = (idHierarchy, pageMinMaxList) => {
+export const getOverviewListing = (idHierarchy) => {
   let outputList = [];
-  for (let minMax of pageMinMaxList) {
+  for (let pageNum of Object.keys(idHierarchy)) {
     outputList.push([]);
-    for (let sectionId of getRootIds(idHierarchy, minMax.minId, minMax.maxId)) {
+    const idHierarchyCurrPage = idHierarchy[pageNum];
+    for (let sectionId of getRootIds(idHierarchyCurrPage)) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, idHierarchy, 0)
+        ...getOverviewListingHelper(sectionId, idHierarchyCurrPage, 0)
       );
     }
   }

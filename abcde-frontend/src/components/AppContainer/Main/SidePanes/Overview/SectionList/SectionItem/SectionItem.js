@@ -9,16 +9,22 @@ export default function SectionItem({
   isListRoot,
   pageNum,
 }) {
-  const setGoToCoordinates = useStoreActions(
-    (actions) => actions.mapInteraction.setGoToCoordinates
-  );
-  const getCurrPositionOfSection = useStoreActions(
-    (actions) => actions.sectionPositions.getCurrPositionOfSection
+  
+
+  const setCurrPage = useStoreActions(
+    (actions) => actions.master.setCurrPage
   );
 
-  const onClick = async () => {
-    const goToHeight = await getCurrPositionOfSection(sectionId);
-    setGoToCoordinates({y: -goToHeight, x: -(pageNum-1)*(500+650)});
+  const setGoToHeight = useStoreActions(
+    (actions) => actions.mapInteraction.setGoToHeight
+  );
+  const getCurrPositionOfSection = useStoreActions(
+    (actions) => actions.sectionSizes.getCurrPositionOfSection
+  );
+
+  const onClick = () => {
+    setCurrPage(pageNum)
+    setGoToHeight(getCurrPositionOfSection(sectionId));
   };
 
   return (
