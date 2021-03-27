@@ -9,21 +9,17 @@ export default function SectionItem({
   isListRoot,
   pageNum,
 }) {
-  
-
-  const setCurrPage = useStoreActions(
-    (actions) => actions.master.setCurrPage
-  );
+  const setCurrPage = useStoreActions((actions) => actions.master.setCurrPage);
 
   const setGoToHeight = useStoreActions(
     (actions) => actions.mapInteraction.setGoToHeight
   );
   const getCurrPositionOfSection = useStoreActions(
-    (actions) => actions.sectionSizes.getCurrPositionOfSection
+    (actions) => actions.sectionPositions.getCurrPositionOfSection
   );
 
   const onClick = () => {
-    setCurrPage(pageNum)
+    setCurrPage(pageNum);
     setGoToHeight(getCurrPositionOfSection(sectionId));
   };
 
