@@ -49,7 +49,7 @@ function SectionContainer({
       setSectionPosition({
         sectionId,
         position: refForPosition.current.offsetTop,
-        height: refForPosition.current.clientHeight
+        height: refForPosition.current.clientHeight,
       });
     }
   }, [refForPosition.current]);
@@ -81,7 +81,6 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const currPage = useStoreState((state) => state.master.currPage);
   const isList = useStoreState(
     (state) => state.master.idHierarchy[currPage][sectionId].isList
@@ -89,19 +88,6 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   const isListRoot = useStoreState(
     (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
   );
-
-  const getSearchItems = () => {
-    const { moduleInfos } = theSection;
-    let output = [];
-    for (let moduleName of Object.keys(moduleInfos)) {
-      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
-        output.push([moduleName, objName]);
-      }
-    }
-    return output;
-  };
-
-  const searchItems = getSearchItems();
 
   // temp_
   const tempBool = true;
@@ -118,9 +104,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
         />
         {!isListRoot && (
           <Stack>
-            {tempBool && (
-              <SectionSearch sectionId={sectionId} items={searchItems} />
-            )}
+            {tempBool && <SectionSearch sectionId={sectionId} />}
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>

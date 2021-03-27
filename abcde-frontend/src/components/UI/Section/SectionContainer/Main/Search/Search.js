@@ -5,12 +5,14 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function SectionSearch({ sectionId, items }) {
+export default function SectionSearch({ sectionId }) {
   const [selectedItem, setSelectedItem] = useState("");
 
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
+
+  const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const currPage = useStoreState((state) => state.master.currPage);
   const selected = useStoreState(
     (state) => state.master.idHierarchy[currPage][sectionId]
@@ -23,17 +25,36 @@ export default function SectionSearch({ sectionId, items }) {
     (actions) => actions.master.deleteChildrenFromVisibleSectionIds
   );
 
+  const getSearchItems = () => {
+    const { moduleInfos } = theSection;
+    let output = [];
+    for (let moduleName of Object.keys(moduleInfos)) {
+      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
+        output.push([moduleName, objName]);
+      }
+    }
+    return output;
+  };
+
+  const onClick = () => {
+    if (inputItems.length === 0) {
+      setInputItems(getSearchItems());
+    }
+  };
+
   useEffect(() => {
     const info = selected ? selected : "";
     if (info === "") {
       setSelectedItem(info);
     }
     const { moduleName, objName } = info;
-    const index = items.findIndex((x) => x[0] === moduleName && x[1] === objName);
+    const index = inputItems.findIndex(
+      (x) => x[0] === moduleName && x[1] === objName
+    );
     if (index !== -1) {
-      setSelectedItem(items[index]);
+      setSelectedItem(inputItems[index]);
     }
-  }, [selected, items]);
+  }, [selected]);
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
@@ -47,7 +68,7 @@ export default function SectionSearch({ sectionId, items }) {
     }
   };
 
-  const [inputItems, setInputItems] = useState(items);
+  const [inputItems, setInputItems] = useState([]);
   const {
     isOpen,
     getToggleButtonProps,
@@ -64,7 +85,7 @@ export default function SectionSearch({ sectionId, items }) {
     onSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
       setInputItems(
-        items.filter((item) =>
+        inputItems.filter((item) =>
           itemToString(item).toLowerCase().startsWith(inputValue.toLowerCase())
         )
       );
@@ -86,9 +107,10 @@ export default function SectionSearch({ sectionId, items }) {
               {...getInputProps()}
               bg="white"
               placeholder="Search..."
+              onClick={onClick}
             />
             <IconButton
-              {...getToggleButtonProps()}
+              {...getToggleButtonProps({ onClick: onClick })}
               aria-label={"toggle menu"}
               variantcolor={isOpen ? "gray" : "teal"}
               icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
