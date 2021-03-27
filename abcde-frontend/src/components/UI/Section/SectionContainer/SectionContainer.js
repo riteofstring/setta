@@ -49,6 +49,7 @@ function SectionContainer({
       setSectionPosition({
         sectionId,
         position: refForPosition.current.offsetTop,
+        height: refForPosition.current.clientHeight
       });
     }
   }, [refForPosition.current]);

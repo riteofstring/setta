@@ -4,9 +4,13 @@ const sectionPositions = {
   sectionPositions: {},
 
   setSectionPosition: action((state, payload) => {
-    const { sectionId, position } = payload;
-    console.log("sectionId, position", sectionId, position);
-    state.sectionPositions[sectionId] = position;
+    const { sectionId, position, height } = payload;
+    let prevHeight = 0
+    if (state.sectionPositions[sectionId]){
+      prevHeight = state.sectionPositions[sectionId].height
+    }
+    state.sectionPositions[sectionId] = { position, height };
+    console.log("sectionId, prevHeight, newHeight", sectionId, prevHeight, height);
   }),
 
   getCurrPositionOfSection: thunk(async (action, payload, helpers) => {
@@ -14,7 +18,7 @@ const sectionPositions = {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     return (
-      helpers.getState().sectionPositions[payload] *
+      helpers.getState().sectionPositions[payload].position *
       helpers.getStoreState().mapInteraction.scale
     );
   }),
