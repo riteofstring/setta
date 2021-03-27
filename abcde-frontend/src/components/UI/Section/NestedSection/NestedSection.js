@@ -1,27 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
-import { SectionContainer } from "../SectionContainer/SectionContainer";
-import { useStoreState, useStoreActions } from "easy-peasy";
+import SectionContainer from "../SectionContainer/SectionContainer";
+import { useStoreState } from "easy-peasy";
 import { motion, useDragControls } from "framer-motion";
 import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
 
 const borderLeft = theme.colors.gray;
 
-export const NestedSection = React.memo(_NestedSection);
-
-function _NestedSection({
+export default function NestedSection({
   parentId,
   rootId,
   sectionId,
   nextId,
   idx,
   depth,
-  // updatePosition,
+  updatePosition,
   updateOrder,
-  setChildIsDragging,
 }) {
-  // console.log("sectionId idx", sectionId, idx);
-
   const currPage = useStoreState((state) => state.master.currPage);
   const isShown = useStoreState(
     (state) => state.master.idHierarchy[currPage][parentId].isShown
@@ -36,45 +31,26 @@ function _NestedSection({
     (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
   );
 
-  const setChildrenPositions = useStoreActions(
-    (action) => action.master.setChildrenPositions
-  );
-
-  const ref = useRef(null);
-
-  const getNestedSection = (dragControls, isDragging = false) => {
+  const getNestedSection = (dragControls) => {
     return (
-      <SectionContainer
-        sectionId={sectionId}
-        rootId={rootId}
-        parentId={parentId}
-        nextId={nextId}
-        depth={depth}
-        dragControls={dragControls}
-        showNested={true}
-        showSearch={true}
-      />
+      isShown && (
+        <SectionContainer
+          sectionId={sectionId}
+          rootId={rootId}
+          parentId={parentId}
+          nextId={nextId}
+          depth={depth}
+          dragControls={dragControls}
+        />
+      )
     );
   };
 
-  useEffect(()=>{
-    console.log("ref.current useEffect")
-    if (ref.current){
-      setChildrenPositions({
-        sectionId: parentId,
-        idx,
-        position: {
-          height: ref.current.offsetHeight,
-          top: ref.current.offsetTop,
-        },
-      });
-    }
-  },[idx])
-
-
   const MotionDivWrapper = (inner) => {
-    const dragControls = useDragControls();
+    const dragControls = useDragControls()
     const [isDragging, setDragging] = useState(false);
+
+    const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
 
     return (
       <motion.div
@@ -87,24 +63,15 @@ function _NestedSection({
           boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
         }}
         drag="y"
-        onDragStart={() => {
-          setDragging(true);
-          setChildIsDragging(true);
+        onDragStart={() => setDragging(true)}
+        onDragEnd={() => setDragging(false)}
+        onViewportBoxUpdate={(_viewportBox, delta) => {
+          isDragging && updateOrder(idx, delta.y.translate);
         }}
-        onDragEnd={(event, info) => {
-          setDragging(false);
-          setChildIsDragging(false);
-          console.log("event", event)
-          console.log("info", info)
-          updateOrder(idx, info.offset.y);
-        }}
-        // onViewportBoxUpdate={(_viewportBox, delta) => {
-        //   isDragging && 
-        // }}
         dragListener={false}
         dragControls={dragControls}
       >
-        {inner(dragControls, isDragging)}
+        {inner(dragControls)}
       </motion.div>
     );
   };

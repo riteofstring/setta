@@ -44,14 +44,6 @@ const master = {
     }
   }),
 
-  setChildrenPositions: action((state, payload) => {
-    const { sectionId, idx, position } = payload
-    // console.log("setChildrenPositions", sectionId, idx, position)
-    state.idHierarchy[state.currPage][
-      sectionId
-    ].childrenPositions[idx] = position;
-  }),
-
   setCurrPage: action((state, payload) => {
     state.currPage = payload;
   }),

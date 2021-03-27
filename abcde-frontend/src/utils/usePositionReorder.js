@@ -2,6 +2,30 @@ import { useState, useRef } from "react";
 import { clamp, distance } from "popmotion";
 import move from "array-move";
 
+export function usePositionReorder(initialState) {
+  const [order, setOrder] = useState(initialState);
+
+  if (order.length !== initialState.length) {
+    setOrder(initialState);
+  }
+
+  // We need to collect an array of height and position data for all of this component's
+  // `Item` children, so we can later us that in calculations to decide when a dragging
+  // `Item` should swap places with its siblings.
+  const positions = useRef([]).current;
+  const updatePosition = (i, offset) => (positions[i] = offset);
+
+  // Find the ideal index for a dragging item based on its position in the array, and its
+  // current drag offset. If it's different to its current index, we swap this item with that
+  // sibling.
+  const updateOrder = (i, dragOffset) => {
+    const targetIndex = findIndex(i, dragOffset, positions);
+    if (targetIndex !== i) setOrder(move(order, i, targetIndex));
+  };
+
+  return [order, updatePosition, updateOrder];
+}
+
 const buffer = 30;
 
 export const findIndex = (i, yOffset, positions) => {
@@ -28,5 +52,5 @@ export const findIndex = (i, yOffset, positions) => {
     if (yOffset < -swapOffset) target = i - 1;
   }
 
-  return clamp(0, Object.keys(positions).length, target);
+  return clamp(0, positions.length, target);
 };

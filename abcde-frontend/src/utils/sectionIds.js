@@ -20,7 +20,6 @@ export const newIdInHierarchy = (input) => {
     isVisible: true,
     sectionHeading: null,
     stringId: null,
-    childrenPositions: {},
     ...input,
   };
 };
