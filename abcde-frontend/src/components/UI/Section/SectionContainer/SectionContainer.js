@@ -4,40 +4,13 @@ import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
-import { SectionHeader, DummySectionHeader } from "./Header/SectionHeader";
+import { SectionHeader } from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
-import { usePositionReorder } from "../../../../utils/usePositionReorder";
-import NestedSection from "../NestedSection/NestedSection";
+import { findIndex } from "../../../../utils/usePositionReorder";
+import { NestedSection } from "../NestedSection/NestedSection";
 import sizeMe from "react-sizeme";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
-
-export function DummySectionContainer({ sectionId, dragControls }) {
-  return (
-    <Stack height="100%">
-      <DummySectionContainerCore
-        sectionId={sectionId}
-        dragControls={dragControls}
-      />
-    </Stack>
-  );
-}
-
-function DummySectionContainerCore({ sectionId, dragControls }) {
-  return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
-      {<DragHandle dragControls={dragControls} />}
-      <Skeleton h="200px" w="700px"/>
-      {/* <Stack px="1.5rem" py="1.5rem" w="700px"> */}
-        {/* <DummySectionHeader sectionId={sectionId} />
-        <Stack>
-          <SectionSearch />
-          <GroupContainer />
-          <SectionFooter />
-        </Stack> */}
-      {/* </Stack> */}
-    </HStack>
-  );
-}
+import move from "array-move";
 
 function _SectionContainer({
   sectionId,
@@ -46,12 +19,14 @@ function _SectionContainer({
   nextId,
   depth,
   dragControls,
+  showNested = true,
+  showSearch = true,
 }) {
   const [childIsDragging, setChildIsDragging] = useState(false);
 
-  const setSectionSize = useStoreActions(
-    (action) => action.sectionSizes.setSectionSize
-  );
+  // const setSectionSize = useStoreActions(
+  //   (action) => action.sectionSizes.setSectionSize
+  // );
 
   const setChildrenIds = useStoreActions(
     (action) => action.master.setChildrenIds
@@ -63,17 +38,24 @@ function _SectionContainer({
     arraysAreEqual
   );
 
-  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
+  const childrenPositions = useStoreState(
+    (state) => state.master.idHierarchy[currPage][sectionId].childrenPositions
+  );
 
-  console.log("sectionId nextId, order", sectionId, nextId, childrenIds, order);
+  const updateOrder = (i, dragOffset) => {
+    const targetIndex = findIndex(i, dragOffset, childrenPositions);
+    if (targetIndex !== i) setChildrenIds({sectionId, childrenIds: move(childrenIds, i, targetIndex)});
+  };
 
-  useEffect(() => {
-    if (!childIsDragging) {
-      if (order.length > 0) {
-        setChildrenIds({ sectionId, childrenIds: order });
-      }
-    }
-  }, [childIsDragging]);
+  console.log("sectionId nextId, order", sectionId, nextId, childrenIds);
+
+  // useEffect(() => {
+  //   if (!childIsDragging) {
+  //     if (order.length > 0) {
+  //       setChildrenIds({ sectionId, childrenIds: order });
+  //     }
+  //   }
+  // }, [childIsDragging]);
 
   return (
     <Stack height="100%">
@@ -82,23 +64,26 @@ function _SectionContainer({
         parentId={parentId}
         nextId={nextId}
         dragControls={dragControls}
-        onSize={(size) => setSectionSize({ sectionId, size })}
+        // onSize={(size) => setSectionSize({ sectionId, size })}
+        showSearch={showSearch}
       />
-      {order.length > 0 &&
-        order.map((e, idx) => {
+      {showNested &&
+        childrenIds.length > 0 &&
+        childrenIds.map((e, idx) => {
           return (
             <NestedSection
               parentId={sectionId}
               rootId={rootId}
               sectionId={e}
-              nextId={order[idx + 1]}
+              nextId={childrenIds[idx + 1]}
               idx={idx}
               key={`Nested-Sec-${e}`}
               depth={depth + 1}
-              updatePosition={updatePosition}
+              // updatePosition={setChildrenPositions}
               updateOrder={updateOrder}
-              childIsDragging={childIsDragging}
+              // childIsDragging={childIsDragging}
               setChildIsDragging={setChildIsDragging}
+              childrenPositions={childrenPositions}
             />
           );
         })}
@@ -110,7 +95,13 @@ function _SectionContainer({
 //   sizeMe({ monitorHeight: true })(SectionContainerCore)
 // );
 
-function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
+function _SectionContainerCore({
+  sectionId,
+  parentId,
+  nextId,
+  dragControls,
+  showSearch,
+}) {
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const currPage = useStoreState((state) => state.master.currPage);
   const isList = useStoreState(
@@ -131,10 +122,10 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
     return output;
   };
 
-  const searchItems = getSearchItems();
+  const searchItems = showSearch ? getSearchItems() : [];
 
   // temp_
-  const tempBool = true;
+  // const tempBool = true;
   return (
     <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
       {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
@@ -146,11 +137,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
           isList={isList}
           isListRoot={isListRoot}
         />
-        {!isListRoot && (
+        {!isListRoot && showSearch && (
           <Stack>
-            {tempBool && (
-              <SectionSearch sectionId={sectionId} items={searchItems} />
-            )}
+            <SectionSearch sectionId={sectionId} items={searchItems} />
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
@@ -160,7 +149,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   );
 }
 
-function DragHandle({ dragControls }) {
+function _DragHandle({ dragControls }) {
   return (
     <HStack
       h="100%"
@@ -177,3 +166,5 @@ function DragHandle({ dragControls }) {
 }
 
 export const SectionContainer = React.memo(_SectionContainer);
+export const SectionContainerCore = React.memo(_SectionContainerCore);
+export const DragHandle = React.memo(_DragHandle);

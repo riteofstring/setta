@@ -22,7 +22,7 @@ export default function MainContainer() {
     >
       <SubNav />
 
-      <Overview />
+      {/* <Overview /> */}
 
       <UiEditor />
 
