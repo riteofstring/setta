@@ -9,10 +9,14 @@ const sectionPositions = {
     state.sectionPositions[sectionId] = position;
   }),
 
-  getCurrPositionOfSection: thunk((action, payload, helpers) => {
-    const state = helpers.getState();
-    const globalState = helpers.getStoreState();
-    return state.sectionPositions[payload] * globalState.mapInteraction.scale;
+  getCurrPositionOfSection: thunk(async (action, payload, helpers) => {
+    while (helpers.getState().sectionPositions[payload] === undefined) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return (
+      helpers.getState().sectionPositions[payload] *
+      helpers.getStoreState().mapInteraction.scale
+    );
   }),
 };
 

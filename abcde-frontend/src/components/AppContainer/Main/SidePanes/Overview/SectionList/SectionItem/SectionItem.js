@@ -18,9 +18,10 @@ export default function SectionItem({
     (actions) => actions.sectionPositions.getCurrPositionOfSection
   );
 
-  const onClick = () => {
+  const onClick = async () => {
     setCurrPage(pageNum);
-    setGoToHeight(getCurrPositionOfSection(sectionId));
+    const goToHeight = await getCurrPositionOfSection(sectionId);
+    setGoToHeight(goToHeight);
   };
 
   return (
