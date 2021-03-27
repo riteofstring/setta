@@ -14,9 +14,10 @@ export default function SectionSearch({ sectionId }) {
 
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const currPage = useStoreState((state) => state.master.currPage);
-  const selected = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId]
-  );
+  const {
+    moduleName: selectedModuleName,
+    objName: selectedObjName,
+  } = useStoreState((state) => state.master.idHierarchy[currPage][sectionId]);
   const sectionHasNested = useStoreState(
     (state) => state.master.idHierarchy[currPage][sectionId].hasNested
   );
@@ -43,22 +44,14 @@ export default function SectionSearch({ sectionId }) {
   };
 
   useEffect(() => {
-    const info = selected ? selected : "";
-    if (info === "") {
-      setSelectedItem(info);
+    if (selectedModuleName && selectedObjName) {
+      setSelectedItem([selectedModuleName, selectedObjName]);
     }
-    const { moduleName, objName } = info;
-    const index = inputItems.findIndex(
-      (x) => x[0] === moduleName && x[1] === objName
-    );
-    if (index !== -1) {
-      setSelectedItem(inputItems[index]);
-    }
-  }, [selected]);
+  }, [selectedModuleName, selectedObjName]);
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
-    if (moduleName !== selected.moduleName || objName !== selected.objName) {
+    if (moduleName !== selectedModuleName || objName !== selectedObjName) {
       if (sectionHasNested) {
         deleteChildrenFromVisibleSectionIds({
           sectionId,
@@ -91,6 +84,8 @@ export default function SectionSearch({ sectionId }) {
       );
     },
   });
+
+  console.log("selectedItem", selectedItem);
 
   // temp_
   const tempBool = true;
