@@ -38,8 +38,8 @@ export default function SectionSearch({ sectionId }) {
   };
 
   const onClick = () => {
-    if (inputItems.length === 0) {
-      setInputItems(getSearchItems());
+    if (items.length === 0) {
+      setItems(getSearchItems());
     }
   };
 
@@ -61,6 +61,7 @@ export default function SectionSearch({ sectionId }) {
     }
   };
 
+  const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
   const {
     isOpen,
@@ -73,12 +74,12 @@ export default function SectionSearch({ sectionId }) {
     getItemProps,
   } = useCombobox({
     selectedItem,
-    items: inputItems,
+    items: items,
     itemToString,
     onSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
       setInputItems(
-        inputItems.filter((item) =>
+        items.filter((item) =>
           itemToString(item).toLowerCase().startsWith(inputValue.toLowerCase())
         )
       );
