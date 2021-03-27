@@ -47,18 +47,34 @@ export const createStringId = (
   return id;
 };
 
-export const getRootIds = (idHierarchy) => {
-  return Object.keys(idHierarchy).filter((e) => idHierarchy[e].parent === null);
+export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
+  const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
+  let output = [];
+  for (let x = 0; x < numPages; x++) {
+    output.push({
+      minId: x * sectionsPerPage + 1,
+      maxId: (x + 1) * sectionsPerPage,
+    });
+  }
+  return output;
 };
 
-export const getOverviewListing = (idHierarchy) => {
+export const getRootIds = (idHierarchy, minId, maxId) => {
+  return Object.keys(idHierarchy).filter(
+    (e) =>
+      parseInt(e) >= minId &&
+      parseInt(e) <= maxId &&
+      idHierarchy[e].parent === null
+  );
+};
+
+export const getOverviewListing = (idHierarchy, pageMinMaxList) => {
   let outputList = [];
-  for (let pageNum of Object.keys(idHierarchy)) {
+  for (let minMax of pageMinMaxList) {
     outputList.push([]);
-    const idHierarchyCurrPage = idHierarchy[pageNum];
-    for (let sectionId of getRootIds(idHierarchyCurrPage)) {
+    for (let sectionId of getRootIds(idHierarchy, minMax.minId, minMax.maxId)) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, idHierarchyCurrPage, 0)
+        ...getOverviewListingHelper(sectionId, idHierarchy, 0)
       );
     }
   }

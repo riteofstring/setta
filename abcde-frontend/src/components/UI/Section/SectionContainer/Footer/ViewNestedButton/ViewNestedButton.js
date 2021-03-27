@@ -4,12 +4,11 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function ViewNestedButton({ sectionId, isListRoot }) {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
-  const currPage = useStoreState((state) => state.master.currPage);
   const sectionHasNested = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].hasNested
+    (state) => state.master.idHierarchy[sectionId].hasNested
   );
   const isShown = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].isShown
+    (state) => state.master.idHierarchy[sectionId].isShown
   );
 
   const flipShown = () => {

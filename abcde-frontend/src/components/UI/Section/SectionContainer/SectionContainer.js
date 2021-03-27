@@ -28,9 +28,8 @@ function SectionContainer({
     (action) => action.master.setChildrenIds
   );
 
-  const currPage = useStoreState((state) => state.master.currPage);
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].children,
+    (state) => state.master.idHierarchy[sectionId].children,
     arraysAreEqual
   );
 
@@ -81,12 +80,11 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const currPage = useStoreState((state) => state.master.currPage);
   const isList = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].isList
+    (state) => state.master.idHierarchy[sectionId].isList
   );
   const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
+    (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
   // temp_
