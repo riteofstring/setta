@@ -13,7 +13,7 @@ import { MenuContext } from "../SectionFooter";
 import { useContext } from "react";
 
 export default function GearMenu() {
-  const { onOpen } = useContext(MenuContext);
+  const { onOpen, gearModalMenu } = useContext(MenuContext);
   return (
     <GridItem
       justifySelf="flex-end"
@@ -32,7 +32,7 @@ export default function GearMenu() {
           variant="ghost"
         />
         <MenuList>
-          {/* <MenuItem onClick={onOpen}>Parameter Sweeps</MenuItem> */}
+          <MenuItem onClick={onOpen}>Parameter Sweeps</MenuItem>
           <MenuItem onClick={onOpen}>Load Section</MenuItem>
           <MenuDivider />
           <MenuItem>Settings</MenuItem>
