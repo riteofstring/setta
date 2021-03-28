@@ -3,8 +3,7 @@ import ParamInput from "./ParamContainer/ParamItems/ParamInput";
 import ParamTextLabel from "./ParamContainer/ParamItems/ParamTextLabel";
 
 export default function ParamSwitch(props) {
-  const tempKwargs = "KWARGS";
-  switch (tempKwargs) {
+  switch (props.uiType) {
     case "KWARGS":
       return (
         <ParamContainer {...props}>

@@ -8,14 +8,13 @@ import {
 import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
+import { useState } from "react";
 
 export default function GroupContainer({ sectionId }) {
+  const [numKwargs, setNumKwargs] = useState(0);
+
   const thisSectionInfo = useStoreState(
     (state) => state.master.sections[sectionId]
-  );
-
-  const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
   const moduleName = useStoreState(
@@ -42,38 +41,51 @@ export default function GroupContainer({ sectionId }) {
 
   const paramsInfo = getParamsArr();
 
-  // temp_
-  const tempKwargs = true;
   return (
     <Stack>
       {paramsInfo.parameters.length > 0 && (
-        <HStack pt="1rem">
-          <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
-            {tempKwargs ? "KWARGS" : "Parameters"}
-          </Heading>
-          <IconButton
-            icon={<AddIcon w={2} />}
-            size="xs"
-            variant="outline"
-            borderRadius="full"
-          />
-        </HStack>
-      )}
-
-      <FormControl id="groupone">
-        {paramsInfo.parameters.length > 0 &&
-          paramsInfo.parameters.map((e, idx) => (
+        <FormControl id="groupone">
+          {paramsInfo.parameters.map((e, idx) => (
             <ParamSwitch
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
               parameters={e}
-              isListRoot={isListRoot}
-              idx={idx}
             />
           ))}
-      </FormControl>
+        </FormControl>
+      )}
+
+      {objName && (
+        <HStack pt="1rem">
+          <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
+            {"KWARGS"}
+          </Heading>
+          <IconButton
+            icon={<AddIcon w={2} />}
+            size="xs"
+            variant="outline"
+            borderRadius="full"
+            onClick={() => setNumKwargs(numKwargs + 1)}
+          />
+        </HStack>
+      )}
+
+      {numKwargs > 0 && (
+        <FormControl id="groupone">
+          {[...Array(numKwargs)].map((e, idx) => (
+            <ParamSwitch
+              key={`KWARGS-${idx}`}
+              sectionId={sectionId}
+              moduleName={paramsInfo.moduleName}
+              objName={paramsInfo.objName}
+              parameters={{ name: "", ui_type: "", default_val: "" }}
+              uiType={"KWARGS"}
+            />
+          ))}
+        </FormControl>
+      )}
     </Stack>
   );
 }

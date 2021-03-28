@@ -8,7 +8,6 @@ export default function ParamInput(props) {
     moduleName,
     objName,
     parameters: { name, ui_type, default_val },
-    isListRoot,
   } = props;
 
   const setCurrParam = useStoreActions(
@@ -60,10 +59,7 @@ export default function ParamInput(props) {
       savedParam !== null && savedParam !== undefined ? savedParam : default_val
     );
 
-    if (
-      !isListRoot &&
-      ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)
-    ) {
+    if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
       addToVisibleSectionIdsThunk({
         name,
         parentId: sectionId,
