@@ -8,12 +8,10 @@ import {
 import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getParameters } from "../../../../../../utils/utils";
 
 export default function GroupContainer({ sectionId, sectionInfo }) {
-  const [numKwargs, setNumKwargs] = useState(0);
-
   const moduleName = useStoreState(
     (state) => state.master.idHierarchy[sectionId].moduleName
   );
@@ -22,7 +20,19 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
     (state) => state.master.idHierarchy[sectionId].objName
   );
 
+  const savedKwargs = useStoreState(
+    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
+  );
+
+  const kwargNames = savedKwargs ? Object.keys(savedKwargs) : [];
+
+  const [numKwargs, setNumKwargs] = useState(kwargNames.length);
+
   const parameters = getParameters(sectionInfo, moduleName, objName);
+
+  useEffect(() => {
+    setNumKwargs(kwargNames.length);
+  }, [sectionId, moduleName, objName]);
 
   return (
     <Stack>
@@ -64,6 +74,7 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
               moduleName={moduleName}
               objName={objName}
               metaUIType={"KWARGS"}
+              inputKwargName={kwargNames[idx]}
             />
           ))}
         </FormControl>

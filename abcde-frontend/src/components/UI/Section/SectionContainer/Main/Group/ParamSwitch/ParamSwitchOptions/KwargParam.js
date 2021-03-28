@@ -1,12 +1,14 @@
 import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function KwargParam(props) {
-  const [kwargName, setKwargName] = useState("");
+  const { sectionId, moduleName, objName, inputKwargName } = props;
 
-  const { sectionId, moduleName, objName } = props;
+  const [kwargName, setKwargName] = useState(
+    inputKwargName ? inputKwargName : ""
+  );
 
   const savedKwargs = useStoreState(
     (state) =>
@@ -38,6 +40,10 @@ export default function KwargParam(props) {
   const savedKwargsReplaceParamName = useStoreActions(
     (actions) => actions.savedKwargs.replaceParamName
   );
+
+  useEffect(() => {
+    setKwargName(inputKwargName);
+  }, [sectionId, moduleName, objName]);
 
   const onSubmit = (v) => {
     // if old key is in savedKwargs, then replace it with new key
@@ -75,7 +81,7 @@ export default function KwargParam(props) {
 
   return (
     <ParamContainer {...props} parameter={{ name: kwargName }}>
-      <ParamNameInput onSubmit={onSubmit} />
+      <ParamNameInput value={kwargName} onSubmit={onSubmit} />
     </ParamContainer>
   );
 }
