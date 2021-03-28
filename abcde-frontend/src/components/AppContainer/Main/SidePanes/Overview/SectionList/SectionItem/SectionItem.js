@@ -1,6 +1,7 @@
 import { Text, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { SECTIONWIDTH } from "../../../../../../../utils/constants";
 
 export default function SectionItem({
   sectionId,
@@ -9,19 +10,23 @@ export default function SectionItem({
   isListRoot,
   pageNum,
 }) {
-  const setCurrPage = useStoreActions((actions) => actions.master.setCurrPage);
+  const spaceBetweenPages = useStoreState(
+    (state) => state.master.spaceBetweenPages
+  );
 
-  const setGoToHeight = useStoreActions(
-    (actions) => actions.mapInteraction.setGoToHeight
+  const setGoToCoordinates = useStoreActions(
+    (actions) => actions.mapInteraction.setGoToCoordinates
   );
   const getCurrPositionOfSection = useStoreActions(
     (actions) => actions.sectionPositions.getCurrPositionOfSection
   );
 
   const onClick = async () => {
-    setCurrPage(pageNum);
     const goToHeight = await getCurrPositionOfSection(sectionId);
-    setGoToHeight(goToHeight);
+    setGoToCoordinates({
+      y: -goToHeight,
+      x: -(pageNum - 1) * (spaceBetweenPages + SECTIONWIDTH),
+    });
   };
 
   return (

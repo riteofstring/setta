@@ -15,17 +15,16 @@ export default function GroupContainer({ sectionId }) {
     (state) => state.master.sections[sectionId]
   );
 
-  const currPage = useStoreState((state) => state.master.currPage);
   const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
+    (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
   const moduleName = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].moduleName
+    (state) => state.master.idHierarchy[sectionId].moduleName
   );
 
   const objName = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].objName
+    (state) => state.master.idHierarchy[sectionId].objName
   );
 
   const getParamsArr = () => {
