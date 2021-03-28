@@ -2,15 +2,15 @@ import { action } from "easy-peasy";
 
 const mapInteraction = {
   hovering: false,
-  goToCoordinates: null,
+  goToHeight: null,
   scale: 1,
 
   setHovering: action((state, payload) => {
     state.hovering = payload;
   }),
 
-  setGoToCoordinates: action((state, payload) => {
-    state.goToCoordinates = payload;
+  setGoToHeight: action((state, payload) => {
+    state.goToHeight = payload;
   }),
 
   setScale: action((state, payload) => {

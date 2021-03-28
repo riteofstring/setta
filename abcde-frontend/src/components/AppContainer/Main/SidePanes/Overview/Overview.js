@@ -13,19 +13,32 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
+  const rootIdHierarchy = useStoreState(
+    (state) => state.master.rootIdHierarchy
+  );
   const idHierarchy = useStoreState((state) => state.master.idHierarchy);
+  const isVisible = useStoreState((state) => state.master.isVisible);
+  const isList = useStoreState((state) => state.master.isList);
+  const isListRoot = useStoreState((state) => state.master.isListRoot);
+  const sectionIdsToSectionHeadings = useStoreState(
+    (state) => state.master.sectionIdsToSectionHeadings
+  );
   const getListOfSectionIdsAndNames = () => {
-    const overviewListing = getOverviewListing(idHierarchy, pageMinMaxList);
+    const overviewListing = getOverviewListing(
+      rootIdHierarchy,
+      idHierarchy,
+      isVisible,
+      sectionIdsToSectionHeadings,
+      isList,
+      isListRoot
+    );
     console.log("overviewListing", overviewListing);
     return overviewListing;
   };
 
   useEffect(() => {
     setListOfSectionIdsAndNames(getListOfSectionIdsAndNames());
-  }, [idHierarchy]);
-
-  console.log("Overview");
+  }, [rootIdHierarchy, idHierarchy, isVisible, sectionIdsToSectionHeadings]);
 
   return (
     <PaneContainer paneProps={paneProps}>

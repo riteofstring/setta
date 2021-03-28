@@ -3,11 +3,11 @@ import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { HiX } from "react-icons/hi";
-import { arraysAreEqual } from "../../../../../utils/commonFunctions";
 
 export default function Incrementer({
   sectionId,
   parentId,
+  childrenIds,
   nextId,
   isListRoot,
 }) {
@@ -24,16 +24,10 @@ export default function Incrementer({
   );
 
   const selected = useStoreState(
-    (actions) => actions.master.idHierarchy[parentId]
+    (actions) => actions.master.selected[parentId]
   );
-
-  const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].children,
-    arraysAreEqual
-  );
-
-  const sectionHeading = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].sectionHeading
+  const sectionIdsToSectionHeadings = useStoreState(
+    (actions) => actions.master.sectionIdsToSectionHeadings[sectionId]
   );
 
   const decrementButtonCondition = () => {
@@ -43,10 +37,10 @@ export default function Incrementer({
   const addSections = (numSections) => {
     for (let i = 0; i < numSections; i++) {
       addToVisibleSectionIdsThunk({
-        name: sectionHeading,
+        name: sectionIdsToSectionHeadings,
         parentId: isListRoot ? sectionId : parentId,
         moduleName: selected.moduleName,
-        objName: selected.objName,
+        objName: selected.name,
         isList: true,
         siblingId: sectionId,
       });

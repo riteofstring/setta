@@ -5,64 +5,44 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function SectionSearch({ sectionId }) {
+export default function SectionSearch({ sectionId, items }) {
   const [selectedItem, setSelectedItem] = useState("");
-  const [items, setItems] = useState([]);
-  const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
-
-  const theSection = useStoreState((state) => state.master.sections[sectionId]);
-  const {
-    moduleName: selectedModuleName,
-    objName: selectedObjName,
-  } = useStoreState((state) => state.master.idHierarchy[sectionId]);
+  const selected = useStoreState((state) => state.master.selected[sectionId]);
   const sectionHasNested = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].hasNested
+    (state) => state.master.sectionHasNested[sectionId]
   );
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
   const deleteChildrenFromVisibleSectionIds = useStoreActions(
     (actions) => actions.master.deleteChildrenFromVisibleSectionIds
   );
 
-  const getSearchItems = () => {
-    const { moduleInfos } = theSection;
-    let output = [];
-    for (let moduleName of Object.keys(moduleInfos)) {
-      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
-        output.push([moduleName, objName]);
-      }
-    }
-    return output;
-  };
-
-  const onClick = () => {
-    if (items.length === 0) {
-      setItems(getSearchItems());
-      setInputItems(getSearchItems());
-    }
-  };
-
   useEffect(() => {
-    if (selectedModuleName && selectedObjName) {
-      setSelectedItem([selectedModuleName, selectedObjName]);
+    const info = selected ? selected : "";
+    if (info === "") {
+      setSelectedItem(info);
     }
-  }, [selectedModuleName, selectedObjName]);
+    const { moduleName, name } = info;
+    const index = items.findIndex((x) => x[0] === moduleName && x[1] === name);
+    if (index !== -1){
+      setSelectedItem(items[index]);
+    }
+  }, [selected, items]);
 
   const onSelectedItemChange = ({ selectedItem }) => {
     const [moduleName, objName] = selectedItem;
-    if (moduleName !== selectedModuleName || objName !== selectedObjName) {
-      if (sectionHasNested) {
-        deleteChildrenFromVisibleSectionIds({
-          sectionId,
-        });
-      }
-      setSelected({ sectionId, moduleName, objName });
+    if (sectionHasNested) {
+      deleteChildrenFromVisibleSectionIds({
+        sectionId,
+      });
     }
+    setSelected({ sectionId, moduleName, name: objName });
   };
 
+  const [inputItems, setInputItems] = useState(items);
   const {
     isOpen,
     getToggleButtonProps,
@@ -87,6 +67,7 @@ export default function SectionSearch({ sectionId }) {
   });
 
   console.log("selectedItem", selectedItem);
+  console.log("highlightedIndex", highlightedIndex);
 
   // temp_
   const tempBool = true;
@@ -103,10 +84,9 @@ export default function SectionSearch({ sectionId }) {
               {...getInputProps()}
               bg="white"
               placeholder="Search..."
-              onClick={onClick}
             />
             <IconButton
-              {...getToggleButtonProps({ onClick: onClick })}
+              {...getToggleButtonProps()}
               aria-label={"toggle menu"}
               variantcolor={isOpen ? "gray" : "teal"}
               icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}

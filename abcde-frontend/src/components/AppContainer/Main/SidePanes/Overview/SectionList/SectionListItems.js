@@ -6,13 +6,14 @@ export default function SectionListItems({ listOfSectionIdsAndNames, pageNum }) 
     <>
       {listOfSectionIdsAndNames &&
         listOfSectionIdsAndNames.map((e, idx) => (
-          <Stack pl={`${0.5 * e.depth}rem`} key={`SectionItem-${e.sectionId}-${idx}`}>
+          <Stack pl={`${0.5 * e.depth}rem`}>
             <SectionItem
               sectionId={e.sectionId}
               sectionHeading={e.sectionHeading}
               isList={e.isList}
               isListRoot={e.isListRoot}
               pageNum={pageNum}
+              key={`${e.sectionId}-${idx}`}
             />
           </Stack>
         ))}

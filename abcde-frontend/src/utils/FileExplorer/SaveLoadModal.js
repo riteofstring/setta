@@ -1,11 +1,18 @@
-import { useState, useEffect, createContext } from "react";
-import { HStack, Button } from "@chakra-ui/react";
+import { useState, useEffect } from "react";
+import {
+  HStack,
+  Button,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+} from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
-import ModalContainer from "../ModalContainer";
-
-const ModalContext = createContext(null);
 
 export default function SaveLoadModal(props) {
   const {
@@ -72,60 +79,46 @@ export default function SaveLoadModal(props) {
   };
 
   return (
-    <ModalContainer
-      onClose={_onClose}
-      isOpen={isOpen}
-      size={"6xl"}
-      header={<Header isSaveAs={isSaveAs} />}
-      body={
-        <Body
-          folderNames={folderNames}
-          foldersAndFiles={foldersAndFiles}
-          onFileSelect={_setSelectedFile}
-          onFolderSelect={_setSelectedFolder}
-          selectedFolder={selectedFolder}
-          selectedFile={selectedFile}
-          includeNewFolderButton={isSaveAs}
-          setFolderNames={setFolderNames}
-          setFoldersAndFiles={setFoldersAndFiles}
-          value={enteredFile}
-          onChange={setEnteredFile}
-          isSaveAs={isSaveAs}
-        />
-      }
-      footer={
-        <Footer
-          onSaveOrLoadClick={onSaveOrLoadClick}
-          buttonText={buttonText}
-          _onClose={_onClose}
-        />
-      }
-    />
-  );
-}
-
-function Header({ isSaveAs }) {
-  return <>{isSaveAs ? "Save Project As" : "Load Project"}</>;
-}
-function Body(props) {
-  return (
     <>
-      <FileExplorer {...props} />
-      {props.isSaveAs && (
-        <HStack>
-          <FileNameInput {...props} placeholder="File" />
-        </HStack>
-      )}
+      <Modal onClose={_onClose} isOpen={isOpen} isCentered size="6xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            {isSaveAs ? "Save Project As" : "Load Project"}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FileExplorer
+              folderNames={folderNames}
+              foldersAndFiles={foldersAndFiles}
+              onFileSelect={_setSelectedFile}
+              onFolderSelect={_setSelectedFolder}
+              selectedFolder={selectedFolder}
+              selectedFile={selectedFile}
+              includeNewFolderButton={isSaveAs}
+              setFolderNames={setFolderNames}
+              setFoldersAndFiles={setFoldersAndFiles}
+            />
+            {isSaveAs && (
+              <HStack>
+                <FileNameInput
+                  value={enteredFile}
+                  onChange={setEnteredFile}
+                  placeholder="File"
+                />
+              </HStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack justify="stretch" mb=".5rem" spacing={4}>
+              <Button colorScheme="blue" onClick={onSaveOrLoadClick}>
+                {buttonText}
+              </Button>
+              <Button onClick={_onClose}>Close</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
-  );
-}
-function Footer({ _onClose, onSaveOrLoadClick, buttonText }) {
-  return (
-    <HStack justify="stretch" mb=".5rem" spacing={4}>
-      <Button colorScheme="blue" onClick={onSaveOrLoadClick}>
-        {buttonText}
-      </Button>
-      <Button onClick={_onClose}>Close</Button>
-    </HStack>
   );
 }
