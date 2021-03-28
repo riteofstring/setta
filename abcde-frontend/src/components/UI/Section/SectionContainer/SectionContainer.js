@@ -10,6 +10,7 @@ import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
+import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function SectionContainer({
   sectionId,
@@ -86,6 +87,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 
   // temp_
   const tempBool = true;
+  const tempBoolDesc = false;
   return (
     <HStack
       direction="column"
@@ -105,6 +107,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
         {!isListRoot && (
           <Stack>
             {tempBool && <SectionSearch sectionId={sectionId} />}
+            {tempBoolDesc && <SectionDescription />}
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
