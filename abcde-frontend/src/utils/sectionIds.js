@@ -4,6 +4,26 @@ const OBJ = "O:";
 const PARAM = "P:";
 const LIST_POSITION = "L:";
 
+export const newIdInHierarchy = (input) => {
+  return {
+    parent: null,
+    children: [],
+    moduleName: null,
+    objName: null,
+    parentModuleName: null,
+    parentObjName: null,
+    hasNested: false,
+    isList: null,
+    isListRoot: false,
+    listCount: 0,
+    isShown: true,
+    isVisible: true,
+    sectionHeading: null,
+    stringId: null,
+    ...input,
+  };
+};
+
 export const createStringId = (
   sectionId,
   moduleName = null,
@@ -27,162 +47,63 @@ export const createStringId = (
   return id;
 };
 
-export const getPositionOfSection = (
-  targetSectionId,
-  rootIdHierarchy,
-  idHierarchy,
-  isVisible,
-  isShown,
-  sectionSizes
-) => {
-  let position = 0;
-  let addToPosition = 0;
-  let foundTargetId = false;
-  for (let sectionId of Object.keys(rootIdHierarchy)) {
-    if (sectionId === targetSectionId || foundTargetId) {
-      return position;
-    }
-
-    position += sectionSizes[sectionId].height;
-
-    ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
-      targetSectionId,
-      sectionId,
-      idHierarchy,
-      isVisible,
-      isShown,
-      sectionSizes,
-      rootIdHierarchy
-    ));
-    if (isShown[sectionId]) {
-      position += addToPosition;
-    } else if (foundTargetId) {
-      position -= sectionSizes[sectionId].height;
-    }
+export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
+  const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
+  let output = [];
+  for (let x = 0; x < numPages; x++) {
+    output.push({
+      minId: x * sectionsPerPage + 1,
+      maxId: (x + 1) * sectionsPerPage,
+    });
   }
-  return position;
+  return output;
 };
 
-export const getPositionOfSectionHelper = (
-  targetSectionId,
-  sectionId,
-  idHierarchy,
-  isVisible,
-  isShown,
-  sectionSizes,
-  rootIdHierarchy
-) => {
-  let position = 0;
-  let addToPosition = 0;
-  let foundTargetId = false;
-  if (isVisible[sectionId]) {
-    const loopThrough = rootIdHierarchy ? rootIdHierarchy : idHierarchy;
-    for (let childId of loopThrough[sectionId].children) {
-      if (childId === targetSectionId || foundTargetId) {
-        return { position, foundTargetId: true };
-      }
-
-      position += sectionSizes[childId].height;
-
-      ({ position: addToPosition, foundTargetId } = getPositionOfSectionHelper(
-        targetSectionId,
-        childId,
-        idHierarchy,
-        isVisible,
-        isShown,
-        sectionSizes,
-        null
-      ));
-      if (isShown[childId]) {
-        position += addToPosition;
-      } else if (foundTargetId) {
-        position -= sectionSizes[childId].height;
-      }
-    }
-  }
-  return { position, foundTargetId };
+export const getRootIds = (idHierarchy, minId, maxId) => {
+  return Object.keys(idHierarchy).filter(
+    (e) =>
+      parseInt(e) >= minId &&
+      parseInt(e) <= maxId &&
+      idHierarchy[e].parent === null
+  );
 };
 
-export const getOverviewListing = (
-  rootIdHierarchy,
-  idHierarchy,
-  isVisible,
-  sectionIdsToSectionHeadings,
-  isList,
-  isListRoot
-) => {
+export const getOverviewListing = (idHierarchy, pageMinMaxList) => {
   let outputList = [];
-  for (let pageNum of Object.keys(rootIdHierarchy)) {
+  for (let minMax of pageMinMaxList) {
     outputList.push([]);
-    const rootIdHierarchyCurrPage = rootIdHierarchy[pageNum]
-    for (let sectionId of Object.keys(rootIdHierarchyCurrPage)) {
+    for (let sectionId of getRootIds(idHierarchy, minMax.minId, minMax.maxId)) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(
-          sectionId,
-          idHierarchy,
-          isVisible,
-          sectionIdsToSectionHeadings,
-          isList,
-          isListRoot,
-          0,
-          rootIdHierarchyCurrPage
-        )
+        ...getOverviewListingHelper(sectionId, idHierarchy, 0)
       );
     }
   }
   return outputList;
 };
 
-export const getOverviewListingHelper = (
-  sectionId,
-  idHierarchy,
-  isVisible,
-  sectionIdsToSectionHeadings,
-  isList,
-  isListRoot,
-  depth,
-  rootIdHierarchy
-) => {
+export const getOverviewListingHelper = (sectionId, idHierarchy, depth) => {
   let outputList = [];
-  if (isVisible[sectionId]) {
+  const currSection = idHierarchy[sectionId];
+  if (currSection.isVisible) {
     outputList.push({
       sectionId,
-      sectionHeading: sectionIdsToSectionHeadings[sectionId],
-      isList: isList[sectionId],
-      isListRoot: isListRoot[sectionId],
+      sectionHeading: currSection.sectionHeading,
+      isList: currSection.isList,
+      isListRoot: currSection.isListRoot,
       depth: depth,
     });
-    const loopThrough = rootIdHierarchy ? rootIdHierarchy : idHierarchy;
-    for (let childId of loopThrough[sectionId].children) {
+    for (let childId of idHierarchy[sectionId].children) {
       outputList.push(
-        ...getOverviewListingHelper(
-          childId,
-          idHierarchy,
-          isVisible,
-          sectionIdsToSectionHeadings,
-          isList,
-          isListRoot,
-          depth + 1,
-          null
-        )
+        ...getOverviewListingHelper(childId, idHierarchy, depth + 1)
       );
     }
   }
   return outputList;
-};
-
-export const findId = (id, idHierarchy, rootIdHierarchy) => {
-  let idObj = rootIdHierarchy[id];
-  if (!idObj) {
-    idObj = idHierarchy[id];
-  }
-  return idObj;
 };
 
 export const setChildrenVisibility = (
   children,
   idHierarchy,
-  isVisible,
   visibility,
   parentModuleName = null,
   parentObjName = null
@@ -190,17 +111,16 @@ export const setChildrenVisibility = (
   for (let x of children) {
     const child = idHierarchy[x];
     if (parentModuleName === null) {
-      isVisible[x] = visibility;
-      setChildrenVisibility(child.children, idHierarchy, isVisible, visibility);
+      idHierarchy[x].isVisible = visibility;
+      setChildrenVisibility(child.children, idHierarchy, visibility);
     } else if (
       child.parentModuleName === parentModuleName &&
       child.parentObjName === parentObjName
     ) {
-      isVisible[x] = visibility;
+      idHierarchy[x].isVisible = visibility;
       setChildrenVisibility(
         child.children,
         idHierarchy,
-        isVisible,
         visibility,
         child.moduleName,
         child.objName
@@ -271,16 +191,15 @@ const createExportableParams = ({
 
 export const createExportableObject = ({
   idHierarchy,
-  rootIdHierarchy,
   sectionIdsToSectionHeadings,
   isList,
   isListRoot,
   globalCurr,
 }) => {
   let output = {};
-  for (let id of Object.keys(rootIdHierarchy)) {
+  for (let id of getRootIds(idHierarchy)) {
     const sectionName = sectionIdsToSectionHeadings[id];
-    const currSelected = rootIdHierarchy[id];
+    const currSelected = idHierarchy[id];
     output[sectionName] = createExportableParams({
       currSelected,
       idHierarchy,

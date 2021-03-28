@@ -6,22 +6,29 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { AddIcon } from "@chakra-ui/icons";
-import TheParam from "./TheParam/TheParam";
-import PinButton from "./TheParam/PinButton/PinButton";
+import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 
 export default function GroupContainer({ sectionId }) {
   const thisSectionInfo = useStoreState(
     (state) => state.master.sections[sectionId]
   );
-  const thisSectionSelected = useStoreState(
-    (state) => state.master.selected[sectionId]
+
+  const isListRoot = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].isListRoot
+  );
+
+  const moduleName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].moduleName
+  );
+
+  const objName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].objName
   );
 
   const getParamsArr = () => {
     try {
       let parameters = [];
-      const { moduleName, name: objName } = thisSectionSelected;
       const paramSource =
         thisSectionInfo.moduleInfos[moduleName].objs[objName].params;
       for (let key of Object.keys(paramSource)) {
@@ -56,12 +63,13 @@ export default function GroupContainer({ sectionId }) {
       <FormControl id="groupone">
         {paramsInfo.parameters.length > 0 &&
           paramsInfo.parameters.map((e, idx) => (
-            <TheParam
+            <ParamSwitch
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
               parameters={e}
+              isListRoot={isListRoot}
               idx={idx}
             />
           ))}

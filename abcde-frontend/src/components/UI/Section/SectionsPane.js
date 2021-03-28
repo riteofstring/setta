@@ -1,32 +1,21 @@
 import React from "react";
 import { useStoreState } from "easy-peasy";
-import SectionContainer from "./SectionContainer/SectionContainer";
+import SingleSectionsPane from "./SingleSectionsPane";
+import { HStack } from "@chakra-ui/react";
 
 const SectionsPane = () => {
-  const sections = useStoreState((state) => state.master.sections);
-  const currPage = useStoreState((state) => state.master.currPage);
-  const rootIdHierarchy = useStoreState(
-    (state) => state.master.rootIdHierarchy[currPage]
+  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
+  const spaceBetweenPages = useStoreState(
+    (state) => state.master.spaceBetweenPages
   );
-
-  const idKeys = rootIdHierarchy ? Object.keys(rootIdHierarchy) : [];
-
-  console.log("SectionsPane idKeys", idKeys);
 
   return (
     <>
-      {idKeys.map((e, idx) => (
-        <SectionContainer
-          sectionId={e}
-          rootId={e}
-          parentId={null}
-          nextId={idKeys[idx + 1]}
-          childrenIds={rootIdHierarchy[e].children}
-          theSection={sections[e]}
-          key={`${e}-${idx}`}
-          depth={0}
-        />
-      ))}
+      <HStack spacing={`${spaceBetweenPages}px`}>
+        {pageMinMaxList.map((e) => (
+          <SingleSectionsPane minId={e.minId} maxId={e.maxId} />
+        ))}
+      </HStack>
     </>
   );
 };
