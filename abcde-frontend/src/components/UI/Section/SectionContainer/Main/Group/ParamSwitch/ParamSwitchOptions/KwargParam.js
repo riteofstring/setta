@@ -8,15 +8,15 @@ export default function KwargParam(props) {
 
   const { sectionId, moduleName, objName } = props;
 
-  const globalCurr = useStoreState(
+  const savedKwargs = useStoreState(
     (state) =>
-      state.globalCurr.globalCurr[sectionId]?.[moduleName]?.[objName]?.[
+      state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]?.[
         kwargName
       ]
   );
 
-  const setGlobalCurr = useStoreActions(
-    (actions) => actions.globalCurr.setGlobalCurr
+  const setSavedKwargs = useStoreActions(
+    (actions) => actions.savedKwargs.setSavedKwargs
   );
 
   const globalCurrReplaceParamName = useStoreActions(
@@ -35,14 +35,19 @@ export default function KwargParam(props) {
     (actions) => actions.uiTypeConfigs.replaceParamName
   );
 
+  const savedKwargsReplaceParamName = useStoreActions(
+    (actions) => actions.savedKwargs.replaceParamName
+  );
+
   const onSubmit = (v) => {
-    // if old key is in globalCurr, then replace it with new key
-    if (globalCurr !== undefined && globalCurr !== null) {
+    // if old key is in savedKwargs, then replace it with new key
+    if (savedKwargs === true) {
       for (let F of [
         globalCurrReplaceParamName,
         uiTypesReplaceParamName,
         nestedSectionIdsReplaceParamName,
         uiTypeConfigsReplaceParamName,
+        savedKwargsReplaceParamName,
       ]) {
         F({
           oldKey: kwargName,
@@ -55,14 +60,14 @@ export default function KwargParam(props) {
         });
       }
     } else {
-      // old key is not in globalCurr, so initialize it with empty string
+      // old key is not in savedKwargs, so initialize it with "exists: true"
       // so that it is known to exist by the UI Type Modal
-      setGlobalCurr({
+      setSavedKwargs({
         sectionId,
         moduleName,
         objName,
         paramName: v,
-        paramValue: "",
+        exists: true,
       });
     }
     setKwargName(v);

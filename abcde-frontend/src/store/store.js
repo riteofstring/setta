@@ -25,6 +25,7 @@ const store = createStore({
   sectionPositions: sectionPositions,
   currentlySelected: currentlySelected,
   globalCurr: parameterDetailsStoreCreator("globalCurr", ["paramValue"]),
+  savedKwargs: parameterDetailsStoreCreator("savedKwargs", ["exists"]),
   uiTypes: parameterDetailsStoreCreator("uiTypes", ["uiType"]),
   nestedSectionIds: parameterDetailsStoreCreator("nestedSectionIds", [
     "nestedSectionId",

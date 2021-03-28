@@ -1,11 +1,10 @@
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { MenuContext } from "../../SectionFooter";
-import { Box, HStack, Stack, Select, Input, Text } from "@chakra-ui/react";
+import { Box, HStack, Stack, Select, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
 import { getParameters } from "../../../../../../../utils/utils";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { getParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/getParamUI";
-import _ from "lodash";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
@@ -18,8 +17,8 @@ export default function UITypesModal() {
     (state) => state.currentlySelected.currentlySelected[sectionId]?.objName
   );
 
-  const globalCurr = useStoreState(
-    (state) => state.globalCurr.globalCurr[sectionId]?.[moduleName]?.[objName]
+  const savedKwargs = useStoreState(
+    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
   );
 
   const thisSectionInfo = useStoreState(
@@ -30,9 +29,9 @@ export default function UITypesModal() {
     const parameters = getParameters(thisSectionInfo, moduleName, objName).map(
       (x) => x.name
     );
-    if (globalCurr) {
-      const maybeAlsoKwargs = Object.keys(globalCurr);
-      return _.union(parameters, maybeAlsoKwargs);
+    if (savedKwargs) {
+      const maybeAlsoKwargs = Object.keys(savedKwargs);
+      return parameters.concat(maybeAlsoKwargs)
     }
     return parameters;
   };
