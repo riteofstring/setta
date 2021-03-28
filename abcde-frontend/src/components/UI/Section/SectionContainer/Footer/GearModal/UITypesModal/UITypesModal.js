@@ -123,7 +123,7 @@ function Item({ sectionId, moduleName, objName, paramName }) {
       <Box>{paramName}</Box>
       <Select placeholder="Select UI Type" onChange={onSelect}>
         {menuItems.map((e, idx) => (
-          <option value={e} key={`${e}-${idx}`}>
+          <option value={e} key={`${e}-${idx}`} selected={e === uiType ? "true" : null}>
             {e}
           </option>
         ))}
