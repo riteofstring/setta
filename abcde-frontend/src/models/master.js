@@ -14,8 +14,8 @@ import { getPageMinMaxList } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,
+  spaceBetweenPages: 500,
   sectionCount: 0,
-  rootSectionCount: 0,
   pageMinMaxList: [],
   sections: {},
   idHierarchy: {},
@@ -30,7 +30,6 @@ const master = {
     }
     for (let key of Object.keys(data)) {
       state.sectionCount += 1;
-      state.rootSectionCount += 1;
       let id = state.sectionCount;
       if (isJson) {
         state.sections[id] = new Section(key, data[key]);
@@ -42,7 +41,7 @@ const master = {
       state.stringIdsToSectionIds[id] = id;
     }
     state.pageMinMaxList = getPageMinMaxList(
-      state.rootSectionCount,
+      state.sectionCount,
       state.sectionsPerPage
     );
   }),

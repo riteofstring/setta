@@ -9,6 +9,7 @@ import SectionFooter from "./Footer/SectionFooter";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
+import { SECTIONWIDTH } from "../../../../utils/constants"
 
 function SectionContainer({
   sectionId,
@@ -90,9 +91,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   // temp_
   const tempBool = true;
   return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
+    <HStack direction="column" bg="gray.50" borderRadius="md" w={`${SECTIONWIDTH}px`}>
       {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
-      <Stack px="1.5rem" py="1.5rem" w="700px">
+      <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
           parentId={parentId}
