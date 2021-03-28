@@ -1,10 +1,4 @@
-import {
-  IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-} from "@chakra-ui/react";
+import { IconButton, Menu, MenuButton } from "@chakra-ui/react";
 import { HiDotsHorizontal } from "react-icons/hi";
 import PrefMenu from "./PrefMenu";
 

@@ -1,12 +1,33 @@
+import { useContext } from "react";
+import { MenuContext } from "../SectionFooter";
+
 import SaveLoadModal from "../../../../../../utils/FileExplorer/SaveLoadModal";
 import ParamSweepModal from "./ParamSweepModal/ParamSweepModal";
 
-export default function GearModal({ gearModalSwitch }) {
-  switch (gearModalSwitch) {
+const foldersAndFiles = { folder1: ["apple", "bear"] };
+
+export default function GearModal() {
+  const { modalSelect, onClose, isOpen } = useContext(MenuContext);
+  switch (modalSelect) {
     case "LOAD":
-      return <SaveLoadModal />;
     case "SAVE":
-      return <SaveLoadModal />;
+      return (
+        <SaveLoadModal
+          onClose={onClose}
+          isOpen={isOpen}
+          buttonText="Load"
+          foldersAndFiles={foldersAndFiles}
+        />
+      );
+
+      return (
+        <SaveLoadModal
+          onClose={onClose}
+          isOpen={isOpen}
+          buttonText="Save"
+          foldersAndFiles={foldersAndFiles}
+        />
+      );
     case "PARAM_SWEEP":
       return <ParamSweepModal />;
     default:
