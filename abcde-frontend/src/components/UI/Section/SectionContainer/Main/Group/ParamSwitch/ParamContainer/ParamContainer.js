@@ -1,6 +1,6 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
-import ParamPrefButton from "./ParamItems/ParamPrefButton";
+import PrefButton from "./ParamItems/ParamPref/PrefButton";
 
 export default function ParamContainer(props) {
   return (
@@ -16,7 +16,7 @@ export default function ParamContainer(props) {
       >
         {props.children}
         <Spacer />
-        <ParamPrefButton />
+        <PrefButton />
         <ParamInput {...props} />
       </HStack>
     </FormControl>
