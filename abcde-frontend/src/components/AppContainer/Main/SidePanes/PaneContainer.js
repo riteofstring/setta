@@ -69,7 +69,7 @@ export default function PaneContainer(props) {
     closed: { x: `${!right ? `-` : ``}${width / 16 - 2.5}rem` },
   };
 
-  if (props && vMin && vMax) {
+  if (props) {
     return (
       <Pane
         h="100%"

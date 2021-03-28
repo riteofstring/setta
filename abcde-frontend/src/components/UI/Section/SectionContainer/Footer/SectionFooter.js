@@ -1,27 +1,22 @@
 import { Grid, useDisclosure } from "@chakra-ui/react";
 
-import { createContext, useState } from "react";
+import GearModal from "./GearModal/GearModal";
+import { createContext } from "react";
 
 import ViewNestedButton from "./ViewNestedButton/ViewNestedButton";
 import CollapseSectionButton from "./CollapseSectionButton/CollapseSectionButton";
 import GearMenu from "./GearMenu/GearMenu";
-import GearModal from "./GearModal/GearModal";
 
 export const MenuContext = createContext(null);
 
 export default function SectionFooter({ sectionId, isListRoot }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
-
-  const [modalSelect, setModalSelect] = useState("");
-
-  function applyModalSwitchVal(e) {
-    setModalSelect(e);
-  }
+  const gearModalSwitch = "";
 
   return (
     <>
       <MenuContext.Provider
-        value={{ isOpen, onOpen, onClose, modalSelect, applyModalSwitchVal }}
+        value={{ isOpen, onOpen, onClose, gearModalSwitch }}
       >
         <Grid w="100%" py="0.5rem" alignItems="center">
           <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} />

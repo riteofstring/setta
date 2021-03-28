@@ -14,7 +14,7 @@ export default function PrefButton(props) {
         size="xs"
         color="gray.400"
       />
-      <PrefMenu />
+      <PrefMenu {...props} />
     </Menu>
   );
 }

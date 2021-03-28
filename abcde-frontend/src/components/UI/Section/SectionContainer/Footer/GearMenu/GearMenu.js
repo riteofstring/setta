@@ -13,11 +13,7 @@ import { MenuContext } from "../SectionFooter";
 import { useContext } from "react";
 
 export default function GearMenu() {
-  const { onOpen, applyModalSwitchVal } = useContext(MenuContext);
-  function setOpen(e) {
-    onOpen();
-    applyModalSwitchVal(e);
-  }
+  const { onOpen, gearModalMenu } = useContext(MenuContext);
   return (
     <GridItem
       justifySelf="flex-end"
@@ -36,14 +32,10 @@ export default function GearMenu() {
           variant="ghost"
         />
         <MenuList>
-          <MenuItem onClick={() => setOpen("UI_TYPES")}>UI Types</MenuItem>
-          <MenuItem onClick={() => setOpen("PARAM_SWEEP")}>
-            Parameter Sweeps
-          </MenuItem>
-
+          <MenuItem onClick={onOpen}>Parameter Sweeps</MenuItem>
+          <MenuItem onClick={onOpen}>Load Section</MenuItem>
           <MenuDivider />
-          <MenuItem onClick={() => setOpen("LOAD")}>Load Section</MenuItem>
-          <MenuItem onClick={() => setOpen("SAVE")}>Save Section</MenuItem>
+          <MenuItem>Settings</MenuItem>
         </MenuList>
       </Menu>
     </GridItem>

@@ -1,4 +1,3 @@
-import { Input } from "@chakra-ui/react";
 import { useState, useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
@@ -7,16 +6,11 @@ export default function ParamInput(props) {
     sectionId,
     moduleName,
     objName,
-    parameters: { name, ui_type, default_val },
-    isListRoot,
+    parameter: { name, defaultVal },
   } = props;
 
   const setCurrParam = useStoreActions(
     (actions) => actions.globalCurr.setCurrParam
-  );
-
-  const addToVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.addToVisibleSectionIdsThunk
   );
 
   const globalCurr = useStoreState(
@@ -24,7 +18,7 @@ export default function ParamInput(props) {
     (prev, next) => checkGlobalCurrEquality(prev, next)
   );
 
-  const [value, setValue] = useState(default_val);
+  const [value, setValue] = useState(defaultVal);
 
   const checkGlobalCurrEquality = (prev, next) => {
     let prevParam = null;
@@ -38,7 +32,7 @@ export default function ParamInput(props) {
     return prevParam === nextParam;
   };
 
-  const sendState = (name, value) => {
+  const sendState = (value) => {
     setValue(value);
     setCurrParam({
       sectionId,
@@ -57,34 +51,10 @@ export default function ParamInput(props) {
     } catch (err) {}
 
     setValue(
-      savedParam !== null && savedParam !== undefined ? savedParam : default_val
+      savedParam !== null && savedParam !== undefined ? savedParam : defaultVal
     );
-
-    if (
-      !isListRoot &&
-      ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)
-    ) {
-      addToVisibleSectionIdsThunk({
-        name,
-        parentId: sectionId,
-        moduleName,
-        objName,
-        isList: ui_type === "LIST_NESTED_OBJECT",
-        siblingId: null,
-      });
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId, moduleName, objName]);
 
-  return (
-    <Input
-      type=""
-      variant="flushed"
-      placeholder={default_val}
-      size="xs"
-      maxWidth="10rem"
-      value={value}
-      onChange={(e) => sendState(name, e.target.value)}
-    />
-  );
+  return props.paramUI({ value, defaultVal, sendState });
 }
