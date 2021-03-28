@@ -42,6 +42,17 @@ MODULES:
               list:
                 - <<: *transforms_module_without_compose
 
+PARAMETERS:
+  various_params:
+    - ParameterInfo:
+        dataset_root:
+          default_val: "."
+        batch_size:
+          default_val: 64
+        test_batch_size:
+          default_val: 1000
+        epochs:
+          default_val: 2
 
 UI:
   Model:
@@ -55,15 +66,9 @@ UI:
     - datasets
   ValDataset:
     - datasets
-
-    
-    # Various Params:
-    #   - ParameterInfo:
-    #       dataset_root: "."
-    #       batch_size: 64
-    #       test_batch_size: 1000
-    #       epochs: 1
-
+  OtherParameters:
+    parameters:
+      - various_params
 
 FACTORIES:
   Optimizer:
