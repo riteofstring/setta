@@ -1,6 +1,5 @@
 import { createStore, action } from "easy-peasy";
 import master from "../models/master";
-import globalCurr from "../models/globalCurr";
 import yamlEntry from "../models/yamlEntry";
 import auth from "../models/auth";
 import uiInfo from "../models/uiInfo";
@@ -10,13 +9,11 @@ import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
 import sectionPositions from "../models/sectionPositions";
-import uiTypes from "../models/uiTypes";
 import currentlySelected from "../models/currentlySelected";
-import nestedSectionIds from "../models/nestedSectionIds";
+import parameterDetailsStoreCreator from "../models/parameterDetailsStoreCreator";
 
 const store = createStore({
   master: master,
-  globalCurr: globalCurr,
   yamlEntry: yamlEntry,
   auth: auth,
   uiInfo: uiInfo,
@@ -26,9 +23,17 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
-  uiTypes: uiTypes,
   currentlySelected: currentlySelected,
-  nestedSectionIds: nestedSectionIds,
+  globalCurr: parameterDetailsStoreCreator("globalCurr", ["paramValue"]),
+  uiTypes: parameterDetailsStoreCreator("uiTypes", ["uiType"]),
+  nestedSectionIds: parameterDetailsStoreCreator("nestedSectionIds", [
+    "nestedSectionId",
+  ]),
+  uiTypeConfigs: parameterDetailsStoreCreator("uiTypeConfigs", [
+    "uiType",
+    "uiConfigOption",
+    "uiConfigValue",
+  ]),
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

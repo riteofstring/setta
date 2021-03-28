@@ -1,9 +1,10 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { MenuContext } from "../../SectionFooter";
 import { Box, HStack, Stack, Select, Input, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
 import { getParameters } from "../../../../../../../utils/utils";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import { getParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/getParamUI";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
@@ -86,7 +87,14 @@ const menuItems = [
 ];
 
 function Item({ sectionId, moduleName, objName, paramName }) {
+  const uiType = useStoreState(
+    (state) =>
+      state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[paramName]
+  );
   const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
+  const setUiTypeConfigs = useStoreActions(
+    (actions) => actions.uiTypeConfigs.setUiTypeConfigs
+  );
 
   const onSelect = (e) => {
     setUiTypes({
@@ -94,7 +102,19 @@ function Item({ sectionId, moduleName, objName, paramName }) {
       moduleName,
       objName,
       paramName,
-      paramValue: e.target.value,
+      uiType: e.target.value,
+    });
+  };
+
+  const onConfigChange = (uiConfigOption, uiConfigValue) => {
+    setUiTypeConfigs({
+      sectionId,
+      moduleName,
+      objName,
+      paramName,
+      uiType,
+      uiConfigOption,
+      uiConfigValue,
     });
   };
 
@@ -108,8 +128,13 @@ function Item({ sectionId, moduleName, objName, paramName }) {
           </option>
         ))}
       </Select>
-      <Input placeholder="Min" />
-      <Input placeholder="Max" />
+      {getParamUIConfig(uiType).map((e, idx) => (
+        <Input
+          placeholder={e}
+          key={`${e}-${idx}`}
+          onChange={(v) => onConfigChange(e, v.target.value)}
+        />
+      ))}
     </HStack>
   );
 }

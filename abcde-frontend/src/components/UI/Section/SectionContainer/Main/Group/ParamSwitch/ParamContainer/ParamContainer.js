@@ -42,7 +42,7 @@ export default function ParamContainer(props) {
       moduleName,
       objName,
       paramName: name,
-      paramValue: newNestedSectionId,
+      nestedSectionId: newNestedSectionId,
     });
   };
 

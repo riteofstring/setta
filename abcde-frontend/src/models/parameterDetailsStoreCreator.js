@@ -1,23 +1,23 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 
-function parameterDetailsStoreCreator(storeName) {
+function parameterDetailsStoreCreator(storeName, specializedKeys) {
   const capitalized = storeName.charAt(0).toUpperCase() + storeName.slice(1);
+  const payloadKeys = ["sectionId", "moduleName", "objName", "paramName"].concat(specializedKeys)
   return {
     [storeName]: {},
 
     [`set${capitalized}`]: action((state, payload) => {
-      const { sectionId, moduleName, objName, paramName, paramValue } = payload;
-      if (!(sectionId in state[storeName])) {
-        state[storeName][sectionId] = {};
+      let currPoint = state[storeName];
+      for (let i = 0; i < payloadKeys.length - 2; i++) {
+        const currKey = payload[payloadKeys[i]];
+        if (!(currKey in currPoint)) {
+          currPoint[currKey] = {};
+        }
+        currPoint = currPoint[currKey];
       }
-      if (!(moduleName in state[storeName][sectionId])) {
-        state[storeName][sectionId][moduleName] = {};
-      }
-      if (!(objName in state[storeName][sectionId][moduleName])) {
-        state[storeName][sectionId][moduleName][objName] = {};
-      }
-      state[storeName][sectionId][moduleName][objName][paramName] = paramValue;
+      currPoint[payload[payloadKeys[payloadKeys.length - 2]]] =
+        payload[payloadKeys[payloadKeys.length - 1]];
     }),
 
     setEntireState: action((state, payload) => {
