@@ -36,13 +36,14 @@ export default function GearMenu() {
           variant="ghost"
         />
         <MenuList>
+          <MenuItem onClick={() => setOpen("UI_TYPES")}>UI Types</MenuItem>
           <MenuItem onClick={() => setOpen("PARAM_SWEEP")}>
             Parameter Sweeps
           </MenuItem>
+
+          <MenuDivider />
           <MenuItem onClick={() => setOpen("LOAD")}>Load Section</MenuItem>
           <MenuItem onClick={() => setOpen("SAVE")}>Save Section</MenuItem>
-          <MenuDivider />
-          <MenuItem>Settings</MenuItem>
         </MenuList>
       </Menu>
     </GridItem>
