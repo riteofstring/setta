@@ -1,15 +1,14 @@
 import ParamContainer from "./ParamContainer/ParamContainer";
-import ParamNameInput from "./ParamContainer/ParamItems/ParamNameInput";
+import ParamInput from "./ParamContainer/ParamItems/ParamInput";
 import ParamTextLabel from "./ParamContainer/ParamItems/ParamTextLabel";
 
 export default function ParamSwitch(props) {
-  switch (props.metaUIType) {
-    case "ARGS":
-      throw 'ARGS is not implemented yet'
+  const tempKwargs = "KWARGS";
+  switch (tempKwargs) {
     case "KWARGS":
       return (
         <ParamContainer {...props}>
-          <ParamNameInput {...props} />
+          <ParamInput {...props} />
         </ParamContainer>
       );
     default:
