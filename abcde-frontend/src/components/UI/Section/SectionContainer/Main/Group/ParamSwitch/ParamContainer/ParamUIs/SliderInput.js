@@ -10,9 +10,19 @@ function defaultIfNotNumber(x) {
   return typeof x === "number" ? x : 0;
 }
 
-export function SliderInputConfig({ onChange }) {
+function tryParseFloat(x){
+  return x ? parseFloat(x) : x
+}
+
+export function SliderInputConfig({ onChange, savedConfig }) {
   const options = ["min", "max", "step"];
-  return <SimpleConfig options={options} onChange={onChange} />;
+  return (
+    <SimpleConfig
+      options={options}
+      onChange={onChange}
+      savedConfig={savedConfig}
+    />
+  );
 }
 
 export default function SliderInput({ value, onChangeEnd, min, max, step }) {
@@ -21,9 +31,9 @@ export default function SliderInput({ value, onChangeEnd, min, max, step }) {
       aria-label="slider-ex-1"
       onChange={(v) => onChangeEnd(v)}
       value={defaultIfNotNumber(value)}
-      min={min}
-      max={max}
-      step={step}
+      min={tryParseFloat(min)}
+      max={tryParseFloat(max)}
+      step={tryParseFloat(step)}
     >
       <SliderTrack>
         <SliderFilledTrack />

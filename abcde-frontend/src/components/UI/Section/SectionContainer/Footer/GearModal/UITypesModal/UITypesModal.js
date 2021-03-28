@@ -91,6 +91,14 @@ function Item({ sectionId, moduleName, objName, paramName }) {
     (state) =>
       state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[paramName]
   );
+
+  const uiTypeConfig = useStoreState(
+    (state) =>
+      state.uiTypeConfigs.uiTypeConfigs[sectionId]?.[moduleName]?.[objName]?.[
+        paramName
+      ]?.[uiType]
+  );
+
   const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
   const setUiTypeConfigs = useStoreActions(
     (actions) => actions.uiTypeConfigs.setUiTypeConfigs
@@ -132,7 +140,7 @@ function Item({ sectionId, moduleName, objName, paramName }) {
           </option>
         ))}
       </Select>
-      {getParamUIConfig(uiType, { onChange })}
+      {getParamUIConfig(uiType, { onChange, savedConfig: uiTypeConfig })}
     </HStack>
   );
 }
