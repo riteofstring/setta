@@ -1,22 +1,39 @@
-UI:
-  IMPORTS:
-    torch.optim:
-    torchvision:
-    abcde_pip.templates:
-      - simple_train_test
+transforms_module: &transforms_module
+  name: torchvision.transforms 
 
-  transforms: &transforms
-    name: torchvision.transforms 
+transforms_module_without_compose: &transforms_module_without_compose
+  - ModuleInfo:
+      <<: *transforms_module
+      exclude:
+        - Compose
 
-  transforms_module_without_compose: &transforms_module_without_compose
+
+MODULES:
+  torchvision_models:
     - ModuleInfo:
-        <<: *transforms
-        exclude:
-          - Compose
-
-  transforms_module: &transforms_module
+        name: torchvision.models
+        include:
+          - ~REGEX~resnet*
+  my_models:
     - ModuleInfo:
-        <<: *transforms
+        name: abcde_pip.templates.simple_train_test
+        include:
+          - Net
+  optimizers:
+    - ModuleInfo:
+        name: torch.optim
+        include:
+          - SGD
+          - Adam
+          - Adadelta
+      
+  datasets:
+    - ModuleInfo:
+        name: torchvision.datasets
+
+  transforms:
+    - ModuleInfo:
+        <<: *transforms_module
         include:
           - Compose
         set_type:
@@ -25,39 +42,20 @@ UI:
               list:
                 - <<: *transforms_module_without_compose
 
-  SECTIONS:
-    Model:
-      - IMPORTS:
-          torchvision:
-            - models
-      - ModuleInfo:
-          name: models
-          include:
-            - ~REGEX~resnet*
-      - ModuleInfo:
-          name: simple_train_test
-          include:
-            - Net
-            
-    Optimizer:
-      - ModuleInfo:
-          name: torch.optim
-          include:
-            - SGD
-            - Adam
-            - Adadelta
 
-    Transform:
-      - <<: *transforms_module
+UI:
+  Model:
+    - torchvision_models
+    - my_models
+  Optimizer:
+    - optimizers
+  Transform:
+    - transforms
+  TrainDataset:
+    - datasets
+  ValDataset:
+    - datasets
 
-
-    TrainDataset:
-      - ModuleInfo:
-          name: torchvision.datasets
-
-    ValDataset:
-      - ModuleInfo:
-          name: torchvision.datasets
     
     # Various Params:
     #   - ParameterInfo:

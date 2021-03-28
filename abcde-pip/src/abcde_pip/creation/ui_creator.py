@@ -1,41 +1,39 @@
+import importlib
 import json
 import typing
 
 from .. import registration
-from ..registration.imports_holder import ImportsHolder
 from ..utils import common_functions as c_f
 from ..utils import yaml_parsing as yp
 from ..utils.constants import ALL_KEYWORD, CLASS_INFO, MODULE_INFO, PARAMETER_INFO
 from ..utils.type_map import DictNestedObject, ListNestedObject, NestedObject
 
 
+def get_import(x):
+    imported_module = importlib.import_module(x)
+    return x, imported_module
+
+
 class UICreator:
     def __init__(self):
         self.sections = {}
 
-    def create(self, yaml_specs, global_ih):
-        self.global_ih = global_ih
+    def create(self, yaml_specs):
         for section_name, list_of_details in yaml_specs.items():
             infos = self.create_infos(list_of_details)
             for i in infos:
                 self.add(section_name, i)
 
     def create_infos(self, list_of_details):
-        local_ih = ImportsHolder()
-        import_holders = [local_ih, self.global_ih]
         infos = []
         for details in list_of_details:
             for info_type, kwargs in details.items():
-                if info_type == "IMPORTS":
-                    local_ih.set_imports(kwargs)
-                elif info_type == PARAMETER_INFO:
+                if info_type == PARAMETER_INFO:
                     infos.append(
                         (getattr(registration, info_type)(**kwargs), info_type, None)
                     )
                 else:
-                    module_name, the_module = self.try_multiple_import_holders(
-                        kwargs.pop("name"), import_holders
-                    )
+                    module_name, the_module = get_import(kwargs.pop("name"))
                     set_arg_types = kwargs.pop("set_type", None)
                     set_ui_types = kwargs.pop("set_ui_type", None)
                     set_defaults = kwargs.pop("set_default", None)
@@ -91,15 +89,6 @@ class UICreator:
             if series_type == "dict":
                 return DictNestedObject(infos)
 
-    def try_multiple_import_holders(self, name, import_holders):
-        errors = []
-        for ih in import_holders:
-            try:
-                return ih.get_import(name)
-            except BaseException as e:
-                errors.append(e)
-        raise AttributeError(errors)
-
     def add(self, name, info):
         info, info_type, module_name = info
         if info_type == CLASS_INFO:
@@ -115,9 +104,5 @@ class UICreator:
         else:
             self.sections[name] = {info_type: as_dict}
 
-    def export(self, filepath=None):
-        if filepath is not None:
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(self.sections, f, ensure_ascii=False, indent=4)
-        else:
-            return self.sections
+    def export(self):
+        return self.sections
