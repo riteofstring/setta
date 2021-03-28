@@ -1,13 +1,13 @@
 import ParamContainer from "./ParamContainer/ParamContainer";
-import ParamInput from "./ParamContainer/ParamItems/ParamInput";
+import ParamNameInput from "./ParamContainer/ParamItems/ParamNameInput";
 import ParamTextLabel from "./ParamContainer/ParamItems/ParamTextLabel";
 
 export default function ParamSwitch(props) {
-  switch (props.uiType) {
+  switch (props.metaUIType) {
     case "KWARGS":
       return (
         <ParamContainer {...props}>
-          <ParamInput {...props} />
+          <ParamNameInput {...props} />
         </ParamContainer>
       );
     default:

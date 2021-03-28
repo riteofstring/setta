@@ -80,8 +80,8 @@ export default function GroupContainer({ sectionId }) {
               sectionId={sectionId}
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
-              parameters={{ name: "", ui_type: "", default_val: "" }}
-              uiType={"KWARGS"}
+              parameters={{ name: "", defaultUIType: "", defaultVal: "" }}
+              metaUIType={"KWARGS"}
             />
           ))}
         </FormControl>

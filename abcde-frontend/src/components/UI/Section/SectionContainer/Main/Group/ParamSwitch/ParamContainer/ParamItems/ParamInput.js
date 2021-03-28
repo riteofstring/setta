@@ -7,7 +7,7 @@ export default function ParamInput(props) {
     sectionId,
     moduleName,
     objName,
-    parameters: { name, ui_type, default_val },
+    parameters: { name, defaultUIType, defaultVal },
   } = props;
 
   const setCurrParam = useStoreActions(
@@ -23,7 +23,8 @@ export default function ParamInput(props) {
     (prev, next) => checkGlobalCurrEquality(prev, next)
   );
 
-  const [value, setValue] = useState(default_val);
+  const [value, setValue] = useState(defaultVal);
+  const [uiType, setUIType] = useState(defaultUIType);
 
   const checkGlobalCurrEquality = (prev, next) => {
     let prevParam = null;
@@ -56,16 +57,16 @@ export default function ParamInput(props) {
     } catch (err) {}
 
     setValue(
-      savedParam !== null && savedParam !== undefined ? savedParam : default_val
+      savedParam !== null && savedParam !== undefined ? savedParam : defaultVal
     );
 
-    if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(ui_type)) {
+    if (["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType)) {
       addToVisibleSectionIdsThunk({
         name,
         parentId: sectionId,
         moduleName,
         objName,
-        isList: ui_type === "LIST_NESTED_OBJECT",
+        isList: uiType === "LIST_NESTED_OBJECT",
         siblingId: null,
       });
     }
@@ -76,7 +77,7 @@ export default function ParamInput(props) {
     <Input
       type=""
       variant="flushed"
-      placeholder={default_val}
+      placeholder={defaultVal}
       size="xs"
       maxWidth="10rem"
       value={value}
