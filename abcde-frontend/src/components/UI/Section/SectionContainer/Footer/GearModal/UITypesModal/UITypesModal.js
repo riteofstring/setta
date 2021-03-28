@@ -4,6 +4,7 @@ import { Box, HStack, Stack, Select, Input, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
 import { getParameters } from "../../../../../../../utils/utils";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import { getParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/getParamUI";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
@@ -86,12 +87,17 @@ const menuItems = [
 ];
 
 function Item({ sectionId, moduleName, objName, paramName }) {
-  const setCurrUIType = useStoreActions(
-    (actions) => actions.uiTypes.setCurrUIType
+  const uiType = useStoreState(
+    (state) =>
+      state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[paramName]
+  );
+  const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
+  const setUiTypeConfigs = useStoreActions(
+    (actions) => actions.uiTypeConfigs.setUiTypeConfigs
   );
 
   const onSelect = (e) => {
-    setCurrUIType({
+    setUiTypes({
       sectionId,
       moduleName,
       objName,
@@ -100,18 +106,35 @@ function Item({ sectionId, moduleName, objName, paramName }) {
     });
   };
 
+  const onConfigChange = (uiConfigOption, uiConfigValue) => {
+    setUiTypeConfigs({
+      sectionId,
+      moduleName,
+      objName,
+      paramName,
+      uiType,
+      uiConfigOption,
+      uiConfigValue,
+    });
+  };
+
   return (
     <HStack>
       <Box>{paramName}</Box>
       <Select placeholder="Select UI Type" onChange={onSelect}>
         {menuItems.map((e, idx) => (
-          <option value={e} key={`${e}-${idx}`}>
+          <option value={e} key={`${e}-${idx}`} selected={e === uiType ? "true" : null}>
             {e}
           </option>
         ))}
       </Select>
-      <Input placeholder="Min" />
-      <Input placeholder="Max" />
+      {getParamUIConfig(uiType).map((e, idx) => (
+        <Input
+          placeholder={e}
+          key={`${e}-${idx}`}
+          onChange={(v) => onConfigChange(e, v.target.value)}
+        />
+      ))}
     </HStack>
   );
 }

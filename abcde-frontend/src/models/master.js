@@ -239,6 +239,7 @@ const master = {
         stringId,
       });
     }
+    return id
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

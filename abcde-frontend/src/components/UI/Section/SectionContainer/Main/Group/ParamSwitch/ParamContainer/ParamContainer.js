@@ -1,8 +1,8 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
-import PrefButton from "./ParamItems/ParamPref/PrefButton";
 import { useState, useEffect } from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState, useStoreActions } from "easy-peasy";
+import { requiresNestedSection } from "../../../../../../../../utils/utils";
 
 export default function ParamContainer(props) {
   const {
@@ -16,39 +16,65 @@ export default function ParamContainer(props) {
     (state) => state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[name]
   );
 
-  const [uiType, setUIType] = useState(defaultUIType);
+  const setNestedSectionIds = useStoreActions(
+    (actions) => actions.nestedSectionIds.setNestedSectionIds
+  );
+
+  const permanentlyDeleteSection = useStoreActions(
+    (actions) => actions.master.permanentlyDeleteSection
+  );
 
   const addToVisibleSectionIdsThunk = useStoreActions(
     (actions) => actions.master.addToVisibleSectionIdsThunk
   );
+  const nestedSectionId = useStoreState(
+    (state) =>
+      state.nestedSectionIds.nestedSectionIds[sectionId]?.[moduleName]?.[
+        objName
+      ]?.[name]
+  );
 
-  const requiresInputHere = () => {
-    return !["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
+  const [uiType, setUIType] = useState(defaultUIType);
+
+  const wrapperSetNestedSectionId = (newNestedSectionId) => {
+    setNestedSectionIds({
+      sectionId,
+      moduleName,
+      objName,
+      paramName: name,
+      nestedSectionId: newNestedSectionId,
+    });
   };
 
   useEffect(() => {
-    if (!requiresInputHere()) {
-      addToVisibleSectionIdsThunk({
-        name,
-        parentId: sectionId,
-        moduleName,
-        objName,
-        isList: uiType === "LIST_NESTED_OBJECT",
-        siblingId: null,
-      });
+    setUIType(currUIType ? currUIType : defaultUIType);
+  }, [currUIType]);
+
+  useEffect(() => {
+    if (uiType) {
+      let newNestedSectionId = null;
+      if (nestedSectionId) {
+        permanentlyDeleteSection({
+          sectionId: nestedSectionId,
+          parentId: sectionId,
+        });
+      }
+      if (requiresNestedSection(uiType)) {
+        newNestedSectionId = addToVisibleSectionIdsThunk({
+          name,
+          parentId: sectionId,
+          moduleName,
+          objName,
+          isList: uiType === "LIST_NESTED_OBJECT",
+          siblingId: null,
+        });
+      }
+      wrapperSetNestedSectionId(newNestedSectionId);
     }
   }, [uiType]);
 
-  useEffect(() => {
-    setUIType(
-      currUIType !== null && currUIType !== undefined
-        ? currUIType
-        : defaultUIType
-    );
-  }, [currUIType]);
-
   return (
-    requiresInputHere() && (
+    !requiresNestedSection() && (
       <FormControl as="fieldset">
         <HStack
           px=".75rem"
@@ -61,7 +87,6 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          {/* <PrefButton onClick={updateUIType} /> */}
           <ParamInput {...props} uiType={uiType} />
         </HStack>
       </FormControl>

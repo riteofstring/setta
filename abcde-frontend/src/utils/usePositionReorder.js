@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
 import { clamp, distance } from "popmotion";
 import move from "array-move";
+import { arraysAreEqual } from "./commonFunctions";
 
 export function usePositionReorder(initialState) {
   const [order, setOrder] = useState(initialState);
 
-  if (order.length !== initialState.length) {
+  if (!arraysAreEqual([...order].sort(), [...initialState].sort())) {
     setOrder(initialState);
   }
 
