@@ -1,10 +1,4 @@
-import {
-  IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-} from "@chakra-ui/react";
+import { IconButton, Menu, MenuButton } from "@chakra-ui/react";
 import { HiDotsHorizontal } from "react-icons/hi";
 import PrefMenu from "./PrefMenu";
 
@@ -20,7 +14,7 @@ export default function PrefButton(props) {
         size="xs"
         color="gray.400"
       />
-      <PrefMenu />
+      <PrefMenu {...props} />
     </Menu>
   );
 }

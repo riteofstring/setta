@@ -3,6 +3,7 @@ import ParamInput from "./ParamItems/ParamInput";
 import PrefButton from "./ParamItems/ParamPref/PrefButton";
 import { useState, useLayoutEffect } from "react";
 import TextInput from "./ParamUIs/TextInput";
+import SliderInput from "./ParamUIs/SliderInput";
 import { useStoreActions } from "easy-peasy";
 
 export default function ParamContainer(props) {
@@ -10,10 +11,10 @@ export default function ParamContainer(props) {
     sectionId,
     moduleName,
     objName,
-    parameter: { name },
+    parameter: { name, defaultUIType },
   } = props;
 
-  const [uiType, setUIType] = useState(props.parameter.defaultUIType);
+  const [uiType, setUIType] = useState(defaultUIType);
 
   const addToVisibleSectionIdsThunk = useStoreActions(
     (actions) => actions.master.addToVisibleSectionIdsThunk
@@ -27,6 +28,8 @@ export default function ParamContainer(props) {
     switch (uiType) {
       default:
         return TextInput;
+      case "SLIDER":
+        return SliderInput
     }
   };
 
@@ -57,7 +60,7 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          <PrefButton />
+          <PrefButton onClick={setUIType}/>
           <ParamInput {...props} paramUI={getParamUI()} />
         </HStack>
       </FormControl>
