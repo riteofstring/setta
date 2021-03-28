@@ -75,6 +75,7 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
               objName={objName}
               metaUIType={"KWARGS"}
               inputKwargName={kwargNames[idx]}
+              onClickDelete={() => setNumKwargs(Math.max(0, numKwargs - 1))}
             />
           ))}
         </FormControl>

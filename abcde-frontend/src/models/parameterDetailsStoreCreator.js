@@ -35,6 +35,21 @@ function parameterDetailsStoreCreator(storeName, specializedKeys) {
       replaceKey(currPoint, oldKey, newKey);
     }),
 
+    deleteParamName: action((state, payload) => {
+      const { deleteKey, keysForDescent } = payload;
+      let currPoint = state[storeName];
+      currPoint = descendIntoNestedObject(
+        currPoint,
+        keysForDescent,
+        payloadKeys,
+        null,
+        "objName"
+      );
+      if (deleteKey in currPoint) {
+        delete currPoint[deleteKey];
+      }
+    }),
+
     setEntireState: action((state, payload) => {
       setEntireStateFunc(state, payload);
     }),

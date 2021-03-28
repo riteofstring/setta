@@ -2,9 +2,11 @@ import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { HStack, IconButton } from "@chakra-ui/react";
+import { CloseIcon } from "@chakra-ui/icons";
 
 export default function KwargParam(props) {
-  const { sectionId, moduleName, objName, inputKwargName } = props;
+  const { sectionId, moduleName, objName, inputKwargName, onClickDelete } = props;
 
   const [kwargName, setKwargName] = useState(
     inputKwargName ? inputKwargName : ""
@@ -39,6 +41,26 @@ export default function KwargParam(props) {
 
   const savedKwargsReplaceParamName = useStoreActions(
     (actions) => actions.savedKwargs.replaceParamName
+  );
+
+  const globalCurrDelete = useStoreActions(
+    (actions) => actions.globalCurr.deleteParamName
+  );
+
+  const uiTypesDelete = useStoreActions(
+    (actions) => actions.uiTypes.deleteParamName
+  );
+
+  const nestedSectionIdsDelete = useStoreActions(
+    (actions) => actions.nestedSectionIds.deleteParamName
+  );
+
+  const uiTypeConfigsDelete = useStoreActions(
+    (actions) => actions.uiTypeConfigs.deleteParamName
+  );
+
+  const savedKwargsDelete = useStoreActions(
+    (actions) => actions.savedKwargs.deleteParamName
   );
 
   useEffect(() => {
@@ -79,9 +101,38 @@ export default function KwargParam(props) {
     setKwargName(v);
   };
 
+  const onClick = () => {
+    for (let F of [
+      globalCurrDelete,
+      uiTypesDelete,
+      nestedSectionIdsDelete,
+      uiTypeConfigsDelete,
+      savedKwargsDelete,
+    ]) {
+      F({
+        deleteKey: kwargName,
+        keysForDescent: {
+          sectionId,
+          moduleName,
+          objName,
+        },
+      });
+    }
+    onClickDelete()
+  };
+
   return (
-    <ParamContainer {...props} parameter={{ name: kwargName }}>
-      <ParamNameInput value={kwargName} onSubmit={onSubmit} />
-    </ParamContainer>
+    <HStack>
+      <IconButton
+        icon={<CloseIcon w={2} />}
+        size="xs"
+        variant="outline"
+        borderRadius="full"
+        onClick={onClick}
+      />
+      <ParamContainer {...props} parameter={{ name: kwargName }}>
+        <ParamNameInput value={kwargName} onSubmit={onSubmit} />
+      </ParamContainer>
+    </HStack>
   );
 }
