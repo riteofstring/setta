@@ -6,8 +6,7 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { AddIcon } from "@chakra-ui/icons";
-import TheParam from "./TheParam/TheParam";
-import PinButton from "./TheParam/PinButton/PinButton";
+import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 
 export default function GroupContainer({ sectionId }) {
@@ -64,7 +63,7 @@ export default function GroupContainer({ sectionId }) {
       <FormControl id="groupone">
         {paramsInfo.parameters.length > 0 &&
           paramsInfo.parameters.map((e, idx) => (
-            <TheParam
+            <ParamSwitch
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               moduleName={paramsInfo.moduleName}

@@ -11,10 +11,13 @@ export const MenuContext = createContext(null);
 
 export default function SectionFooter({ sectionId, isListRoot }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const gearModalSwitch = "";
 
   return (
     <>
-      <MenuContext.Provider value={{ isOpen, onOpen, onClose }}>
+      <MenuContext.Provider
+        value={{ isOpen, onOpen, onClose, gearModalSwitch }}
+      >
         <Grid w="100%" py="0.5rem" alignItems="center">
           <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} />
           <CollapseSectionButton />

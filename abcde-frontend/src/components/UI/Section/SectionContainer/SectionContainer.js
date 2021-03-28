@@ -4,7 +4,7 @@ import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
-import SectionHeader from "./Header/SectionHeader";
+import { SectionHeader, DummySectionHeader } from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
@@ -39,12 +39,6 @@ function SectionContainer({
   console.log("sectionId nextId, order", sectionId, nextId, childrenIds, order);
 
   useEffect(() => {
-    if (order.length > 0) {
-      setChildrenIds({ sectionId, childrenIds: order });
-    }
-  }, [order]);
-
-  useEffect(() => {
     if (refForPosition.current) {
       setSectionPosition({
         sectionId,
@@ -63,19 +57,21 @@ function SectionContainer({
         dragControls={dragControls}
       />
       {order.length > 0 &&
-        order.map((e, idx) => (
-          <NestedSection
-            parentId={sectionId}
-            rootId={rootId}
-            sectionId={e}
-            nextId={order[idx + 1]}
-            idx={idx}
-            key={`Nested-Sec-${e}`}
-            depth={depth + 1}
-            updatePosition={updatePosition}
-            updateOrder={updateOrder}
-          />
-        ))}
+        order.map((e, idx) => {
+          return (
+            <NestedSection
+              parentId={sectionId}
+              rootId={rootId}
+              sectionId={e}
+              nextId={order[idx + 1]}
+              idx={idx}
+              key={`Nested-Sec-${e}`}
+              depth={depth + 1}
+              updatePosition={updatePosition}
+              updateOrder={updateOrder}
+            />
+          );
+        })}
     </Stack>
   );
 }
