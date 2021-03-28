@@ -17,7 +17,9 @@ export default function ParamContainer(props) {
     parameter: { name, defaultUIType },
   } = props;
 
-  const availableModules = useStoreState((state) => state.master.availableModules);
+  const availableModules = useStoreState(
+    (state) => state.master.availableModules
+  );
 
   const currUIType = useStoreState(
     (state) => state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[name]
@@ -84,7 +86,11 @@ export default function ParamContainer(props) {
           // sectionContents: new Section(name, combineModules(availableModules, ["torchvision_models", "my_models"]))
         });
       }
-      wrapperSetNestedSectionId(newNestedSectionId);
+      if (newNestedSectionId || nestedSectionId) {
+        // set if a new section was added
+        // or if it used to be nested section and should be deleted
+        wrapperSetNestedSectionId(newNestedSectionId);
+      }
     }
   }, [uiType]);
 
@@ -106,6 +112,7 @@ export default function ParamContainer(props) {
             {...props}
             uiType={uiType}
             uiTypeConfig={currUiTypeConfig}
+            isDisabled={!name}
           />
         </HStack>
       </FormControl>

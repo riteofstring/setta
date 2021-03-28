@@ -25,7 +25,7 @@ export function SliderInputConfig({ onChange, savedConfig }) {
   );
 }
 
-export default function SliderInput({ value, onChangeEnd, min, max, step }) {
+export default function SliderInput({ value, onChangeEnd, min, max, step, isDisabled }) {
   return (
     <Slider
       aria-label="slider-ex-1"
@@ -34,6 +34,7 @@ export default function SliderInput({ value, onChangeEnd, min, max, step }) {
       min={tryParseFloat(min)}
       max={tryParseFloat(max)}
       step={tryParseFloat(step)}
+      isDisabled={isDisabled}
     >
       <SliderTrack>
         <SliderFilledTrack />

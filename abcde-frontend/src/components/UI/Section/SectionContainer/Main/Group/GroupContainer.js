@@ -63,7 +63,6 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
               sectionId={sectionId}
               moduleName={moduleName}
               objName={objName}
-              parameter={{ name: "", defaultUIType: "", defaultVal: "" }}
               metaUIType={"KWARGS"}
             />
           ))}

@@ -44,3 +44,32 @@ export function combineModules(modules, listOfModules) {
 export function combineParameters(parameters, listOfParameters) {
   return jsonCombiner(parameters, listOfParameters, "ParameterInfo");
 }
+
+export function descendIntoNestedObject(
+  currPoint,
+  payload,
+  payloadKeys,
+  depthFromEnd = null,
+  stopAtKey = null
+) {
+  depthFromEnd = depthFromEnd !== null ? depthFromEnd : 0;
+  for (let i = 0; i < payloadKeys.length - depthFromEnd; i++) {
+    const currKey = payload[payloadKeys[i]];
+    if (!(currKey in currPoint)) {
+      currPoint[currKey] = {};
+    }
+    currPoint = currPoint[currKey];
+    if (payload[stopAtKey] === currKey) {
+      break;
+    }
+  }
+  return currPoint;
+}
+
+// https://stackoverflow.com/a/14592469
+export function replaceKey(inputObject, oldKey, newKey) {
+  if (inputObject?.[oldKey] && oldKey !== newKey) {
+    inputObject[newKey] = inputObject[oldKey];
+    delete inputObject[oldKey];
+  }
+}
