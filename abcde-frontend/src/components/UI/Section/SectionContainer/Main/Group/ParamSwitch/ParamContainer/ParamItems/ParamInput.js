@@ -10,8 +10,8 @@ export default function ParamInput(props) {
     parameter: { name, defaultVal },
   } = props;
 
-  const setCurrParam = useStoreActions(
-    (actions) => actions.globalCurr.setCurrParam
+  const setGlobalCurr = useStoreActions(
+    (actions) => actions.globalCurr.setGlobalCurr
   );
 
   const currParam = useStoreState(
@@ -27,7 +27,7 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setCurrParam({
+    setGlobalCurr({
       sectionId,
       moduleName,
       objName,

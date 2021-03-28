@@ -86,17 +86,17 @@ const menuItems = [
 ];
 
 function Item({ sectionId, moduleName, objName, paramName }) {
-  const setCurrUIType = useStoreActions(
-    (actions) => actions.uiTypes.setCurrUIType
+  const setUiTypes = useStoreActions(
+    (actions) => actions.uiTypes.setUiTypes
   );
 
   const onSelect = (e) => {
-    setCurrUIType({
+    setUiTypes({
       sectionId,
       moduleName,
       objName,
       paramName,
-      uiType: e.target.value,
+      paramValue: e.target.value,
     });
   };
 

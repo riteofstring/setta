@@ -28,7 +28,7 @@ export default function ParamContainer(props) {
 
   useEffect(() => {
     if (!requiresInputHere()) {
-      addToVisibleSectionIdsThunk({
+      const nestedSectionId = addToVisibleSectionIdsThunk({
         name,
         parentId: sectionId,
         moduleName,
