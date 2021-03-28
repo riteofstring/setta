@@ -11,7 +11,6 @@ export default function CustomScrollDiv({
   setClientDim,
   scrollDim,
   children,
-  className,
   isVertical,
 }) {
   const mapHovering = useStoreState((state) => state.mapInteraction.hovering);

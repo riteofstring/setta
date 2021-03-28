@@ -138,6 +138,7 @@ export default function SectionSearch({ sectionId }) {
                   itemIndex={index}
                   highlightedIndex={highlightedIndex}
                   key={index}
+                  className="SectionSearch"
                 >
                   {itemToString(item)}
                 </ComboboxItem>
