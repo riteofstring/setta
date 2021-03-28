@@ -21,7 +21,7 @@ export default function SectionFooter({ sectionId, isListRoot }) {
   return (
     <>
       <MenuContext.Provider
-        value={{ isOpen, onOpen, onClose, modalSelect, applyModalSwitchVal }}
+        value={{ isOpen, onOpen, onClose, modalSelect, applyModalSwitchVal, sectionId }}
       >
         <Grid w="100%" py="0.5rem" alignItems="center">
           <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} />

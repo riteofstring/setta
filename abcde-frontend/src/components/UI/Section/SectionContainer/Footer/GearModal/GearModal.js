@@ -16,16 +16,7 @@ export default function GearModal() {
         <SaveLoadModal
           onClose={onClose}
           isOpen={isOpen}
-          buttonText="Load"
-          foldersAndFiles={foldersAndFiles}
-        />
-      );
-
-      return (
-        <SaveLoadModal
-          onClose={onClose}
-          isOpen={isOpen}
-          buttonText="Save"
+          buttonText={modalSelect}
           foldersAndFiles={foldersAndFiles}
         />
       );

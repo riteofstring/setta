@@ -11,6 +11,7 @@ import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
 import sectionPositions from "../models/sectionPositions"
 import uiTypes from "../models/uiTypes";
+import currentlySelected from "../models/currentlySelected"
 
 const store = createStore({
   master: master,
@@ -25,6 +26,7 @@ const store = createStore({
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
   uiTypes: uiTypes,
+  currentlySelected: currentlySelected,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

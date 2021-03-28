@@ -2,16 +2,14 @@ export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
 
-export function checkGlobalCurrEquality(sectionId, moduleName, objName, name) {
-  return (prev, next) => {
-    let prevParam = null;
-    let nextParam = null;
-    try {
-      prevParam = prev[sectionId][moduleName][objName][name];
-    } catch (err) {}
-    try {
-      nextParam = next[sectionId][moduleName][objName][name];
-    } catch (err) {}
-    return prevParam === nextParam;
-  };
-}
+export function getParameters(sectionInfo, moduleName, objName){
+  let returnParameters = [];
+  try {
+    const paramSource =
+      sectionInfo.moduleInfos[moduleName].objs[objName].params;
+    for (let key of Object.keys(paramSource)) {
+      returnParameters.push(paramSource[key]);
+    }
+  } catch (err) {}
+  return returnParameters;
+};

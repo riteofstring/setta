@@ -9,6 +9,7 @@ import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState } from "react";
+import { getParameters } from "../../../../../../utils/utils"
 
 export default function GroupContainer({ sectionId }) {
   const [numKwargs, setNumKwargs] = useState(0);
@@ -25,32 +26,18 @@ export default function GroupContainer({ sectionId }) {
     (state) => state.master.idHierarchy[sectionId].objName
   );
 
-  const getParamsArr = () => {
-    try {
-      let parameters = [];
-      const paramSource =
-        thisSectionInfo.moduleInfos[moduleName].objs[objName].params;
-      for (let key of Object.keys(paramSource)) {
-        parameters.push(paramSource[key]);
-      }
-      return { moduleName, objName, parameters };
-    } catch (err) {
-      return { moduleName: null, objName: null, parameters: [] };
-    }
-  };
-
-  const paramsInfo = getParamsArr();
+  const parameters = getParameters(thisSectionInfo, moduleName, objName);
 
   return (
     <Stack>
-      {paramsInfo.parameters.length > 0 && (
+      {parameters.length > 0 && (
         <FormControl id="groupone">
-          {paramsInfo.parameters.map((e, idx) => (
+          {parameters.map((e, idx) => (
             <ParamSwitch
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
-              moduleName={paramsInfo.moduleName}
-              objName={paramsInfo.objName}
+              moduleName={moduleName}
+              objName={objName}
               parameter={e}
             />
           ))}
@@ -78,8 +65,8 @@ export default function GroupContainer({ sectionId }) {
             <ParamSwitch
               key={`KWARGS-${idx}`}
               sectionId={sectionId}
-              moduleName={paramsInfo.moduleName}
-              objName={paramsInfo.objName}
+              moduleName={moduleName}
+              objName={objName}
               parameter={{ name: "", defaultUIType: "", defaultVal: "" }}
               metaUIType={"KWARGS"}
             />

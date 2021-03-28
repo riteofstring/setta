@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import getParamUI from "../ParamUIs/getParamUI";
-import { checkGlobalCurrEquality } from "../../../../../../../../../utils/utils";
 
 export default function ParamInput(props) {
   const {
@@ -15,47 +14,31 @@ export default function ParamInput(props) {
     (actions) => actions.globalCurr.setCurrParam
   );
 
-  const equalityFn = checkGlobalCurrEquality(
-    sectionId,
-    moduleName,
-    objName,
-    name
-  );
-
-  const globalCurr = useStoreState(
-    (state) => state.globalCurr.globalCurr,
-    (prev, next) => equalityFn(prev, next)
+  const currParam = useStoreState(
+    (state) =>
+      state.globalCurr.globalCurr[sectionId]?.[moduleName]?.[objName]?.[name]
   );
 
   const [value, setValue] = useState("");
 
-  const onChange = (value) => {
-    setValue(value);
+  const onChange = (v) => {
+    setValue(v);
   };
 
-  const onChangeEnd = (value) => {
-    onChange(value)
+  const onChangeEnd = (v) => {
+    onChange(v);
     setCurrParam({
       sectionId,
       moduleName,
       objName,
       paramName: name,
-      paramValue: value,
+      paramValue: v,
     });
   };
 
   useEffect(() => {
-    let savedParam = null;
-
-    try {
-      savedParam = globalCurr[sectionId][moduleName][objName][name];
-    } catch (err) {}
-
-    const toBeSet =
-      savedParam !== null && savedParam !== undefined ? savedParam : "";
-    setValue(toBeSet);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionId, moduleName, objName]);
+    setValue(currParam !== null && currParam !== undefined ? currParam : "");
+  }, [currParam]);
 
   return getParamUI(props.uiType, { value, defaultVal, onChange, onChangeEnd });
 }

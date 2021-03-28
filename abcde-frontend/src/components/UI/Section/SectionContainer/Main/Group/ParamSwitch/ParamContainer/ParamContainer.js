@@ -3,7 +3,6 @@ import ParamInput from "./ParamItems/ParamInput";
 import PrefButton from "./ParamItems/ParamPref/PrefButton";
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { checkGlobalCurrEquality } from "../../../../../../../../utils/utils";
 
 export default function ParamContainer(props) {
   const {
@@ -13,59 +12,22 @@ export default function ParamContainer(props) {
     parameter: { name, defaultUIType },
   } = props;
 
+  const currUIType = useStoreState(
+    (state) => state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[name]
+  );
+
   const [uiType, setUIType] = useState(defaultUIType);
-
-  const equalityFn = checkGlobalCurrEquality(
-    sectionId,
-    moduleName,
-    objName,
-    name
-  );
-
-  const uiTypes = useStoreState(
-    (state) => state.uiTypes.uiTypes,
-    (prev, next) => equalityFn(prev, next)
-  );
-
-  const setCurrUIType = useStoreActions(
-    (actions) => actions.uiTypes.setCurrUIType
-  );
 
   const addToVisibleSectionIdsThunk = useStoreActions(
     (actions) => actions.master.addToVisibleSectionIdsThunk
   );
 
-  const requiresInputHere = (inputUIType = null) => {
-    return !["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(
-      inputUIType !== null ? inputUIType : uiType
-    );
-  };
-
-  const updateUIType = (value) => {
-    setUIType(value);
-    setCurrUIType({
-      sectionId,
-      moduleName,
-      objName,
-      paramName: name,
-      uiType: value,
-    });
+  const requiresInputHere = () => {
+    return !["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
   };
 
   useEffect(() => {
-    let savedUIType = null;
-
-    try {
-      savedUIType = uiTypes[sectionId][moduleName][objName][name];
-    } catch (err) {}
-
-    const toBeSet =
-      savedUIType !== null && savedUIType !== undefined
-        ? savedUIType
-        : defaultUIType;
-    setUIType(toBeSet);
-
-    if (!requiresInputHere(toBeSet)) {
+    if (!requiresInputHere()) {
       addToVisibleSectionIdsThunk({
         name,
         parentId: sectionId,
@@ -75,7 +37,15 @@ export default function ParamContainer(props) {
         siblingId: null,
       });
     }
-  }, [sectionId, moduleName, objName, requiresInputHere()]);
+  }, [uiType]);
+
+  useEffect(() => {
+    setUIType(
+      currUIType !== null && currUIType !== undefined
+        ? currUIType
+        : defaultUIType
+    );
+  }, [currUIType]);
 
   return (
     requiresInputHere() && (
@@ -91,7 +61,7 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          <PrefButton onClick={updateUIType} />
+          {/* <PrefButton onClick={updateUIType} /> */}
           <ParamInput {...props} uiType={uiType} />
         </HStack>
       </FormControl>

@@ -23,6 +23,9 @@ export default function SectionSearch({ sectionId }) {
     (state) => state.master.idHierarchy[sectionId].hasNested
   );
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
+  const setCurrentlySelected = useStoreActions(
+    (actions) => actions.currentlySelected.setCurrentlySelected
+  );
   const deleteChildrenFromVisibleSectionIds = useStoreActions(
     (actions) => actions.master.deleteChildrenFromVisibleSectionIds
   );
@@ -60,6 +63,7 @@ export default function SectionSearch({ sectionId }) {
         });
       }
       setSelected({ sectionId, moduleName, objName });
+      setCurrentlySelected({ sectionId, moduleName, objName });
     }
   };
 

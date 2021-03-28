@@ -4,7 +4,7 @@ import { Box } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
 
 export default function ParamSweepModal() {
-  const { isOpen, onClose, modalSelect } = useContext(MenuContext);
+  const { isOpen, onClose } = useContext(MenuContext);
 
   return (
     <ModalContainer
