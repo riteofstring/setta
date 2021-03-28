@@ -38,7 +38,7 @@ export default function TextEditor() {
     if (uiInfoFromCLI) {
       resetState("globalCurr");
       resetState("master");
-      loadSections({ isJson: true, data: uiInfoFromCLI });
+      loadSections(uiInfoFromCLI);
       setFactories(factoriesFromCLI);
       setFuncs(funcsFromCLI);
       saveDraftUI({ token });

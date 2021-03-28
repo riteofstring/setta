@@ -2,7 +2,12 @@ import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
 import { useState, useEffect } from "react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { requiresNestedSection } from "../../../../../../../../utils/utils";
+import {
+  requiresNestedSection,
+  combineModules,
+} from "../../../../../../../../utils/utils";
+import { NestedObjectInputParseConfig } from "./ParamUIs/NestedObjectInput";
+import { Section } from "../../../../../../../../utils/jsonParser";
 
 export default function ParamContainer(props) {
   const {
@@ -12,8 +17,17 @@ export default function ParamContainer(props) {
     parameter: { name, defaultUIType },
   } = props;
 
+  const availableModules = useStoreState((state) => state.master.modules);
+
   const currUIType = useStoreState(
     (state) => state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[name]
+  );
+
+  const currUiTypeConfig = useStoreState(
+    (state) =>
+      state.uiTypeConfigs.uiTypeConfigs[sectionId]?.[moduleName]?.[objName]?.[
+        name
+      ]?.[currUIType]
   );
 
   const setNestedSectionIds = useStoreActions(
@@ -67,6 +81,7 @@ export default function ParamContainer(props) {
           objName,
           isList: uiType === "LIST_NESTED_OBJECT",
           siblingId: null,
+          sectionContents: new Section(name, combineModules(availableModules, ["torchvision_models", "my_models"]))
         });
       }
       wrapperSetNestedSectionId(newNestedSectionId);
@@ -87,7 +102,11 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          <ParamInput {...props} uiType={uiType} />
+          <ParamInput
+            {...props}
+            uiType={uiType}
+            uiTypeConfig={currUiTypeConfig}
+          />
         </HStack>
       </FormControl>
     )

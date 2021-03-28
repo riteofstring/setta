@@ -121,9 +121,9 @@ function Item({ sectionId, moduleName, objName, paramName }) {
   return (
     <HStack>
       <Box>{paramName}</Box>
-      <Select placeholder="Select UI Type" onChange={onSelect}>
+      <Select placeholder="Select UI Type" onChange={onSelect} defaultValue={uiType}>
         {menuItems.map((e, idx) => (
-          <option value={e} key={`${e}-${idx}`} selected={e === uiType ? "true" : null}>
+          <option value={e} key={`${e}-${idx}`}>
             {e}
           </option>
         ))}

@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/multiPage.json";
+import Data from "../data/simpleTrainTest.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -8,6 +8,7 @@ import {
   newIdInHierarchy,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
+import { combineModules } from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -18,24 +19,21 @@ const master = {
   sectionCount: 0,
   pageMinMaxList: [],
   sections: {},
+  modules: {},
   idHierarchy: {},
   stringIdsToSectionIds: {},
 
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    const { isJson, data } = payload;
-    if (!isJson) {
-      state.sections = data;
-    }
-    for (let key of Object.keys(data)) {
+    state.modules = payload.MODULES;
+    for (let key of Object.keys(payload.UI)) {
+      const combinedModules = combineModules(state.modules, payload.UI[key]);
       state.sectionCount += 1;
-      let id = state.sectionCount;
-      if (isJson) {
-        state.sections[id] = new Section(key, data[key]);
-      }
+      const id = state.sectionCount;
+      state.sections[id] = new Section(key, combinedModules);
       state.idHierarchy[id] = newIdInHierarchy({
-        sectionHeading: isJson ? key : state.sections[id].name,
+        sectionHeading: key,
         stringId: id,
       });
       state.stringIdsToSectionIds[id] = id;
@@ -52,7 +50,7 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     if (NO_AUTH) {
-      action._loadSections({ isJson: true, data: Data });
+      action._loadSections(Data);
     } else {
       action._loadSections(payload);
     }
@@ -79,7 +77,6 @@ const master = {
   addToVisibleSectionIds: action((state, payload) => {
     const {
       id,
-      name,
       moduleName,
       objName,
       parentId,
@@ -87,6 +84,7 @@ const master = {
       siblingId,
       sectionHeading,
       stringId,
+      sectionContents,
     } = payload;
     const currIdHierarchy = state.idHierarchy;
     const parentIdObj = currIdHierarchy[parentId];
@@ -108,10 +106,7 @@ const master = {
         currIdHierarchy[id].moduleName = moduleName;
         currIdHierarchy[id].objName = objName;
       } else {
-        state.sections[id] =
-          state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
-            name
-          ].type;
+        state.sections[id] = sectionContents;
       }
 
       if (isList) {
@@ -192,6 +187,7 @@ const master = {
       objName,
       isList,
       siblingId,
+      sectionContents: inputSectionContents,
     } = payload;
     let extraIdentifier = null;
     const state = helpers.getState();
@@ -224,7 +220,18 @@ const master = {
       action.incrementSectionCount();
     }
 
-    console.log("addToVisibleSectionIdsThunk", id);
+    let sectionContents = inputSectionContents;
+    if (!sectionContents && (!isList || siblingId !== null)) {
+      sectionContents =
+        state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
+          name
+        ].type;
+    }
+
+    
+    console.log("addToVisibleSectionIdsThunk", sectionContents)
+
+
     const currInfo = state.idHierarchy;
     if (!(id in currInfo) || !currInfo.isVisible) {
       action.addToVisibleSectionIds({
@@ -237,9 +244,10 @@ const master = {
         siblingId,
         sectionHeading: name,
         stringId,
+        sectionContents,
       });
     }
-    return id
+    return id;
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

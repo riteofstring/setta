@@ -17,3 +17,13 @@ export function getParameters(sectionInfo, moduleName, objName) {
 export function requiresNestedSection(uiType) {
   return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
 }
+
+
+export function combineModules(modules, listOfModules){
+  return {
+    ModuleInfo: Object.assign(
+      {},
+      ...listOfModules.map((x) => modules[x].ModuleInfo)
+    ),
+  };
+}

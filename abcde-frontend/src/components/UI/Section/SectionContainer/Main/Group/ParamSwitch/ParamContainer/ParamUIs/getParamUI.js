@@ -1,5 +1,6 @@
 import TextInput, { TextInputConfig } from "./TextInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
+import { NestedObjectInputConfig } from "./NestedObjectInput";
 
 export function getParamUIConfig(uiType) {
   switch (uiType) {
@@ -7,6 +8,9 @@ export function getParamUIConfig(uiType) {
       return TextInputConfig()
     case "SLIDER":
       return SliderInputConfig()
+    case "NESTED_OBJECT":
+    case "LIST_NESTED_OBJECT":
+      return NestedObjectInputConfig()
   }
 }
 
