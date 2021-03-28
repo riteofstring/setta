@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
-import {
-  SectionContainer,
-  DummySectionContainer,
-} from "../SectionContainer/SectionContainer";
+import SectionContainer from "../SectionContainer/SectionContainer";
 import { useStoreState } from "easy-peasy";
 import { motion, useDragControls } from "framer-motion";
 import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
@@ -65,8 +62,12 @@ export default function NestedSection({
           boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
         }}
         drag="y"
-        onDragStart={() => {setDragging(true)}}
-        onDragEnd={() => {setDragging(false)}}
+        onDragStart={() => {
+          setDragging(true);
+        }}
+        onDragEnd={() => {
+          setDragging(false);
+        }}
         onViewportBoxUpdate={(_viewportBox, delta) => {
           isDragging && updateOrder(idx, delta.y.translate);
         }}
