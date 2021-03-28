@@ -32,7 +32,7 @@ export default function GearMenu() {
           variant="ghost"
         />
         <MenuList>
-          <MenuItem onClick={onOpen}>Parameter Sweeps</MenuItem>
+          {/* <MenuItem onClick={onOpen}>Parameter Sweeps</MenuItem> */}
           <MenuItem onClick={onOpen}>Load Section</MenuItem>
           <MenuDivider />
           <MenuItem>Settings</MenuItem>
