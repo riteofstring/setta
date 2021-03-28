@@ -17,7 +17,7 @@ export default function ParamContainer(props) {
     parameter: { name, defaultUIType },
   } = props;
 
-  const availableModules = useStoreState((state) => state.master.modules);
+  const availableModules = useStoreState((state) => state.master.availableModules);
 
   const currUIType = useStoreState(
     (state) => state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[name]

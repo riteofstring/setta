@@ -1431,7 +1431,7 @@
                             "ui_type": "UNKNOWN"
                         },
                         "loader": {
-                            "default_val": "<function default_loader at 0x000001C05639D0D0>",
+                            "default_val": "<function default_loader at 0x000001D83FA01040>",
                             "type": "typing.Callable[[str], typing.Any]",
                             "ui_type": "UNKNOWN"
                         },
@@ -2602,6 +2602,32 @@
             }
         }
     },
+    "PARAMETERS": {
+        "various_params": {
+            "ParameterInfo": {
+                "dataset_root": {
+                    "default_val": ".",
+                    "type": "",
+                    "ui_type": "UNKNOWN"
+                },
+                "batch_size": {
+                    "default_val": 64,
+                    "type": "",
+                    "ui_type": "UNKNOWN"
+                },
+                "test_batch_size": {
+                    "default_val": 1000,
+                    "type": "",
+                    "ui_type": "UNKNOWN"
+                },
+                "epochs": {
+                    "default_val": 2,
+                    "type": "",
+                    "ui_type": "UNKNOWN"
+                }
+            }
+        }
+    },
     "UI": {
         "Model": [
             "torchvision_models",
@@ -2618,7 +2644,12 @@
         ],
         "ValDataset": [
             "datasets"
-        ]
+        ],
+        "OtherParameters": {
+            "parameters": [
+                "various_params"
+            ]
+        }
     },
     "FACTORIES": {
         "Optimizer": {

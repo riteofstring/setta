@@ -8,7 +8,7 @@ import {
   newIdInHierarchy,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
-import { combineModules } from "../utils/utils";
+import { combineModules, combineParameters } from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -19,19 +19,32 @@ const master = {
   sectionCount: 0,
   pageMinMaxList: [],
   sections: {},
-  modules: {},
+  availableModules: {},
+  availableParameters: {},
   idHierarchy: {},
   stringIdsToSectionIds: {},
 
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    state.modules = payload.MODULES;
+    state.availableModules = payload.MODULES;
+    state.availableParameters = payload.PARAMETERS;
     for (let key of Object.keys(payload.UI)) {
-      const combinedModules = combineModules(state.modules, payload.UI[key]);
+      const currSection = payload.UI[key];
+      let combinedJsons = null;
+      if (Array.isArray(currSection) || currSection["modules"]) {
+        combinedJsons = combineModules(state.availableModules, currSection);
+      } else if (currSection["parameters"]) {
+        combinedJsons = combineParameters(
+          state.availableParameters,
+          currSection["parameters"]
+        );
+      } else {
+        throw "Invalid json";
+      }
       state.sectionCount += 1;
       const id = state.sectionCount;
-      state.sections[id] = new Section(key, combinedModules);
+      state.sections[id] = new Section(key, combinedJsons);
       state.idHierarchy[id] = newIdInHierarchy({
         sectionHeading: key,
         stringId: id,
@@ -228,9 +241,7 @@ const master = {
         ].type;
     }
 
-    
-    console.log("addToVisibleSectionIdsThunk", sectionContents)
-
+    console.log("addToVisibleSectionIdsThunk", sectionContents);
 
     const currInfo = state.idHierarchy;
     if (!(id in currInfo) || !currInfo.isVisible) {

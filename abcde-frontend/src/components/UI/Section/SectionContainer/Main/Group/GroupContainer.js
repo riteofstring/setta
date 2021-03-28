@@ -9,14 +9,10 @@ import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState } from "react";
-import { getParameters } from "../../../../../../utils/utils"
+import { getParameters } from "../../../../../../utils/utils";
 
-export default function GroupContainer({ sectionId }) {
+export default function GroupContainer({ sectionId, sectionInfo }) {
   const [numKwargs, setNumKwargs] = useState(0);
-
-  const thisSectionInfo = useStoreState(
-    (state) => state.master.sections[sectionId]
-  );
 
   const moduleName = useStoreState(
     (state) => state.master.idHierarchy[sectionId].moduleName
@@ -26,7 +22,7 @@ export default function GroupContainer({ sectionId }) {
     (state) => state.master.idHierarchy[sectionId].objName
   );
 
-  const parameters = getParameters(thisSectionInfo, moduleName, objName);
+  const parameters = getParameters(sectionInfo, moduleName, objName);
 
   return (
     <Stack>

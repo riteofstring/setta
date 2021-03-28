@@ -2,28 +2,45 @@ export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
 
-export function getParameters(sectionInfo, moduleName, objName) {
+function getParametersHelper(paramSource) {
   let returnParameters = [];
-  try {
-    const paramSource =
-      sectionInfo.moduleInfos[moduleName].objs[objName].params;
-    for (let key of Object.keys(paramSource)) {
-      returnParameters.push(paramSource[key]);
-    }
-  } catch (err) {}
+  for (let key of Object.keys(paramSource)) {
+    returnParameters.push(paramSource[key]);
+  }
   return returnParameters;
+}
+
+export function getParameters(sectionInfo, moduleName, objName) {
+  if (sectionInfo) {
+    if (
+      moduleName &&
+      objName &&
+      Object.keys(sectionInfo.moduleInfos).length > 0
+    ) {
+      return getParametersHelper(
+        sectionInfo.moduleInfos[moduleName].objs[objName].params
+      );
+    } else if (Object.keys(sectionInfo.parameterInfos).length > 0) {
+      return getParametersHelper(sectionInfo.parameterInfos);
+    }
+  }
+  return [];
 }
 
 export function requiresNestedSection(uiType) {
   return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
 }
 
-
-export function combineModules(modules, listOfModules){
+function jsonCombiner(available, listOfSelection, key) {
   return {
-    ModuleInfo: Object.assign(
-      {},
-      ...listOfModules.map((x) => modules[x].ModuleInfo)
-    ),
+    [key]: Object.assign({}, ...listOfSelection.map((x) => available[x][key])),
   };
+}
+
+export function combineModules(modules, listOfModules) {
+  return jsonCombiner(modules, listOfModules, "ModuleInfo");
+}
+
+export function combineParameters(parameters, listOfParameters) {
+  return jsonCombiner(parameters, listOfParameters, "ParameterInfo");
 }

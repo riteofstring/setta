@@ -18,16 +18,16 @@ export default function UITypesModal() {
   );
 
   const tryGetParameters = () => {
-    try {
-      const { moduleName, objName } = currentlySelected;
-      return {
-        parameters: getParameters(thisSectionInfo, moduleName, objName),
-        moduleName,
-        objName,
-      };
-    } catch (err) {
-      return { parameters: [], moduleName: null, objName: null };
+    let moduleName = null;
+    let objName = null;
+    if (currentlySelected) {
+      ({ moduleName, objName } = currentlySelected);
     }
+    return {
+      parameters: getParameters(thisSectionInfo, moduleName, objName),
+      moduleName,
+      objName,
+    };
   };
 
   const { parameters, moduleName, objName } = tryGetParameters();
