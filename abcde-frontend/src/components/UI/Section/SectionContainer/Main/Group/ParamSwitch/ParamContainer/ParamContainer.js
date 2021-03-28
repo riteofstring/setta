@@ -1,6 +1,5 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
-import PrefButton from "./ParamItems/ParamPref/PrefButton";
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
@@ -61,7 +60,6 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          {/* <PrefButton onClick={updateUIType} /> */}
           <ParamInput {...props} uiType={uiType} />
         </HStack>
       </FormControl>
