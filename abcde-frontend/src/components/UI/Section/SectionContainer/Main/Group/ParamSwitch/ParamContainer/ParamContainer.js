@@ -2,8 +2,6 @@ import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
 import PrefButton from "./ParamItems/ParamPref/PrefButton";
 import { useState, useLayoutEffect } from "react";
-import TextInput from "./ParamUIs/TextInput";
-import SliderInput from "./ParamUIs/SliderInput";
 import { useStoreActions } from "easy-peasy";
 
 export default function ParamContainer(props) {
@@ -22,15 +20,6 @@ export default function ParamContainer(props) {
 
   const requiresInputHere = () => {
     return !["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
-  };
-
-  const getParamUI = () => {
-    switch (uiType) {
-      default:
-        return TextInput;
-      case "SLIDER":
-        return SliderInput
-    }
   };
 
   useLayoutEffect(() => {
@@ -60,8 +49,8 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          <PrefButton onClick={setUIType}/>
-          <ParamInput {...props} paramUI={getParamUI()} />
+          <PrefButton onClick={setUIType} />
+          <ParamInput {...props} uiType={uiType} />
         </HStack>
       </FormControl>
     )

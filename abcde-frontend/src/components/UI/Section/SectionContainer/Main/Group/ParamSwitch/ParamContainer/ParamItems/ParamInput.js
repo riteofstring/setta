@@ -1,5 +1,7 @@
-import { useState, useLayoutEffect } from "react";
+import React, { useState, useLayoutEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import TextInput from "../ParamUIs/TextInput";
+import SliderInput from "../ParamUIs/SliderInput";
 
 export default function ParamInput(props) {
   const {
@@ -56,5 +58,15 @@ export default function ParamInput(props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId, moduleName, objName]);
 
-  return props.paramUI({ value, defaultVal, sendState });
+  
+  const getParamUI = (childProps) => {
+    switch (props.uiType) {
+      default:
+        return <TextInput {...childProps}/>;
+      case "SLIDER":
+        return <SliderInput {...childProps}/>;
+    }
+  };
+
+  return getParamUI({ value, defaultVal, sendState });
 }

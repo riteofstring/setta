@@ -43,6 +43,8 @@ export default function MainContainer() {
             scaleBase={1.5}
             marginRatios={{ x: 1, y: 1 }}
             contentSize={contentSize}
+            excludedTagNames={["input", "textarea", "select"]}
+            excludedClassNames={["EditableTextarea", "chakra-stack DragHandle", "chakra-slider"]}
           >
             <Box padding="2.5rem" h="100%">
               <CustomGrid gap={2} onSize={setContentSize}>
