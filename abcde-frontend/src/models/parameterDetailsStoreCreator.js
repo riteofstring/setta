@@ -1,6 +1,6 @@
 import { action, debug } from "easy-peasy";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
-import { replaceKey, descendIntoNestedObject } from "../utils/utils";
+import { replaceKey, descendIntoNestedObject, descendIntoNestedObjectUpToObjName } from "../utils/utils";
 
 function parameterDetailsStoreCreator(storeName, specializedKeys) {
   const capitalized = storeName.charAt(0).toUpperCase() + storeName.slice(1);
@@ -24,26 +24,20 @@ function parameterDetailsStoreCreator(storeName, specializedKeys) {
 
     replaceParamName: action((state, payload) => {
       const { oldKey, newKey, keysForDescent } = payload;
-      let currPoint = state[storeName];
-      currPoint = descendIntoNestedObject(
-        currPoint,
+      const currPoint = descendIntoNestedObjectUpToObjName(
+        state[storeName],
         keysForDescent,
-        payloadKeys,
-        null,
-        "objName"
+        payloadKeys
       );
       replaceKey(currPoint, oldKey, newKey);
     }),
 
     deleteParamName: action((state, payload) => {
       const { deleteKey, keysForDescent } = payload;
-      let currPoint = state[storeName];
-      currPoint = descendIntoNestedObject(
-        currPoint,
+      const currPoint = descendIntoNestedObjectUpToObjName(
+        state[storeName],
         keysForDescent,
-        payloadKeys,
-        null,
-        "objName"
+        payloadKeys
       );
       if (deleteKey in currPoint) {
         delete currPoint[deleteKey];

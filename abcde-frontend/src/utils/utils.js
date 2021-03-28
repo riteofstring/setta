@@ -66,6 +66,17 @@ export function descendIntoNestedObject(
   return currPoint;
 }
 
+export function descendIntoNestedObjectUpToObjName(currPoint, keysForDescent, payloadKeys) {
+  currPoint = descendIntoNestedObject(
+    currPoint,
+    keysForDescent,
+    payloadKeys,
+    null,
+    "objName"
+  );
+  return currPoint;
+}
+
 // https://stackoverflow.com/a/14592469
 export function replaceKey(inputObject, oldKey, newKey) {
   if (inputObject?.[oldKey] && oldKey !== newKey) {

@@ -6,7 +6,13 @@ import { HStack, IconButton } from "@chakra-ui/react";
 import { CloseIcon } from "@chakra-ui/icons";
 
 export default function KwargParam(props) {
-  const { sectionId, moduleName, objName, inputKwargName, onClickDelete } = props;
+  const {
+    sectionId,
+    moduleName,
+    objName,
+    inputKwargName,
+    onClickDelete,
+  } = props;
 
   const [kwargName, setKwargName] = useState(
     inputKwargName ? inputKwargName : ""
@@ -65,7 +71,7 @@ export default function KwargParam(props) {
 
   useEffect(() => {
     setKwargName(inputKwargName);
-  }, [sectionId, moduleName, objName]);
+  }, [sectionId, moduleName, objName, inputKwargName]);
 
   const onSubmit = (v) => {
     // if old key is in savedKwargs, then replace it with new key
@@ -87,9 +93,10 @@ export default function KwargParam(props) {
           },
         });
       }
-    } else {
+    } else if (v) {
       // old key is not in savedKwargs, so initialize it with "exists: true"
       // so that it is known to exist by the UI Type Modal
+      // Also, only add string if it is not empty
       setSavedKwargs({
         sectionId,
         moduleName,
@@ -101,7 +108,7 @@ export default function KwargParam(props) {
     setKwargName(v);
   };
 
-  const onClick = () => {
+  const deleteFromGlobal = () => {
     for (let F of [
       globalCurrDelete,
       uiTypesDelete,
@@ -118,7 +125,11 @@ export default function KwargParam(props) {
         },
       });
     }
-    onClickDelete()
+  };
+
+  const onClick = () => {
+    deleteFromGlobal();
+    onClickDelete();
   };
 
   return (
