@@ -47,34 +47,18 @@ export const createStringId = (
   return id;
 };
 
-export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
-  const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
-  let output = [];
-  for (let x = 0; x < numPages; x++) {
-    output.push({
-      minId: x * sectionsPerPage + 1,
-      maxId: (x + 1) * sectionsPerPage,
-    });
-  }
-  return output;
+export const getRootIds = (idHierarchy) => {
+  return Object.keys(idHierarchy).filter((e) => idHierarchy[e].parent === null);
 };
 
-export const getRootIds = (idHierarchy, minId, maxId) => {
-  return Object.keys(idHierarchy).filter(
-    (e) =>
-      parseInt(e) >= minId &&
-      parseInt(e) <= maxId &&
-      idHierarchy[e].parent === null
-  );
-};
-
-export const getOverviewListing = (idHierarchy, pageMinMaxList) => {
+export const getOverviewListing = (idHierarchy) => {
   let outputList = [];
-  for (let minMax of pageMinMaxList) {
+  for (let pageNum of Object.keys(idHierarchy)) {
     outputList.push([]);
-    for (let sectionId of getRootIds(idHierarchy, minMax.minId, minMax.maxId)) {
+    const idHierarchyCurrPage = idHierarchy[pageNum];
+    for (let sectionId of getRootIds(idHierarchyCurrPage)) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, idHierarchy, 0)
+        ...getOverviewListingHelper(sectionId, idHierarchyCurrPage, 0)
       );
     }
   }

@@ -9,7 +9,6 @@ import SectionFooter from "./Footer/SectionFooter";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
-import { SECTIONWIDTH } from "../../../../utils/constants"
 
 function SectionContainer({
   sectionId,
@@ -29,8 +28,9 @@ function SectionContainer({
     (action) => action.master.setChildrenIds
   );
 
+  const currPage = useStoreState((state) => state.master.currPage);
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].children,
+    (state) => state.master.idHierarchy[currPage][sectionId].children,
     arraysAreEqual
   );
 
@@ -81,19 +81,20 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
+  const currPage = useStoreState((state) => state.master.currPage);
   const isList = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isList
+    (state) => state.master.idHierarchy[currPage][sectionId].isList
   );
   const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
+    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
   );
 
   // temp_
   const tempBool = true;
   return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w={`${SECTIONWIDTH}px`}>
+    <HStack direction="column" bg="gray.50" borderRadius="md" w="650px">
       {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
-      <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
+      <Stack px="1.5rem" py="1.5rem" w="700px">
         <SectionHeader
           sectionId={sectionId}
           parentId={parentId}

@@ -17,17 +17,18 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
 }) {
+  const currPage = useStoreState((state) => state.master.currPage);
   const isShown = useStoreState(
-    (state) => state.master.idHierarchy[parentId].isShown
+    (state) => state.master.idHierarchy[currPage][parentId].isShown
   );
   const isVisible = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isVisible
+    (state) => state.master.idHierarchy[currPage][sectionId].isVisible
   );
   const isList = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isList
+    (state) => state.master.idHierarchy[currPage][sectionId].isList
   );
   const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
+    (state) => state.master.idHierarchy[currPage][sectionId].isListRoot
   );
 
   const getNestedSection = (dragControls) => {

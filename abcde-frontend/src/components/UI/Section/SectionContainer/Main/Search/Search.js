@@ -15,12 +15,13 @@ export default function SectionSearch({ sectionId }) {
   };
 
   const theSection = useStoreState((state) => state.master.sections[sectionId]);
+  const currPage = useStoreState((state) => state.master.currPage);
   const {
     moduleName: selectedModuleName,
     objName: selectedObjName,
-  } = useStoreState((state) => state.master.idHierarchy[sectionId]);
+  } = useStoreState((state) => state.master.idHierarchy[currPage][sectionId]);
   const sectionHasNested = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].hasNested
+    (state) => state.master.idHierarchy[currPage][sectionId].hasNested
   );
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
   const deleteChildrenFromVisibleSectionIds = useStoreActions(

@@ -13,10 +13,9 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
   const idHierarchy = useStoreState((state) => state.master.idHierarchy);
   const getListOfSectionIdsAndNames = () => {
-    const overviewListing = getOverviewListing(idHierarchy, pageMinMaxList);
+    const overviewListing = getOverviewListing(idHierarchy);
     console.log("overviewListing", overviewListing);
     return overviewListing;
   };

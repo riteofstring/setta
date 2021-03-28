@@ -10,13 +10,11 @@ import {
 import { NO_AUTH } from "../utils/constants";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
-import { getPageMinMaxList } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,
-  spaceBetweenPages: 500,
-  sectionCount: 0,
-  pageMinMaxList: [],
+  currPage: 1,
+  sectionCount: 1,
   sections: {},
   idHierarchy: {},
   stringIdsToSectionIds: {},
@@ -29,21 +27,25 @@ const master = {
       state.sections = data;
     }
     for (let key of Object.keys(data)) {
-      state.sectionCount += 1;
       let id = state.sectionCount;
       if (isJson) {
         state.sections[id] = new Section(key, data[key]);
       }
-      state.idHierarchy[id] = newIdInHierarchy({
+      let pageNum = Math.trunc((id - 1) / state.sectionsPerPage) + 1;
+      if (!(pageNum in state.idHierarchy)) {
+        state.idHierarchy[pageNum] = {};
+      }
+      state.idHierarchy[pageNum][id] = newIdInHierarchy({
         sectionHeading: isJson ? key : state.sections[id].name,
         stringId: id,
       });
       state.stringIdsToSectionIds[id] = id;
+      state.sectionCount += 1;
     }
-    state.pageMinMaxList = getPageMinMaxList(
-      state.sectionCount,
-      state.sectionsPerPage
-    );
+  }),
+
+  setCurrPage: action((state, payload) => {
+    state.currPage = payload;
   }),
 
   setEntireState: action((state, payload) => {
@@ -61,19 +63,19 @@ const master = {
   // Show/Collapse button
   setIsShown: action((state, payload) => {
     const { sectionId, isShown } = payload;
-    state.idHierarchy[sectionId].isShown = isShown;
+    state.idHierarchy[state.currPage][sectionId].isShown = isShown;
   }),
 
   // stores what fields to show
   setSelected: action((state, payload) => {
     const { sectionId, moduleName, objName } = payload;
-    state.idHierarchy[sectionId].moduleName = moduleName;
-    state.idHierarchy[sectionId].objName = objName;
+    state.idHierarchy[state.currPage][sectionId].moduleName = moduleName;
+    state.idHierarchy[state.currPage][sectionId].objName = objName;
   }),
 
   setChildrenIds: action((state, payload) => {
     const { sectionId, childrenIds } = payload;
-    state.idHierarchy[sectionId].children = childrenIds;
+    state.idHierarchy[state.currPage][sectionId].children = childrenIds;
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
@@ -88,7 +90,7 @@ const master = {
       sectionHeading,
       stringId,
     } = payload;
-    const currIdHierarchy = state.idHierarchy;
+    const currIdHierarchy = state.idHierarchy[state.currPage];
     const parentIdObj = currIdHierarchy[parentId];
     parentIdObj.moduleName = moduleName;
     parentIdObj.objName = objName;
@@ -143,9 +145,9 @@ const master = {
 
   _permanentlyDeleteSection: action((state, payload) => {
     const { sectionId, parentObj } = payload;
-    const stringId = state.idHierarchy[sectionId].stringId;
+    const stringId = state.idHierarchy[state.currPage][sectionId].stringId;
     delete state.stringIdsToSectionIds[stringId];
-    delete state.idHierarchy[sectionId];
+    delete state.idHierarchy[state.currPage][sectionId];
     parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 
@@ -154,14 +156,14 @@ const master = {
     const state = helpers.getState();
     action._permanentlyDeleteSection({
       sectionId,
-      parentObj: state.idHierarchy[parentId],
+      parentObj: state.idHierarchy[state.currPage][parentId],
     });
   }),
 
   permanentlyDeleteMultipleSections: thunk((action, payload, helpers) => {
     const { parentId, startingId, numSectionsToDelete } = payload;
     const state = helpers.getState();
-    const parentObj = state.idHierarchy[parentId];
+    const parentObj = state.idHierarchy[state.currPage][parentId];
     const startingIdx =
       startingId === null ? 0 : parentObj.children.indexOf(startingId);
     const trueNumSectionsToDelete = Math.min(
@@ -176,8 +178,12 @@ const master = {
 
   deleteChildrenFromVisibleSectionIds: action((state, payload) => {
     const { sectionId } = payload;
-    const foundId = state.idHierarchy[sectionId];
-    setChildrenVisibility(foundId.children, state.idHierarchy, false);
+    const foundId = state.idHierarchy[state.currPage][sectionId];
+    setChildrenVisibility(
+      foundId.children,
+      state.idHierarchy[state.currPage],
+      false
+    );
   }),
 
   incrementSectionCount: action((state, payload) => {
@@ -198,7 +204,7 @@ const master = {
     if (isList) {
       if (siblingId !== null) {
         extraIdentifier = (
-          state.idHierarchy[parentId].listCount + 1
+          state.idHierarchy[state.currPage][parentId].listCount + 1
         ).toString();
       } else {
         extraIdentifier = "0";
@@ -206,7 +212,7 @@ const master = {
     }
 
     let name = !siblingId && isList ? `List for ${originalName}` : originalName;
-    if (state.idHierarchy[parentId].isListRoot) {
+    if (state.idHierarchy[state.currPage][parentId].isListRoot) {
       name = name.replace("List for ", "");
     }
 
@@ -220,12 +226,12 @@ const master = {
 
     let id = state.stringIdsToSectionIds[stringId];
     if (id === undefined) {
-      id = (state.sectionCount + 1).toString();
+      id = state.sectionCount.toString();
       action.incrementSectionCount();
     }
 
     console.log("addToVisibleSectionIdsThunk", id);
-    const currInfo = state.idHierarchy;
+    const currInfo = state.idHierarchy[state.currPage];
     if (!(id in currInfo) || !currInfo.isVisible) {
       action.addToVisibleSectionIds({
         id,
