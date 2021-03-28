@@ -1,4 +1,4 @@
-import { createStore, action, debug } from "easy-peasy";
+import { createStore, action } from "easy-peasy";
 import master from "../models/master";
 import globalCurr from "../models/globalCurr";
 import yamlEntry from "../models/yamlEntry";
@@ -9,9 +9,10 @@ import funcsInfo from "../models/funcsInfo";
 import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
-import sectionPositions from "../models/sectionPositions"
+import sectionPositions from "../models/sectionPositions";
 import uiTypes from "../models/uiTypes";
-import currentlySelected from "../models/currentlySelected"
+import currentlySelected from "../models/currentlySelected";
+import nestedSectionIds from "../models/nestedSectionIds";
 
 const store = createStore({
   master: master,
@@ -27,6 +28,7 @@ const store = createStore({
   sectionPositions: sectionPositions,
   uiTypes: uiTypes,
   currentlySelected: currentlySelected,
+  nestedSectionIds: nestedSectionIds,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;
@@ -41,7 +43,7 @@ export const resetEntireState = () => {
 };
 
 export const resetState = (name) => {
-  store.dispatch.setSubState({ name, value: initialState[name]});
+  store.dispatch.setSubState({ name, value: initialState[name] });
 };
 
 export default store;

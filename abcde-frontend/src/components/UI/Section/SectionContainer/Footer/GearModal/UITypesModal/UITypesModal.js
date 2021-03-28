@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { MenuContext } from "../../SectionFooter";
 import { Box, HStack, Stack, Select, Input, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
@@ -86,9 +86,7 @@ const menuItems = [
 ];
 
 function Item({ sectionId, moduleName, objName, paramName }) {
-  const setUiTypes = useStoreActions(
-    (actions) => actions.uiTypes.setUiTypes
-  );
+  const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
 
   const onSelect = (e) => {
     setUiTypes({

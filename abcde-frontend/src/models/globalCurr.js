@@ -1,4 +1,4 @@
-import parameterDetailsStoreCreator from "./paramterDetailsStoreCreator";
+import parameterDetailsStoreCreator from "./parameterDetailsStoreCreator";
 
 const globalCurr = parameterDetailsStoreCreator("globalCurr");
 

@@ -2,7 +2,7 @@ export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
 
-export function getParameters(sectionInfo, moduleName, objName){
+export function getParameters(sectionInfo, moduleName, objName) {
   let returnParameters = [];
   try {
     const paramSource =
@@ -12,4 +12,8 @@ export function getParameters(sectionInfo, moduleName, objName){
     }
   } catch (err) {}
   return returnParameters;
-};
+}
+
+export function requiresNestedSection(uiType) {
+  return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
+}
