@@ -12,11 +12,11 @@ const SectionsPane = () => {
   return (
     <>
       <HStack spacing={`${spaceBetweenPages}px`}>
-        {pageMinMaxList.map((e) => (
+        {pageMinMaxList.map((e, idx) => (
           <SingleSectionsPane
-            key={`SingleSectionsPane-${e.minId}-${e.maxId}`}
             minId={e.minId}
             maxId={e.maxId}
+            key={`SingleSectionsPane-${idx}`}
           />
         ))}
       </HStack>
