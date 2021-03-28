@@ -5,32 +5,39 @@ import ModalContainer from "../../../../../../../utils/ModalContainer";
 import { getParameters } from "../../../../../../../utils/utils";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { getParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/getParamUI";
+import _ from "lodash";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
-  const currentlySelected = useStoreState(
-    (state) => state.currentlySelected.currentlySelected[sectionId]
+  const moduleName = useStoreState(
+    (state) => state.currentlySelected.currentlySelected[sectionId]?.moduleName
+  );
+
+  const objName = useStoreState(
+    (state) => state.currentlySelected.currentlySelected[sectionId]?.objName
+  );
+
+  const globalCurr = useStoreState(
+    (state) => state.globalCurr.globalCurr[sectionId]?.[moduleName]?.[objName]
   );
 
   const thisSectionInfo = useStoreState(
     (state) => state.master.sections[sectionId]
   );
 
-  const tryGetParameters = () => {
-    let moduleName = null;
-    let objName = null;
-    if (currentlySelected) {
-      ({ moduleName, objName } = currentlySelected);
+  const getParametersAndKwargs = () => {
+    const parameters = getParameters(thisSectionInfo, moduleName, objName).map(
+      (x) => x.name
+    );
+    if (globalCurr) {
+      const maybeAlsoKwargs = Object.keys(globalCurr);
+      return _.union(parameters, maybeAlsoKwargs);
     }
-    return {
-      parameters: getParameters(thisSectionInfo, moduleName, objName),
-      moduleName,
-      objName,
-    };
+    return parameters;
   };
 
-  const { parameters, moduleName, objName } = tryGetParameters();
+  const parameters = getParametersAndKwargs();
 
   return (
     <ModalContainer
@@ -63,8 +70,8 @@ function Body({ sectionId, moduleName, objName, parameters }) {
           sectionId={sectionId}
           moduleName={moduleName}
           objName={objName}
-          paramName={e.name}
-          key={`${e.name}-${idx}`}
+          paramName={e}
+          key={`${e}-${idx}`}
         />
       ))}
     </Stack>

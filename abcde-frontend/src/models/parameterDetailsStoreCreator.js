@@ -18,6 +18,8 @@ function parameterDetailsStoreCreator(storeName, specializedKeys) {
       currPoint = descendIntoNestedObject(currPoint, payload, payloadKeys, 2);
       currPoint[payload[payloadKeys[payloadKeys.length - 2]]] =
         payload[payloadKeys[payloadKeys.length - 1]];
+
+      console.log(storeName, debug(state[storeName]));
     }),
 
     replaceParamName: action((state, payload) => {
