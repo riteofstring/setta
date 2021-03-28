@@ -81,7 +81,7 @@ export default function ParamContainer(props) {
           objName,
           isList: uiType === "LIST_NESTED_OBJECT",
           siblingId: null,
-          sectionContents: new Section(name, combineModules(availableModules, ["torchvision_models", "my_models"]))
+          // sectionContents: new Section(name, combineModules(availableModules, ["torchvision_models", "my_models"]))
         });
       }
       wrapperSetNestedSectionId(newNestedSectionId);

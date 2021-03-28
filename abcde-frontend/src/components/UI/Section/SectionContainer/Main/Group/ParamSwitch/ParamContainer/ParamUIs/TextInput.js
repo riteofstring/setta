@@ -2,7 +2,7 @@ import { Input } from "@chakra-ui/react";
 
 
 export function TextInputConfig(){
-  return []
+  return null;
 }
 
 export default function TextInput({ value, defaultVal, onChangeEnd }) {

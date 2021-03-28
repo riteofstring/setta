@@ -106,7 +106,7 @@ function Item({ sectionId, moduleName, objName, paramName }) {
     });
   };
 
-  const onConfigChange = (uiConfigOption, uiConfigValue) => {
+  const onChange = (uiConfigOption, uiConfigValue) => {
     setUiTypeConfigs({
       sectionId,
       moduleName,
@@ -121,20 +121,18 @@ function Item({ sectionId, moduleName, objName, paramName }) {
   return (
     <HStack>
       <Box>{paramName}</Box>
-      <Select placeholder="Select UI Type" onChange={onSelect} defaultValue={uiType}>
+      <Select
+        placeholder="Select UI Type"
+        onChange={onSelect}
+        defaultValue={uiType}
+      >
         {menuItems.map((e, idx) => (
           <option value={e} key={`${e}-${idx}`}>
             {e}
           </option>
         ))}
       </Select>
-      {getParamUIConfig(uiType).map((e, idx) => (
-        <Input
-          placeholder={e}
-          key={`${e}-${idx}`}
-          onChange={(v) => onConfigChange(e, v.target.value)}
-        />
-      ))}
+      {getParamUIConfig(uiType, { onChange })}
     </HStack>
   );
 }

@@ -4,13 +4,15 @@ import {
   SliderFilledTrack,
   SliderThumb,
 } from "@chakra-ui/react";
+import SimpleConfig from "./SimpleConfig";
 
 function defaultIfNotNumber(x) {
   return typeof x === "number" ? x : 0;
 }
 
-export function SliderInputConfig() {
-  return ["min", "max", "step"];
+export function SliderInputConfig({ onChange }) {
+  const options = ["min", "max", "step"];
+  return <SimpleConfig options={options} onChange={onChange} />;
 }
 
 export default function SliderInput({ value, onChangeEnd, min, max, step }) {
