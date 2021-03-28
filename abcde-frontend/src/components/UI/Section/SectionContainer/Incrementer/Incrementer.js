@@ -23,19 +23,17 @@ export default function Incrementer({
     (actions) => actions.master.addToVisibleSectionIdsThunk
   );
 
-  const currPage = useStoreState((actions) => actions.master.currPage);
-
   const selected = useStoreState(
-    (actions) => actions.master.idHierarchy[currPage][parentId]
+    (actions) => actions.master.idHierarchy[parentId]
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].children,
+    (state) => state.master.idHierarchy[sectionId].children,
     arraysAreEqual
   );
 
   const sectionHeading = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].sectionHeading
+    (state) => state.master.idHierarchy[sectionId].sectionHeading
   );
 
   const decrementButtonCondition = () => {

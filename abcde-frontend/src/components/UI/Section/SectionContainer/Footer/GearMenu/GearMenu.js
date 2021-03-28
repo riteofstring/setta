@@ -13,7 +13,7 @@ import { MenuContext } from "../SectionFooter";
 import { useContext } from "react";
 
 export default function GearMenu() {
-  const { onOpen, gearModalMenu } = useContext(MenuContext);
+  const { onOpen } = useContext(MenuContext);
   return (
     <GridItem
       justifySelf="flex-end"
