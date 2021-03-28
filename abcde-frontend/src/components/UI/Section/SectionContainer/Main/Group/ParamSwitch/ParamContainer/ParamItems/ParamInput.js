@@ -10,15 +10,8 @@ export default function ParamInput(props) {
     parameter: { name, defaultVal },
   } = props;
 
-  const setGlobalCurr = useStoreActions(
-    (actions) => actions.globalCurr.setGlobalCurr
-  );
-
-  const currUiTypeConfig = useStoreState(
-    (state) =>
-      state.uiTypeConfigs.uiTypeConfigs[sectionId]?.[moduleName]?.[objName]?.[
-        name
-      ]?.[props.uiType]
+  const setCurrParam = useStoreActions(
+    (actions) => actions.globalCurr.setCurrParam
   );
 
   const currParam = useStoreState(
@@ -34,7 +27,7 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setGlobalCurr({
+    setCurrParam({
       sectionId,
       moduleName,
       objName,
@@ -47,11 +40,5 @@ export default function ParamInput(props) {
     setValue(currParam !== null && currParam !== undefined ? currParam : "");
   }, [currParam]);
 
-  return getParamUI(props.uiType, {
-    value,
-    defaultVal,
-    onChange,
-    onChangeEnd,
-    ...currUiTypeConfig,
-  });
+  return getParamUI(props.uiType, { value, defaultVal, onChange, onChangeEnd });
 }

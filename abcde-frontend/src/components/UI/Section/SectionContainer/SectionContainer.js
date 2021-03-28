@@ -9,7 +9,7 @@ import SectionFooter from "./Footer/SectionFooter";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
-import { SECTIONWIDTH } from "../../../../utils/constants"
+import { SECTIONWIDTH } from "../../../../utils/constants";
 
 function SectionContainer({
   sectionId,
@@ -49,7 +49,7 @@ function SectionContainer({
   }, [refForPosition.current]);
 
   return (
-    <Stack height="100%" ref={refForPosition}>
+    <Stack ref={refForPosition}>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -87,7 +87,12 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   // temp_
   const tempBool = true;
   return (
-    <HStack direction="column" bg="gray.50" borderRadius="md" w={`${SECTIONWIDTH}px`}>
+    <HStack
+      direction="column"
+      bg="gray.50"
+      borderRadius="md"
+      w={`${SECTIONWIDTH}px`}
+    >
       {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
@@ -112,7 +117,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 function DragHandle({ dragControls }) {
   return (
     <HStack
-      h="100%"
+      alignSelf="stretch"
       borderLeftRadius="inherit"
       cursor="move"
       px="0.5rem"

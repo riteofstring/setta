@@ -1,7 +1,7 @@
 import React from "react";
 import { useStoreState } from "easy-peasy";
 import SingleSectionsPane from "./SingleSectionsPane";
-import { HStack } from "@chakra-ui/react";
+import { Stack } from "@chakra-ui/react";
 
 const SectionsPane = () => {
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
@@ -11,7 +11,7 @@ const SectionsPane = () => {
 
   return (
     <>
-      <HStack spacing={`${spaceBetweenPages}px`}>
+      <Stack direction="row" spacing={`${spaceBetweenPages}px`}>
         {pageMinMaxList.map((e, idx) => (
           <SingleSectionsPane
             minId={e.minId}
@@ -19,7 +19,7 @@ const SectionsPane = () => {
             key={`SingleSectionsPane-${idx}`}
           />
         ))}
-      </HStack>
+      </Stack>
     </>
   );
 };

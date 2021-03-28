@@ -3,7 +3,7 @@ import { useStoreState } from "easy-peasy";
 import SectionContainer from "./SectionContainer/SectionContainer";
 import { getRootIds } from "../../../utils/sectionIds";
 import { arraysAreEqual } from "../../../utils/commonFunctions";
-import { VStack } from "@chakra-ui/react";
+import { Stack } from "@chakra-ui/react";
 
 const SingleSectionsPane = ({ minId, maxId }) => {
   const rootSectionsHaveChanged = (prev, next) => {
@@ -23,7 +23,7 @@ const SingleSectionsPane = ({ minId, maxId }) => {
 
   return (
     <>
-      <VStack>
+      <Stack>
         {idKeys.map((e, idx) => (
           <SectionContainer
             sectionId={e}
@@ -34,7 +34,7 @@ const SingleSectionsPane = ({ minId, maxId }) => {
             depth={0}
           />
         ))}
-      </VStack>
+      </Stack>
     </>
   );
 };
