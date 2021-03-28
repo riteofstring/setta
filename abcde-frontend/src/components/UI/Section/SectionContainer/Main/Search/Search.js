@@ -86,8 +86,6 @@ export default function SectionSearch({ sectionId }) {
     },
   });
 
-  console.log("selectedItem", selectedItem);
-
   // temp_
   const tempBool = true;
   return (

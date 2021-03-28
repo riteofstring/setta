@@ -1,7 +1,7 @@
-import React, { useState, useLayoutEffect } from "react";
+import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import TextInput from "../ParamUIs/TextInput";
-import SliderInput from "../ParamUIs/SliderInput";
+import getParamUI from "../ParamUIs/getParamUI";
+import { checkGlobalCurrEquality } from "../../../../../../../../../utils/utils";
 
 export default function ParamInput(props) {
   const {
@@ -15,27 +15,26 @@ export default function ParamInput(props) {
     (actions) => actions.globalCurr.setCurrParam
   );
 
-  const globalCurr = useStoreState(
-    (state) => state.globalCurr.globalCurr,
-    (prev, next) => checkGlobalCurrEquality(prev, next)
+  const equalityFn = checkGlobalCurrEquality(
+    sectionId,
+    moduleName,
+    objName,
+    name
   );
 
-  const [value, setValue] = useState(defaultVal);
+  const globalCurr = useStoreState(
+    (state) => state.globalCurr.globalCurr,
+    (prev, next) => equalityFn(prev, next)
+  );
 
-  const checkGlobalCurrEquality = (prev, next) => {
-    let prevParam = null;
-    let nextParam = null;
-    try {
-      prevParam = prev[sectionId][moduleName][objName][name];
-    } catch (err) {}
-    try {
-      nextParam = next[sectionId][moduleName][objName][name];
-    } catch (err) {}
-    return prevParam === nextParam;
+  const [value, setValue] = useState("");
+
+  const onChange = (value) => {
+    setValue(value);
   };
 
-  const sendState = (value) => {
-    setValue(value);
+  const onChangeEnd = (value) => {
+    onChange(value)
     setCurrParam({
       sectionId,
       moduleName,
@@ -45,28 +44,18 @@ export default function ParamInput(props) {
     });
   };
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     let savedParam = null;
 
     try {
       savedParam = globalCurr[sectionId][moduleName][objName][name];
     } catch (err) {}
 
-    setValue(
-      savedParam !== null && savedParam !== undefined ? savedParam : defaultVal
-    );
+    const toBeSet =
+      savedParam !== null && savedParam !== undefined ? savedParam : "";
+    setValue(toBeSet);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId, moduleName, objName]);
 
-  
-  const getParamUI = (childProps) => {
-    switch (props.uiType) {
-      default:
-        return <TextInput {...childProps}/>;
-      case "SLIDER":
-        return <SliderInput {...childProps}/>;
-    }
-  };
-
-  return getParamUI({ value, defaultVal, sendState });
+  return getParamUI(props.uiType, { value, defaultVal, onChange, onChangeEnd });
 }

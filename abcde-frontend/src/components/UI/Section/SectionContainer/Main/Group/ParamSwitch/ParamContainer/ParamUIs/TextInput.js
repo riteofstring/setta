@@ -1,6 +1,6 @@
 import { Input } from "@chakra-ui/react";
 
-export default function TextInput({value, defaultVal, sendState}) {
+export default function TextInput({ value, defaultVal, onChangeEnd }) {
   return (
     <Input
       type=""
@@ -9,7 +9,7 @@ export default function TextInput({value, defaultVal, sendState}) {
       size="xs"
       maxWidth="10rem"
       value={value}
-      onChange={(e) => sendState(e.target.value)}
+      onChange={(e) => onChangeEnd(e.target.value)}
     />
   );
 }

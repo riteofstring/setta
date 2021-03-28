@@ -4,24 +4,17 @@ import {
   SliderFilledTrack,
   SliderThumb,
 } from "@chakra-ui/react";
-import { useState } from "react";
 
 function defaultIfNotNumber(x) {
   return typeof x === "number" ? x : 0;
 }
 
-export default function SliderInput({ value, defaultVal, sendState }) {
-  const [liveValue, setLiveValue] = useState(defaultIfNotNumber(value));
-
+export default function SliderInput({ value, onChangeEnd }) {
   return (
     <Slider
       aria-label="slider-ex-1"
-      defaultValue={defaultIfNotNumber(defaultVal)}
-      onChangeEnd={(val) => {
-        if (val !== value) sendState(val);
-      }}
-      onChange={setLiveValue}
-      value={liveValue}
+      onChange={(v) => onChangeEnd(v)}
+      value={defaultIfNotNumber(value)}
     >
       <SliderTrack>
         <SliderFilledTrack />

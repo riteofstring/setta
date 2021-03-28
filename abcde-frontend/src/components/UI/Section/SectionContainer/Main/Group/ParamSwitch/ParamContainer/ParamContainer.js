@@ -1,8 +1,9 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
 import PrefButton from "./ParamItems/ParamPref/PrefButton";
-import { useState, useLayoutEffect } from "react";
-import { useStoreActions } from "easy-peasy";
+import { useState, useEffect } from "react";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { checkGlobalCurrEquality } from "../../../../../../../../utils/utils";
 
 export default function ParamContainer(props) {
   const {
@@ -14,16 +15,57 @@ export default function ParamContainer(props) {
 
   const [uiType, setUIType] = useState(defaultUIType);
 
+  const equalityFn = checkGlobalCurrEquality(
+    sectionId,
+    moduleName,
+    objName,
+    name
+  );
+
+  const uiTypes = useStoreState(
+    (state) => state.uiTypes.uiTypes,
+    (prev, next) => equalityFn(prev, next)
+  );
+
+  const setCurrUIType = useStoreActions(
+    (actions) => actions.uiTypes.setCurrUIType
+  );
+
   const addToVisibleSectionIdsThunk = useStoreActions(
     (actions) => actions.master.addToVisibleSectionIdsThunk
   );
 
-  const requiresInputHere = () => {
-    return !["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
+  const requiresInputHere = (inputUIType = null) => {
+    return !["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(
+      inputUIType !== null ? inputUIType : uiType
+    );
   };
 
-  useLayoutEffect(() => {
-    if (!requiresInputHere()) {
+  const updateUIType = (value) => {
+    setUIType(value);
+    setCurrUIType({
+      sectionId,
+      moduleName,
+      objName,
+      paramName: name,
+      uiType: value,
+    });
+  };
+
+  useEffect(() => {
+    let savedUIType = null;
+
+    try {
+      savedUIType = uiTypes[sectionId][moduleName][objName][name];
+    } catch (err) {}
+
+    const toBeSet =
+      savedUIType !== null && savedUIType !== undefined
+        ? savedUIType
+        : defaultUIType;
+    setUIType(toBeSet);
+
+    if (!requiresInputHere(toBeSet)) {
       addToVisibleSectionIdsThunk({
         name,
         parentId: sectionId,
@@ -33,7 +75,7 @@ export default function ParamContainer(props) {
         siblingId: null,
       });
     }
-  }, [sectionId, moduleName, objName]);
+  }, [sectionId, moduleName, objName, requiresInputHere()]);
 
   return (
     requiresInputHere() && (
@@ -49,7 +91,7 @@ export default function ParamContainer(props) {
         >
           {props.children}
           <Spacer />
-          <PrefButton onClick={setUIType} />
+          <PrefButton onClick={updateUIType} />
           <ParamInput {...props} uiType={uiType} />
         </HStack>
       </FormControl>
