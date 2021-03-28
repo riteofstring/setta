@@ -51,7 +51,7 @@ export default function GroupContainer({ sectionId }) {
               sectionId={sectionId}
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
-              parameters={e}
+              parameter={e}
             />
           ))}
         </FormControl>
@@ -80,7 +80,7 @@ export default function GroupContainer({ sectionId }) {
               sectionId={sectionId}
               moduleName={paramsInfo.moduleName}
               objName={paramsInfo.objName}
-              parameters={{ name: "", defaultUIType: "", defaultVal: "" }}
+              parameter={{ name: "", defaultUIType: "", defaultVal: "" }}
               metaUIType={"KWARGS"}
             />
           ))}

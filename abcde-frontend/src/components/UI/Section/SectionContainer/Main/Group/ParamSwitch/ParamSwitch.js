@@ -4,6 +4,8 @@ import ParamTextLabel from "./ParamContainer/ParamItems/ParamTextLabel";
 
 export default function ParamSwitch(props) {
   switch (props.metaUIType) {
+    case "ARGS":
+      throw 'ARGS is not implemented yet'
     case "KWARGS":
       return (
         <ParamContainer {...props}>
