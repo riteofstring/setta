@@ -44,7 +44,7 @@ function Body() {
       <Grid
         gap={10}
         templateRows="min-content 1fr"
-        templateColumns="1fr 1.25fr 2fr"
+        templateColumns="minmax(min-content, 17em) 1.25fr 2fr"
       >
         <EcoSearch />
         <EcoResultsList />
