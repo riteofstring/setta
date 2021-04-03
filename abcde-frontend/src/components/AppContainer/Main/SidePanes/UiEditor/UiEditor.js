@@ -6,9 +6,10 @@ import {
   Tab,
   TabPanels,
   TabPanel,
-  Flex,
-  Grid,
+  IconButton,
+  HStack,
 } from "@chakra-ui/react";
+import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import TextEditor from "./TextEditor/TextEditor";
 import PaneContainer from "../PaneContainer";
 import { useDropzone } from "react-dropzone";
@@ -37,8 +38,6 @@ export default function UiEditor() {
   }, []);
   const { getRootProps } = useDropzone({ onDrop });
 
-  // temp_
-  const tempTabs = [1, 2, 3, 4, 5];
   return (
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
       <Tabs
@@ -52,53 +51,93 @@ export default function UiEditor() {
         <Heading as="h1" size="md" color="gray.500" align="stretch">
           Edit YAML
         </Heading>
-        <TabPanels
-          maxH="inherit"
-          display="grid"
-          w="100%"
-          maxH="100%"
-          h="100%"
-          sx={{
-            gridTemplateRows: "1fr",
-            gridTemplateColumns: "1fr",
-            overflowY: "auto",
-          }}
-        >
-          <TabPanel
-            p="0"
-            m="0"
-            maxH="inherit"
-            width="100%"
-            h="100%"
-            sx={{
-              gridRow: "span 1",
-              gridColumn: "span 1",
-              overflowY: "hidden",
-            }}
-          >
-            <TextEditor />
-          </TabPanel>
-          <TabPanel>
-            <p>two!</p>
-          </TabPanel>
-        </TabPanels>
-        <TabList>
-          {tempTabs.map((e, idx) => (
-            <Tab
-              sx={{
-                borderBottomRadius: "1em",
-                bg: "gray.300",
-              }}
-              _selected={{ color: "white", bg: "gray.500" }}
-              _hover={{ color: "white", bg: "gray.600" }}
-              _active={{ color: "white", bg: "gray.700" }}
-              key={`uitab-${idx}`}
-            >
-              {e}
-            </Tab>
-          ))}
-        </TabList>
+        <UiEditorPages />
+        <TabsContainer />
       </Tabs>
     </PaneContainer>
+  );
+}
+
+function TabsContainer() {
+  // temp_
+  const tempTabs = [1, 2, 3, 4, 5];
+  return (
+    <TabList display="flex" alignItems="center">
+      {tempTabs.map((e, idx) => (
+        <Tab
+          sx={{
+            borderBottomRadius: "0.5rem",
+            borderLeft: "1px",
+            borderRight: "1px",
+            borderBottom: "1px",
+            borderColor: "gray.200",
+            padding: "0.33rem 1rem",
+            marginRight: "0.125rem",
+          }}
+          _selected={{ color: "white", bg: "gray.400" }}
+          _hover={{ color: "white", bg: "gray.600" }}
+          _active={{ color: "white", bg: "gray.700" }}
+          key={`uitab-${idx}`}
+        >
+          {e}
+        </Tab>
+      ))}
+
+      <IconButton
+        icon={<AddIcon />}
+        borderRadius="full"
+        variant="ghost"
+        size="xs"
+        marginright="0.125rem"
+      />
+      <HStack w="100%" justifyContent="flex-end">
+        <IconButton
+          icon={<ChevronLeftIcon />}
+          borderRadius="full"
+          variant="ghost"
+          size="xs"
+          marginright="0.125rem"
+        />
+        <IconButton
+          icon={<ChevronRightIcon />}
+          borderRadius="full"
+          variant="ghost"
+          size="xs"
+          marginright="0.125rem"
+        />
+      </HStack>
+    </TabList>
+  );
+}
+
+function UiEditorPages() {
+  return (
+    <TabPanels
+      maxH="inherit"
+      display="grid"
+      w="100%"
+      maxH="100%"
+      h="100%"
+      sx={{
+        gridTemplateRows: "1fr",
+        gridTemplateColumns: "1fr",
+        overflowY: "auto",
+      }}
+    >
+      <TabPanel
+        p="0"
+        m="0"
+        maxH="inherit"
+        width="100%"
+        h="100%"
+        sx={{
+          gridRow: "span 1",
+          gridColumn: "span 1",
+          overflowY: "hidden",
+        }}
+      >
+        <TextEditor />
+      </TabPanel>
+    </TabPanels>
   );
 }
