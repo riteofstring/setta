@@ -8,10 +8,16 @@ import {
 import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
-import { useState, useEffect } from "react";
-import { getParameters } from "../../../../../../utils/utils";
+import { useState } from "react";
+import { getParameters } from "../../../../../../utils/utils"
 
-export default function GroupContainer({ sectionId, sectionInfo }) {
+export default function GroupContainer({ sectionId }) {
+  const [numKwargs, setNumKwargs] = useState(0);
+
+  const thisSectionInfo = useStoreState(
+    (state) => state.master.sections[sectionId]
+  );
+
   const moduleName = useStoreState(
     (state) => state.master.idHierarchy[sectionId].moduleName
   );
@@ -20,19 +26,7 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
     (state) => state.master.idHierarchy[sectionId].objName
   );
 
-  const savedKwargs = useStoreState(
-    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
-  );
-
-  const kwargNames = savedKwargs ? Object.keys(savedKwargs) : [];
-
-  const [numKwargs, setNumKwargs] = useState(kwargNames.length);
-
-  const parameters = getParameters(sectionInfo, moduleName, objName);
-
-  useEffect(() => {
-    setNumKwargs(kwargNames.length);
-  }, [sectionId, moduleName, objName]);
+  const parameters = getParameters(thisSectionInfo, moduleName, objName);
 
   return (
     <Stack>
@@ -73,9 +67,8 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
               sectionId={sectionId}
               moduleName={moduleName}
               objName={objName}
+              parameter={{ name: "", defaultUIType: "", defaultVal: "" }}
               metaUIType={"KWARGS"}
-              inputKwargName={kwargNames[idx]}
-              onClickDelete={() => setNumKwargs(Math.max(0, numKwargs - 1))}
             />
           ))}
         </FormControl>

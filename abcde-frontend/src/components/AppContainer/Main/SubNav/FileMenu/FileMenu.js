@@ -1,4 +1,4 @@
-import SaveLoadModal from "../../../../../../utils/FileExplorer/SaveLoadModal";
+import SaveLoadModal from "../../../../../utils/FileExplorer/SaveLoadModal";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
@@ -26,14 +26,13 @@ export default function FileMenu() {
     (state) => state.uiInfo.savedFolderAndUINames
   );
 
-
   const _onOpen = (buttonText) => {
     setButtonText(buttonText);
     onOpen();
     loadFolderAndUINames({ token });
   };
 
-  const saveLoadButton = (buttonText) => {
+  function SaveLoadButton({ buttonText }) {
     return (
       <MenuItem
         onClick={() => _onOpen(buttonText)}
@@ -42,26 +41,20 @@ export default function FileMenu() {
         {buttonText}
       </MenuItem>
     );
-  };
+  }
 
   return (
     <>
       <Menu>
-        <MenuButton
-          size="sm"
-          variant="ghost"
-          as={Button}
-          // _hover={{ bg: "gray.400" }}
-          // _expanded={{ bg: "blue.400" }}
-          // _focus={{ boxShadow: "outline" }}
-        >
+        <MenuButton size="sm" variant="ghost" as={Button}>
           File <ChevronDownIcon />
         </MenuButton>
         <MenuList zIndex="11">
           <MenuItem icon={<IoDocumentTextOutline />}>New Project</MenuItem>
-          {saveLoadButton("Load")}
+          <SaveLoadButton buttonText="Load" />
+          <MenuItem>Advanced Load</MenuItem>
           <MenuItem icon={<VscSave />}>Save</MenuItem>
-          {saveLoadButton("Save As")}
+          <SaveLoadButton buttonText="Save As" />
         </MenuList>
       </Menu>
       <SaveLoadModal

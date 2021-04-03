@@ -42,8 +42,10 @@ export default function SectionSearch({ sectionId }) {
   };
 
   const onClick = () => {
-    setItems(getSearchItems());
-    setInputItems(getSearchItems());
+    if (items.length === 0) {
+      setItems(getSearchItems());
+      setInputItems(getSearchItems());
+    }
   };
 
   useEffect(() => {
@@ -53,17 +55,15 @@ export default function SectionSearch({ sectionId }) {
   }, [selectedModuleName, selectedObjName]);
 
   const onSelectedItemChange = ({ selectedItem }) => {
-    if (selectedItem) {
-      const [moduleName, objName] = selectedItem;
-      if (moduleName !== selectedModuleName || objName !== selectedObjName) {
-        if (sectionHasNested) {
-          deleteChildrenFromVisibleSectionIds({
-            sectionId,
-          });
-        }
-        setSelected({ sectionId, moduleName, objName });
-        setCurrentlySelected({ sectionId, moduleName, objName });
+    const [moduleName, objName] = selectedItem;
+    if (moduleName !== selectedModuleName || objName !== selectedObjName) {
+      if (sectionHasNested) {
+        deleteChildrenFromVisibleSectionIds({
+          sectionId,
+        });
       }
+      setSelected({ sectionId, moduleName, objName });
+      setCurrentlySelected({ sectionId, moduleName, objName });
     }
   };
 

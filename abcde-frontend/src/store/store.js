@@ -1,5 +1,6 @@
-import { createStore, action } from "easy-peasy";
+import { createStore, action, debug } from "easy-peasy";
 import master from "../models/master";
+import globalCurr from "../models/globalCurr";
 import yamlEntry from "../models/yamlEntry";
 import auth from "../models/auth";
 import uiInfo from "../models/uiInfo";
@@ -8,12 +9,13 @@ import funcsInfo from "../models/funcsInfo";
 import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
-import sectionPositions from "../models/sectionPositions";
-import currentlySelected from "../models/currentlySelected";
-import parameterDetailsStoreCreator from "../models/parameterDetailsStoreCreator";
+import sectionPositions from "../models/sectionPositions"
+import uiTypes from "../models/uiTypes";
+import currentlySelected from "../models/currentlySelected"
 
 const store = createStore({
   master: master,
+  globalCurr: globalCurr,
   yamlEntry: yamlEntry,
   auth: auth,
   uiInfo: uiInfo,
@@ -23,18 +25,8 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
+  uiTypes: uiTypes,
   currentlySelected: currentlySelected,
-  globalCurr: parameterDetailsStoreCreator("globalCurr", ["paramValue"]),
-  savedKwargs: parameterDetailsStoreCreator("savedKwargs", ["exists"]),
-  uiTypes: parameterDetailsStoreCreator("uiTypes", ["uiType"]),
-  nestedSectionIds: parameterDetailsStoreCreator("nestedSectionIds", [
-    "nestedSectionId",
-  ]),
-  uiTypeConfigs: parameterDetailsStoreCreator("uiTypeConfigs", [
-    "uiType",
-    "uiConfigOption",
-    "uiConfigValue",
-  ]),
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;
@@ -49,7 +41,7 @@ export const resetEntireState = () => {
 };
 
 export const resetState = (name) => {
-  store.dispatch.setSubState({ name, value: initialState[name] });
+  store.dispatch.setSubState({ name, value: initialState[name]});
 };
 
 export default store;

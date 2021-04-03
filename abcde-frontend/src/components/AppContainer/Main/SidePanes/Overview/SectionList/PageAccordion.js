@@ -23,7 +23,7 @@ export default function PageAccordion(props) {
         <h2>
           <AccordionButton>
             <Box flex="1" textAlign="left">
-              {`Page ${props.pageNum}`}
+              {`Group ${props.pageNum}`}
             </Box>
             <AccordionIcon />
           </AccordionButton>
