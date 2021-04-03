@@ -68,7 +68,7 @@ export default function UiEditor() {
             maxH="inherit"
             width="100%"
             h="100%"
-            sx={{ gridRow: "span 1", gridColumn: "span 1", overflowY: "auto" }}
+            sx={{ gridRow: "span 1", gridColumn: "span 1", overflowY: "hidden" }}
           >
             <TextEditor />
           </TabPanel>
