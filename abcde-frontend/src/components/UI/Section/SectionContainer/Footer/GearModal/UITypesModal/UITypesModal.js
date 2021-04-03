@@ -2,9 +2,12 @@ import { useContext } from "react";
 import { MenuContext } from "../../SectionFooter";
 import { Box, HStack, Stack, Select, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
-import { getParameters } from "../../../../../../../utils/utils";
+import {
+  getParameters,
+  parameterStateDetailsGetter,
+} from "../../../../../../../utils/utils";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { getParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/getParamUI";
+import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
@@ -31,7 +34,7 @@ export default function UITypesModal() {
     );
     if (savedKwargs) {
       const maybeAlsoKwargs = Object.keys(savedKwargs);
-      return parameters.concat(maybeAlsoKwargs)
+      return parameters.concat(maybeAlsoKwargs);
     }
     return parameters;
   };
@@ -93,16 +96,25 @@ const menuItems = [
 ];
 
 function Item({ sectionId, moduleName, objName, paramName }) {
-  const uiType = useStoreState(
-    (state) =>
-      state.uiTypes.uiTypes[sectionId]?.[moduleName]?.[objName]?.[paramName]
+  const uiType = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.uiTypes.uiTypes,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    )
   );
 
   const uiTypeConfig = useStoreState(
     (state) =>
-      state.uiTypeConfigs.uiTypeConfigs[sectionId]?.[moduleName]?.[objName]?.[
+      parameterStateDetailsGetter(
+        state.uiTypeConfigs.uiTypeConfigs,
+        sectionId,
+        moduleName,
+        objName,
         paramName
-      ]?.[uiType]
+      )?.[uiType]
   );
 
   const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
@@ -146,7 +158,10 @@ function Item({ sectionId, moduleName, objName, paramName }) {
           </option>
         ))}
       </Select>
-      {getParamUIConfig(uiType, { onChange, savedConfig: uiTypeConfig })}
+      <ParamUIConfig
+        uiType={uiType}
+        childProps={{ onChange, savedConfig: uiTypeConfig }}
+      />
     </HStack>
   );
 }

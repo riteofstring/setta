@@ -1,8 +1,13 @@
 import TextInput, { TextInputConfig } from "./TextInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import { NestedObjectInputConfig } from "./NestedObjectInput";
+import { useStoreState } from "easy-peasy";
 
-export function getParamUIConfig(uiType, childProps) {
+export function ParamUIConfig({ uiType, childProps }) {
+  const availableModules = useStoreState(
+    (state) => state.master.availableModules
+  );
+
   switch (uiType) {
     default:
       return <TextInputConfig {...childProps} />;
@@ -10,11 +15,16 @@ export function getParamUIConfig(uiType, childProps) {
       return <SliderInputConfig {...childProps} />;
     case "NESTED_OBJECT":
     case "LIST_NESTED_OBJECT":
-      return <NestedObjectInputConfig {...childProps} />;
+      return (
+        <NestedObjectInputConfig
+          {...childProps}
+          availableModules={availableModules}
+        />
+      );
   }
 }
 
-export default function getParamUI(uiType, childProps) {
+export default function ParamUI({ uiType, childProps }) {
   switch (uiType) {
     default:
       return <TextInput {...childProps} />;

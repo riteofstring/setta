@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { HStack, IconButton } from "@chakra-ui/react";
 import { CloseIcon } from "@chakra-ui/icons";
+import { parameterStateDetailsGetter } from "../../../../../../../../utils/utils";
 
 export default function KwargParam(props) {
   const {
@@ -18,11 +19,14 @@ export default function KwargParam(props) {
     inputKwargName ? inputKwargName : ""
   );
 
-  const savedKwargs = useStoreState(
-    (state) =>
-      state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]?.[
-        kwargName
-      ]
+  const savedKwargs = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.savedKwargs.savedKwargs,
+      sectionId,
+      moduleName,
+      objName,
+      kwargName
+    )
   );
 
   const setSavedKwargs = useStoreActions(

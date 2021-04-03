@@ -69,6 +69,17 @@ const master = {
     }
   }),
 
+  setSectionParamType: action((state, payload) => {
+    const { sectionId, moduleName, objName, paramName, newType } = payload;
+    if (moduleName && objName) {
+      state.sections[sectionId].moduleInfos[moduleName].objs[objName].params[
+        paramName
+      ].type = newType;
+    } else {
+      state.sections.parameterInfos[paramName].type = newType;
+    }
+  }),
+
   // Show/Collapse button
   setIsShown: action((state, payload) => {
     const { sectionId, isShown } = payload;
@@ -90,6 +101,7 @@ const master = {
   addToVisibleSectionIds: action((state, payload) => {
     const {
       id,
+      name,
       moduleName,
       objName,
       parentId,
@@ -97,7 +109,6 @@ const master = {
       siblingId,
       sectionHeading,
       stringId,
-      sectionContents,
     } = payload;
     const currIdHierarchy = state.idHierarchy;
     const parentIdObj = currIdHierarchy[parentId];
@@ -119,7 +130,10 @@ const master = {
         currIdHierarchy[id].moduleName = moduleName;
         currIdHierarchy[id].objName = objName;
       } else {
-        state.sections[id] = sectionContents;
+        state.sections[id] =
+          state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
+            name
+          ].type;
       }
 
       if (isList) {
@@ -200,7 +214,6 @@ const master = {
       objName,
       isList,
       siblingId,
-      sectionContents: inputSectionContents,
     } = payload;
     let extraIdentifier = null;
     const state = helpers.getState();
@@ -233,16 +246,6 @@ const master = {
       action.incrementSectionCount();
     }
 
-    let sectionContents = inputSectionContents;
-    if (!sectionContents && (!isList || siblingId !== null)) {
-      sectionContents =
-        state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
-          name
-        ].type;
-    }
-
-    console.log("addToVisibleSectionIdsThunk", sectionContents);
-
     const currInfo = state.idHierarchy;
     if (!(id in currInfo) || !currInfo.isVisible) {
       action.addToVisibleSectionIds({
@@ -255,7 +258,6 @@ const master = {
         siblingId,
         sectionHeading: name,
         stringId,
-        sectionContents,
       });
     }
     return id;

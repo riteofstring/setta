@@ -55,18 +55,24 @@ export function descendIntoNestedObject(
   depthFromEnd = depthFromEnd !== null ? depthFromEnd : 0;
   for (let i = 0; i < payloadKeys.length - depthFromEnd; i++) {
     const currKey = payload[payloadKeys[i]];
-    if (!(currKey in currPoint)) {
-      currPoint[currKey] = {};
-    }
-    currPoint = currPoint[currKey];
-    if (payload[stopAtKey] === currKey) {
-      break;
+    if (currKey) {
+      if (!(currKey in currPoint)) {
+        currPoint[currKey] = {};
+      }
+      currPoint = currPoint[currKey];
+      if (payload[stopAtKey] === currKey) {
+        break;
+      }
     }
   }
   return currPoint;
 }
 
-export function descendIntoNestedObjectUpToObjName(currPoint, keysForDescent, payloadKeys) {
+export function descendIntoNestedObjectUpToObjName(
+  currPoint,
+  keysForDescent,
+  payloadKeys
+) {
   currPoint = descendIntoNestedObject(
     currPoint,
     keysForDescent,
@@ -83,4 +89,15 @@ export function replaceKey(inputObject, oldKey, newKey) {
     inputObject[newKey] = inputObject[oldKey];
     delete inputObject[oldKey];
   }
+}
+
+
+export function parameterStateDetailsGetter(state, sectionId, moduleName, objName, paramName){
+  if (sectionId && paramName){
+    if (moduleName && objName){
+      return state[sectionId]?.[moduleName]?.[objName]?.[paramName]
+    }
+    return state[sectionId]?.[paramName]
+  }
+  return null
 }
