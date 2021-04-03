@@ -92,6 +92,7 @@ export default function UiEditor() {
               _selected={{ color: "white", bg: "gray.500" }}
               _hover={{ color: "white", bg: "gray.600" }}
               _active={{ color: "white", bg: "gray.700" }}
+              key={`uitab-${idx}`}
             >
               {e}
             </Tab>;
