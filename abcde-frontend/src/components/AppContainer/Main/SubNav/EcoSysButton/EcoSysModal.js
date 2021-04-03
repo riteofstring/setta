@@ -24,7 +24,6 @@ export default function EcoSysModal({ isOpen, onClose }) {
 
   function flipEcoSysToggle() {
     setEcoSysToggle(!ecoSysToggle);
-    console.log("ecoSysToggle: ", ecoSysToggle);
   }
 
   return (
