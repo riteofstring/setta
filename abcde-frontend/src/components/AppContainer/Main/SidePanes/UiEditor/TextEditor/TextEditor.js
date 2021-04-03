@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { resetState } from "../../../../../../store/store"
+import { resetState } from "../../../../../../store/store";
 
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -55,7 +55,6 @@ export default function TextEditor() {
         Create UI
       </Button>
       <Editor
-        height="inherit"
         language="yaml"
         value={enteredText}
         onMount={handleEditorDidMount}

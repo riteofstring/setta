@@ -3,7 +3,7 @@ import { useStoreState } from "easy-peasy";
 import SectionContainer from "./SectionContainer/SectionContainer";
 import { getRootIds } from "../../../utils/sectionIds";
 import { arraysAreEqual } from "../../../utils/commonFunctions";
-import { Stack } from "@chakra-ui/react";
+import { Heading, Stack } from "@chakra-ui/react";
 
 const SingleSectionsPane = ({ minId, maxId }) => {
   const rootSectionsHaveChanged = (prev, next) => {
@@ -21,9 +21,15 @@ const SingleSectionsPane = ({ minId, maxId }) => {
 
   console.log("SectionsPane idKeys, minId, maxId", idKeys);
 
+  // temp_
+  const tempNum = "1";
+
   return (
     <>
       <Stack>
+        <Heading size="md" color="gray.300">
+          Group {tempNum}
+        </Heading>
         {idKeys.map((e, idx) => (
           <SectionContainer
             sectionId={e}
