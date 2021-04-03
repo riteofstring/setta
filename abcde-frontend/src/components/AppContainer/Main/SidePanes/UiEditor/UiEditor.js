@@ -83,7 +83,7 @@ export default function UiEditor() {
           </TabPanel>
         </TabPanels>
         <TabList>
-          {tempTabs.map((e, idx) => {
+          {tempTabs.map((e, idx) => (
             <Tab
               sx={{
                 borderBottomRadius: "1em",
@@ -95,8 +95,8 @@ export default function UiEditor() {
               key={`uitab-${idx}`}
             >
               {e}
-            </Tab>;
-          })}
+            </Tab>
+          ))}
         </TabList>
       </Tabs>
     </PaneContainer>
