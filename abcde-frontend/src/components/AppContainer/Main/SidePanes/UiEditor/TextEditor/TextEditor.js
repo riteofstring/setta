@@ -60,7 +60,7 @@ export default function TextEditor() {
         onMount={handleEditorDidMount}
         onChange={onChange}
         automaticLayout={true}
-        height={"100%"}
+        height={"calc(100% - 2.5rem)"}
       />
     </>
   );
