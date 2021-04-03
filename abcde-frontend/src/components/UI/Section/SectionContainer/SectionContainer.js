@@ -88,9 +88,8 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
     (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
-    console.log("sectionInfo", sectionInfo)
-
-  const showSearch = sectionInfo && Object.keys(sectionInfo.moduleInfos).length > 0;
+  const showSearch =
+    sectionInfo && Object.keys(sectionInfo.parameterInfos).length === 0;
 
   return (
     <HStack

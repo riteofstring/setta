@@ -8,7 +8,11 @@ import {
   newIdInHierarchy,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
-import { combineModules, combineParameters } from "../utils/utils";
+import {
+  combineModules,
+  combineParameters,
+  sectionParameterGetter,
+} from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -71,13 +75,19 @@ const master = {
 
   setSectionParamType: action((state, payload) => {
     const { sectionId, moduleName, objName, paramName, newType } = payload;
-    if (moduleName && objName) {
-      state.sections[sectionId].moduleInfos[moduleName].objs[objName].params[
-        paramName
-      ].type = newType;
-    } else {
-      state.sections.parameterInfos[paramName].type = newType;
-    }
+    const x = sectionParameterGetter(
+      state.sections,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    );
+    x.type = newType;
+  }),
+
+  setSectionModuleInfos: action((state, payload) => {
+    const { sectionId, newModuleInfos } = payload;
+    state.sections[sectionId].moduleInfos = newModuleInfos;
   }),
 
   // Show/Collapse button
@@ -130,10 +140,13 @@ const master = {
         currIdHierarchy[id].moduleName = moduleName;
         currIdHierarchy[id].objName = objName;
       } else {
-        state.sections[id] =
-          state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
-            name
-          ].type;
+        state.sections[id] = sectionParameterGetter(
+          state.sections,
+          parentId,
+          moduleName,
+          objName,
+          name
+        ).type;
       }
 
       if (isList) {

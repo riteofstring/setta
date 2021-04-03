@@ -91,13 +91,36 @@ export function replaceKey(inputObject, oldKey, newKey) {
   }
 }
 
-
-export function parameterStateDetailsGetter(state, sectionId, moduleName, objName, paramName){
-  if (sectionId && paramName){
-    if (moduleName && objName){
-      return state[sectionId]?.[moduleName]?.[objName]?.[paramName]
+export function parameterStateDetailsGetter(
+  state,
+  sectionId,
+  moduleName,
+  objName,
+  paramName
+) {
+  if (sectionId && paramName) {
+    if (moduleName && objName) {
+      return state[sectionId]?.[moduleName]?.[objName]?.[paramName];
     }
-    return state[sectionId]?.[paramName]
+    return state[sectionId]?.[paramName];
   }
-  return null
+  return null;
+}
+
+export function sectionParameterGetter(
+  state,
+  sectionId,
+  moduleName,
+  objName,
+  paramName
+) {
+  if (sectionId && paramName) {
+    if (moduleName && objName) {
+      return state[sectionId]?.moduleInfos[moduleName]?.objs[objName]?.params[
+        paramName
+      ];
+    }
+    return state[sectionId]?.parameterInfos[paramName];
+  }
+  return null;
 }
