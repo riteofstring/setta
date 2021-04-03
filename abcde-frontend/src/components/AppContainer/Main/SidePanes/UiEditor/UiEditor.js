@@ -37,6 +37,8 @@ export default function UiEditor() {
   }, []);
   const { getRootProps } = useDropzone({ onDrop });
 
+  // temp_
+  const tempTabs = [1, 2, 3, 4, 5];
   return (
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
       <Tabs
@@ -68,7 +70,11 @@ export default function UiEditor() {
             maxH="inherit"
             width="100%"
             h="100%"
-            sx={{ gridRow: "span 1", gridColumn: "span 1", overflowY: "hidden" }}
+            sx={{
+              gridRow: "span 1",
+              gridColumn: "span 1",
+              overflowY: "hidden",
+            }}
           >
             <TextEditor />
           </TabPanel>
@@ -77,8 +83,19 @@ export default function UiEditor() {
           </TabPanel>
         </TabPanels>
         <TabList>
-          <Tab _selected={{ color: "white", bg: "blue.500" }}>Tab 1</Tab>
-          <Tab _selected={{ color: "white", bg: "green.400" }}>Tab 2</Tab>
+          {tempTabs.map((e, idx) => {
+            <Tab
+              sx={{
+                borderBottomRadius: "1em",
+                bg: "gray.300",
+              }}
+              _selected={{ color: "white", bg: "gray.500" }}
+              _hover={{ color: "white", bg: "gray.600" }}
+              _active={{ color: "white", bg: "gray.700" }}
+            >
+              {e}
+            </Tab>;
+          })}
         </TabList>
       </Tabs>
     </PaneContainer>
