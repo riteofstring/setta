@@ -1,3 +1,5 @@
+import { useState, createContext, useContext } from "react";
+
 import {
   Box,
   Heading,
@@ -9,36 +11,58 @@ import {
   VStack,
   CheckboxGroup,
   Checkbox,
+  Button,
+  HStack,
 } from "@chakra-ui/react";
 import { SearchIcon } from "@chakra-ui/icons";
 import ModalContainer from "../../../../../utils/ModalContainer";
 
+export const EcoSysContext = createContext(null);
+
 export default function EcoSysModal({ isOpen, onClose }) {
-  // const { isOpen, onClose } = useContext(MenuContext);
+  const [ecoSysToggle, setEcoSysToggle] = useState(true);
+
+  function flipEcoSysToggle() {
+    setEcoSysToggle(!ecoSysToggle);
+    console.log("ecoSysToggle: ", ecoSysToggle);
+  }
 
   return (
-    <ModalContainer
-      onClose={onClose}
-      isOpen={isOpen}
-      size={"full"}
-      header={<Header />}
-      body={<Body />}
-      footer={<Footer />}
-    />
+    <EcoSysContext.Provider value={{ onClose, ecoSysToggle, flipEcoSysToggle }}>
+      <ModalContainer
+        onClose={onClose}
+        isOpen={isOpen}
+        size={"full"}
+        header={<Header />}
+        body={<Body />}
+        footer={<Footer />}
+      />
+    </EcoSysContext.Provider>
   );
 }
 
 function Header() {
+  const { ecoSysToggle, flipEcoSysToggle } = useContext(EcoSysContext);
+
   return (
-    <Box>
+    <HStack spacing={5}>
       <Heading as="h1" size="lg">
-        Community Templates
+        {ecoSysToggle ? "Community Templates" : "Submit a Template"}
       </Heading>
-    </Box>
+      <Button size="sm" onClick={flipEcoSysToggle}>
+        {ecoSysToggle ? "Submit" : "Find Templates"}
+      </Button>
+    </HStack>
   );
 }
 
 function Body() {
+  const { ecoSysToggle } = useContext(EcoSysContext);
+
+  return <>{ecoSysToggle ? <BodyFindTemplate /> : <BodySubmitTemplate />}</>;
+}
+
+function BodyFindTemplate() {
   return (
     <>
       <Grid
@@ -54,8 +78,18 @@ function Body() {
   );
 }
 
+function BodySubmitTemplate() {
+  return <Box>Find Template Body</Box>;
+}
+
 function Footer() {
-  return <Box>Bye</Box>;
+  const { ecoSysToggle, onClose } = useContext(EcoSysContext);
+  return (
+    <HStack>
+      <Button>{ecoSysToggle ? "Load Template" : "Submit Template"}</Button>
+      <Button onClick={onClose}>Close</Button>
+    </HStack>
+  );
 }
 
 function EcoItem() {
