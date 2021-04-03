@@ -146,7 +146,7 @@ export default function NestedObjectInput({
   };
 
   const uiType = uiTypeSetByUser ? uiTypeSetByUser : inputUiType;
-
+  
   useEffect(() => {
     maybeDeleteSection();
   }, [uiType]);
@@ -171,7 +171,7 @@ export default function NestedObjectInput({
   }, [uiTypeConfig]);
 
   useEffect(() => {
-    if (nestedSectionInfo instanceof Section) {
+    if (requiresNestedSection(uiType) && nestedSectionInfo instanceof Section) {
       const newNestedSectionId = addToVisibleSectionIdsThunk({
         name: paramName,
         parentId: sectionId,

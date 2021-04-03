@@ -176,21 +176,16 @@ const master = {
     }
   }),
 
-  _permanentlyDeleteSection: action((state, payload) => {
-    const { sectionId, parentObj } = payload;
-    const stringId = state.idHierarchy[sectionId].stringId;
-    delete state.stringIdsToSectionIds[stringId];
-    delete state.idHierarchy[sectionId];
-    parentObj.children = parentObj.children.filter((x) => x !== sectionId);
-  }),
-
-  permanentlyDeleteSection: thunk((action, payload, helpers) => {
+  permanentlyDeleteSection: action((state, payload) => {
     const { sectionId, parentId } = payload;
-    const state = helpers.getState();
-    action._permanentlyDeleteSection({
-      sectionId,
-      parentObj: state.idHierarchy[parentId],
-    });
+    if (sectionId in state.idHierarchy){
+      const stringId = state.idHierarchy[sectionId].stringId;
+      delete state.stringIdsToSectionIds[stringId];
+      delete state.idHierarchy[sectionId];
+      delete state.sections[sectionId]
+    }
+    const parentObj = state.idHierarchy[parentId];
+    parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 
   permanentlyDeleteMultipleSections: thunk((action, payload, helpers) => {
@@ -205,7 +200,7 @@ const master = {
     );
     for (let i = 0; i < trueNumSectionsToDelete; i++) {
       const sectionId = parentObj.children[startingIdx];
-      action._permanentlyDeleteSection({ sectionId, parentObj });
+      action.permanentlyDeleteSection({ sectionId, parentObj });
     }
   }),
 
