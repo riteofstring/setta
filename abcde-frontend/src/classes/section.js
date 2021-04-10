@@ -7,12 +7,12 @@ class Selected {
     this.objName = objName;
   }
 
-  asString() {
+  asString = () => {
     if (!nullOrUndefined(this.moduleName) && !nullOrUndefined(this.objName)) {
       return `${this.moduleName}~${this.objName}`;
     }
     return null;
-  }
+  };
 }
 
 class UITypeProps {
@@ -38,22 +38,17 @@ export class Section {
     this.childrenAreCollapsed = {};
     this.isVisible = true;
     this.sectionHeading = sectionHeading;
-
-    this.getChildrenIds = this.getChildrenIds.bind(this);
-    this.addChild = this.addChild.bind(this);
-    this.hasNested = this.hasNested.bind(this);
-    this.getChildrenAreCollapsed = this.getChildrenAreCollapsed.bind(this);
   }
 
-  getChildrenIds() {
+  getChildrenIds = () => {
     const key = this.selected.asString();
     if (!nullOrUndefined(key)) {
       return this.childrenIds[key];
     }
     return [];
-  }
+  };
 
-  addChild(childId, idx = null) {
+  addChild = (childId, idx = null) => {
     const key = this.selected.asString();
     if (idx === null) {
       this.childrenIds[key] = [...this.childrenIds[key], childId];
@@ -61,43 +56,33 @@ export class Section {
     // } else {
     //   x.splice(idx, 0, childId);
     // }
-  }
+  };
 
-  deleteChild(childId) {
+  deleteChild = (childId) => {
     const key = this.selected.asString();
     this.childrenIds[key] = this.childrenIds[key].filter((x) => x !== childId);
-  }
+  };
 
-  hasNested() {
+  hasNested = () => {
     return this.getChildrenIds().length > 0;
-  }
+  };
 
-  getChildrenAreCollapsed() {
+  getChildrenAreCollapsed = () => {
     return this.childrenAreCollapsed[this.selected.asString()];
-  }
+  };
 
-  setChildrenAreCollapsed(childrenAreCollapsed) {
+  setChildrenAreCollapsed = (childrenAreCollapsed) => {
     this.childrenAreCollapsed[this.selected.asString()] = childrenAreCollapsed;
-  }
+  };
 }
 
 export class Sections {
   constructor() {
     this.sections = {};
     this.latestId = 0;
-
-    this.addSection = this.addSection.bind(this);
-    this.getRootIds = this.getRootIds.bind(this);
-    this.getChildrenIds = this.getChildrenIds.bind(this);
-    this.getUITypeProps = this.getUITypeProps.bind(this);
-    this.getSelected = this.getSelected.bind(this);
-    this.getSectionHeading = this.getSectionHeading.bind(this);
-    this.getHasNested = this.getHasNested.bind(this);
-    this.getChildrenAreCollapsed = this.getChildrenAreCollapsed.bind(this);
-    this.getSectionInfo = this.getSectionInfo.bind(this);
   }
 
-  createChild({ sectionId, moduleName, objName, paramName, uiType }) {
+  createChild = ({ sectionId, moduleName, objName, paramName, uiType }) => {
     const parent = this.sections[sectionId];
     const childParamName = !nullOrUndefined(paramName)
       ? paramName
@@ -118,76 +103,76 @@ export class Sections {
       child.selected = new Selected(moduleName, objName);
     }
     return child;
-  }
+  };
 
-  addSection(section) {
+  addSection = (section) => {
     const sectionId = this.latestId;
     this.sections[sectionId] = section;
     this.latestId += 1;
     return sectionId;
-  }
+  };
 
-  deleteSection({ sectionId, parentId }) {
+  deleteSection = ({ sectionId, parentId }) => {
     delete this.sections[sectionId];
     this.sections[parentId].deleteChild(sectionId);
-  }
+  };
 
-  addChild(childSection, idx = null) {
+  addChild = (childSection, idx = null) => {
     const childId = this.addSection(childSection);
     this.sections[childSection.parent].addChild(childId, idx);
     console.log("this.sections", debug(this.sections));
-  }
+  };
 
-  getRootIds(minId = null, maxId = null) {
+  getRootIds = (minId = null, maxId = null) => {
     return Object.keys(this.sections).filter(
       (e) =>
         (nullOrUndefined(minId) || parseInt(e) >= minId) &&
         (nullOrUndefined(maxId) || parseInt(e) < maxId) &&
         nullOrUndefined(this.sections[e].parent)
     );
-  }
+  };
 
-  getChildrenIds(id) {
+  getChildrenIds = (id) => {
     return this.sections[id].getChildrenIds();
-  }
+  };
 
-  getUITypeProps(id) {
+  getUITypeProps = (id) => {
     return this.sections[id].uiTypeProps;
-  }
+  };
 
-  getSelected(id) {
+  getSelected = (id) => {
     return this.sections[id].selected;
-  }
+  };
 
-  getSectionHeading(id) {
+  getSectionHeading = (id) => {
     return this.sections[id].sectionHeading;
-  }
+  };
 
-  getHasNested(id) {
+  getHasNested = (id) => {
     return this.sections[id].hasNested();
-  }
+  };
 
-  getChildrenAreCollapsed(id) {
+  getChildrenAreCollapsed = (id) => {
     return this.sections[id].getChildrenAreCollapsed();
-  }
+  };
 
-  getSectionInfo(id) {
+  getSectionInfo = (id) => {
     return this.sections[id].sectionInfo;
-  }
+  };
 
-  getIsVisible(id) {
+  getIsVisible = (id) => {
     return this.sections[id].isVisible;
-  }
+  };
 
-  setSelected({ sectionId, moduleName, objName }) {
+  setSelected = ({ sectionId, moduleName, objName }) => {
     this.sections[sectionId].selected = new Selected(moduleName, objName);
-  }
+  };
 
-  setChildrenAreCollapsed({ sectionId, childrenAreCollapsed }) {
+  setChildrenAreCollapsed = ({ sectionId, childrenAreCollapsed }) => {
     this.sections[sectionId].setChildrenAreCollapsed(childrenAreCollapsed);
-  }
+  };
 
-  numRootIds() {
+  numRootIds = () => {
     return this.getRootIds().length;
-  }
+  };
 }
