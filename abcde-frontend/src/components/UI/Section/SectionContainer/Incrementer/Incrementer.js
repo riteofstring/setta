@@ -11,12 +11,12 @@ export default function Incrementer({
   nextId,
   isListRoot,
 }) {
-  const addChild = useStoreActions((actions) => actions.master.addChild);
-  const deleteSection = useStoreActions(
-    (actions) => actions.master.deleteSection
+  const addChildren = useStoreActions((actions) => actions.master.addChildren);
+  const deleteSections = useStoreActions(
+    (actions) => actions.master.deleteSections
   );
-  const deleteMultipleSections = useStoreActions(
-    (actions) => actions.master.deleteMultipleSections
+  const deleteChildrenAction = useStoreActions(
+    (actions) => actions.master.deleteChildren
   );
 
   const { moduleName, objName } = useStoreState((actions) =>
@@ -33,28 +33,35 @@ export default function Incrementer({
   };
 
   const addSections = (numSections) => {
-    for (let i = 0; i < numSections; i++) {
-      addChild({
-        parentId: isListRoot ? sectionId : parentId,
-        sourceId: sectionId,
-        moduleName,
-        objName,
-      });
-    }
+    addChildren({
+      parentId: isListRoot ? sectionId : parentId,
+      sourceId: sectionId,
+      moduleName,
+      objName,
+      numChildren: numSections,
+    });
   };
 
-  const deleteSections = (numSections) => {
+  const deleteChildren = (numSections) => {
     if ((isListRoot && childrenIds.length > 0) || nextId) {
-      deleteMultipleSections({
+      deleteChildrenAction({
         parentId: isListRoot ? sectionId : parentId,
-        startingId: isListRoot ? null : nextId,
-        numSectionsToDelete: numSections,
+        sourceId: sectionId,
+        numChildren: numSections,
       });
     }
   };
 
   const deleteThisSection = () => {
-    deleteSection({ sectionId, parentId });
+    deleteSections({ sectionIds: [sectionId], parentId });
+  };
+
+  const numSectionsOnChange = (value) => {
+    if (value && !isNaN(value)) {
+      setNumSections(parseInt(value));
+    } else {
+      setNumSections("");
+    }
   };
 
   const [numSections, setNumSections] = useState(1);
@@ -64,13 +71,13 @@ export default function Incrementer({
         size="sm"
         maxW="5ch"
         value={numSections}
-        onChange={(e) => setNumSections(e.target.value)}
+        onChange={(e) => numSectionsOnChange(e.target.value)}
       />
 
       <IconButton
         icon={<MinusIcon />}
         size="xs"
-        onClick={() => deleteSections(numSections)}
+        onClick={() => deleteChildren(numSections)}
         isDisabled={decrementButtonCondition() ? false : true}
       />
 

@@ -19,12 +19,12 @@ export function defaultDict(defaultValueFn) {
 
 // https://stackoverflow.com/a/38181008
 // create new array with inserted value (no mutation)
-export function insertIntoArray(arr, index, newItem) {
+export function insertIntoArray(arr, index, ...newItems) {
   return [
     // part of the array before the specified index
     ...arr.slice(0, index),
-    // inserted item
-    newItem,
+    // inserted items
+    ...newItems,
     // part of the array after the specified index
     ...arr.slice(index),
   ];

@@ -47,22 +47,24 @@ export class Section {
     return [];
   };
 
-  addChild = (childId, idx = null) => {
+  addChildren = (childIds, idx = null) => {
     const key = this.selected.asString();
     if (idx === null) {
-      this.childrenIds[key] = [...this.childrenIds[key], childId];
+      this.childrenIds[key] = [...this.childrenIds[key], ...childIds];
     } else {
       this.childrenIds[key] = insertIntoArray(
         this.childrenIds[key],
         idx,
-        childId
+        ...childIds
       );
     }
   };
 
-  deleteChild = (childId) => {
+  deleteChildren = (childIds) => {
     const key = this.selected.asString();
-    this.childrenIds[key] = this.childrenIds[key].filter((x) => x !== childId);
+    this.childrenIds[key] = this.childrenIds[key].filter(
+      (x) => !childIds.includes(x)
+    );
   };
 
   hasNested = () => {
@@ -84,11 +86,15 @@ export class Sections {
     this.latestId = 0;
   }
 
+  getIdxAfterSource = (parent, sourceId) => {
+    return parent.getChildrenIds().indexOf(sourceId) + 1;
+  };
+
   determineNewChildIdx = (parent, sourceId) => {
     if (!nullOrUndefined(sourceId)) {
       const { isList, isListRoot } = this.sections[sourceId].uiTypeProps;
       if (isList) {
-        return parent.getChildrenIds().indexOf(sourceId) + 1;
+        return this.getIdxAfterSource(parent, sourceId);
       } else if (isListRoot) {
         return 0;
       }
@@ -96,13 +102,14 @@ export class Sections {
     return null;
   };
 
-  createChild = ({
+  createChildren = ({
     parentId,
     sourceId,
     moduleName,
     objName,
     paramName,
     uiType,
+    numChildren = 1,
   }) => {
     const parent = this.sections[parentId];
     const childParamName = !nullOrUndefined(paramName)
@@ -117,14 +124,20 @@ export class Sections {
       : parent.sectionInfo.moduleInfos[moduleName].objs[objName].params[
           paramName
         ].type;
-    const child = new Section(childSectionInfo, childParamName);
-    child.parent = parentId.toString();
-    child.uiTypeProps = new UITypeProps(childUIType, parent.uiTypeProps);
-    if (child.uiTypeProps.isListRoot) {
-      child.selected = new Selected(moduleName, objName);
+
+    let children = [];
+    for (let i = 0; i < numChildren; i++) {
+      const child = new Section(childSectionInfo, childParamName);
+      child.parent = parentId;
+      child.uiTypeProps = new UITypeProps(childUIType, parent.uiTypeProps);
+      if (child.uiTypeProps.isListRoot) {
+        child.selected = new Selected(moduleName, objName);
+      }
+      children.push(child);
     }
+
     const idx = this.determineNewChildIdx(parent, sourceId);
-    return { child, idx };
+    return { children, idx };
   };
 
   addSection = (section) => {
@@ -134,15 +147,27 @@ export class Sections {
     return sectionId;
   };
 
-  deleteSection = ({ sectionId, parentId }) => {
-    delete this.sections[sectionId];
-    this.sections[parentId].deleteChild(sectionId);
+  deleteSections({ sectionIds, parentId }) {
+    sectionIds.forEach((e) => delete this.sections[e]);
+    this.sections[parentId].deleteChildren(sectionIds);
+  }
+
+  addChildren = (parentId, childSections, idx = null) => {
+    let childIds = [];
+    for (let childSection of childSections) {
+      childIds.push(this.addSection(childSection));
+    }
+    this.sections[parentId].addChildren(childIds, idx);
+    console.log("this.sections", debug(this.sections));
   };
 
-  addChild = (childSection, idx = null) => {
-    const childId = this.addSection(childSection);
-    this.sections[childSection.parent].addChild(childId, idx);
-    console.log("this.sections", debug(this.sections));
+  deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
+    const parent = this.sections[parentId];
+    const startIdx = this.getIdxAfterSource(parent, sourceId);
+    const childrenToDelete = parent
+      .getChildrenIds()
+      .slice(startIdx, startIdx + numChildren);
+    this.deleteSections({ sectionIds: childrenToDelete, parentId });
   };
 
   getRootIds = (minId = null, maxId = null) => {

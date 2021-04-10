@@ -97,16 +97,18 @@ const master = {
     state.sections[sectionId].childrenIds = childrenIds;
   }),
 
-  addChild: action((state, payload) => {
-    const { child, idx } = state.sections.createChild({ ...payload });
-    state.sections.addChild(child, idx);
+  addChildren: action((state, payload) => {
+    const { children, idx } = state.sections.createChildren({ ...payload });
+    state.sections.addChildren(payload.parentId, children, idx);
   }),
 
-  deleteSection: action((state, payload) => {
-    state.sections.deleteSection({ ...payload });
+  deleteSections: action((state, payload) => {
+    state.sections.deleteSections({ ...payload });
   }),
 
-  deleteMultipleSections: action((state, payload) => {}),
+  deleteChildren: action((state, payload) => {
+    state.sections.deleteChildren({ ...payload });
+  }),
 
   // addToVisibleSectionIds: action((state, payload) => {
   //   const {
