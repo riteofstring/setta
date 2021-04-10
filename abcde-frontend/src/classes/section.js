@@ -35,6 +35,7 @@ export class Section {
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
     this.uiTypeProps = new UITypeProps();
+    this.hasBeenVisited = {};
     this.childrenAreCollapsed = {};
     this.sectionHeading = sectionHeading;
   }
@@ -78,6 +79,14 @@ export class Section {
   setChildrenAreCollapsed = (childrenAreCollapsed) => {
     this.childrenAreCollapsed[this.selected.asString()] = childrenAreCollapsed;
   };
+
+  getHasBeenVisited = () => {
+    return this.hasBeenVisited[this.selected.asString()];
+  };
+
+  setHasBeenVisited = (hasBeenVisited) => {
+    this.hasBeenVisited[this.selected.asString()] = hasBeenVisited;
+  };
 }
 
 export class Sections {
@@ -105,13 +114,12 @@ export class Sections {
   createChildren = ({
     parentId,
     sourceId,
-    moduleName,
-    objName,
     paramName,
     uiType,
     numChildren = 1,
   }) => {
     const parent = this.sections[parentId];
+    const { moduleName, objName } = parent.selected;
     const childParamName = !nullOrUndefined(paramName)
       ? paramName
       : parent.sectionHeading;
@@ -205,6 +213,14 @@ export class Sections {
 
   getSectionInfo = (id) => {
     return this.sections[id].sectionInfo;
+  };
+
+  getHasBeenVisited = (id) => {
+    return this.sections[id].getHasBeenVisited();
+  };
+
+  setHasBeenVisited = ({ sectionId, hasBeenVisited }) => {
+    return this.sections[sectionId].setHasBeenVisited(hasBeenVisited);
   };
 
   setSelected = ({ sectionId, moduleName, objName }) => {

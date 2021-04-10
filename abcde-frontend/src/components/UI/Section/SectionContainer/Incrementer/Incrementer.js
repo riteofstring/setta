@@ -19,10 +19,6 @@ export default function Incrementer({
     (actions) => actions.master.deleteChildren
   );
 
-  const { moduleName, objName } = useStoreState((actions) =>
-    actions.master.sections.getSelected(parentId)
-  );
-
   const childrenIds = useStoreState(
     (state) => state.master.sections.getChildrenIds(sectionId),
     arraysAreEqual
@@ -36,8 +32,6 @@ export default function Incrementer({
     addChildren({
       parentId: isListRoot ? sectionId : parentId,
       sourceId: sectionId,
-      moduleName,
-      objName,
       numChildren: numSections,
     });
   };

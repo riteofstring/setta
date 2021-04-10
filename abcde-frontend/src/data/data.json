@@ -168,7 +168,7 @@
                   }
                 }
               },
-              "ui_type": "NESTED_OBJECT"
+              "ui_type": "LIST_NESTED_OBJECT"
             }
           }
         }

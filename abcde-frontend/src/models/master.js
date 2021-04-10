@@ -110,6 +110,10 @@ const master = {
     state.sections.deleteChildren({ ...payload });
   }),
 
+  setHasBeenVisited: action((state, payload) => {
+    state.sections.setHasBeenVisited({ ...payload });
+  }),
+
   // addToVisibleSectionIds: action((state, payload) => {
   //   const {
   //     id,
