@@ -4,15 +4,15 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function ViewNestedButton({ sectionId, isListRoot }) {
   const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
-  const sectionHasNested = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].hasNested
+  const sectionHasNested = useStoreState((state) =>
+    state.master.sections.getHasNested(sectionId)
   );
-  const isShown = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isShown
+  const childrenAreCollapsed = useStoreState(
+    (state) => state.master.sections.getChildrenAreCollapsed(sectionId)
   );
 
   const flipShown = () => {
-    setIsShown({ sectionId, isShown: !isShown });
+    setIsShown({ sectionId, childrenAreCollapsed: !childrenAreCollapsed });
   };
   return (
     <GridItem
@@ -24,7 +24,7 @@ export default function ViewNestedButton({ sectionId, isListRoot }) {
     >
       {sectionHasNested && !isListRoot ? (
         <Button size="sm" onClick={flipShown}>
-          {isShown ? "Hide Nested" : "Show Nested"}
+          {childrenAreCollapsed ? "Hide Nested" : "Show Nested"}
         </Button>
       ) : (
         <></>

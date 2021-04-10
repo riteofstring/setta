@@ -6,18 +6,18 @@ import { arraysAreEqual } from "../../../utils/commonFunctions";
 import { VStack } from "@chakra-ui/react";
 
 const SingleSectionsPane = ({ minId, maxId }) => {
-  const rootSectionsHaveChanged = (prev, next) => {
-    const prevIds = prev ? getRootIds(prev, minId, maxId) : [];
-    const nextIds = next ? getRootIds(next, minId, maxId) : [];
-    return arraysAreEqual(prevIds, nextIds);
-  };
+  // const rootSectionsHaveChanged = (prev, next) => {
+  //   const prevIds = prev ? getRootIds(prev, minId, maxId) : [];
+  //   const nextIds = next ? getRootIds(next, minId, maxId) : [];
+  //   return arraysAreEqual(prevIds, nextIds);
+  // };
 
-  const idHierarchy = useStoreState(
-    (state) => state.master.idHierarchy,
-    rootSectionsHaveChanged
+  const sections = useStoreState(
+    (state) => state.master.sections,
+    // rootSectionsHaveChanged
   );
 
-  const idKeys = idHierarchy ? getRootIds(idHierarchy, minId, maxId) : [];
+  const idKeys = sections ? sections.getRootIds(minId, maxId) : [];
 
   console.log("SectionsPane idKeys, minId, maxId", idKeys);
 

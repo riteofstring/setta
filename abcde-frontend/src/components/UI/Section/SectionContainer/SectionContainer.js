@@ -30,7 +30,7 @@ function SectionContainer({
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].children,
+    (state) => state.master.sections.getChildrenIds(sectionId),
     arraysAreEqual
   );
 
@@ -81,11 +81,8 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
     (state) => state.master.sections[sectionId]
   );
 
-  const isList = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isList
-  );
-  const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
+  const {isList, isListRoot} = useStoreState(
+    (state) => state.master.sections.getListProps(sectionId)
   );
 
   const showSearch =
