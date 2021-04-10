@@ -22,7 +22,7 @@ export default function ParamContainer(props) {
   // );
   const currUiTypeConfig = null;
 
-  console.log("ParamContainer", sectionId, paramName, uiType);
+  // console.log("ParamContainer", sectionId, paramName, uiType);
 
   return !uiType.isNested() ? (
     <FormControl as="fieldset">

@@ -103,6 +103,8 @@ const master = {
   addChildren: action((state, payload) => {
     const { children, idx } = state.sections.createChildren({ ...payload });
     state.sections.addChildren(payload.parentId, children, idx);
+
+    console.log("addChildren", debug(state.sections))
   }),
 
   deleteSections: action((state, payload) => {

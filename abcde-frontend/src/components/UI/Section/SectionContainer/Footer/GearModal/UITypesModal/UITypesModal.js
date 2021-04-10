@@ -13,7 +13,7 @@ export default function UITypesModal() {
     state.master.sections.getParameters(sectionId)
   );
 
-  console.log("UITypesModal", parameters);
+  // console.log("UITypesModal", parameters);
 
   return (
     <ModalContainer
@@ -62,7 +62,7 @@ const menuItems = [
 ];
 
 function Item({ sectionId, parameter }) {
-  console.log("Item", sectionId, parameter, parameter.uiType);
+  // console.log("Item", sectionId, parameter, parameter.uiType);
 
   const uiTypeConfig = null;
   const onChange = null;

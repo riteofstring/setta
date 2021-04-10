@@ -30,20 +30,31 @@ export class Section {
     return this.hasBeenVisited[this.selected.asString];
   };
 
-  getEnteredValue = (paramName) => {
-    return this.sectionInfo.getValue(
+  getParamData = (paramName, dataName) => {
+    return this.sectionInfo.getParamData(
       this.selected.moduleName,
       this.selected.objName,
-      paramName
+      paramName,
+      dataName
     );
   };
 
-  getParamUIType = (paramName) => {
-    return this.sectionInfo.getParamUIType(
+  setParamData = (paramName, dataName, value) => {
+    this.sectionInfo.setParamData(
       this.selected.moduleName,
       this.selected.objName,
-      paramName
+      paramName,
+      dataName,
+      value
     );
+  };
+
+  getEnteredValue = (paramName) => {
+    return this.getParamData(paramName, "enteredValue");
+  };
+
+  getParamUIType = (paramName) => {
+    return this.getParamData(paramName, "uiType");
   };
 
   setChildrenAreCollapsed = (childrenAreCollapsed) => {
@@ -66,21 +77,11 @@ export class Section {
   };
 
   setEnteredValue = (paramName, value) => {
-    this.sectionInfo.setValue(
-      this.selected.moduleName,
-      this.selected.objName,
-      paramName,
-      value
-    );
+    this.setParamData(paramName, "enteredValue", value);
   };
 
   setParamUIType = (paramName, uiName) => {
-    this.sectionInfo.setParamUIType(
-      this.selected.moduleName,
-      this.selected.objName,
-      paramName,
-      uiName
-    );
+    this.setParamData(paramName, "uiType", uiName);
   };
 
   hasNested = () => {
@@ -115,17 +116,19 @@ export class Section {
     );
   };
 
-  getKwargs = () => {
-    return this.sectionInfo.getKwargs(
+  getObjData = (dataName) => {
+    return this.sectionInfo.getObjData(
       this.selected.moduleName,
-      this.selected.objName
+      this.selected.objName,
+      dataName
     );
   };
 
+  getKwargs = () => {
+    return this.getObjData("kwargs");
+  };
+
   getParameters = () => {
-    return this.sectionInfo.getParameters(
-      this.selected.moduleName,
-      this.selected.objName
-    );
+    return this.getObjData("params");
   };
 }

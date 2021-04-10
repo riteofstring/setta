@@ -57,6 +57,10 @@ export class SectionInfo {
     this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
   }
 
+  isParametersOnly = () => {
+    return Object.keys(this.moduleInfos).length === 0
+  }
+
   addKwarg = (moduleName, objName, paramName) => {
     const newParameter = new ParameterInfo(paramName, {
       defaultVal: "",
@@ -72,55 +76,31 @@ export class SectionInfo {
     }
   };
 
-  getKwargs = (moduleName, objName) => {
+  getParamData = (moduleName, objName, paramName, dataName) => {
     if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName].kwargs;
+      return this.moduleInfos[moduleName].objs[objName].params[paramName][
+        dataName
+      ];
     }
-    return {};
+    return this.parameterInfos[paramName][dataName];
   };
 
-  getParameters = (moduleName, objName) => {
+  getObjData = (moduleName, objName, dataName) => {
     if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName].params;
+      return this.moduleInfos[moduleName].objs[objName][dataName];
     }
-    return this.parameterInfos;
+    return dataName === "kwargs" ? {} : this.parameterInfos;
   };
 
-  getValue = (moduleName, objName, paramName) => {
-    if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName].params[paramName]
-        .enteredValue;
-    }
-    return this.parameterInfos[paramName].enteredValue;
-  };
+  setParamData = (moduleName, objName, paramName, dataName, value) => {
+    const newValue = dataName === "enteredValue" ? value : new UIType(value);
 
-  getParamUIType = (moduleName, objName, paramName) => {
     if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName].params[paramName]
-        .uiType;
-    }
-    return this.parameterInfos[paramName].uiType;
-  };
-
-  setValue = (moduleName, objName, paramName, value) => {
-    if (allDefined(moduleName, objName)) {
-      this.moduleInfos[moduleName].objs[objName].params[
-        paramName
-      ].enteredValue = value;
+      this.moduleInfos[moduleName].objs[objName].params[paramName][
+        dataName
+      ] = newValue;
     } else {
-      this.parameterInfos[paramName].enteredValue = value;
+      this.parameterInfos[paramName][dataName] = newValue;
     }
-  };
-
-  setParamUIType = (moduleName, objName, paramName, uiName) => {
-    if (allDefined(moduleName, objName)) {
-      this.moduleInfos[moduleName].objs[objName].params[
-        paramName
-      ].uiType = new UIType(uiName);
-    } else {
-      this.parameterInfos[paramName].uiType = new UIType(uiName);
-    }
-
-    console.log("setParamUIType", this)
   };
 }

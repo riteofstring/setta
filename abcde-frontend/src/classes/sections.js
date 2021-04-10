@@ -5,7 +5,7 @@ import { Section } from "./section";
 import { SectionInfo } from "./jsonParser";
 
 // start of helper functions
-function _childParamName(parent, paramName) {
+function _childSectionHeading(parent, paramName) {
   return !nullOrUndefined(paramName) ? paramName : parent.sectionHeading;
 }
 
@@ -17,10 +17,8 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
   if (parent.uiType.isListRoot) {
     return parent.sectionInfo;
   } else {
-    const paramType =
-      parent.sectionInfo.moduleInfos[moduleName].objs[objName].params[paramName]
-        .type;
-    return paramType instanceof SectionInfo ? paramType : null;
+    const paramType = parent.sectionInfo.getParamData(moduleName, objName, paramName, "type")
+    return paramType instanceof SectionInfo ? paramType : new SectionInfo(paramName, {});
   }
 }
 //end of helper functions
@@ -55,9 +53,10 @@ export class Sections {
     uiType,
     numChildren = 1,
   }) => {
+    console.log("createChildren", parentId, sourceId, paramName, uiType)
     const parent = this.sections[parentId];
     const { moduleName, objName } = parent.selected;
-    const childParamName = _childParamName(parent, paramName);
+    const childSectionHeading = _childSectionHeading(parent, paramName);
     const childUITypeName = _childUITypeName(parent, uiType);
     const childSectionInfo = _childSectionInfo(
       parent,
@@ -68,7 +67,7 @@ export class Sections {
 
     let children = [];
     for (let i = 0; i < numChildren; i++) {
-      const child = new Section(childSectionInfo, childParamName);
+      const child = new Section(childSectionInfo, childSectionHeading);
       child.parent = parentId;
       child.uiType = new UIType(childUITypeName, parent.uiType);
       if (child.uiType.isListRoot) {

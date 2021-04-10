@@ -14,10 +14,12 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
   const { moduleName, objName } = useStoreState((state) =>
     state.master.sections.getSelected(sectionId)
   );
-  const kwargNames = Object.keys(sectionInfo.getKwargs(moduleName, objName));
+  const kwargNames = Object.keys(
+    sectionInfo.getObjData(moduleName, objName, "kwargs")
+  );
   const [numKwargs, setNumKwargs] = useState(kwargNames.length);
   const paramNames = Object.keys(
-    sectionInfo.getParameters(moduleName, objName)
+    sectionInfo.getObjData(moduleName, objName, "params")
   );
   const showKwargsButton = objName || paramNames.length > 0;
 
