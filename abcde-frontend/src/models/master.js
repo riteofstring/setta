@@ -1,7 +1,8 @@
 import { action, thunk, debug } from "easy-peasy";
 import Data from "../data/data.json";
 import { SectionInfo } from "../classes/jsonParser";
-import { Section, Sections } from "../classes/section";
+import { Section } from "../classes/section";
+import { Sections } from "../classes/sections";
 import {
   createStringId,
   setChildrenVisibility,

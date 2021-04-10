@@ -1,0 +1,150 @@
+import { nullOrUndefined } from "../utils/utils";
+import { Selected } from "./selected";
+import { UITypeProps } from "./uiTypeProps";
+import { Section } from "./section";
+
+export class Sections {
+  constructor() {
+    this.sections = {};
+    this.latestId = 0;
+  }
+
+  getIdxAfterSource = (parent, sourceId) => {
+    return parent.getChildrenIds().indexOf(sourceId) + 1;
+  };
+
+  determineNewChildIdx = (parent, sourceId) => {
+    if (!nullOrUndefined(sourceId)) {
+      const { isList, isListRoot } = this.sections[sourceId].uiTypeProps;
+      if (isList) {
+        return this.getIdxAfterSource(parent, sourceId);
+      } else if (isListRoot) {
+        return 0;
+      }
+    }
+    return null;
+  };
+
+  createChildren = ({
+    parentId,
+    sourceId,
+    paramName,
+    uiType,
+    numChildren = 1,
+  }) => {
+    const parent = this.sections[parentId];
+    const { moduleName, objName } = parent.selected;
+    const childParamName = !nullOrUndefined(paramName)
+      ? paramName
+      : parent.sectionHeading;
+    const childUIType = !nullOrUndefined(uiType)
+      ? uiType
+      : parent.uiTypeProps.uiType;
+
+    const childSectionInfo = parent.uiTypeProps.isListRoot
+      ? parent.sectionInfo
+      : parent.sectionInfo.moduleInfos[moduleName].objs[objName].params[
+          paramName
+        ].type;
+
+    let children = [];
+    for (let i = 0; i < numChildren; i++) {
+      const child = new Section(childSectionInfo, childParamName);
+      child.parent = parentId;
+      child.uiTypeProps = new UITypeProps(childUIType, parent.uiTypeProps);
+      if (child.uiTypeProps.isListRoot) {
+        child.selected = new Selected(moduleName, objName);
+      }
+      children.push(child);
+    }
+
+    const idx = this.determineNewChildIdx(parent, sourceId);
+    return { children, idx };
+  };
+
+  addSection = (section) => {
+    const sectionId = this.latestId;
+    this.sections[sectionId] = section;
+    this.latestId += 1;
+    return sectionId;
+  };
+
+  deleteSections({ sectionIds, parentId }) {
+    sectionIds.forEach((e) => delete this.sections[e]);
+    this.sections[parentId].deleteChildren(sectionIds);
+  }
+
+  addChildren = (parentId, childSections, idx = null) => {
+    let childIds = [];
+    for (let childSection of childSections) {
+      childIds.push(this.addSection(childSection));
+    }
+    this.sections[parentId].addChildren(childIds, idx);
+  };
+
+  deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
+    const parent = this.sections[parentId];
+    const startIdx = this.getIdxAfterSource(parent, sourceId);
+    const childrenToDelete = parent
+      .getChildrenIds()
+      .slice(startIdx, startIdx + numChildren);
+    this.deleteSections({ sectionIds: childrenToDelete, parentId });
+  };
+
+  getRootIds = (minId = null, maxId = null) => {
+    return Object.keys(this.sections).filter(
+      (e) =>
+        (nullOrUndefined(minId) || parseInt(e) >= minId) &&
+        (nullOrUndefined(maxId) || parseInt(e) < maxId) &&
+        nullOrUndefined(this.sections[e].parent)
+    );
+  };
+
+  getChildrenIds = (id) => {
+    return this.sections[id].getChildrenIds();
+  };
+
+  getUITypeProps = (id) => {
+    return this.sections[id].uiTypeProps;
+  };
+
+  getSelected = (id) => {
+    return this.sections[id].selected;
+  };
+
+  getSectionHeading = (id) => {
+    return this.sections[id].sectionHeading;
+  };
+
+  getHasNested = (id) => {
+    return this.sections[id].hasNested();
+  };
+
+  getChildrenAreCollapsed = (id) => {
+    return this.sections[id].getChildrenAreCollapsed();
+  };
+
+  getSectionInfo = (id) => {
+    return this.sections[id].sectionInfo;
+  };
+
+  getHasBeenVisited = (id) => {
+    return this.sections[id].getHasBeenVisited();
+  };
+
+  setHasBeenVisited = ({ sectionId, hasBeenVisited }) => {
+    return this.sections[sectionId].setHasBeenVisited(hasBeenVisited);
+  };
+
+  setSelected = ({ sectionId, moduleName, objName }) => {
+    this.sections[sectionId].selected = new Selected(moduleName, objName);
+  };
+
+  setChildrenAreCollapsed = ({ sectionId, childrenAreCollapsed }) => {
+    this.sections[sectionId].setChildrenAreCollapsed(childrenAreCollapsed);
+  };
+
+  numRootIds = () => {
+    return this.getRootIds().length;
+  };
+}
