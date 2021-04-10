@@ -35,7 +35,7 @@ function SectionContainer({
 
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
-  console.log("sectionId nextId, order", sectionId, nextId, childrenIds, order);
+  console.log("SectionContainer", sectionId, nextId, childrenIds, order);
 
   useEffect(() => {
     if (refForPosition.current) {

@@ -1,4 +1,5 @@
 import { nullOrUndefined, defaultDict } from "../utils/utils";
+import { debug } from "easy-peasy";
 
 class Selected {
   constructor(moduleName, objName) {
@@ -7,13 +8,14 @@ class Selected {
   }
 
   asString() {
-    return `${this.moduleName}_${this.objName}`;
+    return `${this.moduleName}~${this.objName}`;
   }
 }
 
 class UITypeProps {
   constructor(uiType, parentUITypeProps) {
-    if (uiType === "LIST_NESTED_OBJECT") {
+    this.uiType = uiType;
+    if (this.uiType === "LIST_NESTED_OBJECT") {
       this.isList = parentUITypeProps.isListRoot;
       this.isListRoot = !this.isList;
     } else {
@@ -45,12 +47,13 @@ export class Section {
   }
 
   addChild(childId, idx = null) {
-    const x = this.getChildrenIds();
+    const key = this.selected.asString();
     if (idx === null) {
-      x.push(childId);
-    } else {
-      x.splice(idx, 0, childId);
+      this.childrenIds[key] = [...this.childrenIds[key], childId];
     }
+    // } else {
+    //   x.splice(idx, 0, childId);
+    // }
   }
 
   hasNested() {
@@ -84,12 +87,24 @@ export class Sections {
 
   createChild({ sectionId, moduleName, objName, paramName, uiType }) {
     const parent = this.sections[sectionId];
-    const child = new Section(
-      parent.sectionInfo.moduleInfos[moduleName].objs[objName].paramName,
-      paramName
-    );
-    child.parent = sectionId;
-    child.uiTypeProps = new UITypeProps(uiType, parent.uiTypeProps);
+    const childParamName = !nullOrUndefined(paramName)
+      ? paramName
+      : parent.sectionHeading;
+    const childUIType = !nullOrUndefined(uiType)
+      ? uiType
+      : parent.uiTypeProps.uiType;
+
+    const childSectionInfo = parent.uiTypeProps.isListRoot
+      ? parent.sectionInfo
+      : parent.sectionInfo.moduleInfos[moduleName].objs[objName].params[
+          paramName
+        ].type;
+    const child = new Section(childSectionInfo, childParamName);
+    child.parent = sectionId.toString();
+    child.uiTypeProps = new UITypeProps(childUIType, parent.uiTypeProps);
+    if (child.uiTypeProps.isListRoot) {
+      child.selected = new Selected(moduleName, objName);
+    }
     return child;
   }
 
@@ -103,6 +118,7 @@ export class Sections {
   addChild(childSection, idx = null) {
     const childId = this.addSection(childSection);
     this.sections[childSection.parent].addChild(childId, idx);
+    console.log("this.sections", debug(this.sections));
   }
 
   getRootIds(minId = null, maxId = null) {

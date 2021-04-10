@@ -19,12 +19,10 @@ export default function Incrementer({
   //   (actions) => actions.master.permanentlyDeleteMultipleSections
   // );
 
-  // const addToVisibleSectionIdsThunk = useStoreActions(
-  //   (actions) => actions.master.addToVisibleSectionIdsThunk
-  // );
+  const addChild = useStoreActions((actions) => actions.master.addChild);
 
-  const selected = useStoreState(
-    (actions) => actions.master.sections.getSelected(parentId)
+  const { moduleName, objName } = useStoreState((actions) =>
+    actions.master.sections.getSelected(parentId)
   );
 
   const childrenIds = useStoreState(
@@ -32,25 +30,18 @@ export default function Incrementer({
     arraysAreEqual
   );
 
-  // const sectionHeading = useStoreState(
-  //   (state) => state.master.sections[sectionId].sectionHeading
-  // );
-
   const decrementButtonCondition = () => {
     return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
   };
 
   const addSections = (numSections) => {
-    // for (let i = 0; i < numSections; i++) {
-    //   addToVisibleSectionIdsThunk({
-    //     name: sectionHeading,
-    //     parentId: isListRoot ? sectionId : parentId,
-    //     moduleName: selected.moduleName,
-    //     objName: selected.objName,
-    //     isList: true,
-    //     siblingId: sectionId,
-    //   });
-    // }
+    for (let i = 0; i < numSections; i++) {
+      addChild({
+        sectionId: isListRoot ? sectionId : parentId,
+        moduleName,
+        objName,
+      });
+    }
   };
 
   const deleteSections = (numSections) => {
