@@ -17,7 +17,7 @@ export default function ModalContainer(props) {
     size,
     onClose,
     isOpen,
-    isCentered = true,
+    isCentered = false,
     maxH = "auto",
   } = props;
   return (

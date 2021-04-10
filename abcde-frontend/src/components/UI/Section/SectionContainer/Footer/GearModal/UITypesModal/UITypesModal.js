@@ -43,7 +43,6 @@ export default function UITypesModal() {
       onClose={onClose}
       isOpen={isOpen}
       size={"2xl"}
-      isCentered={false}
       maxH="80vh"
       header={<Header />}
       body={
