@@ -30,8 +30,8 @@ export const getOverviewListingHelper = (sectionId, sections, depth) => {
   outputList.push({
     sectionId,
     sectionHeading: currSection.sectionHeading,
-    isList: currSection.uiTypeProps.isList,
-    isListRoot: currSection.uiTypeProps.isListRoot,
+    isList: currSection.uiType.isList,
+    isListRoot: currSection.uiType.isListRoot,
     depth: depth,
   });
   for (let childId of currSection.getChildrenIds()) {

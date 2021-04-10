@@ -96,6 +96,10 @@ const master = {
     state.sections.setEnteredValue({ ...payload });
   }),
 
+  setParamUIType: action((state, payload) => {
+    state.sections.setParamUIType({ ...payload });
+  }),
+
   addChildren: action((state, payload) => {
     const { children, idx } = state.sections.createChildren({ ...payload });
     state.sections.addChildren(payload.parentId, children, idx);

@@ -6,6 +6,10 @@ export function nullOrUndefined(x) {
   return x === null || x === undefined;
 }
 
+export function allDefined(...x){
+  return x.every(a=>!nullOrUndefined(a))
+}
+
 // https://stackoverflow.com/a/63954561
 export function defaultDict(defaultValueFn) {
   const handler = {

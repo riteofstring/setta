@@ -1,6 +1,6 @@
 import { nullOrUndefined, defaultDict, insertIntoArray } from "../utils/utils";
 import { Selected } from "./selected";
-import { UITypeProps } from "./uiTypeProps";
+import { UIType } from "./uiType";
 
 export class Section {
   constructor(sectionInfo, sectionHeading) {
@@ -8,7 +8,7 @@ export class Section {
     this.parent = null;
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
-    this.uiTypeProps = new UITypeProps();
+    this.uiType = new UIType("OBJECT");
     this.hasBeenVisited = {};
     this.childrenAreCollapsed = {};
     this.sectionHeading = sectionHeading;
@@ -32,6 +32,14 @@ export class Section {
 
   getEnteredValue = (paramName) => {
     return this.sectionInfo.getValue(
+      this.selected.moduleName,
+      this.selected.objName,
+      paramName
+    );
+  };
+
+  getParamUIType = (paramName) => {
+    return this.sectionInfo.getParamUIType(
       this.selected.moduleName,
       this.selected.objName,
       paramName
@@ -63,6 +71,15 @@ export class Section {
       this.selected.objName,
       paramName,
       value
+    );
+  };
+
+  setParamUIType = (paramName, uiName) => {
+    this.sectionInfo.setParamUIType(
+      this.selected.moduleName,
+      this.selected.objName,
+      paramName,
+      uiName
     );
   };
 
@@ -99,11 +116,14 @@ export class Section {
   };
 
   getKwargs = () => {
-    this.sectionInfo.getKwargs(this.selected.moduleName, this.selected.objName);
+    return this.sectionInfo.getKwargs(
+      this.selected.moduleName,
+      this.selected.objName
+    );
   };
 
   getParameters = () => {
-    this.sectionInfo.getParameters(
+    return this.sectionInfo.getParameters(
       this.selected.moduleName,
       this.selected.objName
     );

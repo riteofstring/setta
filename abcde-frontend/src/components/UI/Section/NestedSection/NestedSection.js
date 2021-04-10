@@ -20,7 +20,7 @@ export default function NestedSection({
     state.master.sections.getChildrenAreCollapsed(parentId)
   );
   const { isList } = useStoreState((state) =>
-    state.master.sections.getUITypeProps(sectionId)
+    state.master.sections.getUIType(sectionId)
   );
 
   console.log("sectionId, isList", sectionId, isList);

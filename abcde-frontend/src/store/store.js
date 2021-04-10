@@ -22,7 +22,6 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
-  uiTypes: parameterDetailsStoreCreator("uiTypes", ["uiType"]),
   nestedSectionIds: parameterDetailsStoreCreator("nestedSectionIds", [
     "nestedSectionId",
   ]),

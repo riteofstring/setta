@@ -86,7 +86,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   );
 
   const { isList, isListRoot } = useStoreState((state) =>
-    state.master.sections.getUITypeProps(sectionId)
+    state.master.sections.getUIType(sectionId)
   );
 
   console.log(

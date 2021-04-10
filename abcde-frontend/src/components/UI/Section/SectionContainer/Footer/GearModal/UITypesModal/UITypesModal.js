@@ -13,6 +13,8 @@ export default function UITypesModal() {
     state.master.sections.getParameters(sectionId)
   );
 
+  console.log("UITypesModal", parameters);
+
   return (
     <ModalContainer
       onClose={onClose}
@@ -30,10 +32,15 @@ function Header() {
 }
 
 function Body({ sectionId, parameters }) {
-  return parameters.length > 0 ? (
+  const paramNames = Object.keys(parameters);
+  return paramNames.length > 0 ? (
     <Stack spacing={2}>
-      {parameters.map((e, idx) => (
-        <Item sectionId={sectionId} paramName={e} key={`${e}-${idx}`} />
+      {paramNames.map((e, idx) => (
+        <Item
+          sectionId={sectionId}
+          parameter={parameters[e]}
+          key={`${e}-${idx}`}
+        />
       ))}
     </Stack>
   ) : (
@@ -54,16 +61,11 @@ const menuItems = [
   "LIST_NESTED_OBJECT",
 ];
 
-function Item({ sectionId, paramName }) {
-  // const uiType = useStoreState((state) =>
-  //   parameterStateDetailsGetter(
-  //     state.uiTypes.uiTypes,
-  //     sectionId,
-  //     moduleName,
-  //     objName,
-  //     paramName
-  //   )
-  // );
+function Item({ sectionId, parameter }) {
+  console.log("Item", sectionId, parameter, parameter.uiType);
+
+  const uiTypeConfig = null;
+  const onChange = null;
 
   // const uiTypeConfig = useStoreState(
   //   (state) =>
@@ -76,20 +78,20 @@ function Item({ sectionId, paramName }) {
   //     )?.[uiType]
   // );
 
-  // const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
+  const setParamUIType = useStoreActions(
+    (actions) => actions.master.setParamUIType
+  );
   // const setUiTypeConfigs = useStoreActions(
   //   (actions) => actions.uiTypeConfigs.setUiTypeConfigs
   // );
 
-  // const onSelect = (e) => {
-  //   setUiTypes({
-  //     sectionId,
-  //     moduleName,
-  //     objName,
-  //     paramName,
-  //     uiType: e.target.value,
-  //   });
-  // };
+  const onSelect = (e) => {
+    setParamUIType({
+      sectionId,
+      paramName: parameter.name,
+      uiName: e.target.value,
+    });
+  };
 
   // const onChange = (uiConfigOption, uiConfigValue) => {
   //   setUiTypeConfigs({
@@ -103,24 +105,24 @@ function Item({ sectionId, paramName }) {
   //   });
   // };
 
-  // return (
-  //   <HStack>
-  //     <Box>{paramName}</Box>
-  //     <Select
-  //       placeholder="Select UI Type"
-  //       onChange={onSelect}
-  //       defaultValue={uiType}
-  //     >
-  //       {menuItems.map((e, idx) => (
-  //         <option value={e} key={`${e}-${idx}`}>
-  //           {e}
-  //         </option>
-  //       ))}
-  //     </Select>
-  //     <ParamUIConfig
-  //       uiType={uiType}
-  //       childProps={{ onChange, savedConfig: uiTypeConfig }}
-  //     />
-  //   </HStack>
-  // );
+  return (
+    <HStack>
+      <Box>{parameter.name}</Box>
+      <Select
+        placeholder="Select UI Type"
+        onChange={onSelect}
+        defaultValue={parameter.uiType}
+      >
+        {menuItems.map((e, idx) => (
+          <option value={e} key={`${e}-${idx}`}>
+            {e}
+          </option>
+        ))}
+      </Select>
+      <ParamUIConfig
+        uiType={parameter.uiType}
+        childProps={{ onChange, savedConfig: uiTypeConfig }}
+      />
+    </HStack>
+  );
 }

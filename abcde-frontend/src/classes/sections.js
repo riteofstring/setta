@@ -1,6 +1,6 @@
 import { nullOrUndefined } from "../utils/utils";
 import { Selected } from "./selected";
-import { UITypeProps } from "./uiTypeProps";
+import { UIType } from "./uiType";
 import { Section } from "./section";
 import { SectionInfo } from "./jsonParser";
 
@@ -9,12 +9,12 @@ function _childParamName(parent, paramName) {
   return !nullOrUndefined(paramName) ? paramName : parent.sectionHeading;
 }
 
-function _childUIType(parent, uiType) {
-  return !nullOrUndefined(uiType) ? uiType : parent.uiTypeProps.uiType;
+function _childUITypeName(parent, uiType) {
+  return !nullOrUndefined(uiType) ? uiType.name : parent.uiType.name;
 }
 
 function _childSectionInfo(parent, moduleName, objName, paramName) {
-  if (parent.uiTypeProps.isListRoot) {
+  if (parent.uiType.isListRoot) {
     return parent.sectionInfo;
   } else {
     const paramType =
@@ -38,7 +38,7 @@ export class Sections {
 
   determineNewChildIdx = (parent, sourceId) => {
     if (!nullOrUndefined(sourceId)) {
-      const { isList, isListRoot } = this.sections[sourceId].uiTypeProps;
+      const { isList, isListRoot } = this.sections[sourceId].uiType;
       if (isList) {
         return this.getIdxAfterSource(parent, sourceId);
       } else if (isListRoot) {
@@ -58,7 +58,7 @@ export class Sections {
     const parent = this.sections[parentId];
     const { moduleName, objName } = parent.selected;
     const childParamName = _childParamName(parent, paramName);
-    const childUIType = _childUIType(parent, uiType);
+    const childUITypeName = _childUITypeName(parent, uiType);
     const childSectionInfo = _childSectionInfo(
       parent,
       moduleName,
@@ -70,8 +70,8 @@ export class Sections {
     for (let i = 0; i < numChildren; i++) {
       const child = new Section(childSectionInfo, childParamName);
       child.parent = parentId;
-      child.uiTypeProps = new UITypeProps(childUIType, parent.uiTypeProps);
-      if (child.uiTypeProps.isListRoot) {
+      child.uiType = new UIType(childUITypeName, parent.uiType);
+      if (child.uiType.isListRoot) {
         child.selected = new Selected(moduleName, objName);
       }
       children.push(child);
@@ -125,8 +125,8 @@ export class Sections {
     return this.sections[id].getChildrenIds();
   };
 
-  getUITypeProps = (id) => {
-    return this.sections[id].uiTypeProps;
+  getUIType = (id) => {
+    return this.sections[id].uiType;
   };
 
   getSelected = (id) => {
@@ -165,6 +165,10 @@ export class Sections {
     return this.sections[id].getParameters();
   };
 
+  getParamUIType = (id, paramName) => {
+    return this.sections[id].getParamUIType(paramName);
+  };
+
   setHasBeenVisited = ({ sectionId, hasBeenVisited }) => {
     return this.sections[sectionId].setHasBeenVisited(hasBeenVisited);
   };
@@ -183,6 +187,10 @@ export class Sections {
 
   setEnteredValue = ({ sectionId, paramName, value }) => {
     this.sections[sectionId].setEnteredValue(paramName, value);
+  };
+
+  setParamUIType = ({ sectionId, paramName, uiName }) => {
+    this.sections[sectionId].setParamUIType(paramName, uiName);
   };
 
   setAllChildrenIds = () => {

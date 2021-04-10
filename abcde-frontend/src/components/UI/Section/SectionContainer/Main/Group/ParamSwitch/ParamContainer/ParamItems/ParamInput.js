@@ -6,15 +6,17 @@ import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 export default function ParamInput(props) {
   const {
     sectionId,
-    parameter: { name, defaultVal },
+    paramName,
   } = props;
+
+  const defaultVal = ""
 
   const setEnteredValue = useStoreActions(
     (actions) => actions.master.setEnteredValue
   );
 
   const currParam = useStoreState((state) =>
-    state.master.sections.getEnteredValue(sectionId, name)
+    state.master.sections.getEnteredValue(sectionId, paramName)
   );
 
   const [value, setValue] = useState("");
@@ -27,7 +29,7 @@ export default function ParamInput(props) {
     onChange(v);
     setEnteredValue({
       sectionId,
-      paramName: name,
+      paramName,
       value: v,
     });
   };

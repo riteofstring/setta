@@ -1,4 +1,5 @@
-import { nullOrUndefined } from "../utils/utils";
+import { allDefined } from "../utils/utils";
+import { UIType } from "./uiType";
 
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   let outputObject = {};
@@ -20,12 +21,12 @@ class ParameterInfo {
     this.name = name;
     this.defaultVal = jsonInput.default_val;
     this.type = jsonInput.type;
-    this.uiType = jsonInput.ui_type;
+    this.uiType = new UIType(jsonInput.ui_type);
     this.enteredValue = null;
     if (!(typeof this.type === "string")) {
       this.type = new SectionInfo(this.name, this.type);
-      if (!["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(this.uiType)) {
-        this.uiType = "NESTED_OBJECT";
+      if (!this.uiType.isNested()) {
+        this.uiType = new UIType("NESTED_OBJECT");
       }
     }
   }
@@ -57,31 +58,52 @@ export class SectionInfo {
   }
 
   addKwarg = (moduleName, objName, paramName) => {
-    this.moduleInfos[moduleName].objs[objName].kwargs[
-      paramName
-    ] = new ParameterInfo(paramName, {
+    const newParameter = new ParameterInfo(paramName, {
       defaultVal: "",
       type: "",
       defaultUIType: "UNKNOWN",
     });
+    if (allDefined(moduleName, objName)) {
+      this.moduleInfos[moduleName].objs[objName].kwargs[
+        paramName
+      ] = newParameter;
+    } else {
+      this.parameterInfos[paramName] = newParameter;
+    }
   };
 
   getKwargs = (moduleName, objName) => {
-    if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
+    if (allDefined(moduleName, objName)) {
       return this.moduleInfos[moduleName].objs[objName].kwargs;
     }
     return {};
   };
 
   getParameters = (moduleName, objName) => {
-    if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
+    if (allDefined(moduleName, objName)) {
       return this.moduleInfos[moduleName].objs[objName].params;
     }
     return this.parameterInfos;
   };
 
+  getValue = (moduleName, objName, paramName) => {
+    if (allDefined(moduleName, objName)) {
+      return this.moduleInfos[moduleName].objs[objName].params[paramName]
+        .enteredValue;
+    }
+    return this.parameterInfos[paramName].enteredValue;
+  };
+
+  getParamUIType = (moduleName, objName, paramName) => {
+    if (allDefined(moduleName, objName)) {
+      return this.moduleInfos[moduleName].objs[objName].params[paramName]
+        .uiType;
+    }
+    return this.parameterInfos[paramName].uiType;
+  };
+
   setValue = (moduleName, objName, paramName, value) => {
-    if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
+    if (allDefined(moduleName, objName)) {
       this.moduleInfos[moduleName].objs[objName].params[
         paramName
       ].enteredValue = value;
@@ -90,11 +112,15 @@ export class SectionInfo {
     }
   };
 
-  getValue = (moduleName, objName, paramName) => {
-    if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
-      return this.moduleInfos[moduleName].objs[objName].params[paramName]
-        .enteredValue;
+  setParamUIType = (moduleName, objName, paramName, uiName) => {
+    if (allDefined(moduleName, objName)) {
+      this.moduleInfos[moduleName].objs[objName].params[
+        paramName
+      ].uiType = new UIType(uiName);
+    } else {
+      this.parameterInfos[paramName].uiType = new UIType(uiName);
     }
-    return this.parameterInfos[paramName].enteredValue;
+
+    console.log("setParamUIType", this)
   };
 }
