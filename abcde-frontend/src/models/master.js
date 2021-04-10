@@ -49,7 +49,7 @@ const master = {
       const id = state.sectionCount;
       state.sections.addSection(
         id,
-        new Section(id, new SectionInfo(key, combinedJsons))
+        new Section(id, new SectionInfo(key, combinedJsons), key)
       );
       state.stringIdsToSectionIds[id] = id;
     }
@@ -117,9 +117,6 @@ const master = {
   //     sectionHeading,
   //     stringId,
   //   } = payload;
-
-
-
 
   //   const currIdHierarchy = state.idHierarchy;
   //   const parentIdObj = currIdHierarchy[parentId];

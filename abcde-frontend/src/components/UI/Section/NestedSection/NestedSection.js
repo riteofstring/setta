@@ -9,7 +9,6 @@ const borderLeft = theme.colors.gray;
 
 export default function NestedSection({
   parentId,
-  rootId,
   sectionId,
   nextId,
   idx,
@@ -35,7 +34,6 @@ export default function NestedSection({
       isShown && (
         <SectionContainer
           sectionId={sectionId}
-          rootId={rootId}
           parentId={parentId}
           nextId={nextId}
           depth={depth}

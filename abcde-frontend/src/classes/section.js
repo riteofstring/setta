@@ -28,7 +28,7 @@ class ListProps {
 }
 
 export class Section {
-  constructor(id, sectionInfo) {
+  constructor(id, sectionInfo, sectionHeading) {
     this.id = id;
     this.sectionInfo = sectionInfo;
     this.parent = null;
@@ -37,7 +37,7 @@ export class Section {
     this.listProps = new ListProps();
     this.childrenAreCollapsed = {};
     this.isVisible = true;
-    this.sectionHeading = null;
+    this.sectionHeading = sectionHeading;
     this.stringId = null;
 
     this.getChildrenIds = this.getChildrenIds.bind(this);
@@ -84,6 +84,9 @@ export class Sections {
     this.getListProps = this.getListProps.bind(this);
     this.getSelected = this.getSelected.bind(this);
     this.getSectionHeading = this.getSectionHeading.bind(this);
+    this.getHasNested = this.getHasNested.bind(this);
+    this.getChildrenAreCollapsed = this.getChildrenAreCollapsed.bind(this);
+    this.getSectionInfo = this.getSectionInfo.bind(this);
   }
 
   addSection(id, section) {
@@ -127,5 +130,9 @@ export class Sections {
 
   getChildrenAreCollapsed(id) {
     return this.sections[id].getChildrenAreCollapsed();
+  }
+
+  getSectionInfo(id) {
+    return this.sections[id].sectionInfo;
   }
 }
