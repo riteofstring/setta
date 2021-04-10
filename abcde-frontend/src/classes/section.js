@@ -82,4 +82,19 @@ export class Section {
       (x) => !childIds.includes(x)
     );
   };
+
+  addKwarg = (paramName) => {
+    const { moduleName, objName } = this.selected;
+    this.sectionInfo.addKwarg(moduleName, objName, paramName);
+  };
+
+  getKwargs = () => {
+    const { moduleName, objName } = this.selected;
+    this.sectionInfo.getKwargs(moduleName, objName);
+  };
+
+  getParameters = () => {
+    const { moduleName, objName } = this.selected;
+    this.sectionInfo.getKwargs(moduleName, objName);
+  };
 }

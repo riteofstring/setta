@@ -157,6 +157,14 @@ export class Sections {
     return this.sections[id].getEnteredValue(paramName);
   };
 
+  getKwargs = (id) => {
+    return this.sections[id].getKwargs();
+  };
+
+  getParameters = (id) => {
+    return this.sections[id].getParameters();
+  };
+
   setHasBeenVisited = ({ sectionId, hasBeenVisited }) => {
     return this.sections[sectionId].setHasBeenVisited(hasBeenVisited);
   };
