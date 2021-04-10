@@ -8,7 +8,10 @@ class Selected {
   }
 
   asString() {
-    return `${this.moduleName}~${this.objName}`;
+    if (!nullOrUndefined(this.moduleName) && !nullOrUndefined(this.objName)) {
+      return `${this.moduleName}~${this.objName}`;
+    }
+    return null;
   }
 }
 
@@ -43,7 +46,11 @@ export class Section {
   }
 
   getChildrenIds() {
-    return this.childrenIds[this.selected.asString()];
+    const key = this.selected.asString();
+    if (!nullOrUndefined(key)) {
+      return this.childrenIds[key];
+    }
+    return [];
   }
 
   addChild(childId, idx = null) {
@@ -54,6 +61,11 @@ export class Section {
     // } else {
     //   x.splice(idx, 0, childId);
     // }
+  }
+
+  deleteChild(childId) {
+    const key = this.selected.asString();
+    this.childrenIds[key] = this.childrenIds[key].filter((x) => x !== childId);
   }
 
   hasNested() {
@@ -113,6 +125,11 @@ export class Sections {
     this.sections[sectionId] = section;
     this.latestId += 1;
     return sectionId;
+  }
+
+  deleteSection({ sectionId, parentId }) {
+    delete this.sections[sectionId];
+    this.sections[parentId].deleteChild(sectionId);
   }
 
   addChild(childSection, idx = null) {

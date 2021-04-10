@@ -11,15 +11,8 @@ export default function Incrementer({
   nextId,
   isListRoot,
 }) {
-  // const permanentlyDeleteSection = useStoreActions(
-  //   (actions) => actions.master.permanentlyDeleteSection
-  // );
-
-  // const permanentlyDeleteMultipleSections = useStoreActions(
-  //   (actions) => actions.master.permanentlyDeleteMultipleSections
-  // );
-
   const addChild = useStoreActions((actions) => actions.master.addChild);
+  const deleteSection = useStoreActions((actions) => actions.master.deleteSection);
 
   const { moduleName, objName } = useStoreState((actions) =>
     actions.master.sections.getSelected(parentId)
@@ -55,7 +48,7 @@ export default function Incrementer({
   };
 
   const deleteThisSection = () => {
-    // permanentlyDeleteSection({ sectionId, parentId });
+    deleteSection({ sectionId, parentId });
   };
 
   const [numSections, setNumSections] = useState(1);
