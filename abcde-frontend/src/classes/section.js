@@ -1,9 +1,9 @@
 import { nullOrUndefined, defaultDict } from "../utils/utils";
 
 class Selected {
-  constructor() {
-    this.moduleName = null;
-    this.objName = null;
+  constructor(moduleName, objName) {
+    this.moduleName = moduleName;
+    this.objName = objName;
   }
 
   asString() {
@@ -134,5 +134,9 @@ export class Sections {
 
   getSectionInfo(id) {
     return this.sections[id].sectionInfo;
+  }
+
+  setSelected({ sectionId, moduleName, objName }) {
+    this.sections[sectionId].selected = new Selected(moduleName, objName);
   }
 }

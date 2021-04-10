@@ -96,8 +96,7 @@ const master = {
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    const { sectionId, moduleName, objName } = payload;
-    state.sections[sectionId].selected = { moduleName, objName };
+    state.sections.setSelected({...payload});
   }),
 
   setChildrenIds: action((state, payload) => {
