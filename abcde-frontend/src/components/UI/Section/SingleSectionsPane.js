@@ -10,7 +10,7 @@ const SingleSectionsPane = ({ minId, maxId }) => {
     arraysAreEqual
   );
 
-  console.log("SectionsPane rootIds, minId, maxId", rootIds);
+  console.log("SectionsPane rootIds, minId, maxId", rootIds, minId, maxId);
 
   return (
     <>

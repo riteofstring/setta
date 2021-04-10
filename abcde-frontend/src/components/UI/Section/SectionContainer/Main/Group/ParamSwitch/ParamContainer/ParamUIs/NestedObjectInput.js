@@ -56,135 +56,141 @@ export default function NestedObjectInput({
   uiType: inputUiType,
   uiTypeConfig,
 }) {
-  const nestedSectionInfo = useStoreState(
-    (state) =>
-      sectionParameterGetter(
-        state.master.sections,
-        sectionId,
-        moduleName,
-        objName,
-        paramName
-      ).type,
-    //only care about x -> Section or Section -> x
-    (prev, next) =>
-      (!(prev instanceof SectionInfo) && !(next instanceof SectionInfo)) ||
-      (prev instanceof SectionInfo && next instanceof SectionInfo)
-  );
-
-  const uiTypeSetByUser = useStoreState((state) =>
-    parameterStateDetailsGetter(
-      state.uiTypes.uiTypes,
-      sectionId,
-      moduleName,
-      objName,
-      paramName
-    )
-  );
-
-  const availableModules = useStoreState(
-    (state) => state.master.availableModules
-  );
-
-  const setSectionParamType = useStoreActions(
-    (actions) => actions.master.setSectionParamType
-  );
-
-  const setSectionModuleInfos = useStoreActions(
-    (actions) => actions.master.setSectionModuleInfos
-  );
-
-  const setNestedSectionIds = useStoreActions(
-    (actions) => actions.nestedSectionIds.setNestedSectionIds
-  );
-
-  const permanentlyDeleteSection = useStoreActions(
-    (actions) => actions.master.permanentlyDeleteSection
-  );
-
-  const addToVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.addToVisibleSectionIdsThunk
-  );
-
-  const nestedSectionId = useStoreState((state) =>
-    parameterStateDetailsGetter(
-      state.nestedSectionIds.nestedSectionIds,
-      sectionId,
-      moduleName,
-      objName,
-      paramName
-    )
-  );
-
-  const wrapperSetNestedSectionId = (newNestedSectionId) => {
-    setNestedSectionIds({
-      sectionId,
-      moduleName,
-      objName,
-      paramName,
-      nestedSectionId: newNestedSectionId,
-    });
-  };
-
-  const wrapperSetSectionParamType = (newType) => {
-    setSectionParamType({
-      sectionId,
-      moduleName,
-      objName,
-      paramName,
-      newType,
-    });
-  };
-
-  const maybeDeleteSection = () => {
-    if (nestedSectionId) {
-      permanentlyDeleteSection({
-        sectionId: nestedSectionId,
-        parentId: sectionId,
-      });
-    }
-    wrapperSetNestedSectionId(null);
-  };
-
-  const uiType = uiTypeSetByUser ? uiTypeSetByUser : inputUiType;
-  
-  useEffect(() => {
-    maybeDeleteSection();
-  }, [uiType]);
+  const addChild = useStoreActions((actions) => actions.master.addChild);
 
   useEffect(() => {
-    if (requiresNestedSection(uiType)) {
-      const newSectionInfo = new SectionInfo(
-        paramName,
-        combineModules(
-          availableModules,
-          uiTypeConfig ? uiTypeConfig.modules : []
-        )
-      );
-      wrapperSetSectionParamType(newSectionInfo);
-      if (nestedSectionId) {
-        setSectionModuleInfos({
-          sectionId: nestedSectionId,
-          newModuleInfos: newSectionInfo.moduleInfos,
-        });
-      }
-    }
-  }, [uiTypeConfig]);
+    addChild({ sectionId, moduleName, objName, paramName });
+  }, []);
 
-  useEffect(() => {
-    if (requiresNestedSection(uiType) && nestedSectionInfo instanceof SectionInfo) {
-      const newNestedSectionId = addToVisibleSectionIdsThunk({
-        name: paramName,
-        parentId: sectionId,
-        moduleName,
-        objName,
-        isList: uiType === "LIST_NESTED_OBJECT",
-        siblingId: null,
-      });
-      wrapperSetNestedSectionId(newNestedSectionId);
-    } else {
-      maybeDeleteSection();
-    }
-  }, [nestedSectionInfo]);
+  // const nestedSectionInfo = useStoreState(
+  //   (state) =>
+  //     sectionParameterGetter(
+  //       state.master.sections,
+  //       sectionId,
+  //       moduleName,
+  //       objName,
+  //       paramName
+  //     ).type,
+  //   //only care about x -> Section or Section -> x
+  //   (prev, next) =>
+  //     (!(prev instanceof SectionInfo) && !(next instanceof SectionInfo)) ||
+  //     (prev instanceof SectionInfo && next instanceof SectionInfo)
+  // );
+
+  // const uiTypeSetByUser = useStoreState((state) =>
+  //   parameterStateDetailsGetter(
+  //     state.uiTypes.uiTypes,
+  //     sectionId,
+  //     moduleName,
+  //     objName,
+  //     paramName
+  //   )
+  // );
+
+  // const availableModules = useStoreState(
+  //   (state) => state.master.availableModules
+  // );
+
+  // const setSectionParamType = useStoreActions(
+  //   (actions) => actions.master.setSectionParamType
+  // );
+
+  // const setSectionModuleInfos = useStoreActions(
+  //   (actions) => actions.master.setSectionModuleInfos
+  // );
+
+  // const setNestedSectionIds = useStoreActions(
+  //   (actions) => actions.nestedSectionIds.setNestedSectionIds
+  // );
+
+  // const permanentlyDeleteSection = useStoreActions(
+  //   (actions) => actions.master.permanentlyDeleteSection
+  // );
+
+  // const addToVisibleSectionIdsThunk = useStoreActions(
+  //   (actions) => actions.master.addToVisibleSectionIdsThunk
+  // );
+
+  // const nestedSectionId = useStoreState((state) =>
+  //   parameterStateDetailsGetter(
+  //     state.nestedSectionIds.nestedSectionIds,
+  //     sectionId,
+  //     moduleName,
+  //     objName,
+  //     paramName
+  //   )
+  // );
+
+  // const wrapperSetNestedSectionId = (newNestedSectionId) => {
+  //   setNestedSectionIds({
+  //     sectionId,
+  //     moduleName,
+  //     objName,
+  //     paramName,
+  //     nestedSectionId: newNestedSectionId,
+  //   });
+  // };
+
+  // const wrapperSetSectionParamType = (newType) => {
+  //   setSectionParamType({
+  //     sectionId,
+  //     moduleName,
+  //     objName,
+  //     paramName,
+  //     newType,
+  //   });
+  // };
+
+  // const maybeDeleteSection = () => {
+  //   if (nestedSectionId) {
+  //     permanentlyDeleteSection({
+  //       sectionId: nestedSectionId,
+  //       parentId: sectionId,
+  //     });
+  //   }
+  //   wrapperSetNestedSectionId(null);
+  // };
+
+  // const uiType = uiTypeSetByUser ? uiTypeSetByUser : inputUiType;
+
+  // useEffect(() => {
+  //   maybeDeleteSection();
+  // }, [uiType]);
+
+  // useEffect(() => {
+  //   if (requiresNestedSection(uiType)) {
+  //     const newSectionInfo = new SectionInfo(
+  //       paramName,
+  //       combineModules(
+  //         availableModules,
+  //         uiTypeConfig ? uiTypeConfig.modules : []
+  //       )
+  //     );
+  //     wrapperSetSectionParamType(newSectionInfo);
+  //     if (nestedSectionId) {
+  //       setSectionModuleInfos({
+  //         sectionId: nestedSectionId,
+  //         newModuleInfos: newSectionInfo.moduleInfos,
+  //       });
+  //     }
+  //   }
+  // }, [uiTypeConfig]);
+
+  // useEffect(() => {
+  //   if (requiresNestedSection(uiType) && nestedSectionInfo instanceof SectionInfo) {
+  //     const newNestedSectionId = addToVisibleSectionIdsThunk({
+  //       name: paramName,
+  //       parentId: sectionId,
+  //       moduleName,
+  //       objName,
+  //       isList: uiType === "LIST_NESTED_OBJECT",
+  //       siblingId: null,
+  //     });
+  //     wrapperSetNestedSectionId(newNestedSectionId);
+  //   } else {
+  //     maybeDeleteSection();
+  //   }
+  // }, [nestedSectionInfo]);
 
   return null;
 }

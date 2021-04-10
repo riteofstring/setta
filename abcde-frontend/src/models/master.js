@@ -20,7 +20,6 @@ import { getPageMinMaxList } from "../utils/sectionIds";
 const master = {
   sectionsPerPage: 5,
   spaceBetweenPages: 500,
-  sectionCount: 0,
   pageMinMaxList: [],
   sections: new Sections(),
   availableModules: {},
@@ -45,16 +44,13 @@ const master = {
       } else {
         throw "Invalid json";
       }
-      state.sectionCount += 1;
-      const id = state.sectionCount;
       state.sections.addSection(
-        id,
-        new Section(id, new SectionInfo(key, combinedJsons), key)
+        new Section(new SectionInfo(key, combinedJsons), key)
       );
-      state.stringIdsToSectionIds[id] = id;
+      // state.stringIdsToSectionIds[id] = id;
     }
     state.pageMinMaxList = getPageMinMaxList(
-      state.sectionCount,
+      state.sections.numRootIds(),
       state.sectionsPerPage
     );
   }),
@@ -90,18 +86,22 @@ const master = {
 
   // Show/Collapse button
   setChildrenAreCollapsed: action((state, payload) => {
-    const { sectionId, childrenAreCollapsed } = payload;
-    state.sections[sectionId].childrenAreCollapsed = childrenAreCollapsed;
+    state.sections.setChildrenAreCollapsed({ ...payload });
   }),
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    state.sections.setSelected({...payload});
+    state.sections.setSelected({ ...payload });
   }),
 
   setChildrenIds: action((state, payload) => {
     const { sectionId, childrenIds } = payload;
     state.sections[sectionId].childrenIds = childrenIds;
+  }),
+
+  addChild: action((state, payload) => {
+    const child = state.sections.createChild({ ...payload });
+    state.sections.addChild(child);
   }),
 
   // addToVisibleSectionIds: action((state, payload) => {

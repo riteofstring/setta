@@ -32,7 +32,7 @@ export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   let output = [];
   for (let x = 0; x < numPages; x++) {
     output.push({
-      minId: x * sectionsPerPage + 1,
+      minId: x * sectionsPerPage,
       maxId: (x + 1) * sectionsPerPage,
     });
   }

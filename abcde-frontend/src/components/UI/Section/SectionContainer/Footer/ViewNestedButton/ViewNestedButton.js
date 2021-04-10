@@ -3,7 +3,7 @@ import { Button, GridItem } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function ViewNestedButton({ sectionId, isListRoot }) {
-  const setIsShown = useStoreActions((actions) => actions.master.setIsShown);
+  const setChildrenAreCollapsed = useStoreActions((actions) => actions.master.setChildrenAreCollapsed);
   const sectionHasNested = useStoreState((state) =>
     state.master.sections.getHasNested(sectionId)
   );
@@ -12,7 +12,7 @@ export default function ViewNestedButton({ sectionId, isListRoot }) {
   );
 
   const flipShown = () => {
-    setIsShown({ sectionId, childrenAreCollapsed: !childrenAreCollapsed });
+    setChildrenAreCollapsed({ sectionId, childrenAreCollapsed: !childrenAreCollapsed });
   };
   return (
     <GridItem
@@ -24,7 +24,7 @@ export default function ViewNestedButton({ sectionId, isListRoot }) {
     >
       {sectionHasNested && !isListRoot ? (
         <Button size="sm" onClick={flipShown}>
-          {childrenAreCollapsed ? "Hide Nested" : "Show Nested"}
+          {!childrenAreCollapsed ? "Hide Nested" : "Show Nested"}
         </Button>
       ) : (
         <></>

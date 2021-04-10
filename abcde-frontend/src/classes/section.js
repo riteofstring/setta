@@ -28,8 +28,7 @@ class ListProps {
 }
 
 export class Section {
-  constructor(id, sectionInfo, sectionHeading) {
-    this.id = id;
+  constructor(sectionInfo, sectionHeading) {
     this.sectionInfo = sectionInfo;
     this.parent = null;
     this.childrenIds = defaultDict(() => []);
@@ -54,9 +53,9 @@ export class Section {
   addChild(childId, idx = null) {
     const x = this.getChildrenIds();
     if (idx === null) {
-      this.x.push(childId);
+      x.push(childId);
     } else {
-      this.x.splice(idx, 0, childId);
+      x.splice(idx, 0, childId);
     }
   }
 
@@ -71,11 +70,16 @@ export class Section {
   getChildrenAreCollapsed() {
     return this.childrenAreCollapsed[this.selected.asString()];
   }
+
+  setChildrenAreCollapsed(childrenAreCollapsed) {
+    this.childrenAreCollapsed[this.selected.asString()] = childrenAreCollapsed;
+  }
 }
 
 export class Sections {
   constructor() {
     this.sections = {};
+    this.latestId = 0;
 
     this.addSection = this.addSection.bind(this);
     this.addChild = this.addChild.bind(this);
@@ -89,21 +93,34 @@ export class Sections {
     this.getSectionInfo = this.getSectionInfo.bind(this);
   }
 
-  addSection(id, section) {
-    this.sections[id] = section;
+  createChild({ sectionId, moduleName, objName, paramName }) {
+    const parent = this.sections[sectionId];
+    const child = new Section(
+      parent.sectionInfo.moduleInfos[moduleName].objs[objName].paramName,
+      paramName
+    );
+    child.parent = sectionId;
+    return child;
   }
 
-  addChild(parentId, childId, childSection, idx = null) {
-    this.addSection(childId, childSection);
+  addSection(section) {
+    const sectionId = this.latestId;
+    this.sections[this.latestId] = section;
+    this.latestId += 1;
+    return sectionId;
+  }
+
+  addChild(childSection, idx = null) {
+    const childId = this.addSection(childSection);
     this.sections[childId].setListIdx(idx);
-    this.sections[parentId].addChild(childId, idx);
+    this.sections[childSection.parent].addChild(childId, idx);
   }
 
-  getRootIds(minId, maxId) {
+  getRootIds(minId = null, maxId = null) {
     return Object.keys(this.sections).filter(
       (e) =>
-        parseInt(e) >= minId &&
-        parseInt(e) <= maxId &&
+        (nullOrUndefined(minId) || parseInt(e) >= minId) &&
+        (nullOrUndefined(maxId) || parseInt(e) < maxId) &&
         nullOrUndefined(this.sections[e].parent)
     );
   }
@@ -136,7 +153,21 @@ export class Sections {
     return this.sections[id].sectionInfo;
   }
 
+  getIsVisible(id) {
+    return this.sections[id].isVisible;
+  }
+
   setSelected({ sectionId, moduleName, objName }) {
     this.sections[sectionId].selected = new Selected(moduleName, objName);
+  }
+
+  setChildrenAreCollapsed({ sectionId, childrenAreCollapsed }) {
+    return this.sections[sectionId].setChildrenAreCollapsed(
+      childrenAreCollapsed
+    );
+  }
+
+  numRootIds() {
+    return this.getRootIds().length;
   }
 }
