@@ -2,8 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { resetState } from "../../../../../../store/store";
-import { IoIosRocket } from "react-icons/io";
+import { resetState } from "../../../../../../store/store"
 
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -39,7 +38,7 @@ export default function TextEditor() {
     if (uiInfoFromCLI) {
       resetState("globalCurr");
       resetState("master");
-      loadSections({ isJson: true, data: uiInfoFromCLI });
+      loadSections(uiInfoFromCLI);
       setFactories(factoriesFromCLI);
       setFuncs(funcsFromCLI);
       saveDraftUI({ token });
@@ -52,21 +51,16 @@ export default function TextEditor() {
 
   return (
     <>
-      <Button
-        leftIcon={<IoIosRocket />}
-        onClick={handleCreateUI}
-        disabled={!isEditorReady}
-        variant="solid"
-      >
+      <Button onClick={handleCreateUI} disabled={!isEditorReady}>
         Create UI
       </Button>
       <Editor
+        height="inherit"
         language="yaml"
         value={enteredText}
         onMount={handleEditorDidMount}
         onChange={onChange}
         automaticLayout={true}
-        height={"calc(100% - 2.5rem)"}
       />
     </>
   );

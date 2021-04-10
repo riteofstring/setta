@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Flex,
-  Stack,
-  IconButton,
-  Box,
-  GridItem,
-  forwardRef,
-} from "@chakra-ui/react";
+import { Flex, IconButton, Box, GridItem, forwardRef } from "@chakra-ui/react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";
@@ -126,32 +119,45 @@ export default function PaneContainer(props) {
         >
           <Box
             h="inherit"
-            w="100%"
             borderRight="1px"
             borderColor="gray.200"
             boxShadow="md"
-            display="inline-block"
-            py="2rem"
-            px="2.66rem"
-            bg="gray.50"
+            w="100%"
           >
-            {props.children}
-            <IconButton
-              icon={btnDir ? <HiChevronRight /> : <HiChevronLeft />}
-              color="gray.500"
-              variant="ghost"
-              size="sm"
-              left={right ? 0 : "auto"}
-              right={!right ? 0 : "auto"}
-              top="0"
-              margin="0.33rem"
-              alignSelf="center"
-              onClick={uiToggle}
-              h="calc(100% - .66rem)"
-              tabIndex="-1"
-              position="absolute"
-              _focus={{ shadow: "none" }}
-            />
+            <Box
+              display="inline-block"
+              py="2rem"
+              px="2.66rem"
+              bg="gray.50"
+              w="inherit"
+              h="inherit"
+              overflow="noscroll"
+            >
+              <Flex
+                bg="whiteAlpha"
+                flexDirection="column"
+                h="inherit"
+                w="inherit"
+              >
+                {props.children}
+              </Flex>
+              <IconButton
+                icon={btnDir ? <HiChevronRight /> : <HiChevronLeft />}
+                color="gray.500"
+                variant="ghost"
+                size="sm"
+                left={right ? 0 : "auto"}
+                right={!right ? 0 : "auto"}
+                top="0"
+                margin="0.33rem"
+                alignSelf="center"
+                onClick={uiToggle}
+                h="calc(100% - .66rem)"
+                tabIndex="-1"
+                position="absolute"
+                _focus={{ shadow: "none" }}
+              />
+            </Box>
           </Box>
         </Resizable>
       </Pane>

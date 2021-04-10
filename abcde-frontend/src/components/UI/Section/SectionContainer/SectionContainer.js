@@ -10,7 +10,6 @@ import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
-import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function SectionContainer({
   sectionId,
@@ -50,7 +49,7 @@ function SectionContainer({
   }, [refForPosition.current]);
 
   return (
-    <Stack ref={refForPosition}>
+    <Stack height="100%" ref={refForPosition}>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -78,6 +77,10 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
+  const sectionInfo = useStoreState(
+    (state) => state.master.sections[sectionId]
+  );
+
   const isList = useStoreState(
     (state) => state.master.idHierarchy[sectionId].isList
   );
@@ -85,9 +88,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
     (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
-  // temp_
-  const tempBool = true;
-  const tempBoolDesc = false;
+  const showSearch =
+    sectionInfo && Object.keys(sectionInfo.parameterInfos).length === 0;
+
   return (
     <HStack
       direction="column"
@@ -106,9 +109,8 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
         />
         {!isListRoot && (
           <Stack>
-            {tempBool && <SectionSearch sectionId={sectionId} />}
-            {tempBoolDesc && <SectionDescription />}
-            <GroupContainer sectionId={sectionId} />
+            {showSearch && <SectionSearch sectionId={sectionId} />}
+            <GroupContainer sectionId={sectionId} sectionInfo={sectionInfo} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
         )}
@@ -120,7 +122,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 function DragHandle({ dragControls }) {
   return (
     <HStack
-      alignSelf="stretch"
+      h="100%"
       borderLeftRadius="inherit"
       cursor="move"
       px="0.5rem"

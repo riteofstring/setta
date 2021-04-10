@@ -48,6 +48,7 @@ export default function MainContainer() {
               "EditableTextarea",
               "chakra-stack DragHandle",
               "chakra-slider",
+              "chakra-editable"
             ]}
             excludedFromScrollingClassNames={["SectionSearch"]}
           >

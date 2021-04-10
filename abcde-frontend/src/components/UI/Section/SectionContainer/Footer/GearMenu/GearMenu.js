@@ -25,7 +25,6 @@ export default function GearMenu() {
       colEnd="2"
       rowStart="1"
       rowEnd="2"
-      position="relative"
     >
       <Menu>
         <MenuButton

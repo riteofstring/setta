@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/multiPage.json";
+import Data from "../data/simpleTrainTest.json";
 import { Section } from "../utils/jsonParser";
 import {
   createStringId,
@@ -8,6 +8,11 @@ import {
   newIdInHierarchy,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
+import {
+  combineModules,
+  combineParameters,
+  sectionParameterGetter,
+} from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -18,24 +23,34 @@ const master = {
   sectionCount: 0,
   pageMinMaxList: [],
   sections: {},
+  availableModules: {},
+  availableParameters: {},
   idHierarchy: {},
   stringIdsToSectionIds: {},
 
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    const { isJson, data } = payload;
-    if (!isJson) {
-      state.sections = data;
-    }
-    for (let key of Object.keys(data)) {
-      state.sectionCount += 1;
-      let id = state.sectionCount;
-      if (isJson) {
-        state.sections[id] = new Section(key, data[key]);
+    state.availableModules = payload.MODULES;
+    state.availableParameters = payload.PARAMETERS;
+    for (let key of Object.keys(payload.UI)) {
+      const currSection = payload.UI[key];
+      let combinedJsons = null;
+      if (Array.isArray(currSection) || currSection["modules"]) {
+        combinedJsons = combineModules(state.availableModules, currSection);
+      } else if (currSection["parameters"]) {
+        combinedJsons = combineParameters(
+          state.availableParameters,
+          currSection["parameters"]
+        );
+      } else {
+        throw "Invalid json";
       }
+      state.sectionCount += 1;
+      const id = state.sectionCount;
+      state.sections[id] = new Section(key, combinedJsons);
       state.idHierarchy[id] = newIdInHierarchy({
-        sectionHeading: isJson ? key : state.sections[id].name,
+        sectionHeading: key,
         stringId: id,
       });
       state.stringIdsToSectionIds[id] = id;
@@ -52,10 +67,27 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     if (NO_AUTH) {
-      action._loadSections({ isJson: true, data: Data });
+      action._loadSections(Data);
     } else {
       action._loadSections(payload);
     }
+  }),
+
+  setSectionParamType: action((state, payload) => {
+    const { sectionId, moduleName, objName, paramName, newType } = payload;
+    const x = sectionParameterGetter(
+      state.sections,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    );
+    x.type = newType;
+  }),
+
+  setSectionModuleInfos: action((state, payload) => {
+    const { sectionId, newModuleInfos } = payload;
+    state.sections[sectionId].moduleInfos = newModuleInfos;
   }),
 
   // Show/Collapse button
@@ -108,10 +140,13 @@ const master = {
         currIdHierarchy[id].moduleName = moduleName;
         currIdHierarchy[id].objName = objName;
       } else {
-        state.sections[id] =
-          state.sections[parentId].moduleInfos[moduleName].objs[objName].params[
-            name
-          ].type;
+        state.sections[id] = sectionParameterGetter(
+          state.sections,
+          parentId,
+          moduleName,
+          objName,
+          name
+        ).type;
       }
 
       if (isList) {
@@ -141,21 +176,16 @@ const master = {
     }
   }),
 
-  _permanentlyDeleteSection: action((state, payload) => {
-    const { sectionId, parentObj } = payload;
-    const stringId = state.idHierarchy[sectionId].stringId;
-    delete state.stringIdsToSectionIds[stringId];
-    delete state.idHierarchy[sectionId];
-    parentObj.children = parentObj.children.filter((x) => x !== sectionId);
-  }),
-
-  permanentlyDeleteSection: thunk((action, payload, helpers) => {
+  permanentlyDeleteSection: action((state, payload) => {
     const { sectionId, parentId } = payload;
-    const state = helpers.getState();
-    action._permanentlyDeleteSection({
-      sectionId,
-      parentObj: state.idHierarchy[parentId],
-    });
+    if (sectionId in state.idHierarchy){
+      const stringId = state.idHierarchy[sectionId].stringId;
+      delete state.stringIdsToSectionIds[stringId];
+      delete state.idHierarchy[sectionId];
+      delete state.sections[sectionId]
+    }
+    const parentObj = state.idHierarchy[parentId];
+    parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 
   permanentlyDeleteMultipleSections: thunk((action, payload, helpers) => {
@@ -170,7 +200,7 @@ const master = {
     );
     for (let i = 0; i < trueNumSectionsToDelete; i++) {
       const sectionId = parentObj.children[startingIdx];
-      action._permanentlyDeleteSection({ sectionId, parentObj });
+      action.permanentlyDeleteSection({ sectionId, parentObj });
     }
   }),
 
@@ -224,7 +254,6 @@ const master = {
       action.incrementSectionCount();
     }
 
-    console.log("addToVisibleSectionIdsThunk", id);
     const currInfo = state.idHierarchy;
     if (!(id in currInfo) || !currInfo.isVisible) {
       action.addToVisibleSectionIds({
@@ -239,6 +268,7 @@ const master = {
         stringId,
       });
     }
+    return id;
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import getParamUI from "../ParamUIs/getParamUI";
+import ParamUI from "../ParamUIs/ParamUI";
+import { parameterStateDetailsGetter } from "../../../../../../../../../utils/utils";
 
 export default function ParamInput(props) {
   const {
@@ -10,13 +11,18 @@ export default function ParamInput(props) {
     parameter: { name, defaultVal },
   } = props;
 
-  const setCurrParam = useStoreActions(
-    (actions) => actions.globalCurr.setCurrParam
+  const setGlobalCurr = useStoreActions(
+    (actions) => actions.globalCurr.setGlobalCurr
   );
 
-  const currParam = useStoreState(
-    (state) =>
-      state.globalCurr.globalCurr[sectionId]?.[moduleName]?.[objName]?.[name]
+  const currParam = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.globalCurr.globalCurr,
+      sectionId,
+      moduleName,
+      objName,
+      name
+    )
   );
 
   const [value, setValue] = useState("");
@@ -27,7 +33,7 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setCurrParam({
+    setGlobalCurr({
       sectionId,
       moduleName,
       objName,
@@ -40,5 +46,17 @@ export default function ParamInput(props) {
     setValue(currParam !== null && currParam !== undefined ? currParam : "");
   }, [currParam]);
 
-  return getParamUI(props.uiType, { value, defaultVal, onChange, onChangeEnd });
+  return (
+    <ParamUI
+      uiType={props.uiType}
+      childProps={{
+        value,
+        defaultVal,
+        onChange,
+        onChangeEnd,
+        isDisabled: props.isDisabled,
+        ...props.uiTypeConfig,
+      }}
+    />
+  );
 }

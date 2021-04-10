@@ -1,35 +1,45 @@
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { MenuContext } from "../../SectionFooter";
-import { Box, HStack, Stack, Select, Input, Text } from "@chakra-ui/react";
+import { Box, HStack, Stack, Select, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
-import { getParameters } from "../../../../../../../utils/utils";
+import {
+  getParameters,
+  parameterStateDetailsGetter,
+} from "../../../../../../../utils/utils";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
-  const currentlySelected = useStoreState(
-    (state) => state.currentlySelected.currentlySelected[sectionId]
+  const moduleName = useStoreState(
+    (state) => state.currentlySelected.currentlySelected[sectionId]?.moduleName
+  );
+
+  const objName = useStoreState(
+    (state) => state.currentlySelected.currentlySelected[sectionId]?.objName
+  );
+
+  const savedKwargs = useStoreState(
+    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
   );
 
   const thisSectionInfo = useStoreState(
     (state) => state.master.sections[sectionId]
   );
 
-  const tryGetParameters = () => {
-    try {
-      const { moduleName, objName } = currentlySelected;
-      return {
-        parameters: getParameters(thisSectionInfo, moduleName, objName),
-        moduleName,
-        objName,
-      };
-    } catch (err) {
-      return { parameters: [], moduleName: null, objName: null };
+  const getParametersAndKwargs = () => {
+    const parameters = getParameters(thisSectionInfo, moduleName, objName).map(
+      (x) => x.name
+    );
+    if (savedKwargs) {
+      const maybeAlsoKwargs = Object.keys(savedKwargs);
+      return parameters.concat(maybeAlsoKwargs);
     }
+    return parameters;
   };
 
-  const { parameters, moduleName, objName } = tryGetParameters();
+  const parameters = getParametersAndKwargs();
 
   return (
     <ModalContainer
@@ -62,8 +72,8 @@ function Body({ sectionId, moduleName, objName, parameters }) {
           sectionId={sectionId}
           moduleName={moduleName}
           objName={objName}
-          paramName={e.name}
-          key={`${e.name}-${idx}`}
+          paramName={e}
+          key={`${e}-${idx}`}
         />
       ))}
     </Stack>
@@ -86,12 +96,34 @@ const menuItems = [
 ];
 
 function Item({ sectionId, moduleName, objName, paramName }) {
-  const setCurrUIType = useStoreActions(
-    (actions) => actions.uiTypes.setCurrUIType
+  const uiType = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.uiTypes.uiTypes,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    )
+  );
+
+  const uiTypeConfig = useStoreState(
+    (state) =>
+      parameterStateDetailsGetter(
+        state.uiTypeConfigs.uiTypeConfigs,
+        sectionId,
+        moduleName,
+        objName,
+        paramName
+      )?.[uiType]
+  );
+
+  const setUiTypes = useStoreActions((actions) => actions.uiTypes.setUiTypes);
+  const setUiTypeConfigs = useStoreActions(
+    (actions) => actions.uiTypeConfigs.setUiTypeConfigs
   );
 
   const onSelect = (e) => {
-    setCurrUIType({
+    setUiTypes({
       sectionId,
       moduleName,
       objName,
@@ -100,18 +132,36 @@ function Item({ sectionId, moduleName, objName, paramName }) {
     });
   };
 
+  const onChange = (uiConfigOption, uiConfigValue) => {
+    setUiTypeConfigs({
+      sectionId,
+      moduleName,
+      objName,
+      paramName,
+      uiType,
+      uiConfigOption,
+      uiConfigValue,
+    });
+  };
+
   return (
     <HStack>
       <Box>{paramName}</Box>
-      <Select placeholder="Select UI Type" onChange={onSelect}>
+      <Select
+        placeholder="Select UI Type"
+        onChange={onSelect}
+        defaultValue={uiType}
+      >
         {menuItems.map((e, idx) => (
           <option value={e} key={`${e}-${idx}`}>
             {e}
           </option>
         ))}
       </Select>
-      <Input placeholder="Min" />
-      <Input placeholder="Max" />
+      <ParamUIConfig
+        uiType={uiType}
+        childProps={{ onChange, savedConfig: uiTypeConfig }}
+      />
     </HStack>
   );
 }
