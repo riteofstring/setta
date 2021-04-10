@@ -2,11 +2,33 @@ import { nullOrUndefined } from "../utils/utils";
 import { Selected } from "./selected";
 import { UITypeProps } from "./uiTypeProps";
 import { Section } from "./section";
+import { SectionInfo } from "./jsonParser";
+
+// start of helper functions
+function _childParamName(parent, paramName) {
+  return !nullOrUndefined(paramName) ? paramName : parent.sectionHeading;
+}
+
+function _childUIType(parent, uiType) {
+  return !nullOrUndefined(uiType) ? uiType : parent.uiTypeProps.uiType;
+}
+
+function _childSectionInfo(parent, moduleName, objName, paramName) {
+  if (parent.uiTypeProps.isListRoot) {
+    return parent.sectionInfo;
+  } else {
+    const paramType =
+      parent.sectionInfo.moduleInfos[moduleName].objs[objName].params[paramName]
+        .type;
+    return paramType instanceof SectionInfo ? paramType : null;
+  }
+}
+//end of helper functions
 
 export class Sections {
   constructor() {
     this.sections = {};
-    this.allChildrenIds = []
+    this.allChildrenIds = [];
     this.latestId = 0;
   }
 
@@ -35,18 +57,14 @@ export class Sections {
   }) => {
     const parent = this.sections[parentId];
     const { moduleName, objName } = parent.selected;
-    const childParamName = !nullOrUndefined(paramName)
-      ? paramName
-      : parent.sectionHeading;
-    const childUIType = !nullOrUndefined(uiType)
-      ? uiType
-      : parent.uiTypeProps.uiType;
-
-    const childSectionInfo = parent.uiTypeProps.isListRoot
-      ? parent.sectionInfo
-      : parent.sectionInfo.moduleInfos[moduleName].objs[objName].params[
-          paramName
-        ].type;
+    const childParamName = _childParamName(parent, paramName);
+    const childUIType = _childUIType(parent, uiType);
+    const childSectionInfo = _childSectionInfo(
+      parent,
+      moduleName,
+      objName,
+      paramName
+    );
 
     let children = [];
     for (let i = 0; i < numChildren; i++) {
@@ -73,7 +91,7 @@ export class Sections {
   deleteSections({ sectionIds, parentId }) {
     sectionIds.forEach((e) => delete this.sections[e]);
     this.sections[parentId].deleteChildren(sectionIds);
-    this.setAllChildrenIds()
+    this.setAllChildrenIds();
   }
 
   addChildren = (parentId, childSections, idx = null) => {
@@ -82,7 +100,7 @@ export class Sections {
       childIds.push(this.addSection(childSection));
     }
     this.sections[parentId].addChildren(childIds, idx);
-    this.setAllChildrenIds()
+    this.setAllChildrenIds();
   };
 
   deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
@@ -156,9 +174,9 @@ export class Sections {
   };
 
   setAllChildrenIds = () => {
-    const listOfLists = Object.keys(this.sections).map(
-      (e) => this.sections[e].getChildrenIds()
+    const listOfLists = Object.keys(this.sections).map((e) =>
+      this.sections[e].getChildrenIds()
     );
-    this.allChildrenIds =  [].concat.apply([], listOfLists);
+    this.allChildrenIds = [].concat.apply([], listOfLists);
   };
 }

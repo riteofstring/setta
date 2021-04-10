@@ -9,7 +9,6 @@ import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
 import sectionPositions from "../models/sectionPositions";
-import currentlySelected from "../models/currentlySelected";
 import parameterDetailsStoreCreator from "../models/parameterDetailsStoreCreator";
 
 const store = createStore({
@@ -23,7 +22,6 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
-  currentlySelected: currentlySelected,
   globalCurr: parameterDetailsStoreCreator("globalCurr", ["paramValue"]),
   savedKwargs: parameterDetailsStoreCreator("savedKwargs", ["exists"]),
   uiTypes: parameterDetailsStoreCreator("uiTypes", ["uiType"]),

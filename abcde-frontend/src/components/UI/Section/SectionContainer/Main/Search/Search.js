@@ -19,9 +19,6 @@ export default function SectionSearch({ sectionId, sectionInfo }) {
     objName: selectedObjName,
   } = useStoreState((state) => state.master.sections.getSelected(sectionId));
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
-  const setCurrentlySelected = useStoreActions(
-    (actions) => actions.currentlySelected.setCurrentlySelected
-  );
 
   const getSearchItems = () => {
     const { moduleInfos } = sectionInfo;
@@ -50,7 +47,6 @@ export default function SectionSearch({ sectionId, sectionInfo }) {
       const [moduleName, objName] = selectedItem;
       if (moduleName !== selectedModuleName || objName !== selectedObjName) {
         setSelected({ sectionId, moduleName, objName });
-        setCurrentlySelected({ sectionId, moduleName, objName });
       }
     }
   };

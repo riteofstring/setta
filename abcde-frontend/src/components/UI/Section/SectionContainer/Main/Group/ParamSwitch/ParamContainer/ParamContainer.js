@@ -67,11 +67,8 @@ export default function ParamContainer(props) {
   ) : (
     <NestedObjectInput
       sectionId={sectionId}
-      moduleName={moduleName}
-      objName={objName}
       paramName={name}
       uiType={uiType}
-      uiTypeConfig={currUiTypeConfig}
     />
   );
 }

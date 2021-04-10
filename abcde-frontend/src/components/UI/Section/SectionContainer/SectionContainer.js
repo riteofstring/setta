@@ -91,11 +91,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 
   console.log(
     "SectionContainerCore",
-    sectionId,
-    parentId,
-    nextId,
-    isList,
-    isListRoot
+    sectionInfo
   );
 
   const showSearch =

@@ -12,20 +12,16 @@ import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/Pa
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
-  const moduleName = useStoreState(
-    (state) => state.currentlySelected.currentlySelected[sectionId]?.moduleName
-  );
-
-  const objName = useStoreState(
-    (state) => state.currentlySelected.currentlySelected[sectionId]?.objName
+  const { moduleName, objName } = useStoreState((state) =>
+    state.master.sections.getSelected(sectionId)
   );
 
   const savedKwargs = useStoreState(
     (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
   );
 
-  const thisSectionInfo = useStoreState(
-    (state) => state.master.sections[sectionId]
+  const thisSectionInfo = useStoreState((state) =>
+    state.master.sections.getSectionInfo(sectionId)
   );
 
   const getParametersAndKwargs = () => {
