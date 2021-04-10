@@ -80,8 +80,10 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   );
 
   const { isList, isListRoot } = useStoreState((state) =>
-    state.master.sections.getListProps(sectionId)
+    state.master.sections.getUITypeProps(sectionId)
   );
+
+  console.log("SectionContainerCore", sectionId, parentId, nextId, isList, isListRoot)
 
   const showSearch =
     sectionInfo && Object.keys(sectionInfo.parameterInfos).length === 0;
@@ -93,7 +95,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
+      {isList && <DragHandle dragControls={dragControls} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}

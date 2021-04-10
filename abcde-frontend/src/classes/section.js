@@ -11,19 +11,15 @@ class Selected {
   }
 }
 
-class ListProps {
-  constructor() {
-    this.isList = false;
-    this.isListRoot = false;
-    this.idx = null;
-
-    this.setIdx = this.setIdx.bind(this);
-  }
-
-  setIdx(idx) {
-    this.idx = idx;
-    this.isList = !nullOrUndefined(idx);
-    this.isListRoot = !nullOrUndefined(idx);
+class UITypeProps {
+  constructor(uiType, parentUITypeProps) {
+    if (uiType === "LIST_NESTED_OBJECT") {
+      this.isList = parentUITypeProps.isListRoot;
+      this.isListRoot = !this.isList;
+    } else {
+      this.isList = false;
+      this.isListRoot = false;
+    }
   }
 }
 
@@ -33,15 +29,13 @@ export class Section {
     this.parent = null;
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
-    this.listProps = new ListProps();
+    this.uiTypeProps = new UITypeProps();
     this.childrenAreCollapsed = {};
     this.isVisible = true;
     this.sectionHeading = sectionHeading;
-    this.stringId = null;
 
     this.getChildrenIds = this.getChildrenIds.bind(this);
     this.addChild = this.addChild.bind(this);
-    this.setListIdx = this.setListIdx.bind(this);
     this.hasNested = this.hasNested.bind(this);
     this.getChildrenAreCollapsed = this.getChildrenAreCollapsed.bind(this);
   }
@@ -57,10 +51,6 @@ export class Section {
     } else {
       x.splice(idx, 0, childId);
     }
-  }
-
-  setListIdx(idx) {
-    this.listProps.setIdx(idx);
   }
 
   hasNested() {
@@ -82,10 +72,9 @@ export class Sections {
     this.latestId = 0;
 
     this.addSection = this.addSection.bind(this);
-    this.addChild = this.addChild.bind(this);
     this.getRootIds = this.getRootIds.bind(this);
     this.getChildrenIds = this.getChildrenIds.bind(this);
-    this.getListProps = this.getListProps.bind(this);
+    this.getUITypeProps = this.getUITypeProps.bind(this);
     this.getSelected = this.getSelected.bind(this);
     this.getSectionHeading = this.getSectionHeading.bind(this);
     this.getHasNested = this.getHasNested.bind(this);
@@ -93,26 +82,26 @@ export class Sections {
     this.getSectionInfo = this.getSectionInfo.bind(this);
   }
 
-  createChild({ sectionId, moduleName, objName, paramName }) {
+  createChild({ sectionId, moduleName, objName, paramName, uiType }) {
     const parent = this.sections[sectionId];
     const child = new Section(
       parent.sectionInfo.moduleInfos[moduleName].objs[objName].paramName,
       paramName
     );
     child.parent = sectionId;
+    child.uiTypeProps = new UITypeProps(uiType, parent.uiTypeProps);
     return child;
   }
 
   addSection(section) {
     const sectionId = this.latestId;
-    this.sections[this.latestId] = section;
+    this.sections[sectionId] = section;
     this.latestId += 1;
     return sectionId;
   }
 
   addChild(childSection, idx = null) {
     const childId = this.addSection(childSection);
-    this.sections[childId].setListIdx(idx);
     this.sections[childSection.parent].addChild(childId, idx);
   }
 
@@ -129,8 +118,8 @@ export class Sections {
     return this.sections[id].getChildrenIds();
   }
 
-  getListProps(id) {
-    return this.sections[id].listProps;
+  getUITypeProps(id) {
+    return this.sections[id].uiTypeProps;
   }
 
   getSelected(id) {
@@ -162,9 +151,7 @@ export class Sections {
   }
 
   setChildrenAreCollapsed({ sectionId, childrenAreCollapsed }) {
-    return this.sections[sectionId].setChildrenAreCollapsed(
-      childrenAreCollapsed
-    );
+    this.sections[sectionId].setChildrenAreCollapsed(childrenAreCollapsed);
   }
 
   numRootIds() {

@@ -11,7 +11,6 @@ export default function SectionListItems({ listOfSectionIdsAndNames, pageNum }) 
               sectionId={e.sectionId}
               sectionHeading={e.sectionHeading}
               isList={e.isList}
-              isListRoot={e.isListRoot}
               pageNum={pageNum}
             />
           </Stack>

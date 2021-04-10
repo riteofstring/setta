@@ -27,7 +27,7 @@ export function SectionHeader({
       )}
       <SectionTitle sectionHeading={sectionHeading} currObjectName={objName} />
 
-      {isList && (
+      {(isList || isListRoot) && (
         <>
           <Spacer />
           <Incrementer

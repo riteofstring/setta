@@ -22,9 +22,11 @@ export default function NestedSection({
   const isVisible = useStoreState((state) =>
     state.master.sections.getIsVisible(sectionId)
   );
-  const { isList, isListRoot } = useStoreState((state) =>
-    state.master.sections.getListProps(sectionId)
+  const { isList } = useStoreState((state) =>
+    state.master.sections.getUITypeProps(sectionId)
   );
+
+  console.log("sectionId, isList", sectionId, isList);
 
   const getNestedSection = (dragControls) => {
     return (
@@ -83,9 +85,7 @@ export default function NestedSection({
         boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
       >
         <Grid gap={2}>
-          {isList && !isListRoot
-            ? MotionDivWrapper(getNestedSection)
-            : getNestedSection()}
+          {isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
         </Grid>
       </Stack>
     )

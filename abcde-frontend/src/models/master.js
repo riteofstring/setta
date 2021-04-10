@@ -24,7 +24,6 @@ const master = {
   sections: new Sections(),
   availableModules: {},
   availableParameters: {},
-  stringIdsToSectionIds: {},
 
   // actions
   // Load DATA
@@ -47,7 +46,6 @@ const master = {
       state.sections.addSection(
         new Section(new SectionInfo(key, combinedJsons), key)
       );
-      // state.stringIdsToSectionIds[id] = id;
     }
     state.pageMinMaxList = getPageMinMaxList(
       state.sections.numRootIds(),

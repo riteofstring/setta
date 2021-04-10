@@ -11,60 +11,60 @@ export default function Incrementer({
   nextId,
   isListRoot,
 }) {
-  const permanentlyDeleteSection = useStoreActions(
-    (actions) => actions.master.permanentlyDeleteSection
-  );
+  // const permanentlyDeleteSection = useStoreActions(
+  //   (actions) => actions.master.permanentlyDeleteSection
+  // );
 
-  const permanentlyDeleteMultipleSections = useStoreActions(
-    (actions) => actions.master.permanentlyDeleteMultipleSections
-  );
+  // const permanentlyDeleteMultipleSections = useStoreActions(
+  //   (actions) => actions.master.permanentlyDeleteMultipleSections
+  // );
 
-  const addToVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.addToVisibleSectionIdsThunk
-  );
+  // const addToVisibleSectionIdsThunk = useStoreActions(
+  //   (actions) => actions.master.addToVisibleSectionIdsThunk
+  // );
 
   const selected = useStoreState(
-    (actions) => actions.master.idHierarchy[parentId]
+    (actions) => actions.master.sections.getSelected(parentId)
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].children,
+    (state) => state.master.sections.getChildrenIds(sectionId),
     arraysAreEqual
   );
 
-  const sectionHeading = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].sectionHeading
-  );
+  // const sectionHeading = useStoreState(
+  //   (state) => state.master.sections[sectionId].sectionHeading
+  // );
 
   const decrementButtonCondition = () => {
     return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
   };
 
   const addSections = (numSections) => {
-    for (let i = 0; i < numSections; i++) {
-      addToVisibleSectionIdsThunk({
-        name: sectionHeading,
-        parentId: isListRoot ? sectionId : parentId,
-        moduleName: selected.moduleName,
-        objName: selected.objName,
-        isList: true,
-        siblingId: sectionId,
-      });
-    }
+    // for (let i = 0; i < numSections; i++) {
+    //   addToVisibleSectionIdsThunk({
+    //     name: sectionHeading,
+    //     parentId: isListRoot ? sectionId : parentId,
+    //     moduleName: selected.moduleName,
+    //     objName: selected.objName,
+    //     isList: true,
+    //     siblingId: sectionId,
+    //   });
+    // }
   };
 
   const deleteSections = (numSections) => {
-    if ((isListRoot && childrenIds.length > 0) || nextId) {
-      permanentlyDeleteMultipleSections({
-        parentId: isListRoot ? sectionId : parentId,
-        startingId: isListRoot ? null : nextId,
-        numSectionsToDelete: numSections,
-      });
-    }
+    // if ((isListRoot && childrenIds.length > 0) || nextId) {
+    //   permanentlyDeleteMultipleSections({
+    //     parentId: isListRoot ? sectionId : parentId,
+    //     startingId: isListRoot ? null : nextId,
+    //     numSectionsToDelete: numSections,
+    //   });
+    // }
   };
 
   const deleteThisSection = () => {
-    permanentlyDeleteSection({ sectionId, parentId });
+    // permanentlyDeleteSection({ sectionId, parentId });
   };
 
   const [numSections, setNumSections] = useState(1);
