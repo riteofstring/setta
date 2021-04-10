@@ -61,4 +61,11 @@ export class Section {
   setHasBeenVisited = (hasBeenVisited) => {
     this.hasBeenVisited[this.selected.asString()] = hasBeenVisited;
   };
+
+  setChildrenIds = (childrenIds) => {
+    const key = this.selected.asString();
+    if (!nullOrUndefined(key)) {
+      this.childrenIds[key] = childrenIds;
+    }
+  };
 }

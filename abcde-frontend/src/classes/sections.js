@@ -144,6 +144,10 @@ export class Sections {
     this.sections[sectionId].setChildrenAreCollapsed(childrenAreCollapsed);
   };
 
+  setChildrenIds = ({ sectionId, childrenIds }) => {
+    this.sections[sectionId].setChildrenIds(childrenIds);
+  };
+
   numRootIds = () => {
     return this.getRootIds().length;
   };

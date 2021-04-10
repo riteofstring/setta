@@ -68,7 +68,7 @@ export default function NestedSection({
         dragListener={false}
         dragControls={dragControls}
       >
-        {inner(dragControls, isDragging)}
+        {inner(dragControls)}
       </motion.div>
     );
   };
