@@ -26,8 +26,8 @@ export default function DrawerContainer(props) {
         borderRadius,
       }}
     >
-      <DrawerButton />
-      <DrawerPane>{props.children}</DrawerPane>
+      <DrawerButton>{props.children}</DrawerButton>
+      <DrawerPane />
     </DrawerContext.Provider>
   );
 }
