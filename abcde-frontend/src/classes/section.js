@@ -1,4 +1,4 @@
-import { nullOrUndefined, defaultDict } from "../utils/utils";
+import { nullOrUndefined, defaultDict, insertIntoArray } from "../utils/utils";
 import { debug } from "easy-peasy";
 
 class Selected {
@@ -36,7 +36,6 @@ export class Section {
     this.selected = new Selected();
     this.uiTypeProps = new UITypeProps();
     this.childrenAreCollapsed = {};
-    this.isVisible = true;
     this.sectionHeading = sectionHeading;
   }
 
@@ -52,10 +51,13 @@ export class Section {
     const key = this.selected.asString();
     if (idx === null) {
       this.childrenIds[key] = [...this.childrenIds[key], childId];
+    } else {
+      this.childrenIds[key] = insertIntoArray(
+        this.childrenIds[key],
+        idx,
+        childId
+      );
     }
-    // } else {
-    //   x.splice(idx, 0, childId);
-    // }
   };
 
   deleteChild = (childId) => {
@@ -82,8 +84,27 @@ export class Sections {
     this.latestId = 0;
   }
 
-  createChild = ({ sectionId, moduleName, objName, paramName, uiType }) => {
-    const parent = this.sections[sectionId];
+  determineNewChildIdx = (parent, sourceId) => {
+    if (!nullOrUndefined(sourceId)) {
+      const { isList, isListRoot } = this.sections[sourceId].uiTypeProps;
+      if (isList) {
+        return parent.getChildrenIds().indexOf(sourceId) + 1;
+      } else if (isListRoot) {
+        return 0;
+      }
+    }
+    return null;
+  };
+
+  createChild = ({
+    parentId,
+    sourceId,
+    moduleName,
+    objName,
+    paramName,
+    uiType,
+  }) => {
+    const parent = this.sections[parentId];
     const childParamName = !nullOrUndefined(paramName)
       ? paramName
       : parent.sectionHeading;
@@ -97,12 +118,13 @@ export class Sections {
           paramName
         ].type;
     const child = new Section(childSectionInfo, childParamName);
-    child.parent = sectionId.toString();
+    child.parent = parentId.toString();
     child.uiTypeProps = new UITypeProps(childUIType, parent.uiTypeProps);
     if (child.uiTypeProps.isListRoot) {
       child.selected = new Selected(moduleName, objName);
     }
-    return child;
+    const idx = this.determineNewChildIdx(parent, sourceId);
+    return { child, idx };
   };
 
   addSection = (section) => {
@@ -158,10 +180,6 @@ export class Sections {
 
   getSectionInfo = (id) => {
     return this.sections[id].sectionInfo;
-  };
-
-  getIsVisible = (id) => {
-    return this.sections[id].isVisible;
   };
 
   setSelected = ({ sectionId, moduleName, objName }) => {

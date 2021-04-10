@@ -19,9 +19,6 @@ export default function NestedSection({
   const childrenAreCollapsed = useStoreState((state) =>
     state.master.sections.getChildrenAreCollapsed(parentId)
   );
-  const isVisible = useStoreState((state) =>
-    state.master.sections.getIsVisible(sectionId)
-  );
   const { isList } = useStoreState((state) =>
     state.master.sections.getUITypeProps(sectionId)
   );
@@ -77,17 +74,15 @@ export default function NestedSection({
   };
 
   return (
-    isVisible && (
-      <Stack
-        direction="column"
-        pl="1rem"
-        ml=".5rem"
-        boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
-      >
-        <Grid gap={2}>
-          {isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
-        </Grid>
-      </Stack>
-    )
+    <Stack
+      direction="column"
+      pl="1rem"
+      ml=".5rem"
+      boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
+    >
+      <Grid gap={2}>
+        {isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
+      </Grid>
+    </Stack>
   );
 }

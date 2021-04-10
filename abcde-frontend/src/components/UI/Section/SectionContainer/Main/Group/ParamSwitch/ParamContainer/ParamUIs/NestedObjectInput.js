@@ -60,7 +60,7 @@ export default function NestedObjectInput({
 
   useEffect(() => {
     addChild({
-      sectionId,
+      parentId: sectionId,
       moduleName,
       objName,
       paramName,

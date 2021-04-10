@@ -98,13 +98,15 @@ const master = {
   }),
 
   addChild: action((state, payload) => {
-    const child = state.sections.createChild({ ...payload });
-    state.sections.addChild(child);
+    const { child, idx } = state.sections.createChild({ ...payload });
+    state.sections.addChild(child, idx);
   }),
 
   deleteSection: action((state, payload) => {
-    state.sections.deleteSection({...payload});
+    state.sections.deleteSection({ ...payload });
   }),
+
+  deleteMultipleSections: action((state, payload) => {}),
 
   // addToVisibleSectionIds: action((state, payload) => {
   //   const {

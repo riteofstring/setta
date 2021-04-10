@@ -12,7 +12,12 @@ export default function Incrementer({
   isListRoot,
 }) {
   const addChild = useStoreActions((actions) => actions.master.addChild);
-  const deleteSection = useStoreActions((actions) => actions.master.deleteSection);
+  const deleteSection = useStoreActions(
+    (actions) => actions.master.deleteSection
+  );
+  const deleteMultipleSections = useStoreActions(
+    (actions) => actions.master.deleteMultipleSections
+  );
 
   const { moduleName, objName } = useStoreState((actions) =>
     actions.master.sections.getSelected(parentId)
@@ -30,7 +35,8 @@ export default function Incrementer({
   const addSections = (numSections) => {
     for (let i = 0; i < numSections; i++) {
       addChild({
-        sectionId: isListRoot ? sectionId : parentId,
+        parentId: isListRoot ? sectionId : parentId,
+        sourceId: sectionId,
         moduleName,
         objName,
       });
@@ -38,13 +44,13 @@ export default function Incrementer({
   };
 
   const deleteSections = (numSections) => {
-    // if ((isListRoot && childrenIds.length > 0) || nextId) {
-    //   permanentlyDeleteMultipleSections({
-    //     parentId: isListRoot ? sectionId : parentId,
-    //     startingId: isListRoot ? null : nextId,
-    //     numSectionsToDelete: numSections,
-    //   });
-    // }
+    if ((isListRoot && childrenIds.length > 0) || nextId) {
+      deleteMultipleSections({
+        parentId: isListRoot ? sectionId : parentId,
+        startingId: isListRoot ? null : nextId,
+        numSectionsToDelete: numSections,
+      });
+    }
   };
 
   const deleteThisSection = () => {
