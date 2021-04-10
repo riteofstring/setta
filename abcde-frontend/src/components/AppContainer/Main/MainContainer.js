@@ -20,11 +20,11 @@ export default function MainContainer() {
       templateColumns="1fr"
       borderColor="gray.200"
     >
-      {/* <SubNav />
+      <SubNav />
 
       <Overview />
 
-      <UiEditor /> */}
+      <UiEditor />
 
       <GridItem
         colStart="1"

@@ -12,9 +12,14 @@ import { useState, useEffect } from "react";
 import { getParameters } from "../../../../../../utils/utils";
 
 export default function GroupContainer({ sectionId, sectionInfo }) {
-  const {moduleName, objName} = useStoreState(
-    (state) => state.master.sections.getSelected(sectionId)
+  const moduleName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].moduleName
   );
+
+  const objName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].objName
+  );
+
   const savedKwargs = useStoreState(
     (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
   );

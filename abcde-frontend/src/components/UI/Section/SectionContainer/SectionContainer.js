@@ -13,6 +13,7 @@ import { SECTIONWIDTH } from "../../../../utils/constants";
 
 function SectionContainer({
   sectionId,
+  rootId,
   parentId,
   nextId,
   depth,
@@ -29,7 +30,7 @@ function SectionContainer({
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.sections.getChildrenIds(sectionId),
+    (state) => state.master.idHierarchy[sectionId].children,
     arraysAreEqual
   );
 
@@ -60,6 +61,7 @@ function SectionContainer({
           return (
             <NestedSection
               parentId={sectionId}
+              rootId={rootId}
               sectionId={e}
               nextId={order[idx + 1]}
               idx={idx}
@@ -75,12 +77,15 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const sectionInfo = useStoreState((state) =>
-    state.master.sections.getSectionInfo(sectionId)
+  const sectionInfo = useStoreState(
+    (state) => state.master.sections[sectionId]
   );
 
-  const { isList, isListRoot } = useStoreState((state) =>
-    state.master.sections.getListProps(sectionId)
+  const isList = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].isList
+  );
+  const isListRoot = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
   const showSearch =
@@ -104,7 +109,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
         />
         {!isListRoot && (
           <Stack>
-            {showSearch && <SectionSearch sectionId={sectionId} sectionInfo={sectionInfo} />}
+            {showSearch && <SectionSearch sectionId={sectionId} />}
             <GroupContainer sectionId={sectionId} sectionInfo={sectionInfo} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
