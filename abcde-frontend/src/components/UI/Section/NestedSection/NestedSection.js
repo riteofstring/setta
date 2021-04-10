@@ -9,7 +9,6 @@ const borderLeft = theme.colors.gray;
 
 export default function NestedSection({
   parentId,
-  rootId,
   sectionId,
   nextId,
   idx,
@@ -17,25 +16,21 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
 }) {
-  const isShown = useStoreState(
-    (state) => state.master.idHierarchy[parentId].isShown
+  const childrenAreCollapsed = useStoreState((state) =>
+    state.master.sections.getChildrenAreCollapsed(parentId)
   );
-  const isVisible = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isVisible
+  const isVisible = useStoreState((state) =>
+    state.master.sections.getIsVisible(sectionId)
   );
-  const isList = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isList
-  );
-  const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
+  const { isList, isListRoot } = useStoreState((state) =>
+    state.master.sections.getListProps(sectionId)
   );
 
   const getNestedSection = (dragControls) => {
     return (
-      isShown && (
+      !childrenAreCollapsed && (
         <SectionContainer
           sectionId={sectionId}
-          rootId={rootId}
           parentId={parentId}
           nextId={nextId}
           depth={depth}

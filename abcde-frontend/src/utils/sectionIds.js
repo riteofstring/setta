@@ -4,26 +4,6 @@ const OBJ = "O:";
 const PARAM = "P:";
 const LIST_POSITION = "L:";
 
-export const newIdInHierarchy = (input) => {
-  return {
-    parent: null,
-    children: [],
-    moduleName: null,
-    objName: null,
-    parentModuleName: null,
-    parentObjName: null,
-    hasNested: false,
-    isList: null,
-    isListRoot: false,
-    listCount: 0,
-    isShown: true,
-    isVisible: true,
-    sectionHeading: null,
-    stringId: null,
-    ...input,
-  };
-};
-
 export const createStringId = (
   sectionId,
   moduleName = null,
@@ -52,7 +32,7 @@ export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   let output = [];
   for (let x = 0; x < numPages; x++) {
     output.push({
-      minId: x * sectionsPerPage + 1,
+      minId: x * sectionsPerPage,
       maxId: (x + 1) * sectionsPerPage,
     });
   }

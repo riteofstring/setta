@@ -2,6 +2,24 @@ export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
 
+export function nullOrUndefined(x){
+  return x === null || x === undefined
+}
+
+
+// https://stackoverflow.com/a/63954561
+export function defaultDict(defaultValueFn) {
+  const handler = {
+    get: (obj, prop) => {
+      if(!(prop in obj)) obj[prop] = defaultValueFn();
+      return obj[prop];
+    },  
+  };
+  return new Proxy({}, handler);
+}
+
+
+
 function getParametersHelper(paramSource) {
   let returnParameters = [];
   for (let key of Object.keys(paramSource)) {
