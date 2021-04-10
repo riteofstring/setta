@@ -1,11 +1,11 @@
 import { action, thunk, debug } from "easy-peasy";
 import Data from "../data/simpleTrainTest.json";
-import { Section } from "../utils/jsonParser";
+import { SectionInfo } from "../classes/jsonParser";
+import { Section, Sections } from "../classes/section";
 import {
   createStringId,
   setChildrenVisibility,
   createExportableObject,
-  newIdInHierarchy,
 } from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
 import {
@@ -22,10 +22,9 @@ const master = {
   spaceBetweenPages: 500,
   sectionCount: 0,
   pageMinMaxList: [],
-  sections: {},
+  sections: new Sections(),
   availableModules: {},
   availableParameters: {},
-  idHierarchy: {},
   stringIdsToSectionIds: {},
 
   // actions
@@ -48,11 +47,10 @@ const master = {
       }
       state.sectionCount += 1;
       const id = state.sectionCount;
-      state.sections[id] = new Section(key, combinedJsons);
-      state.idHierarchy[id] = newIdInHierarchy({
-        sectionHeading: key,
-        stringId: id,
-      });
+      state.sections.addSection(
+        id,
+        new Section(id, new SectionInfo(key, combinedJsons))
+      );
       state.stringIdsToSectionIds[id] = id;
     }
     state.pageMinMaxList = getPageMinMaxList(
@@ -91,21 +89,20 @@ const master = {
   }),
 
   // Show/Collapse button
-  setIsShown: action((state, payload) => {
-    const { sectionId, isShown } = payload;
-    state.idHierarchy[sectionId].isShown = isShown;
+  setChildrenAreCollapsed: action((state, payload) => {
+    const { sectionId, childrenAreCollapsed } = payload;
+    state.sections[sectionId].childrenAreCollapsed = childrenAreCollapsed;
   }),
 
   // stores what fields to show
   setSelected: action((state, payload) => {
     const { sectionId, moduleName, objName } = payload;
-    state.idHierarchy[sectionId].moduleName = moduleName;
-    state.idHierarchy[sectionId].objName = objName;
+    state.sections[sectionId].selected = { moduleName, objName };
   }),
 
   setChildrenIds: action((state, payload) => {
     const { sectionId, childrenIds } = payload;
-    state.idHierarchy[sectionId].children = childrenIds;
+    state.sections[sectionId].childrenIds = childrenIds;
   }),
 
   addToVisibleSectionIds: action((state, payload) => {
@@ -178,11 +175,11 @@ const master = {
 
   permanentlyDeleteSection: action((state, payload) => {
     const { sectionId, parentId } = payload;
-    if (sectionId in state.idHierarchy){
+    if (sectionId in state.idHierarchy) {
       const stringId = state.idHierarchy[sectionId].stringId;
       delete state.stringIdsToSectionIds[stringId];
       delete state.idHierarchy[sectionId];
-      delete state.sections[sectionId]
+      delete state.sections[sectionId];
     }
     const parentObj = state.idHierarchy[parentId];
     parentObj.children = parentObj.children.filter((x) => x !== sectionId);

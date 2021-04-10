@@ -1,5 +1,5 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { Section } from "../../../../../../../../../utils/jsonParser";
+import { SectionInfo } from "../../../../../../../../../classes/jsonParser";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { useEffect } from "react";
 import {
@@ -67,8 +67,8 @@ export default function NestedObjectInput({
       ).type,
     //only care about x -> Section or Section -> x
     (prev, next) =>
-      (!(prev instanceof Section) && !(next instanceof Section)) ||
-      (prev instanceof Section && next instanceof Section)
+      (!(prev instanceof SectionInfo) && !(next instanceof SectionInfo)) ||
+      (prev instanceof SectionInfo && next instanceof SectionInfo)
   );
 
   const uiTypeSetByUser = useStoreState((state) =>
@@ -153,7 +153,7 @@ export default function NestedObjectInput({
 
   useEffect(() => {
     if (requiresNestedSection(uiType)) {
-      const newSectionInfo = new Section(
+      const newSectionInfo = new SectionInfo(
         paramName,
         combineModules(
           availableModules,
@@ -171,7 +171,7 @@ export default function NestedObjectInput({
   }, [uiTypeConfig]);
 
   useEffect(() => {
-    if (requiresNestedSection(uiType) && nestedSectionInfo instanceof Section) {
+    if (requiresNestedSection(uiType) && nestedSectionInfo instanceof SectionInfo) {
       const newNestedSectionId = addToVisibleSectionIdsThunk({
         name: paramName,
         parentId: sectionId,

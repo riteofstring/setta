@@ -20,14 +20,14 @@ class ParameterInfo {
     this.type = jsonInput.type;
     this.defaultUIType = jsonInput.ui_type;
     if (!(typeof this.type === "string")) {
-      this.type = new Section(this.name, this.type);
+      this.type = new SectionInfo(this.name, this.type);
     }
   }
 }
 
 class ObjInfo {
   constructor(name, jsonInput) {
-    let infoTypes = { ParameterInfo: ParameterInfo };
+    const infoTypes = { ParameterInfo };
     this.name = name;
     this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false);
   }
@@ -35,15 +35,15 @@ class ObjInfo {
 
 class ModuleInfo {
   constructor(name, jsonInput) {
-    let infoTypes = { ObjInfo: ObjInfo };
+    const infoTypes = { ObjInfo };
     this.name = name;
     this.objs = getInfos(jsonInput, infoTypes, "ObjInfo", false);
   }
 }
 
-export class Section {
+export class SectionInfo {
   constructor(name, jsonInput) {
-    let infoTypes = { ModuleInfo: ModuleInfo, ParameterInfo: ParameterInfo };
+    const infoTypes = { ModuleInfo, ParameterInfo };
     this.name = name;
     this.moduleInfos = getInfos(jsonInput, infoTypes, "ModuleInfo", true);
     this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
