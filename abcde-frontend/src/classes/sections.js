@@ -6,6 +6,7 @@ import { Section } from "./section";
 export class Sections {
   constructor() {
     this.sections = {};
+    this.allChildrenIds = []
     this.latestId = 0;
   }
 
@@ -72,6 +73,7 @@ export class Sections {
   deleteSections({ sectionIds, parentId }) {
     sectionIds.forEach((e) => delete this.sections[e]);
     this.sections[parentId].deleteChildren(sectionIds);
+    this.setAllChildrenIds()
   }
 
   addChildren = (parentId, childSections, idx = null) => {
@@ -80,6 +82,7 @@ export class Sections {
       childIds.push(this.addSection(childSection));
     }
     this.sections[parentId].addChildren(childIds, idx);
+    this.setAllChildrenIds()
   };
 
   deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
@@ -150,5 +153,12 @@ export class Sections {
 
   numRootIds = () => {
     return this.getRootIds().length;
+  };
+
+  setAllChildrenIds = () => {
+    const listOfLists = Object.keys(this.sections).map(
+      (e) => this.sections[e].getChildrenIds()
+    );
+    this.allChildrenIds =  [].concat.apply([], listOfLists);
   };
 }

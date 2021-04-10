@@ -1,32 +1,3 @@
-const SEPARATOR = ",";
-const MODULE = "M:";
-const OBJ = "O:";
-const PARAM = "P:";
-const LIST_POSITION = "L:";
-
-export const createStringId = (
-  sectionId,
-  moduleName = null,
-  objName = null,
-  paramName = null,
-  extraIdentifier = null
-) => {
-  let id = sectionId;
-  if (moduleName != null) {
-    id += SEPARATOR + MODULE + moduleName;
-  }
-  if (objName != null) {
-    id += SEPARATOR + OBJ + objName;
-  }
-  if (paramName !== null) {
-    id += SEPARATOR + PARAM + paramName;
-  }
-  if (extraIdentifier !== null) {
-    id += SEPARATOR + LIST_POSITION + extraIdentifier;
-  }
-  return id;
-};
-
 export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
   let output = [];
@@ -39,74 +10,34 @@ export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   return output;
 };
 
-export const getRootIds = (idHierarchy, minId, maxId) => {
-  return Object.keys(idHierarchy).filter(
-    (e) =>
-      parseInt(e) >= minId &&
-      parseInt(e) <= maxId &&
-      idHierarchy[e].parent === null
-  );
-};
-
-export const getOverviewListing = (idHierarchy, pageMinMaxList) => {
+export const getOverviewListing = (sections, pageMinMaxList) => {
   let outputList = [];
   for (let minMax of pageMinMaxList) {
     outputList.push([]);
-    for (let sectionId of getRootIds(idHierarchy, minMax.minId, minMax.maxId)) {
+    for (let sectionId of sections.getRootIds(minMax.minId, minMax.maxId)) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, idHierarchy, 0)
+        ...getOverviewListingHelper(sectionId, sections.sections, 0)
       );
     }
   }
   return outputList;
 };
 
-export const getOverviewListingHelper = (sectionId, idHierarchy, depth) => {
+export const getOverviewListingHelper = (sectionId, sections, depth) => {
   let outputList = [];
-  const currSection = idHierarchy[sectionId];
-  if (currSection.isVisible) {
-    outputList.push({
-      sectionId,
-      sectionHeading: currSection.sectionHeading,
-      isList: currSection.isList,
-      isListRoot: currSection.isListRoot,
-      depth: depth,
-    });
-    for (let childId of idHierarchy[sectionId].children) {
-      outputList.push(
-        ...getOverviewListingHelper(childId, idHierarchy, depth + 1)
-      );
-    }
+  const currSection = sections[sectionId];
+
+  outputList.push({
+    sectionId,
+    sectionHeading: currSection.sectionHeading,
+    isList: currSection.uiTypeProps.isList,
+    isListRoot: currSection.uiTypeProps.isListRoot,
+    depth: depth,
+  });
+  for (let childId of currSection.getChildrenIds()) {
+    outputList.push(...getOverviewListingHelper(childId, sections, depth + 1));
   }
   return outputList;
-};
-
-export const setChildrenVisibility = (
-  children,
-  idHierarchy,
-  visibility,
-  parentModuleName = null,
-  parentObjName = null
-) => {
-  for (let x of children) {
-    const child = idHierarchy[x];
-    if (parentModuleName === null) {
-      idHierarchy[x].isVisible = visibility;
-      setChildrenVisibility(child.children, idHierarchy, visibility);
-    } else if (
-      child.parentModuleName === parentModuleName &&
-      child.parentObjName === parentObjName
-    ) {
-      idHierarchy[x].isVisible = visibility;
-      setChildrenVisibility(
-        child.children,
-        idHierarchy,
-        visibility,
-        child.moduleName,
-        child.objName
-      );
-    }
-  }
 };
 
 const createExportableParams = ({
@@ -176,19 +107,19 @@ export const createExportableObject = ({
   isListRoot,
   globalCurr,
 }) => {
-  let output = {};
-  for (let id of getRootIds(idHierarchy)) {
-    const sectionName = sectionIdsToSectionHeadings[id];
-    const currSelected = idHierarchy[id];
-    output[sectionName] = createExportableParams({
-      currSelected,
-      idHierarchy,
-      sectionIdsToSectionHeadings,
-      isList,
-      isListRoot,
-      globalCurr,
-      id,
-    });
-  }
-  return output;
+  // let output = {};
+  // for (let id of getRootIds(idHierarchy)) {
+  //   const sectionName = sectionIdsToSectionHeadings[id];
+  //   const currSelected = idHierarchy[id];
+  //   output[sectionName] = createExportableParams({
+  //     currSelected,
+  //     idHierarchy,
+  //     sectionIdsToSectionHeadings,
+  //     isList,
+  //     isListRoot,
+  //     globalCurr,
+  //     id,
+  //   });
+  // }
+  // return output;
 };

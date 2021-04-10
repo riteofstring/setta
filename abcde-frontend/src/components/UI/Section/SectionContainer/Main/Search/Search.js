@@ -18,16 +18,10 @@ export default function SectionSearch({ sectionId, sectionInfo }) {
     moduleName: selectedModuleName,
     objName: selectedObjName,
   } = useStoreState((state) => state.master.sections.getSelected(sectionId));
-  // const sectionHasNested = useStoreState(
-  //   (state) => state.master.sections[sectionId].hasNested
-  // );
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
   const setCurrentlySelected = useStoreActions(
     (actions) => actions.currentlySelected.setCurrentlySelected
   );
-  // const deleteChildrenFromVisibleSectionIds = useStoreActions(
-  //   (actions) => actions.master.deleteChildrenFromVisibleSectionIds
-  // );
 
   const getSearchItems = () => {
     const { moduleInfos } = sectionInfo;
@@ -55,11 +49,6 @@ export default function SectionSearch({ sectionId, sectionInfo }) {
     if (selectedItem) {
       const [moduleName, objName] = selectedItem;
       if (moduleName !== selectedModuleName || objName !== selectedObjName) {
-        // if (sectionHasNested) {
-        //   deleteChildrenFromVisibleSectionIds({
-        //     sectionId,
-        //   });
-        // }
         setSelected({ sectionId, moduleName, objName });
         setCurrentlySelected({ sectionId, moduleName, objName });
       }
