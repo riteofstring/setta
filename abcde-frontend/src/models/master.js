@@ -1,5 +1,5 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/simpleTrainTest.json";
+import Data from "../data/data.json";
 import { SectionInfo } from "../classes/jsonParser";
 import { Section, Sections } from "../classes/section";
 import {

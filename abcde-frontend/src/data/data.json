@@ -1,567 +1,183 @@
 {
-  "Model": {
-    "ModuleInfo": {
-      "torchvision.models": {
-        "resnet101": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
+    "MODULES": {
+      "transforms": {
+      "ModuleInfo": {
+        "torchvision.transforms": {
+          "No compose!": {
+            "Trump": {
+              "default_val": "0",
+              "type": "_empty",
+              "ui_type": "UNKNOWN"
+            },
+            "Biden": {
+              "default_val": "0",
+              "type": "_empty",
+              "ui_type": "UNKNOWN"
+            },
+            "Jorg": {
+              "default_val": "0",
+              "type": "_empty",
+              "ui_type": "UNKNOWN"
+            }
           },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "resnet152": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "resnet18": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          },
-          "ANOTHER_ARG": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "resnet34": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "resnet50": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "resnext101_32x8d": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "resnext50_32x4d": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "wide_resnet101_2": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "wide_resnet50_2": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "densenet161": {
-          "pretrained": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        }
-      },
-      "another.Model": {
-        "testnet201": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        },
-        "testnet252": {
-          "pretrained": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "CRAZY_SHIT"
-          },
-          "progress": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "kwargs": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "TEXT"
-          }
-        }
-      }
-    }
-  },
-  "Other Stuff": {
-    "ParameterInfo": {
-      "dataset_root": {
-        "default_val": ".",
-        "type": "",
-        "ui_type": "UNKNOWN"
-      },
-      "batch_size": {
-        "type": "int",
-        "default_val": "",
-        "ui_type": "INT"
-      },
-      "name": {
-        "default_val": "",
-        "type": "",
-        "ui_type": "UNKNOWN"
-      },
-      "weights": {
-        "type": "torch.Tensor",
-        "default_val": "",
-        "ui_type": "LIST"
-      }
-    }
-  },
-  "Dataset": {
-    "ModuleInfo": {
-      "torchvision.datasets": {
-        "CIFAR10": {
-          "root": {
-            "default_val": "_empty",
-            "type": "str",
-            "ui_type": "TEXT"
-          },
-          "train": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "transform": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "target_transform": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "download": {
-            "default_val": "False",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "transforms": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          }
-        },
-        "CIFAR100": {
-          "root": {
-            "default_val": "_empty",
-            "type": "str",
-            "ui_type": "TEXT"
-          },
-          "train": {
-            "default_val": "True",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "transform": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "target_transform": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "download": {
-            "default_val": "False",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "transforms": {
-            "default_val": "None",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          }
-        }
-      }
-    }
-  },
-  "Transform": {
-    "ModuleInfo": {
-      "torchvision.transforms": {
-        "No compose!": {
-          "Trump": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "Biden": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "Jorg": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          }
-        },
-        "Compose": {
-          "transforms": {
-            "default_val": "_empty",
-            "type": {
-              "ModuleInfo": {
-                "torchvision.transforms": {
-                  "ColorJitter": {
-                    "brightness": {
-                      "default_val": "0",
-                      "type": {
-                        "ModuleInfo": {
-                          "torchvision.transforms": {
-                            "Jupiter": {
-                              "Uranus": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "Pluto": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "Saturn": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
+          "Compose": {
+            "transforms": {
+              "default_val": "_empty",
+              "type": {
+                "ModuleInfo": {
+                  "torchvision.transforms": {
+                    "ColorJitter": {
+                      "brightness": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "Jupiter": {
+                                "Uranus": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "Pluto": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "Saturn": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
                               }
                             }
                           }
-                        }
+                        },
+                        "ui_type": "NESTED_OBJECT"
                       },
-                      "ui_type": "NESTED_OBJECT"
-                    },
-                    "contrast": {
-                      "default_val": "0",
-                      "type": {
-                        "ModuleInfo": {
-                          "torchvision.transforms": {
-                            "shit": {
-                              "oh": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "lawd": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
+                      "contrast": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "shit": {
+                                "oh": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "lawd": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
                               }
                             }
                           }
-                        }
+                        },
+                        "ui_type": "NESTED_OBJECT"
                       },
-                      "ui_type": "NESTED_OBJECT"
-                    },
-                    "saturation": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    },
-                    "hue": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    }
-                  },
-                  "GorillaMode": {
-                    "girth": {
-                      "default_val": "0",
-                      "type": {
-                        "ModuleInfo": {
-                          "torchvision.transforms": {
-                            "GORILLA BALLS": {
-                              "strength": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "width": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "height": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              }
-                            },
-                            "donkey nuggets": {
-                              "red": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "green": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              },
-                              "blue": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
-                              }
-                            }
-                          }
-                        }
+                      "saturation": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
                       },
-                      "ui_type": "NESTED_OBJECT"
+                      "hue": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      }
                     },
-                    "length": {
-                      "default_val": "0",
-                      "type": {
-                        "ModuleInfo": {
-                          "torchvision.transforms": {
-                            "SHIT": {
-                              "oh": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
+                    "GorillaMode": {
+                      "girth": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "GORILLA BALLS": {
+                                "strength": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "width": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "height": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
                               },
-                              "lawd": {
-                                "default_val": "0",
-                                "type": "_empty",
-                                "ui_type": "UNKNOWN"
+                              "donkey nuggets": {
+                                "red": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "green": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "blue": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
                               }
                             }
                           }
-                        }
+                        },
+                        "ui_type": "NESTED_OBJECT"
                       },
-                      "ui_type": "NESTED_OBJECT"
-                    },
-                    "saturation": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
-                    },
-                    "hue": {
-                      "default_val": "0",
-                      "type": "_empty",
-                      "ui_type": "UNKNOWN"
+                      "length": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "SHIT": {
+                                "oh": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "lawd": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "ui_type": "NESTED_OBJECT"
+                      },
+                      "saturation": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      },
+                      "hue": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      }
                     }
                   }
                 }
-              }
-            },
-            "ui_type": "NESTED_OBJECT"
+              },
+              "ui_type": "NESTED_OBJECT"
+            }
           }
         }
       }
     }
   },
-  "Optimizer": {
-    "ModuleInfo": {
-      "torch.optim": {
-        "Adam": {
-          "params": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "lr": {
-            "default_val": "0.001",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "betas": {
-            "default_val": "(0.9, 0.999)",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "eps": {
-            "default_val": "1e-08",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "weight_decay": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "amsgrad": {
-            "default_val": "False",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "default_vals": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          }
-        },
-        "SGD": {
-          "params": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "lr": {
-            "default_val": "<required parameter>",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "momentum": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "dampening": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "weight_decay": {
-            "default_val": "0",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "nesterov": {
-            "default_val": "False",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          },
-          "default_vals": {
-            "default_val": "_empty",
-            "type": "_empty",
-            "ui_type": "UNKNOWN"
-          }
-        }
-      }
-    }
+  "UI": {
+    "Transform": [
+        "transforms"
+    ]
   }
 }
