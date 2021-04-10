@@ -153,12 +153,16 @@ export class Sections {
     return this.sections[id].getHasBeenVisited();
   };
 
+  getEnteredValue = (id, paramName) => {
+    return this.sections[id].getEnteredValue(paramName);
+  };
+
   setHasBeenVisited = ({ sectionId, hasBeenVisited }) => {
     return this.sections[sectionId].setHasBeenVisited(hasBeenVisited);
   };
 
   setSelected = ({ sectionId, moduleName, objName }) => {
-    this.sections[sectionId].selected = new Selected(moduleName, objName);
+    this.sections[sectionId].setSelected(moduleName, objName);
   };
 
   setChildrenAreCollapsed = ({ sectionId, childrenAreCollapsed }) => {
@@ -169,8 +173,8 @@ export class Sections {
     this.sections[sectionId].setChildrenIds(childrenIds);
   };
 
-  numRootIds = () => {
-    return this.getRootIds().length;
+  setEnteredValue = ({ sectionId, paramName, value }) => {
+    this.sections[sectionId].setEnteredValue(paramName, value);
   };
 
   setAllChildrenIds = () => {
@@ -178,5 +182,9 @@ export class Sections {
       this.sections[e].getChildrenIds()
     );
     this.allChildrenIds = [].concat.apply([], listOfLists);
+  };
+
+  numRootIds = () => {
+    return this.getRootIds().length;
   };
 }

@@ -22,7 +22,6 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
-  globalCurr: parameterDetailsStoreCreator("globalCurr", ["paramValue"]),
   savedKwargs: parameterDetailsStoreCreator("savedKwargs", ["exists"]),
   uiTypes: parameterDetailsStoreCreator("uiTypes", ["uiType"]),
   nestedSectionIds: parameterDetailsStoreCreator("nestedSectionIds", [

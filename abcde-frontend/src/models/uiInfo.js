@@ -24,8 +24,6 @@ const uiInfo = {
   loadUI: thunk(async (action, payload, helpers) => {
     const masterSetEntireState = helpers.getStoreActions().master
       .setEntireState;
-    const globalCurrSetEntireState = helpers.getStoreActions().globalCurr
-      .setEntireState;
     const yamlEntrySetEntireState = helpers.getStoreActions().yamlEntry
       .setEntireState;
     const factoriesInfoSetEntireState = helpers.getStoreActions().factoriesInfo
@@ -41,12 +39,10 @@ const uiInfo = {
       data = loadType === "draft" ? data.completeState : data.ui.completeState;
       const {
         masterState,
-        globalCurrState,
         yamlEntryState,
         factoriesInfoState,
         funcsInfoState,
       } = JSON.parse(data);
-      globalCurrSetEntireState(JSON.parse(globalCurrState));
       masterSetEntireState(JSON.parse(masterState));
       yamlEntrySetEntireState(JSON.parse(yamlEntryState));
       factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));

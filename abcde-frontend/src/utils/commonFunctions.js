@@ -13,7 +13,6 @@ export const setEntireState = (state, newState) => {
 export const getCompleteState = (storeState) => {
   return {
     masterState: storeState.master,
-    globalCurrState: storeState.globalCurr,
     yamlEntryState: storeState.yamlEntry,
     factoriesInfoState: storeState.factoriesInfo,
     funcsInfoState: storeState.funcsInfo,

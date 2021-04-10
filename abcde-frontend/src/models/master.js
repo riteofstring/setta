@@ -92,6 +92,10 @@ const master = {
     state.sections.setChildrenIds({ ...payload });
   }),
 
+  setEnteredValue: action((state, payload) => {
+    state.sections.setEnteredValue({ ...payload });
+  }),
+
   addChildren: action((state, payload) => {
     const { children, idx } = state.sections.createChildren({ ...payload });
     state.sections.addChildren(payload.parentId, children, idx);
