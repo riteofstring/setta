@@ -1,7 +1,6 @@
 import { nullOrUndefined, defaultDict, insertIntoArray } from "../utils/utils";
 import { Selected } from "./selected";
 import { UITypeProps } from "./uiTypeProps";
-import { EnteredValues } from "./enteredValues";
 
 export class Section {
   constructor(sectionInfo, sectionHeading) {
@@ -9,7 +8,6 @@ export class Section {
     this.parent = null;
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
-    this.enteredValues = new EnteredValues();
     this.uiTypeProps = new UITypeProps();
     this.hasBeenVisited = {};
     this.childrenAreCollapsed = {};
@@ -33,7 +31,11 @@ export class Section {
   };
 
   getEnteredValue = (paramName) => {
-    return this.enteredValues.getValue(this.selected.asString, paramName);
+    return this.sectionInfo.getValue(
+      this.selected.moduleName,
+      this.selected.objName,
+      paramName
+    );
   };
 
   setChildrenAreCollapsed = (childrenAreCollapsed) => {
@@ -56,7 +58,12 @@ export class Section {
   };
 
   setEnteredValue = (paramName, value) => {
-    this.enteredValues.setValue(this.selected.asString, paramName, value);
+    this.sectionInfo.setValue(
+      this.selected.moduleName,
+      this.selected.objName,
+      paramName,
+      value
+    );
   };
 
   hasNested = () => {
@@ -84,17 +91,21 @@ export class Section {
   };
 
   addKwarg = (paramName) => {
-    const { moduleName, objName } = this.selected;
-    this.sectionInfo.addKwarg(moduleName, objName, paramName);
+    this.sectionInfo.addKwarg(
+      this.selected.moduleName,
+      this.selected.objName,
+      paramName
+    );
   };
 
   getKwargs = () => {
-    const { moduleName, objName } = this.selected;
-    this.sectionInfo.getKwargs(moduleName, objName);
+    this.sectionInfo.getKwargs(this.selected.moduleName, this.selected.objName);
   };
 
   getParameters = () => {
-    const { moduleName, objName } = this.selected;
-    this.sectionInfo.getKwargs(moduleName, objName);
+    this.sectionInfo.getParameters(
+      this.selected.moduleName,
+      this.selected.objName
+    );
   };
 }

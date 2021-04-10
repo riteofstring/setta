@@ -20,9 +20,13 @@ class ParameterInfo {
     this.name = name;
     this.defaultVal = jsonInput.default_val;
     this.type = jsonInput.type;
-    this.defaultUIType = jsonInput.ui_type;
+    this.uiType = jsonInput.ui_type;
+    this.enteredValue = null;
     if (!(typeof this.type === "string")) {
       this.type = new SectionInfo(this.name, this.type);
+      if (!["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(this.uiType)) {
+        this.uiType = "NESTED_OBJECT";
+      }
     }
   }
 }
@@ -74,5 +78,23 @@ export class SectionInfo {
       return this.moduleInfos[moduleName].objs[objName].params;
     }
     return this.parameterInfos;
+  };
+
+  setValue = (moduleName, objName, paramName, value) => {
+    if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
+      this.moduleInfos[moduleName].objs[objName].params[
+        paramName
+      ].enteredValue = value;
+    } else {
+      this.parameterInfos[paramName].enteredValue = value;
+    }
+  };
+
+  getValue = (moduleName, objName, paramName) => {
+    if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
+      return this.moduleInfos[moduleName].objs[objName].params[paramName]
+        .enteredValue;
+    }
+    return this.parameterInfos[paramName].enteredValue;
   };
 }

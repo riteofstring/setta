@@ -13,7 +13,7 @@ export default function ParamContainer(props) {
     sectionId,
     moduleName,
     objName,
-    parameter: { name, defaultUIType },
+    parameter: { name, uiType: defaultUIType },
   } = props;
 
   const currUIType = useStoreState((state) =>
