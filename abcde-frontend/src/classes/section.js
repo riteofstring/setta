@@ -1,4 +1,4 @@
-import { insertIntoArray } from "../utils/utils";
+import { insertIntoArray, flattenDictOfArrays } from "../utils/utils";
 import { createJson } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
@@ -81,13 +81,16 @@ export class Section {
   };
 
   addToChildrenPerParam = (childIds, paramName) => {
-    const curr = this.childrenIdsPerParam[this.selected.asString];
-    curr[paramName] = [...curr[paramName], ...childIds];
+    this.childrenIdsPerParam[paramName] = [
+      ...this.childrenIdsPerParam[paramName],
+      ...childIds,
+    ];
   };
 
   deleteFromChildrenPerParam = (childIds, paramName) => {
-    const curr = this.childrenIdsPerParam[this.selected.asString];
-    curr[paramName] = curr[paramName].filter((x) => !childIds.includes(x));
+    this.childrenIdsPerParam[paramName] = this.childrenIdsPerParam[
+      paramName
+    ].filter((x) => !childIds.includes(x));
   };
 
   deleteChildren = (childIds, paramName) => {
@@ -123,14 +126,17 @@ export class Section {
   };
 
   getHistory = () => {
-    this.history.parameters = this.getParameters()
+    this.history.parameters = this.getParameters();
     for (let s of this.history.historyNames()) {
       this[s] = this.history.getHistory(s, this.selected.asString);
     }
+    this.childrenIds = this.childrenIds.filter((x) =>
+      flattenDictOfArrays(this.childrenIdsPerParam).includes(x)
+    );
   };
 
   setHistory = () => {
-    this.history.parameters = this.getParameters()
+    this.history.parameters = this.getParameters();
     for (let s of this.history.historyNames()) {
       this.history.setHistory(s, this.selected.asString, this[s]);
     }

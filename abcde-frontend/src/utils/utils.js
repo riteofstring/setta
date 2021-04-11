@@ -41,6 +41,13 @@ export function insertIntoArray(arr, index, ...newItems) {
   ];
 }
 
+export function flattenDictOfArrays(x) {
+  return [].concat.apply(
+    [],
+    Object.keys(x).map((e) => x[e])
+  );
+}
+
 function getParametersHelper(paramSource) {
   let returnParameters = [];
   for (let key of Object.keys(paramSource)) {

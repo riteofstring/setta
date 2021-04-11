@@ -69,7 +69,7 @@ export default function NestedObjectInput({
 }) {
   const addChildren = useStoreActions((actions) => actions.master.addChildren);
   const childId = useStoreState((state) =>
-    state.master.sections.getChildrenIdsPerParam(sectionId, paramName)
+    state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
   );
   const setUIType = useStoreActions((actions) => actions.master.setUIType);
   const setSectionModules = useStoreActions(
@@ -80,7 +80,7 @@ export default function NestedObjectInput({
   );
 
   useEffect(() => {
-    if (childId) {
+    if (!childId) {
       const newIds = addChildren({
         parentId: sectionId,
         paramName,
@@ -92,13 +92,7 @@ export default function NestedObjectInput({
         childrenIds: newIds,
       });
     }
-  }, []);
-
-  useEffect(() => {
-    if (!childId) {
-      setUIType({ sectionId: childId, uiType });
-    }
-  }, [uiType]);
+  }, [childId]);
 
   useEffect(() => {
     let modules = paramUITypeConfig["modules"];
@@ -115,39 +109,3 @@ export default function NestedObjectInput({
 
   return null;
 }
-
-// export function NestedObjectCleanup({ sectionId, paramName, uiType }) {
-//   const childId = useStoreState((state) =>
-//     state.master.sections.getChildrenIdsPerParam(sectionId, paramName)
-//   );
-//   const deleteSections = useStoreActions(
-//     (actions) => actions.master.deleteSections
-//   );
-
-//   const deleteChildren = useStoreActions(
-//     (actions) => actions.master.deleteChildren
-//   );
-
-//   useEffect(() => {
-//     if (nestedSectionId) {
-//       console.log("deleting section", sectionId);
-//       deleteChildren({
-//         parentId: nestedSectionId,
-//         sourceId: nestedSectionId,
-//         numChildren: "all",
-//       });
-//       deleteSections({
-//         sectionIds: [nestedSectionId],
-//         parentId: sectionId,
-//         paramName,
-//       });
-//       setHasBeenVisited({
-//         sectionId,
-//         paramName,
-//         hasBeenVisited: false,
-//       });
-//     }
-//   }, []);
-
-//   return null;
-// }

@@ -22,11 +22,15 @@ export class History {
   };
 
   setHistory = (dataName, selected, value) => {
-    if (this.isNotPerParam(dataName)) {
-      this[dataName][selected] = value;
+    const curr = this[dataName];
+    if (dataName === "childrenAreCollapsed") {
+      curr[selected] = value;
+    } else if (dataName === "childrenIds") {
+      curr[selected] = curr[selected].filter((x) => !value.includes(x));
+      curr[selected] = [...curr[selected], ...value];
     } else {
       for (let p of Object.keys(value)) {
-        this[dataName][selected][p][this.getUITypeName(p)] = value[p];
+        curr[selected][p][this.getUITypeName(p)] = value[p];
       }
     }
   };

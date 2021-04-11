@@ -234,8 +234,8 @@ export class Sections {
   };
 
   setAllChildrenIds = () => {
-    const listOfLists = Object.keys(this.sections).map((e) =>
-      this.sections[e].getChildrenIds()
+    const listOfLists = Object.keys(this.sections).map(
+      (e) => this.sections[e].childrenIds
     );
     this.allChildrenIds = [].concat.apply([], listOfLists);
   };

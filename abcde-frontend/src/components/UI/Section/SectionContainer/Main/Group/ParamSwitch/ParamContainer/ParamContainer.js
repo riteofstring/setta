@@ -37,11 +37,6 @@ export default function ParamContainer(props) {
           />
         </HStack>
       </FormControl>
-      {/* <NestedObjectCleanup
-        sectionId={sectionId}
-        paramName={paramName}
-        uiType={uiType}
-      /> */}
     </>
   ) : (
     <NestedObjectInput
