@@ -3,7 +3,7 @@ import { UIType } from "./uiType";
 import { combineModules, combineParameters } from "../utils/utils";
 
 export const createJson = (specs, available) => {
-  if (Array.isArray(specs) || specs["modules"]) {
+  if (Array.isArray(specs)) {
     return combineModules(available.modules, specs);
   } else if (specs["parameters"]) {
     return combineParameters(available.parameters, specs["parameters"]);
@@ -77,6 +77,7 @@ export class SectionInfo {
   constructor(name, specs, available) {
     const jsonInput = createJson(specs, available);
     this.name = name;
+    this.specs = specs
     this.setModuleInfos(jsonInput, available);
     this.setParameterInfos(jsonInput, available);
   }

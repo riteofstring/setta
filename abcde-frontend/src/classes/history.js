@@ -13,7 +13,10 @@ export class History {
     if (this.isNotPerParam(dataName)) {
       return this[dataName][selected];
     } else {
-      const output = {};
+      let output = {};
+      if (dataName === "childrenIdsPerParam") {
+        output = createDefaultNestedDict(1, []);
+      }
       for (let p of Object.keys(this.parameters)) {
         output[p] = this[dataName][selected][p][this.getUITypeName(p)];
       }

@@ -94,10 +94,7 @@ export class Section {
   };
 
   deleteChildren = (childIds, paramName) => {
-    const key = this.selected.asString;
-    this.childrenIds[key] = this.childrenIds[key].filter(
-      (x) => !childIds.includes(x)
-    );
+    this.childrenIds = this.childrenIds.filter((x) => !childIds.includes(x));
     this.deleteFromChildrenPerParam(childIds, paramName);
   };
 

@@ -13,7 +13,7 @@ function _childUITypeName(parent, uiType) {
   return !nullOrUndefined(uiType) ? uiType.name : parent.uiType.name;
 }
 
-function _childSectionInfo(parent, moduleName, objName, paramName) {
+function _childSectionInfo(parent, moduleName, objName, paramName, available) {
   if (parent.uiType.isListRoot) {
     return parent.sectionInfo;
   } else {
@@ -23,9 +23,11 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
       paramName,
       "type"
     );
-    return paramType instanceof SectionInfo
-      ? paramType
-      : new SectionInfo(paramName, [], {});
+    if (paramType instanceof SectionInfo) {
+      return new SectionInfo(paramType.name, paramType.specs, available);
+    } else {
+      return new SectionInfo(paramName, [], available);
+    }
   }
 }
 //end of helper functions
@@ -39,7 +41,7 @@ export class Sections {
   }
 
   getIdxAfterSource = (parent, sourceId) => {
-    return parent.getChildrenIds().indexOf(sourceId) + 1;
+    return parent.childrenIds.indexOf(sourceId) + 1;
   };
 
   determineNewChildIdx = (parent, sourceId) => {
@@ -70,7 +72,8 @@ export class Sections {
       parent,
       moduleName,
       objName,
-      paramName
+      paramName,
+      this.available
     );
 
     let children = [];
@@ -118,15 +121,16 @@ export class Sections {
 
   deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
     const parent = this.sections[parentId];
-    let childrenToDelete = parent.getChildrenIds();
+    let childrenToDelete = parent.childrenIds;
     if (childrenToDelete.length === 0) {
       return;
     }
     if (numChildren !== "all") {
       const startIdx = this.getIdxAfterSource(parent, sourceId);
-      childrenToDelete = parent
-        .getChildrenIds()
-        .slice(startIdx, startIdx + numChildren);
+      childrenToDelete = parent.childrenIds.slice(
+        startIdx,
+        startIdx + numChildren
+      );
     }
     const paramName = this.sections[childrenToDelete[0]].name;
     this.deleteSections({ sectionIds: childrenToDelete, parentId, paramName });
