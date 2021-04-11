@@ -17,8 +17,15 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
   if (parent.uiType.isListRoot) {
     return parent.sectionInfo;
   } else {
-    const paramType = parent.sectionInfo.getParamData(moduleName, objName, paramName, "type")
-    return paramType instanceof SectionInfo ? paramType : new SectionInfo(paramName, {});
+    const paramType = parent.sectionInfo.getParamData(
+      moduleName,
+      objName,
+      paramName,
+      "type"
+    );
+    return paramType instanceof SectionInfo
+      ? paramType
+      : new SectionInfo(paramName, {});
   }
 }
 //end of helper functions
@@ -53,7 +60,7 @@ export class Sections {
     uiType,
     numChildren = 1,
   }) => {
-    console.log("createChildren", parentId, sourceId, paramName, uiType)
+    console.log("createChildren", parentId, sourceId, paramName, uiType);
     const parent = this.sections[parentId];
     const { moduleName, objName } = parent.selected;
     const childSectionHeading = _childSectionHeading(parent, paramName);
@@ -148,8 +155,8 @@ export class Sections {
     return this.sections[id].sectionInfo;
   };
 
-  getHasBeenVisited = (id) => {
-    return this.sections[id].getHasBeenVisited();
+  getHasBeenVisited = (id, paramName) => {
+    return this.sections[id].getHasBeenVisited(paramName);
   };
 
   getEnteredValue = (id, paramName) => {
@@ -168,8 +175,11 @@ export class Sections {
     return this.sections[id].getParamUIType(paramName);
   };
 
-  setHasBeenVisited = ({ sectionId, hasBeenVisited }) => {
-    return this.sections[sectionId].setHasBeenVisited(hasBeenVisited);
+  setHasBeenVisited = ({ sectionId, paramName, hasBeenVisited }) => {
+    return this.sections[sectionId].setHasBeenVisited(
+      paramName,
+      hasBeenVisited
+    );
   };
 
   setSelected = ({ sectionId, moduleName, objName }) => {
@@ -190,6 +200,10 @@ export class Sections {
 
   setParamUIType = ({ sectionId, paramName, uiName }) => {
     this.sections[sectionId].setParamUIType(paramName, uiName);
+  };
+
+  setUIType = ({ sectionId, uiType }) => {
+    this.sections[sectionId].setUIType(uiType)
   };
 
   setAllChildrenIds = () => {

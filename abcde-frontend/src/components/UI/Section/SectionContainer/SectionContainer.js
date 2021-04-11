@@ -89,10 +89,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
     state.master.sections.getUIType(sectionId)
   );
 
-  console.log(
-    "SectionContainerCore",
-    sectionInfo
-  );
+  console.log("SectionContainerCore", sectionId, isList, isListRoot);
 
   const showSearch =
     sectionInfo && Object.keys(sectionInfo.parameterInfos).length === 0;

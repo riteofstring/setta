@@ -57,9 +57,6 @@ export class SectionInfo {
     this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
   }
 
-  isParametersOnly = () => {
-    return Object.keys(this.moduleInfos).length === 0
-  }
 
   addKwarg = (moduleName, objName, paramName) => {
     const newParameter = new ParameterInfo(paramName, {
@@ -93,7 +90,7 @@ export class SectionInfo {
   };
 
   setParamData = (moduleName, objName, paramName, dataName, value) => {
-    const newValue = dataName === "enteredValue" ? value : new UIType(value);
+    const newValue = dataName === "uiType" ? new UIType(value) : value;
 
     if (allDefined(moduleName, objName)) {
       this.moduleInfos[moduleName].objs[objName].params[paramName][

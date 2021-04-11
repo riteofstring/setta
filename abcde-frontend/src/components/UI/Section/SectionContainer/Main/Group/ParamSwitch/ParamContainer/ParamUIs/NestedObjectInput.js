@@ -1,7 +1,7 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { SectionInfo } from "../../../../../../../../../classes/jsonParser";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   requiresNestedSection,
   combineModules,
@@ -50,33 +50,46 @@ export function NestedObjectInputConfig({
 
 export default function NestedObjectInput({
   sectionId,
-  moduleName,
-  objName,
   paramName,
-  uiType: inputUiType,
+  uiType,
   uiTypeConfig,
 }) {
   const addChildren = useStoreActions((actions) => actions.master.addChildren);
   const hasBeenVisited = useStoreState((state) =>
-    state.master.sections.getHasBeenVisited(sectionId)
+    state.master.sections.getHasBeenVisited(sectionId, paramName)
   );
   const setHasBeenVisited = useStoreActions(
     (actions) => actions.master.setHasBeenVisited
   );
+
+  const setUIType = useStoreActions((actions) => actions.master.setUIType);
+  // const nestedSectionId = useStoreActions((actions) =>
+  //   actions.master.sections.getNestedSectionId(sectionId, paramName)
+  // );
+
+  console.log("NestedObjectInput", sectionId, paramName, uiType);
 
   useEffect(() => {
     if (!hasBeenVisited) {
       addChildren({
         parentId: sectionId,
         paramName,
-        uiType: inputUiType,
+        uiType,
       });
+      // setNestedSectionId(newId[0]);
       setHasBeenVisited({
         sectionId,
+        paramName,
         hasBeenVisited: true,
       });
     }
   }, []);
+
+  // useEffect(() => {
+  //   if (nestedSectionId) {
+  //     setUIType({ sectionId: nestedSectionId, uiType });
+  //   }
+  // }, [uiType]);
 
   // const nestedSectionInfo = useStoreState(
   //   (state) =>

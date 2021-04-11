@@ -9,7 +9,7 @@ export class Section {
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
     this.uiType = new UIType("OBJECT");
-    this.hasBeenVisited = {};
+    this.hasBeenVisited = defaultDict(() => ({}));
     this.childrenAreCollapsed = {};
     this.sectionHeading = sectionHeading;
   }
@@ -22,8 +22,8 @@ export class Section {
     return this.childrenAreCollapsed[this.selected.asString];
   };
 
-  getHasBeenVisited = () => {
-    return this.hasBeenVisited[this.selected.asString];
+  getHasBeenVisited = (paramName) => {
+    return this.hasBeenVisited[this.selected.asString][paramName];
   };
 
   getParamData = (paramName, dataName) => {
@@ -57,8 +57,8 @@ export class Section {
     this.childrenAreCollapsed[this.selected.asString] = childrenAreCollapsed;
   };
 
-  setHasBeenVisited = (hasBeenVisited) => {
-    this.hasBeenVisited[this.selected.asString] = hasBeenVisited;
+  setHasBeenVisited = (paramName, hasBeenVisited) => {
+    this.hasBeenVisited[this.selected.asString][paramName] = hasBeenVisited;
   };
 
   setChildrenIds = (childrenIds) => {
@@ -75,6 +75,10 @@ export class Section {
 
   setParamUIType = (paramName, uiName) => {
     this.setParamData(paramName, "uiType", uiName);
+  };
+
+  setUIType = (uiType) => {
+    this.uiType = uiType;
   };
 
   hasNested = () => {
