@@ -15,11 +15,7 @@ export class Section {
   }
 
   getChildrenIds = () => {
-    const key = this.selected.asString;
-    if (!nullOrUndefined(key)) {
-      return this.childrenIds[key];
-    }
-    return [];
+    return this.childrenIds[this.selected.asString];
   };
 
   getChildrenAreCollapsed = () => {
@@ -66,10 +62,7 @@ export class Section {
   };
 
   setChildrenIds = (childrenIds) => {
-    const key = this.selected.asString;
-    if (!nullOrUndefined(key)) {
-      this.childrenIds[key] = childrenIds;
-    }
+    this.childrenIds[this.selected.asString] = childrenIds;
   };
 
   setSelected = (moduleName, objName) => {
