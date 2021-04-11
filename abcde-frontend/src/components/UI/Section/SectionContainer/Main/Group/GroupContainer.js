@@ -32,11 +32,6 @@ export default function GroupContainer({ sectionId }) {
     setNumKwargs(kwargNames.length);
   }, [sectionId, moduleName, objName]);
 
-  console.log("GroupContainer", sectionId);
-  console.log("kwargNames", kwargNames);
-  console.log("paramNames", paramNames);
-  console.log("numKwargs", numKwargs);
-
   return (
     <Stack>
       {paramNames.length > 0 && (
@@ -75,6 +70,7 @@ export default function GroupContainer({ sectionId }) {
               metaUIType={"KWARGS"}
               inputKwargName={kwargNames[idx]}
               onClickDelete={() => setNumKwargs(Math.max(0, numKwargs - 1))}
+              paramNames={paramNames}
             />
           ))}
         </FormControl>

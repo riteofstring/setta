@@ -41,12 +41,6 @@ export class History {
     }
   };
 
-  isNotPerUIType = (dataName) => {
-    return ["childrenIds", "childrenAreCollapsed", "paramUITypeNames"].includes(
-      dataName
-    );
-  };
-
   initializeParamUITypes = (selected, params) => {
     for (let p of Object.keys(params)) {
       const currParam = params[p];
@@ -72,6 +66,27 @@ export class History {
     this.childrenAreCollapsed = createDefaultNestedDict(1, false);
     this.paramUITypes = createDefaultNestedDict(3, undefined);
     this.paramUITypeNames = createDefaultNestedDict(2, undefined);
+  };
+
+  replaceParamName = (selected, oldParam, newParam) => {
+    for (let s of this.historyNames()) {
+      if (this.perParam(s)) {
+        this[s][selected][newParam] = this[s][selected][oldParam];
+        delete this[s][selected][oldParam];
+      }
+    }
+  };
+
+  isNotPerUIType = (dataName) => {
+    return ["childrenIds", "childrenAreCollapsed", "paramUITypeNames"].includes(
+      dataName
+    );
+  };
+
+  perParam = (dataName) => {
+    return ["enteredValues", "paramUITypes", "paramUITypeNames"].includes(
+      dataName
+    );
   };
 
   historyNames = () => {

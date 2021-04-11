@@ -72,7 +72,6 @@ export default function NestedObjectInput({
     (state) =>
       state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
   );
-  const setUIType = useStoreActions((actions) => actions.master.setUIType);
   const setSectionModules = useStoreActions(
     (actions) => actions.master.setSectionModules
   );

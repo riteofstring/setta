@@ -33,7 +33,8 @@ class ParameterInfo {
     this.defaultVal = jsonInput.default_val;
     this.uiTypeName = jsonInput.ui_type;
     this.specs = jsonInput.type;
-    this.isKwarg = "isKwarg" in jsonInput ? jsonInput.isKwarg : false;
+    this.isKwarg = jsonInput.isKwarg;
+    this.isHidden = jsonInput.isHidden;
   }
 
   shouldHaveNested = () => {
@@ -75,34 +76,45 @@ export class SectionInfo {
   };
 
   addKwarg = (moduleName, objName, paramName) => {
-    const newParameter = new ParameterInfo(paramName, {
-      defaultVal: "",
-      uiTypeName: "UNKNOWN",
-      specs: "",
-      isKwarg: true,
-    });
     const info = this.getCorrectInfo(moduleName, objName);
-    info[paramName] = newParameter;
+    const existing = info[paramName];
+    if (existing && existing.isKwarg) {
+      existing.isHidden = false;
+    } else {
+      const newParameter = new ParameterInfo(paramName, {
+        default_val: "",
+        ui_type: "TEXT",
+        type: "",
+        isKwarg: true,
+        isHidden: false,
+      });
+      info[paramName] = newParameter;
+    }
   };
 
   deleteKwarg = (moduleName, objName, paramName) => {
-    const info = this.getCorrectInfo(moduleName, objName);
-    delete info[paramName];
+    this.getCorrectInfo(moduleName, objName)[paramName].isHidden = true;
   };
 
   replaceKwarg = (moduleName, objName, oldKwarg, newKwarg) => {
     const info = this.getCorrectInfo(moduleName, objName);
-    info[newKwarg] = info[oldKwarg]
-    delete info[oldKwarg]
+    const alreadyExists = newKwarg in info;
+    if (!alreadyExists) {
+      info[newKwarg] = info[oldKwarg];
+    } else {
+      info[newKwarg].isHidden = false;
+    }
+    delete info[oldKwarg];
+    return alreadyExists;
   };
 
   getParamData = (moduleName, objName, paramName, dataName) => {
-    return this.getParametersAndKwargs(moduleName, objName)[paramName][
-      dataName
-    ];
+    return this.getParametersAndKwargs(moduleName, objName, (x) => !x.isHidden)[
+      paramName
+    ][dataName];
   };
 
-  getParametersAndKwargs = (moduleName, objName) => {
+  getAllParametersAndKwargs = (moduleName, objName) => {
     if (allDefined(moduleName, objName)) {
       return {
         ...this.moduleInfos[moduleName].objs[objName].params,
@@ -112,11 +124,11 @@ export class SectionInfo {
     return this.parameterInfos;
   };
 
-  getXOnly = (moduleName, objName, x) => {
+  getParametersAndKwargs = (moduleName, objName, inputFilter) => {
     const output = {};
-    const everything = this.getParametersAndKwargs(moduleName, objName);
+    const everything = this.getAllParametersAndKwargs(moduleName, objName);
     for (let e of Object.keys(everything)) {
-      if (x(everything[e])) {
+      if (inputFilter(everything[e])) {
         output[e] = everything[e];
       }
     }

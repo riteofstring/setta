@@ -1,16 +1,13 @@
 import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 import { useState, useEffect } from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { HStack, IconButton } from "@chakra-ui/react";
 import { CloseIcon } from "@chakra-ui/icons";
 import { nullOrUndefined } from "../../../../../../../../utils/utils";
 
 export default function KwargParam(props) {
-  const { sectionId, inputKwargName, onClickDelete } = props;
-
-  console.log("KwargParam", inputKwargName);
-
+  const { sectionId, inputKwargName, onClickDelete, paramNames } = props;
   const [kwargName, setKwargName] = useState(
     inputKwargName ? inputKwargName : ""
   );
@@ -25,17 +22,27 @@ export default function KwargParam(props) {
   }, [inputKwargName]);
 
   const onSubmit = (v) => {
-    console.log("onSubmit", v);
-    if (!nullOrUndefined(inputKwargName)) {
-      replaceKwarg({ sectionId, oldKwarg: inputKwargName, newKwarg: v });
-    } else if (v) {
-      addKwarg({ sectionId, kwargName: v });
+    if (!paramNames.includes(v)) {
+      if (!nullOrUndefined(inputKwargName)) {
+        replaceKwarg({ sectionId, oldKwarg: inputKwargName, newKwarg: v });
+      } else if (v) {
+        addKwarg({ sectionId, kwargName: v });
+      }
+      setKwargName(v);
+    } else {
+      deleteFromState();
+      setKwargName("");
     }
-    setKwargName(v);
+  };
+
+  const deleteFromState = () => {
+    if (inputKwargName) {
+      deleteKwarg({ sectionId, kwargName: inputKwargName });
+    }
   };
 
   const onClick = () => {
-    deleteKwarg({ sectionId, kwargName: inputKwargName });
+    deleteFromState();
     onClickDelete();
   };
 

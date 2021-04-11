@@ -95,12 +95,16 @@ export class Section {
 
   replaceKwarg = (oldKwarg, newKwarg) => {
     this.setHistory();
-    this.sectionInfo.replaceKwarg(
+    const alreadyExists = this.sectionInfo.replaceKwarg(
       this.selected.moduleName,
       this.selected.objName,
       oldKwarg,
       newKwarg
     );
+    if (!alreadyExists) {
+      this.replaceParamName(oldKwarg, newKwarg);
+      this.history.replaceParamName(this.selected.asString, oldKwarg, newKwarg);
+    }
     this.getHistory();
   };
 
@@ -136,25 +140,26 @@ export class Section {
   };
 
   getKwargs = () => {
-    return this.sectionInfo.getXOnly(
+    return this.sectionInfo.getParametersAndKwargs(
       this.selected.moduleName,
       this.selected.objName,
-      (x) => x.isKwarg
+      (x) => x.isKwarg && !x.isHidden
     );
   };
 
   getParameters = () => {
-    return this.sectionInfo.getXOnly(
+    return this.sectionInfo.getParametersAndKwargs(
       this.selected.moduleName,
       this.selected.objName,
-      (x) => !x.isKwarg
+      (x) => !x.isKwarg && !x.isHidden
     );
   };
 
   getParametersAndKwargs = () => {
     return this.sectionInfo.getParametersAndKwargs(
       this.selected.moduleName,
-      this.selected.objName
+      this.selected.objName,
+      (x) => !x.isHidden
     );
   };
 
@@ -178,5 +183,14 @@ export class Section {
   initializeParamUITypes = () => {
     const parameters = this.getParametersAndKwargs();
     this.history.initializeParamUITypes(this.selected.asString, parameters);
+  };
+
+  replaceParamName = (oldParam, newParam) => {
+    for (let s of this.history.historyNames()) {
+      if (this.history.perParam(s)) {
+        this[s][newParam] = this[s][oldParam];
+        delete this[s][oldParam];
+      }
+    }
   };
 }
