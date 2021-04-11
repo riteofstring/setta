@@ -4,11 +4,7 @@ import { SectionInfo } from "../classes/jsonParser";
 import { Section } from "../classes/section";
 import { Sections } from "../classes/sections";
 import { NO_AUTH } from "../utils/constants";
-import {
-  combineModules,
-  combineParameters,
-  sectionParameterGetter,
-} from "../utils/utils";
+import { sectionParameterGetter } from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -18,29 +14,24 @@ const master = {
   spaceBetweenPages: 500,
   pageMinMaxList: [],
   sections: new Sections(),
-  availableModules: {},
-  availableParameters: {},
 
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    state.availableModules = payload.MODULES;
-    state.availableParameters = payload.PARAMETERS;
+    state.sections.availableModules = payload.MODULES;
+    state.sections.availableParameters = payload.PARAMETERS;
     for (let key of Object.keys(payload.UI)) {
-      const currSection = payload.UI[key];
-      let combinedJsons = null;
-      if (Array.isArray(currSection) || currSection["modules"]) {
-        combinedJsons = combineModules(state.availableModules, currSection);
-      } else if (currSection["parameters"]) {
-        combinedJsons = combineParameters(
-          state.availableParameters,
-          currSection["parameters"]
-        );
-      } else {
-        throw "Invalid json";
-      }
+      console.log("key", key);
       state.sections.addSection(
-        new Section(new SectionInfo(key, combinedJsons), key)
+        new Section(
+          new SectionInfo({
+            name: key,
+            specs: payload.UI[key],
+            availableModules: payload.MODULES,
+            availableParameters: payload.PARAMETERS,
+          }),
+          key
+        )
       );
     }
     state.pageMinMaxList = getPageMinMaxList(

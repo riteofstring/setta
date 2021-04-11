@@ -1,5 +1,14 @@
-import { allDefined } from "../utils/utils";
+import { nullOrUndefined, allDefined } from "../utils/utils";
 import { UIType } from "./uiType";
+import { combineModules, combineParameters } from "../utils/utils";
+
+const createJson = (specs, availableModules, availableParameters) => {
+  if (Array.isArray(specs) || specs["modules"]) {
+    return combineModules(availableModules, specs);
+  } else if (specs["parameters"]) {
+    return combineParameters(availableParameters, specs["parameters"]);
+  }
+};
 
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   let outputObject = {};
@@ -24,7 +33,7 @@ class ParameterInfo {
     this.uiType = new UIType(jsonInput.ui_type);
     this.enteredValue = null;
     if (!(typeof this.type === "string")) {
-      this.type = new SectionInfo(this.name, this.type);
+      this.type = new SectionInfo({ name: this.name, jsonInput: this.type });
       if (!this.uiType.isNested()) {
         this.uiType = new UIType("NESTED_OBJECT");
       }
@@ -50,13 +59,21 @@ class ModuleInfo {
 }
 
 export class SectionInfo {
-  constructor(name, jsonInput) {
+  constructor({
+    name,
+    jsonInput,
+    specs,
+    availableModules,
+    availableParameters,
+  }) {
     const infoTypes = { ModuleInfo, ParameterInfo };
+    if (nullOrUndefined(jsonInput)) {
+      jsonInput = createJson(specs, availableModules, availableParameters);
+    }
     this.name = name;
     this.moduleInfos = getInfos(jsonInput, infoTypes, "ModuleInfo", true);
     this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
   }
-
 
   addKwarg = (moduleName, objName, paramName) => {
     const newParameter = new ParameterInfo(paramName, {
@@ -86,7 +103,7 @@ export class SectionInfo {
     if (allDefined(moduleName, objName)) {
       return this.moduleInfos[moduleName].objs[objName][dataName];
     }
-    return dataName === "kwargs" ? {} : this.parameterInfos;
+    return this.parameterInfos;
   };
 
   setParamData = (moduleName, objName, paramName, dataName, value) => {

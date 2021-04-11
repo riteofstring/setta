@@ -58,7 +58,7 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
         </HStack>
       )}
 
-      {numKwargs > 0 && (
+      {/* {numKwargs > 0 && (
         <FormControl id="groupone">
           {[...Array(numKwargs)].map((e, idx) => (
             <ParamSwitch
@@ -70,7 +70,7 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
             />
           ))}
         </FormControl>
-      )}
+      )} */}
     </Stack>
   );
 }

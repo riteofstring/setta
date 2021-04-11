@@ -25,7 +25,7 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
     );
     return paramType instanceof SectionInfo
       ? paramType
-      : new SectionInfo(paramName, {});
+      : new SectionInfo({ name: paramName, jsonInput: {} });
   }
 }
 //end of helper functions
@@ -33,6 +33,8 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
 export class Sections {
   constructor() {
     this.sections = {};
+    this.availableModules = {};
+    this.availableParameters = {};
     this.allChildrenIds = [];
     this.latestId = 0;
   }
