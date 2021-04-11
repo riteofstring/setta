@@ -104,9 +104,17 @@ const master = {
     state.sections.setUIType({ ...payload });
   }),
 
-  addChildren: action((state, payload) => {
-    const { children, idx } = state.sections.createChildren({ ...payload });
-    state.sections.addChildren(payload.parentId, children, idx);
+  setNestedSectionIds: action((state, payload) => {
+    state.sections.setNestedSectionIds({ ...payload });
+  }),
+
+  addChildren: thunk((actiona, payload, helpers) => {
+    const { children, idx } = helpers
+      .getState()
+      .sections.createChildren({ ...payload });
+    return helpers
+      .getState()
+      .sections.addChildren(payload.parentId, children, idx);
   }),
 
   deleteSections: action((state, payload) => {

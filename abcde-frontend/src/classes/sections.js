@@ -107,6 +107,7 @@ export class Sections {
     }
     this.sections[parentId].addChildren(childIds, idx);
     this.setAllChildrenIds();
+    return childIds;
   };
 
   deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
@@ -175,6 +176,10 @@ export class Sections {
     return this.sections[id].getParamUIType(paramName);
   };
 
+  getNestedSectionIds = (sectionId, paramName, returnFirst = false) => {
+    return this.sections[sectionId].getNestedSectionIds(paramName, returnFirst);
+  };
+
   setHasBeenVisited = ({ sectionId, paramName, hasBeenVisited }) => {
     return this.sections[sectionId].setHasBeenVisited(
       paramName,
@@ -203,7 +208,11 @@ export class Sections {
   };
 
   setUIType = ({ sectionId, uiType }) => {
-    this.sections[sectionId].setUIType(uiType)
+    this.sections[sectionId].setUIType(uiType);
+  };
+
+  setNestedSectionIds = ({ sectionId, paramName, nestedSectionIds }) => {
+    this.sections[sectionId].setNestedSectionIds(paramName, nestedSectionIds);
   };
 
   setAllChildrenIds = () => {

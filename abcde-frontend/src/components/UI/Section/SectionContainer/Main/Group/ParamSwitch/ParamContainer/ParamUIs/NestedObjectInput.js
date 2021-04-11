@@ -63,20 +63,26 @@ export default function NestedObjectInput({
   );
 
   const setUIType = useStoreActions((actions) => actions.master.setUIType);
-  // const nestedSectionId = useStoreActions((actions) =>
-  //   actions.master.sections.getNestedSectionId(sectionId, paramName)
-  // );
+  const nestedSectionId = useStoreState((state) =>
+    state.master.sections.getNestedSectionIds(sectionId, paramName, true)
+  );
 
-  console.log("NestedObjectInput", sectionId, paramName, uiType);
+  const setNestedSectionIds = useStoreActions(
+    (actions) => actions.master.setNestedSectionIds
+  );
 
   useEffect(() => {
     if (!hasBeenVisited) {
-      addChildren({
+      const newIds = addChildren({
         parentId: sectionId,
         paramName,
         uiType,
       });
-      // setNestedSectionId(newId[0]);
+      setNestedSectionIds({
+        sectionId,
+        paramName,
+        nestedSectionIds: newIds,
+      });
       setHasBeenVisited({
         sectionId,
         paramName,
@@ -85,11 +91,11 @@ export default function NestedObjectInput({
     }
   }, []);
 
-  // useEffect(() => {
-  //   if (nestedSectionId) {
-  //     setUIType({ sectionId: nestedSectionId, uiType });
-  //   }
-  // }, [uiType]);
+  useEffect(() => {
+    if (nestedSectionId) {
+      setUIType({ sectionId: nestedSectionId, uiType });
+    }
+  }, [uiType]);
 
   // const nestedSectionInfo = useStoreState(
   //   (state) =>
