@@ -3,7 +3,9 @@ import ParamInput from "./ParamItems/ParamInput";
 import { useState, useEffect } from "react";
 import { useStoreState } from "easy-peasy";
 import { parameterStateDetailsGetter } from "../../../../../../../../utils/utils";
-import NestedObjectInput from "./ParamUIs/NestedObjectInput";
+import NestedObjectInput, {
+  NestedObjectCleanup,
+} from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
   const { sectionId, paramName } = props;
@@ -25,27 +27,34 @@ export default function ParamContainer(props) {
   // console.log("ParamContainer", sectionId, paramName, uiType);
 
   return !uiType.isNested() ? (
-    <FormControl as="fieldset">
-      <HStack
-        px=".75rem"
-        pb="0.5rem"
-        pt="0.25rem"
-        borderRadius=".5rem"
-        _hover={{
-          backgroundColor: "white",
-        }}
-      >
-        {props.children}
-        <Spacer />
-        <ParamInput
-          sectionId={sectionId}
-          paramName={paramName}
-          uiType={uiType}
-          uiTypeConfig={currUiTypeConfig}
-          isDisabled={!paramName}
-        />
-      </HStack>
-    </FormControl>
+    <>
+      <FormControl as="fieldset">
+        <HStack
+          px=".75rem"
+          pb="0.5rem"
+          pt="0.25rem"
+          borderRadius=".5rem"
+          _hover={{
+            backgroundColor: "white",
+          }}
+        >
+          {props.children}
+          <Spacer />
+          <ParamInput
+            sectionId={sectionId}
+            paramName={paramName}
+            uiType={uiType}
+            uiTypeConfig={currUiTypeConfig}
+            isDisabled={!paramName}
+          />
+        </HStack>
+      </FormControl>
+      <NestedObjectCleanup
+        sectionId={sectionId}
+        paramName={paramName}
+        uiType={uiType}
+      />
+    </>
   ) : (
     <NestedObjectInput
       sectionId={sectionId}

@@ -3,6 +3,7 @@ import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { Section } from "./section";
 import { SectionInfo } from "./jsonParser";
+import { debug } from "easy-peasy"
 
 // start of helper functions
 function _childSectionHeading(parent, paramName) {
@@ -94,18 +95,20 @@ export class Sections {
     return sectionId;
   };
 
-  deleteSections({ sectionIds, parentId }) {
+  deleteSections({ sectionIds, parentId, paramName }) {
     sectionIds.forEach((e) => delete this.sections[e]);
-    this.sections[parentId].deleteChildren(sectionIds);
+    this.sections[parentId].deleteChildren(sectionIds, paramName);
     this.setAllChildrenIds();
   }
 
   addChildren = (parentId, childSections, idx = null) => {
     let childIds = [];
+    let paramNames = []
     for (let childSection of childSections) {
       childIds.push(this.addSection(childSection));
+      paramNames.push(childSection.sectionHeading)
     }
-    this.sections[parentId].addChildren(childIds, idx);
+    this.sections[parentId].addChildren(childIds, paramNames[0], idx);
     this.setAllChildrenIds();
     return childIds;
   };
@@ -116,7 +119,8 @@ export class Sections {
     const childrenToDelete = parent
       .getChildrenIds()
       .slice(startIdx, startIdx + numChildren);
-    this.deleteSections({ sectionIds: childrenToDelete, parentId });
+    const paramName = this.sections[childrenToDelete[0]].sectionHeading
+    this.deleteSections({ sectionIds: childrenToDelete, parentId, paramName });
   };
 
   getRootIds = (minId = null, maxId = null) => {

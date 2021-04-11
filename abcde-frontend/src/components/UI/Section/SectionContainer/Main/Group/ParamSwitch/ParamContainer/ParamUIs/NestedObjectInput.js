@@ -67,21 +67,12 @@ export default function NestedObjectInput({
     state.master.sections.getNestedSectionIds(sectionId, paramName, true)
   );
 
-  const setNestedSectionIds = useStoreActions(
-    (actions) => actions.master.setNestedSectionIds
-  );
-
   useEffect(() => {
     if (!hasBeenVisited) {
-      const newIds = addChildren({
+      addChildren({
         parentId: sectionId,
         paramName,
         uiType,
-      });
-      setNestedSectionIds({
-        sectionId,
-        paramName,
-        nestedSectionIds: newIds,
       });
       setHasBeenVisited({
         sectionId,
@@ -226,6 +217,36 @@ export default function NestedObjectInput({
   //     maybeDeleteSection();
   //   }
   // }, [nestedSectionInfo]);
+
+  return null;
+}
+
+export function NestedObjectCleanup({ sectionId, paramName, uiType }) {
+  const setHasBeenVisited = useStoreActions(
+    (actions) => actions.master.setHasBeenVisited
+  );
+  const nestedSectionId = useStoreState((state) =>
+    state.master.sections.getNestedSectionIds(sectionId, paramName, true)
+  );
+  const deleteSections = useStoreActions(
+    (actions) => actions.master.deleteSections
+  );
+
+  useEffect(() => {
+    if (nestedSectionId) {
+      console.log("deleting section", sectionId)
+      deleteSections({
+        sectionIds: [nestedSectionId],
+        parentId: sectionId,
+        paramName,
+      });
+      setHasBeenVisited({
+        sectionId,
+        paramName,
+        hasBeenVisited: false,
+      });
+    }
+  }, []);
 
   return null;
 }

@@ -9,7 +9,7 @@ export class Section {
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
     this.uiType = new UIType("OBJECT");
-    this.nestedSectionIds = {};
+    this.nestedSectionIds = defaultDict(() => defaultDict(() => []));
     this.hasBeenVisited = defaultDict(() => ({}));
     this.childrenAreCollapsed = {};
     this.sectionHeading = sectionHeading;
@@ -55,12 +55,11 @@ export class Section {
   };
 
   getNestedSectionIds = (paramName, returnFirst = false) => {
+    const output = this.nestedSectionIds[this.selected.asString][paramName];
     if (returnFirst) {
-      return this.nestedSectionIds[paramName]
-        ? this.nestedSectionIds[paramName][0]
-        : undefined;
+      return output ? output[0] : undefined;
     }
-    return this.nestedSectionIds[paramName];
+    return output;
   };
 
   setChildrenAreCollapsed = (childrenAreCollapsed) => {
@@ -92,14 +91,14 @@ export class Section {
   };
 
   setNestedSectionIds = (paramName, nestedSectionIds) => {
-    this.nestedSectionIds[paramName] = nestedSectionIds;
+    this.nestedSectionIds[this.selected.asString][paramName] = nestedSectionIds;
   };
 
   hasNested = () => {
     return this.getChildrenIds().length > 0;
   };
 
-  addChildren = (childIds, idx = null) => {
+  addChildren = (childIds, paramName, idx = null) => {
     const key = this.selected.asString;
     if (idx === null) {
       this.childrenIds[key] = [...this.childrenIds[key], ...childIds];
@@ -110,11 +109,20 @@ export class Section {
         ...childIds
       );
     }
+    this.nestedSectionIds[this.selected.asString][paramName] = [
+      ...this.nestedSectionIds[this.selected.asString][paramName],
+      ...childIds,
+    ];
   };
 
-  deleteChildren = (childIds) => {
+  deleteChildren = (childIds, paramName) => {
     const key = this.selected.asString;
     this.childrenIds[key] = this.childrenIds[key].filter(
+      (x) => !childIds.includes(x)
+    );
+    this.nestedSectionIds[this.selected.asString][
+      paramName
+    ] = this.nestedSectionIds[this.selected.asString][paramName].filter(
       (x) => !childIds.includes(x)
     );
   };
