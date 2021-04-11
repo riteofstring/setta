@@ -1,13 +1,15 @@
 import { useContext } from "react";
+import { MenuContext } from "../../SectionFooter";
 import { Box } from "@chakra-ui/react";
-import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
+import ModalContainer from "../../../../../../../utils/ModalContainer";
 
-export default function ParamSweepModal(props) {
-  const { isOpen, onClose } = props;
+export default function ParamSweepModal() {
+  const { isOpen, onClose } = useContext(MenuContext);
+
   return (
     <ModalContainer
-      isOpen={isOpen}
       onClose={onClose}
+      isOpen={isOpen}
       size={"6xl"}
       header={<Header />}
       body={<Body />}

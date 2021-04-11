@@ -3,7 +3,9 @@ import { HStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
-import ModalContainer from "../ModalContainer/ModalContainer";
+import ModalContainer from "../ModalContainer";
+
+const ModalContext = createContext(null);
 
 export default function SaveLoadModal(props) {
   const {
@@ -75,7 +77,6 @@ export default function SaveLoadModal(props) {
       isOpen={isOpen}
       size={"6xl"}
       header={<Header isSaveAs={isSaveAs} />}
-      overrideFooter={true}
       body={
         <Body
           folderNames={folderNames}

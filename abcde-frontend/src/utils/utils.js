@@ -2,6 +2,38 @@ export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
 
+export function nullOrUndefined(x) {
+  return x === null || x === undefined;
+}
+
+export function allDefined(...x){
+  return x.every(a=>!nullOrUndefined(a))
+}
+
+// https://stackoverflow.com/a/63954561
+export function defaultDict(defaultValueFn) {
+  const handler = {
+    get: (obj, prop) => {
+      if (!(prop in obj)) obj[prop] = defaultValueFn();
+      return obj[prop];
+    },
+  };
+  return new Proxy({}, handler);
+}
+
+// https://stackoverflow.com/a/38181008
+// create new array with inserted value (no mutation)
+export function insertIntoArray(arr, index, ...newItems) {
+  return [
+    // part of the array before the specified index
+    ...arr.slice(0, index),
+    // inserted items
+    ...newItems,
+    // part of the array after the specified index
+    ...arr.slice(index),
+  ];
+}
+
 function getParametersHelper(paramSource) {
   let returnParameters = [];
   for (let key of Object.keys(paramSource)) {

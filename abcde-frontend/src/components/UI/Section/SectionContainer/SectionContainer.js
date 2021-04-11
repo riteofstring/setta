@@ -4,7 +4,7 @@ import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
-import { SectionHeader, DummySectionHeader } from "./Header/SectionHeader";
+import { SectionHeader } from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
@@ -13,7 +13,6 @@ import { SECTIONWIDTH } from "../../../../utils/constants";
 
 function SectionContainer({
   sectionId,
-  rootId,
   parentId,
   nextId,
   depth,
@@ -30,13 +29,13 @@ function SectionContainer({
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].children,
+    (state) => state.master.sections.getChildrenIds(sectionId),
     arraysAreEqual
   );
 
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
-  console.log("sectionId nextId, order", sectionId, nextId, childrenIds, order);
+  console.log("SectionContainer", sectionId, nextId, childrenIds, order);
 
   useEffect(() => {
     if (refForPosition.current) {
@@ -47,6 +46,12 @@ function SectionContainer({
       });
     }
   }, [refForPosition.current]);
+
+  useEffect(() => {
+    if (!arraysAreEqual(childrenIds, order)) {
+      setChildrenIds({ sectionId, childrenIds: order });
+    }
+  }, [order]);
 
   return (
     <Stack height="100%" ref={refForPosition}>
@@ -61,7 +66,6 @@ function SectionContainer({
           return (
             <NestedSection
               parentId={sectionId}
-              rootId={rootId}
               sectionId={e}
               nextId={order[idx + 1]}
               idx={idx}
@@ -77,15 +81,17 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const sectionInfo = useStoreState(
-    (state) => state.master.sections[sectionId]
+  const sectionInfo = useStoreState((state) =>
+    state.master.sections.getSectionInfo(sectionId)
   );
 
-  const isList = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isList
+  const { isList, isListRoot } = useStoreState((state) =>
+    state.master.sections.getUIType(sectionId)
   );
-  const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
+
+  console.log(
+    "SectionContainerCore",
+    sectionInfo
   );
 
   const showSearch =
@@ -98,7 +104,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
+      {isList && <DragHandle dragControls={dragControls} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -109,7 +115,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
         />
         {!isListRoot && (
           <Stack>
-            {showSearch && <SectionSearch sectionId={sectionId} />}
+            {showSearch && (
+              <SectionSearch sectionId={sectionId} sectionInfo={sectionInfo} />
+            )}
             <GroupContainer sectionId={sectionId} sectionInfo={sectionInfo} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>

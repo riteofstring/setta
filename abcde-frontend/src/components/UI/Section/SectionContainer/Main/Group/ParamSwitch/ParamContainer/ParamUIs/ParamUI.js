@@ -25,7 +25,7 @@ export function ParamUIConfig({ uiType, childProps }) {
 }
 
 export default function ParamUI({ uiType, childProps }) {
-  switch (uiType) {
+  switch (uiType.name) {
     default:
       return <TextInput {...childProps} />;
     case "SLIDER":

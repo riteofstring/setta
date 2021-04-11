@@ -3,25 +3,6 @@ import SectionTitle from "./Title/SectionTitle";
 import { useStoreState } from "easy-peasy";
 import Incrementer from "../Incrementer/Incrementer";
 
-export function DummySectionHeader({sectionId}) {
-  const currPage = useStoreState((state) => state.master.currPage);
-  const currObjectName = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].objName
-  );
-  const sectionHeading = useStoreState(
-    (state) => state.master.idHierarchy[currPage][sectionId].sectionHeading
-  );
-
-  return (
-    <Stack direction="row" align="center" w="100%">
-      <SectionTitle
-        sectionHeading={sectionHeading}
-        currObjectName={currObjectName}
-      />
-    </Stack>
-  );
-}
-
 export function SectionHeader({
   sectionId,
   parentId,
@@ -29,8 +10,12 @@ export function SectionHeader({
   isList,
   isListRoot,
 }) {
-  const currObjectName = useStoreState((state) => state.master.idHierarchy[sectionId].objName);
-  const sectionHeading = useStoreState((state) => state.master.idHierarchy[sectionId].sectionHeading);
+  const { objName } = useStoreState((state) =>
+    state.master.sections.getSelected(sectionId)
+  );
+  const sectionHeading = useStoreState((state) =>
+    state.master.sections.getSectionHeading(sectionId)
+  );
 
   return (
     <Stack direction="row" align="center" w="100%">
@@ -40,12 +25,9 @@ export function SectionHeader({
           <option value="option2">Dictionary</option>
         </Select>
       )}
-      <SectionTitle
-        sectionHeading={sectionHeading}
-        currObjectName={currObjectName}
-      />
+      <SectionTitle sectionHeading={sectionHeading} currObjectName={objName} />
 
-      {isList && (
+      {(isList || isListRoot) && (
         <>
           <Spacer />
           <Incrementer
