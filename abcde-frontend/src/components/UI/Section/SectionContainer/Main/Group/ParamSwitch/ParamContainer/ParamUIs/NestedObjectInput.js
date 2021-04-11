@@ -1,5 +1,4 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { SectionInfo } from "../../../../../../../../../classes/jsonParser";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { useEffect } from "react";
 import {

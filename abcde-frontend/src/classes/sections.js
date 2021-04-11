@@ -2,7 +2,7 @@ import { nullOrUndefined } from "../utils/utils";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { Section } from "./section";
-import { SectionInfo } from "./jsonParser";
+import { ModuleSectionInfo, ParameterSectionInfo } from "./jsonParser";
 
 // start of helper functions
 function _childSectionHeading(parent, paramName) {
@@ -18,7 +18,10 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
     return parent.sectionInfo;
   } else {
     const paramType = parent.sectionInfo.getParamData(moduleName, objName, paramName, "type")
-    return paramType instanceof SectionInfo ? paramType : new SectionInfo(paramName, {});
+    if (paramType instanceof ModuleSectionInfo || paramType instanceof ParameterSectionInfo){
+      return paramType
+    }
+    return new ParameterSectionInfo(paramName, {});
   }
 }
 //end of helper functions

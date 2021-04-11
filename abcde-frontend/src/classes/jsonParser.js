@@ -1,4 +1,3 @@
-import { allDefined } from "../utils/utils";
 import { UIType } from "./uiType";
 
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
@@ -24,7 +23,7 @@ class ParameterInfo {
     this.uiType = new UIType(jsonInput.ui_type);
     this.enteredValue = null;
     if (!(typeof this.type === "string")) {
-      this.type = new SectionInfo(this.name, this.type);
+      this.type = new ModuleSectionInfo(this.name, this.type);
       if (!this.uiType.isNested()) {
         this.uiType = new UIType("NESTED_OBJECT");
       }
@@ -49,58 +48,66 @@ class ModuleInfo {
   }
 }
 
-export class SectionInfo {
+export class ModuleSectionInfo {
   constructor(name, jsonInput) {
-    const infoTypes = { ModuleInfo, ParameterInfo };
+    const infoTypes = { ModuleInfo };
     this.name = name;
     this.moduleInfos = getInfos(jsonInput, infoTypes, "ModuleInfo", true);
-    this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
-  }
-
-  isParametersOnly = () => {
-    return Object.keys(this.moduleInfos).length === 0
   }
 
   addKwarg = (moduleName, objName, paramName) => {
-    const newParameter = new ParameterInfo(paramName, {
+    this.moduleInfos[moduleName].objs[objName].kwargs[
+      paramName
+    ] = new ParameterInfo(paramName, {
       defaultVal: "",
       type: "",
       defaultUIType: "UNKNOWN",
     });
-    if (allDefined(moduleName, objName)) {
-      this.moduleInfos[moduleName].objs[objName].kwargs[
-        paramName
-      ] = newParameter;
-    } else {
-      this.parameterInfos[paramName] = newParameter;
-    }
   };
 
   getParamData = (moduleName, objName, paramName, dataName) => {
-    if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName].params[paramName][
-        dataName
-      ];
-    }
+    return this.moduleInfos[moduleName].objs[objName].params[paramName][
+      dataName
+    ];
+  };
+
+  getObjData = (moduleName, objName, dataName) => {
+    return this.moduleInfos[moduleName].objs[objName][dataName];
+  };
+
+  setParamData = (moduleName, objName, paramName, dataName, value) => {
+    const newValue = dataName === "enteredValue" ? value : new UIType(value);
+    this.moduleInfos[moduleName].objs[objName].params[paramName][
+      dataName
+    ] = newValue;
+  };
+}
+
+export class ParameterSectionInfo {
+  constructor(name, jsonInput) {
+    const infoTypes = { ParameterInfo };
+    this.name = name;
+    this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
+  }
+
+  addKwarg = (moduleName, objName, paramName) => {
+    this.parameterInfos[paramName] = new ParameterInfo(paramName, {
+      defaultVal: "",
+      type: "",
+      defaultUIType: "UNKNOWN",
+    });
+  };
+
+  getParamData = (moduleName, objName, paramName, dataName) => {
     return this.parameterInfos[paramName][dataName];
   };
 
   getObjData = (moduleName, objName, dataName) => {
-    if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName][dataName];
-    }
     return dataName === "kwargs" ? {} : this.parameterInfos;
   };
 
   setParamData = (moduleName, objName, paramName, dataName, value) => {
     const newValue = dataName === "enteredValue" ? value : new UIType(value);
-
-    if (allDefined(moduleName, objName)) {
-      this.moduleInfos[moduleName].objs[objName].params[paramName][
-        dataName
-      ] = newValue;
-    } else {
-      this.parameterInfos[paramName][dataName] = newValue;
-    }
+    this.parameterInfos[paramName][dataName] = newValue;
   };
 }
