@@ -1,22 +1,28 @@
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ParamUI from "../ParamUIs/ParamUI";
-import { nullOrUndefined } from "../../../../../../../../../utils/utils";
+import { parameterStateDetailsGetter } from "../../../../../../../../../utils/utils";
 
 export default function ParamInput(props) {
   const {
     sectionId,
-    paramName,
+    moduleName,
+    objName,
+    parameter: { name, defaultVal },
   } = props;
 
-  const defaultVal = ""
-
-  const setEnteredValue = useStoreActions(
-    (actions) => actions.master.setEnteredValue
+  const setGlobalCurr = useStoreActions(
+    (actions) => actions.globalCurr.setGlobalCurr
   );
 
   const currParam = useStoreState((state) =>
-    state.master.sections.getEnteredValue(sectionId, paramName)
+    parameterStateDetailsGetter(
+      state.globalCurr.globalCurr,
+      sectionId,
+      moduleName,
+      objName,
+      name
+    )
   );
 
   const [value, setValue] = useState("");
@@ -27,15 +33,17 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setEnteredValue({
+    setGlobalCurr({
       sectionId,
-      paramName,
-      value: v,
+      moduleName,
+      objName,
+      paramName: name,
+      paramValue: v,
     });
   };
 
   useEffect(() => {
-    setValue(!nullOrUndefined(currParam) ? currParam : "");
+    setValue(currParam !== null && currParam !== undefined ? currParam : "");
   }, [currParam]);
 
   return (

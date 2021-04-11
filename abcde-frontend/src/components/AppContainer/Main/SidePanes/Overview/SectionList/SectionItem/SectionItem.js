@@ -7,6 +7,7 @@ export default function SectionItem({
   sectionId,
   sectionHeading,
   isList,
+  isListRoot,
   pageNum,
 }) {
   const spaceBetweenPages = useStoreState(
@@ -34,7 +35,7 @@ export default function SectionItem({
         cursor="move"
         size="sm"
         color="gray.200"
-        visibility={isList ? "visible" : "hidden"}
+        visibility={isList && !isListRoot ? "visible" : "hidden"}
       />
 
       <Text

@@ -77,6 +77,7 @@ export default function SaveLoadModal(props) {
       isOpen={isOpen}
       size={"6xl"}
       header={<Header isSaveAs={isSaveAs} />}
+      overrideFooter={true}
       body={
         <Body
           folderNames={folderNames}

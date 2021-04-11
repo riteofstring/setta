@@ -9,41 +9,48 @@ import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
+import { getParameters } from "../../../../../../utils/utils";
 
 export default function GroupContainer({ sectionId, sectionInfo }) {
-  const { moduleName, objName } = useStoreState((state) =>
-    state.master.sections.getSelected(sectionId)
+  const moduleName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].moduleName
   );
-  const kwargNames = Object.keys(
-    sectionInfo.getObjData(moduleName, objName, "kwargs")
+
+  const objName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].objName
   );
+
+  const savedKwargs = useStoreState(
+    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
+  );
+
+  const kwargNames = savedKwargs ? Object.keys(savedKwargs) : [];
+
   const [numKwargs, setNumKwargs] = useState(kwargNames.length);
-  const paramNames = Object.keys(
-    sectionInfo.getObjData(moduleName, objName, "params")
-  );
-  const showKwargsButton = objName || paramNames.length > 0;
+
+  const parameters = getParameters(sectionInfo, moduleName, objName);
 
   useEffect(() => {
     setNumKwargs(kwargNames.length);
-  }, [sectionId]);
-
-  console.log("GroupContainer", sectionId);
+  }, [sectionId, moduleName, objName]);
 
   return (
     <Stack>
-      {paramNames.length > 0 && (
+      {parameters.length > 0 && (
         <FormControl id="groupone">
-          {paramNames.map((e, idx) => (
+          {parameters.map((e, idx) => (
             <ParamSwitch
-              key={`${e}-${idx}`}
+              key={`${e.name}-${idx}`}
               sectionId={sectionId}
-              paramName={e}
+              moduleName={moduleName}
+              objName={objName}
+              parameter={e}
             />
           ))}
         </FormControl>
       )}
 
-      {showKwargsButton && (
+      {objName && (
         <HStack pt="1rem">
           <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
             {"KWARGS"}
@@ -64,6 +71,8 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
             <ParamSwitch
               key={`KWARGS-${idx}`}
               sectionId={sectionId}
+              moduleName={moduleName}
+              objName={objName}
               metaUIType={"KWARGS"}
               inputKwargName={kwargNames[idx]}
               onClickDelete={() => setNumKwargs(Math.max(0, numKwargs - 1))}

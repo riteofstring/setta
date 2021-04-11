@@ -1,27 +1,58 @@
 import { useContext } from "react";
 import { MenuContext } from "../../SectionFooter";
-import { Box, HStack, Stack, Select, Text } from "@chakra-ui/react";
+import { Box, VStack, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
-import { parameterStateDetailsGetter } from "../../../../../../../utils/utils";
-import { useStoreState, useStoreActions } from "easy-peasy";
-import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+import { getParameters } from "../../../../../../../utils/utils";
+import { useStoreState } from "easy-peasy";
+import Item from "./Item";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
-  const parameters = useStoreState((state) =>
-    state.master.sections.getParameters(sectionId)
+  const moduleName = useStoreState(
+    (state) => state.currentlySelected.currentlySelected[sectionId]?.moduleName
   );
 
-  // console.log("UITypesModal", parameters);
+  const objName = useStoreState(
+    (state) => state.currentlySelected.currentlySelected[sectionId]?.objName
+  );
+
+  const savedKwargs = useStoreState(
+    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
+  );
+
+  const thisSectionInfo = useStoreState(
+    (state) => state.master.sections[sectionId]
+  );
+
+  const getParametersAndKwargs = () => {
+    const parameters = getParameters(thisSectionInfo, moduleName, objName).map(
+      (x) => x.name
+    );
+    if (savedKwargs) {
+      const maybeAlsoKwargs = Object.keys(savedKwargs);
+      return parameters.concat(maybeAlsoKwargs);
+    }
+    return parameters;
+  };
+
+  const parameters = getParametersAndKwargs();
 
   return (
     <ModalContainer
       onClose={onClose}
       isOpen={isOpen}
-      size={"6xl"}
+      size={"2xl"}
+      maxH="80vh"
       header={<Header />}
-      body={<Body sectionId={sectionId} parameters={parameters} />}
+      body={
+        <Body
+          sectionId={sectionId}
+          moduleName={moduleName}
+          objName={objName}
+          parameters={parameters}
+        />
+      }
       footer={<Footer />}
     />
   );
@@ -31,98 +62,24 @@ function Header() {
   return <Box>UI Types</Box>;
 }
 
-function Body({ sectionId, parameters }) {
-  const paramNames = Object.keys(parameters);
-  return paramNames.length > 0 ? (
-    <Stack spacing={2}>
-      {paramNames.map((e, idx) => (
+function Body({ sectionId, moduleName, objName, parameters }) {
+  return parameters.length > 0 ? (
+    <VStack align="stretch" spacing="0">
+      {parameters.map((e, idx) => (
         <Item
           sectionId={sectionId}
-          parameter={parameters[e]}
+          moduleName={moduleName}
+          objName={objName}
+          paramName={e}
           key={`${e}-${idx}`}
         />
       ))}
-    </Stack>
+    </VStack>
   ) : (
     <Text>There are no parameters</Text>
   );
 }
 
 function Footer() {
-  return <Box>Bye</Box>;
-}
-
-const menuItems = [
-  "TEXT",
-  "SLIDER",
-  "BOOLEAN",
-  "INCREMENTER",
-  "NESTED_OBJECT",
-  "LIST_NESTED_OBJECT",
-];
-
-function Item({ sectionId, parameter }) {
-  // console.log("Item", sectionId, parameter, parameter.uiType);
-
-  const uiTypeConfig = null;
-  const onChange = null;
-
-  // const uiTypeConfig = useStoreState(
-  //   (state) =>
-  //     parameterStateDetailsGetter(
-  //       state.uiTypeConfigs.uiTypeConfigs,
-  //       sectionId,
-  //       moduleName,
-  //       objName,
-  //       paramName
-  //     )?.[uiType]
-  // );
-
-  const setParamUIType = useStoreActions(
-    (actions) => actions.master.setParamUIType
-  );
-  // const setUiTypeConfigs = useStoreActions(
-  //   (actions) => actions.uiTypeConfigs.setUiTypeConfigs
-  // );
-
-  const onSelect = (e) => {
-    setParamUIType({
-      sectionId,
-      paramName: parameter.name,
-      uiName: e.target.value,
-    });
-  };
-
-  // const onChange = (uiConfigOption, uiConfigValue) => {
-  //   setUiTypeConfigs({
-  //     sectionId,
-  //     moduleName,
-  //     objName,
-  //     paramName,
-  //     uiType,
-  //     uiConfigOption,
-  //     uiConfigValue,
-  //   });
-  // };
-
-  return (
-    <HStack>
-      <Box>{parameter.name}</Box>
-      <Select
-        placeholder="Select UI Type"
-        onChange={onSelect}
-        defaultValue={parameter.uiType}
-      >
-        {menuItems.map((e, idx) => (
-          <option value={e} key={`${e}-${idx}`}>
-            {e}
-          </option>
-        ))}
-      </Select>
-      <ParamUIConfig
-        uiType={parameter.uiType}
-        childProps={{ onChange, savedConfig: uiTypeConfig }}
-      />
-    </HStack>
-  );
+  return <Box></Box>;
 }

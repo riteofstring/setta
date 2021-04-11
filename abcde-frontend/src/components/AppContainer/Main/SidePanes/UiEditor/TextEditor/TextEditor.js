@@ -36,6 +36,7 @@ export default function TextEditor() {
 
   useEffect(() => {
     if (uiInfoFromCLI) {
+      resetState("globalCurr");
       resetState("master");
       loadSections(uiInfoFromCLI);
       setFactories(factoriesFromCLI);

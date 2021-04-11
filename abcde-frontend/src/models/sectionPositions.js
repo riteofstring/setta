@@ -10,7 +10,7 @@ const sectionPositions = {
       prevHeight = state.sectionPositions[sectionId].height
     }
     state.sectionPositions[sectionId] = { position, height };
-    // console.log("sectionId, prevHeight, newHeight", sectionId, prevHeight, height);
+    console.log("sectionId, prevHeight, newHeight", sectionId, prevHeight, height);
   }),
 
   getCurrPositionOfSection: thunk(async (action, payload, helpers) => {

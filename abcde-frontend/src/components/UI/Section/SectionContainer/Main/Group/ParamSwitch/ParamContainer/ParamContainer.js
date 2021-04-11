@@ -2,29 +2,48 @@ import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
 import { useState, useEffect } from "react";
 import { useStoreState } from "easy-peasy";
-import { parameterStateDetailsGetter } from "../../../../../../../../utils/utils";
+import {
+  requiresNestedSection,
+  parameterStateDetailsGetter,
+} from "../../../../../../../../utils/utils";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramName } = props;
+  const {
+    sectionId,
+    moduleName,
+    objName,
+    parameter: { name, defaultUIType },
+  } = props;
 
-  const uiType = useStoreState((state) =>
-    state.master.sections.getParamUIType(sectionId, paramName)
+  const currUIType = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.uiTypes.uiTypes,
+      sectionId,
+      moduleName,
+      objName,
+      name
+    )
   );
 
-  // const currUiTypeConfig = useStoreState(
-  //   (state) =>
-  //     parameterStateDetailsGetter(
-  //       state.uiTypeConfigs.uiTypeConfigs,
-  //       sectionId,
-  //       name
-  //     )?.[uiType]
-  // );
-  const currUiTypeConfig = null;
+  const currUiTypeConfig = useStoreState(
+    (state) =>
+      parameterStateDetailsGetter(
+        state.uiTypeConfigs.uiTypeConfigs,
+        sectionId,
+        moduleName,
+        objName,
+        name
+      )?.[currUIType]
+  );
 
-  // console.log("ParamContainer", sectionId, paramName, uiType);
+  const [uiType, setUIType] = useState(defaultUIType);
 
-  return !uiType.isNested() ? (
+  useEffect(() => {
+    setUIType(currUIType ? currUIType : defaultUIType);
+  }, [currUIType]);
+
+  return !requiresNestedSection(uiType) ? (
     <FormControl as="fieldset">
       <HStack
         px=".75rem"
@@ -38,19 +57,21 @@ export default function ParamContainer(props) {
         {props.children}
         <Spacer />
         <ParamInput
-          sectionId={sectionId}
-          paramName={paramName}
+          {...props}
           uiType={uiType}
           uiTypeConfig={currUiTypeConfig}
-          isDisabled={!paramName}
+          isDisabled={!name}
         />
       </HStack>
     </FormControl>
   ) : (
     <NestedObjectInput
       sectionId={sectionId}
-      paramName={paramName}
+      moduleName={moduleName}
+      objName={objName}
+      paramName={name}
       uiType={uiType}
+      uiTypeConfig={currUiTypeConfig}
     />
   );
 }
