@@ -10,7 +10,11 @@ import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 
-export default function GroupContainer({ sectionId, sectionInfo }) {
+export default function GroupContainer({ sectionId }) {
+  const sectionInfo = useStoreState((state) =>
+    state.master.sections.getSectionInfo(sectionId)
+  );
+
   const { moduleName, objName } = useStoreState((state) =>
     state.master.sections.getSelected(sectionId)
   );

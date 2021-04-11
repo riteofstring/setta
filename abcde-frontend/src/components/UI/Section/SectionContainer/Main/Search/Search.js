@@ -5,7 +5,7 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function SectionSearch({ sectionId, sectionInfo }) {
+export default function SectionSearch({ sectionId, moduleInfos }) {
   const [selectedItem, setSelectedItem] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
@@ -21,7 +21,6 @@ export default function SectionSearch({ sectionId, sectionInfo }) {
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
 
   const getSearchItems = () => {
-    const { moduleInfos } = sectionInfo;
     let output = [];
     for (let moduleName of Object.keys(moduleInfos)) {
       for (let objName of Object.keys(moduleInfos[moduleName].objs)) {

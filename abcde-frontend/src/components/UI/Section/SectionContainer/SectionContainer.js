@@ -81,8 +81,8 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const sectionInfo = useStoreState((state) =>
-    state.master.sections.getSectionInfo(sectionId)
+  const moduleInfos = useStoreState(
+    (state) => state.master.sections.getSectionInfo(sectionId).moduleInfos
   );
 
   const { isList, isListRoot } = useStoreState((state) =>
@@ -91,8 +91,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 
   console.log("SectionContainerCore", sectionId, isList, isListRoot);
 
-  const showSearch =
-    sectionInfo && Object.keys(sectionInfo.moduleInfos).length > 0;
+  const showSearch = Object.keys(moduleInfos).length > 0;
 
   return (
     <HStack
@@ -113,9 +112,9 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
         {!isListRoot && (
           <Stack>
             {showSearch && (
-              <SectionSearch sectionId={sectionId} sectionInfo={sectionInfo} />
+              <SectionSearch sectionId={sectionId} moduleInfos={moduleInfos} />
             )}
-            <GroupContainer sectionId={sectionId} sectionInfo={sectionInfo} />
+            <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
         )}
