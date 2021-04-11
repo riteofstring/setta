@@ -169,12 +169,8 @@ export class Sections {
     return this.sections[id].sectionInfo;
   };
 
-  getHasBeenVisited = (id, paramName) => {
-    return this.sections[id].getHasBeenVisited(paramName);
-  };
-
   getEnteredValue = (id, paramName) => {
-    return this.sections[id].getEnteredValue(paramName);
+    return this.sections[id].enteredValues[paramName];
   };
 
   getKwargs = (id) => {
@@ -189,8 +185,8 @@ export class Sections {
     return this.sections[id].getParamUIType(paramName);
   };
 
-  getNestedSectionIds = (sectionId, paramName, returnFirst = false) => {
-    return this.sections[sectionId].getNestedSectionIds(paramName, returnFirst);
+  getChildrenIdsPerParam = (sectionId, paramName) => {
+    return this.sections[sectionId].childrenIdsPerParam[paramName];
   };
 
   getDefaultValue = (sectionId, paramName) => {
@@ -214,7 +210,7 @@ export class Sections {
   };
 
   setEnteredValue = ({ sectionId, paramName, value }) => {
-    this.sections[sectionId].setEnteredValue(paramName, value);
+    this.sections[sectionId].enteredValues[paramName] = value;
   };
 
   setParamUIType = ({ sectionId, paramName, uiName }) => {
@@ -222,11 +218,11 @@ export class Sections {
   };
 
   setUIType = ({ sectionId, uiType }) => {
-    this.sections[sectionId].setUIType(uiType);
+    this.sections[sectionId].uiType = uiType;
   };
 
-  setNestedSectionIds = ({ sectionId, paramName, nestedSectionIds }) => {
-    this.sections[sectionId].setNestedSectionIds(paramName, nestedSectionIds);
+  setChildrenIdsPerParam = ({ sectionId, paramName, childrenIds }) => {
+    this.sections[sectionId].childrenIdsPerParam[paramName] = childrenIds;
   };
 
   setParamUITypeConfig = ({ sectionId, paramName, configName, value }) => {

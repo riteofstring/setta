@@ -49,23 +49,6 @@ const master = {
     }
   }),
 
-  setSectionParamType: action((state, payload) => {
-    const { sectionId, moduleName, objName, paramName, newType } = payload;
-    const x = sectionParameterGetter(
-      state.sections,
-      sectionId,
-      moduleName,
-      objName,
-      paramName
-    );
-    x.type = newType;
-  }),
-
-  setSectionModuleInfos: action((state, payload) => {
-    const { sectionId, newModuleInfos } = payload;
-    state.sections[sectionId].moduleInfos = newModuleInfos;
-  }),
-
   // Show/Collapse button
   setChildrenAreCollapsed: action((state, payload) => {
     state.sections.setChildrenAreCollapsed({ ...payload });
@@ -92,8 +75,8 @@ const master = {
     state.sections.setUIType({ ...payload });
   }),
 
-  setNestedSectionIds: action((state, payload) => {
-    state.sections.setNestedSectionIds({ ...payload });
+  setChildrenIdsPerParam: action((state, payload) => {
+    state.sections.setChildrenIdsPerParam({ ...payload });
   }),
 
   setParamUITypeConfig: action((state, payload) => {
@@ -119,10 +102,6 @@ const master = {
 
   deleteChildren: action((state, payload) => {
     state.sections.deleteChildren({ ...payload });
-  }),
-
-  setHasBeenVisited: action((state, payload) => {
-    state.sections.setHasBeenVisited({ ...payload });
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

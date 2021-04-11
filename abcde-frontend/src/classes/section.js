@@ -46,26 +46,16 @@ export class Section {
     return this.getParamUIType(paramName).config;
   };
 
-  getEnteredValue = (paramName) => {
-    return this.enteredValues[paramName];
-  };
-
   setSelected = (moduleName, objName) => {
     this.setHistory();
     this.selected = new Selected(moduleName, objName);
     this.getHistory();
   };
 
-  setEnteredValue = (paramName, value) => {
-    this.enteredValues[paramName] = value;
-  };
-
   setParamUIType = (paramName, uiName) => {
+    this.setHistory();
     this.setParamData(paramName, "uiType", new UIType({ name: uiName }));
-  };
-
-  setUIType = (uiType) => {
-    this.uiType = uiType;
+    this.getHistory();
   };
 
   setParamUITypeConfig = (paramName, configName, value) => {
@@ -82,20 +72,22 @@ export class Section {
   };
 
   addChildren = (childIds, paramName, idx = null) => {
-    const key = this.selected.asString;
     if (idx === null) {
-      this.childrenIds[key] = [...this.childrenIds[key], ...childIds];
+      this.childrenIds = [...this.childrenIds, ...childIds];
     } else {
-      this.childrenIds[key] = insertIntoArray(
-        this.childrenIds[key],
-        idx,
-        ...childIds
-      );
+      this.childrenIds = insertIntoArray(this.childrenIds, idx, ...childIds);
     }
-    this.nestedSectionIds[this.selected.asString][paramName] = [
-      ...this.nestedSectionIds[this.selected.asString][paramName],
-      ...childIds,
-    ];
+    this.addToChildrenPerParam(childIds, paramName);
+  };
+
+  addToChildrenPerParam = (childIds, paramName) => {
+    const curr = this.childrenIdsPerParam[this.selected.asString];
+    curr[paramName] = [...curr[paramName], ...childIds];
+  };
+
+  deleteFromChildrenPerParam = (childIds, paramName) => {
+    const curr = this.childrenIdsPerParam[this.selected.asString];
+    curr[paramName] = curr[paramName].filter((x) => !childIds.includes(x));
   };
 
   deleteChildren = (childIds, paramName) => {
@@ -103,11 +95,7 @@ export class Section {
     this.childrenIds[key] = this.childrenIds[key].filter(
       (x) => !childIds.includes(x)
     );
-    this.nestedSectionIds[this.selected.asString][
-      paramName
-    ] = this.nestedSectionIds[this.selected.asString][paramName].filter(
-      (x) => !childIds.includes(x)
-    );
+    this.deleteFromChildrenPerParam(childIds, paramName);
   };
 
   addKwarg = (paramName) => {
@@ -142,7 +130,7 @@ export class Section {
 
   setHistory = () => {
     for (let s of this.history.historyNames()) {
-      this.history.setHistory(s, this.selected.asString);
+      this.history.setHistory(s, this.selected.asString, this[s]);
     }
   };
 }

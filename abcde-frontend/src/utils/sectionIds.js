@@ -34,7 +34,7 @@ export const getOverviewListingHelper = (sectionId, sections, depth) => {
     isListRoot: currSection.uiType.isListRoot,
     depth: depth,
   });
-  for (let childId of currSection.getChildrenIds()) {
+  for (let childId of currSection.childrenIds) {
     outputList.push(...getOverviewListingHelper(childId, sections, depth + 1));
   }
   return outputList;

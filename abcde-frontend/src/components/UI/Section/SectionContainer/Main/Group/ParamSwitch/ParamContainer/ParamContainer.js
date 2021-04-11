@@ -1,9 +1,7 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
 import { useStoreState } from "easy-peasy";
-import NestedObjectInput, {
-  NestedObjectCleanup,
-} from "./ParamUIs/NestedObjectInput";
+import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
   const { sectionId, paramName } = props;
@@ -39,11 +37,11 @@ export default function ParamContainer(props) {
           />
         </HStack>
       </FormControl>
-      <NestedObjectCleanup
+      {/* <NestedObjectCleanup
         sectionId={sectionId}
         paramName={paramName}
         uiType={uiType}
-      />
+      /> */}
     </>
   ) : (
     <NestedObjectInput
