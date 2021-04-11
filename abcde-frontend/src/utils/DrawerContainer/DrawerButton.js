@@ -1,5 +1,3 @@
-import { useContext } from "react";
-import { DrawerContext } from "./DrawerContainer";
 import { Button, IconButton } from "@chakra-ui/react";
 
 export default function DrawerButton(props) {
@@ -10,7 +8,7 @@ export default function DrawerButton(props) {
     variant = "auto",
     size = "sm",
     borderRadius = "auto",
-  } = useContext(DrawerContext);
+  } = props;
 
   return (
     <>

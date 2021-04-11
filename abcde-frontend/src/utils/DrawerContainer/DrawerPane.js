@@ -1,5 +1,3 @@
-import { useContext } from "react";
-import { DrawerContext } from "./DrawerContainer";
 import {
   Drawer,
   DrawerBody,
@@ -10,10 +8,8 @@ import {
   DrawerCloseButton,
 } from "@chakra-ui/react";
 
-export default function DrawerPane() {
-  const { isOpen, onClose, btnRef, header, body, footer } = useContext(
-    DrawerContext
-  );
+export default function DrawerPane(props) {
+  const { isOpen, onClose, btnRef, header, body, footer } = props;
 
   return (
     <Drawer
@@ -26,9 +22,7 @@ export default function DrawerPane() {
         <DrawerContent>
           <DrawerCloseButton />
           <DrawerHeader>{header}</DrawerHeader>
-
           <DrawerBody>{body}</DrawerBody>
-
           <DrawerFooter>{footer}</DrawerFooter>
         </DrawerContent>
       </DrawerOverlay>

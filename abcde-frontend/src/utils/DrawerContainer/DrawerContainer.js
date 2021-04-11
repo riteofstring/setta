@@ -11,23 +11,25 @@ export default function DrawerContainer(props) {
   const { header, body, footer, icon, size, variant, borderRadius } = props;
 
   return (
-    <DrawerContext.Provider
-      value={{
-        isOpen,
-        onOpen,
-        onClose,
-        header,
-        body,
-        footer,
-        btnRef,
-        icon,
-        variant,
-        size,
-        borderRadius,
-      }}
-    >
-      <DrawerButton>{props.children}</DrawerButton>
-      <DrawerPane />
-    </DrawerContext.Provider>
+    <>
+      <DrawerButton
+        btnRef={btnRef}
+        onOpen={onOpen}
+        icon={icon}
+        variant={variant}
+        size={size}
+        borderRadius={borderRadius}
+      >
+        {props.children}
+      </DrawerButton>
+      <DrawerPane
+        isOpen={isOpen}
+        onClose={onClose}
+        btnRef={btnRef}
+        header={header}
+        body={body}
+        footer={footer}
+      />
+    </>
   );
 }

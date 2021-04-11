@@ -1,12 +1,4 @@
-import {
-  Flex,
-  Heading,
-  Box,
-  VStack,
-  Spacer,
-  IconButton,
-  Button,
-} from "@chakra-ui/react";
+import { Box, VStack, Button } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { useHistory } from "react-router-dom";
 import { useStoreActions, useStoreState } from "easy-peasy";
@@ -27,7 +19,7 @@ export default function HeaderContainer() {
 }
 
 function Header() {
-  return <Box>Header</Box>;
+  return <></>;
 }
 
 function Body() {
@@ -41,6 +33,8 @@ function Body() {
   };
   return (
     <VStack align="stretch">
+      <Button>Profile</Button>
+      <Button>Settings</Button>
       <Button variant="outline" onClick={goToLogout}>
         Logout
       </Button>
@@ -49,5 +43,5 @@ function Body() {
 }
 
 function Footer() {
-  return <Box>Footer</Box>;
+  return <></>;
 }

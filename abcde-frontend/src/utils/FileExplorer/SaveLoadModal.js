@@ -3,9 +3,7 @@ import { HStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
-import ModalContainer from "../ModalContainer";
-
-const ModalContext = createContext(null);
+import ModalContainer from "../ModalContainer/ModalContainer";
 
 export default function SaveLoadModal(props) {
   const {

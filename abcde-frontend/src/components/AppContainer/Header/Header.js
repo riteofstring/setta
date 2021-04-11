@@ -31,7 +31,6 @@ export default function HeaderContainer() {
       </Box>
       <Spacer />
       <ColorModeToggle />
-
       <MainSideDrawer />
     </Flex>
   );

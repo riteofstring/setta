@@ -12,13 +12,13 @@ import {
 
 export default function ModalContainer(props) {
   const {
-    header,
-    body,
-    size,
     onClose,
     isOpen,
     isCentered = false,
+    size = "xl",
     maxH = "auto",
+    header,
+    body,
   } = props;
   return (
     <Modal
@@ -39,23 +39,21 @@ export default function ModalContainer(props) {
 }
 
 function FooterSwitch(props) {
-  const { footer, overrideFooter = false } = props;
+  const { overrideFooter, footer } = props;
+
   return (
     <ModalFooter>
-      {overrideFooter ? (
-        footer
-      ) : (
-        <DefaultFooter {...props}>{footer}</DefaultFooter>
-      )}
+      {overrideFooter ? footer : <DefaultFooter {...props} />}
     </ModalFooter>
   );
 }
 
 function DefaultFooter(props) {
-  const { onClose } = props;
+  const { onClose, footer } = props;
+
   return (
     <HStack justify="stretch" mb=".5rem" spacing={4}>
-      {props.children}
+      {footer}
       <Button onClick={onClose}>Close</Button>
     </HStack>
   );

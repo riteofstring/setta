@@ -26,7 +26,6 @@ export default function FileMenu() {
     (state) => state.uiInfo.savedFolderAndUINames
   );
 
-
   const _onOpen = (buttonText) => {
     setButtonText(buttonText);
     onOpen();

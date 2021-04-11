@@ -1,13 +1,13 @@
 import { useContext } from "react";
-import { MenuContext } from "../../SectionFooter";
+// import { MenuContext } from "../../SectionFooter";
 import { Box, VStack, Text } from "@chakra-ui/react";
-import ModalContainer from "../../../../../../../utils/ModalContainer";
+import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
 import { getParameters } from "../../../../../../../utils/utils";
 import { useStoreState } from "easy-peasy";
 import Item from "./Item";
 
-export default function UITypesModal() {
-  const { isOpen, onClose, sectionId } = useContext(MenuContext);
+export default function UITypesModal({ isOpen, onClose, sectionId }) {
+  // const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
   const moduleName = useStoreState(
     (state) => state.currentlySelected.currentlySelected[sectionId]?.moduleName
