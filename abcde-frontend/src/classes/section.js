@@ -112,20 +112,11 @@ export class Section {
     );
   };
 
-  getObjData = (dataName) => {
-    return this.sectionInfo.getObjData(
-      this.selected.moduleName,
-      this.selected.objName,
-      dataName
-    );
-  };
-
-  getKwargs = () => {
-    return this.getObjData("kwargs");
-  };
-
   getParameters = () => {
-    return this.getObjData("params");
+    return this.sectionInfo.getParametersAndKwargs(
+      this.selected.moduleName,
+      this.selected.objName
+    );
   };
 
   getHistory = () => {

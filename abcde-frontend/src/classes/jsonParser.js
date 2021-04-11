@@ -4,10 +4,12 @@ import { combineModules, combineParameters } from "../utils/utils";
 export const createJson = (specs, available) => {
   if (Array.isArray(specs)) {
     return combineModules(available.modules, specs);
-  } else if (specs["parameters"]) {
-    return combineParameters(available.parameters, specs["parameters"]);
+  } else {
+    return {
+      ...combineModules(available.modules, specs["modules"]),
+      ...combineParameters(available.parameters, specs["parameters"]),
+    };
   }
-  return {};
 };
 
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
@@ -31,6 +33,7 @@ class ParameterInfo {
     this.defaultVal = jsonInput.default_val;
     this.uiTypeName = jsonInput.ui_type;
     this.specs = jsonInput.type;
+    this.isKwarg = false;
   }
 
   shouldHaveNested = () => {
@@ -43,7 +46,6 @@ class ObjInfo {
     const infoTypes = { ParameterInfo };
     this.name = name;
     this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false);
-    this.kwargs = {};
   }
 }
 
@@ -69,6 +71,7 @@ export class SectionInfo {
       defaultVal: "",
       uiTypeName: "UNKNOWN",
       specs: "",
+      isKwarg: true,
     });
     if (allDefined(moduleName, objName)) {
       this.moduleInfos[moduleName].objs[objName].kwargs[
@@ -80,19 +83,30 @@ export class SectionInfo {
   };
 
   getParamData = (moduleName, objName, paramName, dataName) => {
-    if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName].params[paramName][
-        dataName
-      ];
-    }
-    return this.parameterInfos[paramName][dataName];
+    return this.getParametersAndKwargs(moduleName, objName)[paramName][
+      dataName
+    ];
   };
 
-  getObjData = (moduleName, objName, dataName) => {
+  getParametersAndKwargs = (moduleName, objName) => {
     if (allDefined(moduleName, objName)) {
-      return this.moduleInfos[moduleName].objs[objName][dataName];
+      return {
+        ...this.moduleInfos[moduleName].objs[objName].params,
+        ...this.parameterInfos,
+      };
     }
     return this.parameterInfos;
+  };
+
+  getXOnly = (moduleName, objName, x) => {
+    const output = {};
+    const everything = this.getParametersAndKwargs(moduleName, objName);
+    for (let e of Object.keys(everything)) {
+      if (x(everything[e])) {
+        output[e] = everything[e];
+      }
+    }
+    return output;
   };
 
   setParamData = (moduleName, objName, paramName, dataName, value) => {

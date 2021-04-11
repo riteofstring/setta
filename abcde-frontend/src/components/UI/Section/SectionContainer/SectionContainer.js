@@ -92,7 +92,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
   console.log("SectionContainerCore", sectionId, isList, isListRoot);
 
   const showSearch =
-    sectionInfo && Object.keys(sectionInfo.parameterInfos).length === 0;
+    sectionInfo && Object.keys(sectionInfo.moduleInfos).length > 0;
 
   return (
     <HStack

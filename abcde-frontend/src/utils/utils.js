@@ -78,9 +78,12 @@ export function requiresNestedSection(uiTypeName) {
 }
 
 function jsonCombiner(available, listOfSelection, key) {
-  return {
-    [key]: Object.assign({}, ...listOfSelection.map((x) => available[x][key])),
-  };
+  if (listOfSelection){
+    return {
+      [key]: Object.assign({}, ...listOfSelection.map((x) => available[x][key])),
+    };
+  }
+  return {}
 }
 
 export function combineModules(modules, listOfModules) {

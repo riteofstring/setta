@@ -4,7 +4,6 @@ import { SectionInfo } from "../classes/jsonParser";
 import { Section } from "../classes/section";
 import { Sections } from "../classes/sections";
 import { NO_AUTH } from "../utils/constants";
-import { sectionParameterGetter } from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";

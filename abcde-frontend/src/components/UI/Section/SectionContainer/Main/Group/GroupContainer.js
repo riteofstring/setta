@@ -15,11 +15,11 @@ export default function GroupContainer({ sectionId, sectionInfo }) {
     state.master.sections.getSelected(sectionId)
   );
   const kwargNames = Object.keys(
-    sectionInfo.getObjData(moduleName, objName, "kwargs")
+    sectionInfo.getXOnly(moduleName, objName, (x) => x.isKwarg)
   );
   const [numKwargs, setNumKwargs] = useState(kwargNames.length);
   const paramNames = Object.keys(
-    sectionInfo.getObjData(moduleName, objName, "params")
+    sectionInfo.getXOnly(moduleName, objName, (x) => !x.isKwarg)
   );
   const showKwargsButton = objName || paramNames.length > 0;
 
