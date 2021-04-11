@@ -1,3 +1,5 @@
+import { requiresNestedSection } from "../utils/utils";
+
 export class UIType {
   constructor({ name, datatype, parentUIType }) {
     this.name = name;
@@ -16,11 +18,10 @@ export class UIType {
   };
 
   initializeConfig = (datatype) => {
-    if (datatype && this.isNested()){
-      this.config = {"modules": datatype}
-    }
-    else{
-      this.config = {}
+    if (datatype && this.isNested()) {
+      this.config = { modules: datatype };
+    } else {
+      this.config = {};
     }
   };
 
@@ -29,6 +30,6 @@ export class UIType {
   };
 
   isNested = () => {
-    return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(this.name);
+    return requiresNestedSection(this.name);
   };
 }

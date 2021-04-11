@@ -12,6 +12,7 @@ export class Section {
     this.selected = new Selected();
     this.uiType = new UIType({ name: "OBJECT" });
     this.history = new History();
+    this.initializeParamUITypes();
     this.getHistory();
   }
 
@@ -35,7 +36,7 @@ export class Section {
   };
 
   getParamUIType = (paramName) => {
-    return this.getParamData(paramName, "uiType");
+    return this.paramUITypes[paramName];
   };
 
   getDefaultValue = (paramName) => {
@@ -54,7 +55,7 @@ export class Section {
 
   setParamUIType = (paramName, uiName) => {
     this.setHistory();
-    this.setParamData(paramName, "uiType", new UIType({ name: uiName }));
+    this.setParamData(paramName, "uiTypeName", uiName);
     this.getHistory();
   };
 
@@ -123,9 +124,10 @@ export class Section {
   };
 
   getHistory = () => {
-    this.history.parameters = this.getParameters();
+    const paramNames = Object.keys(this.getParameters());
+    this.initializeParamUITypes();
     for (let s of this.history.historyNames()) {
-      this[s] = this.history.getHistory(s, this.selected.asString);
+      this[s] = this.history.getHistory(s, this.selected.asString, paramNames);
     }
     this.childrenIds = this.childrenIds.filter((x) =>
       flattenDictOfArrays(this.childrenIdsPerParam).includes(x)
@@ -133,9 +135,13 @@ export class Section {
   };
 
   setHistory = () => {
-    this.history.parameters = this.getParameters();
     for (let s of this.history.historyNames()) {
       this.history.setHistory(s, this.selected.asString, this[s]);
     }
+  };
+
+  initializeParamUITypes = () => {
+    const parameters = this.getParameters();
+    this.history.initializeParamUITypes(this.selected.asString, parameters);
   };
 }

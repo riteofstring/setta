@@ -73,8 +73,8 @@ export function getParameters(sectionInfo, moduleName, objName) {
   return [];
 }
 
-export function requiresNestedSection(uiType) {
-  return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiType);
+export function requiresNestedSection(uiTypeName) {
+  return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiTypeName);
 }
 
 function jsonCombiner(available, listOfSelection, key) {

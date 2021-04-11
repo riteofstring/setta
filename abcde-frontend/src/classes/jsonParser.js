@@ -1,5 +1,4 @@
 import { allDefined } from "../utils/utils";
-import { UIType } from "./uiType";
 import { combineModules, combineParameters } from "../utils/utils";
 
 export const createJson = (specs, available) => {
@@ -36,18 +35,21 @@ class ParameterInfo {
   constructor(name, jsonInput, available) {
     this.name = name;
     this.defaultVal = jsonInput.default_val;
-    this.type = jsonInput.type;
-    this.uiType = new UIType({ name: jsonInput.ui_type, datatype: this.type });
-    if (!(typeof this.type === "string")) {
-      this.type = new SectionInfo(this.name, this.type, available);
-      if (!this.uiType.isNested()) {
-        this.uiType = new UIType({
-          name: "NESTED_OBJECT",
-          datatype: this.type,
-        });
-      }
-    }
+    this.uiTypeName = jsonInput.ui_type;
+    this.typeDescription = jsonInput.type;
+    this.setType(available);
   }
+
+  setType = (available) => {
+    this.type = this.typeDescription;
+    if (this.hasNested()) {
+      this.type = new SectionInfo(this.name, this.type, available);
+    }
+  };
+
+  hasNested = () => {
+    return Array.isArray(this.typeDescription);
+  };
 }
 
 class ObjInfo {
@@ -77,7 +79,7 @@ export class SectionInfo {
   constructor(name, specs, available) {
     const jsonInput = createJson(specs, available);
     this.name = name;
-    this.specs = specs
+    this.specs = specs;
     this.setModuleInfos(jsonInput, available);
     this.setParameterInfos(jsonInput, available);
   }
