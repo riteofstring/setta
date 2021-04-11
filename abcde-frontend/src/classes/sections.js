@@ -118,10 +118,16 @@ export class Sections {
 
   deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
     const parent = this.sections[parentId];
-    const startIdx = this.getIdxAfterSource(parent, sourceId);
-    const childrenToDelete = parent
-      .getChildrenIds()
-      .slice(startIdx, startIdx + numChildren);
+    let childrenToDelete = parent.getChildrenIds();
+    if (childrenToDelete.length === 0) {
+      return;
+    }
+    if (numChildren !== "all") {
+      const startIdx = this.getIdxAfterSource(parent, sourceId);
+      childrenToDelete = parent
+        .getChildrenIds()
+        .slice(startIdx, startIdx + numChildren);
+    }
     const paramName = this.sections[childrenToDelete[0]].sectionHeading;
     this.deleteSections({ sectionIds: childrenToDelete, parentId, paramName });
   };
