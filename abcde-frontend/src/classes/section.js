@@ -11,7 +11,7 @@ export class Section {
     this.parent = null;
     this.selected = new Selected();
     this.uiType = new UIType({ name: "OBJECT" });
-    this.history = new History(this.getParameters());
+    this.history = new History();
     this.getHistory();
   }
 
@@ -123,12 +123,14 @@ export class Section {
   };
 
   getHistory = () => {
+    this.history.parameters = this.getParameters()
     for (let s of this.history.historyNames()) {
       this[s] = this.history.getHistory(s, this.selected.asString);
     }
   };
 
   setHistory = () => {
+    this.history.parameters = this.getParameters()
     for (let s of this.history.historyNames()) {
       this.history.setHistory(s, this.selected.asString, this[s]);
     }

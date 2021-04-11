@@ -1,8 +1,7 @@
-import { createDefaultNestedDict, insertIntoArray } from "../utils/utils";
+import { createDefaultNestedDict } from "../utils/utils";
 
 export class History {
-  constructor(parameters) {
-    this.parameters = parameters;
+  constructor() {
     this.clearHistory();
   }
 
@@ -11,13 +10,11 @@ export class History {
   };
 
   getHistory = (dataName, selected) => {
-    console.log("dataName", dataName, this.isNotPerParam(dataName));
     if (this.isNotPerParam(dataName)) {
       return this[dataName][selected];
     } else {
       const output = {};
       for (let p of Object.keys(this.parameters)) {
-        console.log("p", p);
         output[p] = this[dataName][selected][p][this.getUITypeName(p)];
       }
       return output;
@@ -26,7 +23,7 @@ export class History {
 
   setHistory = (dataName, selected, value) => {
     if (this.isNotPerParam(dataName)) {
-      return (this[dataName][selected] = value);
+      this[dataName][selected] = value;
     } else {
       for (let p of Object.keys(value)) {
         this[dataName][selected][p][this.getUITypeName(p)] = value[p];
@@ -39,7 +36,8 @@ export class History {
   };
 
   clearHistory = () => {
-    this.enteredValues = createDefaultNestedDict(2, {});
+    this.parameters = {};
+    this.enteredValues = createDefaultNestedDict(3, undefined);
     this.childrenIds = createDefaultNestedDict(1, []);
     this.childrenIdsPerParam = createDefaultNestedDict(3, []);
     this.childrenAreCollapsed = createDefaultNestedDict(1, false);
