@@ -1,6 +1,6 @@
 import { action, thunk, debug } from "easy-peasy";
 import Data from "../data/simpleTrainTest.json";
-import { ModuleSectionInfo, ParameterSectionInfo } from "../classes/jsonParser";
+import { SectionInfo } from "../classes/jsonParser";
 import { Section } from "../classes/section";
 import { Sections } from "../classes/sections";
 import { NO_AUTH } from "../utils/constants";
@@ -28,23 +28,20 @@ const master = {
     state.availableParameters = payload.PARAMETERS;
     for (let key of Object.keys(payload.UI)) {
       const currSection = payload.UI[key];
-      let newSectionInfo = null;
-      if (Array.isArray(currSection)) {
-        const combinedJsons = combineModules(
-          state.availableModules,
-          currSection
-        );
-        newSectionInfo = new ModuleSectionInfo(key, combinedJsons);
+      let combinedJsons = null;
+      if (Array.isArray(currSection) || currSection["modules"]) {
+        combinedJsons = combineModules(state.availableModules, currSection);
       } else if (currSection["parameters"]) {
-        const combinedJsons = combineParameters(
+        combinedJsons = combineParameters(
           state.availableParameters,
           currSection["parameters"]
         );
-        newSectionInfo = new ParameterSectionInfo(key, combinedJsons);
       } else {
         throw "Invalid json";
       }
-      state.sections.addSection(new Section(newSectionInfo, key));
+      state.sections.addSection(
+        new Section(new SectionInfo(key, combinedJsons), key)
+      );
     }
     state.pageMinMaxList = getPageMinMaxList(
       state.sections.numRootIds(),
@@ -107,7 +104,7 @@ const master = {
     const { children, idx } = state.sections.createChildren({ ...payload });
     state.sections.addChildren(payload.parentId, children, idx);
 
-    console.log("addChildren", debug(state.sections));
+    console.log("addChildren", debug(state.sections))
   }),
 
   deleteSections: action((state, payload) => {
