@@ -17,17 +17,14 @@ function _childSectionInfo(parent, moduleName, objName, paramName, available) {
   if (parent.uiType.isListRoot) {
     return parent.sectionInfo;
   } else {
-    const paramType = parent.sectionInfo.getParamData(
+    let paramSpecs = parent.sectionInfo.getParamData(
       moduleName,
       objName,
       paramName,
-      "type"
+      "specs"
     );
-    if (paramType instanceof SectionInfo) {
-      return new SectionInfo(paramType.name, paramType.specs, available);
-    } else {
-      return new SectionInfo(paramName, [], available);
-    }
+    paramSpecs = Array.isArray(paramSpecs) ? paramSpecs : [];
+    return new SectionInfo(paramName, paramSpecs, available);
   }
 }
 //end of helper functions
@@ -233,7 +230,8 @@ export class Sections {
     this.sections[sectionId].setParamUITypeConfig(paramName, configName, value);
   };
 
-  setSectionModules = ({ sectionId, specs }) => {
+  setSectionModules = ({ sectionId, parentId, paramName, specs }) => {
+    this.sections[parentId].setParamSpecs(paramName, specs);
     this.sections[sectionId].setSectionModules(specs, this.available);
   };
 

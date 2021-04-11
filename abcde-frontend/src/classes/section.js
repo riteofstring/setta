@@ -53,9 +53,14 @@ export class Section {
     this.getHistory();
   };
 
+  setParamSpecs = (paramName, specs) => {
+    this.setParamData(paramName, "specs", specs);
+  };
+
   setParamUIType = (paramName, uiName) => {
     this.setHistory();
     this.setParamData(paramName, "uiTypeName", uiName);
+    this.setParamData(paramName, "specs", null);
     this.getHistory();
   };
 

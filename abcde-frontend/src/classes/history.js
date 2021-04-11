@@ -51,13 +51,14 @@ export class History {
     for (let p of Object.keys(params)) {
       const currParam = params[p];
       const newUITypeName =
-        currParam.hasNested() && !requiresNestedSection(currParam.uiTypeName)
+        currParam.shouldHaveNested() &&
+        !requiresNestedSection(currParam.uiTypeName)
           ? "NESTED_OBJECT"
           : currParam.uiTypeName;
       if (!this.paramUITypes[selected][p][newUITypeName]) {
         this.paramUITypes[selected][p][newUITypeName] = new UIType({
           name: newUITypeName,
-          datatype: currParam.typeDescription,
+          datatype: currParam.specs,
         });
       }
       this.paramUITypeNames[selected][p] = newUITypeName;

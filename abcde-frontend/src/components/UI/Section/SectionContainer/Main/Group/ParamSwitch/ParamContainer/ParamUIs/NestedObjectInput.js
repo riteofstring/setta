@@ -68,8 +68,9 @@ export default function NestedObjectInput({
   paramUITypeConfig,
 }) {
   const addChildren = useStoreActions((actions) => actions.master.addChildren);
-  const childId = useStoreState((state) =>
-    state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
+  const childId = useStoreState(
+    (state) =>
+      state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
   );
   const setUIType = useStoreActions((actions) => actions.master.setUIType);
   const setSectionModules = useStoreActions(
@@ -102,6 +103,8 @@ export default function NestedObjectInput({
     if (childId) {
       setSectionModules({
         sectionId: childId,
+        parentId: sectionId,
+        paramName: paramName,
         specs: modules,
       });
     }
