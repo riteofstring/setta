@@ -1,4 +1,5 @@
 import { nullOrUndefined, defaultDict, insertIntoArray } from "../utils/utils";
+import { SectionInfo } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 
@@ -104,6 +105,10 @@ export class Section {
 
   setParamUITypeConfig = (paramName, configName, value) => {
     this.getParamUIType(paramName).setConfig(configName, value);
+  };
+
+  setSectionModules = (specs, available) => {
+    this.sectionInfo = new SectionInfo(this.sectionInfo.name, specs, available);
   };
 
   hasNested = () => {

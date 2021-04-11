@@ -100,6 +100,10 @@ const master = {
     state.sections.setParamUITypeConfig({ ...payload });
   }),
 
+  setSectionModules: action((state, payload) => {
+    state.sections.setSectionModules({ ...payload });
+  }),
+
   addChildren: thunk((actiona, payload, helpers) => {
     const { children, idx } = helpers
       .getState()

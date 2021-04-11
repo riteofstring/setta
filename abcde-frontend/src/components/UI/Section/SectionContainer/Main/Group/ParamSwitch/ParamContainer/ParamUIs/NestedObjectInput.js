@@ -28,6 +28,7 @@ export function NestedObjectInputConfig({
   const items = Object.keys(availableModules).map((x) => valueAndLabel(x));
 
   const handleSelectedItemsChange = (selectedItems) => {
+    console.log("selectedItems", selectedItems)
     if (selectedItems) {
       onChange(
         "modules",
@@ -58,20 +59,23 @@ export default function NestedObjectInput({
   const hasBeenVisited = useStoreState((state) =>
     state.master.sections.getHasBeenVisited(sectionId, paramName)
   );
+  const nestedSectionId = useStoreState((state) =>
+    state.master.sections.getNestedSectionIds(sectionId, paramName, true)
+  );
   const setHasBeenVisited = useStoreActions(
     (actions) => actions.master.setHasBeenVisited
   );
 
   const setUIType = useStoreActions((actions) => actions.master.setUIType);
-  const nestedSectionId = useStoreState((state) =>
-    state.master.sections.getNestedSectionIds(sectionId, paramName, true)
+  const setSectionModules = useStoreActions(
+    (actions) => actions.master.setSectionModules
   );
 
-  console.log("paramUITypeConfig", paramUITypeConfig)
+  console.log("paramUITypeConfig", uiType, paramUITypeConfig);
 
   useEffect(() => {
     if (!hasBeenVisited) {
-      addChildren({
+      const newIds = addChildren({
         parentId: sectionId,
         paramName,
         uiType,
@@ -89,6 +93,15 @@ export default function NestedObjectInput({
       setUIType({ sectionId: nestedSectionId, uiType });
     }
   }, [uiType]);
+
+  useEffect(() => {
+    if (nestedSectionId) {
+      setSectionModules({
+        sectionId: nestedSectionId,
+        specs: paramUITypeConfig["modules"],
+      });
+    }
+  }, [paramUITypeConfig]);
 
   // const nestedSectionInfo = useStoreState(
   //   (state) =>
@@ -236,7 +249,7 @@ export function NestedObjectCleanup({ sectionId, paramName, uiType }) {
 
   useEffect(() => {
     if (nestedSectionId) {
-      console.log("deleting section", sectionId)
+      console.log("deleting section", sectionId);
       deleteSections({
         sectionIds: [nestedSectionId],
         parentId: sectionId,

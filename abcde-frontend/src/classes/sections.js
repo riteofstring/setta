@@ -234,6 +234,10 @@ export class Sections {
     this.sections[sectionId].setParamUITypeConfig(paramName, configName, value);
   };
 
+  setSectionModules = ({ sectionId, specs }) => {
+    this.sections[sectionId].setSectionModules(specs, this.available);
+  };
+
   setAllChildrenIds = () => {
     const listOfLists = Object.keys(this.sections).map((e) =>
       this.sections[e].getChildrenIds()
