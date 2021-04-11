@@ -2,37 +2,36 @@ import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { SectionInfo } from "../../../../../../../../../classes/jsonParser";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { useEffect, useState } from "react";
-import {
-  requiresNestedSection,
-  combineModules,
-  parameterStateDetailsGetter,
-  sectionParameterGetter,
-} from "../../../../../../../../../utils/utils";
+import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 
 function valueAndLabel(x) {
   return { value: x, label: x };
 }
 
 export function NestedObjectInputConfig({
+  name,
   availableModules,
   onChange,
   savedConfig,
 }) {
-  const getSelectedItems = () => {
-    if (savedConfig?.modules) {
-      return savedConfig.modules.map((x) => valueAndLabel(x));
-    }
-    return [];
-  };
+  const savedSelectedItems = savedConfig?.modules
+    ? savedConfig.modules.map((x) => valueAndLabel(x))
+    : [];
 
   const items = Object.keys(availableModules).map((x) => valueAndLabel(x));
 
-  const handleSelectedItemsChange = (selectedItems) => {
-    console.log("selectedItems", selectedItems)
-    if (selectedItems) {
+  const [selectedItems, setSelectedItems] = useState(savedSelectedItems);
+
+  useEffect(() => {
+    setSelectedItems(savedSelectedItems);
+  }, [name]);
+
+  const handleSelectedItemsChange = (newSelectedItems) => {
+    if (newSelectedItems) {
+      setSelectedItems(newSelectedItems);
       onChange(
         "modules",
-        selectedItems.map((x) => x.value)
+        newSelectedItems.map((x) => x.value)
       );
     }
   };
@@ -40,7 +39,7 @@ export function NestedObjectInputConfig({
   return (
     <CUIAutoComplete
       placeholder="Module name"
-      selectedItems={getSelectedItems()}
+      selectedItems={selectedItems}
       items={items}
       onSelectedItemsChange={(changes) =>
         handleSelectedItemsChange(changes.selectedItems)
@@ -95,10 +94,14 @@ export default function NestedObjectInput({
   }, [uiType]);
 
   useEffect(() => {
+    let modules = paramUITypeConfig["modules"];
+    if (nullOrUndefined(modules)) {
+      modules = [];
+    }
     if (nestedSectionId) {
       setSectionModules({
         sectionId: nestedSectionId,
-        specs: paramUITypeConfig["modules"],
+        specs: modules,
       });
     }
   }, [paramUITypeConfig]);

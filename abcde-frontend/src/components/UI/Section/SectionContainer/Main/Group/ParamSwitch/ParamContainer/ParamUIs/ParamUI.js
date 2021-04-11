@@ -19,6 +19,7 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
     case "LIST_NESTED_OBJECT":
       return (
         <NestedObjectInputConfig
+          name={name}
           savedConfig={savedConfig}
           onChange={onChange}
           availableModules={availableModules}
