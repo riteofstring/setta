@@ -1,5 +1,5 @@
 import { nullOrUndefined, defaultDict, insertIntoArray } from "../utils/utils";
-import { SectionInfo } from "./jsonParser";
+import { createJson } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 
@@ -108,7 +108,8 @@ export class Section {
   };
 
   setSectionModules = (specs, available) => {
-    this.sectionInfo = new SectionInfo(this.sectionInfo.name, specs, available);
+    const jsonInput = createJson(specs, available);
+    this.sectionInfo.setModuleInfos(jsonInput, available);
   };
 
   hasNested = () => {

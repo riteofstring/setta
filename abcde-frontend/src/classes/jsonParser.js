@@ -2,7 +2,7 @@ import { nullOrUndefined, allDefined } from "../utils/utils";
 import { UIType } from "./uiType";
 import { combineModules, combineParameters } from "../utils/utils";
 
-const createJson = (specs, available) => {
+export const createJson = (specs, available) => {
   if (Array.isArray(specs) || specs["modules"]) {
     return combineModules(available.modules, specs);
   } else if (specs["parameters"]) {
@@ -76,24 +76,10 @@ class ModuleInfo {
 
 export class SectionInfo {
   constructor(name, specs, available) {
-    const infoTypes = { ModuleInfo, ParameterInfo };
-    console.log(name, specs, available);
     const jsonInput = createJson(specs, available);
     this.name = name;
-    this.moduleInfos = getInfos(
-      jsonInput,
-      available,
-      infoTypes,
-      "ModuleInfo",
-      true
-    );
-    this.parameterInfos = getInfos(
-      jsonInput,
-      available,
-      infoTypes,
-      "ParameterInfo",
-      true
-    );
+    this.setModuleInfos(jsonInput, available);
+    this.setParameterInfos(jsonInput, available);
   }
 
   addKwarg = (moduleName, objName, paramName) => {
@@ -135,5 +121,25 @@ export class SectionInfo {
     } else {
       this.parameterInfos[paramName][dataName] = value;
     }
+  };
+
+  setModuleInfos = (jsonInput, available) => {
+    this.moduleInfos = getInfos(
+      jsonInput,
+      available,
+      { ModuleInfo },
+      "ModuleInfo",
+      true
+    );
+  };
+
+  setParameterInfos = (jsonInput, available) => {
+    this.parameterInfos = getInfos(
+      jsonInput,
+      available,
+      { ParameterInfo },
+      "ParameterInfo",
+      true
+    );
   };
 }
