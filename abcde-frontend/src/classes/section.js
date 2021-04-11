@@ -1,4 +1,4 @@
-import { nullOrUndefined, defaultDict, insertIntoArray } from "../utils/utils";
+import { createDefaultNestedDict, insertIntoArray } from "../utils/utils";
 import { createJson } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
@@ -7,11 +7,11 @@ export class Section {
   constructor(sectionInfo, sectionHeading) {
     this.sectionInfo = sectionInfo;
     this.parent = null;
-    this.childrenIds = defaultDict(() => []);
+    this.childrenIds = createDefaultNestedDict(1, []);
     this.selected = new Selected();
     this.uiType = new UIType({ name: "OBJECT" });
-    this.nestedSectionIds = defaultDict(() => defaultDict(() => []));
-    this.hasBeenVisited = defaultDict(() => ({}));
+    this.nestedSectionIds = createDefaultNestedDict(2, []);
+    this.hasBeenVisited = createDefaultNestedDict(1, {});
     this.childrenAreCollapsed = {};
     this.sectionHeading = sectionHeading;
   }

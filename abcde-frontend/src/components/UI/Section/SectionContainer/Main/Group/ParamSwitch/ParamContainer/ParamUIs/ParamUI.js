@@ -8,6 +8,8 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
     (state) => state.master.sections.available.modules
   );
 
+  const availableModuleNames = Object.keys(availableModules)
+
   switch (name) {
     default:
       return <TextInputConfig savedConfig={savedConfig} onChange={onChange} />;
@@ -22,7 +24,7 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
           name={name}
           savedConfig={savedConfig}
           onChange={onChange}
-          availableModules={availableModules}
+          availableModules={availableModuleNames}
         />
       );
   }

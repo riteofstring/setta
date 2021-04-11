@@ -6,8 +6,8 @@ export function nullOrUndefined(x) {
   return x === null || x === undefined;
 }
 
-export function allDefined(...x){
-  return x.every(a=>!nullOrUndefined(a))
+export function allDefined(...x) {
+  return x.every((a) => !nullOrUndefined(a));
 }
 
 // https://stackoverflow.com/a/63954561
@@ -19,6 +19,13 @@ export function defaultDict(defaultValueFn) {
     },
   };
   return new Proxy({}, handler);
+}
+
+export function createDefaultNestedDict(levels, finalType) {
+  if (levels === 0) {
+    return finalType;
+  }
+  return defaultDict(() => createDefaultNestedDict(levels - 1, finalType));
 }
 
 // https://stackoverflow.com/a/38181008

@@ -13,17 +13,26 @@ export function NestedObjectInputConfig({
   onChange,
   savedConfig,
 }) {
-  const savedSelectedItems = savedConfig?.modules
-    ? savedConfig.modules.map((x) => valueAndLabel(x))
-    : [];
+  const initialPickerItems = availableModules.map((x) => valueAndLabel(x));
 
-  const items = Object.keys(availableModules).map((x) => valueAndLabel(x));
+  const getInitialSelectedItem = () => {
+    if (savedConfig?.modules) {
+      const modules = savedConfig.modules;
+      return initialPickerItems
+        .map((e, idx) => (modules.includes(e.value) ? idx : -1))
+        .filter((e) => e !== -1)
+        .map((e) => initialPickerItems[e]);
+    }
+    return [];
+  };
 
-  const [selectedItems, setSelectedItems] = useState(savedSelectedItems);
+  const [pickerItems, setPickerItems] = useState(initialPickerItems);
+  const [selectedItems, setSelectedItems] = useState(getInitialSelectedItem());
 
-  useEffect(() => {
-    setSelectedItems(savedSelectedItems);
-  }, [name]);
+  const handleCreateItem = (item) => {
+    setPickerItems((curr) => [...curr, item]);
+    setSelectedItems((curr) => [...curr, item]);
+  };
 
   const handleSelectedItemsChange = (newSelectedItems) => {
     if (newSelectedItems) {
@@ -35,11 +44,16 @@ export function NestedObjectInputConfig({
     }
   };
 
+  useEffect(() => {
+    setSelectedItems(getInitialSelectedItem());
+  }, [name]);
+
   return (
     <CUIAutoComplete
       placeholder="Module name"
+      onCreateItem={handleCreateItem}
+      items={pickerItems}
       selectedItems={selectedItems}
-      items={items}
       onSelectedItemsChange={(changes) =>
         handleSelectedItemsChange(changes.selectedItems)
       }
