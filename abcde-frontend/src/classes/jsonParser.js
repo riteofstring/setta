@@ -90,14 +90,12 @@ export class SectionInfo {
   };
 
   setParamData = (moduleName, objName, paramName, dataName, value) => {
-    const newValue = dataName === "uiType" ? new UIType(value) : value;
-
     if (allDefined(moduleName, objName)) {
       this.moduleInfos[moduleName].objs[objName].params[paramName][
         dataName
-      ] = newValue;
+      ] = value;
     } else {
-      this.parameterInfos[paramName][dataName] = newValue;
+      this.parameterInfos[paramName][dataName] = value;
     }
   };
 }

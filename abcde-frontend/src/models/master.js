@@ -108,6 +108,10 @@ const master = {
     state.sections.setNestedSectionIds({ ...payload });
   }),
 
+  setParamUITypeConfig: action((state, payload) => {
+    state.sections.setParamUITypeConfig({ ...payload });
+  }),
+
   addChildren: thunk((actiona, payload, helpers) => {
     const { children, idx } = helpers
       .getState()

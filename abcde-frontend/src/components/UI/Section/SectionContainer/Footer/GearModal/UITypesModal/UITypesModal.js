@@ -57,32 +57,20 @@ const menuItems = [
 ];
 
 function Item({ sectionId, paramName }) {
-  // console.log("Item", sectionId, parameter, parameter.uiType);
-
   const uiType = useStoreState((state) =>
     state.master.sections.getParamUIType(sectionId, paramName)
   );
 
-  const uiTypeConfig = null;
-  const onChange = null;
-
-  // const uiTypeConfig = useStoreState(
-  //   (state) =>
-  //     parameterStateDetailsGetter(
-  //       state.uiTypeConfigs.uiTypeConfigs,
-  //       sectionId,
-  //       moduleName,
-  //       objName,
-  //       paramName
-  //     )?.[uiType]
-  // );
+  const savedConfig = useStoreState((state) =>
+    state.master.sections.getParamUITypeConfig(sectionId, paramName)
+  );
 
   const setParamUIType = useStoreActions(
     (actions) => actions.master.setParamUIType
   );
-  // const setUiTypeConfigs = useStoreActions(
-  //   (actions) => actions.uiTypeConfigs.setUiTypeConfigs
-  // );
+  const setParamUITypeConfig = useStoreActions(
+    (actions) => actions.master.setParamUITypeConfig
+  );
 
   const onSelect = (e) => {
     setParamUIType({
@@ -92,17 +80,14 @@ function Item({ sectionId, paramName }) {
     });
   };
 
-  // const onChange = (uiConfigOption, uiConfigValue) => {
-  //   setUiTypeConfigs({
-  //     sectionId,
-  //     moduleName,
-  //     objName,
-  //     paramName,
-  //     uiType,
-  //     uiConfigOption,
-  //     uiConfigValue,
-  //   });
-  // };
+  const onChange = (configName, value) => {
+    setParamUITypeConfig({
+      sectionId,
+      paramName,
+      configName,
+      value,
+    });
+  };
 
   return (
     <HStack>
@@ -118,7 +103,11 @@ function Item({ sectionId, paramName }) {
           </option>
         ))}
       </Select>
-      <ParamUIConfig uiType={uiType} onChange={onChange} />
+      <ParamUIConfig
+        name={uiType.name}
+        savedConfig={savedConfig}
+        onChange={onChange}
+      />
     </HStack>
   );
 }

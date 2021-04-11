@@ -3,21 +3,23 @@ import SliderInput, { SliderInputConfig } from "./SliderInput";
 import { NestedObjectInputConfig } from "./NestedObjectInput";
 import { useStoreState } from "easy-peasy";
 
-export function ParamUIConfig({ uiType, onChange }) {
+export function ParamUIConfig({ name, savedConfig, onChange }) {
   const availableModules = useStoreState(
     (state) => state.master.availableModules
   );
 
-  switch (uiType.name) {
+  switch (name) {
     default:
-      return <TextInputConfig uiType={uiType} onChange={onChange} />;
+      return <TextInputConfig savedConfig={savedConfig} onChange={onChange} />;
     case "SLIDER":
-      return <SliderInputConfig uiType={uiType} onChange={onChange} />;
+      return (
+        <SliderInputConfig savedConfig={savedConfig} onChange={onChange} />
+      );
     case "NESTED_OBJECT":
     case "LIST_NESTED_OBJECT":
       return (
         <NestedObjectInputConfig
-          uiType={uiType}
+          savedConfig={savedConfig}
           onChange={onChange}
           availableModules={availableModules}
         />
@@ -25,8 +27,8 @@ export function ParamUIConfig({ uiType, onChange }) {
   }
 }
 
-export default function ParamUI({ uiType, childProps }) {
-  switch (uiType.name) {
+export default function ParamUI({ name, childProps }) {
+  switch (name) {
     default:
       return <TextInput {...childProps} />;
     case "SLIDER":

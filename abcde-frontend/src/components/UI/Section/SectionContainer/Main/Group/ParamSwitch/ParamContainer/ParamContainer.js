@@ -1,8 +1,6 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
-import { useState, useEffect } from "react";
 import { useStoreState } from "easy-peasy";
-import { parameterStateDetailsGetter } from "../../../../../../../../utils/utils";
 import NestedObjectInput, {
   NestedObjectCleanup,
 } from "./ParamUIs/NestedObjectInput";
@@ -14,17 +12,9 @@ export default function ParamContainer(props) {
     state.master.sections.getParamUIType(sectionId, paramName)
   );
 
-  // const currUiTypeConfig = useStoreState(
-  //   (state) =>
-  //     parameterStateDetailsGetter(
-  //       state.uiTypeConfigs.uiTypeConfigs,
-  //       sectionId,
-  //       name
-  //     )?.[uiType]
-  // );
-  const currUiTypeConfig = null;
-
-  // console.log("ParamContainer", sectionId, paramName, uiType);
+  const paramUITypeConfig = useStoreState((state) =>
+    state.master.sections.getParamUITypeConfig(sectionId, paramName)
+  );
 
   return !uiType.isNested() ? (
     <>
@@ -44,7 +34,7 @@ export default function ParamContainer(props) {
             sectionId={sectionId}
             paramName={paramName}
             uiType={uiType}
-            uiTypeConfig={currUiTypeConfig}
+            paramUITypeConfig={paramUITypeConfig}
             isDisabled={!paramName}
           />
         </HStack>
@@ -60,6 +50,7 @@ export default function ParamContainer(props) {
       sectionId={sectionId}
       paramName={paramName}
       uiType={uiType}
+      paramUITypeConfig={paramUITypeConfig}
     />
   );
 }

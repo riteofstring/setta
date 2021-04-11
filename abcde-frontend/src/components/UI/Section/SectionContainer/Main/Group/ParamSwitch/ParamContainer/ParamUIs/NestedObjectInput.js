@@ -52,7 +52,7 @@ export default function NestedObjectInput({
   sectionId,
   paramName,
   uiType,
-  uiTypeConfig,
+  paramUITypeConfig,
 }) {
   const addChildren = useStoreActions((actions) => actions.master.addChildren);
   const hasBeenVisited = useStoreState((state) =>
@@ -66,6 +66,8 @@ export default function NestedObjectInput({
   const nestedSectionId = useStoreState((state) =>
     state.master.sections.getNestedSectionIds(sectionId, paramName, true)
   );
+
+  console.log("paramUITypeConfig", paramUITypeConfig)
 
   useEffect(() => {
     if (!hasBeenVisited) {

@@ -66,6 +66,10 @@ export class Section {
     return this.getParamData(paramName, "defaultVal");
   };
 
+  getParamUITypeConfig = (paramName) => {
+    return this.getParamUIType(paramName).config;
+  };
+
   setChildrenAreCollapsed = (childrenAreCollapsed) => {
     this.childrenAreCollapsed[this.selected.asString] = childrenAreCollapsed;
   };
@@ -87,7 +91,7 @@ export class Section {
   };
 
   setParamUIType = (paramName, uiName) => {
-    this.setParamData(paramName, "uiType", uiName);
+    this.setParamData(paramName, "uiType", new UIType(uiName));
   };
 
   setUIType = (uiType) => {
@@ -96,6 +100,10 @@ export class Section {
 
   setNestedSectionIds = (paramName, nestedSectionIds) => {
     this.nestedSectionIds[this.selected.asString][paramName] = nestedSectionIds;
+  };
+
+  setParamUITypeConfig = (paramName, configName, value) => {
+    this.getParamUIType(paramName).setConfig(configName, value);
   };
 
   hasNested = () => {

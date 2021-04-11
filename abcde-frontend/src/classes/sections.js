@@ -187,6 +187,10 @@ export class Sections {
     return this.sections[sectionId].getDefaultValue(paramName);
   };
 
+  getParamUITypeConfig = (sectionId, paramName) => {
+    return this.sections[sectionId].getParamUITypeConfig(paramName);
+  };
+
   setHasBeenVisited = ({ sectionId, paramName, hasBeenVisited }) => {
     return this.sections[sectionId].setHasBeenVisited(
       paramName,
@@ -220,6 +224,10 @@ export class Sections {
 
   setNestedSectionIds = ({ sectionId, paramName, nestedSectionIds }) => {
     this.sections[sectionId].setNestedSectionIds(paramName, nestedSectionIds);
+  };
+
+  setParamUITypeConfig = ({ sectionId, paramName, configName, value }) => {
+    this.sections[sectionId].setParamUITypeConfig(paramName, configName, value);
   };
 
   setAllChildrenIds = () => {

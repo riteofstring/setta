@@ -39,14 +39,14 @@ export default function ParamInput(props) {
 
   return (
     <ParamUI
-      uiType={props.uiType}
+      name={props.uiType.name}
       childProps={{
         value,
         defaultVal,
         onChange,
         onChangeEnd,
         isDisabled: props.isDisabled,
-        ...props.uiTypeConfig,
+        ...props.paramUITypeConfig,
       }}
     />
   );
