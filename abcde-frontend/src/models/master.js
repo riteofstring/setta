@@ -18,18 +18,15 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    state.sections.availableModules = payload.MODULES;
-    state.sections.availableParameters = payload.PARAMETERS;
+    state.sections.available = {
+      modules: payload.MODULES,
+      parameters: payload.PARAMETERS,
+    };
     for (let key of Object.keys(payload.UI)) {
       console.log("key", key);
       state.sections.addSection(
         new Section(
-          new SectionInfo({
-            name: key,
-            specs: payload.UI[key],
-            availableModules: payload.MODULES,
-            availableParameters: payload.PARAMETERS,
-          }),
+          new SectionInfo(key, payload.UI[key], state.sections.available),
           key
         )
       );

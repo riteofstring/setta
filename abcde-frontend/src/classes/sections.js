@@ -25,7 +25,7 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
     );
     return paramType instanceof SectionInfo
       ? paramType
-      : new SectionInfo({ name: paramName, jsonInput: {} });
+      : new SectionInfo(paramName, [], {});
   }
 }
 //end of helper functions
@@ -33,8 +33,7 @@ function _childSectionInfo(parent, moduleName, objName, paramName) {
 export class Sections {
   constructor() {
     this.sections = {};
-    this.availableModules = {};
-    this.availableParameters = {};
+    this.available = {};
     this.allChildrenIds = [];
     this.latestId = 0;
   }
@@ -78,7 +77,10 @@ export class Sections {
     for (let i = 0; i < numChildren; i++) {
       const child = new Section(childSectionInfo, childSectionHeading);
       child.parent = parentId;
-      child.uiType = new UIType(childUITypeName, parent.uiType);
+      child.uiType = new UIType({
+        name: childUITypeName,
+        parentUIType: parent.uiType,
+      });
       if (child.uiType.isListRoot) {
         child.selected = new Selected(moduleName, objName);
       }

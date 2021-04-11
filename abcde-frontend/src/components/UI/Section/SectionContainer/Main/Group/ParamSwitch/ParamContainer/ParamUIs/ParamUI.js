@@ -5,7 +5,7 @@ import { useStoreState } from "easy-peasy";
 
 export function ParamUIConfig({ name, savedConfig, onChange }) {
   const availableModules = useStoreState(
-    (state) => state.master.sections.availableModules
+    (state) => state.master.sections.available.modules
   );
 
   switch (name) {

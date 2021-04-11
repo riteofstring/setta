@@ -2,15 +2,22 @@ import { nullOrUndefined, allDefined } from "../utils/utils";
 import { UIType } from "./uiType";
 import { combineModules, combineParameters } from "../utils/utils";
 
-const createJson = (specs, availableModules, availableParameters) => {
+const createJson = (specs, available) => {
   if (Array.isArray(specs) || specs["modules"]) {
-    return combineModules(availableModules, specs);
+    return combineModules(available.modules, specs);
   } else if (specs["parameters"]) {
-    return combineParameters(availableParameters, specs["parameters"]);
+    return combineParameters(available.parameters, specs["parameters"]);
   }
+  return {};
 };
 
-const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
+const getInfos = (
+  jsonInput,
+  available,
+  infoTypes,
+  infoTypeStr,
+  key_in_json
+) => {
   let outputObject = {};
   let info = jsonInput;
   if (key_in_json) {
@@ -19,60 +26,74 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   if (info) {
     let infoTypeObj = infoTypes[infoTypeStr];
     for (let key of Object.keys(info)) {
-      outputObject[key] = new infoTypeObj(key, info[key]);
+      outputObject[key] = new infoTypeObj(key, info[key], available);
     }
   }
   return outputObject;
 };
 
 class ParameterInfo {
-  constructor(name, jsonInput) {
+  constructor(name, jsonInput, available) {
     this.name = name;
     this.defaultVal = jsonInput.default_val;
     this.type = jsonInput.type;
-    this.uiType = new UIType(jsonInput.ui_type);
+    this.uiType = new UIType({ name: jsonInput.ui_type, datatype: this.type });
     this.enteredValue = null;
     if (!(typeof this.type === "string")) {
-      this.type = new SectionInfo({ name: this.name, jsonInput: this.type });
+      this.type = new SectionInfo(this.name, this.type, available);
       if (!this.uiType.isNested()) {
-        this.uiType = new UIType("NESTED_OBJECT");
+        this.uiType = new UIType({
+          name: "NESTED_OBJECT",
+          datatype: this.type,
+        });
       }
     }
   }
 }
 
 class ObjInfo {
-  constructor(name, jsonInput) {
+  constructor(name, jsonInput, available) {
     const infoTypes = { ParameterInfo };
     this.name = name;
-    this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false);
+    this.params = getInfos(
+      jsonInput,
+      available,
+      infoTypes,
+      "ParameterInfo",
+      false
+    );
     this.kwargs = {};
   }
 }
 
 class ModuleInfo {
-  constructor(name, jsonInput) {
+  constructor(name, jsonInput, available) {
     const infoTypes = { ObjInfo };
     this.name = name;
-    this.objs = getInfos(jsonInput, infoTypes, "ObjInfo", false);
+    this.objs = getInfos(jsonInput, available, infoTypes, "ObjInfo", false);
   }
 }
 
 export class SectionInfo {
-  constructor({
-    name,
-    jsonInput,
-    specs,
-    availableModules,
-    availableParameters,
-  }) {
+  constructor(name, specs, available) {
     const infoTypes = { ModuleInfo, ParameterInfo };
-    if (nullOrUndefined(jsonInput)) {
-      jsonInput = createJson(specs, availableModules, availableParameters);
-    }
+    console.log(name, specs, available);
+    const jsonInput = createJson(specs, available);
     this.name = name;
-    this.moduleInfos = getInfos(jsonInput, infoTypes, "ModuleInfo", true);
-    this.parameterInfos = getInfos(jsonInput, infoTypes, "ParameterInfo", true);
+    this.moduleInfos = getInfos(
+      jsonInput,
+      available,
+      infoTypes,
+      "ModuleInfo",
+      true
+    );
+    this.parameterInfos = getInfos(
+      jsonInput,
+      available,
+      infoTypes,
+      "ParameterInfo",
+      true
+    );
   }
 
   addKwarg = (moduleName, objName, paramName) => {

@@ -1,8 +1,8 @@
 export class UIType {
-  constructor(name, parentUIType = null) {
+  constructor({ name, datatype, parentUIType }) {
     this.name = name;
     this.initializeListProps(parentUIType);
-    this.initializeConfig(name);
+    this.initializeConfig(datatype);
   }
 
   initializeListProps = (parentUIType) => {
@@ -15,15 +15,17 @@ export class UIType {
     }
   };
 
-  initializeConfig = () => {
-    this.config = {}
-    // if (this.isNested()){
-
-    // }
+  initializeConfig = (datatype) => {
+    if (datatype && this.isNested()){
+      this.config = {"modules": datatype}
+    }
+    else{
+      this.config = {}
+    }
   };
 
   setConfig = (configName, value) => {
-    this.config = {...this.config, [configName]: value}
+    this.config = { ...this.config, [configName]: value };
   };
 
   isNested = () => {

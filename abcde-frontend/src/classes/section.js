@@ -8,7 +8,7 @@ export class Section {
     this.parent = null;
     this.childrenIds = defaultDict(() => []);
     this.selected = new Selected();
-    this.uiType = new UIType("OBJECT");
+    this.uiType = new UIType({ name: "OBJECT" });
     this.nestedSectionIds = defaultDict(() => defaultDict(() => []));
     this.hasBeenVisited = defaultDict(() => ({}));
     this.childrenAreCollapsed = {};
@@ -91,7 +91,7 @@ export class Section {
   };
 
   setParamUIType = (paramName, uiName) => {
-    this.setParamData(paramName, "uiType", new UIType(uiName));
+    this.setParamData(paramName, "uiType", new UIType({ name: uiName }));
   };
 
   setUIType = (uiType) => {
