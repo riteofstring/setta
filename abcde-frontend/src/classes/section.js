@@ -1,32 +1,19 @@
-import { createDefaultNestedDict, insertIntoArray } from "../utils/utils";
+import { insertIntoArray } from "../utils/utils";
 import { createJson } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
+import { History } from "./history";
 
 export class Section {
   constructor(name, sectionInfo) {
+    this.name = name;
     this.sectionInfo = sectionInfo;
     this.parent = null;
-    this.childrenIds = createDefaultNestedDict(1, []);
     this.selected = new Selected();
     this.uiType = new UIType({ name: "OBJECT" });
-    this.nestedSectionIds = createDefaultNestedDict(2, []);
-    this.hasBeenVisited = createDefaultNestedDict(1, {});
-    this.childrenAreCollapsed = {};
-    this.name = name;
+    this.history = new History(this.getParameters());
+    this.getHistory();
   }
-
-  getChildrenIds = () => {
-    return this.childrenIds[this.selected.asString];
-  };
-
-  getChildrenAreCollapsed = () => {
-    return this.childrenAreCollapsed[this.selected.asString];
-  };
-
-  getHasBeenVisited = (paramName) => {
-    return this.hasBeenVisited[this.selected.asString][paramName];
-  };
 
   getParamData = (paramName, dataName) => {
     return this.sectionInfo.getParamData(
@@ -47,20 +34,8 @@ export class Section {
     );
   };
 
-  getEnteredValue = (paramName) => {
-    return this.getParamData(paramName, "enteredValue");
-  };
-
   getParamUIType = (paramName) => {
     return this.getParamData(paramName, "uiType");
-  };
-
-  getNestedSectionIds = (paramName, returnFirst = false) => {
-    const output = this.nestedSectionIds[this.selected.asString][paramName];
-    if (returnFirst) {
-      return output ? output[0] : undefined;
-    }
-    return output;
   };
 
   getDefaultValue = (paramName) => {
@@ -71,24 +46,18 @@ export class Section {
     return this.getParamUIType(paramName).config;
   };
 
-  setChildrenAreCollapsed = (childrenAreCollapsed) => {
-    this.childrenAreCollapsed[this.selected.asString] = childrenAreCollapsed;
-  };
-
-  setHasBeenVisited = (paramName, hasBeenVisited) => {
-    this.hasBeenVisited[this.selected.asString][paramName] = hasBeenVisited;
-  };
-
-  setChildrenIds = (childrenIds) => {
-    this.childrenIds[this.selected.asString] = childrenIds;
+  getEnteredValue = (paramName) => {
+    return this.enteredValues[paramName];
   };
 
   setSelected = (moduleName, objName) => {
+    this.setHistory();
     this.selected = new Selected(moduleName, objName);
+    this.getHistory();
   };
 
   setEnteredValue = (paramName, value) => {
-    this.setParamData(paramName, "enteredValue", value);
+    this.enteredValues[paramName] = value;
   };
 
   setParamUIType = (paramName, uiName) => {
@@ -97,10 +66,6 @@ export class Section {
 
   setUIType = (uiType) => {
     this.uiType = uiType;
-  };
-
-  setNestedSectionIds = (paramName, nestedSectionIds) => {
-    this.nestedSectionIds[this.selected.asString][paramName] = nestedSectionIds;
   };
 
   setParamUITypeConfig = (paramName, configName, value) => {
@@ -113,7 +78,7 @@ export class Section {
   };
 
   hasNested = () => {
-    return this.getChildrenIds().length > 0;
+    return this.childrenIds.length > 0;
   };
 
   addChildren = (childIds, paramName, idx = null) => {
@@ -167,5 +132,17 @@ export class Section {
 
   getParameters = () => {
     return this.getObjData("params");
+  };
+
+  getHistory = () => {
+    for (let s of this.history.historyNames()) {
+      this[s] = this.history.getHistory(s, this.selected.asString);
+    }
+  };
+
+  setHistory = () => {
+    for (let s of this.history.historyNames()) {
+      this.history.setHistory(s, this.selected.asString);
+    }
   };
 }

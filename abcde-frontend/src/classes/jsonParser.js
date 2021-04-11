@@ -1,4 +1,4 @@
-import { nullOrUndefined, allDefined } from "../utils/utils";
+import { allDefined } from "../utils/utils";
 import { UIType } from "./uiType";
 import { combineModules, combineParameters } from "../utils/utils";
 
@@ -38,7 +38,6 @@ class ParameterInfo {
     this.defaultVal = jsonInput.default_val;
     this.type = jsonInput.type;
     this.uiType = new UIType({ name: jsonInput.ui_type, datatype: this.type });
-    this.enteredValue = null;
     if (!(typeof this.type === "string")) {
       this.type = new SectionInfo(this.name, this.type, available);
       if (!this.uiType.isNested()) {

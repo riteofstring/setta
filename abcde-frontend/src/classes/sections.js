@@ -142,7 +142,7 @@ export class Sections {
   };
 
   getChildrenIds = (id) => {
-    return this.sections[id].getChildrenIds();
+    return this.sections[id].childrenIds;
   };
 
   getUIType = (id) => {
@@ -162,7 +162,7 @@ export class Sections {
   };
 
   getChildrenAreCollapsed = (id) => {
-    return this.sections[id].getChildrenAreCollapsed();
+    return this.sections[id].childrenAreCollapsed;
   };
 
   getSectionInfo = (id) => {
@@ -201,23 +201,16 @@ export class Sections {
     return this.sections[sectionId].getParamUITypeConfig(paramName);
   };
 
-  setHasBeenVisited = ({ sectionId, paramName, hasBeenVisited }) => {
-    return this.sections[sectionId].setHasBeenVisited(
-      paramName,
-      hasBeenVisited
-    );
-  };
-
   setSelected = ({ sectionId, moduleName, objName }) => {
     this.sections[sectionId].setSelected(moduleName, objName);
   };
 
   setChildrenAreCollapsed = ({ sectionId, childrenAreCollapsed }) => {
-    this.sections[sectionId].setChildrenAreCollapsed(childrenAreCollapsed);
+    this.sections[sectionId].childrenAreCollapsed = childrenAreCollapsed;
   };
 
   setChildrenIds = ({ sectionId, childrenIds }) => {
-    this.sections[sectionId].setChildrenIds(childrenIds);
+    this.sections[sectionId].childrenIds = childrenIds;
   };
 
   setEnteredValue = ({ sectionId, paramName, value }) => {
