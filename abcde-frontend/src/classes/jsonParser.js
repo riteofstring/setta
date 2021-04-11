@@ -1,4 +1,4 @@
-import { allDefined } from "../utils/utils";
+import { nullOrUndefined, allDefined } from "../utils/utils";
 import { combineModules, combineParameters } from "../utils/utils";
 
 export const createJson = (specs, available) => {
@@ -33,7 +33,7 @@ class ParameterInfo {
     this.defaultVal = jsonInput.default_val;
     this.uiTypeName = jsonInput.ui_type;
     this.specs = jsonInput.type;
-    this.isKwarg = false;
+    this.isKwarg = "isKwarg" in jsonInput ? jsonInput.isKwarg : false;
   }
 
   shouldHaveNested = () => {
@@ -66,6 +66,14 @@ export class SectionInfo {
     this.setParameterInfos(jsonInput);
   }
 
+  getCorrectInfo = (moduleName, objName) => {
+    if (allDefined(moduleName, objName)) {
+      return this.moduleInfos[moduleName].objs[objName].params;
+    } else {
+      return this.parameterInfos;
+    }
+  };
+
   addKwarg = (moduleName, objName, paramName) => {
     const newParameter = new ParameterInfo(paramName, {
       defaultVal: "",
@@ -73,13 +81,19 @@ export class SectionInfo {
       specs: "",
       isKwarg: true,
     });
-    if (allDefined(moduleName, objName)) {
-      this.moduleInfos[moduleName].objs[objName].kwargs[
-        paramName
-      ] = newParameter;
-    } else {
-      this.parameterInfos[paramName] = newParameter;
-    }
+    const info = this.getCorrectInfo(moduleName, objName);
+    info[paramName] = newParameter;
+  };
+
+  deleteKwarg = (moduleName, objName, paramName) => {
+    const info = this.getCorrectInfo(moduleName, objName);
+    delete info[paramName];
+  };
+
+  replaceKwarg = (moduleName, objName, oldKwarg, newKwarg) => {
+    const info = this.getCorrectInfo(moduleName, objName);
+    info[newKwarg] = info[oldKwarg]
+    delete info[oldKwarg]
   };
 
   getParamData = (moduleName, objName, paramName, dataName) => {

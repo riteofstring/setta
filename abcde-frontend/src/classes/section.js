@@ -73,6 +73,37 @@ export class Section {
     this.sectionInfo.setModuleInfos(jsonInput, available);
   };
 
+  addKwarg = (kwargName) => {
+    this.setHistory();
+    this.sectionInfo.addKwarg(
+      this.selected.moduleName,
+      this.selected.objName,
+      kwargName
+    );
+    this.getHistory();
+  };
+
+  deleteKwarg = (kwargName) => {
+    this.setHistory();
+    this.sectionInfo.deleteKwarg(
+      this.selected.moduleName,
+      this.selected.objName,
+      kwargName
+    );
+    this.getHistory();
+  };
+
+  replaceKwarg = (oldKwarg, newKwarg) => {
+    this.setHistory();
+    this.sectionInfo.replaceKwarg(
+      this.selected.moduleName,
+      this.selected.objName,
+      oldKwarg,
+      newKwarg
+    );
+    this.getHistory();
+  };
+
   hasNested = () => {
     return this.childrenIds.length > 0;
   };
@@ -104,15 +135,23 @@ export class Section {
     this.deleteFromChildrenPerParam(childIds, paramName);
   };
 
-  addKwarg = (paramName) => {
-    this.sectionInfo.addKwarg(
+  getKwargs = () => {
+    return this.sectionInfo.getXOnly(
       this.selected.moduleName,
       this.selected.objName,
-      paramName
+      (x) => x.isKwarg
     );
   };
 
   getParameters = () => {
+    return this.sectionInfo.getXOnly(
+      this.selected.moduleName,
+      this.selected.objName,
+      (x) => !x.isKwarg
+    );
+  };
+
+  getParametersAndKwargs = () => {
     return this.sectionInfo.getParametersAndKwargs(
       this.selected.moduleName,
       this.selected.objName
@@ -120,7 +159,7 @@ export class Section {
   };
 
   getHistory = () => {
-    const paramNames = Object.keys(this.getParameters());
+    const paramNames = Object.keys(this.getParametersAndKwargs());
     this.initializeParamUITypes();
     for (let s of this.history.historyNames()) {
       this[s] = this.history.getHistory(s, this.selected.asString, paramNames);
@@ -137,7 +176,7 @@ export class Section {
   };
 
   initializeParamUITypes = () => {
-    const parameters = this.getParameters();
+    const parameters = this.getParametersAndKwargs();
     this.history.initializeParamUITypes(this.selected.asString, parameters);
   };
 }

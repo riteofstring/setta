@@ -103,6 +103,18 @@ const master = {
     state.sections.deleteChildren({ ...payload });
   }),
 
+  addKwarg: action((state, payload) => {
+    state.sections.addKwarg({ ...payload });
+  }),
+
+  deleteKwarg: action((state, payload) => {
+    state.sections.deleteKwarg({ ...payload });
+  }),
+
+  replaceKwarg: action((state, payload) => {
+    state.sections.replaceKwarg({ ...payload });
+  }),
+
   // exportSelected: thunk((action, payload, helpers) => {
   //   const { globalCurr } = helpers.getStoreState().globalCurr;
   //   const {

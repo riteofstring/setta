@@ -9,29 +9,33 @@ import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
+import { arraysAreEqual } from "../../../../../../utils/commonFunctions";
 
 export default function GroupContainer({ sectionId }) {
-  const sectionInfo = useStoreState((state) =>
-    state.master.sections.getSectionInfo(sectionId)
-  );
-
   const { moduleName, objName } = useStoreState((state) =>
     state.master.sections.getSelected(sectionId)
   );
-  const kwargNames = Object.keys(
-    sectionInfo.getXOnly(moduleName, objName, (x) => x.isKwarg)
+
+  const kwargNames = useStoreState(
+    (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
+    arraysAreEqual
   );
+
   const [numKwargs, setNumKwargs] = useState(kwargNames.length);
-  const paramNames = Object.keys(
-    sectionInfo.getXOnly(moduleName, objName, (x) => !x.isKwarg)
+  const paramNames = useStoreState(
+    (state) => Object.keys(state.master.sections.getParameters(sectionId)),
+    arraysAreEqual
   );
   const showKwargsButton = objName || paramNames.length > 0;
 
   useEffect(() => {
     setNumKwargs(kwargNames.length);
-  }, [sectionId]);
+  }, [sectionId, moduleName, objName]);
 
   console.log("GroupContainer", sectionId);
+  console.log("kwargNames", kwargNames);
+  console.log("paramNames", paramNames);
+  console.log("numKwargs", numKwargs);
 
   return (
     <Stack>
@@ -62,7 +66,7 @@ export default function GroupContainer({ sectionId }) {
         </HStack>
       )}
 
-      {/* {numKwargs > 0 && (
+      {numKwargs > 0 && (
         <FormControl id="groupone">
           {[...Array(numKwargs)].map((e, idx) => (
             <ParamSwitch
@@ -74,7 +78,7 @@ export default function GroupContainer({ sectionId }) {
             />
           ))}
         </FormControl>
-      )} */}
+      )}
     </Stack>
   );
 }

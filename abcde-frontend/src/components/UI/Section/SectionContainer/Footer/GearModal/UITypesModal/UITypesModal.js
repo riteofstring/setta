@@ -10,7 +10,7 @@ export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
   const parameters = useStoreState((state) =>
-    state.master.sections.getParameters(sectionId)
+    state.master.sections.getParametersAndKwargs(sectionId)
   );
 
   const paramNames = Object.keys(parameters);

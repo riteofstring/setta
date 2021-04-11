@@ -182,6 +182,10 @@ export class Sections {
     return this.sections[id].getParameters();
   };
 
+  getParametersAndKwargs = (id) => {
+    return this.sections[id].getParametersAndKwargs();
+  };
+
   getParamUIType = (id, paramName) => {
     return this.sections[id].getParamUIType(paramName);
   };
@@ -244,5 +248,17 @@ export class Sections {
 
   numRootIds = () => {
     return this.getRootIds().length;
+  };
+
+  addKwarg = ({ sectionId, kwargName }) => {
+    this.sections[sectionId].addKwarg(kwargName);
+  };
+
+  deleteKwarg = ({ sectionId, kwargName }) => {
+    this.sections[sectionId].deleteKwarg(kwargName);
+  };
+
+  replaceKwarg = ({ sectionId, oldKwarg, newKwarg }) => {
+    this.sections[sectionId].replaceKwarg(oldKwarg, newKwarg);
   };
 }
