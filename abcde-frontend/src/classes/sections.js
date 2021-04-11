@@ -3,7 +3,6 @@ import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { Section } from "./section";
 import { SectionInfo } from "./jsonParser";
-import { debug } from "easy-peasy"
 
 // start of helper functions
 function _childSectionHeading(parent, paramName) {
@@ -103,10 +102,10 @@ export class Sections {
 
   addChildren = (parentId, childSections, idx = null) => {
     let childIds = [];
-    let paramNames = []
+    let paramNames = [];
     for (let childSection of childSections) {
       childIds.push(this.addSection(childSection));
-      paramNames.push(childSection.sectionHeading)
+      paramNames.push(childSection.sectionHeading);
     }
     this.sections[parentId].addChildren(childIds, paramNames[0], idx);
     this.setAllChildrenIds();
@@ -119,7 +118,7 @@ export class Sections {
     const childrenToDelete = parent
       .getChildrenIds()
       .slice(startIdx, startIdx + numChildren);
-    const paramName = this.sections[childrenToDelete[0]].sectionHeading
+    const paramName = this.sections[childrenToDelete[0]].sectionHeading;
     this.deleteSections({ sectionIds: childrenToDelete, parentId, paramName });
   };
 
@@ -182,6 +181,10 @@ export class Sections {
 
   getNestedSectionIds = (sectionId, paramName, returnFirst = false) => {
     return this.sections[sectionId].getNestedSectionIds(paramName, returnFirst);
+  };
+
+  getDefaultValue = (sectionId, paramName) => {
+    return this.sections[sectionId].getDefaultValue(paramName);
   };
 
   setHasBeenVisited = ({ sectionId, paramName, hasBeenVisited }) => {

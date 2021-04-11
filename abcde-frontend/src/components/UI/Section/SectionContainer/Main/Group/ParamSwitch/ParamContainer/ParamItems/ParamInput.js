@@ -4,18 +4,17 @@ import ParamUI from "../ParamUIs/ParamUI";
 import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 
 export default function ParamInput(props) {
-  const {
-    sectionId,
-    paramName,
-  } = props;
+  const { sectionId, paramName } = props;
 
-  const defaultVal = ""
+  const defaultVal = useStoreState(
+    (state) => state.master.sections.getDefaultValue(sectionId, paramName)
+  );
 
   const setEnteredValue = useStoreActions(
     (actions) => actions.master.setEnteredValue
   );
 
-  const currParam = useStoreState((state) =>
+  const storedValue = useStoreState((state) =>
     state.master.sections.getEnteredValue(sectionId, paramName)
   );
 
@@ -35,8 +34,8 @@ export default function ParamInput(props) {
   };
 
   useEffect(() => {
-    setValue(!nullOrUndefined(currParam) ? currParam : "");
-  }, [currParam]);
+    setValue(!nullOrUndefined(storedValue) ? storedValue : "");
+  }, [storedValue]);
 
   return (
     <ParamUI

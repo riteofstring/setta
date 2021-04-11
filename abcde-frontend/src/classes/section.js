@@ -62,6 +62,10 @@ export class Section {
     return output;
   };
 
+  getDefaultValue = (paramName) => {
+    return this.getParamData(paramName, "defaultVal");
+  };
+
   setChildrenAreCollapsed = (childrenAreCollapsed) => {
     this.childrenAreCollapsed[this.selected.asString] = childrenAreCollapsed;
   };

@@ -13,7 +13,7 @@ export default function UITypesModal() {
     state.master.sections.getParameters(sectionId)
   );
 
-  // console.log("UITypesModal", parameters);
+  const paramNames = Object.keys(parameters);
 
   return (
     <ModalContainer
@@ -21,7 +21,7 @@ export default function UITypesModal() {
       isOpen={isOpen}
       size={"6xl"}
       header={<Header />}
-      body={<Body sectionId={sectionId} parameters={parameters} />}
+      body={<Body sectionId={sectionId} paramNames={paramNames} />}
       footer={<Footer />}
     />
   );
@@ -31,16 +31,11 @@ function Header() {
   return <Box>UI Types</Box>;
 }
 
-function Body({ sectionId, parameters }) {
-  const paramNames = Object.keys(parameters);
+function Body({ sectionId, paramNames }) {
   return paramNames.length > 0 ? (
     <Stack spacing={2}>
       {paramNames.map((e, idx) => (
-        <Item
-          sectionId={sectionId}
-          parameter={parameters[e]}
-          key={`${e}-${idx}`}
-        />
+        <Item sectionId={sectionId} paramName={e} key={`${e}-${idx}`} />
       ))}
     </Stack>
   ) : (
@@ -61,8 +56,12 @@ const menuItems = [
   "LIST_NESTED_OBJECT",
 ];
 
-function Item({ sectionId, parameter }) {
+function Item({ sectionId, paramName }) {
   // console.log("Item", sectionId, parameter, parameter.uiType);
+
+  const uiType = useStoreState((state) =>
+    state.master.sections.getParamUIType(sectionId, paramName)
+  );
 
   const uiTypeConfig = null;
   const onChange = null;
@@ -88,7 +87,7 @@ function Item({ sectionId, parameter }) {
   const onSelect = (e) => {
     setParamUIType({
       sectionId,
-      paramName: parameter.name,
+      paramName,
       uiName: e.target.value,
     });
   };
@@ -107,11 +106,11 @@ function Item({ sectionId, parameter }) {
 
   return (
     <HStack>
-      <Box>{parameter.name}</Box>
+      <Box>{paramName}</Box>
       <Select
         placeholder="Select UI Type"
         onChange={onSelect}
-        defaultValue={parameter.uiType}
+        defaultValue={uiType.name}
       >
         {menuItems.map((e, idx) => (
           <option value={e} key={`${e}-${idx}`}>
@@ -119,10 +118,7 @@ function Item({ sectionId, parameter }) {
           </option>
         ))}
       </Select>
-      <ParamUIConfig
-        uiType={parameter.uiType}
-        childProps={{ onChange, savedConfig: uiTypeConfig }}
-      />
+      <ParamUIConfig uiType={uiType} onChange={onChange} />
     </HStack>
   );
 }
