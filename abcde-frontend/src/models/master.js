@@ -26,8 +26,8 @@ const master = {
       console.log("key", key);
       state.sections.addSection(
         new Section(
-          new SectionInfo(key, payload.UI[key], state.sections.available),
-          key
+          key,
+          new SectionInfo(key, payload.UI[key], state.sections.available)
         )
       );
     }

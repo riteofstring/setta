@@ -4,7 +4,7 @@ import { Selected } from "./selected";
 import { UIType } from "./uiType";
 
 export class Section {
-  constructor(sectionInfo, sectionHeading) {
+  constructor(name, sectionInfo) {
     this.sectionInfo = sectionInfo;
     this.parent = null;
     this.childrenIds = createDefaultNestedDict(1, []);
@@ -13,7 +13,7 @@ export class Section {
     this.nestedSectionIds = createDefaultNestedDict(2, []);
     this.hasBeenVisited = createDefaultNestedDict(1, {});
     this.childrenAreCollapsed = {};
-    this.sectionHeading = sectionHeading;
+    this.name = name;
   }
 
   getChildrenIds = () => {

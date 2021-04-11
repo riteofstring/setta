@@ -6,7 +6,7 @@ import { SectionInfo } from "./jsonParser";
 
 // start of helper functions
 function _childSectionHeading(parent, paramName) {
-  return !nullOrUndefined(paramName) ? paramName : parent.sectionHeading;
+  return !nullOrUndefined(paramName) ? paramName : parent.name;
 }
 
 function _childUITypeName(parent, uiType) {
@@ -75,7 +75,7 @@ export class Sections {
 
     let children = [];
     for (let i = 0; i < numChildren; i++) {
-      const child = new Section(childSectionInfo, childSectionHeading);
+      const child = new Section(childSectionHeading, childSectionInfo);
       child.parent = parentId;
       child.uiType = new UIType({
         name: childUITypeName,
@@ -109,7 +109,7 @@ export class Sections {
     let paramNames = [];
     for (let childSection of childSections) {
       childIds.push(this.addSection(childSection));
-      paramNames.push(childSection.sectionHeading);
+      paramNames.push(childSection.name);
     }
     this.sections[parentId].addChildren(childIds, paramNames[0], idx);
     this.setAllChildrenIds();
@@ -128,7 +128,7 @@ export class Sections {
         .getChildrenIds()
         .slice(startIdx, startIdx + numChildren);
     }
-    const paramName = this.sections[childrenToDelete[0]].sectionHeading;
+    const paramName = this.sections[childrenToDelete[0]].name;
     this.deleteSections({ sectionIds: childrenToDelete, parentId, paramName });
   };
 
@@ -154,7 +154,7 @@ export class Sections {
   };
 
   getSectionHeading = (id) => {
-    return this.sections[id].sectionHeading;
+    return this.sections[id].name;
   };
 
   getHasNested = (id) => {

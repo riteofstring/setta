@@ -29,7 +29,7 @@ export const getOverviewListingHelper = (sectionId, sections, depth) => {
 
   outputList.push({
     sectionId,
-    sectionHeading: currSection.sectionHeading,
+    sectionHeading: currSection.name,
     isList: currSection.uiType.isList,
     isListRoot: currSection.uiType.isListRoot,
     depth: depth,
