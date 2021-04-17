@@ -79,6 +79,8 @@ export default function NestedObjectInput({
     (actions) => actions.master.setChildrenIdsPerParam
   );
 
+  console.log("NestedObjectInput", sectionId, paramName, paramUITypeConfig, childId)
+
   useEffect(() => {
     if (!childId) {
       const newIds = addChildren({

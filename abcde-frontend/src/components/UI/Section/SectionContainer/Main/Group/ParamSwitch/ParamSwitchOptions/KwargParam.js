@@ -7,37 +7,33 @@ import { CloseIcon } from "@chakra-ui/icons";
 import { nullOrUndefined } from "../../../../../../../../utils/utils";
 
 export default function KwargParam(props) {
-  const { sectionId, inputKwargName, onClickDelete, paramNames } = props;
-  const [kwargName, setKwargName] = useState(
-    inputKwargName ? inputKwargName : ""
-  );
+  const {
+    sectionId,
+    stateIsUpToDate,
+    enteredKwargName,
+    setEnteredKwargName,
+    onClickDelete,
+    paramAndKwargNames,
+  } = props;
+
   const addKwarg = useStoreActions((actions) => actions.master.addKwarg);
   const deleteKwarg = useStoreActions((actions) => actions.master.deleteKwarg);
   const replaceKwarg = useStoreActions(
     (actions) => actions.master.replaceKwarg
   );
 
-  useEffect(() => {
-    setKwargName(inputKwargName);
-  }, [inputKwargName]);
-
   const onSubmit = (v) => {
-    if (!paramNames.includes(v)) {
-      if (!nullOrUndefined(inputKwargName)) {
-        replaceKwarg({ sectionId, oldKwarg: inputKwargName, newKwarg: v });
-      } else if (v) {
-        addKwarg({ sectionId, kwargName: v });
-      }
-      setKwargName(v);
-    } else {
-      deleteFromState();
-      setKwargName("");
+    if (enteredKwargName) {
+      replaceKwarg({ sectionId, oldKwarg: enteredKwargName, newKwarg: v });
+    } else if (v) {
+      addKwarg({ sectionId, kwargName: v });
     }
+    setEnteredKwargName(v);
   };
 
   const deleteFromState = () => {
-    if (inputKwargName) {
-      deleteKwarg({ sectionId, kwargName: inputKwargName });
+    if (enteredKwargName) {
+      deleteKwarg({ sectionId, kwargName: enteredKwargName });
     }
   };
 
@@ -47,7 +43,13 @@ export default function KwargParam(props) {
   };
 
   function getParamNameInput() {
-    return <ParamNameInput value={kwargName} onSubmit={onSubmit} />;
+    return (
+      <ParamNameInput
+        value={enteredKwargName}
+        onSubmit={onSubmit}
+        takenNames={paramAndKwargNames}
+      />
+    );
   }
 
   return (
@@ -59,8 +61,8 @@ export default function KwargParam(props) {
         borderRadius="full"
         onClick={onClick}
       />
-      {inputKwargName ? (
-        <ParamContainer sectionId={sectionId} paramName={inputKwargName}>
+      {stateIsUpToDate && enteredKwargName ? (
+        <ParamContainer sectionId={sectionId} paramName={enteredKwargName}>
           {getParamNameInput()}
         </ParamContainer>
       ) : (

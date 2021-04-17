@@ -98,14 +98,8 @@ export class SectionInfo {
 
   replaceKwarg = (moduleName, objName, oldKwarg, newKwarg) => {
     const info = this.getCorrectInfo(moduleName, objName);
-    const alreadyExists = newKwarg in info;
-    if (!alreadyExists) {
-      info[newKwarg] = info[oldKwarg];
-    } else {
-      info[newKwarg].isHidden = false;
-    }
+    info[newKwarg] = info[oldKwarg];
     delete info[oldKwarg];
-    return alreadyExists;
   };
 
   getParamData = (moduleName, objName, paramName, dataName) => {

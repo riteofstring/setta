@@ -21,6 +21,7 @@ export default function GroupContainer({ sectionId }) {
     arraysAreEqual
   );
 
+  const [enteredKwargNames, setEnteredKwargNames] = useState(kwargNames);
   const [numKwargs, setNumKwargs] = useState(kwargNames.length);
   const paramNames = useStoreState(
     (state) => Object.keys(state.master.sections.getParameters(sectionId)),
@@ -29,8 +30,27 @@ export default function GroupContainer({ sectionId }) {
   const showKwargsButton = objName || paramNames.length > 0;
 
   useEffect(() => {
+    setEnteredKwargNames(kwargNames);
     setNumKwargs(kwargNames.length);
   }, [sectionId, moduleName, objName]);
+
+  const updateEnteredKwargNames = (v, idx) => {
+    const newState = [...enteredKwargNames];
+    newState[idx] = v;
+    setEnteredKwargNames(newState);
+  };
+
+  const deleteFromEnteredKwargNames = (idx) => {
+    const newState = [...enteredKwargNames];
+    newState.splice(idx, 1);
+    setEnteredKwargNames(newState);
+    setNumKwargs(Math.max(0, numKwargs - 1));
+  };
+
+  const addToEnteredKwargNames = () => {
+    setEnteredKwargNames([...enteredKwargNames, ""]);
+    setNumKwargs(numKwargs + 1);
+  };
 
   return (
     <Stack>
@@ -56,7 +76,7 @@ export default function GroupContainer({ sectionId }) {
             size="xs"
             variant="outline"
             borderRadius="full"
-            onClick={() => setNumKwargs(numKwargs + 1)}
+            onClick={() => addToEnteredKwargNames()}
           />
         </HStack>
       )}
@@ -68,9 +88,11 @@ export default function GroupContainer({ sectionId }) {
               key={`KWARGS-${idx}`}
               sectionId={sectionId}
               metaUIType={"KWARGS"}
-              inputKwargName={kwargNames[idx]}
-              onClickDelete={() => setNumKwargs(Math.max(0, numKwargs - 1))}
-              paramNames={paramNames}
+              stateIsUpToDate={kwargNames.includes(enteredKwargNames[idx])}
+              enteredKwargName={enteredKwargNames[idx]}
+              setEnteredKwargName={(v) => updateEnteredKwargNames(v, idx)}
+              onClickDelete={() => deleteFromEnteredKwargNames(idx)}
+              paramAndKwargNames={paramNames.concat(enteredKwargNames)}
             />
           ))}
         </FormControl>

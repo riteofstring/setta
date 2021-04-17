@@ -95,16 +95,14 @@ export class Section {
 
   replaceKwarg = (oldKwarg, newKwarg) => {
     this.setHistory();
-    const alreadyExists = this.sectionInfo.replaceKwarg(
+    this.sectionInfo.replaceKwarg(
       this.selected.moduleName,
       this.selected.objName,
       oldKwarg,
       newKwarg
     );
-    if (!alreadyExists) {
-      this.replaceParamName(oldKwarg, newKwarg);
-      this.history.replaceParamName(this.selected.asString, oldKwarg, newKwarg);
-    }
+    this.replaceParamName(oldKwarg, newKwarg);
+    this.history.replaceParamName(this.selected.asString, oldKwarg, newKwarg);
     this.getHistory();
   };
 
