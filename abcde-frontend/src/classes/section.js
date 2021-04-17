@@ -108,7 +108,7 @@ export class Section {
       newKwarg
     );
     this.getHistory();
-    return childIds
+    return childIds;
   };
 
   hasNested = () => {
@@ -125,16 +125,22 @@ export class Section {
   };
 
   addToChildrenPerParam = (childIds, paramName) => {
-    this.childrenIdsPerParam[paramName] = [
-      ...this.childrenIdsPerParam[paramName],
-      ...childIds,
-    ];
+    if (paramName in this.childrenIdsPerParam) {
+      this.childrenIdsPerParam[paramName] = [
+        ...this.childrenIdsPerParam[paramName],
+        ...childIds,
+      ];
+    } else {
+      this.childrenIdsPerParam[paramName] = childIds;
+    }
   };
 
   deleteFromChildrenPerParam = (childIds, paramName) => {
-    this.childrenIdsPerParam[paramName] = this.childrenIdsPerParam[
-      paramName
-    ].filter((x) => !childIds.includes(x));
+    if (paramName in this.childrenIdsPerParam) {
+      this.childrenIdsPerParam[paramName] = this.childrenIdsPerParam[
+        paramName
+      ].filter((x) => !childIds.includes(x));
+    }
   };
 
   deleteChildren = (childIds, paramName) => {
