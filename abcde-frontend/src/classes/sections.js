@@ -259,6 +259,9 @@ export class Sections {
   };
 
   replaceKwarg = ({ sectionId, oldKwarg, newKwarg }) => {
-    this.sections[sectionId].replaceKwarg(oldKwarg, newKwarg);
+    const childIds = this.sections[sectionId].replaceKwarg(oldKwarg, newKwarg);
+    if (childIds && childIds.length > 0) {
+      this.sections[childIds[0]].name = newKwarg;
+    }
   };
 }

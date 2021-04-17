@@ -1,4 +1,4 @@
-import { createDefaultNestedDict, requiresNestedSection } from "../utils/utils";
+import { createDefaultNestedDict, requiresNestedSection, flattenDictOfArrays } from "../utils/utils";
 import { UIType } from "./uiType";
 
 export class History {
@@ -15,9 +15,6 @@ export class History {
       return this[dataName][selected];
     } else {
       let output = {};
-      if (dataName === "childrenIdsPerParam") {
-        output = createDefaultNestedDict(1, []);
-      }
       for (let p of paramNames) {
         output[p] = this[dataName][selected][p][
           this.getUITypeName(selected, p)
@@ -70,11 +67,13 @@ export class History {
 
   replaceParamName = (selected, oldParam, newParam) => {
     for (let s of this.historyNames()) {
-      if (this.perParam(s)) {
+      if (this.isPerParam(s)) {
         this[s][selected][newParam] = this[s][selected][oldParam];
         delete this[s][selected][oldParam];
       }
     }
+    // return all childIds that need to have their name replaced
+    return flattenDictOfArrays(this.childrenIdsPerParam[selected][newParam])
   };
 
   isNotPerUIType = (dataName) => {
@@ -83,10 +82,13 @@ export class History {
     );
   };
 
-  perParam = (dataName) => {
-    return ["enteredValues", "paramUITypes", "paramUITypeNames"].includes(
-      dataName
-    );
+  isPerParam = (dataName) => {
+    return [
+      "enteredValues",
+      "childrenIdsPerParam",
+      "paramUITypes",
+      "paramUITypeNames",
+    ].includes(dataName);
   };
 
   historyNames = () => {

@@ -102,8 +102,13 @@ export class Section {
       newKwarg
     );
     this.replaceParamName(oldKwarg, newKwarg);
-    this.history.replaceParamName(this.selected.asString, oldKwarg, newKwarg);
+    const childIds = this.history.replaceParamName(
+      this.selected.asString,
+      oldKwarg,
+      newKwarg
+    );
     this.getHistory();
+    return childIds
   };
 
   hasNested = () => {
@@ -185,7 +190,7 @@ export class Section {
 
   replaceParamName = (oldParam, newParam) => {
     for (let s of this.history.historyNames()) {
-      if (this.history.perParam(s)) {
+      if (this.history.isPerParam(s)) {
         this[s][newParam] = this[s][oldParam];
         delete this[s][oldParam];
       }
