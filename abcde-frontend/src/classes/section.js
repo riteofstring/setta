@@ -36,7 +36,11 @@ export class Section {
   };
 
   getParamUIType = (paramName) => {
-    return this.paramUITypes[paramName];
+    if (paramName in this.paramUITypes) {
+      return this.paramUITypes[paramName];
+    }
+    // if paramName not in paramUITypes, initialize it
+    this.setParamUIType(paramName, this.getParamData(paramName, "uiTypeName"));
   };
 
   getDefaultValue = (paramName) => {
@@ -71,6 +75,7 @@ export class Section {
   setSectionModules = (specs, available) => {
     const jsonInput = createJson(specs, available);
     this.sectionInfo.setModuleInfos(jsonInput, available);
+    this.sectionInfo.setParameterInfos(jsonInput, available);
   };
 
   addKwarg = (kwargName) => {

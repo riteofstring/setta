@@ -1,27 +1,58 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { useEffect, useState } from "react";
-import { nullOrUndefined } from "../../../../../../../../../utils/utils";
+import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
+import { includesArray } from "../../../../../../../../../utils/commonFunctions";
 
-function valueAndLabel(x) {
-  return { value: x, label: x };
+function valueAndLabel(x, type) {
+  return { value: [x, type], label: x };
+}
+
+function findMatchingIndex(initialPickerItems, savedConfig, j) {
+  return initialPickerItems
+    .map((e, idx) =>
+      e.value[1] === j && savedConfig[j].includes(e.value[0]) ? idx : -1
+    )
+    .filter((e) => e !== -1)
+    .map((e) => initialPickerItems[e]);
+}
+
+function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
+  const valuesOnly = initialPickerItemsObj[j].map((x) => x.value);
+  onChange(
+    j,
+    newSelectedItems
+      .filter((x) => includesArray(valuesOnly, x.value))
+      .map((x) => x.value[0])
+  );
 }
 
 export function NestedObjectInputConfig({
   name,
   availableModules,
+  availableParameters,
   onChange,
   savedConfig,
 }) {
-  const initialPickerItems = availableModules.map((x) => valueAndLabel(x));
+  const pickerModules = availableModules.map((x) =>
+    valueAndLabel(x, "modules")
+  );
+  const pickerParameters = availableParameters.map((x) =>
+    valueAndLabel(x, "parameters")
+  );
+  const initialPickerItems = pickerModules.concat(pickerParameters);
+  const initialPickerItemsObj = {
+    modules: pickerModules,
+    parameters: pickerParameters,
+  };
 
   const getInitialSelectedItem = () => {
-    if (savedConfig?.modules) {
-      const modules = savedConfig.modules;
-      return initialPickerItems
-        .map((e, idx) => (modules.includes(e.value) ? idx : -1))
-        .filter((e) => e !== -1)
-        .map((e) => initialPickerItems[e]);
+    if (savedConfig) {
+      let output = {};
+      for (let j of Object.keys(savedConfig)) {
+        output[j] = findMatchingIndex(initialPickerItems, savedConfig, j);
+      }
+      return flattenDictOfArrays(output);
     }
     return [];
   };
@@ -37,10 +68,9 @@ export function NestedObjectInputConfig({
   const handleSelectedItemsChange = (newSelectedItems) => {
     if (newSelectedItems) {
       setSelectedItems(newSelectedItems);
-      onChange(
-        "modules",
-        newSelectedItems.map((x) => x.value)
-      );
+      for (let j of Object.keys(initialPickerItemsObj)) {
+        onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j);
+      }
     }
   };
 
@@ -79,8 +109,6 @@ export default function NestedObjectInput({
     (actions) => actions.master.setChildrenIdsPerParam
   );
 
-  console.log("NestedObjectInput", sectionId, paramName, paramUITypeConfig, childId)
-
   useEffect(() => {
     if (!childId) {
       const newIds = addChildren({
@@ -97,16 +125,12 @@ export default function NestedObjectInput({
   }, [childId]);
 
   useEffect(() => {
-    let modules = paramUITypeConfig["modules"];
-    if (nullOrUndefined(modules)) {
-      modules = [];
-    }
     if (childId) {
       setSectionModules({
         sectionId: childId,
         parentId: sectionId,
         paramName: paramName,
-        specs: modules,
+        specs: paramUITypeConfig,
       });
     }
   }, [paramUITypeConfig]);

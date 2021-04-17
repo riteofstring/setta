@@ -14,7 +14,7 @@ export default function ParamContainer(props) {
     state.master.sections.getParamUITypeConfig(sectionId, paramName)
   );
 
-  return !uiType.isNested() ? (
+  return !uiType || !uiType.isNested() ? (
     <>
       <FormControl as="fieldset">
         <HStack

@@ -2,18 +2,18 @@ import { useContext } from "react";
 import { MenuContext } from "../../SectionFooter";
 import { Box, HStack, Stack, Select, Text } from "@chakra-ui/react";
 import ModalContainer from "../../../../../../../utils/ModalContainer";
-import { parameterStateDetailsGetter } from "../../../../../../../utils/utils";
+import { arraysAreEqual } from "../../../../../../../utils/commonFunctions";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
 
-  const parameters = useStoreState((state) =>
-    state.master.sections.getParametersAndKwargs(sectionId)
+  const paramNames = useStoreState(
+    (state) =>
+      Object.keys(state.master.sections.getParametersAndKwargs(sectionId)),
+    arraysAreEqual
   );
-
-  const paramNames = Object.keys(parameters);
 
   return (
     <ModalContainer

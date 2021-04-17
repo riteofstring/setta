@@ -34,3 +34,12 @@ export const arraysAreEqual = (array1, array2) => {
     array1.every((element, index) => element === array2[index])
   );
 };
+
+export const includesArray = (array1, array2) => {
+  for (let x of array1) {
+    if (arraysAreEqual(x, array2)) {
+      return true;
+    }
+  }
+  return false;
+};

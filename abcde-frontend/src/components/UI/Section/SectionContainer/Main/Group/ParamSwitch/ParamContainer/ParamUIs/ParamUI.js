@@ -4,11 +4,10 @@ import { NestedObjectInputConfig } from "./NestedObjectInput";
 import { useStoreState } from "easy-peasy";
 
 export function ParamUIConfig({ name, savedConfig, onChange }) {
-  const availableModules = useStoreState(
-    (state) => state.master.sections.available.modules
-  );
+  const available = useStoreState((state) => state.master.sections.available);
 
-  const availableModuleNames = Object.keys(availableModules)
+  const availableModules = Object.keys(available.modules);
+  const availableParameters = Object.keys(available.parameters);
 
   switch (name) {
     default:
@@ -24,7 +23,8 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
           name={name}
           savedConfig={savedConfig}
           onChange={onChange}
-          availableModules={availableModuleNames}
+          availableModules={availableModules}
+          availableParameters={availableParameters}
         />
       );
   }
