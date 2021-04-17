@@ -9,7 +9,6 @@ import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
 import sectionPositions from "../models/sectionPositions";
-import parameterDetailsStoreCreator from "../models/parameterDetailsStoreCreator";
 
 const store = createStore({
   master: master,
@@ -22,14 +21,6 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
-  nestedSectionIds: parameterDetailsStoreCreator("nestedSectionIds", [
-    "nestedSectionId",
-  ]),
-  uiTypeConfigs: parameterDetailsStoreCreator("uiTypeConfigs", [
-    "uiType",
-    "uiConfigOption",
-    "uiConfigValue",
-  ]),
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

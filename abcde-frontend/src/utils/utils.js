@@ -48,31 +48,6 @@ export function flattenDictOfArrays(x) {
   );
 }
 
-function getParametersHelper(paramSource) {
-  let returnParameters = [];
-  for (let key of Object.keys(paramSource)) {
-    returnParameters.push(paramSource[key]);
-  }
-  return returnParameters;
-}
-
-export function getParameters(sectionInfo, moduleName, objName) {
-  if (sectionInfo) {
-    if (
-      moduleName &&
-      objName &&
-      Object.keys(sectionInfo.moduleInfos).length > 0
-    ) {
-      return getParametersHelper(
-        sectionInfo.moduleInfos[moduleName].objs[objName].params
-      );
-    } else if (Object.keys(sectionInfo.parameterInfos).length > 0) {
-      return getParametersHelper(sectionInfo.parameterInfos);
-    }
-  }
-  return [];
-}
-
 export function requiresNestedSection(uiTypeName) {
   return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiTypeName);
 }
@@ -92,84 +67,4 @@ export function combineModules(modules, listOfModules) {
 
 export function combineParameters(parameters, listOfParameters) {
   return jsonCombiner(parameters, listOfParameters, "ParameterInfo");
-}
-
-export function descendIntoNestedObject(
-  currPoint,
-  payload,
-  payloadKeys,
-  depthFromEnd = null,
-  stopAtKey = null
-) {
-  depthFromEnd = depthFromEnd !== null ? depthFromEnd : 0;
-  for (let i = 0; i < payloadKeys.length - depthFromEnd; i++) {
-    const currKey = payload[payloadKeys[i]];
-    if (currKey) {
-      if (!(currKey in currPoint)) {
-        currPoint[currKey] = {};
-      }
-      currPoint = currPoint[currKey];
-      if (payload[stopAtKey] === currKey) {
-        break;
-      }
-    }
-  }
-  return currPoint;
-}
-
-export function descendIntoNestedObjectUpToObjName(
-  currPoint,
-  keysForDescent,
-  payloadKeys
-) {
-  currPoint = descendIntoNestedObject(
-    currPoint,
-    keysForDescent,
-    payloadKeys,
-    null,
-    "objName"
-  );
-  return currPoint;
-}
-
-// https://stackoverflow.com/a/14592469
-export function replaceKey(inputObject, oldKey, newKey) {
-  if (inputObject?.[oldKey] && oldKey !== newKey) {
-    inputObject[newKey] = inputObject[oldKey];
-    delete inputObject[oldKey];
-  }
-}
-
-export function parameterStateDetailsGetter(
-  state,
-  sectionId,
-  moduleName,
-  objName,
-  paramName
-) {
-  if (sectionId && paramName) {
-    if (moduleName && objName) {
-      return state[sectionId]?.[moduleName]?.[objName]?.[paramName];
-    }
-    return state[sectionId]?.[paramName];
-  }
-  return null;
-}
-
-export function sectionParameterGetter(
-  state,
-  sectionId,
-  moduleName,
-  objName,
-  paramName
-) {
-  if (sectionId && paramName) {
-    if (moduleName && objName) {
-      return state[sectionId]?.moduleInfos[moduleName]?.objs[objName]?.params[
-        paramName
-      ];
-    }
-    return state[sectionId]?.parameterInfos[paramName];
-  }
-  return null;
 }
