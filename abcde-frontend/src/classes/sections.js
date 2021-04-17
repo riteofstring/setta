@@ -220,6 +220,7 @@ export class Sections {
 
   setParamUIType = ({ sectionId, paramName, uiName }) => {
     this.sections[sectionId].setParamUIType(paramName, uiName);
+    this.setAllChildrenIds();
   };
 
   setUIType = ({ sectionId, uiType }) => {
@@ -252,10 +253,12 @@ export class Sections {
 
   addKwarg = ({ sectionId, kwargName }) => {
     this.sections[sectionId].addKwarg(kwargName);
+    this.setAllChildrenIds();
   };
 
   deleteKwarg = ({ sectionId, kwargName }) => {
     this.sections[sectionId].deleteKwarg(kwargName);
+    this.setAllChildrenIds();
   };
 
   replaceKwarg = ({ sectionId, oldKwarg, newKwarg }) => {
