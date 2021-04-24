@@ -1,4 +1,5 @@
 import { thunk, action } from "easy-peasy";
+import { PANEID } from "../utils/constants";
 
 const sectionPositions = {
   sectionPositions: {},
@@ -11,9 +12,11 @@ const sectionPositions = {
   }),
 
   getCurrPositionOfSection: thunk((action, payload, helpers) => {
-    const p = helpers.getState().sectionPositions[payload];
-    const scale = helpers.getStoreState().mapInteraction.scale;
-    return { y: p.y * scale, x: p.x * scale };
+    const sectionP = helpers.getState().sectionPositions[payload];
+    const paneP = helpers.getState().sectionPositions[PANEID];
+    const y = sectionP.y - paneP.y;
+    const x = sectionP.x - paneP.x;
+    return { y: y, x: x };
   }),
 
   setPositionUpdateRequested: action((state, payload) => {

@@ -51,11 +51,8 @@ function SectionContainer({
 
   useEffect(() => {
     if (positionUpdateRequested && refForPosition.current) {
-      setSectionPosition({
-        sectionId,
-        y: refForPosition.current.offsetTop,
-        x: refForPosition.current.offsetLeft,
-      });
+      const { y, x } = refForPosition.current.getBoundingClientRect();
+      setSectionPosition({ sectionId, y: y, x: x });
       setPositionUpdateRequested({ sectionId, positionUpdateRequested: false });
       setPositionUpdated({ sectionId, positionUpdated: true });
     }

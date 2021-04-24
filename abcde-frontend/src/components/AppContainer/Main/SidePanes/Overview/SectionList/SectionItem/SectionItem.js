@@ -2,13 +2,9 @@ import { Text, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect } from "react";
+import { PANEID } from "../../../../../../../utils/constants";
 
-export default function SectionItem({
-  sectionId,
-  sectionHeading,
-  isList,
-}) {
-
+export default function SectionItem({ sectionId, sectionHeading, isList }) {
   const setGoToCoordinates = useStoreActions(
     (actions) => actions.mapInteraction.setGoToCoordinates
   );
@@ -20,8 +16,12 @@ export default function SectionItem({
     (action) => action.sectionPositions.setPositionUpdateRequested
   );
 
-  const positionUpdated = useStoreState(
+  const sectionPositionUpdated = useStoreState(
     (actions) => actions.sectionPositions.positionUpdated[sectionId]
+  );
+
+  const panePositionUpdated = useStoreState(
+    (actions) => actions.sectionPositions.positionUpdated[PANEID]
   );
 
   const setPositionUpdated = useStoreActions(
@@ -29,15 +29,19 @@ export default function SectionItem({
   );
 
   useEffect(() => {
-    if (positionUpdated) {
+    if (sectionPositionUpdated && panePositionUpdated) {
       const { y, x } = getCurrPositionOfSection(sectionId);
       setGoToCoordinates({ y: -y, x: -x });
     }
     setPositionUpdated({ sectionId, positionUpdated: false });
-  }, [positionUpdated]);
+  }, [sectionPositionUpdated]);
 
   const onClick = () => {
     setPositionUpdateRequested({ sectionId, positionUpdateRequested: true });
+    setPositionUpdateRequested({
+      sectionId: PANEID,
+      positionUpdateRequested: true,
+    });
   };
 
   return (

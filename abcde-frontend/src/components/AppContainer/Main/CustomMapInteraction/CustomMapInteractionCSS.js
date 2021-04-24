@@ -11,10 +11,6 @@ export default function CustomMapInteractionCSS(props) {
     (actions) => actions.mapInteraction.setHovering
   );
 
-  const setScale = useStoreActions(
-    (actions) => actions.mapInteraction.setScale
-  );
-
   const setGoToCoordinates = useStoreActions(
     (actions) => actions.mapInteraction.setGoToCoordinates
   );
@@ -166,7 +162,6 @@ export default function CustomMapInteractionCSS(props) {
       panStateX
     );
     setRelativeXWasSet(true);
-    setScale(panStateScale);
   }, [panStateScale]);
 
   useEffect(() => {

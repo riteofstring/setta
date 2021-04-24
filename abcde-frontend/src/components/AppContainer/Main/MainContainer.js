@@ -10,8 +10,6 @@ import CustomGrid from "./CustomMapInteraction/CustomGrid";
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState({});
 
-  console.log("contentSize", contentSize);
-
   return (
     <Grid
       h="100%"
