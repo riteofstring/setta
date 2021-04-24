@@ -257,6 +257,8 @@ export default function CustomMapInteractionCSS(props) {
             setPanStateScale(v.scale);
             setPanStateX(v.translation.x);
             setPanStateY(v.translation.y);
+            motionTranslationX.set(v.translation.x);
+            motionTranslationY.set(v.translation.y);
           }}
           disableZoom={!panZoomState}
           translationBounds={{ ...xRange, ...yRange }}
