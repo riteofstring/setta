@@ -45,8 +45,6 @@ export default function CustomMapInteractionCSS(props) {
   const [relativeYWasSet, setRelativeYWasSet] = useState(false);
   const [relativeXWasSet, setRelativeXWasSet] = useState(false);
 
-  // console.log("contentHeight, contentWidth", contentHeight, contentWidth)
-
   const _setRelative = (value, isVertical) => {
     if (isVertical) {
       setRelativeY(value);
@@ -70,7 +68,6 @@ export default function CustomMapInteractionCSS(props) {
   const setRangeAndScrollDimAndRelativeCoord = (
     isVertical,
     currContentDim,
-    currClientDim,
     currMargin,
     currPanScale,
     currPanTranslation
@@ -78,7 +75,6 @@ export default function CustomMapInteractionCSS(props) {
     const { newMax, newScrollDim } = setRangeAndScrollDim(
       isVertical,
       currContentDim,
-      currClientDim,
       currMargin,
       currPanScale
     );
@@ -98,7 +94,6 @@ export default function CustomMapInteractionCSS(props) {
 
   const getMinMaxCoordinate = (
     contentDim,
-    clientDim,
     inputMargin,
     scale
   ) => {
@@ -118,17 +113,14 @@ export default function CustomMapInteractionCSS(props) {
   const setRangeAndScrollDim = (
     isVertical,
     currContentDim,
-    currClientDim,
     currMargin,
     currPanScale
   ) => {
-    let { newMin, newMax } = getMinMaxCoordinate(
+    const { newMin, newMax } = getMinMaxCoordinate(
       currContentDim,
-      currClientDim,
       currMargin,
       currPanScale
     );
-    newMin = isVertical ? newMin : newMin - overviewCssWidth;
     const newScrollDim = newMax - newMin;
     isVertical
       ? setYRange({ yMin: newMin, yMax: newMax })
@@ -141,7 +133,6 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDimAndRelativeCoord(
       true,
       contentHeight,
-      clientHeight,
       getMargin(clientHeight, yMargin),
       panStateScale,
       panStateY
@@ -152,7 +143,6 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDimAndRelativeCoord(
       false,
       contentWidth,
-      clientWidth,
       getMargin(clientWidth, xMargin),
       panStateScale,
       panStateX
@@ -163,7 +153,6 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDimAndRelativeCoord(
       true,
       contentHeight,
-      clientHeight,
       getMargin(clientHeight, yMargin),
       panStateScale,
       panStateY
@@ -172,7 +161,6 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDimAndRelativeCoord(
       false,
       contentWidth,
-      clientWidth,
       getMargin(clientWidth, xMargin),
       panStateScale,
       panStateX
