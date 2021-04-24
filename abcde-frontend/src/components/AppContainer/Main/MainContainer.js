@@ -4,11 +4,13 @@ import Overview from "./SidePanes/Overview/Overview";
 import SubNav from "./SubNav/SubNav";
 import UIPage from "../../UI/UiPage";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
-import CustomGrid from "./CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
+import CustomGrid from "./CustomMapInteraction/CustomGrid";
 
 export default function MainContainer() {
-  const [contentSize, setContentSize] = useState(0);
+  const [contentSize, setContentSize] = useState({});
+
+  console.log("contentSize", contentSize);
 
   return (
     <Grid
@@ -39,21 +41,24 @@ export default function MainContainer() {
           <CustomMapInteractionCSS
             // showControls={true}
             maxScale={2}
-            minScale={0.33}
+            minScale={0.1}
             scaleBase={1.5}
             marginRatios={{ x: 1, y: 1 }}
-            contentSize={contentSize}
+            contentSize={{
+              height: contentSize.height,
+              width: contentSize.width,
+            }}
             excludedFromDraggingTagNames={["input", "textarea", "select"]}
             excludedFromDraggingClassNames={[
               "EditableTextarea",
               "chakra-stack DragHandle",
               "chakra-slider",
-              "chakra-editable"
+              "chakra-editable",
             ]}
             excludedFromScrollingClassNames={["SectionSearch"]}
           >
             <Box padding="2.5rem" h="100%">
-              <CustomGrid gap={2} onSize={setContentSize}>
+              <CustomGrid setContentSize={setContentSize}>
                 <UIPage />
               </CustomGrid>
             </Box>
