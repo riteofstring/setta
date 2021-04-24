@@ -53,8 +53,8 @@ function SectionContainer({
     if (positionUpdateRequested && refForPosition.current) {
       setSectionPosition({
         sectionId,
-        position: refForPosition.current.offsetTop,
-        height: refForPosition.current.clientHeight,
+        y: refForPosition.current.offsetTop,
+        x: refForPosition.current.offsetLeft,
       });
       setPositionUpdateRequested({ sectionId, positionUpdateRequested: false });
       setPositionUpdated({ sectionId, positionUpdated: true });

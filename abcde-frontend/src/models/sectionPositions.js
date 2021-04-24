@@ -6,15 +6,14 @@ const sectionPositions = {
   positionUpdated: {},
 
   setSectionPosition: action((state, payload) => {
-    const { sectionId, position } = payload;
-    state.sectionPositions[sectionId] = position
+    const { sectionId, y, x } = payload;
+    state.sectionPositions[sectionId] = { y, x };
   }),
 
   getCurrPositionOfSection: thunk((action, payload, helpers) => {
-    return (
-      helpers.getState().sectionPositions[payload] *
-      helpers.getStoreState().mapInteraction.scale
-    );
+    const p = helpers.getState().sectionPositions[payload];
+    const scale = helpers.getStoreState().mapInteraction.scale;
+    return { y: p.y * scale, x: p.x * scale };
   }),
 
   setPositionUpdateRequested: action((state, payload) => {
