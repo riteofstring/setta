@@ -18,13 +18,14 @@ import { ChevronDownIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
 export default function RunButton() {
-  const runSelected = useStoreActions((actions) => actions.master.runSelected);
+  // const runSelected = useStoreActions((actions) => actions.master.runSelected);
   const exportSelected = useStoreActions(
     (actions) => actions.master.exportSelected
   );
   const runExport = () => {
-    const { selected } = exportSelected();
-    runSelected({ selected });
+    const selected = exportSelected();
+    console.log("selected", selected)
+    // runSelected({ selected });
   };
 
   return (
@@ -33,7 +34,7 @@ export default function RunButton() {
         bg="whiteAlpha"
         leftIcon={<Icon as={RiPlayMiniFill} />}
         mr="-px"
-        onClick={() => runExport()}
+        onClick={runExport}
       >
         Run
       </Button>

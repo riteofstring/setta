@@ -6,7 +6,7 @@ import { Sections } from "../classes/sections";
 import { NO_AUTH } from "../utils/constants";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
-import { getPageMinMaxList } from "../utils/sectionIds";
+import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,
@@ -119,23 +119,9 @@ const master = {
     state.sections.replaceKwarg({ ...payload });
   }),
 
-  // exportSelected: thunk((action, payload, helpers) => {
-  //   const { globalCurr } = helpers.getStoreState().globalCurr;
-  //   const {
-  //     idHierarchy,
-  //     sectionIdsToSectionHeadings,
-  //     isList,
-  //     isListRoot,
-  //   } = helpers.getState();
-  //   const selected = createExportableObject({
-  //     idHierarchy,
-  //     sectionIdsToSectionHeadings,
-  //     isList,
-  //     isListRoot,
-  //     globalCurr,
-  //   });
-  //   return { selected, globalCurr };
-  // }),
+  exportSelected: thunk((action, payload, helpers) => {
+    return createExportableObject(helpers.getState().sections)
+  }),
 
   // runSelected: thunk(async (action, payload, helpers) => {
   //   const { selected } = payload;

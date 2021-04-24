@@ -213,7 +213,7 @@ export class Sections {
 
   setChildrenIds = ({ sectionId, childrenIds }) => {
     this.sections[sectionId].childrenIds = childrenIds;
-    this.setAllChildrenIds()
+    this.setAllChildrenIds();
   };
 
   setEnteredValue = ({ sectionId, paramName, value }) => {

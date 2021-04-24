@@ -1,3 +1,5 @@
+import { nullOrUndefined, firstValue } from "./utils";
+
 export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
   let output = [];
@@ -40,86 +42,84 @@ export const getOverviewListingHelper = (sectionId, sections, depth) => {
   return outputList;
 };
 
-const createExportableParams = ({
-  currSelected,
-  idHierarchy,
-  sectionIdsToSectionHeadings,
-  isList,
-  isListRoot,
-  globalCurr,
-  id,
-}) => {
+const getEnteredValues = (currSection) => {
   let output = {};
-  const { moduleName, objName, children: originalChildren } = currSelected;
-  if (moduleName === null || moduleName === undefined) {
-    return output;
-  }
-  const fullObjName = moduleName + "." + objName;
-  output[fullObjName] = {};
-  let params = null;
-  try {
-    params = globalCurr[id][moduleName][objName];
-    output[fullObjName] = params;
-  } catch (err) {}
-
-  if (originalChildren) {
-    let children = originalChildren.slice();
-    for (let childId of originalChildren) {
-      if (isListRoot[childId]) {
-        children = children.filter((x) => x !== childId);
-        children.push(...idHierarchy[childId].children);
-      }
-    }
-
-    for (let childId of children) {
-      const childSectionName = sectionIdsToSectionHeadings[childId];
-      const nextSelected = idHierarchy[childId];
-      const paramDict = createExportableParams({
-        currSelected: nextSelected,
-        idHierarchy,
-        sectionIdsToSectionHeadings,
-        isList,
-        isListRoot,
-        globalCurr,
-        id: childId,
-      });
-
-      if (Object.keys(paramDict).length > 0) {
-        if (isList[childId]) {
-          if (childSectionName in output[fullObjName]) {
-            output[fullObjName][childSectionName].push(paramDict);
-          } else {
-            output[fullObjName][childSectionName] = [paramDict];
-          }
-        } else {
-          output[fullObjName][childSectionName] = paramDict;
-        }
-      }
+  const allEntered = currSection.enteredValues;
+  for (let k of Object.keys(allEntered)) {
+    if (!nullOrUndefined(allEntered[k])) {
+      output[k] = allEntered[k];
     }
   }
   return output;
 };
 
-export const createExportableObject = ({
-  idHierarchy,
-  sectionIdsToSectionHeadings,
-  isList,
-  isListRoot,
-  globalCurr,
-}) => {
-  // let output = {};
-  // for (let id of getRootIds(idHierarchy)) {
-  //   const sectionName = sectionIdsToSectionHeadings[id];
-  //   const currSelected = idHierarchy[id];
-  //   output[sectionName] = createExportableParams({
-  //     currSelected,
-  //     idHierarchy,
-  //     sectionIdsToSectionHeadings,
-  //     isList,
-  //     isListRoot,
-  //     globalCurr,
-  //     id,
-  //   });
-  // }
-  // return output;
+const pushNestedSection = (currOutput, childSectionName, paramDict, uiType) => {
+  if (uiType.requiresKeyInput) {
+    currOutput[childSectionName] = paramDict;
+    return;
+  }
+  if (!(childSectionName in currOutput)) {
+    currOutput[childSectionName] = [];
+  }
+  currOutput[childSectionName].push(paramDict);
+};
+
+const passThroughListRoot = (
+  currOutput,
+  childSectionName,
+  paramDict,
+  uiType
+) => {
+  const listRootChildren = firstValue(paramDict);
+  if (Array.isArray(listRootChildren)) {
+    currOutput[childSectionName] = listRootChildren;
+  } else if (
+    nullOrUndefined(listRootChildren) ||
+    Object.keys(listRootChildren).length === 0
+  ) {
+    currOutput[childSectionName] = uiType.isDictRoot ? {} : [];
+  } else {
+    currOutput[childSectionName] = firstValue(listRootChildren);
+  }
+};
+
+const addChildSection = (currOutput, childSection, paramDict) => {
+  const childSectionName = childSection.name;
+  const uiType = childSection.uiType;
+  if (uiType.isList) {
+    pushNestedSection(currOutput, childSectionName, paramDict, uiType);
+  } else if (uiType.isListRoot && !uiType.isDictRoot) {
+    passThroughListRoot(currOutput, childSectionName, paramDict, uiType);
+  } else {
+    currOutput[childSectionName] = paramDict;
+  }
+};
+
+const createExportableParams = ({ currSection, sections }) => {
+  const enteredValues = getEnteredValues(currSection);
+  const { moduleName, objName } = currSection.selected;
+  for (let childId of currSection.childrenIds) {
+    const childSection = sections.sections[childId];
+    const paramDict = createExportableParams({
+      currSection: childSection,
+      sections,
+    });
+    addChildSection(enteredValues, childSection, paramDict);
+  }
+  if (!nullOrUndefined(moduleName)) {
+    return { [`${moduleName}.${objName}`]: enteredValues };
+  }
+  return enteredValues;
+};
+
+export const createExportableObject = (sections) => {
+  let output = {};
+  for (let id of sections.getRootIds()) {
+    const currSection = sections.sections[id];
+    output[currSection.name] = createExportableParams({
+      currSection,
+      sections,
+    });
+  }
+  return output;
 };

@@ -49,12 +49,15 @@ export function flattenDictOfArrays(x) {
 }
 
 function jsonCombiner(available, listOfSelection, key) {
-  if (listOfSelection){
+  if (listOfSelection) {
     return {
-      [key]: Object.assign({}, ...listOfSelection.map((x) => available[x][key])),
+      [key]: Object.assign(
+        {},
+        ...listOfSelection.map((x) => available[x][key])
+      ),
     };
   }
-  return {}
+  return {};
 }
 
 export function combineModules(modules, listOfModules) {
@@ -63,4 +66,12 @@ export function combineModules(modules, listOfModules) {
 
 export function combineParameters(parameters, listOfParameters) {
   return jsonCombiner(parameters, listOfParameters, "ParameterInfo");
+}
+
+export function firstValue(x) {
+  const keys = Object.keys(x);
+  if (keys.length > 0) {
+    return x[keys[0]];
+  }
+  return undefined;
 }
