@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { Stack, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
@@ -10,6 +10,7 @@ import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
+import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 
 function SectionContainer({
   sectionId,
@@ -18,23 +19,7 @@ function SectionContainer({
   depth,
   dragControls,
 }) {
-  const refForPosition = useRef(null);
-
-  const setSectionPosition = useStoreActions(
-    (action) => action.sectionPositions.setSectionPosition
-  );
-
-  const setPositionUpdated = useStoreActions(
-    (action) => action.sectionPositions.setPositionUpdated
-  );
-
-  const setPositionUpdateRequested = useStoreActions(
-    (action) => action.sectionPositions.setPositionUpdateRequested
-  );
-
-  const positionUpdateRequested = useStoreState(
-    (state) => state.sectionPositions.positionUpdateRequested[sectionId]
-  );
+  const refForPosition = useSetSectionPosition(sectionId);
 
   const setChildrenIds = useStoreActions(
     (action) => action.master.setChildrenIds
@@ -48,15 +33,6 @@ function SectionContainer({
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
   console.log("SectionContainer", sectionId, nextId, childrenIds, order);
-
-  useEffect(() => {
-    if (positionUpdateRequested && refForPosition.current) {
-      const { y, x } = refForPosition.current.getBoundingClientRect();
-      setSectionPosition({ sectionId, y: y, x: x });
-      setPositionUpdateRequested({ sectionId, positionUpdateRequested: false });
-      setPositionUpdated({ sectionId, positionUpdated: true });
-    }
-  }, [positionUpdateRequested]);
 
   useEffect(() => {
     if (!arraysAreEqual(childrenIds, order)) {
