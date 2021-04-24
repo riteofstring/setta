@@ -9,14 +9,14 @@ import {
 } from "@chakra-ui/react";
 
 import { SettingsIcon } from "@chakra-ui/icons";
-import { MenuContext } from "../SectionFooter";
-import { useContext } from "react";
+// import { MenuContext } from "../SectionFooter";
+// import ModalContext from "../../../../../../utils/ModalContainer/ModalContext";
+// import { useContext } from "react";
 
-export default function GearMenu() {
-  const { onOpen, applyModalSwitchVal } = useContext(MenuContext);
+export default function GearMenu({ setSelectedMenuItem, onOpen }) {
   function setOpen(e) {
     onOpen();
-    applyModalSwitchVal(e);
+    setSelectedMenuItem(e);
   }
   return (
     <GridItem

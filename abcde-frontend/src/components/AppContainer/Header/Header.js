@@ -1,9 +1,9 @@
-import { Flex, Heading, Box, Spacer, IconButton } from "@chakra-ui/react";
-import { HamburgerIcon } from "@chakra-ui/icons";
+import { Flex, Heading, Box, Spacer } from "@chakra-ui/react";
 import TabNav from "./Tabs/TabNav";
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import { useHistory } from "react-router-dom";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
 
 export default function HeaderContainer() {
   let history = useHistory();
@@ -31,13 +31,7 @@ export default function HeaderContainer() {
       </Box>
       <Spacer />
       <ColorModeToggle />
-      <IconButton
-        borderRadius="full"
-        icon={<HamburgerIcon />}
-        size="sm"
-        variant="ghost"
-        onClick={goToLogout}
-      />
+      <MainSideDrawer />
     </Flex>
   );
 }

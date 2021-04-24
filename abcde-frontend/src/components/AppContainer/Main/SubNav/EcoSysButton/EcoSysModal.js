@@ -15,7 +15,7 @@ import {
   HStack,
 } from "@chakra-ui/react";
 import { SearchIcon } from "@chakra-ui/icons";
-import ModalContainer from "../../../../../utils/ModalContainer";
+import ModalContainer from "../../../../../utils/ModalContainer/ModalContainer";
 
 export const EcoSysContext = createContext(null);
 

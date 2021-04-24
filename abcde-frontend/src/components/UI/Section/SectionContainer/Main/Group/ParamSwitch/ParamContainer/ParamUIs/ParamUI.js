@@ -4,6 +4,7 @@ import { NestedObjectInputConfig } from "./NestedObjectInput";
 import { useStoreState } from "easy-peasy";
 
 export function ParamUIConfig({ name, savedConfig, onChange }) {
+  console.log("ParamUIConfig", name)
   const available = useStoreState((state) => state.master.sections.available);
 
   const availableModules = Object.keys(available.modules);
