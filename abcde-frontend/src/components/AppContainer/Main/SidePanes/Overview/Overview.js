@@ -22,10 +22,16 @@ export default function Overview() {
     arraysAreEqual
   );
 
+  const allChildrenNames = useStoreState(
+    (state) => state.master.sections.allChildrenNames,
+    arraysAreEqual
+  );
+
+
   useEffect(() => {
-    console.log("Overview useEffect")
+    console.log("Overview useEffect");
     setListOfSectionIdsAndNames(getOverviewListing(sections, pageMinMaxList));
-  }, [pageMinMaxList, allChildrenIds, sections]);
+  }, [pageMinMaxList, allChildrenIds, sections, allChildrenNames]);
 
   console.log("listOfSectionIdsAndNames", listOfSectionIdsAndNames);
 

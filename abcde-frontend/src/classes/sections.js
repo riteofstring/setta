@@ -34,6 +34,7 @@ export class Sections {
     this.sections = {};
     this.available = {};
     this.allChildrenIds = [];
+    this.allChildrenNames = [];
     this.latestId = 0;
   }
 
@@ -242,6 +243,9 @@ export class Sections {
 
   setName = ({ sectionId, name }) => {
     this.sections[sectionId].name = name;
+    this.allChildrenNames = this.allChildrenIds.map((x) =>
+      this.getSectionHeading(x)
+    );
   };
 
   setAllChildrenIds = () => {

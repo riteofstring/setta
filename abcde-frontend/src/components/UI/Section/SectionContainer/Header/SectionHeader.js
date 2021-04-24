@@ -21,7 +21,7 @@ export function SectionHeader({
   const setName = useStoreActions((action) => action.master.setName);
 
   function onTitleInputChange(v) {
-    setName({ sectionId, name: v.target.value });
+    setName({ sectionId, name: v });
   }
 
   return (

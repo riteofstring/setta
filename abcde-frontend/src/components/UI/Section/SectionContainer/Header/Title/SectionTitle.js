@@ -1,18 +1,27 @@
 import { HStack, Heading, Input } from "@chakra-ui/react";
+import {useState} from "react"
 
 export default function SectionTitle({
   sectionHeading,
   requiresKeyInput,
   onTitleInputChange,
 }) {
+
+  const [inputValue, setInputValue] = useState(sectionHeading)
+
+  const onBlur = (v) => {
+    onTitleInputChange(v)
+  }
+
   return (
     <>
       {requiresKeyInput ? (
         <Input
           placeholder="Please Enter Key"
-          value={sectionHeading}
+          value={inputValue}
           width="50%"
-          onChange={onTitleInputChange}
+          onChange={(v)=>setInputValue(v.target.value)}
+          onBlur={(v)=>onBlur(v.target.value)}
         />
       ) : (
         <Heading
