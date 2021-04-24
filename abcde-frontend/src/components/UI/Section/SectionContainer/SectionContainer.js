@@ -11,6 +11,7 @@ import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
+import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function SectionContainer({
   sectionId,
@@ -41,7 +42,7 @@ function SectionContainer({
   }, [order]);
 
   return (
-    <Stack height="100%" ref={refForPosition}>
+    <Stack ref={refForPosition}>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -78,6 +79,8 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 
   const showSearch = Object.keys(moduleInfos).length > 0;
 
+  // temp_
+  const tempBoolDesc = false;
   return (
     <HStack
       direction="column"
@@ -100,6 +103,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
             {showSearch && (
               <SectionSearch sectionId={sectionId} moduleInfos={moduleInfos} />
             )}
+            {tempBoolDesc && <SectionDescription />}
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
@@ -112,7 +116,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
 function DragHandle({ dragControls }) {
   return (
     <HStack
-      h="100%"
+      alignSelf="stretch"
       borderLeftRadius="inherit"
       cursor="move"
       px="0.5rem"

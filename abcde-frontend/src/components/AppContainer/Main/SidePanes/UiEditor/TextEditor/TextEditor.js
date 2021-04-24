@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { resetState } from "../../../../../../store/store"
+import { resetState } from "../../../../../../store/store";
+import { IoIosRocket } from "react-icons/io";
 
 export default function TextEditor() {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -50,16 +51,21 @@ export default function TextEditor() {
 
   return (
     <>
-      <Button onClick={handleCreateUI} disabled={!isEditorReady}>
+      <Button
+        leftIcon={<IoIosRocket />}
+        onClick={handleCreateUI}
+        disabled={!isEditorReady}
+        variant="solid"
+      >
         Create UI
       </Button>
       <Editor
-        height="inherit"
         language="yaml"
         value={enteredText}
         onMount={handleEditorDidMount}
         onChange={onChange}
         automaticLayout={true}
+        height={"calc(100% - 2.5rem)"}
       />
     </>
   );
