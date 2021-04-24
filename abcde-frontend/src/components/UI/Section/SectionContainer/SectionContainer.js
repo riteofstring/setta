@@ -24,6 +24,18 @@ function SectionContainer({
     (action) => action.sectionPositions.setSectionPosition
   );
 
+  const setPositionUpdated = useStoreActions(
+    (action) => action.sectionPositions.setPositionUpdated
+  );
+
+  const setPositionUpdateRequested = useStoreActions(
+    (action) => action.sectionPositions.setPositionUpdateRequested
+  );
+
+  const positionUpdateRequested = useStoreState(
+    (state) => state.sectionPositions.positionUpdateRequested[sectionId]
+  );
+
   const setChildrenIds = useStoreActions(
     (action) => action.master.setChildrenIds
   );
@@ -38,14 +50,16 @@ function SectionContainer({
   console.log("SectionContainer", sectionId, nextId, childrenIds, order);
 
   useEffect(() => {
-    if (refForPosition.current) {
+    if (positionUpdateRequested && refForPosition.current) {
       setSectionPosition({
         sectionId,
         position: refForPosition.current.offsetTop,
         height: refForPosition.current.clientHeight,
       });
+      setPositionUpdateRequested({ sectionId, positionUpdateRequested: false });
+      setPositionUpdated({ sectionId, positionUpdated: true });
     }
-  }, [refForPosition.current]);
+  }, [positionUpdateRequested]);
 
   useEffect(() => {
     if (!arraysAreEqual(childrenIds, order)) {

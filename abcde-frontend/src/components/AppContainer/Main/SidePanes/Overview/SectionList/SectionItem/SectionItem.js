@@ -2,6 +2,7 @@ import { Text, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { SECTIONWIDTH } from "../../../../../../../utils/constants";
+import { useEffect } from "react";
 
 export default function SectionItem({
   sectionId,
@@ -20,12 +21,31 @@ export default function SectionItem({
     (actions) => actions.sectionPositions.getCurrPositionOfSection
   );
 
+  const setPositionUpdateRequested = useStoreActions(
+    (action) => action.sectionPositions.setPositionUpdateRequested
+  );
+
+  const positionUpdated = useStoreState(
+    (actions) => actions.sectionPositions.positionUpdated[sectionId]
+  );
+
+  const setPositionUpdated = useStoreActions(
+    (actions) => actions.sectionPositions.setPositionUpdated
+  );
+
+  useEffect(() => {
+    if (positionUpdated) {
+      const goToHeight = getCurrPositionOfSection(sectionId);
+      setGoToCoordinates({
+        y: -goToHeight,
+        x: -(pageNum - 1) * (spaceBetweenPages + SECTIONWIDTH),
+      });
+    }
+    setPositionUpdated({ sectionId, positionUpdated: false });
+  }, [positionUpdated]);
+
   const onClick = () => {
-    const goToHeight = getCurrPositionOfSection(sectionId);
-    setGoToCoordinates({
-      y: -goToHeight,
-      x: -(pageNum - 1) * (spaceBetweenPages + SECTIONWIDTH),
-    });
+    setPositionUpdateRequested({ sectionId, positionUpdateRequested: true });
   };
 
   return (
