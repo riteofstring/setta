@@ -4,6 +4,7 @@ import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
 import { useStoreState } from "easy-peasy";
 import { getOverviewListing } from "../../../../../utils/sectionIds";
+import { arraysAreEqual } from "../../../../../utils/commonFunctions";
 
 const paneProps = {
   right: false,
@@ -14,18 +15,25 @@ export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
-  const idHierarchy = useStoreState((state) => state.master.idHierarchy);
-  const getListOfSectionIdsAndNames = () => {
-    const overviewListing = getOverviewListing(idHierarchy, pageMinMaxList);
-    console.log("overviewListing", overviewListing);
-    return overviewListing;
-  };
+  const sections = useStoreState((state) => state.master.sections);
+
+  const allChildrenIds = useStoreState(
+    (state) => state.master.sections.allChildrenIds,
+    arraysAreEqual
+  );
+
+  const allChildrenNames = useStoreState(
+    (state) => state.master.sections.allChildrenNames,
+    arraysAreEqual
+  );
+
 
   useEffect(() => {
-    setListOfSectionIdsAndNames(getListOfSectionIdsAndNames());
-  }, [idHierarchy]);
+    console.log("Overview useEffect");
+    setListOfSectionIdsAndNames(getOverviewListing(sections, pageMinMaxList));
+  }, [pageMinMaxList, allChildrenIds, sections, allChildrenNames]);
 
-  console.log("Overview");
+  console.log("listOfSectionIdsAndNames", listOfSectionIdsAndNames);
 
   return (
     <PaneContainer paneProps={paneProps}>

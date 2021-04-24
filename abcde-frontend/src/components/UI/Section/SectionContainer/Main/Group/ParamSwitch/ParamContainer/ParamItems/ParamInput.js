@@ -1,28 +1,21 @@
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ParamUI from "../ParamUIs/ParamUI";
-import { parameterStateDetailsGetter } from "../../../../../../../../../utils/utils";
+import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 
 export default function ParamInput(props) {
-  const {
-    sectionId,
-    moduleName,
-    objName,
-    parameter: { name, defaultVal },
-  } = props;
+  const { sectionId, paramName } = props;
 
-  const setGlobalCurr = useStoreActions(
-    (actions) => actions.globalCurr.setGlobalCurr
+  const defaultVal = useStoreState(
+    (state) => state.master.sections.getDefaultValue(sectionId, paramName)
   );
 
-  const currParam = useStoreState((state) =>
-    parameterStateDetailsGetter(
-      state.globalCurr.globalCurr,
-      sectionId,
-      moduleName,
-      objName,
-      name
-    )
+  const setEnteredValue = useStoreActions(
+    (actions) => actions.master.setEnteredValue
+  );
+
+  const storedValue = useStoreState((state) =>
+    state.master.sections.getEnteredValue(sectionId, paramName)
   );
 
   const [value, setValue] = useState("");
@@ -33,29 +26,27 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setGlobalCurr({
+    setEnteredValue({
       sectionId,
-      moduleName,
-      objName,
-      paramName: name,
-      paramValue: v,
+      paramName,
+      value: v,
     });
   };
 
   useEffect(() => {
-    setValue(currParam !== null && currParam !== undefined ? currParam : "");
-  }, [currParam]);
+    setValue(!nullOrUndefined(storedValue) ? storedValue : "");
+  }, [storedValue]);
 
   return (
     <ParamUI
-      uiType={props.uiType}
+      name={props.uiType.name}
       childProps={{
         value,
         defaultVal,
         onChange,
         onChangeEnd,
         isDisabled: props.isDisabled,
-        ...props.uiTypeConfig,
+        ...props.paramUITypeConfig,
       }}
     />
   );

@@ -11,29 +11,17 @@ export default function Incrementer({
   nextId,
   isListRoot,
 }) {
-  const permanentlyDeleteSection = useStoreActions(
-    (actions) => actions.master.permanentlyDeleteSection
+  const addChildren = useStoreActions((actions) => actions.master.addChildren);
+  const deleteSections = useStoreActions(
+    (actions) => actions.master.deleteSections
   );
-
-  const permanentlyDeleteMultipleSections = useStoreActions(
-    (actions) => actions.master.permanentlyDeleteMultipleSections
-  );
-
-  const addToVisibleSectionIdsThunk = useStoreActions(
-    (actions) => actions.master.addToVisibleSectionIdsThunk
-  );
-
-  const selected = useStoreState(
-    (actions) => actions.master.idHierarchy[parentId]
+  const deleteChildrenAction = useStoreActions(
+    (actions) => actions.master.deleteChildren
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].children,
+    (state) => state.master.sections.getChildrenIds(sectionId),
     arraysAreEqual
-  );
-
-  const sectionHeading = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].sectionHeading
   );
 
   const decrementButtonCondition = () => {
@@ -41,30 +29,33 @@ export default function Incrementer({
   };
 
   const addSections = (numSections) => {
-    for (let i = 0; i < numSections; i++) {
-      addToVisibleSectionIdsThunk({
-        name: sectionHeading,
-        parentId: isListRoot ? sectionId : parentId,
-        moduleName: selected.moduleName,
-        objName: selected.objName,
-        isList: true,
-        siblingId: sectionId,
-      });
-    }
+    addChildren({
+      parentId: isListRoot ? sectionId : parentId,
+      sourceId: sectionId,
+      numChildren: numSections,
+    });
   };
 
-  const deleteSections = (numSections) => {
+  const deleteChildren = (numSections) => {
     if ((isListRoot && childrenIds.length > 0) || nextId) {
-      permanentlyDeleteMultipleSections({
+      deleteChildrenAction({
         parentId: isListRoot ? sectionId : parentId,
-        startingId: isListRoot ? null : nextId,
-        numSectionsToDelete: numSections,
+        sourceId: sectionId,
+        numChildren: numSections,
       });
     }
   };
 
   const deleteThisSection = () => {
-    permanentlyDeleteSection({ sectionId, parentId });
+    deleteSections({ sectionIds: [sectionId], parentId });
+  };
+
+  const numSectionsOnChange = (value) => {
+    if (value && !isNaN(value)) {
+      setNumSections(parseInt(value));
+    } else {
+      setNumSections("");
+    }
   };
 
   const [numSections, setNumSections] = useState(1);
@@ -74,13 +65,13 @@ export default function Incrementer({
         size="sm"
         maxW="5ch"
         value={numSections}
-        onChange={(e) => setNumSections(e.target.value)}
+        onChange={(e) => numSectionsOnChange(e.target.value)}
       />
 
       <IconButton
         icon={<MinusIcon />}
         size="xs"
-        onClick={() => deleteSections(numSections)}
+        onClick={() => deleteChildren(numSections)}
         isDisabled={decrementButtonCondition() ? false : true}
       />
 

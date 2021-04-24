@@ -5,7 +5,7 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function SectionSearch({ sectionId }) {
+export default function SectionSearch({ sectionId, moduleInfos }) {
   const [selectedItem, setSelectedItem] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
@@ -14,24 +14,13 @@ export default function SectionSearch({ sectionId }) {
     return x ? x[1] : "";
   };
 
-  const theSection = useStoreState((state) => state.master.sections[sectionId]);
   const {
     moduleName: selectedModuleName,
     objName: selectedObjName,
-  } = useStoreState((state) => state.master.idHierarchy[sectionId]);
-  const sectionHasNested = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].hasNested
-  );
+  } = useStoreState((state) => state.master.sections.getSelected(sectionId));
   const setSelected = useStoreActions((actions) => actions.master.setSelected);
-  const setCurrentlySelected = useStoreActions(
-    (actions) => actions.currentlySelected.setCurrentlySelected
-  );
-  const deleteChildrenFromVisibleSectionIds = useStoreActions(
-    (actions) => actions.master.deleteChildrenFromVisibleSectionIds
-  );
 
   const getSearchItems = () => {
-    const { moduleInfos } = theSection;
     let output = [];
     for (let moduleName of Object.keys(moduleInfos)) {
       for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
@@ -56,13 +45,7 @@ export default function SectionSearch({ sectionId }) {
     if (selectedItem) {
       const [moduleName, objName] = selectedItem;
       if (moduleName !== selectedModuleName || objName !== selectedObjName) {
-        if (sectionHasNested) {
-          deleteChildrenFromVisibleSectionIds({
-            sectionId,
-          });
-        }
         setSelected({ sectionId, moduleName, objName });
-        setCurrentlySelected({ sectionId, moduleName, objName });
       }
     }
   };

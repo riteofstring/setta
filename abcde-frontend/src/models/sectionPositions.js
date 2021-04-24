@@ -1,26 +1,32 @@
 import { thunk, action } from "easy-peasy";
+import { PANEID } from "../utils/constants";
 
 const sectionPositions = {
   sectionPositions: {},
+  positionUpdateRequested: {},
+  positionUpdated: {},
 
   setSectionPosition: action((state, payload) => {
-    const { sectionId, position, height } = payload;
-    let prevHeight = 0
-    if (state.sectionPositions[sectionId]){
-      prevHeight = state.sectionPositions[sectionId].height
-    }
-    state.sectionPositions[sectionId] = { position, height };
-    console.log("sectionId, prevHeight, newHeight", sectionId, prevHeight, height);
+    const { sectionId, y, x } = payload;
+    state.sectionPositions[sectionId] = { y, x };
   }),
 
-  getCurrPositionOfSection: thunk(async (action, payload, helpers) => {
-    while (helpers.getState().sectionPositions[payload] === undefined) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    return (
-      helpers.getState().sectionPositions[payload].position *
-      helpers.getStoreState().mapInteraction.scale
-    );
+  getCurrPositionOfSection: thunk((action, payload, helpers) => {
+    const sectionP = helpers.getState().sectionPositions[payload];
+    const paneP = helpers.getState().sectionPositions[PANEID];
+    const y = sectionP.y - paneP.y;
+    const x = sectionP.x - paneP.x;
+    return { y: y, x: x };
+  }),
+
+  setPositionUpdateRequested: action((state, payload) => {
+    const { sectionId, positionUpdateRequested } = payload;
+    state.positionUpdateRequested[sectionId] = positionUpdateRequested;
+  }),
+
+  setPositionUpdated: action((state, payload) => {
+    const { sectionId, positionUpdated } = payload;
+    state.positionUpdated[sectionId] = positionUpdated;
   }),
 };
 

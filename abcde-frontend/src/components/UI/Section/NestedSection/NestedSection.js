@@ -9,7 +9,6 @@ const borderLeft = theme.colors.gray;
 
 export default function NestedSection({
   parentId,
-  rootId,
   sectionId,
   nextId,
   idx,
@@ -17,25 +16,20 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
 }) {
-  const isShown = useStoreState(
-    (state) => state.master.idHierarchy[parentId].isShown
+  const childrenAreCollapsed = useStoreState((state) =>
+    state.master.sections.getChildrenAreCollapsed(parentId)
   );
-  const isVisible = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isVisible
+  const { isList } = useStoreState((state) =>
+    state.master.sections.getUIType(sectionId)
   );
-  const isList = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isList
-  );
-  const isListRoot = useStoreState(
-    (state) => state.master.idHierarchy[sectionId].isListRoot
-  );
+
+  console.log("sectionId, isList", sectionId, isList);
 
   const getNestedSection = (dragControls) => {
     return (
-      isShown && (
+      !childrenAreCollapsed && (
         <SectionContainer
           sectionId={sectionId}
-          rootId={rootId}
           parentId={parentId}
           nextId={nextId}
           depth={depth}
@@ -74,25 +68,21 @@ export default function NestedSection({
         dragListener={false}
         dragControls={dragControls}
       >
-        {inner(dragControls, isDragging)}
+        {inner(dragControls)}
       </motion.div>
     );
   };
 
   return (
-    isVisible && (
-      <Stack
-        direction="column"
-        pl="1rem"
-        ml=".5rem"
-        boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
-      >
-        <Grid gap={2}>
-          {isList && !isListRoot
-            ? MotionDivWrapper(getNestedSection)
-            : getNestedSection()}
-        </Grid>
-      </Stack>
-    )
+    <Stack
+      direction="column"
+      pl="1rem"
+      ml=".5rem"
+      boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
+    >
+      <Grid gap={2}>
+        {isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
+      </Grid>
+    </Stack>
   );
 }

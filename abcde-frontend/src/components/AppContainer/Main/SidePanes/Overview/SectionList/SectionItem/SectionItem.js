@@ -1,19 +1,10 @@
 import { Text, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { SECTIONWIDTH } from "../../../../../../../utils/constants";
+import { useEffect } from "react";
+import { PANEID } from "../../../../../../../utils/constants";
 
-export default function SectionItem({
-  sectionId,
-  sectionHeading,
-  isList,
-  isListRoot,
-  pageNum,
-}) {
-  const spaceBetweenPages = useStoreState(
-    (state) => state.master.spaceBetweenPages
-  );
-
+export default function SectionItem({ sectionId, sectionHeading, isList }) {
   const setGoToCoordinates = useStoreActions(
     (actions) => actions.mapInteraction.setGoToCoordinates
   );
@@ -21,11 +12,35 @@ export default function SectionItem({
     (actions) => actions.sectionPositions.getCurrPositionOfSection
   );
 
-  const onClick = async () => {
-    const goToHeight = await getCurrPositionOfSection(sectionId);
-    setGoToCoordinates({
-      y: -goToHeight,
-      x: -(pageNum - 1) * (spaceBetweenPages + SECTIONWIDTH),
+  const setPositionUpdateRequested = useStoreActions(
+    (action) => action.sectionPositions.setPositionUpdateRequested
+  );
+
+  const sectionPositionUpdated = useStoreState(
+    (actions) => actions.sectionPositions.positionUpdated[sectionId]
+  );
+
+  const panePositionUpdated = useStoreState(
+    (actions) => actions.sectionPositions.positionUpdated[PANEID]
+  );
+
+  const setPositionUpdated = useStoreActions(
+    (actions) => actions.sectionPositions.setPositionUpdated
+  );
+
+  useEffect(() => {
+    if (sectionPositionUpdated && panePositionUpdated) {
+      const { y, x } = getCurrPositionOfSection(sectionId);
+      setGoToCoordinates({ y: -y, x: -x });
+    }
+    setPositionUpdated({ sectionId, positionUpdated: false });
+  }, [sectionPositionUpdated]);
+
+  const onClick = () => {
+    setPositionUpdateRequested({ sectionId, positionUpdateRequested: true });
+    setPositionUpdateRequested({
+      sectionId: PANEID,
+      positionUpdateRequested: true,
     });
   };
 
@@ -35,7 +50,7 @@ export default function SectionItem({
         cursor="move"
         size="sm"
         color="gray.200"
-        visibility={isList && !isListRoot ? "visible" : "hidden"}
+        visibility={isList ? "visible" : "hidden"}
       />
 
       <Text
