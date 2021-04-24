@@ -48,10 +48,6 @@ export function flattenDictOfArrays(x) {
   );
 }
 
-export function requiresNestedSection(uiTypeName) {
-  return ["NESTED_OBJECT", "LIST_NESTED_OBJECT"].includes(uiTypeName);
-}
-
 function jsonCombiner(available, listOfSelection, key) {
   if (listOfSelection){
     return {

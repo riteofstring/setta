@@ -1,14 +1,34 @@
-import { requiresNestedSection } from "../utils/utils";
+export const UITYPES = [
+  "TEXT",
+  "SLIDER",
+  "NESTED_OBJECT",
+  "LIST_NESTED_OBJECT",
+  "DICT_NESTED_OBJECT"
+];
+
+export function requiresNestedSection(uiTypeName) {
+  return ["NESTED_OBJECT", "LIST_NESTED_OBJECT", "DICT_NESTED_OBJECT"].includes(uiTypeName);
+}
+
+function isList(uiTypeName) {
+  return ["LIST_NESTED_OBJECT", "DICT_NESTED_OBJECT"].includes(uiTypeName);
+}
+
+function requiresKeyInput(uiTypeName) {
+  return ["DICT_NESTED_OBJECT"].includes(uiTypeName);
+}
+
 
 export class UIType {
   constructor({ name, datatype, parentUIType }) {
     this.name = name;
     this.initializeListProps(parentUIType);
+    this.initializeDictProps();
     this.initializeConfig(datatype);
   }
 
   initializeListProps = (parentUIType) => {
-    if (this.name === "LIST_NESTED_OBJECT") {
+    if (isList(this.name)) {
       this.isList = !!(parentUIType && parentUIType.isListRoot);
       this.isListRoot = !this.isList;
     } else {
@@ -16,6 +36,10 @@ export class UIType {
       this.isListRoot = false;
     }
   };
+
+  initializeDictProps = () => {
+    this.requiresKeyInput = requiresKeyInput(this.name) && !this.isListRoot
+  }
 
   initializeConfig = (datatype) => {
     if (datatype && this.isNested()) {

@@ -1,5 +1,5 @@
-import { createDefaultNestedDict, requiresNestedSection, flattenDictOfArrays } from "../utils/utils";
-import { UIType } from "./uiType";
+import { createDefaultNestedDict, flattenDictOfArrays } from "../utils/utils";
+import { UIType, requiresNestedSection } from "./uiType";
 
 export class History {
   constructor() {

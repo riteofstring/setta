@@ -5,6 +5,7 @@ import ModalContainer from "../../../../../../../utils/ModalContainer";
 import { arraysAreEqual } from "../../../../../../../utils/commonFunctions";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+import { UITYPES } from "../../../../../../../classes/uiType";
 
 export default function UITypesModal() {
   const { isOpen, onClose, sectionId } = useContext(MenuContext);
@@ -47,15 +48,6 @@ function Footer() {
   return <Box>Bye</Box>;
 }
 
-const menuItems = [
-  "TEXT",
-  "SLIDER",
-  "BOOLEAN",
-  "INCREMENTER",
-  "NESTED_OBJECT",
-  "LIST_NESTED_OBJECT",
-];
-
 function Item({ sectionId, paramName }) {
   const uiType = useStoreState((state) =>
     state.master.sections.getParamUIType(sectionId, paramName)
@@ -97,7 +89,7 @@ function Item({ sectionId, paramName }) {
         onChange={onSelect}
         defaultValue={uiType.name}
       >
-        {menuItems.map((e, idx) => (
+        {UITYPES.map((e, idx) => (
           <option value={e} key={`${e}-${idx}`}>
             {e}
           </option>

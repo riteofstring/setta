@@ -18,6 +18,7 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
       );
     case "NESTED_OBJECT":
     case "LIST_NESTED_OBJECT":
+    case "DICT_NESTED_OBJECT":
       return (
         <NestedObjectInputConfig
           name={name}

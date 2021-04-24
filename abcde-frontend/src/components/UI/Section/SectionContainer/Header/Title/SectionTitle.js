@@ -1,12 +1,19 @@
 import { HStack, Heading, Input } from "@chakra-ui/react";
 
-export default function SectionTitle({ sectionHeading }) {
-  // temp_
-  const tempBool = false;
+export default function SectionTitle({
+  sectionHeading,
+  requiresKeyInput,
+  onTitleInputChange,
+}) {
   return (
     <>
-      {tempBool ? (
-        <Input placeholder="Please Enter Key" />
+      {requiresKeyInput ? (
+        <Input
+          placeholder="Please Enter Key"
+          value={sectionHeading}
+          width="50%"
+          onChange={onTitleInputChange}
+        />
       ) : (
         <Heading
           size="md"

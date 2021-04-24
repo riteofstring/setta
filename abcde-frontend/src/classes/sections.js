@@ -240,6 +240,10 @@ export class Sections {
     this.sections[sectionId].setSectionModules(specs, this.available);
   };
 
+  setName = ({ sectionId, name }) => {
+    this.sections[sectionId].name = name;
+  };
+
   setAllChildrenIds = () => {
     const listOfLists = Object.keys(this.sections).map(
       (e) => this.sections[e].childrenIds

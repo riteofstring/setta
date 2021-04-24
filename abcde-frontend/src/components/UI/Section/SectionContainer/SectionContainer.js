@@ -85,7 +85,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
     (state) => state.master.sections.getSectionInfo(sectionId).moduleInfos
   );
 
-  const { isList, isListRoot } = useStoreState((state) =>
+  const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
     state.master.sections.getUIType(sectionId)
   );
 
@@ -106,6 +106,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
           nextId={nextId}
           isList={isList}
           isListRoot={isListRoot}
+          requiresKeyInput={requiresKeyInput}
         />
         {!isListRoot && (
           <Stack>

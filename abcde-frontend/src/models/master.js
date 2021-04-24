@@ -86,6 +86,10 @@ const master = {
     state.sections.setSectionModules({ ...payload });
   }),
 
+  setName: action((state, payload) => {
+    state.sections.setName({ ...payload });
+  }),
+
   addChildren: thunk((actiona, payload, helpers) => {
     const { children, idx } = helpers
       .getState()
