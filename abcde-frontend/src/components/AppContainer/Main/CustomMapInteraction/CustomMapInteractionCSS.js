@@ -211,14 +211,14 @@ export default function CustomMapInteractionCSS(props) {
     if (goToCoordinates !== null) {
       animate(motionTranslationX, goToCoordinates.x, {
         type: "spring",
-        duration: 1,
+        duration: 0.2,
         onUpdate: (v) => {
           setPanStateX(v);
         },
       });
       animate(motionTranslationY, goToCoordinates.y, {
         type: "spring",
-        duration: 1,
+        duration: 0.2,
         onUpdate: (v) => {
           setPanStateY(v);
         },

@@ -5,18 +5,20 @@ const sectionPositions = {
 
   setSectionPosition: action((state, payload) => {
     const { sectionId, position, height } = payload;
-    let prevHeight = 0
-    if (state.sectionPositions[sectionId]){
-      prevHeight = state.sectionPositions[sectionId].height
+    let prevHeight = 0;
+    if (state.sectionPositions[sectionId]) {
+      prevHeight = state.sectionPositions[sectionId].height;
     }
     state.sectionPositions[sectionId] = { position, height };
-    // console.log("sectionId, prevHeight, newHeight", sectionId, prevHeight, height);
+    console.log(
+      "sectionId, prevHeight, newHeight",
+      sectionId,
+      prevHeight,
+      height
+    );
   }),
 
-  getCurrPositionOfSection: thunk(async (action, payload, helpers) => {
-    while (helpers.getState().sectionPositions[payload] === undefined) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+  getCurrPositionOfSection: thunk((action, payload, helpers) => {
     return (
       helpers.getState().sectionPositions[payload].position *
       helpers.getStoreState().mapInteraction.scale

@@ -20,8 +20,8 @@ export default function SectionItem({
     (actions) => actions.sectionPositions.getCurrPositionOfSection
   );
 
-  const onClick = async () => {
-    const goToHeight = await getCurrPositionOfSection(sectionId);
+  const onClick = () => {
+    const goToHeight = getCurrPositionOfSection(sectionId);
     setGoToCoordinates({
       y: -goToHeight,
       x: -(pageNum - 1) * (spaceBetweenPages + SECTIONWIDTH),
