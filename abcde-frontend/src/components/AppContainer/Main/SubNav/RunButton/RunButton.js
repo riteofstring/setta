@@ -16,6 +16,7 @@ import {
 import { RiPlayMiniFill } from "react-icons/ri";
 import { ChevronDownIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import ExportYamlButton from "./ExportYamlButton";
 
 export default function RunButton() {
   // const runSelected = useStoreActions((actions) => actions.master.runSelected);
@@ -24,7 +25,6 @@ export default function RunButton() {
   );
   const runExport = () => {
     const selected = exportSelected();
-    console.log("selected", selected)
     // runSelected({ selected });
   };
 
@@ -52,7 +52,7 @@ export default function RunButton() {
             <PopoverHeader>Run Options</PopoverHeader>
             <PopoverCloseButton />
             <PopoverBody>
-              <Button colorScheme="blue">Button</Button>
+              <ExportYamlButton exportSelected={exportSelected}/>
             </PopoverBody>
             <PopoverFooter>This is the footer</PopoverFooter>
           </PopoverContent>
