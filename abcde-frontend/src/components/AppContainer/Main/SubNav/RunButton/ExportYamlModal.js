@@ -2,12 +2,7 @@ import ModalContainer from "../../../../../utils/ModalContainer/ModalContainer";
 import { Box, Text } from "@chakra-ui/react";
 
 function numSpaces(x) {
-  let count = 0;
-  let index = 0;
-  while (x.charAt(index++) === " ") {
-    count++;
-  }
-  return count;
+  return x.search(/\S|$/);
 }
 
 export default function ExportYamlModal({ isOpen, onClose, selectedAsYaml }) {
@@ -32,7 +27,7 @@ function Body({ selectedAsYaml }) {
   return splitByLines.map((x, idx) => (
     <Text
       key={`selectedAsYaml-${idx}`}
-      style={{ textIndent: 10*numSpaces(x) }}
+      style={{ textIndent: 10 * numSpaces(x) }}
     >
       {x}
     </Text>
