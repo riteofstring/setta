@@ -5,7 +5,6 @@ import {
   Select,
   FormControl,
   FormLabel,
-  Accordion,
   AccordionButton,
   AccordionItem,
   AccordionPanel,
@@ -14,6 +13,7 @@ import {
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { UITYPES } from "../../../../../../../classes/uiType";
+import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
 
 export default function Item({ sectionId, paramName }) {
   const uiType = useStoreState((state) =>
@@ -50,7 +50,7 @@ export default function Item({ sectionId, paramName }) {
 
   return (
     <VStack align="stretch">
-      <Accordion defaultIndex={[0]} allowMultiple>
+      <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
         <AccordionItem>
           <AccordionButton>
             <Box flex="1" textAlign="left">
@@ -85,7 +85,7 @@ export default function Item({ sectionId, paramName }) {
             </VStack>
           </AccordionPanel>
         </AccordionItem>
-      </Accordion>
+      </ReduceMotionAccordian>
     </VStack>
   );
 }

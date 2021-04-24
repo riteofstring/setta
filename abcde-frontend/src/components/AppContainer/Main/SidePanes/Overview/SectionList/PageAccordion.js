@@ -1,24 +1,15 @@
 import {
-  Accordion,
   AccordionItem,
   AccordionButton,
   AccordionPanel,
   AccordionIcon,
   Box,
 } from "@chakra-ui/react";
-
-import { useState } from "react";
+import ReduceMotionAccordian from "../../../../../../utils/ReduceMotionAccordian";
 
 export default function PageAccordion(props) {
-  const [reduceMotion, setReduceMotion] = useState(true);
-
   return (
-    <Accordion
-      defaultIndex={[0]}
-      allowMultiple
-      reduceMotion={reduceMotion}
-      onMouseOver={() => setReduceMotion(false)}
-    >
+    <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
       <AccordionItem>
         <h2>
           <AccordionButton>
@@ -30,6 +21,6 @@ export default function PageAccordion(props) {
         </h2>
         <AccordionPanel pb={4}>{props.children}</AccordionPanel>
       </AccordionItem>
-    </Accordion>
+    </ReduceMotionAccordian>
   );
 }
