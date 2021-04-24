@@ -9,64 +9,48 @@ import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
-import { arraysAreEqual } from "../../../../../../utils/commonFunctions";
+import { getParameters } from "../../../../../../utils/utils";
 
-export default function GroupContainer({ sectionId }) {
-  const { moduleName, objName } = useStoreState((state) =>
-    state.master.sections.getSelected(sectionId)
+export default function GroupContainer({ sectionId, sectionInfo }) {
+  const moduleName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].moduleName
   );
 
-  const kwargNames = useStoreState(
-    (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
-    arraysAreEqual
+  const objName = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].objName
   );
 
-  const [enteredKwargNames, setEnteredKwargNames] = useState(kwargNames);
+  const savedKwargs = useStoreState(
+    (state) => state.savedKwargs.savedKwargs[sectionId]?.[moduleName]?.[objName]
+  );
+
+  const kwargNames = savedKwargs ? Object.keys(savedKwargs) : [];
+
   const [numKwargs, setNumKwargs] = useState(kwargNames.length);
-  const paramNames = useStoreState(
-    (state) => Object.keys(state.master.sections.getParameters(sectionId)),
-    arraysAreEqual
-  );
-  const showKwargsButton = objName || paramNames.length > 0;
+
+  const parameters = getParameters(sectionInfo, moduleName, objName);
 
   useEffect(() => {
-    setEnteredKwargNames(kwargNames);
     setNumKwargs(kwargNames.length);
   }, [sectionId, moduleName, objName]);
 
-  const updateEnteredKwargNames = (v, idx) => {
-    const newState = [...enteredKwargNames];
-    newState[idx] = v;
-    setEnteredKwargNames(newState);
-  };
-
-  const deleteFromEnteredKwargNames = (idx) => {
-    const newState = [...enteredKwargNames];
-    newState.splice(idx, 1);
-    setEnteredKwargNames(newState);
-    setNumKwargs(Math.max(0, numKwargs - 1));
-  };
-
-  const addToEnteredKwargNames = () => {
-    setEnteredKwargNames([...enteredKwargNames, ""]);
-    setNumKwargs(numKwargs + 1);
-  };
-
   return (
     <Stack>
-      {paramNames.length > 0 && (
+      {parameters.length > 0 && (
         <FormControl id="groupone">
-          {paramNames.map((e, idx) => (
+          {parameters.map((e, idx) => (
             <ParamSwitch
-              key={`${e}-${idx}`}
+              key={`${e.name}-${idx}`}
               sectionId={sectionId}
-              paramName={e}
+              moduleName={moduleName}
+              objName={objName}
+              parameter={e}
             />
           ))}
         </FormControl>
       )}
 
-      {showKwargsButton && (
+      {objName && (
         <HStack pt="1rem">
           <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
             {"KWARGS"}
@@ -76,7 +60,7 @@ export default function GroupContainer({ sectionId }) {
             size="xs"
             variant="outline"
             borderRadius="full"
-            onClick={() => addToEnteredKwargNames()}
+            onClick={() => setNumKwargs(numKwargs + 1)}
           />
         </HStack>
       )}
@@ -87,12 +71,11 @@ export default function GroupContainer({ sectionId }) {
             <ParamSwitch
               key={`KWARGS-${idx}`}
               sectionId={sectionId}
+              moduleName={moduleName}
+              objName={objName}
               metaUIType={"KWARGS"}
-              stateIsUpToDate={kwargNames.includes(enteredKwargNames[idx])}
-              enteredKwargName={enteredKwargNames[idx]}
-              setEnteredKwargName={(v) => updateEnteredKwargNames(v, idx)}
-              onClickDelete={() => deleteFromEnteredKwargNames(idx)}
-              paramAndKwargNames={paramNames.concat(enteredKwargNames)}
+              inputKwargName={kwargNames[idx]}
+              onClickDelete={() => setNumKwargs(Math.max(0, numKwargs - 1))}
             />
           ))}
         </FormControl>

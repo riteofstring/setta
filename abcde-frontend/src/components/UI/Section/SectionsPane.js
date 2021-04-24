@@ -2,8 +2,6 @@ import React from "react";
 import { useStoreState } from "easy-peasy";
 import SingleSectionsPane from "./SingleSectionsPane";
 import { HStack } from "@chakra-ui/react";
-import { PANEID } from "../../../utils/constants";
-import { useSetSectionPosition } from "../../../utils/useSetSectionPosition";
 
 const SectionsPane = () => {
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
@@ -11,11 +9,9 @@ const SectionsPane = () => {
     (state) => state.master.spaceBetweenPages
   );
 
-  const refForPosition = useSetSectionPosition(PANEID);
-
   return (
     <>
-      <HStack spacing={`${spaceBetweenPages}px`} ref={refForPosition}>
+      <HStack spacing={`${spaceBetweenPages}px`}>
         {pageMinMaxList.map((e, idx) => (
           <SingleSectionsPane
             minId={e.minId}

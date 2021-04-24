@@ -1,9 +1,18 @@
 import { action, thunk, debug } from "easy-peasy";
 import Data from "../data/simpleTrainTest.json";
-import { SectionInfo } from "../classes/jsonParser";
-import { Section } from "../classes/section";
-import { Sections } from "../classes/sections";
+import { Section } from "../utils/jsonParser";
+import {
+  createStringId,
+  setChildrenVisibility,
+  createExportableObject,
+  newIdInHierarchy,
+} from "../utils/sectionIds";
 import { NO_AUTH } from "../utils/constants";
+import {
+  combineModules,
+  combineParameters,
+  sectionParameterGetter,
+} from "../utils/utils";
 import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -11,27 +20,43 @@ import { getPageMinMaxList } from "../utils/sectionIds";
 const master = {
   sectionsPerPage: 5,
   spaceBetweenPages: 500,
+  sectionCount: 0,
   pageMinMaxList: [],
-  sections: new Sections(),
+  sections: {},
+  availableModules: {},
+  availableParameters: {},
+  idHierarchy: {},
+  stringIdsToSectionIds: {},
 
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    state.sections.available = {
-      modules: payload.MODULES,
-      parameters: payload.PARAMETERS,
-    };
+    state.availableModules = payload.MODULES;
+    state.availableParameters = payload.PARAMETERS;
     for (let key of Object.keys(payload.UI)) {
-      console.log("key", key);
-      state.sections.addSection(
-        new Section(
-          key,
-          new SectionInfo(key, payload.UI[key], state.sections.available)
-        )
-      );
+      const currSection = payload.UI[key];
+      let combinedJsons = null;
+      if (Array.isArray(currSection) || currSection["modules"]) {
+        combinedJsons = combineModules(state.availableModules, currSection);
+      } else if (currSection["parameters"]) {
+        combinedJsons = combineParameters(
+          state.availableParameters,
+          currSection["parameters"]
+        );
+      } else {
+        throw "Invalid json";
+      }
+      state.sectionCount += 1;
+      const id = state.sectionCount;
+      state.sections[id] = new Section(key, combinedJsons);
+      state.idHierarchy[id] = newIdInHierarchy({
+        sectionHeading: key,
+        stringId: id,
+      });
+      state.stringIdsToSectionIds[id] = id;
     }
     state.pageMinMaxList = getPageMinMaxList(
-      state.sections.numRootIds(),
+      state.sectionCount,
       state.sectionsPerPage
     );
   }),
@@ -48,104 +73,231 @@ const master = {
     }
   }),
 
+  setSectionParamType: action((state, payload) => {
+    const { sectionId, moduleName, objName, paramName, newType } = payload;
+    const x = sectionParameterGetter(
+      state.sections,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    );
+    x.type = newType;
+  }),
+
+  setSectionModuleInfos: action((state, payload) => {
+    const { sectionId, newModuleInfos } = payload;
+    state.sections[sectionId].moduleInfos = newModuleInfos;
+  }),
+
   // Show/Collapse button
-  setChildrenAreCollapsed: action((state, payload) => {
-    state.sections.setChildrenAreCollapsed({ ...payload });
+  setIsShown: action((state, payload) => {
+    const { sectionId, isShown } = payload;
+    state.idHierarchy[sectionId].isShown = isShown;
   }),
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    state.sections.setSelected({ ...payload });
+    const { sectionId, moduleName, objName } = payload;
+    state.idHierarchy[sectionId].moduleName = moduleName;
+    state.idHierarchy[sectionId].objName = objName;
   }),
 
   setChildrenIds: action((state, payload) => {
-    state.sections.setChildrenIds({ ...payload });
+    const { sectionId, childrenIds } = payload;
+    state.idHierarchy[sectionId].children = childrenIds;
   }),
 
-  setEnteredValue: action((state, payload) => {
-    state.sections.setEnteredValue({ ...payload });
+  addToVisibleSectionIds: action((state, payload) => {
+    const {
+      id,
+      name,
+      moduleName,
+      objName,
+      parentId,
+      isList,
+      siblingId,
+      sectionHeading,
+      stringId,
+    } = payload;
+    const currIdHierarchy = state.idHierarchy;
+    const parentIdObj = currIdHierarchy[parentId];
+    parentIdObj.moduleName = moduleName;
+    parentIdObj.objName = objName;
+    if (!(id in currIdHierarchy)) {
+      currIdHierarchy[id] = newIdInHierarchy({
+        parent: parentId,
+        parentModuleName: moduleName,
+        parentObjName: objName,
+        sectionHeading,
+        stringId,
+        isList,
+      });
+      state.stringIdsToSectionIds[stringId] = id;
+
+      if (isList && siblingId === null) {
+        state.sections[id] = state.sections[parentId];
+        currIdHierarchy[id].moduleName = moduleName;
+        currIdHierarchy[id].objName = objName;
+      } else {
+        state.sections[id] = sectionParameterGetter(
+          state.sections,
+          parentId,
+          moduleName,
+          objName,
+          name
+        ).type;
+      }
+
+      if (isList) {
+        if (siblingId !== null) {
+          const spliceIdx = parentIdObj.children.indexOf(siblingId) + 1;
+          parentIdObj.children.splice(spliceIdx, 0, id);
+          currIdHierarchy[parentId].listCount += 1;
+        } else {
+          currIdHierarchy[id].isListRoot = true;
+          parentIdObj.children.push(id);
+        }
+      } else {
+        parentIdObj.children.push(id);
+      }
+
+      parentIdObj.hasNested = true;
+      currIdHierarchy[id].isShown = true;
+      currIdHierarchy[id].isVisible = true;
+    } else {
+      setChildrenVisibility(
+        parentIdObj.children,
+        currIdHierarchy,
+        true,
+        moduleName,
+        objName
+      );
+    }
   }),
 
-  setParamUIType: action((state, payload) => {
-    state.sections.setParamUIType({ ...payload });
+  permanentlyDeleteSection: action((state, payload) => {
+    const { sectionId, parentId } = payload;
+    if (sectionId in state.idHierarchy){
+      const stringId = state.idHierarchy[sectionId].stringId;
+      delete state.stringIdsToSectionIds[stringId];
+      delete state.idHierarchy[sectionId];
+      delete state.sections[sectionId]
+    }
+    const parentObj = state.idHierarchy[parentId];
+    parentObj.children = parentObj.children.filter((x) => x !== sectionId);
   }),
 
-  setUIType: action((state, payload) => {
-    state.sections.setUIType({ ...payload });
+  permanentlyDeleteMultipleSections: thunk((action, payload, helpers) => {
+    const { parentId, startingId, numSectionsToDelete } = payload;
+    const state = helpers.getState();
+    const parentObj = state.idHierarchy[parentId];
+    const startingIdx =
+      startingId === null ? 0 : parentObj.children.indexOf(startingId);
+    const trueNumSectionsToDelete = Math.min(
+      numSectionsToDelete,
+      parentObj.children.length
+    );
+    for (let i = 0; i < trueNumSectionsToDelete; i++) {
+      const sectionId = parentObj.children[startingIdx];
+      action.permanentlyDeleteSection({ sectionId, parentObj });
+    }
   }),
 
-  setChildrenIdsPerParam: action((state, payload) => {
-    state.sections.setChildrenIdsPerParam({ ...payload });
+  deleteChildrenFromVisibleSectionIds: action((state, payload) => {
+    const { sectionId } = payload;
+    const foundId = state.idHierarchy[sectionId];
+    setChildrenVisibility(foundId.children, state.idHierarchy, false);
   }),
 
-  setParamUITypeConfig: action((state, payload) => {
-    state.sections.setParamUITypeConfig({ ...payload });
+  incrementSectionCount: action((state, payload) => {
+    state.sectionCount += 1;
   }),
 
-  setSectionModules: action((state, payload) => {
-    state.sections.setSectionModules({ ...payload });
+  addToVisibleSectionIdsThunk: thunk((action, payload, helpers) => {
+    const {
+      name: originalName,
+      parentId,
+      moduleName,
+      objName,
+      isList,
+      siblingId,
+    } = payload;
+    let extraIdentifier = null;
+    const state = helpers.getState();
+    if (isList) {
+      if (siblingId !== null) {
+        extraIdentifier = (
+          state.idHierarchy[parentId].listCount + 1
+        ).toString();
+      } else {
+        extraIdentifier = "0";
+      }
+    }
+
+    let name = !siblingId && isList ? `List for ${originalName}` : originalName;
+    if (state.idHierarchy[parentId].isListRoot) {
+      name = name.replace("List for ", "");
+    }
+
+    const stringId = createStringId(
+      parentId.toString(),
+      moduleName,
+      objName,
+      name,
+      extraIdentifier
+    );
+
+    let id = state.stringIdsToSectionIds[stringId];
+    if (id === undefined) {
+      id = (state.sectionCount + 1).toString();
+      action.incrementSectionCount();
+    }
+
+    const currInfo = state.idHierarchy;
+    if (!(id in currInfo) || !currInfo.isVisible) {
+      action.addToVisibleSectionIds({
+        id,
+        name,
+        moduleName,
+        objName,
+        parentId,
+        isList,
+        siblingId,
+        sectionHeading: name,
+        stringId,
+      });
+    }
+    return id;
   }),
 
-  setName: action((state, payload) => {
-    state.sections.setName({ ...payload });
+  exportSelected: thunk((action, payload, helpers) => {
+    const { globalCurr } = helpers.getStoreState().globalCurr;
+    const {
+      idHierarchy,
+      sectionIdsToSectionHeadings,
+      isList,
+      isListRoot,
+    } = helpers.getState();
+    const selected = createExportableObject({
+      idHierarchy,
+      sectionIdsToSectionHeadings,
+      isList,
+      isListRoot,
+      globalCurr,
+    });
+    return { selected, globalCurr };
   }),
 
-  addChildren: thunk((actiona, payload, helpers) => {
-    const { children, idx } = helpers
-      .getState()
-      .sections.createChildren({ ...payload });
-    return helpers
-      .getState()
-      .sections.addChildren(payload.parentId, children, idx);
+  runSelected: thunk(async (action, payload, helpers) => {
+    const { selected } = payload;
+    generateAndRunCode({
+      cliSocket: helpers.getStoreState().cliSocket.cliSocket,
+      SELECTED: selected,
+      FACTORIES: helpers.getStoreState().factoriesInfo.factories,
+      FUNCS: helpers.getStoreState().funcsInfo.funcs,
+    });
   }),
-
-  deleteSections: action((state, payload) => {
-    state.sections.deleteSections({ ...payload });
-  }),
-
-  deleteChildren: action((state, payload) => {
-    state.sections.deleteChildren({ ...payload });
-  }),
-
-  addKwarg: action((state, payload) => {
-    state.sections.addKwarg({ ...payload });
-  }),
-
-  deleteKwarg: action((state, payload) => {
-    state.sections.deleteKwarg({ ...payload });
-  }),
-
-  replaceKwarg: action((state, payload) => {
-    state.sections.replaceKwarg({ ...payload });
-  }),
-
-  // exportSelected: thunk((action, payload, helpers) => {
-  //   const { globalCurr } = helpers.getStoreState().globalCurr;
-  //   const {
-  //     idHierarchy,
-  //     sectionIdsToSectionHeadings,
-  //     isList,
-  //     isListRoot,
-  //   } = helpers.getState();
-  //   const selected = createExportableObject({
-  //     idHierarchy,
-  //     sectionIdsToSectionHeadings,
-  //     isList,
-  //     isListRoot,
-  //     globalCurr,
-  //   });
-  //   return { selected, globalCurr };
-  // }),
-
-  // runSelected: thunk(async (action, payload, helpers) => {
-  //   const { selected } = payload;
-  //   generateAndRunCode({
-  //     cliSocket: helpers.getStoreState().cliSocket.cliSocket,
-  //     SELECTED: selected,
-  //     FACTORIES: helpers.getStoreState().factoriesInfo.factories,
-  //     FUNCS: helpers.getStoreState().funcsInfo.funcs,
-  //   });
-  // }),
 };
 
 export default master;

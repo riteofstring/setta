@@ -1,19 +1,8 @@
 import { Grid } from "@chakra-ui/react";
-import Measure from "react-measure";
+import sizeMe from "react-sizeme";
 
-export default function CustomGrid(props) {
-  return (
-    <Measure
-      client
-      onResize={(contentRect) => {
-        props.setContentSize(contentRect.client);
-      }}
-    >
-      {({ measureRef }) => (
-        <Grid gap={2} ref={measureRef}>
-          {props.children}
-        </Grid>
-      )}
-    </Measure>
-  );
+function CustomGrid(props) {
+  return <Grid {...props}>{props.children}</Grid>;
 }
+
+export default sizeMe({ monitorHeight: true })(CustomGrid)

@@ -11,6 +11,10 @@ export default function CustomMapInteractionCSS(props) {
     (actions) => actions.mapInteraction.setHovering
   );
 
+  const setScale = useStoreActions(
+    (actions) => actions.mapInteraction.setScale
+  );
+
   const setGoToCoordinates = useStoreActions(
     (actions) => actions.mapInteraction.setGoToCoordinates
   );
@@ -30,6 +34,8 @@ export default function CustomMapInteractionCSS(props) {
   const [panStateY, setPanStateY] = useState(0);
   const motionTranslationX = useMotionValue(0);
   const motionTranslationY = useMotionValue(0);
+  const [scaleOneHeight, setScaleOneHeight] = useState(contentHeight);
+  const [scaleOneWidth, setScaleOneWidth] = useState(contentWidth);
   const [yRange, setYRange] = useState({ yMin: 0, yMax: 0 });
   const [xRange, setXRange] = useState({ xMin: 0, xMax: 0 });
   const [clientHeight, setClientHeight] = useState(0);
@@ -64,6 +70,8 @@ export default function CustomMapInteractionCSS(props) {
   const setRangeAndScrollDimAndRelativeCoord = (
     isVertical,
     currContentDim,
+    currClientDim,
+    currScaleOneDim,
     currMargin,
     currPanScale,
     currPanTranslation
@@ -71,6 +79,8 @@ export default function CustomMapInteractionCSS(props) {
     const { newMax, newScrollDim } = setRangeAndScrollDim(
       isVertical,
       currContentDim,
+      currClientDim,
+      currScaleOneDim,
       currMargin,
       currPanScale
     );
@@ -90,13 +100,15 @@ export default function CustomMapInteractionCSS(props) {
 
   const getMinMaxCoordinate = (
     contentDim,
+    clientDim,
+    scaleOneDim,
     inputMargin,
     scale
   ) => {
     if (contentDim) {
       return {
-        newMax: inputMargin,
-        newMin: -contentDim*scale,
+        newMax: Math.max(clientDim - scaleOneDim * scale, inputMargin),
+        newMin: Math.min(0, clientDim - scaleOneDim * scale - inputMargin),
       };
     }
     return { newMax: 0, newMin: 0 };
@@ -109,11 +121,15 @@ export default function CustomMapInteractionCSS(props) {
   const setRangeAndScrollDim = (
     isVertical,
     currContentDim,
+    currClientDim,
+    currScaleOneDim,
     currMargin,
     currPanScale
   ) => {
     const { newMin, newMax } = getMinMaxCoordinate(
       currContentDim,
+      currClientDim,
+      currScaleOneDim,
       currMargin,
       currPanScale
     );
@@ -126,9 +142,13 @@ export default function CustomMapInteractionCSS(props) {
   };
 
   useEffect(() => {
+    const newScaleOneHeight = contentHeight / panStateScale;
+    setScaleOneHeight(newScaleOneHeight);
     setRangeAndScrollDimAndRelativeCoord(
       true,
       contentHeight,
+      clientHeight,
+      newScaleOneHeight,
       getMargin(clientHeight, yMargin),
       panStateScale,
       panStateY
@@ -136,9 +156,13 @@ export default function CustomMapInteractionCSS(props) {
   }, [contentHeight, clientHeight]);
 
   useEffect(() => {
+    const newScaleOneWidth = contentWidth / panStateScale;
+    setScaleOneWidth(newScaleOneWidth);
     setRangeAndScrollDimAndRelativeCoord(
       false,
       contentWidth,
+      clientWidth,
+      newScaleOneWidth,
       getMargin(clientWidth, xMargin),
       panStateScale,
       panStateX
@@ -149,6 +173,8 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDimAndRelativeCoord(
       true,
       contentHeight,
+      clientHeight,
+      scaleOneHeight,
       getMargin(clientHeight, yMargin),
       panStateScale,
       panStateY
@@ -157,11 +183,14 @@ export default function CustomMapInteractionCSS(props) {
     setRangeAndScrollDimAndRelativeCoord(
       false,
       contentWidth,
+      clientWidth,
+      scaleOneWidth,
       getMargin(clientWidth, xMargin),
       panStateScale,
       panStateX
     );
     setRelativeXWasSet(true);
+    setScale(panStateScale);
   }, [panStateScale]);
 
   useEffect(() => {
@@ -182,14 +211,14 @@ export default function CustomMapInteractionCSS(props) {
     if (goToCoordinates !== null) {
       animate(motionTranslationX, goToCoordinates.x, {
         type: "spring",
-        duration: 0.2,
+        duration: 1,
         onUpdate: (v) => {
           setPanStateX(v);
         },
       });
       animate(motionTranslationY, goToCoordinates.y, {
         type: "spring",
-        duration: 0.2,
+        duration: 1,
         onUpdate: (v) => {
           setPanStateY(v);
         },
@@ -228,8 +257,6 @@ export default function CustomMapInteractionCSS(props) {
             setPanStateScale(v.scale);
             setPanStateX(v.translation.x);
             setPanStateY(v.translation.y);
-            motionTranslationX.set(v.translation.x);
-            motionTranslationY.set(v.translation.y);
           }}
           disableZoom={!panZoomState}
           translationBounds={{ ...xRange, ...yRange }}

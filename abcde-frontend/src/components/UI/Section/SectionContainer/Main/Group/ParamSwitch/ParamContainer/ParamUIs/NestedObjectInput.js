@@ -1,89 +1,46 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
+import { Section } from "../../../../../../../../../utils/jsonParser";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { useEffect, useState } from "react";
-import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
-import { includesArray } from "../../../../../../../../../utils/commonFunctions";
+import { useEffect } from "react";
+import {
+  requiresNestedSection,
+  combineModules,
+  parameterStateDetailsGetter,
+  sectionParameterGetter,
+} from "../../../../../../../../../utils/utils";
 
-function valueAndLabel(x, type) {
-  return { value: [x, type], label: x };
-}
-
-function findMatchingIndex(initialPickerItems, savedConfig, j) {
-  return initialPickerItems
-    .map((e, idx) =>
-      e.value[1] === j && savedConfig[j].includes(e.value[0]) ? idx : -1
-    )
-    .filter((e) => e !== -1)
-    .map((e) => initialPickerItems[e]);
-}
-
-function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
-  const valuesOnly = initialPickerItemsObj[j].map((x) => x.value);
-  onChange(
-    j,
-    newSelectedItems
-      .filter((x) => includesArray(valuesOnly, x.value))
-      .map((x) => x.value[0])
-  );
+function valueAndLabel(x) {
+  return { value: x, label: x };
 }
 
 export function NestedObjectInputConfig({
-  name,
   availableModules,
-  availableParameters,
   onChange,
   savedConfig,
 }) {
-  const pickerModules = availableModules.map((x) =>
-    valueAndLabel(x, "modules")
-  );
-  const pickerParameters = availableParameters.map((x) =>
-    valueAndLabel(x, "parameters")
-  );
-  const initialPickerItems = pickerModules.concat(pickerParameters);
-  const initialPickerItemsObj = {
-    modules: pickerModules,
-    parameters: pickerParameters,
-  };
-
-  const getInitialSelectedItem = () => {
-    if (savedConfig) {
-      let output = {};
-      for (let j of Object.keys(savedConfig)) {
-        output[j] = findMatchingIndex(initialPickerItems, savedConfig, j);
-      }
-      return flattenDictOfArrays(output);
+  const getSelectedItems = () => {
+    if (savedConfig?.modules) {
+      return savedConfig.modules.map((x) => valueAndLabel(x));
     }
     return [];
   };
 
-  const [pickerItems, setPickerItems] = useState(initialPickerItems);
-  const [selectedItems, setSelectedItems] = useState(getInitialSelectedItem());
+  const items = Object.keys(availableModules).map((x) => valueAndLabel(x));
 
-  const handleCreateItem = (item) => {
-    setPickerItems((curr) => [...curr, item]);
-    setSelectedItems((curr) => [...curr, item]);
-  };
-
-  const handleSelectedItemsChange = (newSelectedItems) => {
-    if (newSelectedItems) {
-      setSelectedItems(newSelectedItems);
-      for (let j of Object.keys(initialPickerItemsObj)) {
-        onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j);
-      }
+  const handleSelectedItemsChange = (selectedItems) => {
+    if (selectedItems) {
+      onChange(
+        "modules",
+        selectedItems.map((x) => x.value)
+      );
     }
   };
-
-  useEffect(() => {
-    setSelectedItems(getInitialSelectedItem());
-  }, [name]);
 
   return (
     <CUIAutoComplete
       placeholder="Module name"
-      onCreateItem={handleCreateItem}
-      items={pickerItems}
-      selectedItems={selectedItems}
+      selectedItems={getSelectedItems()}
+      items={items}
       onSelectedItemsChange={(changes) =>
         handleSelectedItemsChange(changes.selectedItems)
       }
@@ -93,47 +50,141 @@ export function NestedObjectInputConfig({
 
 export default function NestedObjectInput({
   sectionId,
+  moduleName,
+  objName,
   paramName,
-  uiType,
-  paramUITypeConfig,
+  uiType: inputUiType,
+  uiTypeConfig,
 }) {
-  const addChildren = useStoreActions((actions) => actions.master.addChildren);
-  const childId = useStoreState(
+  const nestedSectionInfo = useStoreState(
     (state) =>
-      state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
-  );
-  const setSectionModules = useStoreActions(
-    (actions) => actions.master.setSectionModules
-  );
-  const setChildrenIdsPerParam = useStoreActions(
-    (actions) => actions.master.setChildrenIdsPerParam
-  );
-
-  useEffect(() => {
-    if (!childId) {
-      const newIds = addChildren({
-        parentId: sectionId,
-        paramName,
-        uiType,
-      });
-      setChildrenIdsPerParam({
+      sectionParameterGetter(
+        state.master.sections,
         sectionId,
-        paramName,
-        childrenIds: newIds,
+        moduleName,
+        objName,
+        paramName
+      ).type,
+    //only care about x -> Section or Section -> x
+    (prev, next) =>
+      (!(prev instanceof Section) && !(next instanceof Section)) ||
+      (prev instanceof Section && next instanceof Section)
+  );
+
+  const uiTypeSetByUser = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.uiTypes.uiTypes,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    )
+  );
+
+  const availableModules = useStoreState(
+    (state) => state.master.availableModules
+  );
+
+  const setSectionParamType = useStoreActions(
+    (actions) => actions.master.setSectionParamType
+  );
+
+  const setSectionModuleInfos = useStoreActions(
+    (actions) => actions.master.setSectionModuleInfos
+  );
+
+  const setNestedSectionIds = useStoreActions(
+    (actions) => actions.nestedSectionIds.setNestedSectionIds
+  );
+
+  const permanentlyDeleteSection = useStoreActions(
+    (actions) => actions.master.permanentlyDeleteSection
+  );
+
+  const addToVisibleSectionIdsThunk = useStoreActions(
+    (actions) => actions.master.addToVisibleSectionIdsThunk
+  );
+
+  const nestedSectionId = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.nestedSectionIds.nestedSectionIds,
+      sectionId,
+      moduleName,
+      objName,
+      paramName
+    )
+  );
+
+  const wrapperSetNestedSectionId = (newNestedSectionId) => {
+    setNestedSectionIds({
+      sectionId,
+      moduleName,
+      objName,
+      paramName,
+      nestedSectionId: newNestedSectionId,
+    });
+  };
+
+  const wrapperSetSectionParamType = (newType) => {
+    setSectionParamType({
+      sectionId,
+      moduleName,
+      objName,
+      paramName,
+      newType,
+    });
+  };
+
+  const maybeDeleteSection = () => {
+    if (nestedSectionId) {
+      permanentlyDeleteSection({
+        sectionId: nestedSectionId,
+        parentId: sectionId,
       });
     }
-  }, [childId]);
+    wrapperSetNestedSectionId(null);
+  };
+
+  const uiType = uiTypeSetByUser ? uiTypeSetByUser : inputUiType;
+  
+  useEffect(() => {
+    maybeDeleteSection();
+  }, [uiType]);
 
   useEffect(() => {
-    if (childId) {
-      setSectionModules({
-        sectionId: childId,
-        parentId: sectionId,
-        paramName: paramName,
-        specs: paramUITypeConfig,
-      });
+    if (requiresNestedSection(uiType)) {
+      const newSectionInfo = new Section(
+        paramName,
+        combineModules(
+          availableModules,
+          uiTypeConfig ? uiTypeConfig.modules : []
+        )
+      );
+      wrapperSetSectionParamType(newSectionInfo);
+      if (nestedSectionId) {
+        setSectionModuleInfos({
+          sectionId: nestedSectionId,
+          newModuleInfos: newSectionInfo.moduleInfos,
+        });
+      }
     }
-  }, [paramUITypeConfig]);
+  }, [uiTypeConfig]);
+
+  useEffect(() => {
+    if (requiresNestedSection(uiType) && nestedSectionInfo instanceof Section) {
+      const newNestedSectionId = addToVisibleSectionIdsThunk({
+        name: paramName,
+        parentId: sectionId,
+        moduleName,
+        objName,
+        isList: uiType === "LIST_NESTED_OBJECT",
+        siblingId: null,
+      });
+      wrapperSetNestedSectionId(newNestedSectionId);
+    } else {
+      maybeDeleteSection();
+    }
+  }, [nestedSectionInfo]);
 
   return null;
 }

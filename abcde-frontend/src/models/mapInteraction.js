@@ -3,6 +3,7 @@ import { action } from "easy-peasy";
 const mapInteraction = {
   hovering: false,
   goToCoordinates: null,
+  scale: 1,
 
   setHovering: action((state, payload) => {
     state.hovering = payload;
@@ -10,6 +11,10 @@ const mapInteraction = {
 
   setGoToCoordinates: action((state, payload) => {
     state.goToCoordinates = payload;
+  }),
+
+  setScale: action((state, payload) => {
+    state.scale = payload;
   }),
 };
 

@@ -209,12 +209,8 @@ function VerticalScrollDiv({ children }) {
 }
 
 function HorizontalScrollDiv({ children }) {
-  const overviewTrueWidth = useStoreState(
-    (state) => state.panes.trueWidth["overview"]
-  );
-  const uiEditorTrueWidth = useStoreState(
-    (state) => state.panes.trueWidth["uiEditor"]
-  );
+  const overviewTrueWidth = useStoreState((state) => state.panes.trueWidth["overview"]);
+  const uiEditorTrueWidth = useStoreState((state) => state.panes.trueWidth["uiEditor"]);
   const anyPanesDragging = useStoreState((state) =>
     Object.values(state.panes.isDragging).includes(true)
   );

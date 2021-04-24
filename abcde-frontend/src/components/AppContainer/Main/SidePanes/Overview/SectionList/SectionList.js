@@ -9,6 +9,7 @@ export default function SectionList({ listOfSectionIdsAndNames }) {
           <PageAccordion pageNum={idx + 1} key={`PageAccordian-${idx}`}>
             <SectionListItems
               listOfSectionIdsAndNames={e}
+              pageNum={idx + 1}
               key={`SectionListItems-${idx}`}
             />
           </PageAccordion>
@@ -16,6 +17,7 @@ export default function SectionList({ listOfSectionIdsAndNames }) {
       ) : (
         <SectionListItems
           listOfSectionIdsAndNames={listOfSectionIdsAndNames[0]}
+          pageNum={1}
         />
       )}
     </>

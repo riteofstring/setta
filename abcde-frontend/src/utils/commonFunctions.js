@@ -13,6 +13,7 @@ export const setEntireState = (state, newState) => {
 export const getCompleteState = (storeState) => {
   return {
     masterState: storeState.master,
+    globalCurrState: storeState.globalCurr,
     yamlEntryState: storeState.yamlEntry,
     factoriesInfoState: storeState.factoriesInfo,
     funcsInfoState: storeState.funcsInfo,
@@ -33,13 +34,4 @@ export const arraysAreEqual = (array1, array2) => {
     array1.length === array2.length &&
     array1.every((element, index) => element === array2[index])
   );
-};
-
-export const includesArray = (array1, array2) => {
-  for (let x of array1) {
-    if (arraysAreEqual(x, array2)) {
-      return true;
-    }
-  }
-  return false;
 };

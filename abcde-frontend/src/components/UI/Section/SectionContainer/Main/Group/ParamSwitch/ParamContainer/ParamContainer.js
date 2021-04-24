@@ -1,49 +1,77 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import ParamInput from "./ParamItems/ParamInput";
+import { useState, useEffect } from "react";
 import { useStoreState } from "easy-peasy";
+import {
+  requiresNestedSection,
+  parameterStateDetailsGetter,
+} from "../../../../../../../../utils/utils";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramName } = props;
+  const {
+    sectionId,
+    moduleName,
+    objName,
+    parameter: { name, defaultUIType },
+  } = props;
 
-  const uiType = useStoreState((state) =>
-    state.master.sections.getParamUIType(sectionId, paramName)
+  const currUIType = useStoreState((state) =>
+    parameterStateDetailsGetter(
+      state.uiTypes.uiTypes,
+      sectionId,
+      moduleName,
+      objName,
+      name
+    )
   );
 
-  const paramUITypeConfig = useStoreState((state) =>
-    state.master.sections.getParamUITypeConfig(sectionId, paramName)
+  const currUiTypeConfig = useStoreState(
+    (state) =>
+      parameterStateDetailsGetter(
+        state.uiTypeConfigs.uiTypeConfigs,
+        sectionId,
+        moduleName,
+        objName,
+        name
+      )?.[currUIType]
   );
 
-  return !uiType || !uiType.isNested() ? (
-    <>
-      <FormControl as="fieldset">
-        <HStack
-          px=".75rem"
-          pb="0.5rem"
-          pt="0.25rem"
-          borderRadius=".5rem"
-          _hover={{
-            backgroundColor: "white",
-          }}
-        >
-          {props.children}
-          <Spacer />
-          <ParamInput
-            sectionId={sectionId}
-            paramName={paramName}
-            uiType={uiType}
-            paramUITypeConfig={paramUITypeConfig}
-            isDisabled={!paramName}
-          />
-        </HStack>
-      </FormControl>
-    </>
+  const [uiType, setUIType] = useState(defaultUIType);
+
+  useEffect(() => {
+    setUIType(currUIType ? currUIType : defaultUIType);
+  }, [currUIType]);
+
+  return !requiresNestedSection(uiType) ? (
+    <FormControl as="fieldset">
+      <HStack
+        px=".75rem"
+        pb="0.5rem"
+        pt="0.25rem"
+        borderRadius=".5rem"
+        _hover={{
+          backgroundColor: "white",
+        }}
+      >
+        {props.children}
+        <Spacer />
+        <ParamInput
+          {...props}
+          uiType={uiType}
+          uiTypeConfig={currUiTypeConfig}
+          isDisabled={!name}
+        />
+      </HStack>
+    </FormControl>
   ) : (
     <NestedObjectInput
       sectionId={sectionId}
-      paramName={paramName}
+      moduleName={moduleName}
+      objName={objName}
+      paramName={name}
       uiType={uiType}
-      paramUITypeConfig={paramUITypeConfig}
+      uiTypeConfig={currUiTypeConfig}
     />
   );
 }

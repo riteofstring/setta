@@ -2018,585 +2018,584 @@
                 }
             }
         },
-        "compose_transform": {
+        "transforms": {
             "ModuleInfo": {
                 "torchvision.transforms": {
                     "Compose": {
                         "transforms": {
                             "default_val": "_empty",
-                            "type": ["transforms"],
+                            "type": {
+                                "ModuleInfo": {
+                                    "torchvision.transforms": {
+                                        "AutoAugment": {
+                                            "policy": {
+                                                "default_val": "AutoAugmentPolicy.IMAGENET",
+                                                "type": "AutoAugmentPolicy",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.NEAREST",
+                                                "type": "InterpolationMode",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fill": {
+                                                "default_val": "None",
+                                                "type": "typing.Union[typing.List[float], NoneType]",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "AutoAugmentPolicy": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            }
+                                        },
+                                        "CenterCrop": {
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "ColorJitter": {
+                                            "brightness": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "contrast": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "saturation": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "hue": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "ConvertImageDtype": {
+                                            "dtype": {
+                                                "default_val": "_empty",
+                                                "type": "dtype",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "Enum": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            }
+                                        },
+                                        "FiveCrop": {
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "GaussianBlur": {
+                                            "kernel_size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "sigma": {
+                                                "default_val": "(0.1, 2.0)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "Grayscale": {
+                                            "num_output_channels": {
+                                                "default_val": "1",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "InterpolationMode": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            }
+                                        },
+                                        "Lambda": {
+                                            "lambd": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "LinearTransformation": {
+                                            "transformation_matrix": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "mean_vector": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "Normalize": {
+                                            "mean": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "std": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "inplace": {
+                                                "default_val": "False",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "PILToTensor": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            }
+                                        },
+                                        "Pad": {
+                                            "padding": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fill": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "padding_mode": {
+                                                "default_val": "constant",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomAdjustSharpness": {
+                                            "sharpness_factor": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomAffine": {
+                                            "degrees": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "translate": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "scale": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "shear": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.NEAREST",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fill": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fillcolor": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "resample": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomApply": {
+                                            "transforms": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomAutocontrast": {
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomChoice": {
+                                            "transforms": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomCrop": {
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "padding": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "pad_if_needed": {
+                                                "default_val": "False",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fill": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "padding_mode": {
+                                                "default_val": "constant",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomEqualize": {
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomErasing": {
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "scale": {
+                                                "default_val": "(0.02, 0.33)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "ratio": {
+                                                "default_val": "(0.3, 3.3)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "value": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "inplace": {
+                                                "default_val": "False",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomGrayscale": {
+                                            "p": {
+                                                "default_val": "0.1",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomHorizontalFlip": {
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomInvert": {
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomOrder": {
+                                            "transforms": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomPerspective": {
+                                            "distortion_scale": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.BILINEAR",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fill": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomPosterize": {
+                                            "bits": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomResizedCrop": {
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "scale": {
+                                                "default_val": "(0.08, 1.0)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "ratio": {
+                                                "default_val": "(0.75, 1.3333333333333333)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.BILINEAR",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomRotation": {
+                                            "degrees": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.NEAREST",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "expand": {
+                                                "default_val": "False",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "center": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "fill": {
+                                                "default_val": "0",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "resample": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomSizedCrop": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            },
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "scale": {
+                                                "default_val": "(0.08, 1.0)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "ratio": {
+                                                "default_val": "(0.75, 1.3333333333333333)",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.BILINEAR",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomSolarize": {
+                                            "threshold": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "RandomVerticalFlip": {
+                                            "p": {
+                                                "default_val": "0.5",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "Resize": {
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.BILINEAR",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "Scale": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            },
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "interpolation": {
+                                                "default_val": "InterpolationMode.BILINEAR",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "TenCrop": {
+                                            "size": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "vertical_flip": {
+                                                "default_val": "False",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "Tensor": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            }
+                                        },
+                                        "ToPILImage": {
+                                            "mode": {
+                                                "default_val": "None",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            }
+                                        },
+                                        "ToTensor": {
+                                            "args": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "UNKNOWN"
+                                            },
+                                            "kwargs": {
+                                                "default_val": "_empty",
+                                                "type": "_empty",
+                                                "ui_type": "TEXT"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                             "ui_type": "LIST_NESTED_OBJECT"
-                        }
-                    }
-                }
-            }
-        },
-        "transforms":{
-            "ModuleInfo": {
-                "torchvision.transforms": {
-                    "AutoAugment": {
-                        "policy": {
-                            "default_val": "AutoAugmentPolicy.IMAGENET",
-                            "type": "AutoAugmentPolicy",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.NEAREST",
-                            "type": "InterpolationMode",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fill": {
-                            "default_val": "None",
-                            "type": "typing.Union[typing.List[float], NoneType]",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "AutoAugmentPolicy": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        }
-                    },
-                    "CenterCrop": {
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "ColorJitter": {
-                        "brightness": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "contrast": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "saturation": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "hue": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "ConvertImageDtype": {
-                        "dtype": {
-                            "default_val": "_empty",
-                            "type": "dtype",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "Enum": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        }
-                    },
-                    "FiveCrop": {
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "GaussianBlur": {
-                        "kernel_size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "sigma": {
-                            "default_val": "(0.1, 2.0)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "Grayscale": {
-                        "num_output_channels": {
-                            "default_val": "1",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "InterpolationMode": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        }
-                    },
-                    "Lambda": {
-                        "lambd": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "LinearTransformation": {
-                        "transformation_matrix": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "mean_vector": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "Normalize": {
-                        "mean": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "std": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "inplace": {
-                            "default_val": "False",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "PILToTensor": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        }
-                    },
-                    "Pad": {
-                        "padding": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fill": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "padding_mode": {
-                            "default_val": "constant",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomAdjustSharpness": {
-                        "sharpness_factor": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomAffine": {
-                        "degrees": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "translate": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "scale": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "shear": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.NEAREST",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fill": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fillcolor": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "resample": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomApply": {
-                        "transforms": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomAutocontrast": {
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomChoice": {
-                        "transforms": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomCrop": {
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "padding": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "pad_if_needed": {
-                            "default_val": "False",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fill": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "padding_mode": {
-                            "default_val": "constant",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomEqualize": {
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomErasing": {
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "scale": {
-                            "default_val": "(0.02, 0.33)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "ratio": {
-                            "default_val": "(0.3, 3.3)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "value": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "inplace": {
-                            "default_val": "False",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomGrayscale": {
-                        "p": {
-                            "default_val": "0.1",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomHorizontalFlip": {
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomInvert": {
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomOrder": {
-                        "transforms": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomPerspective": {
-                        "distortion_scale": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fill": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomPosterize": {
-                        "bits": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomResizedCrop": {
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "scale": {
-                            "default_val": "(0.08, 1.0)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "ratio": {
-                            "default_val": "(0.75, 1.3333333333333333)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomRotation": {
-                        "degrees": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.NEAREST",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "expand": {
-                            "default_val": "False",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "center": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "fill": {
-                            "default_val": "0",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "resample": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomSizedCrop": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        },
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "scale": {
-                            "default_val": "(0.08, 1.0)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "ratio": {
-                            "default_val": "(0.75, 1.3333333333333333)",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomSolarize": {
-                        "threshold": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "RandomVerticalFlip": {
-                        "p": {
-                            "default_val": "0.5",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "Resize": {
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "Scale": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        },
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "TenCrop": {
-                        "size": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "vertical_flip": {
-                            "default_val": "False",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "Tensor": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
-                        }
-                    },
-                    "ToPILImage": {
-                        "mode": {
-                            "default_val": "None",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        }
-                    },
-                    "ToTensor": {
-                        "args": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "UNKNOWN"
-                        },
-                        "kwargs": {
-                            "default_val": "_empty",
-                            "type": "_empty",
-                            "ui_type": "TEXT"
                         }
                     }
                 }
@@ -2638,7 +2637,7 @@
             "optimizers"
         ],
         "Transform": [
-            "compose_transform"
+            "transforms"
         ],
         "TrainDataset": [
             "datasets"

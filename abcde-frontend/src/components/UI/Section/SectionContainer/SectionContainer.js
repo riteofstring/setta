@@ -1,44 +1,52 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Stack, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
-import { SectionHeader } from "./Header/SectionHeader";
+import { SectionHeader, DummySectionHeader } from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
 import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
 import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
-import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 
 function SectionContainer({
   sectionId,
+  rootId,
   parentId,
   nextId,
   depth,
   dragControls,
 }) {
-  const refForPosition = useSetSectionPosition(sectionId);
+  const refForPosition = useRef(null);
+
+  const setSectionPosition = useStoreActions(
+    (action) => action.sectionPositions.setSectionPosition
+  );
 
   const setChildrenIds = useStoreActions(
     (action) => action.master.setChildrenIds
   );
 
   const childrenIds = useStoreState(
-    (state) => state.master.sections.getChildrenIds(sectionId),
+    (state) => state.master.idHierarchy[sectionId].children,
     arraysAreEqual
   );
 
   const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
-  console.log("SectionContainer", sectionId, nextId, childrenIds, order);
+  console.log("sectionId nextId, order", sectionId, nextId, childrenIds, order);
 
   useEffect(() => {
-    if (!arraysAreEqual(childrenIds, order)) {
-      setChildrenIds({ sectionId, childrenIds: order });
+    if (refForPosition.current) {
+      setSectionPosition({
+        sectionId,
+        position: refForPosition.current.offsetTop,
+        height: refForPosition.current.clientHeight,
+      });
     }
-  }, [order]);
+  }, [refForPosition.current]);
 
   return (
     <Stack height="100%" ref={refForPosition}>
@@ -53,6 +61,7 @@ function SectionContainer({
           return (
             <NestedSection
               parentId={sectionId}
+              rootId={rootId}
               sectionId={e}
               nextId={order[idx + 1]}
               idx={idx}
@@ -68,15 +77,19 @@ function SectionContainer({
 }
 
 function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const moduleInfos = useStoreState(
-    (state) => state.master.sections.getSectionInfo(sectionId).moduleInfos
+  const sectionInfo = useStoreState(
+    (state) => state.master.sections[sectionId]
   );
 
-  const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
-    state.master.sections.getUIType(sectionId)
+  const isList = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].isList
+  );
+  const isListRoot = useStoreState(
+    (state) => state.master.idHierarchy[sectionId].isListRoot
   );
 
-  const showSearch = Object.keys(moduleInfos).length > 0;
+  const showSearch =
+    sectionInfo && Object.keys(sectionInfo.parameterInfos).length === 0;
 
   return (
     <HStack
@@ -85,7 +98,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {isList && <DragHandle dragControls={dragControls} />}
+      {isList && !isListRoot && <DragHandle dragControls={dragControls} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -93,14 +106,11 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
           nextId={nextId}
           isList={isList}
           isListRoot={isListRoot}
-          requiresKeyInput={requiresKeyInput}
         />
         {!isListRoot && (
           <Stack>
-            {showSearch && (
-              <SectionSearch sectionId={sectionId} moduleInfos={moduleInfos} />
-            )}
-            <GroupContainer sectionId={sectionId} />
+            {showSearch && <SectionSearch sectionId={sectionId} />}
+            <GroupContainer sectionId={sectionId} sectionInfo={sectionInfo} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
         )}
