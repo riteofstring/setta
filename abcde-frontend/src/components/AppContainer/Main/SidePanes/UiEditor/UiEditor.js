@@ -45,6 +45,7 @@ export default function UiEditor() {
 
   function onAddClick() {
     setNumTabs(numTabs + 1);
+    setCurrTabIdx(numTabs);
   }
 
   function onGoToNext() {
