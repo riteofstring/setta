@@ -13,6 +13,10 @@ const yamlEntry = {
     state.enteredText[idx] = text;
   }),
 
+  deleteEnteredText: action((state, payload) => {
+    state.enteredText = state.enteredText.filter((x, idx) => idx !== payload);
+  }),
+
   createUI: thunk(async (action, payload, helpers) => {
     let allYamls = helpers.getState().enteredText.map((x) => yaml.load(x));
     if (allYamls.length > 1) {

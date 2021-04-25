@@ -9,7 +9,12 @@ import {
   IconButton,
   HStack,
 } from "@chakra-ui/react";
-import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
+import {
+  AddIcon,
+  SmallCloseIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@chakra-ui/icons";
 import TextEditor from "./TextEditor/TextEditor";
 import PaneContainer from "../PaneContainer";
 import { useDropzone } from "react-dropzone";
@@ -24,6 +29,10 @@ const paneProps = {
 export default function UiEditor() {
   const setEnteredText = useStoreActions(
     (actions) => actions.yamlEntry.setEnteredText
+  );
+
+  const deleteEnteredText = useStoreActions(
+    (actions) => actions.yamlEntry.deleteEnteredText
   );
 
   const [numTabs, setNumTabs] = useState(1);
@@ -43,12 +52,17 @@ export default function UiEditor() {
     });
     setNumTabs(numTabs + acceptedFiles.length);
     setCurrTabIdx(numTabs);
-  }, []);
+  }, [numTabs]);
   const { getRootProps } = useDropzone({ onDrop });
 
   function onAddClick() {
     setNumTabs(numTabs + 1);
     setCurrTabIdx(numTabs);
+  }
+
+  function onRemoveClick(idx) {
+    deleteEnteredText(idx);
+    setNumTabs(numTabs - 1);
   }
 
   function onGoToNext() {
@@ -76,7 +90,9 @@ export default function UiEditor() {
         <UiEditorPages tabNumArray={tabNumArray} />
         <TabsContainer
           tabNumArray={tabNumArray}
+          currTabIdx={currTabIdx}
           onAddClick={onAddClick}
+          onRemoveClick={onRemoveClick}
           onGoToNext={onGoToNext}
           onGoToPrev={onGoToPrev}
         />
@@ -85,7 +101,28 @@ export default function UiEditor() {
   );
 }
 
-function TabsContainer({ tabNumArray, onAddClick, onGoToNext, onGoToPrev }) {
+function TabsContainer({
+  tabNumArray,
+  currTabIdx,
+  onAddClick,
+  onRemoveClick,
+  onGoToNext,
+  onGoToPrev,
+}) {
+  const [tabHover, setTabHover] = useState({});
+
+  function onTabMouseOver(idx) {
+    setTabHover({ ...tabHover, [idx]: true });
+  }
+
+  function onTabMouseLeave(idx) {
+    setTabHover({ ...tabHover, [idx]: false });
+  }
+
+  function closeIconCondition(idx) {
+    return idx === currTabIdx || tabHover[idx];
+  }
+
   return (
     <TabList display="flex" alignItems="center">
       {tabNumArray.map((e) => (
@@ -103,8 +140,18 @@ function TabsContainer({ tabNumArray, onAddClick, onGoToNext, onGoToPrev }) {
           _hover={{ color: "white", bg: "gray.600" }}
           _active={{ color: "white", bg: "gray.700" }}
           key={`uitab-${e}`}
+          onMouseOver={() => onTabMouseOver(e)}
+          onMouseLeave={() => onTabMouseLeave(e)}
         >
           {e}
+          <IconButton
+            icon={closeIconCondition(e) && <SmallCloseIcon />}
+            borderRadius="full"
+            variant="ghost"
+            size="xs"
+            marginright="0.125rem"
+            onClick={() => onRemoveClick(e)}
+          />
         </Tab>
       ))}
 
