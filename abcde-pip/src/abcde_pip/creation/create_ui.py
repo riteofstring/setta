@@ -26,7 +26,13 @@ def _create_ui(loaded_yaml):
     factories = loaded_yaml["FACTORIES"]
     funcs = loaded_yaml["FUNCS"]
 
-    return {"MODULES": modules, "PARAMETERS": parameters, "UI": ui, "FACTORIES": factories, "FUNCS": funcs}
+    return {
+        "MODULES": modules,
+        "PARAMETERS": parameters,
+        "UI": ui,
+        "FACTORIES": factories,
+        "FUNCS": funcs,
+    }
 
 
 def create_ui(entered_text):
