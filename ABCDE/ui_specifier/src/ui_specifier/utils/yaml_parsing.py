@@ -77,11 +77,10 @@ class WrapperRepr:
     def __init__(self, ui_repr):
         self.ui_repr = ui_repr
         self.def_run = "def run():\n"
-        self.set_path = "\timport sys\n\tsys.path.insert(0, 'D:\\\\Documents\\\\App Development\\\\abcde-pip\\\\src')\n"
         self.main_entry = "if __name__ == '__main__':\n\trun()"
 
     def __repr__(self):
-        return f"{self.def_run}{self.set_path}{self.ui_repr}{self.main_entry}"
+        return f"{self.def_run}{self.ui_repr}{self.main_entry}"
 
 
 class SimpleRepr:

@@ -2,7 +2,6 @@ import os
 import sys
 
 sys.path.insert(0, "src")
-sys.path.insert(0, "../../abcde-pip/src")
 import abcde_pip
 
 import ui_specifier
