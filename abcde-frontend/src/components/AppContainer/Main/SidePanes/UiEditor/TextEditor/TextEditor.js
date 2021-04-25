@@ -5,10 +5,12 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { resetState } from "../../../../../../store/store";
 import { IoIosRocket } from "react-icons/io";
 
-export default function TextEditor() {
+export default function TextEditor({ idx }) {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
-  const enteredText = useStoreState((state) => state.yamlEntry.enteredText);
+  const enteredText = useStoreState(
+    (state) => state.yamlEntry.enteredText[idx]
+  );
   const setEnteredText = useStoreActions(
     (actions) => actions.yamlEntry.setEnteredText
   );
@@ -46,7 +48,7 @@ export default function TextEditor() {
   }, [uiInfoFromCLI, factoriesFromCLI, funcsFromCLI]);
 
   const onChange = (newValue, e) => {
-    setEnteredText(newValue);
+    setEnteredText({ idx, text: newValue });
   };
 
   return (

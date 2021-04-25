@@ -75,3 +75,13 @@ export function firstValue(x) {
   }
   return undefined;
 }
+
+
+export function rangeArray(low, high){
+  return Array.from(new Array(high), (x, i) => i + low);
+}
+
+
+export function mod(n, m) {
+  return ((n % m) + m) % m;
+}
