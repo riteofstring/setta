@@ -39,20 +39,23 @@ export default function UiEditor() {
   const [currTabIdx, setCurrTabIdx] = useState(0);
   const tabNumArray = rangeArray(0, numTabs);
 
-  const onDrop = useCallback((acceptedFiles) => {
-    acceptedFiles.forEach((file, idx) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Do whatever you want with the file contents
-        const text = reader.result;
-        const newIdx = numTabs + idx;
-        setEnteredText({ idx: newIdx, text });
-      };
-      reader.readAsText(file);
-    });
-    setNumTabs(numTabs + acceptedFiles.length);
-    setCurrTabIdx(numTabs);
-  }, [numTabs]);
+  const onDrop = useCallback(
+    (acceptedFiles) => {
+      acceptedFiles.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // Do whatever you want with the file contents
+          const text = reader.result;
+          const newIdx = numTabs + idx;
+          setEnteredText({ idx: newIdx, text });
+        };
+        reader.readAsText(file);
+      });
+      setNumTabs(numTabs + acceptedFiles.length);
+      setCurrTabIdx(numTabs);
+    },
+    [numTabs]
+  );
   const { getRootProps } = useDropzone({ onDrop });
 
   function onAddClick() {
@@ -63,6 +66,9 @@ export default function UiEditor() {
   function onRemoveClick(idx) {
     deleteEnteredText(idx);
     setNumTabs(numTabs - 1);
+    if (idx <= currTabIdx) {
+      setCurrTabIdx(Math.max(0, currTabIdx - 1));
+    }
   }
 
   function onGoToNext() {
@@ -123,36 +129,43 @@ function TabsContainer({
     return idx === currTabIdx || tabHover[idx];
   }
 
+  function onRemoveClickWrapper(idx) {
+    onRemoveClick(idx);
+    delete tabHover[idx];
+  }
+
   return (
     <TabList display="flex" alignItems="center">
       {tabNumArray.map((e) => (
-        <Tab
-          sx={{
-            borderBottomRadius: "0.5rem",
-            borderLeft: "1px",
-            borderRight: "1px",
-            borderBottom: "1px",
-            borderColor: "gray.200",
-            padding: "0.33rem 1rem",
-            marginRight: "0.125rem",
-          }}
-          _selected={{ color: "white", bg: "gray.400" }}
-          _hover={{ color: "white", bg: "gray.600" }}
-          _active={{ color: "white", bg: "gray.700" }}
-          key={`uitab-${e}`}
-          onMouseOver={() => onTabMouseOver(e)}
-          onMouseLeave={() => onTabMouseLeave(e)}
-        >
-          {e}
+        <>
+          <Tab
+            sx={{
+              borderBottomRadius: "0.5rem",
+              borderLeft: "1px",
+              borderRight: "1px",
+              borderBottom: "1px",
+              borderColor: "gray.200",
+              padding: "0.33rem 1rem",
+              marginRight: "0.125rem",
+            }}
+            _selected={{ color: "white", bg: "gray.400" }}
+            _hover={{ color: "white", bg: "gray.600" }}
+            _active={{ color: "white", bg: "gray.700" }}
+            key={`uitab-${e}`}
+          >
+            {e}
+          </Tab>
           <IconButton
             icon={closeIconCondition(e) && <SmallCloseIcon />}
             borderRadius="full"
             variant="ghost"
             size="xs"
             marginright="0.125rem"
-            onClick={() => onRemoveClick(e)}
+            onClick={() => onRemoveClickWrapper(e)}
+            onMouseOver={() => onTabMouseOver(e)}
+            onMouseLeave={() => onTabMouseLeave(e)}
           />
-        </Tab>
+        </>
       ))}
 
       <IconButton
