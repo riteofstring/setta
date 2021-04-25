@@ -1,6 +1,0 @@
-name: abcde_env
-channels:
-  - defaults
-dependencies:
-  - pip
-
