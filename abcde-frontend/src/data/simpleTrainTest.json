@@ -1,4 +1,5 @@
 {
+    "ENTIRE_UI": {
     "MODULES": {
         "torchvision_models": {
             "ModuleInfo": {
@@ -2651,7 +2652,8 @@
                 "various_params"
             ]
         }
-    },
+    }
+},
     "FACTORIES": {
         "Optimizer": {
             "abcde_pip.templates.pytorch_factories.optimizer_factory": {

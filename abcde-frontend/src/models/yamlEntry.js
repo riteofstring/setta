@@ -23,12 +23,11 @@ const yamlEntry = {
       merge(allYamls[0], ...allYamls.slice(1));
     }
     allYamls = allYamls[0];
-    console.log("allYamls", allYamls);
-    // const cliSocket = helpers.getStoreState().cliSocket.cliSocket;
-    // createUIBackend({
-    //   cliSocket,
-    //   enteredText: helpers.getState().enteredText,
-    // });
+    const cliSocket = helpers.getStoreState().cliSocket.cliSocket;
+    createUIBackend({
+      cliSocket,
+      enteredText: allYamls,
+    });
   }),
 
   setEntireState: action((state, payload) => {

@@ -17,6 +17,8 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
+    console.log("master payload", payload)
+    state.sections = new Sections();
     state.sections.available = {
       modules: payload.MODULES,
       parameters: payload.PARAMETERS,
@@ -42,7 +44,7 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     if (NO_AUTH) {
-      action._loadSections(Data);
+      action._loadSections(Data.ENTIRE_UI);
     } else {
       action._loadSections(payload);
     }

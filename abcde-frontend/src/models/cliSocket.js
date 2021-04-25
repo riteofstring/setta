@@ -16,8 +16,8 @@ const cliSocket = {
     helpers.getState().cliSocket = getCLISocket(token);
     helpers.getState().cliSocket.onmessage = function (event) {
       const data = JSON.parse(event.data);
-      const { UI, FACTORIES, FUNCS } = JSON.parse(data["enteredText"]);
-      action.setUiInfo(UI);
+      const { ENTIRE_UI, FACTORIES, FUNCS } = JSON.parse(data["enteredText"]);
+      action.setUiInfo(ENTIRE_UI);
       action.setFactories(FACTORIES);
       action.setFuncs(FUNCS);
     };
