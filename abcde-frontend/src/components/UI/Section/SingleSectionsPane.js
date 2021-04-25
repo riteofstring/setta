@@ -4,7 +4,7 @@ import SectionContainer from "./SectionContainer/SectionContainer";
 import { arraysAreEqual } from "../../../utils/commonFunctions";
 import { Heading, Stack } from "@chakra-ui/react";
 
-const SingleSectionsPane = ({ minId, maxId }) => {
+const SingleSectionsPane = ({ minId, maxId, idx }) => {
   const rootIds = useStoreState(
     (state) => state.master.sections.getRootIds(minId, maxId),
     arraysAreEqual
@@ -12,14 +12,11 @@ const SingleSectionsPane = ({ minId, maxId }) => {
 
   console.log("SectionsPane rootIds, minId, maxId", rootIds, minId, maxId);
 
-  // temp_
-  const tempNum = "1";
-
   return (
     <>
       <Stack>
         <Heading size="md" color="gray.300">
-          Group {tempNum}
+          Group {idx}
         </Heading>
         {rootIds.map((e, idx) => (
           <SectionContainer

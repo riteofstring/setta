@@ -24,6 +24,7 @@ const SectionsPane = () => {
           <SingleSectionsPane
             minId={e.minId}
             maxId={e.maxId}
+            idx={idx}
             key={`SingleSectionsPane-${idx}`}
           />
         ))}
