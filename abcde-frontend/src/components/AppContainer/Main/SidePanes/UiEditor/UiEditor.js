@@ -31,15 +31,18 @@ export default function UiEditor() {
   const tabNumArray = rangeArray(0, numTabs);
 
   const onDrop = useCallback((acceptedFiles) => {
-    for (let file of acceptedFiles) {
+    acceptedFiles.forEach((file, idx) => {
       const reader = new FileReader();
       reader.onload = () => {
         // Do whatever you want with the file contents
         const text = reader.result;
-        setEnteredText(text);
+        const newIdx = numTabs + idx;
+        setEnteredText({ idx: newIdx, text });
       };
       reader.readAsText(file);
-    }
+    });
+    setNumTabs(numTabs + acceptedFiles.length);
+    setCurrTabIdx(numTabs);
   }, []);
   const { getRootProps } = useDropzone({ onDrop });
 
