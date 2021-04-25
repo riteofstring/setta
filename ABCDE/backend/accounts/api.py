@@ -55,3 +55,9 @@ class WebsocketAuthAPI(generics.GenericAPIView):
                 "token": AuthToken.objects.create(request.user)[1],
             }
         )
+
+
+# For persistent login
+class VerifyTokenAPI(generics.GenericAPIView):
+    def post(self, request, *args, **kwargs):
+        return Response({"user": request.user.username})
