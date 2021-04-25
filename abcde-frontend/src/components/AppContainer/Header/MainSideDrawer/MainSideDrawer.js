@@ -1,4 +1,4 @@
-import { Box, VStack, Button } from "@chakra-ui/react";
+import { VStack, Button } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { useHistory } from "react-router-dom";
 import { useStoreActions, useStoreState } from "easy-peasy";

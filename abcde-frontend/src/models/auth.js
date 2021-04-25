@@ -32,6 +32,12 @@ const auth = {
     localStorage.removeItem("websocketToken");
     state.websocketToken = null;
   }),
+
+  stayLoggedIn: action((state, payload) => {
+    console.log("verified existing token", payload)
+    state.isAuthenticated = true;
+    state.user = payload.user
+  }),
 };
 
 export default auth

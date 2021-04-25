@@ -48,7 +48,7 @@ const LoginPage = () => {
         actionLoginFail,
       }).then((x) => {
         if (x) {
-          history.push("/ui");
+          history.push("/");
         }
       });
     },

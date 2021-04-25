@@ -9,7 +9,7 @@ import HeaderContainer from "../Header/Header";
 import MainContainer from "../Main/MainContainer";
 import { NO_AUTH } from "../../../utils/constants";
 
-const SwitchContainer = () => {
+const SwitchContainer = ({ isAuthenticated }) => {
   const getRoute = () => {
     if (NO_AUTH) {
       return (
@@ -17,6 +17,21 @@ const SwitchContainer = () => {
           <HeaderContainer />
           <MainContainer />
         </Route>
+      );
+    } else if (isAuthenticated) {
+      return (
+        <Switch>
+          <PrivateRoute exact path="/" isAuthenticated={isAuthenticated}>
+            <HeaderContainer />
+            <MainContainer />
+          </PrivateRoute>
+          {/* <PrivateRoute exact path="/terminal">
+            <TerminalPage />
+          </PrivateRoute> */}
+          <PrivateRoute exact path="/logout" isAuthenticated={isAuthenticated}>
+            <LogoutPage />
+          </PrivateRoute>
+        </Switch>
       );
     } else {
       return (
@@ -27,16 +42,6 @@ const SwitchContainer = () => {
           <Route exact path="/signup">
             <SignUpPage />
           </Route>
-          <PrivateRoute exact path="/ui">
-            <HeaderContainer />
-            <MainContainer />
-          </PrivateRoute>
-          {/* <PrivateRoute exact path="/terminal">
-            <TerminalPage />
-          </PrivateRoute> */}
-          <PrivateRoute exact path="/logout">
-            <LogoutPage />
-          </PrivateRoute>
         </Switch>
       );
     }
@@ -44,9 +49,7 @@ const SwitchContainer = () => {
   return getRoute();
 };
 
-const PrivateRoute = ({ children, ...rest }) => {
-  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
-  console.log("isAuthenticated", isAuthenticated);
+const PrivateRoute = ({ isAuthenticated, children, ...rest }) => {
   return (
     <Route
       {...rest}

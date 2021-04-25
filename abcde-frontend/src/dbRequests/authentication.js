@@ -1,6 +1,24 @@
 import axios from "axios";
 import { BACKEND } from "../utils/constants";
 
+export const verifyToken = ({
+  authToken,
+  actionStayLoggedIn,
+  actionLoginFail,
+}) => {
+  console.log("trying to verify existing token", authToken)
+  return axios
+    .post(BACKEND + "api/auth/verifyToken", null, tokenConfig(authToken))
+    .then((res) => {
+      actionStayLoggedIn(res.data);
+      return true;
+    })
+    .catch((err) => {
+      actionLoginFail(null);
+      return false;
+    });
+};
+
 // LOGIN USER
 export const login = ({
   username,
@@ -11,8 +29,14 @@ export const login = ({
   const body = JSON.stringify({ username, password });
   return axios
     .post(BACKEND + "api/auth/login", body, tokenConfig(null))
-    .then((res) => {actionLoginSuccess(res.data); return true})
-    .catch((err) => {actionLoginFail(null); return false});
+    .then((res) => {
+      actionLoginSuccess(res.data);
+      return true;
+    })
+    .catch((err) => {
+      actionLoginFail(null);
+      return false;
+    });
 };
 
 // LOGIN USER
@@ -23,10 +47,15 @@ export const websocketAuth = ({
 }) => {
   return axios
     .post(BACKEND + "api/auth/websocketAuth", null, tokenConfig(authToken))
-    .then((res) => {actionWebsocketTokenRetrievalSuccess(res.data); return res.data.token})
-    .catch((err) => {actionWebsocketTokenRetrievalFail(null); return false});
+    .then((res) => {
+      actionWebsocketTokenRetrievalSuccess(res.data);
+      return res.data.token;
+    })
+    .catch((err) => {
+      actionWebsocketTokenRetrievalFail(null);
+      return false;
+    });
 };
-
 
 // LOGIN USER
 export const logout = ({ actionLoginFail, authToken }) => {

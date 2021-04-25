@@ -1,13 +1,30 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Flex, HStack, Heading } from "@chakra-ui/react";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 import { Link, BrowserRouter } from "react-router-dom";
-import { useStoreState } from "easy-peasy";
+import { useStoreState, useStoreActions } from "easy-peasy";
+import { verifyToken } from "../../dbRequests/authentication";
+import { NO_AUTH } from "../../utils/constants";
 // import HeaderContainer from "./Header/Header";
 // import MainContainer from "./Main/MainContainer";
 
 const AppContainer = () => {
   const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
+  const token = useStoreState((state) => state.auth.token);
+  const loginFail = useStoreActions((action) => action.auth.loginFail);
+  const stayLoggedIn = useStoreActions((action) => action.auth.stayLoggedIn);
+
+  console.log("isAuthenticated", isAuthenticated);
+
+  useEffect(() => {
+    if (!NO_AUTH) {
+      verifyToken({
+        authToken: token,
+        actionStayLoggedIn: stayLoggedIn,
+        actionLoginFail: loginFail,
+      });
+    }
+  }, []);
 
   const notAuthLinks = () => {
     return (
@@ -42,7 +59,7 @@ const AppContainer = () => {
           </HStack>
         </Flex>
       )}
-      <SwitchContainer />
+      <SwitchContainer isAuthenticated={isAuthenticated} />
     </BrowserRouter>
   );
 };
