@@ -27,15 +27,12 @@ def _create_ui(loaded_yaml):
     funcs = loaded_yaml["FUNCS"]
 
     return {
-        "MODULES": modules,
-        "PARAMETERS": parameters,
-        "UI": ui,
+        "ENTIRE_UI": {"MODULES": modules, "PARAMETERS": parameters, "UI": ui},
         "FACTORIES": factories,
         "FUNCS": funcs,
     }
 
 
 def create_ui(entered_text):
-    entered_text = entered_text.replace("\\n", "\n")
-    entered_text = yaml.safe_load(entered_text)
-    return _create_ui(loaded_yaml)
+    entered_text = json.loads(entered_text)
+    return _create_ui(entered_text)

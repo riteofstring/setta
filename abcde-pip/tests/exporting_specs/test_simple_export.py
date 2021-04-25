@@ -36,7 +36,7 @@ class TestSimpleExport(unittest.TestCase):
 
         output = _create_ui(config)
 
-        test_filepath = "simple_train_test.json"
+        test_filepath = "test.json"
         with open(test_filepath, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=4)
 
@@ -45,7 +45,7 @@ class TestSimpleExport(unittest.TestCase):
         # x = subprocess.run(["node", os.path.join(curr_dir, "json_parsing.js")])
         # self.assertTrue(x.returncode == 0)
 
-        # os.remove(test_filepath)
+        os.remove(test_filepath)
 
         # TYPE_MAP.register_alias(torch.Tensor, typing.List[float])
         # # x = ClassInfo(torchvision.transforms.Compose)

@@ -80,7 +80,7 @@ def activate_env_and_get_json(ui_specs):
     out_file = "temp_out.json"
 
     with open(in_file, "w") as text_file:
-        text_file.write(ui_specs["enteredText"])
+        text_file.write(json.dumps(ui_specs["enteredText"]))
 
     script_dir = pathlib.Path(__file__).parent.absolute()
 
