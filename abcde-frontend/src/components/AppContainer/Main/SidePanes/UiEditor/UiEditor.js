@@ -137,7 +137,7 @@ function TabsContainer({
   return (
     <TabList display="flex" alignItems="center">
       {tabNumArray.map((e) => (
-        <>
+        <HStack spacing="1px" key={`uitab-${e}`}>
           <Tab
             sx={{
               borderBottomRadius: "0.5rem",
@@ -151,7 +151,6 @@ function TabsContainer({
             _selected={{ color: "white", bg: "gray.400" }}
             _hover={{ color: "white", bg: "gray.600" }}
             _active={{ color: "white", bg: "gray.700" }}
-            key={`uitab-${e}`}
           >
             {e}
           </Tab>
@@ -165,7 +164,7 @@ function TabsContainer({
             onMouseOver={() => onTabMouseOver(e)}
             onMouseLeave={() => onTabMouseLeave(e)}
           />
-        </>
+        </HStack>
       ))}
 
       <IconButton
