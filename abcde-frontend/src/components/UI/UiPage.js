@@ -38,7 +38,7 @@ const UiPage = () => {
       resetState("master");
       loadSections();
     } else {
-      tryLoadingDraftUI();
+      // tryLoadingDraftUI();
       websocketAuth({
         authToken: token,
         actionWebsocketTokenRetrievalSuccess,
