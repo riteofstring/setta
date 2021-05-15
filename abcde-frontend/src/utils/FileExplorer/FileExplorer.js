@@ -8,9 +8,13 @@ import {
 } from "@chakra-ui/react";
 import ListItem from "./ListItem";
 import FileListContainer from "./FileListContainer";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import {
+  createNewFolder
+} from "../../dbRequests/ui"
 
 export default function FileExplorer({
+  token,
   folderNames,
   foldersAndFiles,
   onFolderSelect,
@@ -49,6 +53,7 @@ export default function FileExplorer({
       setFoldersAndFiles({ ...foldersAndFiles, [newFolderName]: [] });
       setShowNewFolderField(false);
       onFolderSelect(newFolderName);
+      createNewFolder({token, name: newFolderName})
     }
   };
 

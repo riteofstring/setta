@@ -34,7 +34,7 @@ const UiPage = () => {
   };
 
   useLayoutEffect(() => {
-    if (NO_AUTH) {
+    if (true) {
       resetState("master");
       loadSections();
     } else {

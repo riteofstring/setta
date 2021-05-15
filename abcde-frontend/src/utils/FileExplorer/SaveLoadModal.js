@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext } from "react";
+import { useState, useEffect } from "react";
 import { HStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import FileExplorer from "./FileExplorer";
@@ -78,6 +78,7 @@ export default function SaveLoadModal(props) {
       overrideFooter={true}
       body={
         <Body
+          token={token}
           folderNames={folderNames}
           foldersAndFiles={foldersAndFiles}
           onFileSelect={_setSelectedFile}

@@ -19,7 +19,7 @@ export const createUI = ({ cliSocket, enteredText }) => {
 };
 
 export const saveUI = ({ token, folderName, uiName, statesToSave }) => {
-  console.log("folderName, uiName", folderName, uiName)
+  console.log("folderName, uiName", folderName, uiName);
   const body = JSON.stringify({
     ui: {
       uiName,
@@ -35,13 +35,20 @@ export const saveUI = ({ token, folderName, uiName, statesToSave }) => {
 
 export const loadFolderAndUINames = ({ token }) => {
   return axios
-    .get(BACKEND + "api/saved_folder_and_ui_names", tokenConfig(token))
-    .then((res) => res.data["folderAndUINames"])
+    .get(BACKEND + "api/foldersAndUIs", tokenConfig(token))
+    .then((res) => res.data["foldersAndUIs"])
+    .catch((err) => {});
+};
+
+export const createNewFolder = ({ token, name }) => {
+  return axios
+    .post(BACKEND + "api/folders", { name }, tokenConfig(token))
+    .then((res) => {})
     .catch((err) => {});
 };
 
 export const loadUI = ({ token, folderName, uiName }) => {
-  const fullName = folderName + ":" + uiName
+  const fullName = folderName + ":" + uiName;
   return axios
     .get(BACKEND + "api/saved_folder_and_ui/" + fullName, tokenConfig(token))
     .then((res) => res.data)

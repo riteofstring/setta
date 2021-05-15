@@ -43,7 +43,7 @@ const master = {
   }),
 
   loadSections: thunk((action, payload, helpers) => {
-    if (NO_AUTH) {
+    if (true) {
       action._loadSections(Data.ENTIRE_UI);
     } else {
       action._loadSections(payload);

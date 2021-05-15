@@ -9,16 +9,16 @@ import {
 import { getCompleteState } from "../utils/commonFunctions";
 
 const uiInfo = {
-  savedFolderAndUINames: {},
+  loadedFolderAndUINames: {},
 
-  setSavedUINames: action((state, payload) => {
-    state.savedFolderAndUINames = payload;
+  setLoadedFolderAndUINames: action((state, payload) => {
+    state.loadedFolderAndUINames = payload;
   }),
 
   loadFolderAndUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
     const uiNames = await loadFolderAndUINamesBackend({ token });
-    action.setSavedUINames(uiNames);
+    action.setLoadedFolderAndUINames(uiNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
