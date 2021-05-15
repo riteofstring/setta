@@ -32,7 +32,7 @@ class SectionCollection(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "folder"], name="section_collection_unique_name"
+                fields=["name", "folder", "originUI"], name="section_collection_unique"
             )
         ]
 
@@ -45,7 +45,7 @@ class ModuleCollection(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "folder"], name="module_collection_unique_name"
+                fields=["name", "folder", "originUI"], name="module_collection_unique"
             )
         ]
 
@@ -58,7 +58,8 @@ class ParameterCollection(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "folder"], name="parameter_collection_unique_name"
+                fields=["name", "folder", "originUI"],
+                name="parameter_collection_unique",
             )
         ]
 

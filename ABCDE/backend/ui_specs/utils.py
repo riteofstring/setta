@@ -1,25 +1,39 @@
-from .models import UI, Folder, Module, ModuleCollection, ParameterCollection
+from .models import (
+    UI,
+    Folder,
+    Module,
+    ModuleCollection,
+    Object,
+    ParameterCollection,
+    ParameterCollectionParameter,
+)
 
 
-def create_folder(user, name):
-    new, was_created = Folder.objects.get_or_create(owner=user, name=name)
-    return new, was_created
-
-
-def create_module_collection(user, folder, name):
-    new, was_created = ModuleCollection.objects.get_or_create(folder=folder, name=name)
-    return new, was_created
-
-
-def create_parameter_collection(user, folder, name):
-    new, was_created = ParameterCollection.objects.get_or_create(
-        folder=folder, name=name
-    )
+def generic_create(table, kwargs):
+    new, was_created = table.objects.get_or_create(**kwargs)
     return new, was_created
 
 
 def get_users_folders(user):
     return Folder.objects.filter(owner=user)
+
+
+def save_module_collection(folder, ui, availableModules):
+    for name, contents in availableModules.items():
+        moduleCollection, _ = generic_create(
+            ModuleCollection, {"folder": folder, "originUI": ui, "name": name}
+        )
+        for moduleName, moduleContents in contents["ModuleInfo"].items():
+            module, _ = generic_create(
+                Module,
+                {
+                    "folder": folder,
+                    "originCollection": moduleCollection,
+                    "name": moduleName,
+                },
+            )
+            for objectName, v in moduleContents.items():
+                generic_create(Object, {"belongsTo": module, "name": objectName})
 
 
 def save_ui(request):
@@ -28,17 +42,14 @@ def save_ui(request):
 
     uiInfo = data["ui"]
     folderInfo = data["folder"]
+    folerName = folderInfo["name"]
 
-    folder, _ = create_folder(user, folderInfo["name"])
+    folder, _ = generic_create(Folder, {"owner": user, "name": folerName})
 
     uiName = uiInfo["name"]
-    availableModules = uiInfo["availableModules"]
-    availableParameters = uiInfo["availableParameters"]
+    ui, _ = generic_create(UI, {"folder": folder, "name": uiName})
 
-    for k, v in availableModules.items():
-        create_module_collection(user, folder, k)
-
-    for k, v in availableParameters.items():
-        create_parameter_collection(user, folder, k)
+    save_module_collection(folder, ui, uiInfo["availableModules"])
+    # availableParameters = uiInfo["availableParameters"]
 
     print("successs")
