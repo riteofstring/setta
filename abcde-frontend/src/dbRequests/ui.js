@@ -18,17 +18,10 @@ export const createUI = ({ cliSocket, enteredText }) => {
   cliSocket.send(body);
 };
 
-export const saveUI = ({ token, folderName, uiName, statesToSave }) => {
-  console.log("folderName, uiName", folderName, uiName);
-  const body = JSON.stringify({
-    ui: {
-      uiName,
-      completeState: stringifyCompleteState(statesToSave),
-    },
-    folder: { folderName },
-  });
+export const saveUI = ({ token, name, folder, ui }) => {
+  const body = {ui: {name, ...ui}, folder: {name: folder}}
   return axios
-    .post(BACKEND + "api/saved_folder_and_ui", body, tokenConfig(token))
+    .post(BACKEND + "api/foldersAndUIs", body, tokenConfig(token))
     .then((res) => {})
     .catch((err) => {});
 };

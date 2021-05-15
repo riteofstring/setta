@@ -276,4 +276,13 @@ export class Sections {
       childIds.forEach((x) => (this.sections[x].name = newKwarg));
     }
   };
+
+  // exportSaveableInfo = () => {
+  //   const output = {}
+  //   output["sections"] = 
+  //   output["available"] = {};
+  //   this.allChildrenIds = [];
+  //   this.allChildrenNames = [];
+  //   this.latestId = 0;
+  // };
 }

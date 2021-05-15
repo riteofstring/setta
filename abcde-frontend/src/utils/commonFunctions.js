@@ -1,8 +1,23 @@
+export const isObject = (x) => {
+  return (typeof(x) === 'object' && x !== null)
+}
+
 export const getAllNonFunctions = (x) => {
   return Object.fromEntries(
     Object.entries(x).filter(([key, value]) => !(value instanceof Function))
   );
 };
+
+export const recursivelyGetAllNonFunctions = (x) => {
+  if (!isObject(x)){
+    return x
+  }
+  const output = {}
+  for (let k of Object.keys(getAllNonFunctions(x))){
+    output[k] = recursivelyGetAllNonFunctions(x[k])
+  }
+  return output
+}
 
 export const setEntireState = (state, newState) => {
   for (let key of Object.keys(getAllNonFunctions(state))) {

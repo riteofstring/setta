@@ -7,8 +7,12 @@ import {
   saveDraftUI as saveDraftUIBackend,
 } from "../dbRequests/ui";
 import { getCompleteState } from "../utils/commonFunctions";
+import { allDefined } from "../utils/utils";
 
 const uiInfo = {
+  currUIName: null,
+  currUIFolder: null,
+
   loadedFolderAndUINames: {},
 
   setLoadedFolderAndUINames: action((state, payload) => {
@@ -22,14 +26,14 @@ const uiInfo = {
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
-    const masterSetEntireState = helpers.getStoreActions().master
-      .setEntireState;
-    const yamlEntrySetEntireState = helpers.getStoreActions().yamlEntry
-      .setEntireState;
-    const factoriesInfoSetEntireState = helpers.getStoreActions().factoriesInfo
-      .setEntireState;
-    const funcsInfoSetEntireState = helpers.getStoreActions().funcsInfo
-      .setEntireState;
+    const masterSetEntireState =
+      helpers.getStoreActions().master.setEntireState;
+    const yamlEntrySetEntireState =
+      helpers.getStoreActions().yamlEntry.setEntireState;
+    const factoriesInfoSetEntireState =
+      helpers.getStoreActions().factoriesInfo.setEntireState;
+    const funcsInfoSetEntireState =
+      helpers.getStoreActions().funcsInfo.setEntireState;
 
     const { loadType } = payload;
     delete payload["loadType"];
@@ -51,22 +55,26 @@ const uiInfo = {
   }),
 
   saveUI: thunk((action, payload, helpers) => {
-    const { token, folderName, uiName } = payload;
-    console.log("folderName, uiName", folderName, uiName);
+    const { token, name, folder } = payload;
+    const ui = helpers.getStoreActions().master.exportSaveableInfo();
     return saveUIBackend({
       token,
-      folderName,
-      uiName,
-      statesToSave: getCompleteState(helpers.getStoreState()),
+      name,
+      folder,
+      ui,
     });
   }),
 
   saveDraftUI: thunk((action, payload, helpers) => {
     const { token } = payload;
-    return saveDraftUIBackend({
-      token,
-      statesToSave: getCompleteState(helpers.getStoreState()),
-    });
+    const state = helpers.getState();
+    let name = state.currUIName;
+    let folder = state.currUIFolder;
+    if (!allDefined(name, folder)) {
+      name = "testDraft";
+      folder = "drafts";
+    }
+    action.saveUI({ token, name, folder });
   }),
 };
 

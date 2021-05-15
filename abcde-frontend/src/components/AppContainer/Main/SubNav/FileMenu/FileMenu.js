@@ -25,6 +25,9 @@ export default function FileMenu() {
   const loadedFolderAndUINames = useStoreState(
     (state) => state.uiInfo.loadedFolderAndUINames
   );
+  const saveDraftUI = useStoreActions(
+    (actions) => actions.uiInfo.saveDraftUI
+  );
 
   const _onOpen = (buttonText) => {
     setButtonText(buttonText);
@@ -32,7 +35,7 @@ export default function FileMenu() {
     loadFolderAndUINames({ token });
   };
 
-  function SaveLoadButton({ buttonText }) {
+  function SaveAsOrLoadButton({ buttonText }) {
     return (
       <MenuItem
         onClick={() => _onOpen(buttonText)}
@@ -43,6 +46,10 @@ export default function FileMenu() {
     );
   }
 
+  function onSaveButtonClick() {
+    saveDraftUI({ token });
+  }
+
   return (
     <>
       <Menu>
@@ -51,10 +58,12 @@ export default function FileMenu() {
         </MenuButton>
         <MenuList zIndex="11">
           <MenuItem icon={<IoDocumentTextOutline />}>New Project</MenuItem>
-          <SaveLoadButton buttonText="Load" />
+          <SaveAsOrLoadButton buttonText="Load" />
           <MenuItem>Advanced Load</MenuItem>
-          <MenuItem icon={<VscSave />}>Save</MenuItem>
-          <SaveLoadButton buttonText="Save As" />
+          <MenuItem icon={<VscSave />} onClick={onSaveButtonClick}>
+            Save
+          </MenuItem>
+          <SaveAsOrLoadButton buttonText="Save As" />
         </MenuList>
       </Menu>
       <SaveLoadModal
