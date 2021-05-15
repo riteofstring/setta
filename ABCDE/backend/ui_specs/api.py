@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import utils
-from .models import Folders, UIs
+from .models import UI, Folder
 
 
 class FoldersAPIView(APIView):
@@ -25,7 +25,7 @@ class FoldersAPIView(APIView):
 class FoldersAndUIsAPIView(APIView):
     def get(self, request):
         folders = utils.get_users_folders(request.user)
-        uis = UIs.objects.filter(folder__in=folders).values(
+        uis = UI.objects.filter(folder__in=folders).values(
             "name",
             folderName=F("folder__name"),
         )

@@ -1,25 +1,25 @@
-from .models import Folders, ModuleCollections, Modules, ParameterCollections, UIs
+from .models import UI, Folder, Module, ModuleCollection, ParameterCollection
 
 
 def create_folder(user, name):
-    new, was_created = Folders.objects.get_or_create(owner=user, name=name)
+    new, was_created = Folder.objects.get_or_create(owner=user, name=name)
     return new, was_created
 
 
 def create_module_collection(user, folder, name):
-    new, was_created = ModuleCollections.objects.get_or_create(folder=folder, name=name)
+    new, was_created = ModuleCollection.objects.get_or_create(folder=folder, name=name)
     return new, was_created
 
 
 def create_parameter_collection(user, folder, name):
-    new, was_created = ParameterCollections.objects.get_or_create(
+    new, was_created = ParameterCollection.objects.get_or_create(
         folder=folder, name=name
     )
     return new, was_created
 
 
 def get_users_folders(user):
-    return Folders.objects.filter(owner=user)
+    return Folder.objects.filter(owner=user)
 
 
 def save_ui(request):
