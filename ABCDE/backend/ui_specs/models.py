@@ -116,10 +116,14 @@ class Selections(models.Model):
 class UIs(models.Model):
     name = models.TextField()
     folder = models.ForeignKey(Folders, on_delete=models.CASCADE)
-    sections = models.ForeignKey(SectionCollections, on_delete=models.CASCADE)
-    availableModules = models.ForeignKey(ModuleCollections, on_delete=models.CASCADE)
+    sections = models.ForeignKey(
+        SectionCollections, on_delete=models.CASCADE, null=True
+    )
+    availableModules = models.ForeignKey(
+        ModuleCollections, on_delete=models.CASCADE, null=True
+    )
     availableParameters = models.ForeignKey(
-        ParameterCollections, on_delete=models.CASCADE
+        ParameterCollections, on_delete=models.CASCADE, null=True
     )
 
     class Meta:

@@ -8,43 +8,37 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import utils
 from .models import Folders, UIs
-from .serializers import FoldersSerializer
-
-
-def get_users_folders(request):
-    return Folders.objects.filter(owner=request.user).values_list("name", flat=True)
 
 
 class FoldersAPIView(APIView):
-    serializer = FoldersSerializer
-
     def get(self, request):
-        folders = get_users_folders(request)
+        folders = utils.get_users_folders(request.user).values_list("name", flat=True)
         return Response({"folders": folders}, status=status.HTTP_200_OK)
 
     def post(self, request):
-        serializer = self.serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(owner=request.user)
-            return Response({"result": "success"}, status=status.HTTP_201_CREATED)
-        print(serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        utils.create_folder(request.user, request.data["name"])
+        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
 
 
 class FoldersAndUIsAPIView(APIView):
     def get(self, request):
-        folders = get_users_folders(request)
+        folders = utils.get_users_folders(request.user)
         uis = UIs.objects.filter(folder__in=folders).values(
             "name",
             folderName=F("folder__name"),
         )
 
-        output = {k: [] for k in folders}
+        output = {k: [] for k in folders.values_list("name", flat=True)}
         for x in uis:
-            output[x["folderName"]].append(x["uiName"])
+            output[x["folderName"]].append(x["name"])
 
         return Response({"foldersAndUIs": output}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        utils.save_ui(request)
+        return Response({"result": "success"}, status=status.HTTP_201_CREATED)
 
 
 # class SavedFolderAndUIAPIView(APIView):
