@@ -14,6 +14,10 @@ def generic_create(table, kwargs):
     return new, was_created
 
 
+def generic_bulk_create(table, batch):
+    table.objects.bulk_create(batch, ignore_conflicts=True)
+
+
 def get_users_folders(user):
     return Folder.objects.filter(owner=user)
 
@@ -32,8 +36,11 @@ def save_module_collection(folder, ui, availableModules):
                     "name": moduleName,
                 },
             )
-            for objectName, v in moduleContents.items():
-                generic_create(Object, {"belongsTo": module, "name": objectName})
+            objects = [
+                Object(belongsTo=module, name=objectName)
+                for objectName in moduleContents.keys()
+            ]
+            generic_bulk_create(Object, objects)
 
 
 def save_ui(request):
