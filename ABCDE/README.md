@@ -12,3 +12,13 @@ The abcde_env is automatically activated after any of the above 3 batch files ar
 
 Activating the abcde_env:
 ```.\abcde_env.bat```
+
+
+## PostgreSQL setup
+Install PostgreSQL from here: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
+No need to install Stack Builder.
+Do not install pgadmin using the Postgres installer.
+Install pgadmin separately from https://www.pgadmin.org/download/pgadmin-4-windows/
+
+Next:
+```pip install psycopg2```
