@@ -215,6 +215,8 @@ export class Section {
       module: this.selected.moduleName,
       obj: this.selected.objName,
     };
+    output["enteredValues"] = this.enteredValues
+    output["enteredValuesHistory"] = this.history.enteredValues
     output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
     return output;
   };
