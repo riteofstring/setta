@@ -80,6 +80,24 @@ def save_module_collection(folder, ui, available_modules):
     object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
 
 
+def save_parameter_collection(folder, ui, available_parameters):
+    parameter_collections = [
+        ParameterCollection(folder=folder, originUI=ui, name=name)
+        for name in available_parameters.keys()
+    ]
+    parameter_collections = generic_bulk_create_and_return(
+        ParameterCollection, parameter_collections, ["folder", "originUI", "name"]
+    )
+
+    parameters = [
+        ParameterCollectionParameter(belongsTo=pc, name=name)
+        for pc in parameter_collections
+        for name in available_parameters[pc.name]["ParameterInfo"].keys()
+    ]
+
+    parameters = generic_bulk_create(ParameterCollectionParameter, parameters)
+
+
 def save_ui(request):
     user = request.user
     data = request.data
@@ -94,6 +112,6 @@ def save_ui(request):
     ui, _ = generic_create(UI, {"folder": folder, "name": ui_name})
 
     save_module_collection(folder, ui, ui_info["availableModules"])
-    # availableParameters = ui_info["availableParameters"]
+    save_parameter_collection(folder, ui, ui_info["availableParameters"])
 
     print("successs")
