@@ -1,5 +1,3 @@
-from django.db.models import Q
-
 from .models import (
     UI,
     Folder,
@@ -9,6 +7,8 @@ from .models import (
     ObjectParameter,
     ParameterCollection,
     ParameterCollectionParameter,
+    Section,
+    SectionCollection,
 )
 
 
@@ -98,6 +98,18 @@ def save_parameter_collection(folder, ui, available_parameters):
     parameters = generic_bulk_create(ParameterCollectionParameter, parameters)
 
 
+def save_section_collection(folder, ui, section_names, collection_name=None):
+    name = collection_name if collection_name is not None else ui.name
+    section_collection, _ = generic_create(
+        SectionCollection, {"folder": folder, "originUI": ui, "name": name}
+    )
+    sections = [
+        Section(originCollection=section_collection, name=name)
+        for name in section_names
+    ]
+    sections = generic_bulk_create(Section, sections)
+
+
 def save_ui(request):
     user = request.user
     data = request.data
@@ -113,5 +125,6 @@ def save_ui(request):
 
     save_module_collection(folder, ui, ui_info["availableModules"])
     save_parameter_collection(folder, ui, ui_info["availableParameters"])
+    save_section_collection(folder, ui, ui_info["sectionNames"])
 
     print("successs")
