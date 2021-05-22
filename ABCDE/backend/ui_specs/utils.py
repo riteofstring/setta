@@ -52,22 +52,25 @@ def save_module_collection(folder, ui, available_modules):
         Module, modules, ["originCollection", "name"]
     )
 
-    module_objects = [
-        Object(belongsTo=module, name=objectName)
+    mcs_and_modules = [
+        (mc, module)
         for mc in module_collections
         for module in modules.filter(originCollection=mc)
+    ]
+
+    module_objects = [
+        Object(belongsTo=module, name=objectName)
+        for (mc, module) in mcs_and_modules
         for objectName in available_modules[mc.name]["ModuleInfo"][module.name].keys()
     ]
 
-    # when ignore_conflicts is True, the returned objects don't have an id
     module_objects = generic_bulk_create_and_return(
         Object, module_objects, ["name", "belongsTo"]
     )
 
     object_parameters = [
         ObjectParameter(belongsTo=obj, name=p_name)
-        for mc in module_collections
-        for module in modules.filter(originCollection=mc)
+        for (mc, module) in mcs_and_modules
         for obj in module_objects.filter(belongsTo=module)
         for p_name in available_modules[mc.name]["ModuleInfo"][module.name][
             obj.name
