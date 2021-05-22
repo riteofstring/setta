@@ -34,36 +34,47 @@ def get_users_folders(user):
 
 
 def save_module_collection(folder, ui, available_modules):
-    for name, contents in available_modules.items():
-        module_collection, _ = generic_create(
-            ModuleCollection, {"folder": folder, "originUI": ui, "name": name}
-        )
-        for module_name, module_contents in contents["ModuleInfo"].items():
-            module, _ = generic_create(
-                Module,
-                {
-                    "folder": folder,
-                    "originCollection": module_collection,
-                    "name": module_name,
-                },
-            )
-            module_objects = [
-                Object(belongsTo=module, name=objectName)
-                for objectName in module_contents.keys()
-            ]
+    module_collections = [
+        ModuleCollection(folder=folder, originUI=ui, name=name)
+        for name in available_modules.keys()
+    ]
+    module_collections = generic_bulk_create_and_return(
+        ModuleCollection, module_collections, ["folder", "originUI", "name"]
+    )
 
-            # when ignore_conflicts is True, the returned objects don't have an id
-            module_objects = generic_bulk_create_and_return(
-                Object, module_objects, ["name", "belongsTo"]
-            )
+    modules = [
+        Module(folder=folder, originCollection=mc, name=name)
+        for mc in module_collections
+        for name in available_modules[mc.name]["ModuleInfo"].keys()
+    ]
 
-            object_parameters = [
-                ObjectParameter(belongsTo=obj, name=p_name)
-                for obj in module_objects
-                for p_name in module_contents[obj.name].keys()
-            ]
+    modules = generic_bulk_create_and_return(
+        Module, modules, ["originCollection", "name"]
+    )
 
-            object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
+    module_objects = [
+        Object(belongsTo=module, name=objectName)
+        for mc in module_collections
+        for module in modules.filter(originCollection=mc)
+        for objectName in available_modules[mc.name]["ModuleInfo"][module.name].keys()
+    ]
+
+    # when ignore_conflicts is True, the returned objects don't have an id
+    module_objects = generic_bulk_create_and_return(
+        Object, module_objects, ["name", "belongsTo"]
+    )
+
+    object_parameters = [
+        ObjectParameter(belongsTo=obj, name=p_name)
+        for mc in module_collections
+        for module in modules.filter(originCollection=mc)
+        for obj in module_objects.filter(belongsTo=module)
+        for p_name in available_modules[mc.name]["ModuleInfo"][module.name][
+            obj.name
+        ].keys()
+    ]
+
+    object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
 
 
 def save_ui(request):
