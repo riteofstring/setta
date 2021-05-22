@@ -22,3 +22,13 @@ Install pgadmin separately from https://www.pgadmin.org/download/pgadmin-4-windo
 
 Next:
 ```pip install psycopg2```
+
+To start the database service:
+```.\start_postgres.bat```
+
+To stop the database service:
+```.\kill_postgres.bat```
+
+
+# Starting django + postgres
+```.\start_everything.bat```

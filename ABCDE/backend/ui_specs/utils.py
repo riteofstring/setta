@@ -6,6 +6,7 @@ from .models import (
     Module,
     ModuleCollection,
     Object,
+    ObjectParameter,
     ParameterCollection,
     ParameterCollectionParameter,
 )
@@ -17,7 +18,7 @@ def generic_create(table, kwargs):
 
 
 def generic_bulk_create(table, batch):
-    return table.objects.bulk_create(batch)
+    return table.objects.bulk_create(batch, ignore_conflicts=True)
 
 
 def get_users_folders(user):
@@ -42,9 +43,26 @@ def save_module_collection(folder, ui, available_modules):
                 Object(belongsTo=module, name=objectName)
                 for objectName in module_contents.keys()
             ]
-            # print(Object.objects.filter()
+
+            # when ignore_conflicts is True, the returned objects don't have an id
             module_objects = generic_bulk_create(Object, module_objects)
-            print("module_objects", module_objects)
+
+            module_object_names, module_object_belongs_to = zip(
+                *[(obj.name, obj.belongsTo) for obj in module_objects]
+            )
+
+            # so we have to run a query to get the objects again but with ids
+            module_objects = Object.objects.filter(
+                name__in=module_object_names, belongsTo__in=module_object_belongs_to
+            )
+
+            object_parameters = [
+                ObjectParameter(belongsTo=obj, name=p_name)
+                for obj in module_objects
+                for p_name in module_contents[obj.name].keys()
+            ]
+
+            object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
 
 
 def save_ui(request):

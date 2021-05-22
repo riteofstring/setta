@@ -1,0 +1,1 @@
+call abcde_env.bat & call start_postgres.bat & call start_server.bat
