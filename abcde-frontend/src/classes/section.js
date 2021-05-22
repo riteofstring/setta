@@ -211,6 +211,10 @@ export class Section {
   exportSaveableInfo = () => {
     let output = {};
     output["name"] = this.name;
+    output["selected"] = {
+      module: this.selected.moduleName,
+      obj: this.selected.objName,
+    };
     output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
     return output;
   };
