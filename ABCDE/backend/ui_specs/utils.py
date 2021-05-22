@@ -3,6 +3,7 @@ from .models import (
     Folder,
     Module,
     ModuleCollection,
+    ModuleObjectSelection,
     Object,
     ObjectParameter,
     ParameterCollection,
@@ -15,6 +16,13 @@ from .models import (
     UIParameterCollection,
     UISectionCollection,
 )
+
+
+def try_get(table, kwargs):
+    try:
+        return table.objects.get(**kwargs)
+    except table.DoesNotExist:
+        return None
 
 
 def generic_create(table, kwargs):
@@ -84,7 +92,7 @@ def save_module_collection(folder, ui, available_modules):
 
     object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
 
-    return module_collections
+    return module_collections, modules, module_objects
 
 
 def save_parameter_collection(folder, ui, available_parameters):
@@ -126,6 +134,9 @@ def save_section_collection(
     created_sections = generic_bulk_create_and_return(
         Section, created_sections, ["originCollection", "name"]
     )
+
+    section_x_collections = {}
+
     for table, foreign_table, key, dict_key in [
         (SectionModuleCollection, module_collections, "availableModules", "modules"),
         (
@@ -147,9 +158,11 @@ def save_section_collection(
             for collection_name in se[dict_key]
         ]
 
-        x = generic_bulk_create(table, x)
+        section_x_collections[dict_key] = generic_bulk_create_and_return(
+            table, x, ["originSection", key]
+        )
 
-    return section_collection
+    return section_collection, created_sections, section_x_collections
 
 
 def save_ui_contents(
@@ -161,7 +174,45 @@ def save_ui_contents(
         (UIParameterCollection, parameter_collections, "availableParameters"),
     ]:
         to_be_created = [table(**{"originUI": ui, key: c}) for c in collection]
-        x = generic_bulk_create(table, to_be_created)
+        generic_bulk_create(table, to_be_created)
+
+
+def save_selections(
+    sections,
+    created_sections,
+    section_x_collections,
+    module_collections,
+    modules,
+    module_objects,
+):
+    for se in sections.values():
+        selected = se["selected"]
+        selected_module = selected.get("module", None)
+        if not selected_module:
+            continue
+        originSection = created_sections.get(name=se["name"])
+        mc = module_collections.filter(
+            id__in=section_x_collections["modules"]
+            .filter(originSection=originSection)
+            .values_list("availableModules", flat=True)
+        )
+        selectedModule = modules.get(name=selected["module"], originCollection__in=mc)
+        selectedObject = module_objects.get(
+            name=selected["obj"], belongsTo=selectedModule
+        )
+        x_kwargs = {
+            "name": se["name"],
+            "originSection": originSection,
+        }
+        x = try_get(ModuleObjectSelection, x_kwargs)
+        if x:
+            x.selectedModule = selectedModule
+            x.selectedObject = selectedObject
+            x.save()
+        else:
+            x_kwargs["selectedModule"] = selectedModule
+            x_kwargs["selectedObject"] = selectedObject
+            generic_create(ModuleObjectSelection, x_kwargs)
 
 
 def save_ui(request):
@@ -177,14 +228,29 @@ def save_ui(request):
     ui_name = ui_info["name"]
     ui, _ = generic_create(UI, {"folder": folder, "name": ui_name})
 
-    module_collections = save_module_collection(folder, ui, ui_info["availableModules"])
+    module_collections, modules, module_objects = save_module_collection(
+        folder, ui, ui_info["availableModules"]
+    )
     parameter_collections = save_parameter_collection(
         folder, ui, ui_info["availableParameters"]
     )
-    section_collection = save_section_collection(
+    (
+        section_collection,
+        created_sections,
+        section_x_collections,
+    ) = save_section_collection(
         folder, ui, ui_info["sections"], module_collections, parameter_collections
     )
     save_ui_contents(
         ui, [section_collection], module_collections, parameter_collections
     )
+    save_selections(
+        ui_info["sections"],
+        created_sections,
+        section_x_collections,
+        module_collections,
+        modules,
+        module_objects,
+    )
+
     print("successs")
