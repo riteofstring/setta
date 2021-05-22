@@ -11,6 +11,9 @@ from .models import (
     SectionCollection,
     SectionModuleCollection,
     SectionParameterCollection,
+    UIModuleCollection,
+    UIParameterCollection,
+    UISectionCollection,
 )
 
 
@@ -146,6 +149,20 @@ def save_section_collection(
 
         x = generic_bulk_create(table, x)
 
+    return section_collection
+
+
+def save_ui_contents(
+    ui, section_collections, module_collections, parameter_collections
+):
+    for table, collection, key in [
+        (UISectionCollection, section_collections, "sections"),
+        (UIModuleCollection, module_collections, "availableModules"),
+        (UIParameterCollection, parameter_collections, "availableParameters"),
+    ]:
+        to_be_created = [table(**{"originUI": ui, key: c}) for c in collection]
+        x = generic_bulk_create(table, to_be_created)
+
 
 def save_ui(request):
     user = request.user
@@ -164,7 +181,10 @@ def save_ui(request):
     parameter_collections = save_parameter_collection(
         folder, ui, ui_info["availableParameters"]
     )
-    save_section_collection(
+    section_collection = save_section_collection(
         folder, ui, ui_info["sections"], module_collections, parameter_collections
+    )
+    save_ui_contents(
+        ui, [section_collection], module_collections, parameter_collections
     )
     print("successs")

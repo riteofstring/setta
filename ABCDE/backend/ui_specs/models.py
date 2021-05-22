@@ -154,22 +154,42 @@ class ModuleObjectSelection(models.Model):
         ]
 
 
-class UIContent(models.Model):
+class UISectionCollection(models.Model):
     originUI = models.ForeignKey(UI, on_delete=models.CASCADE)
-    sections = models.ForeignKey(
-        SectionCollection, on_delete=models.SET_NULL, null=True
-    )
-    availableModules = models.ForeignKey(
-        ModuleCollection, on_delete=models.SET_NULL, null=True
-    )
+    sections = models.ForeignKey(SectionCollection, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["originUI", "sections"], name="ui_section_collection_unique"
+            )
+        ]
+
+
+class UIModuleCollection(models.Model):
+    originUI = models.ForeignKey(UI, on_delete=models.CASCADE)
+    availableModules = models.ForeignKey(ModuleCollection, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["originUI", "availableModules"],
+                name="ui_module_collection_unique",
+            )
+        ]
+
+
+class UIParameterCollection(models.Model):
+    originUI = models.ForeignKey(UI, on_delete=models.CASCADE)
     availableParameters = models.ForeignKey(
-        ParameterCollection, on_delete=models.SET_NULL, null=True
+        ParameterCollection, on_delete=models.CASCADE
     )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["originUI"], name="ui_content_unique_origin"
+                fields=["originUI", "availableParameters"],
+                name="ui_parameter_collection_unique",
             )
         ]
 
