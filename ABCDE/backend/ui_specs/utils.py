@@ -21,6 +21,14 @@ def generic_bulk_create(table, batch):
     return table.objects.bulk_create(batch, ignore_conflicts=True)
 
 
+def generic_bulk_create_and_return(table, batch, properties):
+    objs = generic_bulk_create(table, batch)
+    obj_properties = zip(*[[getattr(obj, p) for p in properties] for obj in objs])
+    obj_properties = list(obj_properties)
+    kwargs = {f"{p}__in": obj_properties[i] for i, p in enumerate(properties)}
+    return table.objects.filter(**kwargs)
+
+
 def get_users_folders(user):
     return Folder.objects.filter(owner=user)
 
@@ -45,15 +53,8 @@ def save_module_collection(folder, ui, available_modules):
             ]
 
             # when ignore_conflicts is True, the returned objects don't have an id
-            module_objects = generic_bulk_create(Object, module_objects)
-
-            module_object_names, module_object_belongs_to = zip(
-                *[(obj.name, obj.belongsTo) for obj in module_objects]
-            )
-
-            # so we have to run a query to get the objects again but with ids
-            module_objects = Object.objects.filter(
-                name__in=module_object_names, belongsTo__in=module_object_belongs_to
+            module_objects = generic_bulk_create_and_return(
+                Object, module_objects, ["name", "belongsTo"]
             )
 
             object_parameters = [
