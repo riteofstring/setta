@@ -222,20 +222,40 @@ class ParameterCollectionParameter(models.Model):
         ]
 
 
+class EnteredValueCollection(models.Model):
+    name = models.TextField()
+    originUI = models.ForeignKey(UI, on_delete=models.SET_NULL, null=True)
+    folder = models.ForeignKey(Folder, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "folder", "originUI"],
+                name="entered_value_collection_unique",
+            )
+        ]
+
+
 class ObjectParameterEnteredValue(models.Model):
+    originCollection = models.ForeignKey(
+        EnteredValueCollection, on_delete=models.CASCADE
+    )
     parameter = models.ForeignKey(ObjectParameter, on_delete=models.CASCADE)
     value = models.TextField()
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["parameter"],
+                fields=["parameter", "originCollection"],
                 name="object_parameter_entered_value_unique_parameter",
             )
         ]
 
 
 class ParameterCollectionParameterEnteredValue(models.Model):
+    originCollection = models.ForeignKey(
+        EnteredValueCollection, on_delete=models.CASCADE
+    )
     parameter = models.ForeignKey(
         ParameterCollectionParameter, on_delete=models.CASCADE
     )
@@ -244,7 +264,7 @@ class ParameterCollectionParameterEnteredValue(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["parameter"],
+                fields=["parameter", "originCollection"],
                 name="parameter_collection_parameter_entered_value_unique_parameter",
             )
         ]

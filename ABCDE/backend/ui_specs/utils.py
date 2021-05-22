@@ -1,11 +1,13 @@
 from .models import (
     UI,
+    EnteredValueCollection,
     Folder,
     Module,
     ModuleCollection,
     ModuleObjectSelection,
     Object,
     ObjectParameter,
+    ObjectParameterEnteredValue,
     ParameterCollection,
     ParameterCollectionParameter,
     Section,
@@ -90,9 +92,11 @@ def save_module_collection(folder, ui, available_modules):
         ].keys()
     ]
 
-    object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
+    object_parameters = generic_bulk_create_and_return(
+        ObjectParameter, object_parameters, ["belongsTo", "name"]
+    )
 
-    return module_collections, modules, module_objects
+    return module_collections, modules, module_objects, object_parameters
 
 
 def save_parameter_collection(folder, ui, available_parameters):
@@ -110,9 +114,11 @@ def save_parameter_collection(folder, ui, available_parameters):
         for name in available_parameters[pc.name]["ParameterInfo"].keys()
     ]
 
-    parameters = generic_bulk_create(ParameterCollectionParameter, parameters)
+    parameters = generic_bulk_create_and_return(
+        ParameterCollectionParameter, parameters, ["belongsTo", "name"]
+    )
 
-    return parameter_collections
+    return parameter_collections, parameters
 
 
 def save_section_collection(
@@ -185,6 +191,7 @@ def save_selections(
     modules,
     module_objects,
 ):
+    selected_objects = {}
     for se in sections.values():
         selected = se["selected"]
         selected_module = selected.get("module", None)
@@ -196,9 +203,9 @@ def save_selections(
             .filter(originSection=originSection)
             .values_list("availableModules", flat=True)
         )
-        selectedModule = modules.get(name=selected["module"], originCollection__in=mc)
-        selectedObject = module_objects.get(
-            name=selected["obj"], belongsTo=selectedModule
+        selected_module = modules.get(name=selected["module"], originCollection__in=mc)
+        selected_object = module_objects.get(
+            name=selected["obj"], belongsTo=selected_module
         )
         x_kwargs = {
             "name": se["name"],
@@ -206,13 +213,37 @@ def save_selections(
         }
         x = try_get(ModuleObjectSelection, x_kwargs)
         if x:
-            x.selectedModule = selectedModule
-            x.selectedObject = selectedObject
+            x.selectedModule = selected_module
+            x.selectedObject = selected_object
             x.save()
         else:
-            x_kwargs["selectedModule"] = selectedModule
-            x_kwargs["selectedObject"] = selectedObject
+            x_kwargs["selectedModule"] = selected_module
+            x_kwargs["selectedObject"] = selected_object
             generic_create(ModuleObjectSelection, x_kwargs)
+        selected_objects[se["name"]] = selected_object
+    return selected_objects
+
+
+def save_entered_values(ui, folder, sections, selected_objects, object_parameters):
+    entered_value_collection, _ = generic_create(
+        EnteredValueCollection, {"name": ui.name, "folder": folder, "originUI": ui}
+    )
+    for se in sections.values():
+        entered_values = se["enteredValues"]
+        if not entered_values:
+            continue
+        selected_object = selected_objects[se["name"]]
+        to_be_created = [
+            ObjectParameterEnteredValue(
+                originCollection=entered_value_collection,
+                parameter=object_parameters.get(
+                    name=param_name, belongsTo=selected_object
+                ),
+                value=param_value,
+            )
+            for param_name, param_value in entered_values.items()
+        ]
+        generic_bulk_create(ObjectParameterEnteredValue, to_be_created)
 
 
 def save_ui(request):
@@ -228,12 +259,17 @@ def save_ui(request):
     ui_name = ui_info["name"]
     ui, _ = generic_create(UI, {"folder": folder, "name": ui_name})
 
-    module_collections, modules, module_objects = save_module_collection(
-        folder, ui, ui_info["availableModules"]
-    )
-    parameter_collections = save_parameter_collection(
+    (
+        module_collections,
+        modules,
+        module_objects,
+        object_parameters,
+    ) = save_module_collection(folder, ui, ui_info["availableModules"])
+
+    parameter_collections, parameters = save_parameter_collection(
         folder, ui, ui_info["availableParameters"]
     )
+
     (
         section_collection,
         created_sections,
@@ -241,16 +277,22 @@ def save_ui(request):
     ) = save_section_collection(
         folder, ui, ui_info["sections"], module_collections, parameter_collections
     )
+
     save_ui_contents(
         ui, [section_collection], module_collections, parameter_collections
     )
-    save_selections(
+
+    selected_objects = save_selections(
         ui_info["sections"],
         created_sections,
         section_x_collections,
         module_collections,
         modules,
         module_objects,
+    )
+
+    save_entered_values(
+        ui, folder, ui_info["sections"], selected_objects, object_parameters
     )
 
     print("successs")
