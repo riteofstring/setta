@@ -5,7 +5,10 @@ import { Section } from "../classes/section";
 import { Sections } from "../classes/sections";
 import { NO_AUTH } from "../utils/constants";
 import { generateAndRunCode } from "../dbRequests/ui";
-import { setEntireState as setEntireStateFunc, recursivelyGetAllNonFunctions } from "../utils/commonFunctions";
+import {
+  setEntireState as setEntireStateFunc,
+  recursivelyGetAllNonFunctions,
+} from "../utils/commonFunctions";
 import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 
 const master = {
@@ -17,7 +20,7 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    console.log("master payload", payload)
+    console.log("master payload", payload);
     state.sections = new Sections();
     state.sections.available = {
       modules: payload.MODULES,
@@ -122,14 +125,14 @@ const master = {
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
-    return createExportableObject(helpers.getState().sections)
+    return createExportableObject(helpers.getState().sections);
   }),
 
   exportSaveableInfo: thunk((action, payload, helpers) => {
-    const state = helpers.getState()
-    return {availableModules: state.sections.available["modules"], availableParameters: state.sections.available["parameters"]}
+    const state = helpers.getState();
+    const sections = state.sections;
+    return sections.exportSaveableInfo();
   }),
-
 
   // runSelected: thunk(async (action, payload, helpers) => {
   //   const { selected } = payload;

@@ -1,15 +1,25 @@
 import { allDefined } from "../utils/utils";
 import { combineModules, combineParameters } from "../utils/utils";
 
-export const createJson = (specs, available) => {
+export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
-    return combineModules(available.modules, specs);
-  } else {
-    return {
-      ...combineModules(available.modules, specs["modules"]),
-      ...combineParameters(available.parameters, specs["parameters"]),
-    };
+    return { modules: specs };
   }
+  return specs;
+};
+
+export const createJson = (specs, available) => {
+  const sp = convertSpecsToDict(specs);
+  let output = {};
+  for (let x of [
+    ["modules", available.modules, combineModules],
+    ["parameters", available.parameters, combineParameters],
+  ]) {
+    if (x[0] in sp) {
+      output = { ...output, ...x[2](x[1], sp[x[0]]) };
+    }
+  }
+  return output;
 };
 
 const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
@@ -131,9 +141,8 @@ export class SectionInfo {
 
   setParamData = (moduleName, objName, paramName, dataName, value) => {
     if (allDefined(moduleName, objName)) {
-      this.moduleInfos[moduleName].objs[objName].params[paramName][
-        dataName
-      ] = value;
+      this.moduleInfos[moduleName].objs[objName].params[paramName][dataName] =
+        value;
     } else {
       this.parameterInfos[paramName][dataName] = value;
     }

@@ -1,5 +1,5 @@
 import { insertIntoArray, flattenDictOfArrays } from "../utils/utils";
-import { createJson } from "./jsonParser";
+import { createJson, convertSpecsToDict } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { History } from "./history";
@@ -206,5 +206,12 @@ export class Section {
         delete this[s][oldParam];
       }
     }
+  };
+
+  exportSaveableInfo = () => {
+    let output = {};
+    output["name"] = this.name;
+    output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
+    return output;
   };
 }

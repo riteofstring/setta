@@ -277,12 +277,15 @@ export class Sections {
     }
   };
 
-  // exportSaveableInfo = () => {
-  //   const output = {}
-  //   output["sections"] = 
-  //   output["available"] = {};
-  //   this.allChildrenIds = [];
-  //   this.allChildrenNames = [];
-  //   this.latestId = 0;
-  // };
+  exportSaveableInfo = () => {
+    const sectionsOutput = {};
+    for (let key of Object.keys(this.sections)) {
+      sectionsOutput[key] = this.sections[key].exportSaveableInfo();
+    }
+    const output = {};
+    output["sections"] = sectionsOutput;
+    output["availableModules"] = this.available.modules;
+    output["availableParameters"] = this.available.parameters;
+    return output
+  };
 }
