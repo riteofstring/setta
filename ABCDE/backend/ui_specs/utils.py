@@ -9,6 +9,8 @@ from .models import (
     ParameterCollectionParameter,
     Section,
     SectionCollection,
+    SectionModuleCollection,
+    SectionParameterCollection,
 )
 
 
@@ -79,6 +81,8 @@ def save_module_collection(folder, ui, available_modules):
 
     object_parameters = generic_bulk_create(ObjectParameter, object_parameters)
 
+    return module_collections
+
 
 def save_parameter_collection(folder, ui, available_parameters):
     parameter_collections = [
@@ -97,17 +101,50 @@ def save_parameter_collection(folder, ui, available_parameters):
 
     parameters = generic_bulk_create(ParameterCollectionParameter, parameters)
 
+    return parameter_collections
 
-def save_section_collection(folder, ui, section_names, collection_name=None):
-    name = collection_name if collection_name is not None else ui.name
+
+def save_section_collection(
+    folder,
+    ui,
+    sections,
+    module_collections,
+    parameter_collections,
+    section_collection_name=None,
+):
+    name = section_collection_name if section_collection_name is not None else ui.name
     section_collection, _ = generic_create(
         SectionCollection, {"folder": folder, "originUI": ui, "name": name}
     )
-    sections = [
-        Section(originCollection=section_collection, name=name)
-        for name in section_names
+    created_sections = [
+        Section(originCollection=section_collection, name=se["name"])
+        for se in sections.values()
     ]
-    sections = generic_bulk_create(Section, sections)
+    created_sections = generic_bulk_create_and_return(
+        Section, created_sections, ["originCollection", "name"]
+    )
+    for table, foreign_table, key, dict_key in [
+        (SectionModuleCollection, module_collections, "availableModules", "modules"),
+        (
+            SectionParameterCollection,
+            parameter_collections,
+            "availableParameters",
+            "parameters",
+        ),
+    ]:
+        x = [
+            table(
+                **{
+                    "originSection": created_sections.get(name=se["name"]),
+                    key: foreign_table.get(name=collection_name),
+                }
+            )
+            for se in sections.values()
+            if se.get(dict_key, None)
+            for collection_name in se[dict_key]
+        ]
+
+        x = generic_bulk_create(table, x)
 
 
 def save_ui(request):
@@ -123,8 +160,11 @@ def save_ui(request):
     ui_name = ui_info["name"]
     ui, _ = generic_create(UI, {"folder": folder, "name": ui_name})
 
-    save_module_collection(folder, ui, ui_info["availableModules"])
-    save_parameter_collection(folder, ui, ui_info["availableParameters"])
-    save_section_collection(folder, ui, ui_info["sectionNames"])
-
+    module_collections = save_module_collection(folder, ui, ui_info["availableModules"])
+    parameter_collections = save_parameter_collection(
+        folder, ui, ui_info["availableParameters"]
+    )
+    save_section_collection(
+        folder, ui, ui_info["sections"], module_collections, parameter_collections
+    )
     print("successs")

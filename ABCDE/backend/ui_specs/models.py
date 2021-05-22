@@ -107,20 +107,30 @@ class Section(models.Model):
         ]
 
 
-class SectionContent(models.Model):
-    name = models.TextField()
-    originSection = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True)
-    availableModules = models.ForeignKey(
-        ModuleCollection, on_delete=models.SET_NULL, null=True
-    )
+class SectionModuleCollection(models.Model):
+    originSection = models.ForeignKey(Section, on_delete=models.CASCADE)
+    availableModules = models.ForeignKey(ModuleCollection, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["originSection", "availableModules"],
+                name="section_module_collection_unique",
+            )
+        ]
+
+
+class SectionParameterCollection(models.Model):
+    originSection = models.ForeignKey(Section, on_delete=models.CASCADE)
     availableParameters = models.ForeignKey(
-        ParameterCollection, on_delete=models.SET_NULL, null=True
+        ParameterCollection, on_delete=models.CASCADE
     )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "originSection"], name="section_content_unique_name"
+                fields=["originSection", "availableParameters"],
+                name="section_parameter_collection_unique",
             )
         ]
 
@@ -129,7 +139,7 @@ class ModuleObjectSelection(models.Model):
     name = models.TextField()
     selectedModule = models.ForeignKey(Module, on_delete=models.CASCADE)
     selectedObject = models.ForeignKey(Object, on_delete=models.CASCADE)
-    originSectionContent = models.ForeignKey(SectionContent, on_delete=models.CASCADE)
+    originSection = models.ForeignKey(Section, on_delete=models.CASCADE)
     children = models.ForeignKey(
         SectionCollection,
         on_delete=models.SET_NULL,
@@ -139,7 +149,7 @@ class ModuleObjectSelection(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "originSectionContent"], name="selection_unique_name"
+                fields=["name", "originSection"], name="selection_unique_name"
             )
         ]
 
