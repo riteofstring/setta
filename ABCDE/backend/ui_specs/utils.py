@@ -10,6 +10,7 @@ from .models import (
     ObjectParameterEnteredValue,
     ParameterCollection,
     ParameterCollectionParameter,
+    ParameterCollectionParameterEnteredValue,
     Section,
     SectionCollection,
     SectionModuleCollection,
@@ -224,7 +225,17 @@ def save_selections(
     return selected_objects
 
 
-def save_entered_values(ui, folder, sections, selected_objects, object_parameters):
+def save_entered_values(
+    ui,
+    folder,
+    sections,
+    created_sections,
+    selected_objects,
+    object_parameters,
+    section_x_collections,
+    parameter_collections,
+    parameters,
+):
     entered_value_collection, _ = generic_create(
         EnteredValueCollection, {"name": ui.name, "folder": folder, "originUI": ui}
     )
@@ -232,18 +243,36 @@ def save_entered_values(ui, folder, sections, selected_objects, object_parameter
         entered_values = se["enteredValues"]
         if not entered_values:
             continue
-        selected_object = selected_objects[se["name"]]
-        to_be_created = [
-            ObjectParameterEnteredValue(
-                originCollection=entered_value_collection,
-                parameter=object_parameters.get(
-                    name=param_name, belongsTo=selected_object
-                ),
-                value=param_value,
+        selected_object = selected_objects.get(se["name"], None)
+        if not selected_object:
+            originSection = created_sections.get(name=se["name"])
+            pc = parameter_collections.filter(
+                id__in=section_x_collections["parameters"]
+                .filter(originSection=originSection)
+                .values_list("availableParameters", flat=True)
             )
-            for param_name, param_value in entered_values.items()
-        ]
-        generic_bulk_create(ObjectParameterEnteredValue, to_be_created)
+            to_be_created = [
+                ParameterCollectionParameterEnteredValue(
+                    originCollection=entered_value_collection,
+                    parameter=parameters.get(name=param_name, belongsTo__in=pc),
+                    value=param_value,
+                )
+                for param_name, param_value in entered_values.items()
+            ]
+            generic_bulk_create(ParameterCollectionParameterEnteredValue, to_be_created)
+
+        else:
+            to_be_created = [
+                ObjectParameterEnteredValue(
+                    originCollection=entered_value_collection,
+                    parameter=object_parameters.get(
+                        name=param_name, belongsTo=selected_object
+                    ),
+                    value=param_value,
+                )
+                for param_name, param_value in entered_values.items()
+            ]
+            generic_bulk_create(ObjectParameterEnteredValue, to_be_created)
 
 
 def save_ui(request):
@@ -292,7 +321,15 @@ def save_ui(request):
     )
 
     save_entered_values(
-        ui, folder, ui_info["sections"], selected_objects, object_parameters
+        ui,
+        folder,
+        ui_info["sections"],
+        created_sections,
+        selected_objects,
+        object_parameters,
+        section_x_collections,
+        parameter_collections,
+        parameters,
     )
 
     print("successs")
