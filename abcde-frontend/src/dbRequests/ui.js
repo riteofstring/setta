@@ -27,9 +27,17 @@ export const saveUI = ({ token, name, folder, ui }) => {
 };
 
 export const loadFolderAndUINames = ({ token }) => {
+  const query = `{
+    allFolders {
+      name
+      owner {
+        id
+      }
+    }
+  }`
   return axios
-    .get(BACKEND + "api/foldersAndUIs", tokenConfig(token))
-    .then((res) => res.data["foldersAndUIs"])
+    .post(BACKEND + "graphql", JSON.stringify({query: query}), tokenConfig(token))
+    .then((res) => res.data.data)
     .catch((err) => {});
 };
 

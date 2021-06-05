@@ -22,7 +22,9 @@ const uiInfo = {
   loadFolderAndUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
     const uiNames = await loadFolderAndUINamesBackend({ token });
-    action.setLoadedFolderAndUINames(uiNames);
+    console.log("uiNames", uiNames)
+
+    // action.setLoadedFolderAndUINames(uiNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
