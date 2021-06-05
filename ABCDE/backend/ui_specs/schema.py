@@ -1,34 +1,64 @@
 import graphene
+from django.db.models import F
 from graphene_django import DjangoObjectType
 
-from .models import Module, Object
+from . import utils
+from .models import UI, Folder, ModuleCollection
 
 
-class ModuleType(DjangoObjectType):
+class UIType(DjangoObjectType):
     class Meta:
-        model = Module
-        fields = ("id", "name", "folder", "originCollection")
+        model = UI
+        fields = ("name",)
 
 
-class ObjectType(DjangoObjectType):
+class ModuleCollectionType(DjangoObjectType):
     class Meta:
-        model = Object
-        fields = ("id", "name", "belongsTo")
+        model = ModuleCollection
+        fields = ("name",)
+
+
+class FolderType(DjangoObjectType):
+    class Meta:
+        model = Folder
+        fields = ("name",)
+
+    uis = graphene.List(UIType)
+    module_collections = graphene.List(ModuleCollectionType)
+
+    def resolve_uis(self, info):
+        return UI.objects.filter(folder__name=self.name)
+
+    def resolve_module_collections(self, info):
+        return ModuleCollection.objects.filter(folder__name=self.name)
 
 
 class Query(graphene.ObjectType):
-    all_objects = graphene.List(ObjectType)
-    module_by_name = graphene.Field(ModuleType, name=graphene.String(required=True))
+    all_folders = graphene.List(FolderType)
 
-    def resolve_all_objects(root, info):
-        # We can easily optimize query count in the resolve method
-        return Object.objects.select_related("belongsTo").all()
+    def resolve_all_folders(root, info):
+        return Folder.objects.filter(owner=info.context.user)
 
-    def resolve_module_by_name(root, info, name):
-        try:
-            return Module.objects.get(name=name)
-        except Module.DoesNotExist:
-            return None
+
+# class ModuleMutation(graphene.Mutation):
+#     class Arguments:
+#         # The input arguments for this mutation
+#         name = graphene.String(required=True)
+
+#     # The class attributes define the response of the mutation
+#     module = graphene.Field(ModuleType)
+
+#     @classmethod
+#     def mutate(cls, root, info, name):
+#         module = Module.objects.get(name=name)
+#         # question.text = text
+#         # question.save()
+#         # Notice we return an instance of this mutation
+#         return ModuleMutation(module=module)
+
+
+# class Mutation(graphene.ObjectType):
+#     update_module = ModuleMutation.Field()
 
 
 schema = graphene.Schema(query=Query)
