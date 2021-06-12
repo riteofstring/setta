@@ -1,30 +1,23 @@
-from .base_models import (
-    get_base_folder_model,
-    get_base_model,
-    get_base_relationship_model,
-    get_base_tag_model,
+from .base_models import get_base_model, get_base_relationship_model
+from .labels import get_base_folder_model, get_base_tag_model
+
+SectionCollection = get_base_model("SectionCollection", "section_collection_unique")
+
+
+SectionCollectionRelationship = get_base_relationship_model(
+    "SectionCollectionRelationship",
+    SectionCollection,
+    "section_collection_relationship_unique",
+    single_parent=True,
 )
 
 
-class SectionCollection(get_base_model("section_collection_unique")):
-    pass
+SectionCollectionFolder = get_base_folder_model(
+    "SectionCollectionFolder",
+    SectionCollection,
+    "section_collection_folder_unique",
+)
 
-
-class SectionCollectionRelationship(
-    get_base_relationship_model(
-        SectionCollection, "section_collection_relationship_unique", single_parent=True
-    )
-):
-    pass
-
-
-class SectionCollectionFolder(
-    get_base_folder_model(SectionCollection, "section_collection_folder_unique")
-):
-    pass
-
-
-class SectionCollectionTag(
-    get_base_tag_model(SectionCollection, "section_collection_tag_unique")
-):
-    pass
+SectionCollectionTag = get_base_folder_model(
+    "SectionCollectionTag", SectionCollection, "section_collection_tag_unique"
+)

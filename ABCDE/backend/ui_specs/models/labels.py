@@ -1,22 +1,19 @@
 from django.contrib.auth.models import User
 from django.db import models
 
+from .base_models import get_base_model, get_base_relationship_model
 
-class Folder(models.Model):
-    name = models.TextField()
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["owner", "name"], name="folder_unique_name")
-        ]
+Folder = get_base_model("Folder", "folder_unique")
+Tag = get_base_model("Tag", "tag_unique")
 
 
-class Tag(models.Model):
-    name = models.TextField()
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+def get_base_folder_model(name, table, constraint_name):
+    return get_base_relationship_model(
+        name, table, constraint_name, single_parent=False, parent_table=Folder
+    )
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["owner", "name"], name="tag_unique_name")
-        ]
+
+def get_base_tag_model(table, constraint_name):
+    return get_base_relationship_model(
+        name, table, constraint_name, single_parent=False, parent_table=Tag
+    )

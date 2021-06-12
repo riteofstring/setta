@@ -1,39 +1,28 @@
-from .base_models import (
-    get_base_folder_model,
-    get_base_model,
-    get_base_relationship_model,
-    get_base_tag_model,
-)
+from .base_models import get_base_model, get_base_relationship_model
+from .labels import get_base_folder_model, get_base_tag_model
 from .module import Module
 from .object_collection import ObjectCollection
 
-
-class Object(get_base_model("object_unique", parent_table=Module)):
-    pass
+Object = get_base_model("Object", "object_unique", parent_table=Module)
 
 
-class ObjectRelationship(
-    get_base_relationship_model(
-        Object, "object_relationship_unique", single_parent=True
-    )
-):
-    pass
+ObjectRelationship = get_base_relationship_model(
+    "ObjectRelationship",
+    Object,
+    "object_relationship_unique",
+    single_parent=True,
+)
 
 
-class ObjectFolder(get_base_folder_model(Object, "object_folder_unique")):
-    pass
+ObjectFolder = get_base_folder_model("ObjectFolder", Object, "object_folder_unique")
+
+ObjectTag = get_base_folder_model("ObjectTag", Object, "object_tag_unique")
 
 
-class ObjectTag(get_base_tag_model(Object, "object_tag_unique")):
-    pass
-
-
-class ObjectToObjectCollectionRelationship(
-    get_base_relationship_model(
-        Object,
-        "object_to_object_collection_relationship_unique",
-        parent_table=ObjectCollection,
-        single_parent=False,
-    )
-):
-    pass
+ObjectToObjectCollectionRelationship = get_base_relationship_model(
+    "ObjectToObjectCollectionRelationship",
+    Object,
+    "object_to_object_collection_relationship_unique",
+    parent_table=ObjectCollection,
+    single_parent=False,
+)

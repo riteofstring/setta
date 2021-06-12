@@ -1,30 +1,21 @@
-from .base_models import (
-    get_base_folder_model,
-    get_base_model,
-    get_base_relationship_model,
-    get_base_tag_model,
+from .base_models import get_base_model, get_base_relationship_model
+from .labels import get_base_folder_model, get_base_tag_model
+
+ModuleCollection = get_base_model("ModuleCollection", "module_collection_unique")
+
+
+ModuleCollectionRelationship = get_base_relationship_model(
+    "ModuleCollectionRelationship",
+    ModuleCollection,
+    "module_collection_relationship_unique",
+    single_parent=True,
 )
 
 
-class ModuleCollection(get_base_model("module_collection_unique")):
-    pass
+ModuleCollectionFolder = get_base_folder_model(
+    "ModuleCollectionFolder", ModuleCollection, "module_collection_folder_unique"
+)
 
-
-class ModuleCollectionRelationship(
-    get_base_relationship_model(
-        ModuleCollection, "module_collection_relationship_unique", single_parent=True
-    )
-):
-    pass
-
-
-class ModuleCollectionFolder(
-    get_base_folder_model(ModuleCollection, "module_collection_folder_unique")
-):
-    pass
-
-
-class ModuleCollectionTag(
-    get_base_tag_model(ModuleCollection, "module_collection_tag_unique")
-):
-    pass
+ModuleCollectionTag = get_base_folder_model(
+    "ModuleCollectionTag", ModuleCollection, "module_collection_tag_unique"
+)
