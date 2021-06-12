@@ -1,21 +1,8 @@
-from .base_models import get_base_model, get_base_relationship_model
-from .labels import get_base_folder_model, get_base_tag_model
+import sys
 
-ModuleCollection = get_base_model("ModuleCollection", "module_collection_unique")
+from .table_factory import table_factory
 
-
-ModuleCollectionRelationship = get_base_relationship_model(
-    "ModuleCollectionRelationship",
-    ModuleCollection,
-    "module_collection_relationship_unique",
-    single_parent=True,
-)
-
-
-ModuleCollectionFolder = get_base_folder_model(
-    "ModuleCollectionFolder", ModuleCollection, "module_collection_folder_unique"
-)
-
-ModuleCollectionTag = get_base_folder_model(
-    "ModuleCollectionTag", ModuleCollection, "module_collection_tag_unique"
-)
+thismodule = sys.modules[__name__]
+tables = table_factory("ModuleCollection")
+for k, v in tables.items():
+    setattr(thismodule, k, v)

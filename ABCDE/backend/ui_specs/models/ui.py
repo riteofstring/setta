@@ -1,21 +1,8 @@
-from .base_models import get_base_model, get_base_relationship_model
-from .labels import get_base_folder_model, get_base_tag_model
+import sys
 
-UI = get_base_model("UI", "ui_unique")
+from .table_factory import table_factory
 
-
-UIRelationship = get_base_relationship_model(
-    "UIRelationship",
-    UI,
-    "ui_relationship_unique",
-    single_parent=True,
-)
-
-
-UIFolder = get_base_folder_model(
-    "UIFolder",
-    UI,
-    "ui_folder_unique",
-)
-
-UITag = get_base_folder_model("UITag", UI, "ui_tag_unique")
+thismodule = sys.modules[__name__]
+tables = table_factory("UI")
+for k, v in tables.items():
+    setattr(thismodule, k, v)

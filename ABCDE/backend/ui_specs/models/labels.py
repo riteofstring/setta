@@ -13,7 +13,7 @@ def get_base_folder_model(name, table, constraint_name):
     )
 
 
-def get_base_tag_model(table, constraint_name):
+def get_base_tag_model(name, table, constraint_name):
     return get_base_relationship_model(
         name, table, constraint_name, single_parent=False, parent_table=Tag
     )
