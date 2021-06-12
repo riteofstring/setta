@@ -89,55 +89,56 @@ class Query(graphene.ObjectType):
         return Folder.objects.filter(owner=info.context.user)
 
 
-class ModuleInput(graphene.InputObjectType):
-    name = graphene.String(required=True)
+schema = graphene.Schema(query=Query)
+
+# class ModuleInput(graphene.InputObjectType):
+#     name = graphene.String(required=True)
 
 
-class ModuleCollectionInput(graphene.InputObjectType):
-    name = graphene.String(required=True)
-    modules = graphene.List(ModuleInput, required=True)
+# class ModuleCollectionInput(graphene.InputObjectType):
+#     name = graphene.String(required=True)
+#     modules = graphene.List(ModuleInput, required=True)
 
 
-class SectionInput(graphene.InputObjectType):
-    name = graphene.String(required=True)
+# class SectionInput(graphene.InputObjectType):
+#     name = graphene.String(required=True)
 
 
-class SectionCollectionInput(graphene.InputObjectType):
-    name = graphene.String(required=True)
-    sections = graphene.List(SectionInput, required=True)
+# class SectionCollectionInput(graphene.InputObjectType):
+#     name = graphene.String(required=True)
+#     sections = graphene.List(SectionInput, required=True)
 
 
-class UIInput(graphene.InputObjectType):
-    name = graphene.String(required=True)
-    section_collection = SectionCollectionInput(required=True)
-    module_collection = ModuleCollectionInput(required=True)
+# class UIInput(graphene.InputObjectType):
+#     name = graphene.String(required=True)
+#     section_collection = SectionCollectionInput(required=True)
+#     module_collection = ModuleCollectionInput(required=True)
 
 
-class FolderMutation(graphene.Mutation):
-    class Arguments:
-        # The input arguments for this mutation
-        folder_name = graphene.String()
-        ui = UIInput()
+# class FolderMutation(graphene.Mutation):
+#     class Arguments:
+#         # The input arguments for this mutation
+#         folder_name = graphene.String()
+#         ui = UIInput()
 
-    # The class attributes define the response of the mutation
-    folder = graphene.Field(FolderType)
+#     # The class attributes define the response of the mutation
+#     folder = graphene.Field(FolderType)
 
-    @classmethod
-    def mutate(cls, root, info, folder_name, ui):
-        print(ui)
-        folder, _ = utils.generic_create(
-            Folder, {"owner": info.context.user, "name": folder_name}
-        )
-        # question.text = text
-        # question.save()
-        # Notice we return an instance of this mutation
-        output = FolderMutation(folder=folder)
-        print("output", output)
-        return output
+#     @classmethod
+#     def mutate(cls, root, info, folder_name, ui):
+#         folder, _ = utils.generic_create(
+#             Folder, {"owner": info.context.user, "name": folder_name}
+#         )
+#         ui, _ = utils.generic_create(UI, {"folder": folder, "name": ui["name"]})
 
 
-class Mutation(graphene.ObjectType):
-    update_folder = FolderMutation.Field()
+#         # Notice we return an instance of this mutation
+#         output = FolderMutation(folder=folder)
+#         return output
 
 
-schema = graphene.Schema(query=Query, mutation=Mutation)
+# class Mutation(graphene.ObjectType):
+#     update_folder = FolderMutation.Field()
+
+
+# schema = graphene.Schema(query=Query, mutation=Mutation)
