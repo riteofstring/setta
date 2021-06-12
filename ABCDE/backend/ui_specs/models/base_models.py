@@ -2,21 +2,27 @@ from django.contrib.auth.models import User
 from django.db import models
 
 
-def get_base_model(name, constraint_name, parent_table=None):
+def get_base_model(name, constraint_name, parent_table=None, has_value=False):
 
     attrs = {}
     fields = ["name", "owner"]
+    attrs["name"] = models.TextField()
+    attrs["owner"] = models.ForeignKey(User, on_delete=models.CASCADE)
+
     if parent_table is not None:
         fields += ["parent"]
         attrs["parent"] = models.ForeignKey(parent_table, on_delete=models.CASCADE)
+
+    if has_value:
+        fields += ["owner"]
+        attrs["value"] = models.TextField(null=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=fields, name=constraint_name)]
 
     attrs["__module__"] = __name__
     attrs["Meta"] = Meta
-    attrs["name"] = models.TextField()
-    attrs["owner"] = models.ForeignKey(User, on_delete=models.CASCADE)
+
     return type(name, (models.Model,), attrs)
 
 

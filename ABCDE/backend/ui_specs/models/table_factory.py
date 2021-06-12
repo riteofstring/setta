@@ -2,10 +2,18 @@ from .base_models import get_base_model, get_base_relationship_model
 from .labels import get_base_folder_model, get_base_tag_model
 
 
-def table_factory(base_name, base_parent=None, additional_rel=None):
+def table_factory(
+    base_name,
+    base_parent=None,
+    base_has_value=False,
+    additional_rel=None,
+):
     output = {}
     output[base_name] = get_base_model(
-        base_name, f"{base_name}_unique", parent_table=base_parent
+        base_name,
+        f"{base_name}_unique",
+        parent_table=base_parent,
+        has_value=base_has_value,
     )
     base_obj = output[base_name]
 
