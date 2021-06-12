@@ -3,7 +3,15 @@ from django.db.models import F
 from graphene_django import DjangoObjectType
 
 from . import utils
-from .models import UI, Folder, ModuleCollection, ParameterCollection, SectionCollection
+from .models import (
+    UI,
+    Folder,
+    Module,
+    ModuleCollection,
+    Object,
+    ParameterCollection,
+    SectionCollection,
+)
 
 
 class UIType(DjangoObjectType):
@@ -30,6 +38,23 @@ class ParameterCollectionType(DjangoObjectType):
         fields = ("name",)
 
 
+class ObjectType(DjangoObjectType):
+    class Meta:
+        model = Object
+        fields = ("name",)
+
+
+class ModuleType(DjangoObjectType):
+    class Meta:
+        model = Module
+        fields = ("name",)
+
+    objects = graphene.List(ObjectType)
+
+    def resolve_objects(self, info):
+        return Object.objects.filter(belongsTo=self.name)
+
+
 class FolderType(DjangoObjectType):
     class Meta:
         model = Folder
@@ -39,6 +64,7 @@ class FolderType(DjangoObjectType):
     section_collections = graphene.List(SectionCollectionType)
     module_collections = graphene.List(ModuleCollectionType)
     parameter_collections = graphene.List(ParameterCollectionType)
+    modules = graphene.List(ModuleType)
 
     def resolve_uis(self, info):
         return UI.objects.filter(folder__name=self.name)
@@ -52,6 +78,9 @@ class FolderType(DjangoObjectType):
     def resolve_parameter_collections(self, info):
         return ParameterCollection.objects.filter(folder__name=self.name)
 
+    def resolve_modules(self, info):
+        return Module.objects.filter(folder__name=self.name)
+
 
 class Query(graphene.ObjectType):
     all_folders = graphene.List(FolderType)
@@ -60,13 +89,28 @@ class Query(graphene.ObjectType):
         return Folder.objects.filter(owner=info.context.user)
 
 
+class ModuleInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+
+
+class ModuleCollectionInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+    modules = graphene.List(ModuleInput, required=True)
+
+
+class SectionInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+
+
 class SectionCollectionInput(graphene.InputObjectType):
     name = graphene.String(required=True)
+    sections = graphene.List(SectionInput, required=True)
 
 
 class UIInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     section_collection = SectionCollectionInput(required=True)
+    module_collection = ModuleCollectionInput(required=True)
 
 
 class FolderMutation(graphene.Mutation):
