@@ -1,5 +1,7 @@
 import sys
 
+from django.db.models import SET_NULL, ForeignKey
+
 from .module_collection import ModuleCollection
 from .object import Object
 from .parameter_collection import ParameterCollection
@@ -15,12 +17,20 @@ tables = table_factory(
     base_has_name=True,
     base_has_owner=True,
     base_additional_tables={
-        "selected_object": Object,
-        "entered_values": ParameterValueCollection,
-        "ui_types": ParameterUITypeCollection,
-        "available_modules": ModuleCollection,
-        "available_parameters": ParameterCollection,
-        "children": UI,
+        "selected_object": ForeignKey(Object, on_delete=SET_NULL, null=True),
+        "entered_values": ForeignKey(
+            ParameterValueCollection, on_delete=SET_NULL, null=True
+        ),
+        "ui_types": ForeignKey(
+            ParameterUITypeCollection, on_delete=SET_NULL, null=True
+        ),
+        "available_modules": ForeignKey(
+            ModuleCollection, on_delete=SET_NULL, null=True
+        ),
+        "available_parameters": ForeignKey(
+            ParameterCollection, on_delete=SET_NULL, null=True
+        ),
+        "children": ForeignKey(UI, on_delete=SET_NULL, null=True),
     },
     forkable=True,
     saveable=True,

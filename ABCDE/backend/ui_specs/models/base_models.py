@@ -59,7 +59,7 @@ def get_base_relationship_model(name, table, parent_table=None, single_parent=Fa
     attrs["Meta"] = Meta
     attrs["entity"] = models.ForeignKey(table, on_delete=models.CASCADE)
     attrs["parent"] = models.ForeignKey(
-        parent_table, on_delete=models.CASCADE, related_name="parent"
+        parent_table, on_delete=models.CASCADE, related_name=f"{name}_parent"
     )
 
     return type(name, (models.Model,), attrs)

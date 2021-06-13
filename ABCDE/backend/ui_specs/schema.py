@@ -3,26 +3,12 @@ from django.db.models import F
 from graphene_django import DjangoObjectType
 
 from . import utils
-from .models import (
-    UI,
-    Folder,
-    Module,
-    ModuleCollection,
-    Object,
-    ParameterCollection,
-    SectionCollection,
-)
+from .models import UI, Folder, Module, ModuleCollection, Object, ParameterCollection
 
 
 class UIType(DjangoObjectType):
     class Meta:
         model = UI
-        fields = ("name",)
-
-
-class SectionCollectionType(DjangoObjectType):
-    class Meta:
-        model = SectionCollection
         fields = ("name",)
 
 
@@ -61,7 +47,6 @@ class FolderType(DjangoObjectType):
         fields = ("name",)
 
     uis = graphene.List(UIType)
-    section_collections = graphene.List(SectionCollectionType)
     module_collections = graphene.List(ModuleCollectionType)
     parameter_collections = graphene.List(ParameterCollectionType)
     modules = graphene.List(ModuleType)

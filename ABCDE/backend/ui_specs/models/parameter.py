@@ -1,6 +1,6 @@
 import sys
 
-from django.db.models import CheckConstraint, Q
+from django.db.models import CASCADE, CheckConstraint, ForeignKey, Q
 
 from .object import Object
 from .parameter_collection import ParameterCollection
@@ -20,8 +20,8 @@ tables = table_factory(
     ["name", "parent_object", "parent_collection"],
     base_has_name=True,
     base_additional_tables={
-        "parent_object": Object,
-        "parent_collection": ParameterCollection,
+        "parent_object": ForeignKey(Object, on_delete=CASCADE),
+        "parent_collection": ForeignKey(ParameterCollection, on_delete=CASCADE),
     },
     base_additional_constraints=constraints,
 )

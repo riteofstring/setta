@@ -1,6 +1,6 @@
 import sys
 
-from django.db import models
+from django.db.models import CASCADE, ForeignKey, IntegerField
 
 from .section import Section
 from .table_factory import table_factory
@@ -11,9 +11,9 @@ tables = table_factory(
     "SectionPositions",
     ["ui", "section", "position"],
     base_additional_tables={
-        "ui": UI,
-        "section": Section,
-        "position": models.IntegerField(),
+        "ui": ForeignKey(UI, on_delete=CASCADE),
+        "section": ForeignKey(Section, on_delete=CASCADE),
+        "position": IntegerField(),
     },
 )
 for k, v in tables.items():

@@ -1,5 +1,7 @@
 import sys
 
+from django.db.models import CASCADE, ForeignKey
+
 from .parameter import Parameter
 from .parameter_ui_type_collection import ParameterUITypeCollection
 from .table_factory import table_factory
@@ -10,7 +12,9 @@ tables = table_factory(
     ["parent", "collection"],
     base_parent=Parameter,
     base_has_value=True,
-    base_additional_tables={"collection": ParameterUITypeCollection},
+    base_additional_tables={
+        "collection": ForeignKey(ParameterUITypeCollection, on_delete=CASCADE)
+    },
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)
