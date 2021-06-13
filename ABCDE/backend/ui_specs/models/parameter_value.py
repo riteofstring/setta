@@ -1,7 +1,5 @@
 import sys
 
-from django.db import models
-
 from .parameter import Parameter
 from .parameter_value_collection import ParameterValueCollection
 from .table_factory import table_factory

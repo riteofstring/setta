@@ -3,6 +3,7 @@ import sys
 from .module_collection import ModuleCollection
 from .object import Object
 from .parameter_collection import ParameterCollection
+from .parameter_ui_type_collection import ParameterUITypeCollection
 from .parameter_value_collection import ParameterValueCollection
 from .table_factory import table_factory
 from .ui import UI
@@ -16,6 +17,7 @@ tables = table_factory(
     base_additional_tables={
         "selected_object": Object,
         "entered_values": ParameterValueCollection,
+        "ui_types": ParameterUITypeCollection,
         "available_modules": ModuleCollection,
         "available_parameters": ParameterCollection,
         "children": UI,

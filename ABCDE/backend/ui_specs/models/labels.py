@@ -1,6 +1,3 @@
-from django.contrib.auth.models import User
-from django.db import models
-
 from .base_models import get_base_model, get_base_relationship_model
 
 Folder = get_base_model("Folder", ["name", "owner"], has_name=True, has_owner=True)
