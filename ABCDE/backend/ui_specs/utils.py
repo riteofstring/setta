@@ -8,6 +8,8 @@ from .models import (
     Package,
     Parameter,
     ParameterCollection,
+    ParameterValue,
+    ParameterValueCollection,
     Section,
     SectionToModuleCollection,
     SectionToParameterCollection,
@@ -108,8 +110,9 @@ def save_parameter_collection(entity, available_parameters):
     save_collection_rel(entity, all_collections, "parameters")
 
 
-def save_section_selected_object(section, selected_object):
+def save_section_selected_object(section, section_info):
     owner = section.owner
+    selected_object = section_info.get("selected", {})
     if selected_object:
         module_name = selected_object["module"]
         package = Package.objects.get(owner=owner, name=get_package_name(module_name))
@@ -137,11 +140,31 @@ def save_section_collection_rels(section, section_info):
         save_collection_rel(section, all_collections, collection_type)
 
 
+def save_section_entered_values(section, section_info):
+    owner = section.owner
+    entered_values = section_info["enteredValues"]
+    if not entered_values:
+        return
+    param_val_collection = section.entered_values
+    if not param_val_collection:
+        param_val_collection, _ = generic_create(
+            ParameterValueCollection, {"name": section_info["name"], "owner": owner}
+        )
+    for name, value in entered_values.items():
+        param = Parameter.objects.get(name=name, parent_object=section.selected_object)
+        param_val, _ = generic_create(
+            ParameterValue,
+            {"parent": param, "collection": param_val_collection},
+        )
+        param_val.value = value
+        param_val.save()
+
+
 def save_section(owner, section_info):
     section, _ = generic_create(Section, {"name": section_info["name"], "owner": owner})
-    selected_object = section_info.get("selected", {})
-    save_section_selected_object(section, selected_object)
+    save_section_selected_object(section, section_info)
     save_section_collection_rels(section, section_info)
+    save_section_entered_values(section, section_info)
     return section
 
 
