@@ -1,20 +1,23 @@
-# from .models import (
-#     UI,
-#     Folder,
-#     Module,
-#     ModuleCollection,
-#     Object,
-#     ParameterCollection,
-#     ParameterCollectionParameter,
-#     ParameterCollectionParameterEnteredValue,
-#     Section,
-#     SectionCollection,
-#     SectionModuleCollection,
-#     SectionParameterCollection,
-#     UIModuleCollection,
-#     UIParameterCollection,
-#     UISectionCollection,
-# )
+from .models import (
+    UI,
+    Folder,
+    Module,
+    ModuleCollection,
+    ModuleToModuleCollection,
+    Object,
+    Package,
+    Parameter,
+    ParameterCollection,
+    Section,
+    SectionToModuleCollection,
+    UIToFolder,
+    UIToModuleCollection,
+    UIToParameterCollection,
+)
+
+
+def get_package_name(full_module_name):
+    return full_module_name.split(".")[0]
 
 
 def try_get(table, kwargs):
@@ -41,81 +44,82 @@ def generic_bulk_create_and_return(table, batch, properties):
     return table.objects.filter(**kwargs)
 
 
-def get_users_folders(user):
-    return Folder.objects.filter(owner=user)
+def save_collection_rel(entity, list_of_collections, collection_type):
+    if isinstance(entity, UI):
+        rel_table = (
+            UIToModuleCollection
+            if collection_type == "module"
+            else UIToParameterCollection
+        )
+    elif isinstance(entity, Section):
+        rel_table = (
+            SectionToModuleCollection
+            if collection_type == "module"
+            else SectionToParameterCollection
+        )
+    existing_rels = rel_table.objects.filter(entity=entity)
+    for er in existing_rels:
+        if er.parent not in list_of_collections:
+            er.delete()
+    for c in list_of_collections:
+        generic_create(rel_table, {"entity": entity, "parent": c})
 
 
-def save_module_collection(folder, ui, available_modules):
-    module_collections = [
-        ModuleCollection(folder=folder, originUI=ui, name=name)
-        for name in available_modules.keys()
-    ]
-    module_collections = generic_bulk_create_and_return(
-        ModuleCollection, module_collections, ["folder", "originUI", "name"]
-    )
-
-    modules = [
-        Module(folder=folder, originCollection=mc, name=name)
-        for mc in module_collections
-        for name in available_modules[mc.name]["ModuleInfo"].keys()
-    ]
-
-    modules = generic_bulk_create_and_return(
-        Module, modules, ["originCollection", "name"]
-    )
-
-    mcs_and_modules = [
-        (mc, module)
-        for mc in module_collections
-        for module in modules.filter(originCollection=mc)
-    ]
-
-    module_objects = [
-        Object(belongsTo=module, name=objectName)
-        for (mc, module) in mcs_and_modules
-        for objectName in available_modules[mc.name]["ModuleInfo"][module.name].keys()
-    ]
-
-    module_objects = generic_bulk_create_and_return(
-        Object, module_objects, ["name", "belongsTo"]
-    )
-
-    object_parameters = [
-        ObjectParameter(belongsTo=obj, name=p_name)
-        for (mc, module) in mcs_and_modules
-        for obj in module_objects.filter(belongsTo=module)
-        for p_name in available_modules[mc.name]["ModuleInfo"][module.name][
-            obj.name
-        ].keys()
-    ]
-
-    object_parameters = generic_bulk_create_and_return(
-        ObjectParameter, object_parameters, ["belongsTo", "name"]
-    )
-
-    return module_collections, modules, module_objects, object_parameters
+def save_module_collection(entity, available_modules):
+    owner = entity.owner
+    all_collections = []
+    for module_collection_name, module_collection_info in available_modules.items():
+        module_collection, _ = generic_create(
+            ModuleCollection, {"name": module_collection_name, "owner": owner}
+        )
+        all_collections.append(module_collection)
+        for module_name, module_info in module_collection_info["ModuleInfo"].items():
+            package, _ = generic_create(
+                Package, {"name": get_package_name(module_name), "owner": owner}
+            )
+            module, _ = generic_create(Module, {"name": module_name, "parent": package})
+            module_to_module_collection = generic_create(
+                ModuleToModuleCollection,
+                {"entity": module, "parent": module_collection},
+            )
+            for object_name, object_info in module_info.items():
+                obj, _ = generic_create(Object, {"name": object_name, "parent": module})
+                for param_name, param_info in object_info.items():
+                    generic_create(
+                        Parameter, {"name": param_name, "parent_object": obj}
+                    )
+    save_collection_rel(entity, all_collections, "module")
 
 
-def save_parameter_collection(folder, ui, available_parameters):
-    parameter_collections = [
-        ParameterCollection(folder=folder, originUI=ui, name=name)
-        for name in available_parameters.keys()
-    ]
-    parameter_collections = generic_bulk_create_and_return(
-        ParameterCollection, parameter_collections, ["folder", "originUI", "name"]
-    )
+def save_parameter_collection(entity, available_parameters):
+    owner = entity.owner
+    all_collections = []
+    for param_collection_name, param_collection_info in available_parameters.items():
+        param_collection, _ = generic_create(
+            ParameterCollection, {"name": param_collection_name, "owner": owner}
+        )
+        all_collections.append(param_collection)
+        for param_name, param_info in param_collection_info["ParameterInfo"].items():
+            generic_create(
+                Parameter, {"name": param_name, "parent_collection": param_collection}
+            )
+    save_collection_rel(entity, all_collections, "parameter")
 
-    parameters = [
-        ParameterCollectionParameter(belongsTo=pc, name=name)
-        for pc in parameter_collections
-        for name in available_parameters[pc.name]["ParameterInfo"].keys()
-    ]
 
-    parameters = generic_bulk_create_and_return(
-        ParameterCollectionParameter, parameters, ["belongsTo", "name"]
-    )
+def save_section(owner, section_info):
+    section, _ = generic_create(Section, {"name": section_info["name"], "owner": owner})
+    available_modules = section_info.get("modules", [])
+    all_collections = []
+    for collection_name in available_modules:
+        all_collections.append(
+            ModuleCollection.objects.get(name=collection_name, owner=owner)
+        )
+    save_collection_rel(section, all_collections, "module")
 
-    return parameter_collections, parameters
+
+def save_sections(owner, sections):
+    for idx, section_info in sections.items():
+        save_section(owner, section_info)
 
 
 def save_section_collection(
@@ -272,60 +276,57 @@ def save_entered_values(
 
 
 def save_ui(request):
-    user = request.user
+    owner = request.user
     data = request.data
 
     ui_info = data["ui"]
     folder_info = data["folder"]
     folder_name = folder_info["name"]
 
-    folder, _ = generic_create(Folder, {"owner": user, "name": folder_name})
+    folder, _ = generic_create(Folder, {"name": folder_name, "owner": owner})
 
     ui_name = ui_info["name"]
-    ui, _ = generic_create(UI, {"folder": folder, "name": ui_name})
+    ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
 
-    (
-        module_collections,
-        modules,
-        module_objects,
-        object_parameters,
-    ) = save_module_collection(folder, ui, ui_info["availableModules"])
+    generic_create(UIToFolder, {"entity": ui, "parent": folder})
 
-    parameter_collections, parameters = save_parameter_collection(
-        folder, ui, ui_info["availableParameters"]
-    )
+    save_module_collection(ui, ui_info["availableModules"])
 
-    (
-        section_collection,
-        created_sections,
-        section_x_collections,
-    ) = save_section_collection(
-        folder, ui, ui_info["sections"], module_collections, parameter_collections
-    )
+    save_parameter_collection(ui, ui_info["availableParameters"])
 
-    save_ui_contents(
-        ui, [section_collection], module_collections, parameter_collections
-    )
+    save_sections(owner, ui_info["sections"])
 
-    selected_objects = save_selections(
-        ui_info["sections"],
-        created_sections,
-        section_x_collections,
-        module_collections,
-        modules,
-        module_objects,
-    )
+    # (
+    #     section_collection,
+    #     created_sections,
+    #     section_x_collections,
+    # ) = save_section_collection(
+    #     folder, ui, ui_info["sections"], module_collections, parameter_collections
+    # )
 
-    save_entered_values(
-        ui,
-        folder,
-        ui_info["sections"],
-        created_sections,
-        selected_objects,
-        object_parameters,
-        section_x_collections,
-        parameter_collections,
-        parameters,
-    )
+    # save_ui_contents(
+    #     ui, [section_collection], module_collections, parameter_collections
+    # )
+
+    # selected_objects = save_selections(
+    #     ui_info["sections"],
+    #     created_sections,
+    #     section_x_collections,
+    #     module_collections,
+    #     modules,
+    #     module_objects,
+    # )
+
+    # save_entered_values(
+    #     ui,
+    #     folder,
+    #     ui_info["sections"],
+    #     created_sections,
+    #     selected_objects,
+    #     object_parameters,
+    #     section_x_collections,
+    #     parameter_collections,
+    #     parameters,
+    # )
 
     print("successs")

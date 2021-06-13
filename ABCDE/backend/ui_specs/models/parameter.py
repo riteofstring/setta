@@ -8,8 +8,8 @@ from .table_factory import table_factory
 
 constraints = [
     CheckConstraint(
-        check=(Q(parent_object__isnull=False) | Q(parent_collection__isnull=False))
-        & (Q(parent_object__isnull=True) | Q(parent_collection__isnull=True)),
+        check=(Q(parent_object__isnull=False) & Q(parent_collection__isnull=True))
+        | (Q(parent_object__isnull=True) & Q(parent_collection__isnull=False)),
         name="parameter_exactly_one_parent",
     )
 ]
@@ -20,8 +20,10 @@ tables = table_factory(
     ["name", "parent_object", "parent_collection"],
     base_has_name=True,
     base_additional_tables={
-        "parent_object": ForeignKey(Object, on_delete=CASCADE),
-        "parent_collection": ForeignKey(ParameterCollection, on_delete=CASCADE),
+        "parent_object": ForeignKey(Object, on_delete=CASCADE, null=True),
+        "parent_collection": ForeignKey(
+            ParameterCollection, on_delete=CASCADE, null=True
+        ),
     },
     base_additional_constraints=constraints,
 )

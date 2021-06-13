@@ -24,20 +24,12 @@ tables = table_factory(
         "ui_types": ForeignKey(
             ParameterUITypeCollection, on_delete=SET_NULL, null=True
         ),
-        "available_modules": ForeignKey(
-            ModuleCollection, on_delete=SET_NULL, null=True
-        ),
-        "available_parameters": ForeignKey(
-            ParameterCollection, on_delete=SET_NULL, null=True
-        ),
         "children": ForeignKey(UI, on_delete=SET_NULL, null=True),
     },
     forkable=True,
     saveable=True,
     taggable=True,
-    additional_rel=[
-        UI,
-    ],
+    additional_rel=[UI, ModuleCollection, ParameterCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)

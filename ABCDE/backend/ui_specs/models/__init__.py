@@ -29,6 +29,21 @@ from .parameter_value_collection import (
     ParameterValueCollectionToFolder,
     ParameterValueCollectionToTag,
 )
-from .section import Section, SectionFork, SectionToFolder, SectionToTag, SectionToUI
+from .section import (
+    Section,
+    SectionFork,
+    SectionToFolder,
+    SectionToModuleCollection,
+    SectionToParameterCollection,
+    SectionToTag,
+    SectionToUI,
+)
 from .section_positions import SectionPositions
-from .ui import UI, UIFork, UIToFolder, UIToTag
+from .ui import (
+    UI,
+    UIFork,
+    UIToFolder,
+    UIToModuleCollection,
+    UIToParameterCollection,
+    UIToTag,
+)
