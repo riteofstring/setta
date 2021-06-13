@@ -10,6 +10,8 @@ from .models import (
     ParameterCollection,
     Section,
     SectionToModuleCollection,
+    SectionToParameterCollection,
+    SectionToUI,
     UIToFolder,
     UIToModuleCollection,
     UIToParameterCollection,
@@ -48,13 +50,13 @@ def save_collection_rel(entity, list_of_collections, collection_type):
     if isinstance(entity, UI):
         rel_table = (
             UIToModuleCollection
-            if collection_type == "module"
+            if collection_type == "modules"
             else UIToParameterCollection
         )
     elif isinstance(entity, Section):
         rel_table = (
             SectionToModuleCollection
-            if collection_type == "module"
+            if collection_type == "modules"
             else SectionToParameterCollection
         )
     existing_rels = rel_table.objects.filter(entity=entity)
@@ -88,7 +90,7 @@ def save_module_collection(entity, available_modules):
                     generic_create(
                         Parameter, {"name": param_name, "parent_object": obj}
                     )
-    save_collection_rel(entity, all_collections, "module")
+    save_collection_rel(entity, all_collections, "modules")
 
 
 def save_parameter_collection(entity, available_parameters):
@@ -103,23 +105,57 @@ def save_parameter_collection(entity, available_parameters):
             generic_create(
                 Parameter, {"name": param_name, "parent_collection": param_collection}
             )
-    save_collection_rel(entity, all_collections, "parameter")
+    save_collection_rel(entity, all_collections, "parameters")
+
+
+def save_section_selected_object(section, selected_object):
+    owner = section.owner
+    if selected_object:
+        module_name = selected_object["module"]
+        package = Package.objects.get(owner=owner, name=get_package_name(module_name))
+        module = Module.objects.get(name=module_name, parent=package)
+        obj_name = selected_object["obj"]
+        obj = Object.objects.get(name=obj_name, parent=module)
+        section.selected_object = obj
+    else:
+        section.selected_object = None
+    section.save()
+
+
+def save_section_collection_rels(section, section_info):
+    owner = section.owner
+    for collection_type in ["modules", "parameters"]:
+        available = section_info.get(collection_type, [])
+        all_collections = []
+        query_table = (
+            ModuleCollection if collection_type == "modules" else ParameterCollection
+        )
+        for collection_name in available:
+            all_collections.append(
+                query_table.objects.get(name=collection_name, owner=owner)
+            )
+        save_collection_rel(section, all_collections, collection_type)
 
 
 def save_section(owner, section_info):
     section, _ = generic_create(Section, {"name": section_info["name"], "owner": owner})
-    available_modules = section_info.get("modules", [])
-    all_collections = []
-    for collection_name in available_modules:
-        all_collections.append(
-            ModuleCollection.objects.get(name=collection_name, owner=owner)
-        )
-    save_collection_rel(section, all_collections, "module")
+    selected_object = section_info.get("selected", {})
+    save_section_selected_object(section, selected_object)
+    save_section_collection_rels(section, section_info)
+    return section
 
 
 def save_sections(owner, sections):
+    all_sections = []
     for idx, section_info in sections.items():
-        save_section(owner, section_info)
+        section = save_section(owner, section_info)
+        all_sections.append(section)
+    return all_sections
+
+
+def save_sections_to_ui_rel(ui, list_of_sections):
+    for section in list_of_sections:
+        generic_create(SectionToUI, {"entity": section, "parent": ui})
 
 
 def save_section_collection(
@@ -287,14 +323,13 @@ def save_ui(request):
 
     ui_name = ui_info["name"]
     ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
-
     generic_create(UIToFolder, {"entity": ui, "parent": folder})
 
     save_module_collection(ui, ui_info["availableModules"])
-
     save_parameter_collection(ui, ui_info["availableParameters"])
 
-    save_sections(owner, ui_info["sections"])
+    list_of_sections = save_sections(owner, ui_info["sections"])
+    save_sections_to_ui_rel(ui, list_of_sections)
 
     # (
     #     section_collection,
