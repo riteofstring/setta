@@ -13,6 +13,7 @@ from .models import (
     ParameterValue,
     ParameterValueCollection,
     Section,
+    SectionPositions,
     SectionToModuleCollection,
     SectionToParameterCollection,
     SectionToUI,
@@ -243,13 +244,20 @@ def save_sections(owner, sections):
     all_sections = []
     for idx, section_info in sections.items():
         section = save_section(owner, section_info)
-        all_sections.append(section)
+        all_sections.append((int(idx), section))
     return all_sections
 
 
 def save_sections_to_ui_rel(ui, list_of_sections):
     for section in list_of_sections:
         generic_create(SectionToUI, {"entity": section, "parent": ui})
+
+
+def save_section_positions(ui, list_of_sections):
+    for idx, section in list_of_sections:
+        sp, _ = generic_create(SectionPositions, {"ui": ui, "section": section})
+        sp.position = idx
+        sp.save()
 
 
 def save_section_collection(
@@ -423,7 +431,8 @@ def save_ui(request):
     save_parameter_collection(ui, ui_info["availableParameters"])
 
     list_of_sections = save_sections(owner, ui_info["sections"])
-    save_sections_to_ui_rel(ui, list_of_sections)
+    save_sections_to_ui_rel(ui, [s for _, s in list_of_sections])
+    save_section_positions(ui, list_of_sections)
 
     # (
     #     section_collection,

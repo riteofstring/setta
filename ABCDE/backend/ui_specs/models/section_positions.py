@@ -9,7 +9,7 @@ from .ui import UI
 thismodule = sys.modules[__name__]
 tables = table_factory(
     "SectionPositions",
-    ["ui", "section", "position"],
+    ["ui", "section"],
     base_additional_tables={
         "ui": ForeignKey(UI, on_delete=CASCADE),
         "section": ForeignKey(Section, on_delete=CASCADE),
