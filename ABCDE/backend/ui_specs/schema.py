@@ -24,12 +24,6 @@ from .models import (
 )
 
 
-class ParameterCollectionGQL(DjangoObjectType):
-    class Meta:
-        model = ParameterCollection
-        fields = ("name",)
-
-
 class UITypeGQL(DjangoObjectType):
     class Meta:
         model = UIType
@@ -39,7 +33,7 @@ class UITypeGQL(DjangoObjectType):
 class ParameterValueGQL(DjangoObjectType):
     class Meta:
         model = ParameterValue
-        fields = ("value", "ui_type")
+        fields = ("value", "ui_type", "is_current")
 
 
 class ParameterValueCollectionGQL(DjangoObjectType):
@@ -57,6 +51,17 @@ class ParameterGQL(DjangoObjectType):
     class Meta:
         model = Parameter
         fields = ("name",)
+
+
+class ParameterCollectionGQL(DjangoObjectType):
+    class Meta:
+        model = ParameterCollection
+        fields = ("name",)
+
+    parameters = graphene.List(ParameterGQL)
+
+    def resolve_parameters(self, info):
+        return Parameter.objects.filter(parent_collection=self)
 
 
 class ObjectGQL(DjangoObjectType):
