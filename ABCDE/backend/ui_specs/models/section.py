@@ -1,6 +1,6 @@
 import sys
 
-from django.db.models import SET_NULL, ForeignKey
+from django.db.models import SET_NULL, ForeignKey, TextField
 
 from .module_collection import ModuleCollection
 from .object import Object
@@ -16,6 +16,7 @@ tables = table_factory(
     base_has_name=True,
     base_has_owner=True,
     base_additional_tables={
+        "variable_name": TextField(),
         "selected_object": ForeignKey(Object, on_delete=SET_NULL, null=True),
         "entered_values": ForeignKey(
             ParameterValueCollection, on_delete=SET_NULL, null=True

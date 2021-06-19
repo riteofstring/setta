@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from .models import (
     UI,
@@ -62,6 +63,11 @@ def generic_bulk_create_and_return(table, batch, properties):
     obj_properties = list(obj_properties)
     kwargs = {f"{p}__in": obj_properties[i] for i, p in enumerate(properties)}
     return table.objects.filter(**kwargs)
+
+
+def delete_old_sections(table, ui, ui_key, section_key, list_of_sections):
+    ids = [section for _, section in list_of_sections]
+    table.objects.filter(**{ui_key: ui}).exclude(**{f"{section_key}__in": ids}).delete()
 
 
 def save_collection_rel(entity, list_of_collections, collection_type):
@@ -235,7 +241,12 @@ def save_section_all_entered_values(owner, section, section_info):
 
 
 def save_section(owner, section_info):
-    section, _ = generic_create(Section, {"name": section_info["name"], "owner": owner})
+    variable_name = section_info["name"]
+    # name = f"{variable_name}_{str(uuid.uuid4())}"
+    name = variable_name
+    section, _ = generic_create(
+        Section, {"name": name, "variable_name": variable_name, "owner": owner}
+    )
     save_section_selected_object(owner, section, section_info)
     save_section_collection_rels(owner, section, section_info)
     save_section_all_entered_values(owner, section, section_info)
@@ -243,34 +254,57 @@ def save_section(owner, section_info):
 
 
 def get_children(sections, section_info):
-    return {str(i): sections[str(i)] for i in section_info["childrenIds"]}
+    return {str(sid): sections[str(sid)] for sid in section_info["childrenIds"]}
 
 
-def save_sections(owner, sections, depth=0):
+def save_children(owner, section, sections_to_save, section_info, all_sections, depth):
+    children = get_children(all_sections, section_info)
+    if len(children) > 0:
+        list_of_child_sections = save_sections(owner, children, all_sections, depth + 1)
+        ui_name = f"{section.name}_children"
+        ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
+        section.children = ui
+        section.save()
+        save_section_to_ui_info(ui, list_of_child_sections)
+
+
+def save_sections(owner, sections_to_save, all_sections, depth=0):
     all_root_sections = []
-    for idx, section_info in sections.items():
-        idx = int(idx)
+    count = 0
+    for sid, section_info in sections_to_save.items():
+        position = int(sid) if depth == 0 else count
         if section_info["depth"] == depth:
             section = save_section(owner, section_info)
-            all_root_sections.append((idx, section))
-            children = get_children(sections, section_info)
-            save_sections(owner, children, depth + 1)
+            all_root_sections.append((position, section))
+            save_children(
+                owner, section, sections_to_save, section_info, all_sections, depth
+            )
+        count += 1
     return all_root_sections
 
 
 def save_sections_to_ui_rel(ui, list_of_sections):
-    for section in list_of_sections:
+    delete_old_sections(SectionToUI, ui, "parent", "entity", list_of_sections)
+    for _, section in list_of_sections:
         generic_create(SectionToUI, {"entity": section, "parent": ui})
 
 
 def save_section_positions(ui, list_of_sections):
-    for idx, section in list_of_sections:
+    delete_old_sections(SectionPositions, ui, "ui", "section", list_of_sections)
+    for position, section in list_of_sections:
         sp = try_get(SectionPositions, {"ui": ui, "section": section})
         if sp is None:
-            sp = SectionPositions.objects.create(ui=ui, section=section, position=idx)
+            sp = SectionPositions.objects.create(
+                ui=ui, section=section, position=position
+            )
         else:
-            sp.position = idx
+            sp.position = position
             sp.save()
+
+
+def save_section_to_ui_info(ui, list_of_sections):
+    save_sections_to_ui_rel(ui, list_of_sections)
+    save_section_positions(ui, list_of_sections)
 
 
 def save_ui(request):
@@ -290,7 +324,7 @@ def save_ui(request):
     save_module_collection(ui, ui_info["availableModules"])
     save_parameter_collection(ui, ui_info["availableParameters"])
 
-    list_of_root_sections = save_sections(owner, ui_info["sections"])
-    save_sections_to_ui_rel(ui, [s for _, s in list_of_root_sections])
-    save_section_positions(ui, list_of_root_sections)
+    sections = ui_info["sections"]
+    list_of_root_sections = save_sections(owner, sections, sections)
+    save_section_to_ui_info(ui, list_of_root_sections)
     print("successs")
