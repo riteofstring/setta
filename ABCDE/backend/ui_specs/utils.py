@@ -187,12 +187,12 @@ def get_param_from_str(section, x):
 
 
 def save_section_entered_values(
-    name, owner, section, entered_values, param_ui_type_names, selection_history_str
+    owner, section, entered_values, param_ui_type_names, selection_history_str
 ):
     param_val_collection = section.entered_values
     if not param_val_collection:
         param_val_collection, _ = generic_create(
-            ParameterValueCollection, {"name": name, "owner": owner}
+            ParameterValueCollection, {"name": section.name, "owner": owner}
         )
         section.entered_values = param_val_collection
         section.save()
@@ -232,18 +232,16 @@ def save_section_entered_values(
 
 def save_section_all_entered_values(owner, section, section_info):
     entered_values = section_info["enteredValues"]
-    name = section_info["name"]
     selection_history_str = make_selection_history_string(section_info["selected"])
     param_ui_type_names = section_info["paramUITypeNames"]
     save_section_entered_values(
-        name, owner, section, entered_values, param_ui_type_names, selection_history_str
+        owner, section, entered_values, param_ui_type_names, selection_history_str
     )
 
 
 def save_section(owner, section_info):
     variable_name = section_info["name"]
-    # name = f"{variable_name}_{str(uuid.uuid4())}"
-    name = variable_name
+    name = f"{variable_name}_{str(uuid.uuid4())}"
     section, _ = generic_create(
         Section, {"name": name, "variable_name": variable_name, "owner": owner}
     )
