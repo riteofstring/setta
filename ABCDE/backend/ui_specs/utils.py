@@ -1,5 +1,4 @@
 import json
-import uuid
 
 from .models import (
     UI,
@@ -239,11 +238,10 @@ def save_section_all_entered_values(owner, section, section_info):
     )
 
 
-def save_section(owner, section_info):
+def save_section(owner, sid, section_info):
     variable_name = section_info["name"]
-    name = f"{variable_name}_{str(uuid.uuid4())}"
     section, _ = generic_create(
-        Section, {"name": name, "variable_name": variable_name, "owner": owner}
+        Section, {"name": sid, "variable_name": variable_name, "owner": owner}
     )
     save_section_selected_object(owner, section, section_info)
     save_section_collection_rels(owner, section, section_info)
@@ -268,16 +266,15 @@ def save_children(owner, section, sections_to_save, section_info, all_sections, 
 
 def save_sections(owner, sections_to_save, all_sections, depth=0):
     all_root_sections = []
-    count = 0
+    position = 0
     for sid, section_info in sections_to_save.items():
-        position = int(sid) if depth == 0 else count
         if section_info["depth"] == depth:
-            section = save_section(owner, section_info)
+            section = save_section(owner, sid, section_info)
             all_root_sections.append((position, section))
             save_children(
                 owner, section, sections_to_save, section_info, all_sections, depth
             )
-        count += 1
+        position += 1
     return all_root_sections
 
 

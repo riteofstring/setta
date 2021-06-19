@@ -3,72 +3,80 @@ from django.db.models import F
 from graphene_django import DjangoObjectType
 
 from . import utils
-from .models import UI, Folder, Module, ModuleCollection, Object, ParameterCollection
+from .models import UI, Folder, UIToFolder
 
 
-class UIType(DjangoObjectType):
+class UIToFolderGQL(DjangoObjectType):
+    class Meta:
+        model = UIToFolder
+        fields = ("entity", "parent")
+
+
+class UIGQL(DjangoObjectType):
     class Meta:
         model = UI
         fields = ("name",)
 
 
-class ModuleCollectionType(DjangoObjectType):
-    class Meta:
-        model = ModuleCollection
-        fields = ("name",)
+# class ModuleCollectionType(DjangoObjectType):
+#     class Meta:
+#         model = ModuleCollection
+#         fields = ("name",)
 
 
-class ParameterCollectionType(DjangoObjectType):
-    class Meta:
-        model = ParameterCollection
-        fields = ("name",)
+# class ParameterCollectionType(DjangoObjectType):
+#     class Meta:
+#         model = ParameterCollection
+#         fields = ("name",)
 
 
-class ObjectType(DjangoObjectType):
-    class Meta:
-        model = Object
-        fields = ("name",)
+# class ObjectType(DjangoObjectType):
+#     class Meta:
+#         model = Object
+#         fields = ("name",)
 
 
-class ModuleType(DjangoObjectType):
-    class Meta:
-        model = Module
-        fields = ("name",)
+# class ModuleType(DjangoObjectType):
+#     class Meta:
+#         model = Module
+#         fields = ("name",)
 
-    objects = graphene.List(ObjectType)
+#     objects = graphene.List(ObjectType)
 
-    def resolve_objects(self, info):
-        return Object.objects.filter(belongsTo=self.name)
+#     def resolve_objects(self, info):
+#         return Object.objects.filter(belongsTo=self.name)
 
 
-class FolderType(DjangoObjectType):
+class FolderGQL(DjangoObjectType):
     class Meta:
         model = Folder
         fields = ("name",)
 
-    uis = graphene.List(UIType)
-    module_collections = graphene.List(ModuleCollectionType)
-    parameter_collections = graphene.List(ParameterCollectionType)
-    modules = graphene.List(ModuleType)
+    uis = graphene.List(UIGQL)
+    # module_collections = graphene.List(ModuleCollectionType)
+    # parameter_collections = graphene.List(ParameterCollectionType)
+    # modules = graphene.List(ModuleType)
 
     def resolve_uis(self, info):
-        return UI.objects.filter(folder__name=self.name)
+        return UI.objects.filter(
+            pk__in=UIToFolder.objects.filter(parent__name=self.name).values("entity")
+        )
 
-    def resolve_module_collections(self, info):
-        return ModuleCollection.objects.filter(folder__name=self.name)
+    # def resolve_module_collections(self, info):
+    #     return ModuleCollection.objects.filter(folder__name=self.name)
 
-    def resolve_section_collections(self, info):
-        return SectionCollection.objects.filter(folder__name=self.name)
+    # def resolve_section_collections(self, info):
+    #     return SectionCollection.objects.filter(folder__name=self.name)
 
-    def resolve_parameter_collections(self, info):
-        return ParameterCollection.objects.filter(folder__name=self.name)
+    # def resolve_parameter_collections(self, info):
+    #     return ParameterCollection.objects.filter(folder__name=self.name)
 
-    def resolve_modules(self, info):
-        return Module.objects.filter(folder__name=self.name)
+    # def resolve_modules(self, info):
+    #     return Module.objects.filter(folder__name=self.name)
 
 
 class Query(graphene.ObjectType):
-    all_folders = graphene.List(FolderType)
+    all_folders = graphene.List(FolderGQL)
 
     def resolve_all_folders(root, info):
         return Folder.objects.filter(owner=info.context.user)
