@@ -153,8 +153,34 @@ def save_section_collection_rels(owner, section, section_info):
         save_collection_rel(section, all_collections, collection_type)
 
 
+def get_object_from_str(section, x):
+    x = parse_selection_history_string(x)
+    section_to_module_collections = SectionToModuleCollection.objects.filter(
+        entity=section
+    )
+    for stmc in section_to_module_collections:
+        module_to_module_collection = try_get(
+            ModuleToModuleCollection,
+            {"entity__name": x["module"], "parent": stmc.parent},
+        )
+        if module_to_module_collection is not None:
+            return Object.objects.get(
+                name=x["obj"], parent=module_to_module_collection.entity
+            )
+
+
+def get_param_from_str(section, x):
+    section_to_param_collections = SectionToParameterCollection.objects.filter(
+        entity=section
+    )
+    for stpc in section_to_param_collections:
+        param = try_get(Parameter, {"name": x, "parent_collection": stpc.parent})
+        if param is not None:
+            return param
+
+
 def save_section_entered_values(
-    name, owner, section, entered_values, selected_object, selection_history_str
+    name, owner, section, entered_values, param_ui_type_names, selection_history_str
 ):
     param_val_collection = section.entered_values
     if not param_val_collection:
@@ -162,24 +188,24 @@ def save_section_entered_values(
             ParameterValueCollection, {"name": name, "owner": owner}
         )
     for module_obj_str, obj_value_dict in entered_values.items():
-        is_current = module_obj_str == selection_history_str
+        if module_obj_str != "null":
+            selected_object = get_object_from_str(section, module_obj_str)
+        else:
+            selected_object = None
         for name, param_dict in obj_value_dict.items():
             if len(param_dict) == 0:
                 continue
             if selected_object:
                 param = Parameter.objects.get(name=name, parent_object=selected_object)
             else:
-                section_to_param_collections = (
-                    SectionToParameterCollection.objects.filter(entity=section)
-                )
-                for stpc in section_to_param_collections:
-                    param = try_get(
-                        Parameter, {"name": name, "parent_collection": stpc.parent}
-                    )
-                    if param is not None:
-                        break
+                param = get_param_from_str(section, name)
             for ui_type_name, value in param_dict.items():
                 ui_type, _ = generic_create(UIType, {"value": ui_type_name})
+
+                ParameterValue.objects.filter(
+                    parent=param, collection=param_val_collection
+                ).update(is_current=False)
+
                 param_val, _ = generic_create(
                     ParameterValue,
                     {
@@ -188,7 +214,9 @@ def save_section_entered_values(
                         "ui_type": ui_type,
                     },
                 )
-                param_val.is_current = is_current
+                param_val.is_current = (module_obj_str == selection_history_str) and (
+                    ui_type_name == param_ui_type_names[name]
+                )
                 param_val.value = value
                 param_val.save()
 
@@ -196,10 +224,10 @@ def save_section_entered_values(
 def save_section_all_entered_values(owner, section, section_info):
     entered_values = section_info["enteredValues"]
     name = section_info["name"]
-    selected_object = section.selected_object
     selection_history_str = make_selection_history_string(section_info["selected"])
+    param_ui_type_names = section_info["paramUITypeNames"]
     save_section_entered_values(
-        name, owner, section, entered_values, selected_object, selection_history_str
+        name, owner, section, entered_values, param_ui_type_names, selection_history_str
     )
 
 
