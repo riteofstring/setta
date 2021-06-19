@@ -221,6 +221,7 @@ export class Section {
         this.paramUITypeNames[key]
       ] = this.enteredValues[key];
     }
+    output["paramUITypeNames"] = this.paramUITypeNames
     output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
     return output;
   };
