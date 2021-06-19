@@ -1,3 +1,5 @@
+import json
+
 from .models import (
     UI,
     Folder,
@@ -17,11 +19,24 @@ from .models import (
     UIToFolder,
     UIToModuleCollection,
     UIToParameterCollection,
+    UIType,
 )
 
 
 def get_package_name(full_module_name):
     return full_module_name.split(".")[0]
+
+
+def parse_selection_history_string(x):
+    x_split = x.split("~")
+    return {"module": x_split[0], "obj": x_split[1]}
+
+
+def make_selection_history_string(x):
+    try:
+        return f'{x["module"]}~{x["obj"]}'
+    except:
+        return "null"
 
 
 def try_get(table, kwargs):
@@ -110,8 +125,7 @@ def save_parameter_collection(entity, available_parameters):
     save_collection_rel(entity, all_collections, "parameters")
 
 
-def save_section_selected_object(section, section_info):
-    owner = section.owner
+def save_section_selected_object(owner, section, section_info):
     selected_object = section_info.get("selected", {})
     if selected_object:
         module_name = selected_object["module"]
@@ -125,8 +139,7 @@ def save_section_selected_object(section, section_info):
     section.save()
 
 
-def save_section_collection_rels(section, section_info):
-    owner = section.owner
+def save_section_collection_rels(owner, section, section_info):
     for collection_type in ["modules", "parameters"]:
         available = section_info.get(collection_type, [])
         all_collections = []
@@ -140,43 +153,61 @@ def save_section_collection_rels(section, section_info):
         save_collection_rel(section, all_collections, collection_type)
 
 
-def save_section_entered_values(section, section_info):
-    owner = section.owner
-    selected_object = section.selected_object
-    entered_values = section_info["enteredValues"]
-    if not entered_values:
-        return
+def save_section_entered_values(
+    name, owner, section, entered_values, selected_object, selection_history_str
+):
     param_val_collection = section.entered_values
     if not param_val_collection:
         param_val_collection, _ = generic_create(
-            ParameterValueCollection, {"name": section_info["name"], "owner": owner}
+            ParameterValueCollection, {"name": name, "owner": owner}
         )
-    for name, value in entered_values.items():
-        if selected_object:
-            param = Parameter.objects.get(name=name, parent_object=selected_object)
-        else:
-            section_to_param_collections = SectionToParameterCollection.objects.filter(
-                entity=section
-            )
-            for stpc in section_to_param_collections:
-                param = try_get(
-                    Parameter, {"name": name, "parent_collection": stpc.parent}
+    for module_obj_str, obj_value_dict in entered_values.items():
+        is_current = module_obj_str == selection_history_str
+        for name, param_dict in obj_value_dict.items():
+            if len(param_dict) == 0:
+                continue
+            if selected_object:
+                param = Parameter.objects.get(name=name, parent_object=selected_object)
+            else:
+                section_to_param_collections = (
+                    SectionToParameterCollection.objects.filter(entity=section)
                 )
-                if param is not None:
-                    break
-        param_val, _ = generic_create(
-            ParameterValue,
-            {"parent": param, "collection": param_val_collection},
-        )
-        param_val.value = value
-        param_val.save()
+                for stpc in section_to_param_collections:
+                    param = try_get(
+                        Parameter, {"name": name, "parent_collection": stpc.parent}
+                    )
+                    if param is not None:
+                        break
+            for ui_type_name, value in param_dict.items():
+                ui_type, _ = generic_create(UIType, {"value": ui_type_name})
+                param_val, _ = generic_create(
+                    ParameterValue,
+                    {
+                        "parent": param,
+                        "collection": param_val_collection,
+                        "ui_type": ui_type,
+                    },
+                )
+                param_val.is_current = is_current
+                param_val.value = value
+                param_val.save()
+
+
+def save_section_all_entered_values(owner, section, section_info):
+    entered_values = section_info["enteredValues"]
+    name = section_info["name"]
+    selected_object = section.selected_object
+    selection_history_str = make_selection_history_string(section_info["selected"])
+    save_section_entered_values(
+        name, owner, section, entered_values, selected_object, selection_history_str
+    )
 
 
 def save_section(owner, section_info):
     section, _ = generic_create(Section, {"name": section_info["name"], "owner": owner})
-    save_section_selected_object(section, section_info)
-    save_section_collection_rels(section, section_info)
-    save_section_entered_values(section, section_info)
+    save_section_selected_object(owner, section, section_info)
+    save_section_collection_rels(owner, section, section_info)
+    save_section_all_entered_values(owner, section, section_info)
     return section
 
 
