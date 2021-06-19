@@ -188,6 +188,8 @@ def save_section_entered_values(
         param_val_collection, _ = generic_create(
             ParameterValueCollection, {"name": name, "owner": owner}
         )
+        section.entered_values = param_val_collection
+        section.save()
     for module_obj_str, obj_value_dict in entered_values.items():
         if module_obj_str != "null":
             selected_object = get_object_from_str(section, module_obj_str)
@@ -240,12 +242,20 @@ def save_section(owner, section_info):
     return section
 
 
-def save_sections(owner, sections):
-    all_sections = []
+def get_children(sections, section_info):
+    return {str(i): sections[str(i)] for i in section_info["childrenIds"]}
+
+
+def save_sections(owner, sections, depth=0):
+    all_root_sections = []
     for idx, section_info in sections.items():
-        section = save_section(owner, section_info)
-        all_sections.append((int(idx), section))
-    return all_sections
+        idx = int(idx)
+        if section_info["depth"] == depth:
+            section = save_section(owner, section_info)
+            all_root_sections.append((idx, section))
+            children = get_children(sections, section_info)
+            save_sections(owner, children, depth + 1)
+    return all_root_sections
 
 
 def save_sections_to_ui_rel(ui, list_of_sections):
@@ -255,162 +265,12 @@ def save_sections_to_ui_rel(ui, list_of_sections):
 
 def save_section_positions(ui, list_of_sections):
     for idx, section in list_of_sections:
-        sp, _ = generic_create(SectionPositions, {"ui": ui, "section": section})
-        sp.position = idx
-        sp.save()
-
-
-def save_section_collection(
-    folder,
-    ui,
-    sections,
-    module_collections,
-    parameter_collections,
-    section_collection_name=None,
-):
-    name = section_collection_name if section_collection_name is not None else ui.name
-    section_collection, _ = generic_create(
-        SectionCollection, {"folder": folder, "originUI": ui, "name": name}
-    )
-    created_sections = [
-        Section(originCollection=section_collection, name=se["name"])
-        for se in sections.values()
-    ]
-    created_sections = generic_bulk_create_and_return(
-        Section, created_sections, ["originCollection", "name"]
-    )
-
-    section_x_collections = {}
-
-    for table, foreign_table, key, dict_key in [
-        (SectionModuleCollection, module_collections, "availableModules", "modules"),
-        (
-            SectionParameterCollection,
-            parameter_collections,
-            "availableParameters",
-            "parameters",
-        ),
-    ]:
-        x = [
-            table(
-                **{
-                    "originSection": created_sections.get(name=se["name"]),
-                    key: foreign_table.get(name=collection_name),
-                }
-            )
-            for se in sections.values()
-            if se.get(dict_key, None)
-            for collection_name in se[dict_key]
-        ]
-
-        section_x_collections[dict_key] = generic_bulk_create_and_return(
-            table, x, ["originSection", key]
-        )
-
-    return section_collection, created_sections, section_x_collections
-
-
-def save_ui_contents(
-    ui, section_collections, module_collections, parameter_collections
-):
-    for table, collection, key in [
-        (UISectionCollection, section_collections, "sections"),
-        (UIModuleCollection, module_collections, "availableModules"),
-        (UIParameterCollection, parameter_collections, "availableParameters"),
-    ]:
-        to_be_created = [table(**{"originUI": ui, key: c}) for c in collection]
-        generic_bulk_create(table, to_be_created)
-
-
-def save_selections(
-    sections,
-    created_sections,
-    section_x_collections,
-    module_collections,
-    modules,
-    module_objects,
-):
-    selected_objects = {}
-    for se in sections.values():
-        selected = se["selected"]
-        selected_module = selected.get("module", None)
-        if not selected_module:
-            continue
-        originSection = created_sections.get(name=se["name"])
-        mc = module_collections.filter(
-            id__in=section_x_collections["modules"]
-            .filter(originSection=originSection)
-            .values_list("availableModules", flat=True)
-        )
-        selected_module = modules.get(name=selected["module"], originCollection__in=mc)
-        selected_object = module_objects.get(
-            name=selected["obj"], belongsTo=selected_module
-        )
-        x_kwargs = {
-            "name": se["name"],
-            "originSection": originSection,
-        }
-        x = try_get(ModuleObjectSelection, x_kwargs)
-        if x:
-            x.selectedModule = selected_module
-            x.selectedObject = selected_object
-            x.save()
+        sp = try_get(SectionPositions, {"ui": ui, "section": section})
+        if sp is None:
+            sp = SectionPositions.objects.create(ui=ui, section=section, position=idx)
         else:
-            x_kwargs["selectedModule"] = selected_module
-            x_kwargs["selectedObject"] = selected_object
-            generic_create(ModuleObjectSelection, x_kwargs)
-        selected_objects[se["name"]] = selected_object
-    return selected_objects
-
-
-def save_entered_values(
-    ui,
-    folder,
-    sections,
-    created_sections,
-    selected_objects,
-    object_parameters,
-    section_x_collections,
-    parameter_collections,
-    parameters,
-):
-    entered_value_collection, _ = generic_create(
-        EnteredValueCollection, {"name": ui.name, "folder": folder, "originUI": ui}
-    )
-    for se in sections.values():
-        entered_values = se["enteredValues"]
-        if not entered_values:
-            continue
-        selected_object = selected_objects.get(se["name"], None)
-        if not selected_object:
-            originSection = created_sections.get(name=se["name"])
-            pc = parameter_collections.filter(
-                id__in=section_x_collections["parameters"]
-                .filter(originSection=originSection)
-                .values_list("availableParameters", flat=True)
-            )
-            to_be_created = [
-                ParameterCollectionParameterEnteredValue(
-                    originCollection=entered_value_collection,
-                    parameter=parameters.get(name=param_name, belongsTo__in=pc),
-                    value=param_value,
-                )
-                for param_name, param_value in entered_values.items()
-            ]
-            generic_bulk_create(ParameterCollectionParameterEnteredValue, to_be_created)
-
-        else:
-            to_be_created = [
-                ObjectParameterEnteredValue(
-                    originCollection=entered_value_collection,
-                    parameter=object_parameters.get(
-                        name=param_name, belongsTo=selected_object
-                    ),
-                    value=param_value,
-                )
-                for param_name, param_value in entered_values.items()
-            ]
-            generic_bulk_create(ObjectParameterEnteredValue, to_be_created)
+            sp.position = idx
+            sp.save()
 
 
 def save_ui(request):
@@ -430,41 +290,7 @@ def save_ui(request):
     save_module_collection(ui, ui_info["availableModules"])
     save_parameter_collection(ui, ui_info["availableParameters"])
 
-    list_of_sections = save_sections(owner, ui_info["sections"])
-    save_sections_to_ui_rel(ui, [s for _, s in list_of_sections])
-    save_section_positions(ui, list_of_sections)
-
-    # (
-    #     section_collection,
-    #     created_sections,
-    #     section_x_collections,
-    # ) = save_section_collection(
-    #     folder, ui, ui_info["sections"], module_collections, parameter_collections
-    # )
-
-    # save_ui_contents(
-    #     ui, [section_collection], module_collections, parameter_collections
-    # )
-
-    # selected_objects = save_selections(
-    #     ui_info["sections"],
-    #     created_sections,
-    #     section_x_collections,
-    #     module_collections,
-    #     modules,
-    #     module_objects,
-    # )
-
-    # save_entered_values(
-    #     ui,
-    #     folder,
-    #     ui_info["sections"],
-    #     created_sections,
-    #     selected_objects,
-    #     object_parameters,
-    #     section_x_collections,
-    #     parameter_collections,
-    #     parameters,
-    # )
-
+    list_of_root_sections = save_sections(owner, ui_info["sections"])
+    save_sections_to_ui_rel(ui, [s for _, s in list_of_root_sections])
+    save_section_positions(ui, list_of_root_sections)
     print("successs")
