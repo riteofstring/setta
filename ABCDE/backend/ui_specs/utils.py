@@ -142,6 +142,7 @@ def save_section_collection_rels(section, section_info):
 
 def save_section_entered_values(section, section_info):
     owner = section.owner
+    selected_object = section.selected_object
     entered_values = section_info["enteredValues"]
     if not entered_values:
         return
@@ -151,7 +152,18 @@ def save_section_entered_values(section, section_info):
             ParameterValueCollection, {"name": section_info["name"], "owner": owner}
         )
     for name, value in entered_values.items():
-        param = Parameter.objects.get(name=name, parent_object=section.selected_object)
+        if selected_object:
+            param = Parameter.objects.get(name=name, parent_object=selected_object)
+        else:
+            section_to_param_collections = SectionToParameterCollection.objects.filter(
+                entity=section
+            )
+            for stpc in section_to_param_collections:
+                param = try_get(
+                    Parameter, {"name": name, "parent_collection": stpc.parent}
+                )
+                if param is not None:
+                    break
         param_val, _ = generic_create(
             ParameterValue,
             {"parent": param, "collection": param_val_collection},
