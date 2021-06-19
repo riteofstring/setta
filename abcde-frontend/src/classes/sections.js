@@ -76,7 +76,11 @@ export class Sections {
 
     let children = [];
     for (let i = 0; i < numChildren; i++) {
-      const child = new Section(childSectionHeading, childSectionInfo);
+      const child = new Section(
+        childSectionHeading,
+        childSectionInfo,
+        parent.depth + 1
+      );
       child.parent = parentId;
       child.uiType = new UIType({
         name: childUITypeName,
@@ -286,6 +290,6 @@ export class Sections {
     output["sections"] = sectionsOutput;
     output["availableModules"] = this.available.modules;
     output["availableParameters"] = this.available.parameters;
-    return output
+    return output;
   };
 }

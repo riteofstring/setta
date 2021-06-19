@@ -5,10 +5,11 @@ import { UIType } from "./uiType";
 import { History } from "./history";
 
 export class Section {
-  constructor(name, sectionInfo) {
+  constructor(name, sectionInfo, depth) {
     this.name = name;
     this.sectionInfo = sectionInfo;
     this.parent = null;
+    this.depth = depth;
     this.selected = new Selected();
     this.uiType = new UIType({ name: "OBJECT" });
     this.history = new History();
@@ -221,7 +222,10 @@ export class Section {
         this.paramUITypeNames[key]
       ] = this.enteredValues[key];
     }
-    output["paramUITypeNames"] = this.paramUITypeNames
+    output["paramUITypeNames"] = this.paramUITypeNames;
+    output["depth"] = this.depth;
+    output["isListRoot"] = this.uiType.isListRoot;
+    output["childrenIds"] = this.childrenIds;
     output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
     return output;
   };
