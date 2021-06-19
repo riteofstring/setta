@@ -30,14 +30,14 @@ export const loadFolderAndUINames = ({ token }) => {
   const query = `{
     allFolders {
       name
-      owner {
-        id
+      uis {
+        name
       }
     }
   }`
   return axios
     .post(BACKEND + "graphql", JSON.stringify({query: query}), tokenConfig(token))
-    .then((res) => res.data.data)
+    .then((res) => res.data.data.allFolders)
     .catch((err) => {});
 };
 

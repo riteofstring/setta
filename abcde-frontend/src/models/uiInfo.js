@@ -16,15 +16,17 @@ const uiInfo = {
   loadedFolderAndUINames: {},
 
   setLoadedFolderAndUINames: action((state, payload) => {
-    state.loadedFolderAndUINames = payload;
+    const newState = {};
+    for (let i = 0; i < payload.length; i++) {
+      newState[payload[i].name] = payload[i].uis.map((e) => e.name);
+    }
+    state.loadedFolderAndUINames = newState;
   }),
 
   loadFolderAndUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
     const uiNames = await loadFolderAndUINamesBackend({ token });
-    console.log("uiNames", uiNames)
-
-    // action.setLoadedFolderAndUINames(uiNames);
+    action.setLoadedFolderAndUINames(uiNames);
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
