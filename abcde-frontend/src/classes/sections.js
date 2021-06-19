@@ -1,4 +1,4 @@
-import { nullOrUndefined } from "../utils/utils";
+import { nullOrUndefined, generateUUIDs } from "../utils/utils";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { Section } from "./section";
@@ -35,7 +35,9 @@ export class Sections {
     this.available = {};
     this.allChildrenIds = [];
     this.allChildrenNames = [];
-    this.latestId = 0;
+    this.latestIdIdx = 0;
+    this.uuids = generateUUIDs(1000)
+    this.uuidsToIdx = {}
   }
 
   getIdxAfterSource = (parent, sourceId) => {
@@ -97,9 +99,10 @@ export class Sections {
   };
 
   addSection = (section) => {
-    const sectionId = this.latestId;
+    const sectionId = this.uuids[this.latestIdIdx];
     this.sections[sectionId] = section;
-    this.latestId += 1;
+    this.uuidsToIdx[sectionId] = this.latestIdIdx
+    this.latestIdIdx += 1;
     return sectionId;
   };
 
@@ -138,11 +141,11 @@ export class Sections {
     this.deleteSections({ sectionIds: childrenToDelete, parentId, paramName });
   };
 
-  getRootIds = (minId = null, maxId = null) => {
+  getRootIds = (minIdx = null, maxIdx = null) => {
     return Object.keys(this.sections).filter(
       (e) =>
-        (nullOrUndefined(minId) || parseInt(e) >= minId) &&
-        (nullOrUndefined(maxId) || parseInt(e) < maxId) &&
+        (nullOrUndefined(minIdx) || parseInt(this.uuidsToIdx[e]) >= minIdx) &&
+        (nullOrUndefined(maxIdx) || parseInt(this.uuidsToIdx[e]) < maxIdx) &&
         nullOrUndefined(this.sections[e].parent)
     );
   };

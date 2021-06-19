@@ -22,8 +22,8 @@ const SectionsPane = () => {
       >
         {pageMinMaxList.map((e, idx) => (
           <SingleSectionsPane
-            minId={e.minId}
-            maxId={e.maxId}
+            minIdx={e.minIdx}
+            maxIdx={e.maxIdx}
             idx={idx}
             key={`SingleSectionsPane-${idx}`}
           />

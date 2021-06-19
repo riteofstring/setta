@@ -7,7 +7,6 @@ import { NO_AUTH } from "../utils/constants";
 import { generateAndRunCode } from "../dbRequests/ui";
 import {
   setEntireState as setEntireStateFunc,
-  recursivelyGetAllNonFunctions,
 } from "../utils/commonFunctions";
 import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 

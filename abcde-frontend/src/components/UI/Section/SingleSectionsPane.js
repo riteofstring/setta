@@ -4,13 +4,13 @@ import SectionContainer from "./SectionContainer/SectionContainer";
 import { arraysAreEqual } from "../../../utils/commonFunctions";
 import { Heading, Stack } from "@chakra-ui/react";
 
-const SingleSectionsPane = ({ minId, maxId, idx }) => {
+const SingleSectionsPane = ({ minIdx, maxIdx, idx }) => {
   const rootIds = useStoreState(
-    (state) => state.master.sections.getRootIds(minId, maxId),
+    (state) => state.master.sections.getRootIds(minIdx, maxIdx),
     arraysAreEqual
   );
 
-  console.log("SectionsPane rootIds, minId, maxId", rootIds, minId, maxId);
+  console.log("SectionsPane rootIds, minIdx, maxIdx", rootIds, minIdx, maxIdx);
 
   return (
     <>

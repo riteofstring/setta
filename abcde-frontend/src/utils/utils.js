@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
@@ -84,4 +86,9 @@ export function rangeArray(low, high){
 
 export function mod(n, m) {
   return ((n % m) + m) % m;
+}
+
+
+export function generateUUIDs(number){
+  return [...Array(number)].map(x => uuidv4())
 }

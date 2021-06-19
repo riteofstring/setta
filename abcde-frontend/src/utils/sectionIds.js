@@ -5,8 +5,8 @@ export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   let output = [];
   for (let x = 0; x < numPages; x++) {
     output.push({
-      minId: x * sectionsPerPage,
-      maxId: (x + 1) * sectionsPerPage,
+      minIdx: x * sectionsPerPage,
+      maxIdx: (x + 1) * sectionsPerPage,
     });
   }
   return output;
@@ -16,7 +16,7 @@ export const getOverviewListing = (sections, pageMinMaxList) => {
   let outputList = [];
   for (let minMax of pageMinMaxList) {
     outputList.push([]);
-    for (let sectionId of sections.getRootIds(minMax.minId, minMax.maxId)) {
+    for (let sectionId of sections.getRootIds(minMax.minIdx, minMax.maxIdx)) {
       outputList[outputList.length - 1].push(
         ...getOverviewListingHelper(sectionId, sections.sections, 0)
       );
