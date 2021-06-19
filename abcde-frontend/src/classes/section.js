@@ -215,8 +215,12 @@ export class Section {
       module: this.selected.moduleName,
       obj: this.selected.objName,
     };
-    output["enteredValues"] = this.enteredValues
-    output["enteredValuesHistory"] = this.history.enteredValues
+    output["enteredValues"] = this.history.enteredValues;
+    for (let key of Object.keys(this.enteredValues)) {
+      output["enteredValues"][this.selected.asString][key][
+        this.paramUITypeNames[key]
+      ] = this.enteredValues[key];
+    }
     output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
     return output;
   };
