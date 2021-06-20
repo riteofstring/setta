@@ -1,5 +1,5 @@
 import { insertIntoArray, flattenDictOfArrays } from "../utils/utils";
-import { createJson, convertSpecsToDict } from "./jsonParser";
+import { createJson } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { History } from "./history";
@@ -74,6 +74,7 @@ export class Section {
   };
 
   setSectionModules = (specs, available) => {
+    console.log("setSectionModules")
     const jsonInput = createJson(specs, available);
     this.sectionInfo.setModuleInfos(jsonInput, available);
     this.sectionInfo.setParameterInfos(jsonInput, available);
@@ -226,7 +227,7 @@ export class Section {
     output["depth"] = this.depth;
     output["isListRoot"] = this.uiType.isListRoot;
     output["childrenIds"] = this.childrenIds;
-    output = { ...output, ...convertSpecsToDict(this.sectionInfo.specs) };
+    output = { ...output, ...this.sectionInfo.specs };
     return output;
   };
 }

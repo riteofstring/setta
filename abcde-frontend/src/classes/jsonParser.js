@@ -42,13 +42,14 @@ class ParameterInfo {
     this.name = name;
     this.defaultVal = jsonInput.defaultVal;
     this.uiTypeName = jsonInput.uiType;
-    this.specs = jsonInput.type;
+    this.type = jsonInput.type;
+    this.specs = convertSpecsToDict(jsonInput.specs);
     this.isKwarg = jsonInput.isKwarg;
     this.isHidden = jsonInput.isHidden;
   }
 
   shouldHaveNested = () => {
-    return Array.isArray(this.specs);
+    return allDefined(this.specs);
   };
 }
 

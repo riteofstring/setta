@@ -1,4 +1,4 @@
-import { nullOrUndefined, generateUUIDs } from "../utils/utils";
+import { nullOrUndefined, allDefined, generateUUIDs } from "../utils/utils";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
 import { Section } from "./section";
@@ -23,7 +23,7 @@ function _childSectionInfo(parent, moduleName, objName, paramName, available) {
       paramName,
       "specs"
     );
-    paramSpecs = Array.isArray(paramSpecs) ? paramSpecs : [];
+    paramSpecs = allDefined(paramSpecs) ? paramSpecs : [];
     return new SectionInfo(paramName, paramSpecs, available);
   }
 }

@@ -2025,7 +2025,8 @@
                     "Compose": {
                         "transforms": {
                             "defaultVal": "_empty",
-                            "type": ["transforms"],
+                            "type": "_empty",
+                            "specs": {"objects": ["transforms"]},
                             "uiType": "LIST_NESTED_OBJECT"
                         }
                     }

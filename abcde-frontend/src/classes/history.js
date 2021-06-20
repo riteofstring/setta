@@ -49,7 +49,7 @@ export class History {
       if (!this.paramUITypes[selected][p][newUITypeName]) {
         this.paramUITypes[selected][p][newUITypeName] = new UIType({
           name: newUITypeName,
-          datatype: currParam.specs,
+          specs: currParam.specs,
         });
       }
       this.paramUITypeNames[selected][p] = newUITypeName;
