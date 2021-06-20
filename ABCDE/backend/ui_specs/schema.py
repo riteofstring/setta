@@ -56,7 +56,7 @@ class ParameterToParameterCollectionGQL(DjangoObjectType):
 class ParameterValueGQL(DjangoObjectType):
     class Meta:
         model = ParameterValue
-        fields = ("value", "ui_type", "is_current")
+        fields = ("value", "ui_type")
 
 
 class ParameterValueCollectionGQL(DjangoObjectType):
@@ -73,7 +73,14 @@ class ParameterValueCollectionGQL(DjangoObjectType):
 class ParameterGQL(DjangoObjectType):
     class Meta:
         model = Parameter
-        fields = ("name", "default_val", "type", "ui_type")
+        fields = (
+            "name",
+            "default_val",
+            "type",
+            "ui_type",
+            "parent_object",
+            "parent_collection",
+        )
 
     specs_objects = graphene.List(ParameterToObjectCollectionGQL)
     specs_parameters = graphene.List(ParameterToParameterCollectionGQL)

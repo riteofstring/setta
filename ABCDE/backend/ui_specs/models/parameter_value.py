@@ -1,6 +1,6 @@
 import sys
 
-from django.db.models import CASCADE, BooleanField, ForeignKey
+from django.db.models import CASCADE, ForeignKey
 
 from .parameter import Parameter
 from .parameter_value_collection import ParameterValueCollection
@@ -16,7 +16,6 @@ tables = table_factory(
     base_additional_tables={
         "collection": ForeignKey(ParameterValueCollection, on_delete=CASCADE),
         "ui_type": ForeignKey(UIType, on_delete=CASCADE),
-        "is_current": BooleanField(default=True),
     },
 )
 for k, v in tables.items():
