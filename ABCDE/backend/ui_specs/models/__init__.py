@@ -1,3 +1,4 @@
+from .datatype import Datatype
 from .labels import Folder, Tag
 from .module import Module, ModuleToModuleCollection
 from .module_collection import (

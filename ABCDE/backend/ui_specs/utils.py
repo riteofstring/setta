@@ -2,6 +2,7 @@ import json
 
 from .models import (
     UI,
+    Datatype,
     Folder,
     Module,
     ModuleCollection,
@@ -90,6 +91,22 @@ def save_collection_rel(entity, list_of_collections, collection_type):
         generic_create(rel_table, {"entity": entity, "parent": c})
 
 
+def save_parameter(param_name, param_info, parent, parent_is_obj):
+    datatype, _ = generic_create(Datatype, {"name": param_info["type"]})
+    ui_type, _ = generic_create(UIType, {"name": param_info["ui_type"]})
+    parent_col = "parent_object" if parent_is_obj else "parent_collection"
+    generic_create(
+        Parameter,
+        {
+            "name": param_name,
+            "default_val": param_info["default_val"],
+            "type": datatype,
+            "ui_type": ui_type,
+            parent_col: parent,
+        },
+    )
+
+
 def save_module_collection(entity, available_modules):
     owner = entity.owner
     all_collections = []
@@ -110,9 +127,8 @@ def save_module_collection(entity, available_modules):
             for object_name, object_info in module_info.items():
                 obj, _ = generic_create(Object, {"name": object_name, "parent": module})
                 for param_name, param_info in object_info.items():
-                    generic_create(
-                        Parameter, {"name": param_name, "parent_object": obj}
-                    )
+                    save_parameter(param_name, param_info, obj, True)
+
     save_collection_rel(entity, all_collections, "modules")
 
 
@@ -125,9 +141,8 @@ def save_parameter_collection(entity, available_parameters):
         )
         all_collections.append(param_collection)
         for param_name, param_info in param_collection_info["ParameterInfo"].items():
-            generic_create(
-                Parameter, {"name": param_name, "parent_collection": param_collection}
-            )
+            save_parameter(param_name, param_info, param_collection, False)
+
     save_collection_rel(entity, all_collections, "parameters")
 
 
@@ -208,7 +223,7 @@ def save_section_entered_values(
             else:
                 param = get_param_from_str(section, name)
             for ui_type_name, value in param_dict.items():
-                ui_type, _ = generic_create(UIType, {"value": ui_type_name})
+                ui_type, _ = generic_create(UIType, {"name": ui_type_name})
 
                 ParameterValue.objects.filter(
                     parent=param, collection=param_val_collection

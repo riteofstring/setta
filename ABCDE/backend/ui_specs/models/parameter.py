@@ -1,10 +1,19 @@
 import sys
 
-from django.db.models import CASCADE, CheckConstraint, ForeignKey, Q
+from django.db.models import (
+    CASCADE,
+    SET_NULL,
+    CheckConstraint,
+    ForeignKey,
+    Q,
+    TextField,
+)
 
+from .datatype import Datatype
 from .object import Object
 from .parameter_collection import ParameterCollection
 from .table_factory import table_factory
+from .ui_type import UIType
 
 constraints = [
     CheckConstraint(
@@ -24,6 +33,9 @@ tables = table_factory(
         "parent_collection": ForeignKey(
             ParameterCollection, on_delete=CASCADE, null=True
         ),
+        "default_val": TextField(null=True),
+        "type": ForeignKey(Datatype, on_delete=SET_NULL, null=True),
+        "ui_type": ForeignKey(UIType, on_delete=SET_NULL, null=True),
     },
     base_additional_constraints=constraints,
 )

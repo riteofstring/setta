@@ -29,7 +29,7 @@ from .models import (
 class UITypeGQL(DjangoObjectType):
     class Meta:
         model = UIType
-        fields = ("value",)
+        fields = ("name",)
 
 
 class ParameterValueGQL(DjangoObjectType):
