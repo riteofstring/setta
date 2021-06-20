@@ -15,6 +15,8 @@ from .models import (
     ParameterCollection,
     ParameterToObjectCollection,
     ParameterToParameterCollection,
+    ParameterUIType,
+    ParameterUITypeCollection,
     ParameterValue,
     ParameterValueCollection,
     Section,
@@ -53,21 +55,38 @@ class ParameterToParameterCollectionGQL(DjangoObjectType):
         fields = ("parent",)
 
 
+class ParameterUITypeGQL(DjangoObjectType):
+    class Meta:
+        model = ParameterUIType
+        fields = ("parent", "ui_type")
+
+
+class ParameterUITypeCollectionGQL(DjangoObjectType):
+    class Meta:
+        model = ParameterUITypeCollection
+        fields = ("name",)
+
+    ui_types = graphene.List(ParameterUITypeGQL)
+
+    def resolve_ui_types(self, info):
+        return ParameterUIType.objects.filter(collection=self)
+
+
 class ParameterValueGQL(DjangoObjectType):
     class Meta:
         model = ParameterValue
-        fields = ("value", "ui_type")
+        fields = ("parent", "value", "ui_type")
 
 
 class ParameterValueCollectionGQL(DjangoObjectType):
     class Meta:
         model = ParameterValueCollection
-        fields = ("id", "name")
+        fields = ("name",)
 
     values = graphene.List(ParameterValueGQL)
 
     def resolve_values(self, info):
-        return ParameterValue.objects.filter(collection=self.id)
+        return ParameterValue.objects.filter(collection=self)
 
 
 class ParameterGQL(DjangoObjectType):
@@ -117,10 +136,7 @@ class ObjectGQL(DjangoObjectType):
 class ModuleGQL(DjangoObjectType):
     class Meta:
         model = Module
-        fields = (
-            "id",
-            "name",
-        )
+        fields = ("name",)
 
     objects = graphene.List(ObjectGQL)
 
@@ -131,7 +147,7 @@ class ModuleGQL(DjangoObjectType):
 class ObjectCollectionGQL(DjangoObjectType):
     class Meta:
         model = ObjectCollection
-        fields = ("id", "name")
+        fields = ("name",)
 
     objects = graphene.List(ObjectGQL)
 
@@ -154,11 +170,11 @@ class SectionGQL(DjangoObjectType):
     class Meta:
         model = Section
         fields = (
-            "id",
             "name",
             "variable_name",
             "selected_object",
             "entered_values",
+            "ui_types",
             "children",
         )
 
@@ -202,7 +218,7 @@ def get_sections(ui):
 class UIGQL(DjangoObjectType):
     class Meta:
         model = UI
-        fields = ("id", "name")
+        fields = ("name",)
 
     sections = graphene.List(SectionGQL)
     section_positions = graphene.List(SectionPositionsGQL)
@@ -258,7 +274,7 @@ class UIGQL(DjangoObjectType):
 class FolderGQL(DjangoObjectType):
     class Meta:
         model = Folder
-        fields = ("id", "name")
+        fields = ("name",)
 
     uis = graphene.List(UIGQL)
     # module_collections = graphene.List(ObjectCollectionType)
