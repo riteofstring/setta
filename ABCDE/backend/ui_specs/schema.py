@@ -5,6 +5,7 @@ from graphene_django import DjangoObjectType
 from . import utils
 from .models import (
     UI,
+    Datatype,
     Folder,
     Module,
     ModuleCollection,
@@ -24,6 +25,12 @@ from .models import (
     UIToParameterCollection,
     UIType,
 )
+
+
+class DatatypeGQL(DjangoObjectType):
+    class Meta:
+        model = Datatype
+        fields = ("name",)
 
 
 class UITypeGQL(DjangoObjectType):
@@ -52,7 +59,7 @@ class ParameterValueCollectionGQL(DjangoObjectType):
 class ParameterGQL(DjangoObjectType):
     class Meta:
         model = Parameter
-        fields = ("name",)
+        fields = ("name", "default_val", "type", "ui_type")
 
 
 class ParameterCollectionGQL(DjangoObjectType):
