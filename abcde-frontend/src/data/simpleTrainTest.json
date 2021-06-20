@@ -6,155 +6,155 @@
                 "torchvision.models": {
                     "resnet101": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "resnet152": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "resnet18": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "resnet34": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "resnet50": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "resnext101_32x8d": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "resnext50_32x4d": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "wide_resnet101_2": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "wide_resnet50_2": {
                         "pretrained": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "progress": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Any",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     }
                 }
@@ -172,108 +172,108 @@
                 "torch.optim": {
                     "Adadelta": {
                         "params": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "lr": {
-                            "default_val": "1.0",
+                            "defaultVal": "1.0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "rho": {
-                            "default_val": "0.9",
+                            "defaultVal": "0.9",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "eps": {
-                            "default_val": "1e-06",
+                            "defaultVal": "1e-06",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "weight_decay": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "defaults": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Adam": {
                         "params": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "lr": {
-                            "default_val": "0.001",
+                            "defaultVal": "0.001",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "betas": {
-                            "default_val": "(0.9, 0.999)",
+                            "defaultVal": "(0.9, 0.999)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "eps": {
-                            "default_val": "1e-08",
+                            "defaultVal": "1e-08",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "weight_decay": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "amsgrad": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "defaults": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "SGD": {
                         "params": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "lr": {
-                            "default_val": "<required parameter>",
+                            "defaultVal": "<required parameter>",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "momentum": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "dampening": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "weight_decay": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "nesterov": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "defaults": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     }
                 }
@@ -284,1736 +284,1736 @@
                 "torchvision.datasets": {
                     "CIFAR10": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "CIFAR100": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Caltech101": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_type": {
-                            "default_val": "category",
+                            "defaultVal": "category",
                             "type": "typing.Union[typing.List[str], str]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Caltech256": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "CelebA": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_type": {
-                            "default_val": "attr",
+                            "defaultVal": "attr",
                             "type": "typing.Union[typing.List[str], str]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Cityscapes": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "mode": {
-                            "default_val": "fine",
+                            "defaultVal": "fine",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_type": {
-                            "default_val": "instance",
+                            "defaultVal": "instance",
                             "type": "typing.Union[typing.List[str], str]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "CocoCaptions": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "annFile": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "CocoDetection": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "annFile": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "DatasetFolder": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "loader": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Callable[[str], typing.Any]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "extensions": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Tuple[str, ...], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "is_valid_file": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable[[str], bool], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "EMNIST": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "FakeData": {
                         "size": {
-                            "default_val": "1000",
+                            "defaultVal": "1000",
                             "type": "int",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "image_size": {
-                            "default_val": "(3, 224, 224)",
+                            "defaultVal": "(3, 224, 224)",
                             "type": "typing.Tuple[int, int, int]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "num_classes": {
-                            "default_val": "10",
+                            "defaultVal": "10",
                             "type": "int",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "random_offset": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "int",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "FashionMNIST": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Flickr30k": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "ann_file": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Flickr8k": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "ann_file": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "HMDB51": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "annotation_path": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "frames_per_clip": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "step_between_clips": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "frame_rate": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fold": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_precomputed_metadata": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "num_workers": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_width": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_height": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_min_dimension": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_audio_samples": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "ImageFolder": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "loader": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Callable[[str], typing.Any]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "is_valid_file": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable[[str], bool], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "extensions": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Tuple[str, ...], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "ImageNet": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[str, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "loader": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "typing.Callable[[str], typing.Any]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "is_valid_file": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable[[str], bool], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "extensions": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Tuple[str, ...], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "KMNIST": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Kinetics400": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "frames_per_clip": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "step_between_clips": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "frame_rate": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "extensions": {
-                            "default_val": "('avi',)",
+                            "defaultVal": "('avi',)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_precomputed_metadata": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "num_workers": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_width": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_height": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_min_dimension": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_audio_samples": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_audio_channels": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "LSUN": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "classes": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "typing.Union[str, typing.List[str]]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "LSUNClass": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "MNIST": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Omniglot": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "background": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "PhotoTour": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "name": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Places365": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train-standard",
+                            "defaultVal": "train-standard",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "small": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "loader": {
-                            "default_val": "<function default_loader at 0x000001D83FA01040>",
+                            "defaultVal": "<function default_loader at 0x000001D83FA01040>",
                             "type": "typing.Callable[[str], typing.Any]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "QMNIST": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "what": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[str, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "compat": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "SBDataset": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "image_set": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "mode": {
-                            "default_val": "boundaries",
+                            "defaultVal": "boundaries",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "SBU": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "SEMEION": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "STL10": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "folds": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[int, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "SVHN": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "UCF101": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "annotation_path": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "frames_per_clip": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "step_between_clips": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "frame_rate": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fold": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_precomputed_metadata": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "num_workers": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_width": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_height": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_video_min_dimension": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "_audio_samples": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "USPS": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "train": {
-                            "default_val": "True",
+                            "defaultVal": "True",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "VOCDetection": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "year": {
-                            "default_val": "2012",
+                            "defaultVal": "2012",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "image_set": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "VOCSegmentation": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "year": {
-                            "default_val": "2012",
+                            "defaultVal": "2012",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "image_set": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "VisionDataset": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "WIDERFace": {
                         "root": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "split": {
-                            "default_val": "train",
+                            "defaultVal": "train",
                             "type": "str",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "target_transform": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "download": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "bool",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "transforms": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.Callable, NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     }
                 }
@@ -2024,9 +2024,9 @@
                 "torchvision.transforms": {
                     "Compose": {
                         "transforms": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": ["transforms"],
-                            "ui_type": "LIST_NESTED_OBJECT"
+                            "uiType": "LIST_NESTED_OBJECT"
                         }
                     }
                 }
@@ -2037,567 +2037,567 @@
                 "torchvision.transforms": {
                     "AutoAugment": {
                         "policy": {
-                            "default_val": "AutoAugmentPolicy.IMAGENET",
+                            "defaultVal": "AutoAugmentPolicy.IMAGENET",
                             "type": "AutoAugmentPolicy",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.NEAREST",
+                            "defaultVal": "InterpolationMode.NEAREST",
                             "type": "InterpolationMode",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fill": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "typing.Union[typing.List[float], NoneType]",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "AutoAugmentPolicy": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "CenterCrop": {
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "ColorJitter": {
                         "brightness": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "contrast": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "saturation": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "hue": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "ConvertImageDtype": {
                         "dtype": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "dtype",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Enum": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "FiveCrop": {
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "GaussianBlur": {
                         "kernel_size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "sigma": {
-                            "default_val": "(0.1, 2.0)",
+                            "defaultVal": "(0.1, 2.0)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Grayscale": {
                         "num_output_channels": {
-                            "default_val": "1",
+                            "defaultVal": "1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "InterpolationMode": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Lambda": {
                         "lambd": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "LinearTransformation": {
                         "transformation_matrix": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "mean_vector": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Normalize": {
                         "mean": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "std": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "inplace": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "PILToTensor": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "Pad": {
                         "padding": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fill": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "padding_mode": {
-                            "default_val": "constant",
+                            "defaultVal": "constant",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomAdjustSharpness": {
                         "sharpness_factor": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomAffine": {
                         "degrees": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "translate": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "scale": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "shear": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.NEAREST",
+                            "defaultVal": "InterpolationMode.NEAREST",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fill": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fillcolor": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "resample": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomApply": {
                         "transforms": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomAutocontrast": {
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomChoice": {
                         "transforms": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomCrop": {
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "padding": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "pad_if_needed": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fill": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "padding_mode": {
-                            "default_val": "constant",
+                            "defaultVal": "constant",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomEqualize": {
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomErasing": {
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "scale": {
-                            "default_val": "(0.02, 0.33)",
+                            "defaultVal": "(0.02, 0.33)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "ratio": {
-                            "default_val": "(0.3, 3.3)",
+                            "defaultVal": "(0.3, 3.3)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "value": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "inplace": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomGrayscale": {
                         "p": {
-                            "default_val": "0.1",
+                            "defaultVal": "0.1",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomHorizontalFlip": {
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomInvert": {
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomOrder": {
                         "transforms": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomPerspective": {
                         "distortion_scale": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
+                            "defaultVal": "InterpolationMode.BILINEAR",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fill": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomPosterize": {
                         "bits": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomResizedCrop": {
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "scale": {
-                            "default_val": "(0.08, 1.0)",
+                            "defaultVal": "(0.08, 1.0)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "ratio": {
-                            "default_val": "(0.75, 1.3333333333333333)",
+                            "defaultVal": "(0.75, 1.3333333333333333)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
+                            "defaultVal": "InterpolationMode.BILINEAR",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomRotation": {
                         "degrees": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.NEAREST",
+                            "defaultVal": "InterpolationMode.NEAREST",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "expand": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "center": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "fill": {
-                            "default_val": "0",
+                            "defaultVal": "0",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "resample": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomSizedCrop": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         },
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "scale": {
-                            "default_val": "(0.08, 1.0)",
+                            "defaultVal": "(0.08, 1.0)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "ratio": {
-                            "default_val": "(0.75, 1.3333333333333333)",
+                            "defaultVal": "(0.75, 1.3333333333333333)",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
+                            "defaultVal": "InterpolationMode.BILINEAR",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomSolarize": {
                         "threshold": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "RandomVerticalFlip": {
                         "p": {
-                            "default_val": "0.5",
+                            "defaultVal": "0.5",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Resize": {
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
+                            "defaultVal": "InterpolationMode.BILINEAR",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Scale": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         },
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "interpolation": {
-                            "default_val": "InterpolationMode.BILINEAR",
+                            "defaultVal": "InterpolationMode.BILINEAR",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "TenCrop": {
                         "size": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "vertical_flip": {
-                            "default_val": "False",
+                            "defaultVal": "False",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "Tensor": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     },
                     "ToPILImage": {
                         "mode": {
-                            "default_val": "None",
+                            "defaultVal": "None",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         }
                     },
                     "ToTensor": {
                         "args": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "UNKNOWN"
+                            "uiType": "UNKNOWN"
                         },
                         "kwargs": {
-                            "default_val": "_empty",
+                            "defaultVal": "_empty",
                             "type": "_empty",
-                            "ui_type": "TEXT"
+                            "uiType": "TEXT"
                         }
                     }
                 }
@@ -2608,24 +2608,24 @@
         "various_params": {
             "ParameterInfo": {
                 "dataset_root": {
-                    "default_val": ".",
+                    "defaultVal": ".",
                     "type": "",
-                    "ui_type": "UNKNOWN"
+                    "uiType": "UNKNOWN"
                 },
                 "batch_size": {
-                    "default_val": 64,
+                    "defaultVal": 64,
                     "type": "",
-                    "ui_type": "UNKNOWN"
+                    "uiType": "UNKNOWN"
                 },
                 "test_batch_size": {
-                    "default_val": 1000,
+                    "defaultVal": 1000,
                     "type": "",
-                    "ui_type": "UNKNOWN"
+                    "uiType": "UNKNOWN"
                 },
                 "epochs": {
-                    "default_val": 2,
+                    "defaultVal": 2,
                     "type": "",
-                    "ui_type": "UNKNOWN"
+                    "uiType": "UNKNOWN"
                 }
             }
         }

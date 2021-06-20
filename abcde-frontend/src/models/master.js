@@ -10,6 +10,8 @@ import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 import {
   parseAvailableModules,
   parseAvailableParameters,
+  parseSectionPositions,
+  parseSections,
 } from "../graphql/parsers/uiParsers";
 
 const master = {
@@ -43,19 +45,23 @@ const master = {
     );
   }),
 
-  setEntireState: action((state, payload) => {
+  setEntireState: thunk((action, payload, helpers) => {
     console.log("payload", payload);
-    const MODULES = parseAvailableModules(payload["availableModules"]);
-    const PARAMETERS = parseAvailableParameters(payload["availableParameters"]);
-    console.log("MODULES", MODULES);
-    console.log("PARAMETERS", PARAMETERS)
+    const entireUI = {};
+    entireUI["MODULES"] = parseAvailableModules(payload["availableModules"]);
+    entireUI["PARAMETERS"] = parseAvailableParameters(
+      payload["availableParameters"]
+    );
+    // entireUI[sectionPositions = parseSectionPositions(payload["sectionPositions"]);
+    entireUI["UI"] = parseSections(payload["sections"]);
+    action._loadSections(entireUI);
   }),
 
   loadSections: thunk((action, payload, helpers) => {
-    if (true) {
+    if (NO_AUTH) {
       action._loadSections(Data.ENTIRE_UI);
     } else {
-      action._loadSections(payload);
+      // action._loadSections(payload);
     }
   }),
 

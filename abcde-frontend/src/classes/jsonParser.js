@@ -40,8 +40,8 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
 class ParameterInfo {
   constructor(name, jsonInput) {
     this.name = name;
-    this.defaultVal = jsonInput.default_val;
-    this.uiTypeName = jsonInput.ui_type;
+    this.defaultVal = jsonInput.defaultVal;
+    this.uiTypeName = jsonInput.uiType;
     this.specs = jsonInput.type;
     this.isKwarg = jsonInput.isKwarg;
     this.isHidden = jsonInput.isHidden;
@@ -92,8 +92,8 @@ export class SectionInfo {
       existing.isHidden = false;
     } else {
       const newParameter = new ParameterInfo(paramName, {
-        default_val: "",
-        ui_type: "TEXT",
+        defaultVal: "",
+        uiType: "TEXT",
         type: "",
         isKwarg: true,
         isHidden: false,

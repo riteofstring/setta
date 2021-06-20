@@ -35,3 +35,20 @@ export function parseAvailableParameters(availableParameters) {
   }
   return PARAMETERS;
 }
+
+export function parseSectionPositions(sectionPositions) {
+  return [...sectionPositions].sort(function (a, b) {
+    return a.position - b.position;
+  });
+}
+
+export function parseSections(sections) {
+  const UI = {};
+  for (let s of sections) {
+    UI[s["variableName"]] = {
+      modules: s["modules"].map(x=>x.name),
+      parameters: s["parameters"].map(x=>x.name),
+    };
+  }
+  return UI
+}
