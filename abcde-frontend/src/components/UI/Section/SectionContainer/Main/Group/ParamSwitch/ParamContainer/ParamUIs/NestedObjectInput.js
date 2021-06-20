@@ -29,20 +29,20 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
 
 export function NestedObjectInputConfig({
   name,
-  availableModules,
+  availableObjects,
   availableParameters,
   onChange,
   savedConfig,
 }) {
-  const pickerModules = availableModules.map((x) =>
-    valueAndLabel(x, "modules")
+  const pickerObjects = availableObjects.map((x) =>
+    valueAndLabel(x, "objects")
   );
   const pickerParameters = availableParameters.map((x) =>
     valueAndLabel(x, "parameters")
   );
-  const initialPickerItems = pickerModules.concat(pickerParameters);
+  const initialPickerItems = pickerObjects.concat(pickerParameters);
   const initialPickerItemsObj = {
-    modules: pickerModules,
+    objects: pickerObjects,
     parameters: pickerParameters,
   };
 

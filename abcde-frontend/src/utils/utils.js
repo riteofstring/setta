@@ -62,8 +62,8 @@ function jsonCombiner(available, listOfSelection, key) {
   return {};
 }
 
-export function combineModules(modules, listOfModules) {
-  return jsonCombiner(modules, listOfModules, "ModuleInfo");
+export function combineObjects(objects, listOfObjects) {
+  return jsonCombiner(objects, listOfObjects, "ModuleInfo");
 }
 
 export function combineParameters(parameters, listOfParameters) {

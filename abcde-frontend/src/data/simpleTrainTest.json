@@ -1,6 +1,6 @@
 {
     "ENTIRE_UI": {
-    "MODULES": {
+    "OBJECTS": {
         "torchvision_models": {
             "ModuleInfo": {
                 "torchvision.models": {

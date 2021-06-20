@@ -7,7 +7,7 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
   console.log("ParamUIConfig", name)
   const available = useStoreState((state) => state.master.sections.available);
 
-  const availableModules = Object.keys(available.modules);
+  const availableObjects = Object.keys(available.objects);
   const availableParameters = Object.keys(available.parameters);
 
   switch (name) {
@@ -25,7 +25,7 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
           name={name}
           savedConfig={savedConfig}
           onChange={onChange}
-          availableModules={availableModules}
+          availableObjects={availableObjects}
           availableParameters={availableParameters}
         />
       );

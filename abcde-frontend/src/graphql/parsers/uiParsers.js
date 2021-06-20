@@ -10,45 +10,60 @@ function parseParameters(parameters) {
   return paramDict;
 }
 
-export function parseAvailableModules(availableModules) {
-  const MODULES = {};
-  for (let mc of availableModules) {
+export function parseAvailableObjects(availableObjects) {
+  const OBJECTS = {};
+
+  for (let oc of availableObjects) {
     const moduleDict = {};
-    for (let m of mc["modules"]) {
-      const objectDict = {};
-      for (let o of m["objects"]) {
-        objectDict[o["name"]] = parseParameters(o["parameters"]);
+    for (let o of oc.objects) {
+      if (!(o.parent.name in moduleDict)) {
+        moduleDict[o.parent.name] = {};
       }
-      moduleDict[m["name"]] = objectDict;
+      moduleDict[o.parent.name][o.name] = parseParameters(o.parameters);
     }
-    MODULES[mc["name"]] = { ModuleInfo: moduleDict };
+    OBJECTS[oc.name] = { ModuleInfo: moduleDict };
   }
-  return MODULES;
+
+  return OBJECTS;
 }
 
 export function parseAvailableParameters(availableParameters) {
   const PARAMETERS = {};
   for (let pc of availableParameters) {
-    PARAMETERS[pc["name"]] = {
-      ParameterInfo: parseParameters(pc["parameters"]),
+    PARAMETERS[pc.name] = {
+      ParameterInfo: parseParameters(pc.parameters),
     };
   }
   return PARAMETERS;
 }
 
-export function parseSectionPositions(sectionPositions) {
-  return [...sectionPositions].sort(function (a, b) {
-    return a.position - b.position;
+function parseSectionPositions(sectionPositions) {
+  const output = {};
+  for (let sp of sectionPositions) {
+    output[sp.section.name] = sp.position;
+  }
+  return output;
+}
+
+function sortSections(sections, sectionPositions) {
+  return [...sections].sort(function (a, b) {
+    return (
+      sectionPositions[a.name].position - sectionPositions[b.name].position
+    );
   });
 }
 
-export function parseSections(sections) {
+export function parseSections(sections, sectionPositions) {
+  const sortedSections = sortSections(
+    sections,
+    parseSectionPositions(sectionPositions)
+  );
   const UI = {};
-  for (let s of sections) {
+  for (let s of sortedSections) {
     UI[s["variableName"]] = {
-      modules: s["modules"].map(x=>x.name),
-      parameters: s["parameters"].map(x=>x.name),
+      objects: s["objects"].map((x) => x.name),
+      parameters: s["parameters"].map((x) => x.name),
     };
   }
-  return UI
+  return UI;
 }

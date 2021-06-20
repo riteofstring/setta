@@ -45,7 +45,7 @@ export class UIType {
 
   initializeConfig = (datatype) => {
     if (datatype && this.isNested()) {
-      this.config = { modules: datatype };
+      this.config = { objects: datatype };
     } else {
       this.config = {};
     }

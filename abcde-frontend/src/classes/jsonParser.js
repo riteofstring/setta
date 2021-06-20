@@ -1,9 +1,9 @@
 import { allDefined } from "../utils/utils";
-import { combineModules, combineParameters } from "../utils/utils";
+import { combineObjects, combineParameters } from "../utils/utils";
 
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
-    return { modules: specs };
+    return { objects: specs };
   }
   return specs;
 };
@@ -12,7 +12,7 @@ export const createJson = (specs, available) => {
   const sp = convertSpecsToDict(specs);
   let output = {};
   for (let x of [
-    ["modules", available.modules, combineModules],
+    ["objects", available.objects, combineObjects],
     ["parameters", available.parameters, combineParameters],
   ]) {
     if (x[0] in sp) {

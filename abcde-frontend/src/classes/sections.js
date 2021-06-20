@@ -291,7 +291,7 @@ export class Sections {
     }
     const output = {};
     output["sections"] = sectionsOutput;
-    output["availableModules"] = this.available.modules;
+    output["availableObjects"] = this.available.objects;
     output["availableParameters"] = this.available.parameters;
     return output;
   };

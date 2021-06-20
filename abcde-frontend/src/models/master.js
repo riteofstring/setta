@@ -8,7 +8,7 @@ import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 import {
-  parseAvailableModules,
+  parseAvailableObjects,
   parseAvailableParameters,
   parseSectionPositions,
   parseSections,
@@ -26,7 +26,7 @@ const master = {
     console.log("master payload", payload);
     state.sections = new Sections();
     state.sections.available = {
-      modules: payload.MODULES,
+      objects: payload.OBJECTS,
       parameters: payload.PARAMETERS,
     };
     for (let key of Object.keys(payload.UI)) {
@@ -48,12 +48,11 @@ const master = {
   setEntireState: thunk((action, payload, helpers) => {
     console.log("payload", payload);
     const entireUI = {};
-    entireUI["MODULES"] = parseAvailableModules(payload["availableModules"]);
+    entireUI["OBJECTS"] = parseAvailableObjects(payload["availableObjects"]);
     entireUI["PARAMETERS"] = parseAvailableParameters(
       payload["availableParameters"]
     );
-    // entireUI[sectionPositions = parseSectionPositions(payload["sectionPositions"]);
-    entireUI["UI"] = parseSections(payload["sections"]);
+    entireUI["UI"] = parseSections(payload["sections"], payload["sectionPositions"]);
     action._loadSections(entireUI);
   }),
 

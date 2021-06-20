@@ -12,71 +12,69 @@ export function allFoldersQuery() {
 export function UIFragment() {
   return `fragment UI on UIGQL {
     name
-      sections {
+    sections {
+      name
+      variableName
+      selectedObject {
         name
-        variableName
-        selectedObject {
-          name
-        }
-        selectedModule {
-          name
-        }
-          modules{
-          name
-        }
-          parameters{
-          name
-        }
-        enteredValues {
-          values {
-            value
-            uiType {
-              name
-            }
-            isCurrent
+      }
+      selectedModule {
+        name
+      }
+      objects {
+        name
+      }
+      parameters {
+        name
+      }
+      enteredValues {
+        values {
+          value
+          uiType {
+            name
           }
+          isCurrent
         }
       }
-      sectionPositions{
-      section{
+    }
+    sectionPositions {
+      section {
         name
       }
       position
     }
-    availableModules {
+    availableObjects {
+      name
+      objects {
         name
-        modules {
+        parent {
           name
-          objects {
-            name
-            parameters {
-              name
-              defaultVal
-              uiType{
-                name
-              }
-              type{
-                name
-              }
-              
-            }
-          }
         }
-      }
-    availableParameters {
-        name
         parameters {
           name
           defaultVal
-          uiType{
+          uiType {
             name
           }
-          type{
+          type {
             name
           }
-          
         }
       }
+    }
+    availableParameters {
+      name
+      parameters {
+        name
+        defaultVal
+        uiType {
+          name
+        }
+        type {
+          name
+        }
+      }
+    }
   }`;
 }
 
