@@ -8,20 +8,20 @@ from .models import (
     Datatype,
     Folder,
     Module,
-    ModuleCollection,
-    ModuleToModuleCollection,
     Object,
+    ObjectCollection,
+    ObjectToObjectCollection,
     Parameter,
     ParameterCollection,
     ParameterValue,
     ParameterValueCollection,
     Section,
     SectionPositions,
-    SectionToModuleCollection,
+    SectionToObjectCollection,
     SectionToParameterCollection,
     SectionToUI,
     UIToFolder,
-    UIToModuleCollection,
+    UIToObjectCollection,
     UIToParameterCollection,
     UIType,
 )
@@ -98,16 +98,16 @@ class ModuleGQL(DjangoObjectType):
         return Object.objects.filter(parent=self)
 
 
-class ModuleCollectionGQL(DjangoObjectType):
+class ObjectCollectionGQL(DjangoObjectType):
     class Meta:
-        model = ModuleCollection
+        model = ObjectCollection
         fields = ("id", "name")
 
-    modules = graphene.List(ModuleGQL)
+    objects = graphene.List(ObjectGQL)
 
-    def resolve_modules(self, info):
-        return Module.objects.filter(
-            pk__in=ModuleToModuleCollection.objects.filter(parent=self).values("entity")
+    def resolve_objects(self, info):
+        return Object.objects.filter(
+            pk__in=ObjectToObjectCollection.objects.filter(parent=self).values("entity")
         )
 
 
@@ -133,16 +133,16 @@ class SectionGQL(DjangoObjectType):
         )
 
     selected_module = graphene.Field(ModuleGQL)
-    modules = graphene.List(ModuleCollectionGQL)
+    objects = graphene.List(ObjectCollectionGQL)
     parameters = graphene.List(ParameterCollectionGQL)
 
     def resolve_selected_module(self, info):
         if self.selected_object:
             return self.selected_object.parent
 
-    def resolve_modules(self, info):
-        return ModuleCollection.objects.filter(
-            pk__in=SectionToModuleCollection.objects.filter(entity=self).values(
+    def resolve_objects(self, info):
+        return ObjectCollection.objects.filter(
+            pk__in=SectionToObjectCollection.objects.filter(entity=self).values(
                 "parent"
             )
         )
@@ -176,7 +176,7 @@ class UIGQL(DjangoObjectType):
 
     sections = graphene.List(SectionGQL)
     section_positions = graphene.List(SectionPositionsGQL)
-    available_modules = graphene.List(ModuleCollectionGQL)
+    available_objects = graphene.List(ObjectCollectionGQL)
     available_parameters = graphene.List(ParameterCollectionGQL)
 
     def resolve_sections(self, info):
@@ -185,9 +185,9 @@ class UIGQL(DjangoObjectType):
     def resolve_section_positions(self, info):
         return SectionPositions.objects.filter(ui=self, section__in=get_sections(self))
 
-    def resolve_available_modules(self, info):
-        return ModuleCollection.objects.filter(
-            pk__in=UIToModuleCollection.objects.filter(entity=self).values("parent")
+    def resolve_available_objects(self, info):
+        return ObjectCollection.objects.filter(
+            pk__in=UIToObjectCollection.objects.filter(entity=self).values("parent")
         )
 
     def resolve_available_parameters(self, info):
@@ -196,9 +196,9 @@ class UIGQL(DjangoObjectType):
         )
 
 
-# class ModuleCollectionType(DjangoObjectType):
+# class ObjectCollectionType(DjangoObjectType):
 #     class Meta:
-#         model = ModuleCollection
+#         model = ObjectCollection
 #         fields = ("name",)
 
 
@@ -231,7 +231,7 @@ class FolderGQL(DjangoObjectType):
         fields = ("id", "name")
 
     uis = graphene.List(UIGQL)
-    # module_collections = graphene.List(ModuleCollectionType)
+    # module_collections = graphene.List(ObjectCollectionType)
     # parameter_collections = graphene.List(ParameterCollectionType)
     # modules = graphene.List(ModuleType)
 
@@ -241,7 +241,7 @@ class FolderGQL(DjangoObjectType):
         )
 
     # def resolve_module_collections(self, info):
-    #     return ModuleCollection.objects.filter(folder__name=self.name)
+    #     return ObjectCollection.objects.filter(folder__name=self.name)
 
     # def resolve_section_collections(self, info):
     #     return SectionCollection.objects.filter(folder__name=self.name)
@@ -270,7 +270,7 @@ schema = graphene.Schema(query=Query)
 #     name = graphene.String(required=True)
 
 
-# class ModuleCollectionInput(graphene.InputObjectType):
+# class ObjectCollectionInput(graphene.InputObjectType):
 #     name = graphene.String(required=True)
 #     modules = graphene.List(ModuleInput, required=True)
 
@@ -287,7 +287,7 @@ schema = graphene.Schema(query=Query)
 # class UIInput(graphene.InputObjectType):
 #     name = graphene.String(required=True)
 #     section_collection = SectionCollectionInput(required=True)
-#     module_collection = ModuleCollectionInput(required=True)
+#     module_collection = ObjectCollectionInput(required=True)
 
 
 # class FolderMutation(graphene.Mutation):

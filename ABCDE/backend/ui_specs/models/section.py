@@ -2,8 +2,8 @@ import sys
 
 from django.db.models import SET_NULL, ForeignKey, TextField
 
-from .module_collection import ModuleCollection
 from .object import Object
+from .object_collection import ObjectCollection
 from .parameter_collection import ParameterCollection
 from .parameter_value_collection import ParameterValueCollection
 from .table_factory import table_factory
@@ -26,7 +26,7 @@ tables = table_factory(
     forkable=True,
     saveable=True,
     taggable=True,
-    additional_rel=[UI, ModuleCollection, ParameterCollection],
+    additional_rel=[UI, ObjectCollection, ParameterCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)

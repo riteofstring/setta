@@ -1,13 +1,13 @@
 from .datatype import Datatype
 from .labels import Folder, Tag
-from .module import Module, ModuleToModuleCollection
-from .module_collection import (
-    ModuleCollection,
-    ModuleCollectionFork,
-    ModuleCollectionToFolder,
-    ModuleCollectionToTag,
+from .module import Module
+from .object import Object, ObjectToObjectCollection
+from .object_collection import (
+    ObjectCollection,
+    ObjectCollectionFork,
+    ObjectCollectionToFolder,
+    ObjectCollectionToTag,
 )
-from .object import Object
 from .package import Package
 from .parameter import Parameter
 from .parameter_collection import (
@@ -27,7 +27,7 @@ from .section import (
     Section,
     SectionFork,
     SectionToFolder,
-    SectionToModuleCollection,
+    SectionToObjectCollection,
     SectionToParameterCollection,
     SectionToTag,
     SectionToUI,
@@ -37,7 +37,7 @@ from .ui import (
     UI,
     UIFork,
     UIToFolder,
-    UIToModuleCollection,
+    UIToObjectCollection,
     UIToParameterCollection,
     UIToTag,
 )

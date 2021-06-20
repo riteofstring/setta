@@ -1,6 +1,5 @@
 import sys
 
-from .module_collection import ModuleCollection
 from .package import Package
 from .table_factory import table_factory
 
@@ -10,7 +9,6 @@ tables = table_factory(
     ["name", "parent"],
     base_parent=Package,
     base_has_name=True,
-    additional_rel=[ModuleCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)

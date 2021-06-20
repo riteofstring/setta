@@ -1,6 +1,6 @@
 import sys
 
-from .module_collection import ModuleCollection
+from .object_collection import ObjectCollection
 from .parameter_collection import ParameterCollection
 from .table_factory import table_factory
 
@@ -13,7 +13,7 @@ tables = table_factory(
     forkable=True,
     saveable=True,
     taggable=True,
-    additional_rel=[ModuleCollection, ParameterCollection],
+    additional_rel=[ObjectCollection, ParameterCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)
