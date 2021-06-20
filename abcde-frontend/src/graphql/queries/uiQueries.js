@@ -9,6 +9,29 @@ export function allFoldersQuery() {
   }`;
 }
 
+export function ParameterInfoFragment(){
+  return `fragment ParameterInfo on ParameterGQL {
+    name
+    defaultVal
+    uiType {
+      name
+    }
+    type {
+      name
+    }
+    specsParameters{
+      parent{
+        name
+      }
+    }
+    specsObjects{
+      parent{
+        name
+      }
+    }
+  }`
+}
+
 export function UIFragment() {
   return `fragment UI on UIGQL {
     name
@@ -51,31 +74,18 @@ export function UIFragment() {
           name
         }
         parameters {
-          name
-          defaultVal
-          uiType {
-            name
-          }
-          type {
-            name
-          }
+          ...ParameterInfo
         }
       }
     }
     availableParameters {
       name
       parameters {
-        name
-        defaultVal
-        uiType {
-          name
-        }
-        type {
-          name
-        }
+        ...ParameterInfo
       }
     }
-  }`;
+  }
+  ${ParameterInfoFragment()}`;
 }
 
 export function UIQuery(name) {

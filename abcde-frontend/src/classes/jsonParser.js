@@ -49,7 +49,10 @@ class ParameterInfo {
   }
 
   shouldHaveNested = () => {
-    return allDefined(this.specs);
+    return (
+      this.specs &&
+      (this.specs.objects.length > 0 || this.specs.parameters.length > 0)
+    );
   };
 }
 
@@ -71,9 +74,9 @@ class ModuleInfo {
 
 export class SectionInfo {
   constructor(name, specs, available) {
-    const jsonInput = createJson(specs, available);
     this.name = name;
-    this.specs = specs;
+    this.specs = convertSpecsToDict(specs);
+    const jsonInput = createJson(this.specs, available);
     this.setModuleInfos(jsonInput);
     this.setParameterInfos(jsonInput);
   }

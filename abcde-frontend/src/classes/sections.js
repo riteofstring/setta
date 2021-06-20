@@ -291,8 +291,7 @@ export class Sections {
     }
     const output = {};
     output["sections"] = sectionsOutput;
-    output["availableObjects"] = this.available.objects;
-    output["availableParameters"] = this.available.parameters;
+    output["available"] = this.available
     return output;
   };
 }

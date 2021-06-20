@@ -74,7 +74,6 @@ export class Section {
   };
 
   setSectionModules = (specs, available) => {
-    console.log("setSectionModules")
     const jsonInput = createJson(specs, available);
     this.sectionInfo.setModuleInfos(jsonInput, available);
     this.sectionInfo.setParameterInfos(jsonInput, available);
@@ -227,7 +226,7 @@ export class Section {
     output["depth"] = this.depth;
     output["isListRoot"] = this.uiType.isListRoot;
     output["childrenIds"] = this.childrenIds;
-    output = { ...output, ...this.sectionInfo.specs };
+    output = { ...output, available: this.sectionInfo.specs };
     return output;
   };
 }

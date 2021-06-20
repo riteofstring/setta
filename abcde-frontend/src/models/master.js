@@ -53,11 +53,12 @@ const master = {
       payload["availableParameters"]
     );
     entireUI["UI"] = parseSections(payload["sections"], payload["sectionPositions"]);
+    console.log("UI", entireUI)
     action._loadSections(entireUI);
   }),
 
   loadSections: thunk((action, payload, helpers) => {
-    if (true) {
+    if (NO_AUTH) {
       action._loadSections(Data.ENTIRE_UI);
     } else {
       // action._loadSections(payload);

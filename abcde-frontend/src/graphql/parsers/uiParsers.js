@@ -1,11 +1,20 @@
+// function parseSpecs(specs){
+//     for
+// }
+
 function parseParameters(parameters) {
   const paramDict = {};
   for (let p of parameters) {
-    const paramName = p["name"];
-    paramDict[paramName] = { ...p };
-    delete paramDict[paramName]["name"];
-    paramDict[paramName]["uiType"] = paramDict[paramName]["uiType"]["name"];
-    paramDict[paramName]["type"] = paramDict[paramName]["type"]["name"];
+    const paramName = p.name;
+    paramDict[paramName] = {}
+    paramDict[paramName].defaultVal = p.defaultVal;
+    paramDict[paramName].uiType = p.uiType.name;
+    paramDict[paramName].type = p.type.name;
+    const specs = {};
+    for (let key of ["Objects", "Parameters"]) {
+      specs[key.toLowerCase()] = p[`specs${key}`].map((e) => e.parent.name);
+    }
+    paramDict[paramName].specs = specs;
   }
   return paramDict;
 }
