@@ -1,12 +1,20 @@
-// function parseSpecs(specs){
-//     for
-// }
+import { Selected } from "../../classes/selected";
+
+export function parseSelected(section) {
+  if (section.selected) {
+    const s = section.selected;
+    if (s.module && s.object) {
+      return new Selected(s.module, s.object);
+    }
+  }
+  return new Selected();
+}
 
 function parseParameters(parameters) {
   const paramDict = {};
   for (let p of parameters) {
     const paramName = p.name;
-    paramDict[paramName] = {}
+    paramDict[paramName] = {};
     paramDict[paramName].defaultVal = p.defaultVal;
     paramDict[paramName].uiType = p.uiType.name;
     paramDict[paramName].type = p.type.name;
@@ -70,8 +78,12 @@ export function parseSections(sections, sectionPositions) {
   const UI = {};
   for (let s of sortedSections) {
     UI[s["variableName"]] = {
-      objects: s["objects"].map((x) => x.name),
-      parameters: s["parameters"].map((x) => x.name),
+      objects: s.objects.map((x) => x.name),
+      parameters: s.parameters.map((x) => x.name),
+      selected: {
+        module: s.selectedModule?.name,
+        object: s.selectedObject?.name,
+      },
     };
   }
   return UI;

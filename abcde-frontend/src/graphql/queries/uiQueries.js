@@ -98,6 +98,11 @@ export function UIQuery(name) {
               sections {
                 children {
                   ...UI
+                  sections {
+                    children {
+                      ...UI
+                    }
+                  }
                 }
               }
             }

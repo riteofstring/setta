@@ -10,8 +10,8 @@ import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 import {
   parseAvailableObjects,
   parseAvailableParameters,
-  parseSectionPositions,
   parseSections,
+  parseSelected,
 } from "../graphql/parsers/uiParsers";
 
 const master = {
@@ -30,14 +30,14 @@ const master = {
       parameters: payload.PARAMETERS,
     };
     for (let key of Object.keys(payload.UI)) {
-      console.log("key", key);
-      state.sections.addSection(
-        new Section(
-          key,
-          new SectionInfo(key, payload.UI[key], state.sections.available),
-          0
-        )
+      const currSectionInfo = payload.UI[key];
+      const newSection = new Section(
+        key,
+        new SectionInfo(key, currSectionInfo, state.sections.available),
+        0
       );
+      newSection.selected = parseSelected(currSectionInfo);
+      state.sections.addSection(newSection);
     }
     state.pageMinMaxList = getPageMinMaxList(
       state.sections.numRootIds(),
@@ -52,8 +52,11 @@ const master = {
     entireUI["PARAMETERS"] = parseAvailableParameters(
       payload["availableParameters"]
     );
-    entireUI["UI"] = parseSections(payload["sections"], payload["sectionPositions"]);
-    console.log("UI", entireUI)
+    entireUI["UI"] = parseSections(
+      payload["sections"],
+      payload["sectionPositions"]
+    );
+    console.log("UI", entireUI);
     action._loadSections(entireUI);
   }),
 
