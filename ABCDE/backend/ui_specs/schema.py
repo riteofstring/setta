@@ -16,6 +16,8 @@ from .models import (
     ParameterValueCollection,
     Section,
     SectionPositions,
+    SectionToModuleCollection,
+    SectionToParameterCollection,
     SectionToUI,
     UIToFolder,
     UIToModuleCollection,
@@ -105,25 +107,45 @@ class ModuleCollectionGQL(DjangoObjectType):
 class SectionPositionsGQL(DjangoObjectType):
     class Meta:
         model = SectionPositions
-        fields = ("position",)
+        fields = (
+            "section",
+            "position",
+        )
 
 
 class SectionGQL(DjangoObjectType):
     class Meta:
         model = Section
-        fields = ("id", "name", "variable_name", "selected_object", "entered_values")
+        fields = (
+            "id",
+            "name",
+            "variable_name",
+            "selected_object",
+            "entered_values",
+            "children",
+        )
 
-    position = graphene.Field(SectionPositionsGQL, ui_id=graphene.Int(required=False))
     selected_module = graphene.Field(ModuleGQL)
-
-    def resolve_position(self, info, ui_id):
-        if ui_id is None:
-            ui_id = info.context.ui_id
-        return SectionPositions.objects.get(section=self.id, ui=ui_id)
+    modules = graphene.List(ModuleCollectionGQL)
+    parameters = graphene.List(ParameterCollectionGQL)
 
     def resolve_selected_module(self, info):
         if self.selected_object:
             return self.selected_object.parent
+
+    def resolve_modules(self, info):
+        return ModuleCollection.objects.filter(
+            pk__in=SectionToModuleCollection.objects.filter(entity=self).values(
+                "parent"
+            )
+        )
+
+    def resolve_parameters(self, info):
+        return ParameterCollection.objects.filter(
+            pk__in=SectionToParameterCollection.objects.filter(entity=self).values(
+                "parent"
+            )
+        )
 
 
 class UIToFolderGQL(DjangoObjectType):
@@ -132,20 +154,29 @@ class UIToFolderGQL(DjangoObjectType):
         fields = ("entity", "parent")
 
 
+def get_sections(ui):
+    if not hasattr(ui, "retrieved_sections"):
+        ui.retrieved_sections = Section.objects.filter(
+            pk__in=SectionToUI.objects.filter(parent=ui).values("entity")
+        )
+    return ui.retrieved_sections
+
+
 class UIGQL(DjangoObjectType):
     class Meta:
         model = UI
         fields = ("id", "name")
 
     sections = graphene.List(SectionGQL)
+    section_positions = graphene.List(SectionPositionsGQL)
     available_modules = graphene.List(ModuleCollectionGQL)
     available_parameters = graphene.List(ParameterCollectionGQL)
 
     def resolve_sections(self, info):
-        info.context.ui_id = self.id
-        return Section.objects.filter(
-            pk__in=SectionToUI.objects.filter(parent=self).values("entity")
-        )
+        return get_sections(self)
+
+    def resolve_section_positions(self, info):
+        return SectionPositions.objects.filter(ui=self, section__in=get_sections(self))
 
     def resolve_available_modules(self, info):
         return ModuleCollection.objects.filter(
