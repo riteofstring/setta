@@ -11,6 +11,7 @@ from django.db.models import (
 
 from .datatype import Datatype
 from .object import Object
+from .object_collection import ObjectCollection
 from .parameter_collection import ParameterCollection
 from .table_factory import table_factory
 from .ui_type import UIType
@@ -38,6 +39,7 @@ tables = table_factory(
         "ui_type": ForeignKey(UIType, on_delete=SET_NULL, null=True),
     },
     base_additional_constraints=constraints,
+    additional_rel=[ObjectCollection, ParameterCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)

@@ -9,7 +9,11 @@ from .object_collection import (
     ObjectCollectionToTag,
 )
 from .package import Package
-from .parameter import Parameter
+from .parameter import (
+    Parameter,
+    ParameterToObjectCollection,
+    ParameterToParameterCollection,
+)
 from .parameter_collection import (
     ParameterCollection,
     ParameterCollectionFork,

@@ -13,6 +13,8 @@ from .models import (
     ObjectToObjectCollection,
     Parameter,
     ParameterCollection,
+    ParameterToObjectCollection,
+    ParameterToParameterCollection,
     ParameterValue,
     ParameterValueCollection,
     Section,
@@ -39,6 +41,18 @@ class UITypeGQL(DjangoObjectType):
         fields = ("name",)
 
 
+class ParameterToObjectCollectionGQL(DjangoObjectType):
+    class Meta:
+        model = ParameterToObjectCollection
+        fields = ("parent",)
+
+
+class ParameterToParameterCollectionGQL(DjangoObjectType):
+    class Meta:
+        model = ParameterToParameterCollection
+        fields = ("parent",)
+
+
 class ParameterValueGQL(DjangoObjectType):
     class Meta:
         model = ParameterValue
@@ -60,6 +74,15 @@ class ParameterGQL(DjangoObjectType):
     class Meta:
         model = Parameter
         fields = ("name", "default_val", "type", "ui_type")
+
+    specs_objects = graphene.List(ParameterToObjectCollectionGQL)
+    specs_parameters = graphene.List(ParameterToParameterCollectionGQL)
+
+    def resolve_specs_objects(self, info):
+        return ParameterToObjectCollection.objects.filter(entity=self)
+
+    def resolve_specs_parameters(self, info):
+        return ParameterToParameterCollection.objects.filter(entity=self)
 
 
 class ParameterCollectionGQL(DjangoObjectType):
