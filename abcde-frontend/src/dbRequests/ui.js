@@ -2,6 +2,7 @@ import axios from "axios";
 import { BACKEND } from "../utils/constants";
 import { stringifyCompleteState } from "../utils/commonFunctions";
 import { tokenConfig } from "./authentication";
+import { allFoldersQuery, UIQuery } from "../graphql/queries/uiQueries"
 
 export const generateAndRunCode = ({
   cliSocket,
@@ -27,14 +28,7 @@ export const saveUI = ({ token, name, folder, ui }) => {
 };
 
 export const loadFolderAndUINames = ({ token }) => {
-  const query = `{
-    allFolders {
-      name
-      uis {
-        name
-      }
-    }
-  }`
+  const query = allFoldersQuery()
   return axios
     .post(BACKEND + "graphql", JSON.stringify({query: query}), tokenConfig(token))
     .then((res) => res.data.data.allFolders)
@@ -49,10 +43,12 @@ export const createNewFolder = ({ token, name }) => {
 };
 
 export const loadUI = ({ token, folderName, uiName }) => {
-  const fullName = folderName + ":" + uiName;
+  console.log("loadUI", token, folderName, uiName)
+  const query = UIQuery(uiName)
+  console.log("query", query)
   return axios
-    .get(BACKEND + "api/saved_folder_and_ui/" + fullName, tokenConfig(token))
-    .then((res) => res.data)
+    .post(BACKEND + "graphql", JSON.stringify({query: query}), tokenConfig(token))
+    .then((res) => res.data.data.fullUi)
     .catch((err) => {});
 };
 

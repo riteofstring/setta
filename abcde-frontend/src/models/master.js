@@ -5,10 +5,12 @@ import { Section } from "../classes/section";
 import { Sections } from "../classes/sections";
 import { NO_AUTH } from "../utils/constants";
 import { generateAndRunCode } from "../dbRequests/ui";
-import {
-  setEntireState as setEntireStateFunc,
-} from "../utils/commonFunctions";
+import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
+import {
+  parseAvailableModules,
+  parseAvailableParameters,
+} from "../graphql/parsers/uiParsers";
 
 const master = {
   sectionsPerPage: 5,
@@ -42,7 +44,11 @@ const master = {
   }),
 
   setEntireState: action((state, payload) => {
-    setEntireStateFunc(state, payload);
+    console.log("payload", payload);
+    const MODULES = parseAvailableModules(payload["availableModules"]);
+    const PARAMETERS = parseAvailableParameters(payload["availableParameters"]);
+    console.log("MODULES", MODULES);
+    console.log("PARAMETERS", PARAMETERS)
   }),
 
   loadSections: thunk((action, payload, helpers) => {

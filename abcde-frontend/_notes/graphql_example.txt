@@ -1,0 +1,76 @@
+fragment UI on UIGQL {
+  name
+	sections {
+      name
+      variableName
+      selectedObject {
+        name
+      }
+      selectedModule {
+        name
+      }
+    	modules{
+        name
+      }
+    	parameters{
+        name
+      }
+      enteredValues {
+        values {
+          value
+          uiType {
+            name
+          }
+          isCurrent
+        }
+      }
+    }
+	sectionPositions{
+    section{
+      name
+    }
+    position
+  }
+  availableModules {
+      name
+      modules {
+        name
+        objects {
+          name
+          parameters {
+            name
+            defaultVal
+            uiType{
+              name
+            }
+            type{
+              name
+            }
+            
+          }
+        }
+      }
+    }
+  availableParameters {
+      name
+      parameters{
+        name
+      }
+    }
+}
+
+{
+  fullUi(name: "testDraft") {
+    ...UI,
+    sections {
+      children{
+        ...UI,
+        sections {
+          children {
+            ...UI
+          }
+        }
+      }
+    }
+  }
+}

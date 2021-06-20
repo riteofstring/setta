@@ -30,32 +30,35 @@ const uiInfo = {
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
-    const masterSetEntireState =
-      helpers.getStoreActions().master.setEntireState;
-    const yamlEntrySetEntireState =
-      helpers.getStoreActions().yamlEntry.setEntireState;
-    const factoriesInfoSetEntireState =
-      helpers.getStoreActions().factoriesInfo.setEntireState;
-    const funcsInfoSetEntireState =
-      helpers.getStoreActions().funcsInfo.setEntireState;
+    console.log("loadUI", payload)
+    const ui = await loadUIBackend(payload)
+    helpers.getStoreActions().master.setEntireState(ui)
+    // const masterSetEntireState =
+    //   helpers.getStoreActions().master.setEntireState;
+    // const yamlEntrySetEntireState =
+    //   helpers.getStoreActions().yamlEntry.setEntireState;
+    // const factoriesInfoSetEntireState =
+    //   helpers.getStoreActions().factoriesInfo.setEntireState;
+    // const funcsInfoSetEntireState =
+    //   helpers.getStoreActions().funcsInfo.setEntireState;
 
-    const { loadType } = payload;
-    delete payload["loadType"];
-    const loadFunc = loadType === "draft" ? loadDraftUIBackend : loadUIBackend;
-    let data = await loadFunc(payload);
-    if (data) {
-      data = loadType === "draft" ? data.completeState : data.ui.completeState;
-      const {
-        masterState,
-        yamlEntryState,
-        factoriesInfoState,
-        funcsInfoState,
-      } = JSON.parse(data);
-      masterSetEntireState(JSON.parse(masterState));
-      yamlEntrySetEntireState(JSON.parse(yamlEntryState));
-      factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
-      funcsInfoSetEntireState(JSON.parse(funcsInfoState));
-    }
+    // const { loadType } = payload;
+    // delete payload["loadType"];
+    // const loadFunc = loadType === "draft" ? loadDraftUIBackend : loadUIBackend;
+    // let data = await loadFunc(payload);
+    // if (data) {
+    //   data = loadType === "draft" ? data.completeState : data.ui.completeState;
+    //   const {
+    //     masterState,
+    //     yamlEntryState,
+    //     factoriesInfoState,
+    //     funcsInfoState,
+    //   } = JSON.parse(data);
+    //   masterSetEntireState(JSON.parse(masterState));
+    //   yamlEntrySetEntireState(JSON.parse(yamlEntryState));
+    //   factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
+    //   funcsInfoSetEntireState(JSON.parse(funcsInfoState));
+    // }
   }),
 
   saveUI: thunk((action, payload, helpers) => {
