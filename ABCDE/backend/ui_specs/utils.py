@@ -185,12 +185,10 @@ def get_object_from_str(section, x):
     for stmc in section_to_object_collections:
         object_to_object_collection = try_get(
             ObjectToObjectCollection,
-            {"entity__name": x["module"], "parent": stmc.parent},
+            {"entity__name": x["obj"], "parent": stmc.parent},
         )
         if object_to_object_collection is not None:
-            return Object.objects.get(
-                name=x["obj"], parent=object_to_object_collection.entity
-            )
+            return object_to_object_collection.entity
 
 
 def get_param_from_str(section, x):
