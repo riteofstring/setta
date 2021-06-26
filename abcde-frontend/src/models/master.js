@@ -38,12 +38,10 @@ const master = {
         new SectionInfo(key, currSectionInfo, state.sections.available),
         0
       );
-      parseEnteredValues(newSection, currSectionInfo)
-      parseUITypes(newSection, currSectionInfo);
-      parseSelected(newSection, currSectionInfo)
-      console.log("newSection.history.enteredValues", newSection.history.enteredValues)
-      console.log("newSection.enteredValues", newSection.enteredValues)
       state.sections.addSection(newSection, currSectionInfo.id);
+      parseEnteredValues(state.sections, currSectionInfo);
+      parseUITypes(state.sections, currSectionInfo);
+      parseSelected(state.sections, currSectionInfo);
     }
     state.pageMinMaxList = getPageMinMaxList(
       state.sections.numRootIds(),
@@ -67,7 +65,7 @@ const master = {
   }),
 
   loadSections: thunk((action, payload, helpers) => {
-    if (NO_AUTH) {
+    if (true) {
       action._loadSections(Data.ENTIRE_UI);
     } else {
       // action._loadSections(payload);
@@ -76,73 +74,68 @@ const master = {
 
   // Show/Collapse button
   setChildrenAreCollapsed: action((state, payload) => {
-    state.sections.setChildrenAreCollapsed({ ...payload });
+    state.sections.setChildrenAreCollapsed(payload);
   }),
 
   // stores what fields to show
   setSelected: action((state, payload) => {
-    state.sections.setSelected({ ...payload });
+    state.sections.setSelected(payload);
   }),
 
   setChildrenIds: action((state, payload) => {
-    state.sections.setChildrenIds({ ...payload });
+    state.sections.setChildrenIds(payload);
   }),
 
   setEnteredValue: action((state, payload) => {
-    state.sections.setEnteredValue({ ...payload });
+    state.sections.setEnteredValue(payload);
   }),
 
   setParamUIType: action((state, payload) => {
-    state.sections.setParamUIType({ ...payload });
+    state.sections.setParamUIType(payload);
   }),
 
   setUIType: action((state, payload) => {
-    state.sections.setUIType({ ...payload });
+    state.sections.setUIType(payload);
   }),
 
   setChildrenIdsPerParam: action((state, payload) => {
-    state.sections.setChildrenIdsPerParam({ ...payload });
+    state.sections.setChildrenIdsPerParam(payload);
   }),
 
   setParamUITypeConfig: action((state, payload) => {
-    state.sections.setParamUITypeConfig({ ...payload });
+    state.sections.setParamUITypeConfig(payload);
   }),
 
   setSectionModules: action((state, payload) => {
-    state.sections.setSectionModules({ ...payload });
+    state.sections.setSectionModules(payload);
   }),
 
   setName: action((state, payload) => {
-    state.sections.setName({ ...payload });
+    state.sections.setName(payload);
   }),
 
-  addChildren: thunk((actiona, payload, helpers) => {
-    const { children, idx } = helpers
-      .getState()
-      .sections.createChildren({ ...payload });
-    return helpers
-      .getState()
-      .sections.addChildren(payload.parentId, children, idx);
+  addChildren: thunk((action, payload, helpers) => {
+    return helpers.getState().sections.createAndAddChildren(payload);
   }),
 
   deleteSections: action((state, payload) => {
-    state.sections.deleteSections({ ...payload });
+    state.sections.deleteSections(payload);
   }),
 
   deleteChildren: action((state, payload) => {
-    state.sections.deleteChildren({ ...payload });
+    state.sections.deleteChildren(payload);
   }),
 
   addKwarg: action((state, payload) => {
-    state.sections.addKwarg({ ...payload });
+    state.sections.addKwarg(payload);
   }),
 
   deleteKwarg: action((state, payload) => {
-    state.sections.deleteKwarg({ ...payload });
+    state.sections.deleteKwarg(payload);
   }),
 
   replaceKwarg: action((state, payload) => {
-    state.sections.replaceKwarg({ ...payload });
+    state.sections.replaceKwarg(payload);
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

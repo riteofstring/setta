@@ -127,6 +127,11 @@ export class Sections {
     return childIds;
   };
 
+  createAndAddChildren = (payload) => {
+    const { children, idx } = this.createChildren(payload);
+    return this.addChildren(payload.parentId, children, idx);
+  };
+
   deleteChildren = ({ parentId, sourceId, numChildren = 1 }) => {
     const parent = this.sections[parentId];
     let childrenToDelete = parent.childrenIds;

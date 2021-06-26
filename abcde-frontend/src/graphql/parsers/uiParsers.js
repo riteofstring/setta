@@ -1,7 +1,24 @@
-import { Selected } from "../../classes/selected";
-import { History } from "../../classes/history";
+function helperSetSelected(sections, sectionInfo, parentObject) {
+  const selected = { sectionId: sectionInfo.id };
+  if (parentObject) {
+    selected.moduleName = parentObject.parent.name;
+    selected.objName = parentObject.name;
+  } else {
+    selected.moduleName = null;
+    selected.objName = null;
+  }
+  sections.setSelected(selected);
+}
 
-export function parseUITypes(section, sectionInfo) {
+function helperSetParamUIType(sections, sectionInfo, paramName, uiName) {
+  sections.setParamUIType({ sectionId: sectionInfo.id, paramName, uiName });
+}
+
+function helperSetEnteredValue(sections, sectionInfo, paramName, value) {
+  sections.setEnteredValue({ sectionId: sectionInfo.id, paramName, value });
+}
+
+export function parseUITypes(sections, sectionInfo) {
   if (!sectionInfo.uiTypes) {
     return;
   }
@@ -11,16 +28,12 @@ export function parseUITypes(section, sectionInfo) {
   for (let v of uiTypes) {
     paramName = v.parent.name;
     parentObject = v.parent.parentObject;
-    if (parentObject) {
-      section.setSelected(parentObject.parent.name, parentObject.name);
-    } else {
-      section.setSelected(null, null);
-    }
-    section.setParamUIType(paramName, v.uiType.name);
+    helperSetSelected(sections, sectionInfo, parentObject);
+    helperSetParamUIType(sections, sectionInfo, paramName, v.uiType.name);
   }
 }
 
-export function parseEnteredValues(section, sectionInfo) {
+export function parseEnteredValues(sections, sectionInfo) {
   if (!sectionInfo.enteredValues) {
     return;
   }
@@ -30,21 +43,21 @@ export function parseEnteredValues(section, sectionInfo) {
   for (let v of values) {
     paramName = v.parent.name;
     parentObject = v.parent.parentObject;
-    if (parentObject) {
-      section.setSelected(parentObject.parent.name, parentObject.name);
-    } else {
-      section.setSelected(null, null);
-    }
-    section.setParamUIType(paramName, v.uiType.name);
-    section.enteredValues[paramName] = v.value;
+    helperSetSelected(sections, sectionInfo, parentObject);
+    helperSetParamUIType(sections, sectionInfo, paramName, v.uiType.name);
+    helperSetEnteredValue(sections, sectionInfo, paramName, v.value);
   }
 }
 
-export function parseSelected(section, sectionInfo) {
+export function parseSelected(sections, sectionInfo) {
   if (sectionInfo.selected) {
     const s = sectionInfo.selected;
     if (s.module && s.object) {
-      section.setSelected(s.module, s.object);
+      sections.setSelected({
+        sectionId: sectionInfo.id,
+        moduleName: s.module,
+        objName: s.object,
+      });
     }
   }
 }
