@@ -1,8 +1,9 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
+import { ChildrenContext } from "../../../../../SectionContainer";
 
 function valueAndLabel(x, type) {
   return { value: [x, type], label: x };
@@ -97,43 +98,49 @@ export default function NestedObjectInput({
   uiType,
   paramUITypeConfig,
 }) {
-  const addChildren = useStoreActions((actions) => actions.master.addChildren);
-  const childId = useStoreState(
-    (state) =>
-      state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
-  );
-  const setSectionModules = useStoreActions(
-    (actions) => actions.master.setSectionModules
-  );
-  const setChildrenIdsPerParam = useStoreActions(
-    (actions) => actions.master.setChildrenIdsPerParam
-  );
+  const { children, addChild } = useContext(ChildrenContext);
 
   useEffect(() => {
-    if (!childId) {
-      const newIds = addChildren({
-        parentId: sectionId,
-        paramName,
-        uiType,
-      });
-      setChildrenIdsPerParam({
-        sectionId,
-        paramName,
-        childrenIds: newIds,
-      });
-    }
-  }, [childId]);
+    addChild(uiType.config);
+  }, []);
 
-  useEffect(() => {
-    if (childId) {
-      setSectionModules({
-        sectionId: childId,
-        parentId: sectionId,
-        paramName: paramName,
-        specs: paramUITypeConfig,
-      });
-    }
-  }, [paramUITypeConfig]);
+  // const addChildren = useStoreActions((actions) => actions.master.addChildren);
+  // const childId = useStoreState(
+  //   (state) =>
+  //     state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
+  // );
+  // const setSectionModules = useStoreActions(
+  //   (actions) => actions.master.setSectionModules
+  // );
+  // const setChildrenIdsPerParam = useStoreActions(
+  //   (actions) => actions.master.setChildrenIdsPerParam
+  // );
+
+  // useEffect(() => {
+  //   if (!childId) {
+  //     const newIds = addChildren({
+  //       parentId: sectionId,
+  //       paramName,
+  //       uiType,
+  //     });
+  //     setChildrenIdsPerParam({
+  //       sectionId,
+  //       paramName,
+  //       childrenIds: newIds,
+  //     });
+  //   }
+  // }, [childId]);
+
+  // useEffect(() => {
+  //   if (childId) {
+  //     setSectionModules({
+  //       sectionId: childId,
+  //       parentId: sectionId,
+  //       paramName: paramName,
+  //       specs: paramUITypeConfig,
+  //     });
+  //   }
+  // }, [paramUITypeConfig]);
 
   return null;
 }

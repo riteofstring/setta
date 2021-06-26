@@ -11,19 +11,17 @@ export default function NestedSection({
   parentId,
   sectionId,
   nextId,
+  sectionInfo,
+  available,
   idx,
   depth,
   updatePosition,
   updateOrder,
 }) {
-  const childrenAreCollapsed = useStoreState((state) =>
-    state.master.sections.getChildrenAreCollapsed(parentId)
-  );
-  const { isList } = useStoreState((state) =>
-    state.master.sections.getUIType(sectionId)
-  );
+  const childrenAreCollapsed = false;
+  const isList = false;
 
-  console.log("sectionId, isList", sectionId, isList);
+  console.log("sectionId, isList", sectionId, isList, sectionInfo);
 
   const getNestedSection = (dragControls) => {
     return (
@@ -32,6 +30,8 @@ export default function NestedSection({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
+          sectionInfo={sectionInfo}
+          available={available}
           depth={depth}
           dragControls={dragControls}
         />

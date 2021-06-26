@@ -6,14 +6,15 @@ import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 export default function ParamContainer(props) {
   const { sectionId, paramInfo } = props;
 
-  // const uiType = paramInfo.uiType;
+  const uiType = paramInfo.uiType;
 
   // const paramUITypeConfig = useStoreState((state) =>
   //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
   // );
 
-  // return !uiType || !uiType.isNested() ? (
-  return (
+  console.log("ParamContainer uiType.isNested", paramInfo, uiType.isNested());
+
+  return !uiType.isNested() ? (
     <>
       <FormControl as="fieldset">
         <HStack
@@ -36,13 +37,12 @@ export default function ParamContainer(props) {
         </HStack>
       </FormControl>
     </>
+  ) : (
+    <NestedObjectInput
+      sectionId={sectionId}
+      paramName={paramInfo.name}
+      uiType={uiType}
+      // paramUITypeConfig={paramUITypeConfig}
+    />
   );
-  // ) : (
-  // <NestedObjectInput
-  //   sectionId={sectionId}
-  //   paramName={paramName}
-  //   uiType={uiType}
-  //   paramUITypeConfig={paramUITypeConfig}
-  // />
-  // );
 }

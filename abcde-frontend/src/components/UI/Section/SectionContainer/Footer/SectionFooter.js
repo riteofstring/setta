@@ -18,16 +18,16 @@ export default function SectionFooter({ sectionId, isListRoot }) {
     <>
       {/* <MenuContext.Provider value={{ sectionId }}> */}
       <Grid w="100%" py="0.5rem" alignItems="center">
-        <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} />
+        {/* <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} /> */}
         <CollapseSectionButton />
-        <GearMenu setSelectedMenuItem={setSelectedMenuItem} onOpen={onOpen} />
+        {/* <GearMenu setSelectedMenuItem={setSelectedMenuItem} onOpen={onOpen} /> */}
       </Grid>
-      <GearModal
+      {/* <GearModal
         name={selectedMenuItem}
         sectionId={sectionId}
         isOpen={isOpen}
         onClose={onClose}
-      />
+      /> */}
       {/* </MenuContext.Provider> */}
     </>
   );

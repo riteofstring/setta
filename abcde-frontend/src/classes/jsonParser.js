@@ -1,5 +1,6 @@
 import { allDefined } from "../utils/utils";
 import { combineObjects, combineParameters } from "../utils/utils";
+import { UIType, } from "./uiType";
 
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
@@ -42,11 +43,11 @@ class ParameterInfo {
     this.name = name;
     this.ancestorNames = ancestorNames;
     this.defaultVal = jsonInput.defaultVal;
-    this.uiTypeName = jsonInput.uiType;
     this.type = jsonInput.type;
     this.specs = convertSpecsToDict(jsonInput.specs);
     this.isKwarg = jsonInput.isKwarg;
     this.isHidden = jsonInput.isHidden;
+    this.uiType = new UIType({name: jsonInput.uiType, specs: this.specs});
   }
 
   shouldHaveNested = () => {

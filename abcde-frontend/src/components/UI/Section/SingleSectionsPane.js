@@ -39,6 +39,7 @@ function SingleSectionsPane({ minIdx, maxIdx, idx, available }) {
                 parentId={null}
                 nextId={idx + 1}
                 sectionInfo={getSectionInfo(e, uiSpecs[e])}
+                available={available}
                 key={`${e}-${idx}`}
                 depth={0}
               />

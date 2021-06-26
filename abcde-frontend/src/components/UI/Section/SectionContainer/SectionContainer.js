@@ -12,6 +12,10 @@ import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
+import { v4 as uuidv4 } from "uuid";
+import { SectionInfo } from "../../../../classes/jsonParser";
+
+export const ChildrenContext = React.createContext(null);
 
 function SectionContainer({
   sectionId,
@@ -19,47 +23,55 @@ function SectionContainer({
   parentId,
   nextId,
   sectionInfo,
+  available,
   depth,
   dragControls,
 }) {
   const refForPosition = useSetSectionPosition(sectionId);
 
-  // const setChildrenIds = useStoreActions(
-  //   (action) => action.master.setChildrenIds
-  // );
+  const [children, setChildren] = useState([]);
+  const [childSectionInfo, setChildSectionInfo] = useState({});
 
-  // const childrenIds = useStoreState(
-  //   (state) => state.master.sections.getChildrenIds(sectionId),
-  //   arraysAreEqual
-  // );
+  const [order, updatePosition, updateOrder] = usePositionReorder(children);
 
-  // const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
+  function addChild(specs) {
+    const newId = uuidv4();
+    setChildren([...children, newId]);
+    setChildSectionInfo({
+      ...childSectionInfo,
+      [newId]: new SectionInfo(newId, specs, available),
+    });
+  }
 
-  // console.log("SectionContainer", sectionId, nextId, childrenIds, order);
+  console.log("SectionContainer", sectionId, nextId, children, order);
 
-  // useEffect(() => {
-  //   if (!arraysAreEqual(childrenIds, order)) {
-  //     setChildrenIds({ sectionId, childrenIds: order });
-  //   }
-  // }, [order]);
+  useEffect(() => {
+    if (!arraysAreEqual(children, order)) {
+      setChildren(order);
+    }
+  }, [order]);
 
   return (
     <Stack ref={refForPosition}>
-      <SectionContainerCore
-        sectionId={sectionId}
-        variableName={variableName}
-        parentId={parentId}
-        nextId={nextId}
-        sectionInfo={sectionInfo}
-        dragControls={dragControls}
-      />
-      {/* {order.length > 0 &&
+      <ChildrenContext.Provider value={{ children, addChild }}>
+        <SectionContainerCore
+          sectionId={sectionId}
+          variableName={variableName}
+          parentId={parentId}
+          nextId={nextId}
+          sectionInfo={sectionInfo}
+          dragControls={dragControls}
+        />
+      </ChildrenContext.Provider>
+      {order.length > 0 &&
         order.map((e, idx) => {
           return (
             <NestedSection
               parentId={sectionId}
               sectionId={e}
               nextId={order[idx + 1]}
+              sectionInfo={childSectionInfo[e]}
+              available={available}
               idx={idx}
               key={`Nested-Sec-${e}`}
               depth={depth + 1}
@@ -67,7 +79,7 @@ function SectionContainer({
               updateOrder={updateOrder}
             />
           );
-        })} */}
+        })}
     </Stack>
   );
 }
@@ -87,7 +99,7 @@ function SectionContainerCore({
   const moduleInfos = sectionInfo.moduleInfos;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
-  const [paramInfos, setParamInfos] = useState(null);
+  const [paramInfos, setParamInfos] = useState(sectionInfo.parameterInfos);
 
   function onSelectedItemChange(selectedItem) {
     if (selectedItem) {
@@ -129,7 +141,7 @@ function SectionContainerCore({
             )}
             {tempBoolDesc && <SectionDescription />}
             <GroupContainer sectionId={sectionId} paramInfos={paramInfos} />
-            {/* <SectionFooter sectionId={sectionId} isListRoot={isListRoot} /> */}
+            <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
         )}
       </Stack>
