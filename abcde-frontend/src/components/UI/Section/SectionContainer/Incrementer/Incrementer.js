@@ -11,6 +11,8 @@ export default function Incrementer({
   nextId,
   isListRoot,
   addChild,
+  deleteChild,
+  parentControls,
 }) {
   // const deleteSections = useStoreActions(
   //   (actions) => actions.master.deleteSections
@@ -29,9 +31,7 @@ export default function Incrementer({
   // };
 
   const addSections = (numSections) => {
-    console.log("addSections", numSections);
     for (let i = 0; i < numSections; i++) {
-      console.log("addSections");
       addChild();
     }
   };
@@ -46,9 +46,9 @@ export default function Incrementer({
   //   }
   // };
 
-  // const deleteThisSection = () => {
-  //   deleteSections({ sectionIds: [sectionId], parentId });
-  // };
+  const deleteThisSection = () => {
+    parentControls.deleteChild(sectionId);
+  };
 
   const numSectionsOnChange = (value) => {
     if (value && !isNaN(value)) {
@@ -83,7 +83,7 @@ export default function Incrementer({
       {!isListRoot && (
         <IconButton
           bg="whiteAlpha"
-          // icon={<Icon as={HiX} onClick={() => deleteThisSection()} />}
+          icon={<Icon as={HiX} onClick={() => deleteThisSection()} />}
         />
       )}
     </HStack>

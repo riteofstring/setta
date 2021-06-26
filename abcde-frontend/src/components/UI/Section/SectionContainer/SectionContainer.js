@@ -28,7 +28,7 @@ function funcAddChild(
   function addChild(childVariableName, uiType) {
     console.log("addChild", sectionInfo);
     const newId = uuidv4();
-    setChildren([...children, newId]);
+    setChildren([newId, ...children]);
     if (!childVariableName) {
       childVariableName = sectionInfo.name;
     }
@@ -42,15 +42,7 @@ function funcAddChild(
     } else {
       ({ config, isList, isListRoot } = uiType);
     }
-    console.log(
-      "childVariableName",
-      childVariableName,
-      config,
-      isList,
-      isListRoot
-    );
     setChildSectionInfo({
-      ...childSectionInfo,
       [newId]: new SectionInfo(
         childVariableName,
         config,
@@ -58,9 +50,25 @@ function funcAddChild(
         isList,
         isListRoot
       ),
+      ...childSectionInfo,
     });
   }
   return addChild;
+}
+
+function funcDeleteChild(
+  children,
+  childSectionInfo,
+  setChildren,
+  setChildSectionInfo
+) {
+  function deleteChild(sectionId) {
+    console.log("deleteChild", children, sectionId);
+    setChildren(children.filter((e) => e !== sectionId));
+    const { [sectionId]: e, ...theRest } = childSectionInfo;
+    setChildSectionInfo(theRest);
+  }
+  return deleteChild;
 }
 
 function SectionContainer({
@@ -71,6 +79,7 @@ function SectionContainer({
   available,
   depth,
   dragControls,
+  parentControls,
 }) {
   const refForPosition = useSetSectionPosition(sectionId);
 
@@ -82,6 +91,13 @@ function SectionContainer({
   const addChild = funcAddChild(
     sectionInfo,
     available,
+    children,
+    childSectionInfo,
+    setChildren,
+    setChildSectionInfo
+  );
+
+  const deleteChild = funcDeleteChild(
     children,
     childSectionInfo,
     setChildren,
@@ -106,6 +122,8 @@ function SectionContainer({
           sectionInfo={sectionInfo}
           dragControls={dragControls}
           addChild={addChild}
+          deleteChild={deleteChild}
+          parentControls={parentControls}
         />
       </ChildrenContext.Provider>
       {order.length > 0 &&
@@ -117,6 +135,7 @@ function SectionContainer({
               nextId={order[idx + 1]}
               sectionInfo={childSectionInfo[e]}
               available={available}
+              parentControls={{ addChild, deleteChild }}
               idx={idx}
               key={`Nested-Sec-${e}`}
               depth={depth + 1}
@@ -136,6 +155,8 @@ function SectionContainerCore({
   sectionInfo,
   dragControls,
   addChild,
+  deleteChild,
+  parentControls,
 }) {
   // const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
   //   state.master.sections.getUIType(sectionId)
@@ -154,7 +175,7 @@ function SectionContainerCore({
   }
 
   console.log("paramInfos", variableName, paramInfos);
-  console.log("dragControls", dragControls)
+  console.log("dragControls", dragControls);
 
   // // temp_
   const tempBoolDesc = false;
@@ -175,6 +196,8 @@ function SectionContainerCore({
           isList={isList}
           isListRoot={isListRoot}
           addChild={addChild}
+          deleteChild={deleteChild}
+          parentControls={parentControls}
           // requiresKeyInput={requiresKeyInput}
         />
         {!isListRoot && (

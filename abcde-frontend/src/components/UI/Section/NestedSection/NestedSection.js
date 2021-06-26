@@ -13,6 +13,7 @@ export default function NestedSection({
   nextId,
   sectionInfo,
   available,
+  parentControls,
   idx,
   depth,
   updatePosition,
@@ -33,6 +34,7 @@ export default function NestedSection({
           available={available}
           depth={depth}
           dragControls={dragControls}
+          parentControls={parentControls}
         />
       )
     );
@@ -80,7 +82,9 @@ export default function NestedSection({
       boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
     >
       <Grid gap={2}>
-        {sectionInfo.isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
+        {sectionInfo.isList
+          ? MotionDivWrapper(getNestedSection)
+          : getNestedSection()}
       </Grid>
     </Stack>
   );

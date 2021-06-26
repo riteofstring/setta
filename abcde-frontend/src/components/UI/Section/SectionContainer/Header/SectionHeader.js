@@ -13,6 +13,8 @@ export function SectionHeader({
   requiresKeyInput,
   onTitleInputChange,
   addChild,
+  deleteChild,
+  parentControls,
 }) {
   return (
     <Stack direction="row" align="center" w="100%">
@@ -31,6 +33,8 @@ export function SectionHeader({
             nextId={nextId}
             isListRoot={isListRoot}
             addChild={addChild}
+            deleteChild={deleteChild}
+            parentControls={parentControls}
           />
         </>
       )}
