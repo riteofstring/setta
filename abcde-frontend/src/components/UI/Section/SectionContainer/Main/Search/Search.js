@@ -6,19 +6,13 @@ import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
 export default function SectionSearch({ sectionId, moduleInfos }) {
-  const [selectedItem, setSelectedItem] = useState("");
+  const [selection, setSelection] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
     return x ? x[1] : "";
   };
-
-  const {
-    moduleName: selectedModuleName,
-    objName: selectedObjName,
-  } = useStoreState((state) => state.master.sections.getSelected(sectionId));
-  const setSelected = useStoreActions((actions) => actions.master.setSelected);
 
   const getSearchItems = () => {
     let output = [];
@@ -35,17 +29,11 @@ export default function SectionSearch({ sectionId, moduleInfos }) {
     setInputItems(getSearchItems());
   };
 
-  useEffect(() => {
-    if (selectedModuleName && selectedObjName) {
-      setSelectedItem([selectedModuleName, selectedObjName]);
-    }
-  }, [selectedModuleName, selectedObjName]);
-
   const onSelectedItemChange = ({ selectedItem }) => {
     if (selectedItem) {
       const [moduleName, objName] = selectedItem;
-      if (moduleName !== selectedModuleName || objName !== selectedObjName) {
-        setSelected({ sectionId, moduleName, objName });
+      if (moduleName !== selection[0] || objName !== selection[1]) {
+        setSelection([moduleName, objName]);
       }
     }
   };
@@ -60,7 +48,7 @@ export default function SectionSearch({ sectionId, moduleInfos }) {
     highlightedIndex,
     getItemProps,
   } = useCombobox({
-    selectedItem,
+    selection,
     items: inputItems,
     itemToString,
     onSelectedItemChange,

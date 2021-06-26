@@ -5,7 +5,8 @@ import { PANEID } from "../../../utils/constants";
 import { useSetSectionPosition } from "../../../utils/useSetSectionPosition";
 import { Stack } from "@chakra-ui/react";
 
-const SectionsPane = () => {
+function SectionsPane(){
+  const available = useStoreState((state) => state.master.available);
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
   const spaceBetweenPages = useStoreState(
     (state) => state.master.spaceBetweenPages
@@ -13,7 +14,7 @@ const SectionsPane = () => {
 
   const refForPosition = useSetSectionPosition(PANEID);
 
-  console.log("pageMinMaxList", pageMinMaxList)
+  console.log("pageMinMaxList", pageMinMaxList);
 
   return (
     <>
@@ -27,6 +28,7 @@ const SectionsPane = () => {
             minIdx={e.minIdx}
             maxIdx={e.maxIdx}
             idx={idx}
+            available={available}
             key={`SingleSectionsPane-${idx}`}
           />
         ))}

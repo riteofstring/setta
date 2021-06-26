@@ -14,15 +14,15 @@ import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function SectionContainer({
-  id,
+  sectionId,
   variableName,
   parentId,
   nextId,
-  moduleInfos,
+  sectionInfo,
   depth,
   dragControls,
 }) {
-  const refForPosition = useSetSectionPosition(id);
+  const refForPosition = useSetSectionPosition(sectionId);
 
   // const setChildrenIds = useStoreActions(
   //   (action) => action.master.setChildrenIds
@@ -46,10 +46,11 @@ function SectionContainer({
   return (
     <Stack ref={refForPosition}>
       <SectionContainerCore
-        id={id}
+        sectionId={sectionId}
         variableName={variableName}
         parentId={parentId}
         nextId={nextId}
+        sectionInfo={sectionInfo}
         dragControls={dragControls}
       />
       {/* {order.length > 0 &&
@@ -71,19 +72,24 @@ function SectionContainer({
   );
 }
 
-function SectionContainerCore({ id, variableName, parentId, nextId, dragControls }) {
-  // const moduleInfos = useStoreState(
-  //   (state) => state.master.sections.getSectionInfo(sectionId).moduleInfos
-  // );
-
+function SectionContainerCore({
+  sectionId,
+  variableName,
+  parentId,
+  nextId,
+  sectionInfo,
+  dragControls,
+}) {
   // const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
   //   state.master.sections.getUIType(sectionId)
   // );
 
-  // const showSearch = Object.keys(moduleInfos).length > 0;
+  const moduleInfos = sectionInfo.moduleInfos;
+  const showSearch = Object.keys(moduleInfos).length > 0;
 
   // // temp_
-  // const tempBoolDesc = false;
+  const tempBoolDesc = false;
+  const isListRoot = false;
   return (
     <HStack
       direction="column"
@@ -94,7 +100,7 @@ function SectionContainerCore({ id, variableName, parentId, nextId, dragControls
       {/* {isList && <DragHandle dragControls={dragControls} />} */}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
-          id={id}
+          id={sectionId}
           variableName={variableName}
           parentId={parentId}
           nextId={nextId}
@@ -102,16 +108,16 @@ function SectionContainerCore({ id, variableName, parentId, nextId, dragControls
           // isListRoot={isListRoot}
           // requiresKeyInput={requiresKeyInput}
         />
-        {/* {!isListRoot && (
+        {!isListRoot && (
           <Stack>
             {showSearch && (
               <SectionSearch sectionId={sectionId} moduleInfos={moduleInfos} />
             )}
             {tempBoolDesc && <SectionDescription />}
-            <GroupContainer sectionId={sectionId} />
-            <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
+            {/* <GroupContainer sectionId={sectionId} /> */}
+            {/* <SectionFooter sectionId={sectionId} isListRoot={isListRoot} /> */}
           </Stack>
-        )} */}
+        )}
       </Stack>
     </HStack>
   );

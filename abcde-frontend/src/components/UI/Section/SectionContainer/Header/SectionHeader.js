@@ -4,7 +4,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import Incrementer from "../Incrementer/Incrementer";
 
 export function SectionHeader({
-  id,
+  sectionId,
   variableName,
   parentId,
   nextId,
@@ -25,7 +25,7 @@ export function SectionHeader({
         <>
           <Spacer />
           <Incrementer
-            id={id}
+            sectionId={sectionId}
             parentId={parentId}
             nextId={nextId}
             isListRoot={isListRoot}
