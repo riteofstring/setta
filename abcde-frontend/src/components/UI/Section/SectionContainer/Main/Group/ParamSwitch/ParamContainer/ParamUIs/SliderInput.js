@@ -8,7 +8,7 @@ import {
 import SimpleConfig from "./SimpleConfig";
 
 function defaultIfNotNumber(x) {
-  return typeof x === "number" ? x : 0;
+  return isNaN(x) ? 0 : x;
 }
 
 function tryParseFloat(x) {
@@ -40,7 +40,7 @@ export default function SliderInput({
     <Slider
       aria-label="slider-ex-1"
       onChange={(v) => onChangeEnd(v)}
-      value={defaultIfNotNumber(value)}
+      value={defaultIfNotNumber(tryParseFloat(value))}
       min={tryParseFloat(min)}
       max={tryParseFloat(max)}
       step={tryParseFloat(step)}
