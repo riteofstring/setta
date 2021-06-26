@@ -35,7 +35,6 @@ function SingleSectionsPane({ minIdx, maxIdx, idx, available }) {
             idxCondition(idx) && (
               <SectionContainer
                 sectionId={idx}
-                variableName={e}
                 parentId={null}
                 nextId={idx + 1}
                 sectionInfo={getSectionInfo(e, uiSpecs[e])}

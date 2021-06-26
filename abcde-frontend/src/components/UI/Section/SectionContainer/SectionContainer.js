@@ -19,7 +19,6 @@ export const ChildrenContext = React.createContext(null);
 
 function SectionContainer({
   sectionId,
-  variableName,
   parentId,
   nextId,
   sectionInfo,
@@ -34,12 +33,12 @@ function SectionContainer({
 
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
 
-  function addChild(specs) {
+  function addChild(childVariableName, specs) {
     const newId = uuidv4();
     setChildren([...children, newId]);
     setChildSectionInfo({
       ...childSectionInfo,
-      [newId]: new SectionInfo(newId, specs, available),
+      [newId]: new SectionInfo(childVariableName, specs, available),
     });
   }
 
@@ -56,7 +55,6 @@ function SectionContainer({
       <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
           sectionId={sectionId}
-          variableName={variableName}
           parentId={parentId}
           nextId={nextId}
           sectionInfo={sectionInfo}
@@ -86,7 +84,6 @@ function SectionContainer({
 
 function SectionContainerCore({
   sectionId,
-  variableName,
   parentId,
   nextId,
   sectionInfo,
@@ -96,6 +93,7 @@ function SectionContainerCore({
   //   state.master.sections.getUIType(sectionId)
   // );
 
+  const variableName = sectionInfo.name
   const moduleInfos = sectionInfo.moduleInfos;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
