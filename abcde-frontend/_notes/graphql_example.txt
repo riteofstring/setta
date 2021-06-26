@@ -1,70 +1,103 @@
+fragment ParamObjModuleInfo on ParameterGQL {
+  name
+  parentObject {
+    name
+    parent {
+      name
+    }
+  }
+  parentCollection {
+    name
+  }
+}
+
+fragment ParameterInfo on ParameterGQL {
+  name
+  defaultVal
+  uiType {
+    name
+  }
+  type {
+    name
+  }
+  specsParameters {
+    parent {
+      name
+    }
+  }
+}
+
 fragment UI on UIGQL {
   name
-	sections {
+  sections {
+    name
+    variableName
+    selectedObject {
       name
-      variableName
-      selectedObject {
-        name
-      }
-      selectedModule {
-        name
-      }
-    	modules{
-        name
-      }
-    	parameters{
-        name
-      }
-      enteredValues {
-        values {
-          value
-          uiType {
-            name
-          }
-          isCurrent
+    }
+    selectedModule {
+      name
+    }
+    objects {
+      name
+    }
+    parameters {
+      name
+    }
+    enteredValues {
+      values {
+        value
+        parent {
+          ...ParamObjModuleInfo
+        }
+        uiType {
+          name
         }
       }
     }
-	sectionPositions{
-    section{
+    uiTypes {
+      uiTypes {
+        uiType {
+          name
+        }
+        parent {
+          ...ParamObjModuleInfo
+        }
+      }
+    }
+  }
+  sectionPositions {
+    section {
       name
     }
     position
   }
-  availableModules {
+  availableObjects {
+    name
+    objects {
       name
-      modules {
+      parent {
         name
-        objects {
-          name
-          parameters {
-            name
-            defaultVal
-            uiType{
-              name
-            }
-            type{
-              name
-            }
-            
-          }
-        }
+      }
+      parameters {
+        ...ParameterInfo
       }
     }
+  }
   availableParameters {
-      name
-      parameters{
-        name
-      }
+    name
+    parameters {
+      ...ParameterInfo
     }
+  }
 }
 
 {
   fullUi(name: "testDraft") {
-    ...UI,
+    ...UI
     sections {
-      children{
-        ...UI,
+      children {
+        ...UI
         sections {
           children {
             ...UI

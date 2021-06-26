@@ -10,7 +10,9 @@ import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 import {
   parseAvailableObjects,
   parseAvailableParameters,
+  parseEnteredValues,
   parseSections,
+  parseUITypes,
   parseSelected,
 } from "../graphql/parsers/uiParsers";
 
@@ -36,8 +38,12 @@ const master = {
         new SectionInfo(key, currSectionInfo, state.sections.available),
         0
       );
-      newSection.selected = parseSelected(currSectionInfo);
-      state.sections.addSection(newSection);
+      parseEnteredValues(newSection, currSectionInfo)
+      parseUITypes(newSection, currSectionInfo);
+      parseSelected(newSection, currSectionInfo)
+      console.log("newSection.history.enteredValues", newSection.history.enteredValues)
+      console.log("newSection.enteredValues", newSection.enteredValues)
+      state.sections.addSection(newSection, currSectionInfo.id);
     }
     state.pageMinMaxList = getPageMinMaxList(
       state.sections.numRootIds(),

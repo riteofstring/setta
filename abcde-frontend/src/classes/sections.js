@@ -36,8 +36,8 @@ export class Sections {
     this.allChildrenIds = [];
     this.allChildrenNames = [];
     this.latestIdIdx = 0;
-    this.uuids = generateUUIDs(1000)
-    this.uuidsToIdx = {}
+    this.uuids = generateUUIDs(1000);
+    this.uuidsToIdx = {};
   }
 
   getIdxAfterSource = (parent, sourceId) => {
@@ -98,10 +98,13 @@ export class Sections {
     return { children, idx };
   };
 
-  addSection = (section) => {
+  addSection = (section, id) => {
+    if (id) {
+      this.uuids[this.latestIdIdx] = id;
+    }
     const sectionId = this.uuids[this.latestIdIdx];
     this.sections[sectionId] = section;
-    this.uuidsToIdx[sectionId] = this.latestIdIdx
+    this.uuidsToIdx[sectionId] = this.latestIdIdx;
     this.latestIdIdx += 1;
     return sectionId;
   };
@@ -291,7 +294,7 @@ export class Sections {
     }
     const output = {};
     output["sections"] = sectionsOutput;
-    output["available"] = this.available
+    output["available"] = this.available;
     return output;
   };
 }

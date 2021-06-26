@@ -18,6 +18,8 @@ export default function ParamInput(props) {
     state.master.sections.getEnteredValue(sectionId, paramName)
   );
 
+  console.log("storedValue", sectionId, paramName, storedValue)
+
   const [value, setValue] = useState("");
 
   const onChange = (v) => {

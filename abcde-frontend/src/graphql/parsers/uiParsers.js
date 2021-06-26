@@ -1,13 +1,52 @@
 import { Selected } from "../../classes/selected";
+import { History } from "../../classes/history";
 
-export function parseSelected(section) {
-  if (section.selected) {
-    const s = section.selected;
+export function parseUITypes(section, sectionInfo) {
+  if (!sectionInfo.uiTypes) {
+    return;
+  }
+  const uiTypes = sectionInfo.uiTypes.uiTypes;
+  let parentObject = null;
+  let paramName = null;
+  for (let v of uiTypes) {
+    paramName = v.parent.name;
+    parentObject = v.parent.parentObject;
+    if (parentObject) {
+      section.setSelected(parentObject.parent.name, parentObject.name);
+    } else {
+      section.setSelected(null, null);
+    }
+    section.setParamUIType(paramName, v.uiType.name);
+  }
+}
+
+export function parseEnteredValues(section, sectionInfo) {
+  if (!sectionInfo.enteredValues) {
+    return;
+  }
+  const values = sectionInfo.enteredValues.values;
+  let parentObject = null;
+  let paramName = null;
+  for (let v of values) {
+    paramName = v.parent.name;
+    parentObject = v.parent.parentObject;
+    if (parentObject) {
+      section.setSelected(parentObject.parent.name, parentObject.name);
+    } else {
+      section.setSelected(null, null);
+    }
+    section.setParamUIType(paramName, v.uiType.name);
+    section.enteredValues[paramName] = v.value;
+  }
+}
+
+export function parseSelected(section, sectionInfo) {
+  if (sectionInfo.selected) {
+    const s = sectionInfo.selected;
     if (s.module && s.object) {
-      return new Selected(s.module, s.object);
+      section.setSelected(s.module, s.object);
     }
   }
-  return new Selected();
 }
 
 function parseParameters(parameters) {
@@ -78,12 +117,15 @@ export function parseSections(sections, sectionPositions) {
   const UI = {};
   for (let s of sortedSections) {
     UI[s["variableName"]] = {
+      id: s.name,
       objects: s.objects.map((x) => x.name),
       parameters: s.parameters.map((x) => x.name),
       selected: {
         module: s.selectedModule?.name,
         object: s.selectedObject?.name,
       },
+      enteredValues: s.enteredValues,
+      uiTypes: s.uiTypes,
     };
   }
   return UI;

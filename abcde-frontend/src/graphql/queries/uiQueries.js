@@ -9,7 +9,22 @@ export function allFoldersQuery() {
   }`;
 }
 
-export function ParameterInfoFragment(){
+export function ParamObjModuleInfoFragment() {
+  return `fragment ParamObjModuleInfo on ParameterGQL {
+    name
+    parentObject {
+      name
+      parent {
+        name
+      }
+    }
+    parentCollection {
+      name
+    }
+  }`;
+}
+
+export function ParameterInfoFragment() {
   return `fragment ParameterInfo on ParameterGQL {
     name
     defaultVal
@@ -29,7 +44,7 @@ export function ParameterInfoFragment(){
         name
       }
     }
-  }`
+  }`;
 }
 
 export function UIFragment() {
@@ -53,10 +68,22 @@ export function UIFragment() {
       enteredValues {
         values {
           value
+          parent {
+            ...ParamObjModuleInfo
+          }
           uiType {
             name
           }
-          isCurrent
+        }
+      }
+      uiTypes {
+        uiTypes {
+          uiType {
+            name
+          }
+          parent {
+            ...ParamObjModuleInfo
+          }
         }
       }
     }
@@ -85,7 +112,8 @@ export function UIFragment() {
       }
     }
   }
-  ${ParameterInfoFragment()}`;
+  ${ParameterInfoFragment()}
+  ${ParamObjModuleInfoFragment()}`;
 }
 
 export function UIQuery(name) {

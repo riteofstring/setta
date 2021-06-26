@@ -222,7 +222,7 @@ export class Section {
         this.paramUITypeNames[key]
       ] = this.enteredValues[key];
     }
-    output["paramUITypeNames"] = this.paramUITypeNames;
+    output["paramUITypeNames"] = this.history.paramUITypeNames;
     output["depth"] = this.depth;
     output["isListRoot"] = this.uiType.isListRoot;
     output["childrenIds"] = this.childrenIds;
