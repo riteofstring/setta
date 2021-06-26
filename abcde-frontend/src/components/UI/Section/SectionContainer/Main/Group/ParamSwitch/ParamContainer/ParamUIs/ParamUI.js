@@ -5,10 +5,10 @@ import { useStoreState } from "easy-peasy";
 
 export function ParamUIConfig({ name, savedConfig, onChange }) {
   console.log("ParamUIConfig", name)
-  const available = useStoreState((state) => state.master.sections.available);
+  // const available = useStoreState((state) => state.master.sections.available);
 
-  const availableObjects = Object.keys(available.objects);
-  const availableParameters = Object.keys(available.parameters);
+  // const availableObjects = Object.keys(available.objects);
+  // const availableParameters = Object.keys(available.parameters);
 
   switch (name) {
     default:
@@ -17,18 +17,18 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
       return (
         <SliderInputConfig savedConfig={savedConfig} onChange={onChange} />
       );
-    case "NESTED_OBJECT":
-    case "LIST_NESTED_OBJECT":
-    case "DICT_NESTED_OBJECT":
-      return (
-        <NestedObjectInputConfig
-          name={name}
-          savedConfig={savedConfig}
-          onChange={onChange}
-          availableObjects={availableObjects}
-          availableParameters={availableParameters}
-        />
-      );
+    // case "NESTED_OBJECT":
+    // case "LIST_NESTED_OBJECT":
+    // case "DICT_NESTED_OBJECT":
+    //   return (
+    //     <NestedObjectInputConfig
+    //       name={name}
+    //       savedConfig={savedConfig}
+    //       onChange={onChange}
+    //       availableObjects={availableObjects}
+    //       availableParameters={availableParameters}
+    //     />
+    //   );
   }
 }
 

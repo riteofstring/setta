@@ -4,17 +4,16 @@ import { useStoreState } from "easy-peasy";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramName } = props;
+  const { sectionId, paramInfo } = props;
 
-  const uiType = useStoreState((state) =>
-    state.master.sections.getParamUIType(sectionId, paramName)
-  );
+  // const uiType = paramInfo.uiType;
 
-  const paramUITypeConfig = useStoreState((state) =>
-    state.master.sections.getParamUITypeConfig(sectionId, paramName)
-  );
+  // const paramUITypeConfig = useStoreState((state) =>
+  //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
+  // );
 
-  return !uiType || !uiType.isNested() ? (
+  // return !uiType || !uiType.isNested() ? (
+  return (
     <>
       <FormControl as="fieldset">
         <HStack
@@ -30,20 +29,20 @@ export default function ParamContainer(props) {
           <Spacer />
           <ParamInput
             sectionId={sectionId}
-            paramName={paramName}
-            uiType={uiType}
-            paramUITypeConfig={paramUITypeConfig}
-            isDisabled={!paramName}
+            paramInfo={paramInfo}
+            // paramUITypeConfig={paramUITypeConfig}
+            isDisabled={!paramInfo.name}
           />
         </HStack>
       </FormControl>
     </>
-  ) : (
-    <NestedObjectInput
-      sectionId={sectionId}
-      paramName={paramName}
-      uiType={uiType}
-      paramUITypeConfig={paramUITypeConfig}
-    />
   );
+  // ) : (
+  // <NestedObjectInput
+  //   sectionId={sectionId}
+  //   paramName={paramName}
+  //   uiType={uiType}
+  //   paramUITypeConfig={paramUITypeConfig}
+  // />
+  // );
 }

@@ -7,7 +7,7 @@ export default function ParamTextLabel(props) {
     <FormLabel>
       <Tooltip isDisabled={tempBool} hasArrow label="Label Tooltip Placeholder">
         <Text fontSize="sm" fontWeight="semibold" color="gray.700">
-          {props.paramName}
+          {props.paramInfo.name}
         </Text>
       </Tooltip>
     </FormLabel>

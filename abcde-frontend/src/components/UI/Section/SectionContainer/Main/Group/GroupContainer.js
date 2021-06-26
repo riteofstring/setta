@@ -11,46 +11,44 @@ import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 import { arraysAreEqual } from "../../../../../../utils/commonFunctions";
 
-export default function GroupContainer({ sectionId }) {
-  const { moduleName, objName } = useStoreState((state) =>
-    state.master.sections.getSelected(sectionId)
-  );
+export default function GroupContainer({ sectionId, paramInfos }) {
+  const paramNames = paramInfos ? Object.keys(paramInfos) : [];
 
-  const kwargNames = useStoreState(
-    (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
-    arraysAreEqual
-  );
+  // const kwargNames = useStoreState(
+  //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
+  //   arraysAreEqual
+  // );
 
-  const [enteredKwargNames, setEnteredKwargNames] = useState(kwargNames);
-  const [numKwargs, setNumKwargs] = useState(kwargNames.length);
-  const paramNames = useStoreState(
-    (state) => Object.keys(state.master.sections.getParameters(sectionId)),
-    arraysAreEqual
-  );
-  const showKwargsButton = objName || paramNames.length > 0;
+  // const [enteredKwargNames, setEnteredKwargNames] = useState(kwargNames);
+  // const [numKwargs, setNumKwargs] = useState(kwargNames.length);
+  // const paramNames = useStoreState(
+  //   (state) => Object.keys(state.master.sections.getParameters(sectionId)),
+  //   arraysAreEqual
+  // );
+  // const showKwargsButton = objName || paramNames.length > 0;
 
-  useEffect(() => {
-    setEnteredKwargNames(kwargNames);
-    setNumKwargs(kwargNames.length);
-  }, [sectionId, moduleName, objName]);
+  // useEffect(() => {
+  //   setEnteredKwargNames(kwargNames);
+  //   setNumKwargs(kwargNames.length);
+  // }, [sectionId, moduleName, objName]);
 
-  const updateEnteredKwargNames = (v, idx) => {
-    const newState = [...enteredKwargNames];
-    newState[idx] = v;
-    setEnteredKwargNames(newState);
-  };
+  // const updateEnteredKwargNames = (v, idx) => {
+  //   const newState = [...enteredKwargNames];
+  //   newState[idx] = v;
+  //   setEnteredKwargNames(newState);
+  // };
 
-  const deleteFromEnteredKwargNames = (idx) => {
-    const newState = [...enteredKwargNames];
-    newState.splice(idx, 1);
-    setEnteredKwargNames(newState);
-    setNumKwargs(Math.max(0, numKwargs - 1));
-  };
+  // const deleteFromEnteredKwargNames = (idx) => {
+  //   const newState = [...enteredKwargNames];
+  //   newState.splice(idx, 1);
+  //   setEnteredKwargNames(newState);
+  //   setNumKwargs(Math.max(0, numKwargs - 1));
+  // };
 
-  const addToEnteredKwargNames = () => {
-    setEnteredKwargNames([...enteredKwargNames, ""]);
-    setNumKwargs(numKwargs + 1);
-  };
+  // const addToEnteredKwargNames = () => {
+  //   setEnteredKwargNames([...enteredKwargNames, ""]);
+  //   setNumKwargs(numKwargs + 1);
+  // };
 
   return (
     <Stack>
@@ -60,13 +58,13 @@ export default function GroupContainer({ sectionId }) {
             <ParamSwitch
               key={`${e}-${idx}`}
               sectionId={sectionId}
-              paramName={e}
+              paramInfo={paramInfos[e]}
             />
           ))}
         </FormControl>
       )}
 
-      {showKwargsButton && (
+      {/* {showKwargsButton && (
         <HStack pt="1rem">
           <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
             {"KWARGS"}
@@ -96,7 +94,7 @@ export default function GroupContainer({ sectionId }) {
             />
           ))}
         </FormControl>
-      )}
+      )} */}
     </Stack>
   );
 }

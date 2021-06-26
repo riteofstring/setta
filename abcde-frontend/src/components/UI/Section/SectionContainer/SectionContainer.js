@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Stack, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
@@ -87,6 +87,17 @@ function SectionContainerCore({
   const moduleInfos = sectionInfo.moduleInfos;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
+  const [paramInfos, setParamInfos] = useState(null);
+
+  function onSelectedItemChange(selectedItem) {
+    if (selectedItem) {
+      const [moduleName, objName] = selectedItem;
+      setParamInfos(moduleInfos[moduleName].objs[objName].params);
+    }
+  }
+
+  console.log("paramInfos", variableName, paramInfos);
+
   // // temp_
   const tempBoolDesc = false;
   const isListRoot = false;
@@ -100,7 +111,7 @@ function SectionContainerCore({
       {/* {isList && <DragHandle dragControls={dragControls} />} */}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
-          id={sectionId}
+          sectionId={sectionId}
           variableName={variableName}
           parentId={parentId}
           nextId={nextId}
@@ -111,10 +122,13 @@ function SectionContainerCore({
         {!isListRoot && (
           <Stack>
             {showSearch && (
-              <SectionSearch sectionId={sectionId} moduleInfos={moduleInfos} />
+              <SectionSearch
+                moduleInfos={moduleInfos}
+                onSelectedItemChange={onSelectedItemChange}
+              />
             )}
             {tempBoolDesc && <SectionDescription />}
-            {/* <GroupContainer sectionId={sectionId} /> */}
+            <GroupContainer sectionId={sectionId} paramInfos={paramInfos} />
             {/* <SectionFooter sectionId={sectionId} isListRoot={isListRoot} /> */}
           </Stack>
         )}
