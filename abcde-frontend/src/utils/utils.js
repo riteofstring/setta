@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
@@ -78,17 +78,21 @@ export function firstValue(x) {
   return undefined;
 }
 
-
-export function rangeArray(low, high){
+export function rangeArray(low, high) {
   return Array.from(new Array(high), (x, i) => i + low);
 }
-
 
 export function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
+export function generateUUIDs(number) {
+  return [...Array(number)].map((x) => uuidv4());
+}
 
-export function generateUUIDs(number){
-  return [...Array(number)].map(x => uuidv4())
+export function createSelectedString(moduleName, objName) {
+  if (!nullOrUndefined(moduleName) && !nullOrUndefined(objName)) {
+    return `${moduleName}~${objName}`;
+  }
+  return null;
 }

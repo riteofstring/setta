@@ -8,11 +8,36 @@ import {
 import { AddIcon } from "@chakra-ui/icons";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext } from "react";
 import { arraysAreEqual } from "../../../../../../utils/commonFunctions";
+import { createSelectedString } from "../../../../../../utils/utils";
 
-export default function GroupContainer({ sectionId, paramInfos }) {
+export const HistoryContext = createContext(null);
+
+export default function GroupContainer({
+  sectionId,
+  moduleName,
+  objName,
+  paramInfos,
+}) {
   const paramNames = paramInfos ? Object.keys(paramInfos) : [];
+
+  const [history, setHistoryState] = useState({});
+
+  const selected = createSelectedString(moduleName, objName);
+
+  function setHistory(paramName, value) {
+    const newEntry = { ...history[selected], [paramName]: value };
+    setHistoryState({ ...history, [selected]: newEntry });
+  }
+
+  function getHistory(paramName) {
+    // if (ancestorNames) {
+    const h = history[selected]?.[paramName];
+    return h ? h : "";
+    // }
+    // return "";
+  }
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
@@ -53,15 +78,17 @@ export default function GroupContainer({ sectionId, paramInfos }) {
   return (
     <Stack>
       {paramNames.length > 0 && (
-        <FormControl id="groupone">
-          {paramNames.map((e, idx) => (
-            <ParamSwitch
-              key={`${e}-${idx}`}
-              sectionId={sectionId}
-              paramInfo={paramInfos[e]}
-            />
-          ))}
-        </FormControl>
+        <HistoryContext.Provider value={{ history, setHistory, getHistory }}>
+          <FormControl id="groupone">
+            {paramNames.map((e, idx) => (
+              <ParamSwitch
+                key={`${e}-${idx}`}
+                sectionId={sectionId}
+                paramInfo={paramInfos[e]}
+              />
+            ))}
+          </FormControl>
+        </HistoryContext.Provider>
       )}
 
       {/* {showKwargsButton && (

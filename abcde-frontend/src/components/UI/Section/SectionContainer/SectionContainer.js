@@ -88,11 +88,15 @@ function SectionContainerCore({
   const showSearch = Object.keys(moduleInfos).length > 0;
 
   const [paramInfos, setParamInfos] = useState(null);
+  const [moduleName, setModuleName] = useState(null);
+  const [objName, setObjName] = useState(null);
 
   function onSelectedItemChange(selectedItem) {
     if (selectedItem) {
       const [moduleName, objName] = selectedItem;
       setParamInfos(moduleInfos[moduleName].objs[objName].params);
+      setModuleName(moduleName);
+      setObjName(objName);
     }
   }
 
@@ -128,7 +132,12 @@ function SectionContainerCore({
               />
             )}
             {tempBoolDesc && <SectionDescription />}
-            <GroupContainer sectionId={sectionId} paramInfos={paramInfos} />
+            <GroupContainer
+              sectionId={sectionId}
+              moduleName={moduleName}
+              objName={objName}
+              paramInfos={paramInfos}
+            />
             {/* <SectionFooter sectionId={sectionId} isListRoot={isListRoot} /> */}
           </Stack>
         )}
