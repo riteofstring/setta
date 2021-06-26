@@ -19,9 +19,8 @@ export default function NestedSection({
   updateOrder,
 }) {
   const childrenAreCollapsed = false;
-  const isList = false;
 
-  console.log("sectionId, isList", sectionId, isList, sectionInfo);
+  console.log("sectionId", sectionId, sectionInfo);
 
   const getNestedSection = (dragControls) => {
     return (
@@ -81,7 +80,7 @@ export default function NestedSection({
       boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
     >
       <Grid gap={2}>
-        {isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
+        {sectionInfo.isList ? MotionDivWrapper(getNestedSection) : getNestedSection()}
       </Grid>
     </Stack>
   );

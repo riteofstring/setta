@@ -17,6 +17,52 @@ import { SectionInfo } from "../../../../classes/jsonParser";
 
 export const ChildrenContext = React.createContext(null);
 
+function funcAddChild(
+  sectionInfo,
+  available,
+  children,
+  childSectionInfo,
+  setChildren,
+  setChildSectionInfo
+) {
+  function addChild(childVariableName, uiType) {
+    console.log("addChild", sectionInfo);
+    const newId = uuidv4();
+    setChildren([...children, newId]);
+    if (!childVariableName) {
+      childVariableName = sectionInfo.name;
+    }
+    let [config, isList, isListRoot] = [null, null, null];
+    if (!uiType) {
+      ({ specs: config, isList, isListRoot } = sectionInfo);
+      if (isListRoot) {
+        isList = true;
+        isListRoot = false;
+      }
+    } else {
+      ({ config, isList, isListRoot } = uiType);
+    }
+    console.log(
+      "childVariableName",
+      childVariableName,
+      config,
+      isList,
+      isListRoot
+    );
+    setChildSectionInfo({
+      ...childSectionInfo,
+      [newId]: new SectionInfo(
+        childVariableName,
+        config,
+        available,
+        isList,
+        isListRoot
+      ),
+    });
+  }
+  return addChild;
+}
+
 function SectionContainer({
   sectionId,
   parentId,
@@ -33,14 +79,14 @@ function SectionContainer({
 
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
 
-  function addChild(childVariableName, specs) {
-    const newId = uuidv4();
-    setChildren([...children, newId]);
-    setChildSectionInfo({
-      ...childSectionInfo,
-      [newId]: new SectionInfo(childVariableName, specs, available),
-    });
-  }
+  const addChild = funcAddChild(
+    sectionInfo,
+    available,
+    children,
+    childSectionInfo,
+    setChildren,
+    setChildSectionInfo
+  );
 
   console.log("SectionContainer", sectionId, nextId, children, order);
 
@@ -59,6 +105,7 @@ function SectionContainer({
           nextId={nextId}
           sectionInfo={sectionInfo}
           dragControls={dragControls}
+          addChild={addChild}
         />
       </ChildrenContext.Provider>
       {order.length > 0 &&
@@ -88,13 +135,13 @@ function SectionContainerCore({
   nextId,
   sectionInfo,
   dragControls,
+  addChild,
 }) {
   // const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
   //   state.master.sections.getUIType(sectionId)
   // );
 
-  const variableName = sectionInfo.name
-  const moduleInfos = sectionInfo.moduleInfos;
+  const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
   const [paramInfos, setParamInfos] = useState(sectionInfo.parameterInfos);
@@ -107,10 +154,10 @@ function SectionContainerCore({
   }
 
   console.log("paramInfos", variableName, paramInfos);
+  console.log("dragControls", dragControls)
 
   // // temp_
   const tempBoolDesc = false;
-  const isListRoot = false;
   return (
     <HStack
       direction="column"
@@ -118,15 +165,16 @@ function SectionContainerCore({
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {/* {isList && <DragHandle dragControls={dragControls} />} */}
+      {isList && <DragHandle dragControls={dragControls} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
           variableName={variableName}
           parentId={parentId}
           nextId={nextId}
-          // isList={isList}
-          // isListRoot={isListRoot}
+          isList={isList}
+          isListRoot={isListRoot}
+          addChild={addChild}
           // requiresKeyInput={requiresKeyInput}
         />
         {!isListRoot && (

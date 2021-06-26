@@ -1,6 +1,6 @@
 import { allDefined } from "../utils/utils";
 import { combineObjects, combineParameters } from "../utils/utils";
-import { UIType, } from "./uiType";
+import { UIType } from "./uiType";
 
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
@@ -23,7 +23,13 @@ export const createJson = (specs, available) => {
   return output;
 };
 
-const getInfos = (ancestorNames, jsonInput, infoTypes, infoTypeStr, key_in_json) => {
+const getInfos = (
+  ancestorNames,
+  jsonInput,
+  infoTypes,
+  infoTypeStr,
+  key_in_json
+) => {
   let outputObject = {};
   let info = jsonInput;
   if (key_in_json) {
@@ -47,7 +53,7 @@ class ParameterInfo {
     this.specs = convertSpecsToDict(jsonInput.specs);
     this.isKwarg = jsonInput.isKwarg;
     this.isHidden = jsonInput.isHidden;
-    this.uiType = new UIType({name: jsonInput.uiType, specs: this.specs});
+    this.uiType = new UIType({ name: jsonInput.uiType, specs: this.specs });
   }
 
   shouldHaveNested = () => {
@@ -89,12 +95,14 @@ class ModuleInfo {
 }
 
 export class SectionInfo {
-  constructor(name, specs, available) {
+  constructor(name, specs, available, isList, isListRoot) {
     this.name = name;
     this.specs = convertSpecsToDict(specs);
     const jsonInput = createJson(this.specs, available);
     this.setModuleInfos([name], jsonInput);
     this.setParameterInfos([name], jsonInput);
+    this.isList = isList;
+    this.isListRoot = isListRoot;
   }
 
   getCorrectInfo = (moduleName, objName) => {

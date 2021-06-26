@@ -12,6 +12,7 @@ export function SectionHeader({
   isListRoot,
   requiresKeyInput,
   onTitleInputChange,
+  addChild,
 }) {
   return (
     <Stack direction="row" align="center" w="100%">
@@ -29,6 +30,7 @@ export function SectionHeader({
             parentId={parentId}
             nextId={nextId}
             isListRoot={isListRoot}
+            addChild={addChild}
           />
         </>
       )}

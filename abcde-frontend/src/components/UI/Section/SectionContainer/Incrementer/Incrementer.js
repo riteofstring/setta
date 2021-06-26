@@ -10,45 +10,45 @@ export default function Incrementer({
   parentId,
   nextId,
   isListRoot,
+  addChild,
 }) {
-  const addChildren = useStoreActions((actions) => actions.master.addChildren);
-  const deleteSections = useStoreActions(
-    (actions) => actions.master.deleteSections
-  );
-  const deleteChildrenAction = useStoreActions(
-    (actions) => actions.master.deleteChildren
-  );
+  // const deleteSections = useStoreActions(
+  //   (actions) => actions.master.deleteSections
+  // );
+  // const deleteChildrenAction = useStoreActions(
+  //   (actions) => actions.master.deleteChildren
+  // );
 
-  const childrenIds = useStoreState(
-    (state) => state.master.sections.getChildrenIds(sectionId),
-    arraysAreEqual
-  );
+  // const childrenIds = useStoreState(
+  //   (state) => state.master.sections.getChildrenIds(sectionId),
+  //   arraysAreEqual
+  // );
 
-  const decrementButtonCondition = () => {
-    return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
-  };
+  // const decrementButtonCondition = () => {
+  //   return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
+  // };
 
   const addSections = (numSections) => {
-    addChildren({
-      parentId: isListRoot ? sectionId : parentId,
-      sourceId: sectionId,
-      numChildren: numSections,
-    });
-  };
-
-  const deleteChildren = (numSections) => {
-    if ((isListRoot && childrenIds.length > 0) || nextId) {
-      deleteChildrenAction({
-        parentId: isListRoot ? sectionId : parentId,
-        sourceId: sectionId,
-        numChildren: numSections,
-      });
+    console.log("addSections", numSections);
+    for (let i = 0; i < numSections; i++) {
+      console.log("addSections");
+      addChild();
     }
   };
 
-  const deleteThisSection = () => {
-    deleteSections({ sectionIds: [sectionId], parentId });
-  };
+  // const deleteChildren = (numSections) => {
+  //   if ((isListRoot && childrenIds.length > 0) || nextId) {
+  //     deleteChildrenAction({
+  //       parentId: isListRoot ? sectionId : parentId,
+  //       sourceId: sectionId,
+  //       numChildren: numSections,
+  //     });
+  //   }
+  // };
+
+  // const deleteThisSection = () => {
+  //   deleteSections({ sectionIds: [sectionId], parentId });
+  // };
 
   const numSectionsOnChange = (value) => {
     if (value && !isNaN(value)) {
@@ -71,8 +71,8 @@ export default function Incrementer({
       <IconButton
         icon={<MinusIcon />}
         size="xs"
-        onClick={() => deleteChildren(numSections)}
-        isDisabled={decrementButtonCondition() ? false : true}
+        // onClick={() => deleteChildren(numSections)}
+        // isDisabled={decrementButtonCondition() ? false : true}
       />
 
       <IconButton
@@ -83,7 +83,7 @@ export default function Incrementer({
       {!isListRoot && (
         <IconButton
           bg="whiteAlpha"
-          icon={<Icon as={HiX} onClick={() => deleteThisSection()} />}
+          // icon={<Icon as={HiX} onClick={() => deleteThisSection()} />}
         />
       )}
     </HStack>
