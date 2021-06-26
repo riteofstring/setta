@@ -8,12 +8,11 @@ import { generateAndRunCode } from "../dbRequests/ui";
 import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
 import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 import {
-  parseAvailableObjects,
-  parseAvailableParameters,
+  parseUI,
   parseEnteredValues,
-  parseSections,
   parseUITypes,
   parseSelected,
+  parseChildren,
 } from "../graphql/parsers/uiParsers";
 
 const master = {
@@ -42,6 +41,7 @@ const master = {
       parseEnteredValues(state.sections, currSectionInfo);
       parseUITypes(state.sections, currSectionInfo);
       parseSelected(state.sections, currSectionInfo);
+      parseChildren(state.sections, currSectionInfo);
     }
     state.pageMinMaxList = getPageMinMaxList(
       state.sections.numRootIds(),
@@ -51,17 +51,7 @@ const master = {
 
   setEntireState: thunk((action, payload, helpers) => {
     console.log("payload", payload);
-    const entireUI = {};
-    entireUI["OBJECTS"] = parseAvailableObjects(payload["availableObjects"]);
-    entireUI["PARAMETERS"] = parseAvailableParameters(
-      payload["availableParameters"]
-    );
-    entireUI["UI"] = parseSections(
-      payload["sections"],
-      payload["sectionPositions"]
-    );
-    console.log("UI", entireUI);
-    action._loadSections(entireUI);
+    action._loadSections(parseUI(payload));
   }),
 
   loadSections: thunk((action, payload, helpers) => {

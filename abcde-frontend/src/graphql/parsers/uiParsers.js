@@ -18,6 +18,13 @@ function helperSetEnteredValue(sections, sectionInfo, paramName, value) {
   sections.setEnteredValue({ sectionId: sectionInfo.id, paramName, value });
 }
 
+export function parseChildren(sections, sectionInfo) {
+  if (!sectionInfo.children) {
+    return;
+  }
+  console.log("sectionInfo.children", parseUI(sectionInfo.children));
+}
+
 export function parseUITypes(sections, sectionInfo) {
   if (!sectionInfo.uiTypes) {
     return;
@@ -139,7 +146,17 @@ export function parseSections(sections, sectionPositions) {
       },
       enteredValues: s.enteredValues,
       uiTypes: s.uiTypes,
+      children: s.children,
     };
   }
   return UI;
+}
+
+export function parseUI(ui) {
+  const entireUI = {};
+  entireUI["OBJECTS"] = parseAvailableObjects(ui["availableObjects"]);
+  entireUI["PARAMETERS"] = parseAvailableParameters(ui["availableParameters"]);
+  entireUI["UI"] = parseSections(ui["sections"], ui["sectionPositions"]);
+  console.log("UI", entireUI);
+  return entireUI;
 }
