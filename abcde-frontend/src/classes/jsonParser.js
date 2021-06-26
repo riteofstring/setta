@@ -22,7 +22,7 @@ export const createJson = (specs, available) => {
   return output;
 };
 
-const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
+const getInfos = (ancestorNames, jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   let outputObject = {};
   let info = jsonInput;
   if (key_in_json) {
@@ -31,15 +31,16 @@ const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
   if (info) {
     let infoTypeObj = infoTypes[infoTypeStr];
     for (let key of Object.keys(info)) {
-      outputObject[key] = new infoTypeObj(key, info[key]);
+      outputObject[key] = new infoTypeObj(key, ancestorNames, info[key]);
     }
   }
   return outputObject;
 };
 
 class ParameterInfo {
-  constructor(name, jsonInput) {
+  constructor(name, ancestorNames, jsonInput) {
     this.name = name;
+    this.ancestorNames = ancestorNames;
     this.defaultVal = jsonInput.defaultVal;
     this.uiTypeName = jsonInput.uiType;
     this.type = jsonInput.type;
@@ -57,18 +58,32 @@ class ParameterInfo {
 }
 
 class ObjInfo {
-  constructor(name, jsonInput) {
+  constructor(name, ancestorNames, jsonInput) {
     const infoTypes = { ParameterInfo };
     this.name = name;
-    this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false);
+    this.ancestorNames = ancestorNames;
+    this.params = getInfos(
+      [...ancestorNames, name],
+      jsonInput,
+      infoTypes,
+      "ParameterInfo",
+      false
+    );
   }
 }
 
 class ModuleInfo {
-  constructor(name, jsonInput) {
+  constructor(name, ancestorNames, jsonInput) {
     const infoTypes = { ObjInfo };
     this.name = name;
-    this.objs = getInfos(jsonInput, infoTypes, "ObjInfo", false);
+    this.ancestorNames = ancestorNames;
+    this.objs = getInfos(
+      [...ancestorNames, name],
+      jsonInput,
+      infoTypes,
+      "ObjInfo",
+      false
+    );
   }
 }
 
@@ -77,8 +92,8 @@ export class SectionInfo {
     this.name = name;
     this.specs = convertSpecsToDict(specs);
     const jsonInput = createJson(this.specs, available);
-    this.setModuleInfos(jsonInput);
-    this.setParameterInfos(jsonInput);
+    this.setModuleInfos([name], jsonInput);
+    this.setParameterInfos([name], jsonInput);
   }
 
   getCorrectInfo = (moduleName, objName) => {
@@ -152,12 +167,19 @@ export class SectionInfo {
     }
   };
 
-  setModuleInfos = (jsonInput) => {
-    this.moduleInfos = getInfos(jsonInput, { ModuleInfo }, "ModuleInfo", true);
+  setModuleInfos = (name, jsonInput) => {
+    this.moduleInfos = getInfos(
+      name,
+      jsonInput,
+      { ModuleInfo },
+      "ModuleInfo",
+      true
+    );
   };
 
-  setParameterInfos = (jsonInput) => {
+  setParameterInfos = (name, jsonInput) => {
     this.parameterInfos = getInfos(
+      name,
       jsonInput,
       { ParameterInfo },
       "ParameterInfo",

@@ -6,6 +6,7 @@ import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 export default function ParamInput(props) {
   const { sectionId, paramInfo } = props;
 
+  const paramName = paramInfo.name;
   const defaultVal = paramInfo.defaultVal;
 
   // const setEnteredValue = useStoreActions(
@@ -18,12 +19,18 @@ export default function ParamInput(props) {
 
   const [value, setValue] = useState("");
 
+  useEffect(() => {
+    setValue("");
+  }, [paramInfo.ancestorNames]);
+
+  console.log("ParamInput", paramName, value);
+
   const onChange = (v) => {
     setValue(v);
   };
 
   const onChangeEnd = (v) => {
-    // onChange(v);
+    onChange(v);
     // setEnteredValue({
     //   sectionId,
     //   paramName,
