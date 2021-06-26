@@ -19,32 +19,33 @@ const master = {
   sectionsPerPage: 5,
   spaceBetweenPages: 500,
   pageMinMaxList: [],
-  sections: new Sections(),
+  available: {},
+  uiSpecs: {},
 
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
     console.log("master payload", payload);
-    state.sections = new Sections();
-    state.sections.available = {
+    state.available = {
       objects: payload.OBJECTS,
       parameters: payload.PARAMETERS,
     };
-    for (let key of Object.keys(payload.UI)) {
-      const currSectionInfo = payload.UI[key];
-      const newSection = new Section(
-        key,
-        new SectionInfo(key, currSectionInfo, state.sections.available),
-        0
-      );
-      state.sections.addSection(newSection, currSectionInfo.id);
-      parseEnteredValues(state.sections, currSectionInfo);
-      parseUITypes(state.sections, currSectionInfo);
-      parseSelected(state.sections, currSectionInfo);
-      parseChildren(state.sections, currSectionInfo);
-    }
+    state.uiSpecs = payload.UI;
+    // for (let key of Object.keys(payload.UI)) {
+    //   const currSectionInfo = payload.UI[key];
+    //   const newSection = new Section(
+    //     key,
+    //     new SectionInfo(key, currSectionInfo, state.sections.available),
+    //     0
+    //   );
+    //   state.sections.addSection(newSection, currSectionInfo.id);
+    //   parseEnteredValues(state.sections, currSectionInfo);
+    //   parseUITypes(state.sections, currSectionInfo);
+    //   parseSelected(state.sections, currSectionInfo);
+    //   parseChildren(state.sections, currSectionInfo);
+    // }
     state.pageMinMaxList = getPageMinMaxList(
-      state.sections.numRootIds(),
+      Object.keys(state.uiSpecs).length,
       state.sectionsPerPage
     );
   }),

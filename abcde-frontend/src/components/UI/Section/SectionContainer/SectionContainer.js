@@ -14,42 +14,45 @@ import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function SectionContainer({
-  sectionId,
+  id,
+  variableName,
   parentId,
   nextId,
+  moduleInfos,
   depth,
   dragControls,
 }) {
-  const refForPosition = useSetSectionPosition(sectionId);
+  const refForPosition = useSetSectionPosition(id);
 
-  const setChildrenIds = useStoreActions(
-    (action) => action.master.setChildrenIds
-  );
+  // const setChildrenIds = useStoreActions(
+  //   (action) => action.master.setChildrenIds
+  // );
 
-  const childrenIds = useStoreState(
-    (state) => state.master.sections.getChildrenIds(sectionId),
-    arraysAreEqual
-  );
+  // const childrenIds = useStoreState(
+  //   (state) => state.master.sections.getChildrenIds(sectionId),
+  //   arraysAreEqual
+  // );
 
-  const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
+  // const [order, updatePosition, updateOrder] = usePositionReorder(childrenIds);
 
-  console.log("SectionContainer", sectionId, nextId, childrenIds, order);
+  // console.log("SectionContainer", sectionId, nextId, childrenIds, order);
 
-  useEffect(() => {
-    if (!arraysAreEqual(childrenIds, order)) {
-      setChildrenIds({ sectionId, childrenIds: order });
-    }
-  }, [order]);
+  // useEffect(() => {
+  //   if (!arraysAreEqual(childrenIds, order)) {
+  //     setChildrenIds({ sectionId, childrenIds: order });
+  //   }
+  // }, [order]);
 
   return (
     <Stack ref={refForPosition}>
       <SectionContainerCore
-        sectionId={sectionId}
+        id={id}
+        variableName={variableName}
         parentId={parentId}
         nextId={nextId}
         dragControls={dragControls}
       />
-      {order.length > 0 &&
+      {/* {order.length > 0 &&
         order.map((e, idx) => {
           return (
             <NestedSection
@@ -63,24 +66,24 @@ function SectionContainer({
               updateOrder={updateOrder}
             />
           );
-        })}
+        })} */}
     </Stack>
   );
 }
 
-function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
-  const moduleInfos = useStoreState(
-    (state) => state.master.sections.getSectionInfo(sectionId).moduleInfos
-  );
+function SectionContainerCore({ id, variableName, parentId, nextId, dragControls }) {
+  // const moduleInfos = useStoreState(
+  //   (state) => state.master.sections.getSectionInfo(sectionId).moduleInfos
+  // );
 
-  const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
-    state.master.sections.getUIType(sectionId)
-  );
+  // const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
+  //   state.master.sections.getUIType(sectionId)
+  // );
 
-  const showSearch = Object.keys(moduleInfos).length > 0;
+  // const showSearch = Object.keys(moduleInfos).length > 0;
 
-  // temp_
-  const tempBoolDesc = false;
+  // // temp_
+  // const tempBoolDesc = false;
   return (
     <HStack
       direction="column"
@@ -88,17 +91,18 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {isList && <DragHandle dragControls={dragControls} />}
+      {/* {isList && <DragHandle dragControls={dragControls} />} */}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
-          sectionId={sectionId}
+          id={id}
+          variableName={variableName}
           parentId={parentId}
           nextId={nextId}
-          isList={isList}
-          isListRoot={isListRoot}
-          requiresKeyInput={requiresKeyInput}
+          // isList={isList}
+          // isListRoot={isListRoot}
+          // requiresKeyInput={requiresKeyInput}
         />
-        {!isListRoot && (
+        {/* {!isListRoot && (
           <Stack>
             {showSearch && (
               <SectionSearch sectionId={sectionId} moduleInfos={moduleInfos} />
@@ -107,7 +111,7 @@ function SectionContainerCore({ sectionId, parentId, nextId, dragControls }) {
             <GroupContainer sectionId={sectionId} />
             <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
           </Stack>
-        )}
+        )} */}
       </Stack>
     </HStack>
   );

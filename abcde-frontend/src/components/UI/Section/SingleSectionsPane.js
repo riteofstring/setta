@@ -5,12 +5,13 @@ import { arraysAreEqual } from "../../../utils/commonFunctions";
 import { Heading, Stack } from "@chakra-ui/react";
 
 const SingleSectionsPane = ({ minIdx, maxIdx, idx }) => {
-  const rootIds = useStoreState(
-    (state) => state.master.sections.getRootIds(minIdx, maxIdx),
-    arraysAreEqual
-  );
+  const uiSpecs = useStoreState((state) => state.master.uiSpecs);
 
-  console.log("SectionsPane rootIds, minIdx, maxIdx", rootIds, minIdx, maxIdx);
+  console.log("SectionsPane rootIds, minIdx, maxIdx", uiSpecs, minIdx, maxIdx);
+
+  function idxCondition(idx) {
+    return idx >= minIdx && idx < maxIdx;
+  }
 
   return (
     <>
@@ -18,15 +19,19 @@ const SingleSectionsPane = ({ minIdx, maxIdx, idx }) => {
         <Heading size="md" color="gray.300">
           Group {idx}
         </Heading>
-        {rootIds.map((e, idx) => (
-          <SectionContainer
-            sectionId={e}
-            parentId={null}
-            nextId={rootIds[idx + 1]}
-            key={`${e}-${idx}`}
-            depth={0}
-          />
-        ))}
+        {Object.keys(uiSpecs).map(
+          (e, idx) =>
+            idxCondition(idx) && (
+              <SectionContainer
+                id={idx}
+                variableName={e}
+                parentId={null}
+                nextId={idx + 1}
+                key={`${e}-${idx}`}
+                depth={0}
+              />
+            )
+        )}
       </Stack>
     </>
   );

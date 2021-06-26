@@ -13,6 +13,8 @@ const SectionsPane = () => {
 
   const refForPosition = useSetSectionPosition(PANEID);
 
+  console.log("pageMinMaxList", pageMinMaxList)
+
   return (
     <>
       <Stack
