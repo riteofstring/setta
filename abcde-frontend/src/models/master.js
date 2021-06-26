@@ -14,6 +14,7 @@ import {
   parseSelected,
   parseChildren,
 } from "../graphql/parsers/uiParsers";
+import { SimpleHistory } from "../classes/simpleHistory";
 
 const master = {
   sectionsPerPage: 5,
@@ -21,6 +22,7 @@ const master = {
   pageMinMaxList: [],
   available: {},
   uiSpecs: {},
+  enteredValues: new SimpleHistory(3, undefined),
 
   // actions
   // Load DATA
@@ -63,81 +65,86 @@ const master = {
     }
   }),
 
-  // Show/Collapse button
-  setChildrenAreCollapsed: action((state, payload) => {
-    state.sections.setChildrenAreCollapsed(payload);
-  }),
-
-  // stores what fields to show
-  setSelected: action((state, payload) => {
-    state.sections.setSelected(payload);
-  }),
-
-  setChildrenIds: action((state, payload) => {
-    state.sections.setChildrenIds(payload);
-  }),
-
   setEnteredValue: action((state, payload) => {
-    state.sections.setEnteredValue(payload);
+    const { sectionId, selected, paramName, value } = payload;
+    state.enteredValues.history[sectionId][selected][paramName] = value;
   }),
 
-  setParamUIType: action((state, payload) => {
-    state.sections.setParamUIType(payload);
-  }),
+  // // Show/Collapse button
+  // setChildrenAreCollapsed: action((state, payload) => {
+  //   state.sections.setChildrenAreCollapsed(payload);
+  // }),
 
-  setUIType: action((state, payload) => {
-    state.sections.setUIType(payload);
-  }),
+  // // stores what fields to show
+  // setSelected: action((state, payload) => {
+  //   state.sections.setSelected(payload);
+  // }),
 
-  setChildrenIdsPerParam: action((state, payload) => {
-    state.sections.setChildrenIdsPerParam(payload);
-  }),
+  // setChildrenIds: action((state, payload) => {
+  //   state.sections.setChildrenIds(payload);
+  // }),
 
-  setParamUITypeConfig: action((state, payload) => {
-    state.sections.setParamUITypeConfig(payload);
-  }),
+  // setEnteredValue: action((state, payload) => {
+  //   state.sections.setEnteredValue(payload);
+  // }),
 
-  setSectionModules: action((state, payload) => {
-    state.sections.setSectionModules(payload);
-  }),
+  // setParamUIType: action((state, payload) => {
+  //   state.sections.setParamUIType(payload);
+  // }),
 
-  setName: action((state, payload) => {
-    state.sections.setName(payload);
-  }),
+  // setUIType: action((state, payload) => {
+  //   state.sections.setUIType(payload);
+  // }),
 
-  addChildren: thunk((action, payload, helpers) => {
-    return helpers.getState().sections.createAndAddChildren(payload);
-  }),
+  // setChildrenIdsPerParam: action((state, payload) => {
+  //   state.sections.setChildrenIdsPerParam(payload);
+  // }),
 
-  deleteSections: action((state, payload) => {
-    state.sections.deleteSections(payload);
-  }),
+  // setParamUITypeConfig: action((state, payload) => {
+  //   state.sections.setParamUITypeConfig(payload);
+  // }),
 
-  deleteChildren: action((state, payload) => {
-    state.sections.deleteChildren(payload);
-  }),
+  // setSectionModules: action((state, payload) => {
+  //   state.sections.setSectionModules(payload);
+  // }),
 
-  addKwarg: action((state, payload) => {
-    state.sections.addKwarg(payload);
-  }),
+  // setName: action((state, payload) => {
+  //   state.sections.setName(payload);
+  // }),
 
-  deleteKwarg: action((state, payload) => {
-    state.sections.deleteKwarg(payload);
-  }),
+  // addChildren: thunk((action, payload, helpers) => {
+  //   return helpers.getState().sections.createAndAddChildren(payload);
+  // }),
 
-  replaceKwarg: action((state, payload) => {
-    state.sections.replaceKwarg(payload);
-  }),
+  // deleteSections: action((state, payload) => {
+  //   state.sections.deleteSections(payload);
+  // }),
 
-  exportSelected: thunk((action, payload, helpers) => {
-    return createExportableObject(helpers.getState().sections);
-  }),
+  // deleteChildren: action((state, payload) => {
+  //   state.sections.deleteChildren(payload);
+  // }),
 
-  exportSaveableInfo: thunk((action, payload, helpers) => {
-    const state = helpers.getState();
-    const sections = state.sections;
-    return sections.exportSaveableInfo();
-  }),
+  // addKwarg: action((state, payload) => {
+  //   state.sections.addKwarg(payload);
+  // }),
+
+  // deleteKwarg: action((state, payload) => {
+  //   state.sections.deleteKwarg(payload);
+  // }),
+
+  // replaceKwarg: action((state, payload) => {
+  //   state.sections.replaceKwarg(payload);
+  // }),
+
+  // exportSelected: thunk((action, payload, helpers) => {
+  //   return createExportableObject(helpers.getState().sections);
+  // }),
+
+  // exportSaveableInfo: thunk((action, payload, helpers) => {
+  //   const state = helpers.getState();
+  //   const sections = state.sections;
+  //   return sections.exportSaveableInfo();
+  // }),
 
   // runSelected: thunk(async (action, payload, helpers) => {
   //   const { selected } = payload;

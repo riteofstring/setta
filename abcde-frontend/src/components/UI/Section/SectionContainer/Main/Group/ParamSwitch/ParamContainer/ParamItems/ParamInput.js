@@ -1,49 +1,50 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ParamUI from "../ParamUIs/ParamUI";
-import { nullOrUndefined } from "../../../../../../../../../utils/utils";
+import { nullOrUndefined, createSelectedString } from "../../../../../../../../../utils/utils";
 import { HistoryContext } from "../../../GroupContainer";
 
 export default function ParamInput(props) {
-  const { paramInfo } = props;
+  const { sectionId, paramInfo } = props;
 
   const { name: paramName, defaultVal, ancestorNames } = paramInfo;
 
-  const { history, setHistory, getHistory } = useContext(HistoryContext);
+  const [selectedString, setSelectedString] = useState(null);
 
-  // const setEnteredValue = useStoreActions(
-  //   (actions) => actions.master.setEnteredValue
-  // );
+  const setEnteredValue = useStoreActions(
+    (actions) => actions.master.setEnteredValue
+  );
 
-  // const storedValue = useStoreState((state) =>
-  //   state.master.sections.getEnteredValue(sectionId, paramName)
-  // );
+  const storedValue = useStoreState(
+    (state) =>
+      state.master.enteredValues.history[sectionId]?.[selectedString]?.[paramName]
+  );
 
   const [value, setValue] = useState("");
 
   useEffect(() => {
-    setValue(getHistory(paramName));
+    setSelectedString(createSelectedString(ancestorNames[1], ancestorNames[2]));
   }, [ancestorNames]);
 
   // console.log("ParamInput", paramName, value, history);
 
   const onChange = (v) => {
     setValue(v);
-    setHistory(paramName, v);
   };
 
   const onChangeEnd = (v) => {
     onChange(v);
-    // setEnteredValue({
-    //   sectionId,
-    //   paramName,
-    //   value: v,
-    // });
+    setEnteredValue({
+      sectionId,
+      selected: selectedString,
+      paramName,
+      value: v,
+    });
   };
 
-  // useEffect(() => {
-  //   setValue(!nullOrUndefined(storedValue) ? storedValue : "");
-  // }, [storedValue]);
+  useEffect(() => {
+    setValue(!nullOrUndefined(storedValue) ? storedValue : "");
+  }, [storedValue]);
 
   return (
     <ParamUI
