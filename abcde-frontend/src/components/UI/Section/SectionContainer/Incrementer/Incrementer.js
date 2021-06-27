@@ -31,7 +31,12 @@ export default function Incrementer({
   // };
 
   const addSections = (numSections) => {
-    addChild(null, null, numSections);
+    if (isListRoot){
+      addChild(null, null, null, numSections);
+    }
+    else{
+      parentControls.addChild(null, null, sectionId, numSections);
+    }
   };
 
   // const deleteChildren = (numSections) => {

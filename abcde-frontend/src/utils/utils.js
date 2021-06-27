@@ -43,6 +43,14 @@ export function insertIntoArray(arr, index, ...newItems) {
   ];
 }
 
+export function insertIntoArrayOrPrepend(arr, index, ...newItems) {
+  if (index === null) {
+    return [...newItems, ...arr];
+  } else {
+    return insertIntoArray(arr, index, ...newItems);
+  }
+}
+
 export function flattenDictOfArrays(x) {
   return [].concat.apply(
     [],

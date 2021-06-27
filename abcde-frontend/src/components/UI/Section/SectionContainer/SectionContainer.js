@@ -14,6 +14,7 @@ import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 import { v4 as uuidv4 } from "uuid";
 import { SectionInfo } from "../../../../classes/jsonParser";
+import { insertIntoArrayOrPrepend } from "../../../../utils/utils";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -25,7 +26,12 @@ function funcAddChild(
   setChildren,
   setChildSectionInfo
 ) {
-  function addChild(childVariableName, uiType, numChildren = 1) {
+  function addChild(
+    childVariableName,
+    uiType,
+    startId = null,
+    numChildren = 1
+  ) {
     let newIds = [];
     let newInfos = {};
     for (let i = 0; i < numChildren; i++) {
@@ -53,7 +59,11 @@ function funcAddChild(
       );
     }
 
-    setChildren([...newIds, ...children]);
+    let insertIdx = null;
+    if (startId !== null) {
+      insertIdx = children.indexOf(startId) + 1;
+    }
+    setChildren(insertIntoArrayOrPrepend(children, insertIdx, ...newIds));
     setChildSectionInfo({
       ...newInfos,
       ...childSectionInfo,
