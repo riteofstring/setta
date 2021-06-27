@@ -14,7 +14,8 @@ import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 import { v4 as uuidv4 } from "uuid";
 import { SectionInfo } from "../../../../classes/jsonParser";
-import { insertIntoArrayOrPrepend } from "../../../../utils/utils";
+import { insertIntoArrayOrPrepend, rangeArray } from "../../../../utils/utils";
+import _ from "lodash";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -78,11 +79,20 @@ function funcDeleteChild(
   setChildren,
   setChildSectionInfo
 ) {
-  function deleteChild(sectionId) {
-    console.log("deleteChild", children, sectionId);
-    setChildren(children.filter((e) => e !== sectionId));
-    const { [sectionId]: e, ...theRest } = childSectionInfo;
-    setChildSectionInfo(theRest);
+  function deleteChild(startId = null, numChildren = 1) {
+    if (children.length === 0) {
+      return;
+    }
+    let startIdx = 0;
+    if (startId !== null) {
+      startIdx = children.indexOf(startId) + 1;
+    }
+    const endIdx = startIdx + numChildren;
+    const newChildren = children.filter(
+      (e, idx) => !(idx >= startIdx && idx < endIdx)
+    );
+    setChildSectionInfo(_.pick(childSectionInfo, newChildren));
+    setChildren(newChildren);
   }
   return deleteChild;
 }

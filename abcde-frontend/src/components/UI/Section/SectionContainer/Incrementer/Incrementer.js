@@ -14,40 +14,25 @@ export default function Incrementer({
   deleteChild,
   parentControls,
 }) {
-  // const deleteSections = useStoreActions(
-  //   (actions) => actions.master.deleteSections
-  // );
-  // const deleteChildrenAction = useStoreActions(
-  //   (actions) => actions.master.deleteChildren
-  // );
-
-  // const childrenIds = useStoreState(
-  //   (state) => state.master.sections.getChildrenIds(sectionId),
-  //   arraysAreEqual
-  // );
-
   // const decrementButtonCondition = () => {
   //   return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
   // };
 
   const addSections = (numSections) => {
-    if (isListRoot){
+    if (isListRoot) {
       addChild(null, null, null, numSections);
-    }
-    else{
+    } else {
       parentControls.addChild(null, null, sectionId, numSections);
     }
   };
 
-  // const deleteChildren = (numSections) => {
-  //   if ((isListRoot && childrenIds.length > 0) || nextId) {
-  //     deleteChildrenAction({
-  //       parentId: isListRoot ? sectionId : parentId,
-  //       sourceId: sectionId,
-  //       numChildren: numSections,
-  //     });
-  //   }
-  // };
+  const deleteChildren = (numSections) => {
+    if (isListRoot) {
+      deleteChild(null, numSections);
+    } else {
+      parentControls.deleteChild(sectionId, numSections);
+    }
+  };
 
   const deleteThisSection = () => {
     parentControls.deleteChild(sectionId);
@@ -74,7 +59,7 @@ export default function Incrementer({
       <IconButton
         icon={<MinusIcon />}
         size="xs"
-        // onClick={() => deleteChildren(numSections)}
+        onClick={() => deleteChildren(numSections)}
         // isDisabled={decrementButtonCondition() ? false : true}
       />
 
