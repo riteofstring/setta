@@ -5,10 +5,16 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-export default function SectionSearch({ moduleInfos, onSelectedItemChange }) {
+export default function SectionSearch({
+  moduleInfos,
+  onSelectedItemChange,
+  initialSelection,
+}) {
   const [selection, setSelection] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
+
+  console.log("selection", selection);
 
   const itemToString = (x) => {
     return x ? x[1] : "";
@@ -30,6 +36,7 @@ export default function SectionSearch({ moduleInfos, onSelectedItemChange }) {
   };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
+    console.log("localOnSelectedItemChange", selectedItem);
     if (selectedItem) {
       const [moduleName, objName] = selectedItem;
       if (moduleName !== selection[0] || objName !== selection[1]) {

@@ -33,18 +33,14 @@ function SectionContainer({
 }) {
   const refForPosition = useSetSectionPosition(sectionId);
 
+  const [selectedItem, setSelectedItem] = useState([]);
   const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
   const hasNested = children.length > 0;
 
-  console.log(
-    "*********SectionContainer",
-    sectionId,
-    children,
-    childrenAreCollapsed
-  );
+  console.log("*********SectionContainer", sectionId, selectedItem);
 
   const addChild = funcAddChild(
     sectionInfo,
@@ -73,9 +69,11 @@ function SectionContainer({
     }
   }, [order]);
 
-  return isCollapsed ? (
-    <></>
-  ) : (
+  useEffect(() => {
+    setChildrenAreCollapsed(isCollapsed);
+  }, [isCollapsed]);
+
+  return (
     <Stack ref={refForPosition}>
       <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
@@ -90,6 +88,8 @@ function SectionContainer({
           hasNested={hasNested}
           childrenAreCollapsed={childrenAreCollapsed}
           flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+          selectedItem={selectedItem}
+          setSelectedItem={setSelectedItem}
         />
       </ChildrenContext.Provider>
       {hasNested &&
@@ -127,16 +127,19 @@ function SectionContainerCore({
   hasNested,
   childrenAreCollapsed,
   flipChildrenAreCollapsed,
+  selectedItem,
+  setSelectedItem,
 }) {
   const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
   const [paramInfos, setParamInfos] = useState(sectionInfo.parameterInfos);
 
-  function onSelectedItemChange(selectedItem) {
-    if (selectedItem) {
-      const [moduleName, objName] = selectedItem;
+  function onSelectedItemChange(inputSelectedItem) {
+    if (inputSelectedItem) {
+      const [moduleName, objName] = inputSelectedItem;
       setParamInfos(moduleInfos[moduleName].objs[objName].params);
+      setSelectedItem(inputSelectedItem);
     }
   }
 
@@ -171,6 +174,7 @@ function SectionContainerCore({
             {showSearch && (
               <SectionSearch
                 moduleInfos={moduleInfos}
+                initialSelection={selectedItem}
                 onSelectedItemChange={onSelectedItemChange}
               />
             )}

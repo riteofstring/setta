@@ -70,18 +70,24 @@ export default function NestedSection({
     );
   };
 
-  return (
-    <Stack
-      direction="column"
-      pl="1rem"
-      ml=".5rem"
-      boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
-    >
-      <Grid gap={2}>
-        {sectionInfo.isList
-          ? MotionDivWrapper(getNestedSection)
-          : getNestedSection()}
-      </Grid>
-    </Stack>
-  );
+  const StackWrapper = (inner) => {
+    return (
+      <Stack
+        direction="column"
+        pl="1rem"
+        ml=".5rem"
+        boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
+      >
+        <Grid gap={2}>{inner}</Grid>
+      </Stack>
+    );
+  };
+
+  const WithOrWithoutMotion = () => {
+    return sectionInfo.isList
+      ? MotionDivWrapper(getNestedSection)
+      : getNestedSection();
+  };
+
+  return StackWrapper(WithOrWithoutMotion());
 }
