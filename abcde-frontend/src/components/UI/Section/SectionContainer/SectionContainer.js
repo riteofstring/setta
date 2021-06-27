@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Stack, HStack } from "@chakra-ui/react";
+import { Stack, HStack, Box } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "./Main/Group/GroupContainer";
@@ -92,25 +92,30 @@ function SectionContainer({
           setSelectedItem={setSelectedItem}
         />
       </ChildrenContext.Provider>
-      {hasNested &&
-        order.map((e, idx) => {
-          return (
-            <NestedSection
-              parentId={sectionId}
-              sectionId={e}
-              nextId={order[idx + 1]}
-              sectionInfo={childSectionInfo[e]}
-              available={available}
-              parentControls={{ addChild, deleteChild }}
-              idx={idx}
-              key={`Nested-Sec-${e}`}
-              depth={depth + 1}
-              updatePosition={updatePosition}
-              updateOrder={updateOrder}
-              isCollapsed={childrenAreCollapsed}
-            />
-          );
-        })}
+      <Box
+        flexDirection="column"
+        display={childrenAreCollapsed ? "none" : "flex"}
+      >
+        {hasNested &&
+          order.map((e, idx) => {
+            return (
+              <NestedSection
+                parentId={sectionId}
+                sectionId={e}
+                nextId={order[idx + 1]}
+                sectionInfo={childSectionInfo[e]}
+                available={available}
+                parentControls={{ addChild, deleteChild }}
+                idx={idx}
+                key={`Nested-Sec-${e}`}
+                depth={depth + 1}
+                updatePosition={updatePosition}
+                updateOrder={updateOrder}
+                isCollapsed={childrenAreCollapsed}
+              />
+            );
+          })}
+      </Box>
     </Stack>
   );
 }
