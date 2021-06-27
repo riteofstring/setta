@@ -31,9 +31,7 @@ export default function Incrementer({
   // };
 
   const addSections = (numSections) => {
-    for (let i = 0; i < numSections; i++) {
-      addChild();
-    }
+    addChild(null, null, numSections);
   };
 
   // const deleteChildren = (numSections) => {

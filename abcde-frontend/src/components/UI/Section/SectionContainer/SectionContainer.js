@@ -25,31 +25,37 @@ function funcAddChild(
   setChildren,
   setChildSectionInfo
 ) {
-  function addChild(childVariableName, uiType) {
-    console.log("addChild", sectionInfo);
-    const newId = uuidv4();
-    setChildren([newId, ...children]);
-    if (!childVariableName) {
-      childVariableName = sectionInfo.name;
-    }
-    let [config, isList, isListRoot] = [null, null, null];
-    if (!uiType) {
-      ({ specs: config, isList, isListRoot } = sectionInfo);
-      if (isListRoot) {
-        isList = true;
-        isListRoot = false;
+  function addChild(childVariableName, uiType, numChildren = 1) {
+    let newIds = [];
+    let newInfos = {};
+    for (let i = 0; i < numChildren; i++) {
+      const newId = uuidv4();
+      newIds.push(newId);
+      if (!childVariableName) {
+        childVariableName = sectionInfo.name;
       }
-    } else {
-      ({ config, isList, isListRoot } = uiType);
-    }
-    setChildSectionInfo({
-      [newId]: new SectionInfo(
+      let [config, isList, isListRoot] = [null, null, null];
+      if (!uiType) {
+        ({ specs: config, isList, isListRoot } = sectionInfo);
+        if (isListRoot) {
+          isList = true;
+          isListRoot = false;
+        }
+      } else {
+        ({ config, isList, isListRoot } = uiType);
+      }
+      newInfos[newId] = new SectionInfo(
         childVariableName,
         config,
         available,
         isList,
         isListRoot
-      ),
+      );
+    }
+
+    setChildren([...newIds, ...children]);
+    setChildSectionInfo({
+      ...newInfos,
       ...childSectionInfo,
     });
   }
@@ -104,7 +110,7 @@ function SectionContainer({
     setChildSectionInfo
   );
 
-  console.log("SectionContainer", sectionId, nextId, children, order);
+  // console.log("SectionContainer", sectionId, nextId, children, order);
 
   useEffect(() => {
     if (!arraysAreEqual(children, order)) {
