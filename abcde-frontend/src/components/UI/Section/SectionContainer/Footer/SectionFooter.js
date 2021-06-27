@@ -9,7 +9,13 @@ import GearModal from "./GearModal/GearModal";
 
 // export const MenuContext = createContext(null);
 
-export default function SectionFooter({ sectionId, isListRoot }) {
+export default function SectionFooter({
+  sectionId,
+  isListRoot,
+  hasNested,
+  childrenAreCollapsed,
+  flipChildrenAreCollapsed,
+}) {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [selectedMenuItem, setSelectedMenuItem] = useState("");
@@ -18,7 +24,12 @@ export default function SectionFooter({ sectionId, isListRoot }) {
     <>
       {/* <MenuContext.Provider value={{ sectionId }}> */}
       <Grid w="100%" py="0.5rem" alignItems="center">
-        {/* <ViewNestedButton sectionId={sectionId} isListRoot={isListRoot} /> */}
+        <ViewNestedButton
+          isListRoot={isListRoot}
+          hasNested={hasNested}
+          childrenAreCollapsed={childrenAreCollapsed}
+          flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+        />
         <CollapseSectionButton />
         {/* <GearMenu setSelectedMenuItem={setSelectedMenuItem} onOpen={onOpen} /> */}
       </Grid>

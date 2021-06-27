@@ -12,90 +12,13 @@ import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
-import { v4 as uuidv4 } from "uuid";
-import { SectionInfo } from "../../../../classes/jsonParser";
-import { insertIntoArrayOrPrepend, rangeArray } from "../../../../utils/utils";
-import _ from "lodash";
+import {
+  funcAddChild,
+  funcDeleteChild,
+  funcFlipChildrenAreCollapsed,
+} from "./SectionContainerUtils";
 
 export const ChildrenContext = React.createContext(null);
-
-function funcAddChild(
-  sectionInfo,
-  available,
-  children,
-  childSectionInfo,
-  setChildren,
-  setChildSectionInfo
-) {
-  function addChild(
-    childVariableName,
-    uiType,
-    startId = null,
-    numChildren = 1
-  ) {
-    let newIds = [];
-    let newInfos = {};
-    for (let i = 0; i < numChildren; i++) {
-      const newId = uuidv4();
-      newIds.push(newId);
-      if (!childVariableName) {
-        childVariableName = sectionInfo.name;
-      }
-      let [config, isList, isListRoot] = [null, null, null];
-      if (!uiType) {
-        ({ specs: config, isList, isListRoot } = sectionInfo);
-        if (isListRoot) {
-          isList = true;
-          isListRoot = false;
-        }
-      } else {
-        ({ config, isList, isListRoot } = uiType);
-      }
-      newInfos[newId] = new SectionInfo(
-        childVariableName,
-        config,
-        available,
-        isList,
-        isListRoot
-      );
-    }
-
-    let insertIdx = null;
-    if (startId !== null) {
-      insertIdx = children.indexOf(startId) + 1;
-    }
-    setChildren(insertIntoArrayOrPrepend(children, insertIdx, ...newIds));
-    setChildSectionInfo({
-      ...newInfos,
-      ...childSectionInfo,
-    });
-  }
-  return addChild;
-}
-
-function funcDeleteChild(
-  children,
-  childSectionInfo,
-  setChildren,
-  setChildSectionInfo
-) {
-  function deleteChild(startId = null, numChildren = 1) {
-    if (children.length === 0) {
-      return;
-    }
-    let startIdx = 0;
-    if (startId !== null) {
-      startIdx = children.indexOf(startId) + 1;
-    }
-    const endIdx = startIdx + numChildren;
-    const newChildren = children.filter(
-      (e, idx) => !(idx >= startIdx && idx < endIdx)
-    );
-    setChildSectionInfo(_.pick(childSectionInfo, newChildren));
-    setChildren(newChildren);
-  }
-  return deleteChild;
-}
 
 function SectionContainer({
   sectionId,
@@ -106,13 +29,22 @@ function SectionContainer({
   depth,
   dragControls,
   parentControls,
+  isCollapsed,
 }) {
   const refForPosition = useSetSectionPosition(sectionId);
 
   const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
-
+  const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
+  const hasNested = children.length > 0;
+
+  console.log(
+    "*********SectionContainer",
+    sectionId,
+    children,
+    childrenAreCollapsed
+  );
 
   const addChild = funcAddChild(
     sectionInfo,
@@ -130,7 +62,10 @@ function SectionContainer({
     setChildSectionInfo
   );
 
-  // console.log("SectionContainer", sectionId, nextId, children, order);
+  const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
+    childrenAreCollapsed,
+    setChildrenAreCollapsed
+  );
 
   useEffect(() => {
     if (!arraysAreEqual(children, order)) {
@@ -138,7 +73,9 @@ function SectionContainer({
     }
   }, [order]);
 
-  return (
+  return isCollapsed ? (
+    <></>
+  ) : (
     <Stack ref={refForPosition}>
       <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
@@ -150,9 +87,12 @@ function SectionContainer({
           addChild={addChild}
           deleteChild={deleteChild}
           parentControls={parentControls}
+          hasNested={hasNested}
+          childrenAreCollapsed={childrenAreCollapsed}
+          flipChildrenAreCollapsed={flipChildrenAreCollapsed}
         />
       </ChildrenContext.Provider>
-      {order.length > 0 &&
+      {hasNested &&
         order.map((e, idx) => {
           return (
             <NestedSection
@@ -167,6 +107,7 @@ function SectionContainer({
               depth={depth + 1}
               updatePosition={updatePosition}
               updateOrder={updateOrder}
+              isCollapsed={childrenAreCollapsed}
             />
           );
         })}
@@ -183,11 +124,10 @@ function SectionContainerCore({
   addChild,
   deleteChild,
   parentControls,
+  hasNested,
+  childrenAreCollapsed,
+  flipChildrenAreCollapsed,
 }) {
-  // const { isList, isListRoot, requiresKeyInput } = useStoreState((state) =>
-  //   state.master.sections.getUIType(sectionId)
-  // );
-
   const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
@@ -200,8 +140,8 @@ function SectionContainerCore({
     }
   }
 
-  console.log("paramInfos", variableName, paramInfos);
-  console.log("dragControls", dragControls);
+  // console.log("paramInfos", variableName, paramInfos);
+  // console.log("dragControls", dragControls);
 
   // // temp_
   const tempBoolDesc = false;
@@ -236,7 +176,13 @@ function SectionContainerCore({
             )}
             {tempBoolDesc && <SectionDescription />}
             <GroupContainer sectionId={sectionId} paramInfos={paramInfos} />
-            <SectionFooter sectionId={sectionId} isListRoot={isListRoot} />
+            <SectionFooter
+              sectionId={sectionId}
+              isListRoot={isListRoot}
+              hasNested={hasNested}
+              childrenAreCollapsed={childrenAreCollapsed}
+              flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+            />
           </Stack>
         )}
       </Stack>

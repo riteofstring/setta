@@ -12,7 +12,7 @@ export default function ParamContainer(props) {
   //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
   // );
 
-  console.log("ParamContainer uiType.isNested", paramInfo, uiType.isNested());
+  // console.log("ParamContainer uiType.isNested", paramInfo, uiType.isNested());
 
   return !uiType.isNested() ? (
     <>

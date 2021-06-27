@@ -18,25 +18,21 @@ export default function NestedSection({
   depth,
   updatePosition,
   updateOrder,
+  isCollapsed,
 }) {
-  const childrenAreCollapsed = false;
-
-  console.log("sectionId", sectionId, sectionInfo);
-
   const getNestedSection = (dragControls) => {
     return (
-      !childrenAreCollapsed && (
-        <SectionContainer
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          sectionInfo={sectionInfo}
-          available={available}
-          depth={depth}
-          dragControls={dragControls}
-          parentControls={parentControls}
-        />
-      )
+      <SectionContainer
+        sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
+        sectionInfo={sectionInfo}
+        available={available}
+        depth={depth}
+        dragControls={dragControls}
+        parentControls={parentControls}
+        isCollapsed={isCollapsed}
+      />
     );
   };
 
