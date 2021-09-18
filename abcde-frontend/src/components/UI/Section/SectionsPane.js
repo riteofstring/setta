@@ -27,7 +27,7 @@ function SectionsPane(){
           <SingleSectionsPane
             minIdx={e.minIdx}
             maxIdx={e.maxIdx}
-            idx={idx}
+            groupId={idx}
             available={available}
             key={`SingleSectionsPane-${idx}`}
           />

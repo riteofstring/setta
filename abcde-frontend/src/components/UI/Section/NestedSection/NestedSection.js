@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
 import SectionContainer from "../SectionContainer/SectionContainer";
-import { useStoreState } from "easy-peasy";
 import { motion, useDragControls } from "framer-motion";
 import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
 
@@ -19,6 +18,8 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
   isCollapsed,
+  setIdsOverview,
+  setIdNames,
 }) {
   const getNestedSection = (dragControls) => {
     return (
@@ -32,6 +33,8 @@ export default function NestedSection({
         dragControls={dragControls}
         parentControls={parentControls}
         isCollapsed={isCollapsed}
+        setIdsOverview={setIdsOverview}
+        setIdNames={setIdNames}
       />
     );
   };

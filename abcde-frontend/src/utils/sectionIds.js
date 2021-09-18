@@ -1,4 +1,9 @@
 import { nullOrUndefined, firstValue } from "./utils";
+import { v4 as uuidv4 } from "uuid";
+
+export const createNewId = () => {
+  return uuidv4();
+};
 
 export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
@@ -12,32 +17,37 @@ export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
   return output;
 };
 
-export const getOverviewListing = (sections, pageMinMaxList) => {
+export const getOverviewListing = (pageMinMaxList, idsOverview, idNames) => {
   let outputList = [];
-  for (let minMax of pageMinMaxList) {
+  for (let groupId = 0; groupId < pageMinMaxList.length; groupId++) {
     outputList.push([]);
-    for (let sectionId of sections.getRootIds(minMax.minIdx, minMax.maxIdx)) {
+    for (let sectionId of idsOverview[groupId]) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, sections.sections, 0)
+        ...getOverviewListingHelper(sectionId, idsOverview, idNames, 0)
       );
     }
   }
   return outputList;
 };
 
-export const getOverviewListingHelper = (sectionId, sections, depth) => {
+export const getOverviewListingHelper = (
+  sectionId,
+  idsOverview,
+  idNames,
+  depth
+) => {
   let outputList = [];
-  const currSection = sections[sectionId];
-
   outputList.push({
     sectionId,
-    sectionHeading: currSection.name,
-    isList: currSection.uiType.isList,
-    isListRoot: currSection.uiType.isListRoot,
+    sectionHeading: idNames[sectionId],
     depth: depth,
   });
-  for (let childId of currSection.childrenIds) {
-    outputList.push(...getOverviewListingHelper(childId, sections, depth + 1));
+  if (idsOverview[sectionId]) {
+    for (let childId of idsOverview[sectionId]) {
+      outputList.push(
+        ...getOverviewListingHelper(childId, idsOverview, idNames, depth + 1)
+      );
+    }
   }
   return outputList;
 };

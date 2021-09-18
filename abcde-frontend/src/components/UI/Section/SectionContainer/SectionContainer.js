@@ -29,6 +29,8 @@ function SectionContainer({
   dragControls,
   parentControls,
   isCollapsed,
+  setIdsOverview,
+  setIdNames,
 }) {
   const refForPosition = useSetSectionPosition(sectionId);
 
@@ -72,6 +74,11 @@ function SectionContainer({
     setChildrenAreCollapsed(isCollapsed);
   }, [isCollapsed]);
 
+  useEffect(() => {
+    setIdsOverview({sectionId, children})
+    setIdNames({sectionId, name: sectionInfo.name})
+  }, [children])
+
   return (
     <Stack ref={refForPosition}>
       <ChildrenContext.Provider value={{ children, addChild }}>
@@ -111,6 +118,8 @@ function SectionContainer({
                 updatePosition={updatePosition}
                 updateOrder={updateOrder}
                 isCollapsed={childrenAreCollapsed}
+                setIdsOverview={setIdsOverview}
+                setIdNames={setIdNames}
               />
             );
           })}

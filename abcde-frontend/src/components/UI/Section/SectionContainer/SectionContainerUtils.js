@@ -1,7 +1,7 @@
 import { insertIntoArrayOrPrepend } from "../../../../utils/utils";
 import _ from "lodash";
-import { v4 as uuidv4 } from "uuid";
 import { SectionInfo } from "../../../../classes/jsonParser";
+import { createNewId } from "../../../../utils/sectionIds"
 
 export function funcAddChild(
   sectionInfo,
@@ -20,7 +20,7 @@ export function funcAddChild(
     let newIds = [];
     let newInfos = {};
     for (let i = 0; i < numChildren; i++) {
-      const newId = uuidv4();
+      const newId = createNewId();
       newIds.push(newId);
       if (!childVariableName) {
         childVariableName = sectionInfo.name;
