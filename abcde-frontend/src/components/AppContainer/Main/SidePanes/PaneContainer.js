@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Flex,
-  Stack,
-  IconButton,
-  Box,
-  GridItem,
-  forwardRef,
-} from "@chakra-ui/react";
+import { IconButton, Box, GridItem, forwardRef } from "@chakra-ui/react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";

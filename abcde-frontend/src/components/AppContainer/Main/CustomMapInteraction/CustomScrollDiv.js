@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
 import { motion } from "framer-motion";
 import { useStoreState } from "easy-peasy";
+import { useAtom } from "jotai";
+import { hoveringState } from "./mapState";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 
@@ -13,7 +15,7 @@ export default function CustomScrollDiv({
   children,
   isVertical,
 }) {
-  const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
+  const mapHovering = useAtom(hoveringState)[0];
   const paneTrueWidths = useStoreState((state) => state.panes.trueWidth);
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);

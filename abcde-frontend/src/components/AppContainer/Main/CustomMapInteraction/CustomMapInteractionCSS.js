@@ -5,11 +5,11 @@ import useKeyPress from "../../../../utils/use-key-press";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
+import { hoveringState } from "./mapState";
+import { useAtom } from "jotai";
 
 export default function CustomMapInteractionCSS(props) {
-  const setHovering = useStoreActions(
-    (actions) => actions.mapInteraction.setHovering
-  );
+  const setHovering = useAtom(hoveringState)[1];
 
   const setGoToCoordinates = useStoreActions(
     (actions) => actions.mapInteraction.setGoToCoordinates
@@ -88,15 +88,11 @@ export default function CustomMapInteractionCSS(props) {
     }
   };
 
-  const getMinMaxCoordinate = (
-    contentDim,
-    inputMargin,
-    scale
-  ) => {
+  const getMinMaxCoordinate = (contentDim, inputMargin, scale) => {
     if (contentDim) {
       return {
         newMax: inputMargin,
-        newMin: -contentDim*scale,
+        newMin: -contentDim * scale,
       };
     }
     return { newMax: 0, newMin: 0 };

@@ -11,9 +11,9 @@ import { AppTheme } from "./styles/Theme";
 ReactDOM.render(
   <React.StrictMode>
     <ChakraProvider theme={AppTheme}>
-      <StoreProvider store={store}>
-        <App />
-      </StoreProvider>
+        <StoreProvider store={store}>
+          <App />
+        </StoreProvider>
     </ChakraProvider>
   </React.StrictMode>,
   document.getElementById("root")
