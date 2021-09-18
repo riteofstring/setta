@@ -2,22 +2,15 @@ import { MapInteractionCSS } from "react-map-interaction";
 import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
-import { hoveringState } from "./mapState";
+import { hoveringState, coordinateState } from "./mapState";
 import { useAtom } from "jotai";
 
 export default function CustomMapInteractionCSS(props) {
   const setHovering = useAtom(hoveringState)[1];
-
-  const setGoToCoordinates = useStoreActions(
-    (actions) => actions.mapInteraction.setGoToCoordinates
-  );
-
-  const goToCoordinates = useStoreState(
-    (state) => state.mapInteraction.goToCoordinates
-  );
+  const [goToCoordinates, setGoToCoordinates] = useAtom(coordinateState);
 
   const overviewCssWidth = useStoreState(
     (state) => state.panes.trueWidth["overview"]
