@@ -1,22 +1,20 @@
 import React, { useState } from "react";
 import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
-import { useStoreActions, useStoreState } from "easy-peasy";
 import { HiX } from "react-icons/hi";
-import { arraysAreEqual } from "../../../../../utils/commonFunctions";
 
 export default function Incrementer({
   sectionId,
-  parentId,
   nextId,
   isListRoot,
   addChild,
   deleteChild,
   parentControls,
+  hasNested,
 }) {
-  // const decrementButtonCondition = () => {
-  //   return (isListRoot && childrenIds.length > 0) || (!isListRoot && nextId);
-  // };
+  const decrementButtonCondition = () => {
+    return (isListRoot && hasNested) || (!isListRoot && nextId);
+  };
 
   const addSections = (numSections) => {
     if (isListRoot) {
@@ -60,7 +58,7 @@ export default function Incrementer({
         icon={<MinusIcon />}
         size="xs"
         onClick={() => deleteChildren(numSections)}
-        // isDisabled={decrementButtonCondition() ? false : true}
+        isDisabled={!decrementButtonCondition()}
       />
 
       <IconButton

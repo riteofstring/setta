@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
-import { useStoreActions, useStoreState } from "easy-peasy";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import { SectionHeader } from "./Header/SectionHeader";
@@ -172,6 +171,7 @@ function SectionContainerCore({
           addChild={addChild}
           deleteChild={deleteChild}
           parentControls={parentControls}
+          hasNested={hasNested}
           // requiresKeyInput={requiresKeyInput}
         />
         {!isListRoot && (

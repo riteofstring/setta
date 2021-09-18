@@ -15,6 +15,7 @@ export function SectionHeader({
   addChild,
   deleteChild,
   parentControls,
+  hasNested,
 }) {
   return (
     <Stack direction="row" align="center" w="100%">
@@ -35,6 +36,7 @@ export function SectionHeader({
             addChild={addChild}
             deleteChild={deleteChild}
             parentControls={parentControls}
+            hasNested={hasNested}
           />
         </>
       )}
