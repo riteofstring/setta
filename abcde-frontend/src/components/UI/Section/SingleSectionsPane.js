@@ -7,10 +7,8 @@ import { createNewId } from "../../../utils/sectionIds";
 
 function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
   const uiSpecs = useStoreState((state) => state.master.uiSpecs);
-  const setIdsOverview = useStoreActions(
-    (actions) => actions.master.setIdsOverview
-  );
-  const setIdNames = useStoreActions((actions) => actions.master.setIdNames);
+  const setIdsOverview = useStoreActions((x) => x.sections.setIdsOverview);
+  const setIdNames = useStoreActions((x) => x.sections.setIdNames);
 
   const [children, setChildren] = useState([]);
 

@@ -6,7 +6,7 @@ import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
 
 const borderLeft = theme.colors.gray;
 
-export default function NestedSection({
+function NestedSection({
   parentId,
   sectionId,
   nextId,
@@ -94,3 +94,12 @@ export default function NestedSection({
 
   return StackWrapper(WithOrWithoutMotion());
 }
+
+function areEqual(prevProps, nextProps) {
+  return (
+    prevProps.sectionId === nextProps.sectionId &&
+    prevProps.idx === nextProps.idx
+  );
+}
+
+export default React.memo(NestedSection, areEqual);

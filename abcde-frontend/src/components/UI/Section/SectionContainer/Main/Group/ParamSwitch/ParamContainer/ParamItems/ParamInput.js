@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import ParamUI from "../ParamUIs/ParamUI";
-import { nullOrUndefined, createSelectedString } from "../../../../../../../../../utils/utils";
+import {
+  nullOrUndefined,
+  createSelectedString,
+} from "../../../../../../../../../utils/utils";
 import { HistoryContext } from "../../../GroupContainer";
 
 export default function ParamInput(props) {
@@ -11,13 +14,11 @@ export default function ParamInput(props) {
 
   const [selectedString, setSelectedString] = useState(null);
 
-  const setEnteredValue = useStoreActions(
-    (actions) => actions.master.setEnteredValue
-  );
+  const setEnteredValue = useStoreActions((x) => x.sections.setEnteredValue);
 
   const storedValue = useStoreState(
-    (state) =>
-      state.master.enteredValues.history[sectionId]?.[selectedString]?.[paramName]
+    (x) =>
+      x.sections.enteredValues.history[sectionId]?.[selectedString]?.[paramName]
   );
 
   const [value, setValue] = useState("");

@@ -13,9 +13,9 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
-  const idsOverview = useStoreState((state) => state.master.idsOverview);
-  const idNames = useStoreState((state) => state.master.idNames);
+  const pageMinMaxList = useStoreState((x) => x.master.pageMinMaxList);
+  const idsOverview = useStoreState((x) => x.sections.idsOverview);
+  const idNames = useStoreState((x) => x.sections.idNames);
 
   useEffect(() => {
     console.log("Overview useEffect");
