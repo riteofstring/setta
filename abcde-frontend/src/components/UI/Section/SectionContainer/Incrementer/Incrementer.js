@@ -28,7 +28,7 @@ export default function Incrementer({
     if (isListRoot) {
       deleteChild(null, numSections);
     } else {
-      parentControls.deleteChild(sectionId, numSections);
+      parentControls.deleteChild(nextId, numSections);
     }
   };
 

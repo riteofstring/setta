@@ -1,7 +1,7 @@
 import { insertIntoArrayOrPrepend } from "../../../../utils/utils";
 import _ from "lodash";
 import { SectionInfo } from "../../../../classes/jsonParser";
-import { createNewId } from "../../../../utils/sectionIds"
+import { createNewId } from "../../../../utils/sectionIds";
 
 export function funcAddChild(
   sectionInfo,
@@ -69,7 +69,7 @@ export function funcDeleteChild(
     }
     let startIdx = 0;
     if (startId !== null) {
-      startIdx = children.indexOf(startId) + 1;
+      startIdx = children.indexOf(startId);
     }
     const endIdx = startIdx + numChildren;
     const newChildren = children.filter(
