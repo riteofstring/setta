@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useStoreState, useStoreActions } from "easy-peasy";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import GroupContainer from "./Main/Group/GroupContainer";
@@ -12,7 +11,11 @@ import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
-import { funcFlipChildrenAreCollapsed } from "./SectionContainerUtils";
+import {
+  funcAddChild,
+  funcDeleteChild,
+  funcFlipChildrenAreCollapsed,
+} from "./SectionContainerUtils";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -24,19 +27,35 @@ function SectionContainer({
   available,
   depth,
   dragControls,
+  parentControls,
   isCollapsed,
   setIdsOverview,
   setIdNames,
 }) {
-  const children = useStoreState((x) => x.sections.children[sectionId]);
-  const setChildren = useStoreActions((x) => x.sections.setChildren);
   const [selectedItem, setSelectedItem] = useState([]);
+  const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
   const hasNested = children.length > 0;
 
-  console.log("*********SectionContainer", children);
+  console.log("*********SectionContainer", sectionId, selectedItem);
+
+  const addChild = funcAddChild(
+    sectionInfo,
+    available,
+    children,
+    childSectionInfo,
+    setChildren,
+    setChildSectionInfo
+  );
+
+  const deleteChild = funcDeleteChild(
+    children,
+    childSectionInfo,
+    setChildren,
+    setChildSectionInfo
+  );
 
   const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
     childrenAreCollapsed,
@@ -60,20 +79,16 @@ function SectionContainer({
 
   return (
     <Stack>
-      <ChildrenContext.Provider
-        value={{
-          sectionInfo,
-          available,
-          childSectionInfo,
-          setChildSectionInfo,
-        }}
-      >
+      <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
           sectionInfo={sectionInfo}
           dragControls={dragControls}
+          addChild={addChild}
+          deleteChild={deleteChild}
+          parentControls={parentControls}
           hasNested={hasNested}
           childrenAreCollapsed={childrenAreCollapsed}
           flipChildrenAreCollapsed={flipChildrenAreCollapsed}
@@ -94,6 +109,7 @@ function SectionContainer({
                 nextId={order[idx + 1]}
                 sectionInfo={childSectionInfo[e]}
                 available={available}
+                parentControls={{ addChild, deleteChild }}
                 idx={idx}
                 key={`Nested-Sec-${e}`}
                 depth={depth + 1}
@@ -116,6 +132,9 @@ function SectionContainerCore({
   nextId,
   sectionInfo,
   dragControls,
+  addChild,
+  deleteChild,
+  parentControls,
   hasNested,
   childrenAreCollapsed,
   flipChildrenAreCollapsed,
@@ -158,6 +177,9 @@ function SectionContainerCore({
           nextId={nextId}
           isList={isList}
           isListRoot={isListRoot}
+          addChild={addChild}
+          deleteChild={deleteChild}
+          parentControls={parentControls}
           hasNested={hasNested}
           // requiresKeyInput={requiresKeyInput}
         />

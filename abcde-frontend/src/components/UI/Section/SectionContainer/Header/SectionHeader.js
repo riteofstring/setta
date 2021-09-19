@@ -12,6 +12,9 @@ export function SectionHeader({
   isListRoot,
   requiresKeyInput,
   onTitleInputChange,
+  addChild,
+  deleteChild,
+  parentControls,
   hasNested,
 }) {
   return (
@@ -30,6 +33,9 @@ export function SectionHeader({
             parentId={parentId}
             nextId={nextId}
             isListRoot={isListRoot}
+            addChild={addChild}
+            deleteChild={deleteChild}
+            parentControls={parentControls}
             hasNested={hasNested}
           />
         </>

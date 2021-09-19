@@ -1,62 +1,39 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { HiX } from "react-icons/hi";
-import { useStoreState, useStoreActions } from "easy-peasy";
-import { ChildrenContext } from "../SectionContainer";
 
 export default function Incrementer({
-  parentId,
   sectionId,
   nextId,
   isListRoot,
+  addChild,
+  deleteChild,
+  parentControls,
   hasNested,
 }) {
-  const context = useContext(ChildrenContext);
-
-  const addChild = useStoreActions((x) => x.sections.addChild);
-  const deleteChild = useStoreActions((x) => x.sections.deleteChild);
-
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
   };
 
   const addSections = (numSections) => {
     if (isListRoot) {
-      addChild({
-        sectionId,
-        ...context,
-        numChildren: numSections,
-      });
+      addChild(null, null, null, numSections);
     } else {
-      addChild({
-        sectionId: parentId,
-        ...context,
-        startId: sectionId,
-        numChildren: numSections,
-      });
+      parentControls.addChild(null, null, sectionId, numSections);
     }
   };
 
   const deleteChildren = (numSections) => {
     if (isListRoot) {
-      deleteChild({ sectionId, ...context, numChildren: numSections });
+      deleteChild(null, numSections);
     } else {
-      deleteChild({
-        sectionId: parentId,
-        ...context,
-        startId: nextId,
-        numChildren: numSections,
-      });
+      parentControls.deleteChild(sectionId, numSections);
     }
   };
 
   const deleteThisSection = () => {
-    deleteChild({
-      sectionId: parentId,
-      ...context,
-      startId: sectionId,
-    });
+    parentControls.deleteChild(sectionId);
   };
 
   const numSectionsOnChange = (value) => {
