@@ -6,7 +6,6 @@ import uiInfo from "../models/uiInfo";
 import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
 import cliSocket from "../models/cliSocket";
-import sectionPositions from "../models/sectionPositions";
 
 const store = createStore({
   master: master,
@@ -16,7 +15,6 @@ const store = createStore({
   factoriesInfo: factoriesInfo,
   funcsInfo: funcsInfo,
   cliSocket: cliSocket,
-  sectionPositions: sectionPositions,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

@@ -4,8 +4,8 @@ import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
 import { motion, animate, useMotionValue } from "framer-motion";
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
-import { hovering, goToCoordinates as goToCoordinatesState } from "./mapState";
-import { trueWidth } from "../SidePanes/paneState";
+import { hovering, goToCoordinates as goToCoordinatesState } from "./state";
+import { trueWidth } from "../SidePanes/state";
 import { useAtom } from "jotai";
 import { useAtomValue, useUpdateAtom, selectAtom } from "jotai/utils";
 

@@ -1,47 +1,44 @@
 import { Text, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
-import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect } from "react";
 import { PANEID } from "../../../../../../../utils/constants";
 import { useAtom } from "jotai";
-import { goToCoordinates } from "../../../../CustomMapInteraction/mapState";
+import { goToCoordinates } from "../../../../CustomMapInteraction/state";
+import {
+  relativeSectionPosition,
+  positionUpdateRequested,
+  positionUpdated as positionUpdatedState,
+} from "../../../../../../UI/Section/state";
+import { useUpdateAtom, useAtomValue } from "jotai/utils";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const setGoToCoordinates = useAtom(goToCoordinates)[1]
-  const getCurrPositionOfSection = useStoreActions(
-    (actions) => actions.sectionPositions.getCurrPositionOfSection
+  const setGoToCoordinates = useUpdateAtom(goToCoordinates);
+  const currPositionOfSection = useAtomValue(
+    relativeSectionPosition(sectionId)
+  );
+  const setPositionUpdateRequested = useUpdateAtom(
+    positionUpdateRequested(sectionId)
+  );
+  const setPanePositionUpdateRequested = useUpdateAtom(
+    positionUpdateRequested(PANEID)
   );
 
-  const setPositionUpdateRequested = useStoreActions(
-    (action) => action.sectionPositions.setPositionUpdateRequested
+  const [positionUpdated, setPositionUpdated] = useAtom(
+    positionUpdatedState(sectionId)
   );
-
-  const sectionPositionUpdated = useStoreState(
-    (actions) => actions.sectionPositions.positionUpdated[sectionId]
-  );
-
-  const panePositionUpdated = useStoreState(
-    (actions) => actions.sectionPositions.positionUpdated[PANEID]
-  );
-
-  const setPositionUpdated = useStoreActions(
-    (actions) => actions.sectionPositions.setPositionUpdated
-  );
+  const panePositionUpdated = useAtomValue(positionUpdatedState(PANEID));
 
   useEffect(() => {
-    if (sectionPositionUpdated && panePositionUpdated) {
-      const { y, x } = getCurrPositionOfSection(sectionId);
+    if (positionUpdated && panePositionUpdated) {
+      const { y, x } = currPositionOfSection;
       setGoToCoordinates({ y: -y, x: -x });
     }
-    setPositionUpdated({ sectionId, positionUpdated: false });
-  }, [sectionPositionUpdated]);
+    setPositionUpdated(false);
+  }, [positionUpdated]);
 
   const onClick = () => {
-    setPositionUpdateRequested({ sectionId, positionUpdateRequested: true });
-    setPositionUpdateRequested({
-      sectionId: PANEID,
-      positionUpdateRequested: true,
-    });
+    setPositionUpdateRequested(true);
+    setPanePositionUpdateRequested(true);
   };
 
   return (

@@ -2,12 +2,12 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
 import { motion } from "framer-motion";
 import { useAtomValue, selectAtom } from "jotai/utils";
-import { hovering as hoveringState } from "./mapState";
+import { hovering as hoveringState } from "./state";
 import {
   trueWidth as trueWidthState,
   vis as visState,
   isDragging as isDraggingState,
-} from "../SidePanes/paneState";
+} from "../SidePanes/state";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 

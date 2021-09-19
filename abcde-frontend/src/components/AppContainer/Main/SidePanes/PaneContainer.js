@@ -10,7 +10,7 @@ import {
   trueWidth as trueWidthState,
   width as widthState,
   isDragging as isDraggingState,
-} from "./paneState";
+} from "./state";
 import { useAtom } from "jotai";
 import { focusAtom } from "jotai/optics";
 import { useUpdateAtom } from "jotai/utils";
