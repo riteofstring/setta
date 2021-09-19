@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { HiX } from "react-icons/hi";
+import { ChildrenContext } from "../SectionContainer";
 
 export default function Incrementer({
   sectionId,
@@ -12,6 +13,24 @@ export default function Incrementer({
   parentControls,
   hasNested,
 }) {
+  const { updateRequested, setUpdateRequested } = useContext(ChildrenContext);
+
+  useEffect(() => {
+    if (!updateRequested || updateRequested.sectionId !== sectionId) {
+      return;
+    }
+    const { command, numSections } = updateRequested;
+    console.log("updateRequested", updateRequested)
+    if (command === "addChild") {
+      parentControls.addChildOnRequest(null, null, sectionId, numSections);
+    } else if (command === "deleteChild") {
+      parentControls.deleteChildOnRequest(nextId, numSections);
+    } else if (command === "deleteThisSection") {
+      parentControls.deleteChildOnRequest(sectionId);
+    }
+    setUpdateRequested(false);
+  }, [updateRequested]);
+
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
   };
@@ -20,7 +39,7 @@ export default function Incrementer({
     if (isListRoot) {
       addChild(null, null, null, numSections);
     } else {
-      parentControls.addChild(null, null, sectionId, numSections);
+      setUpdateRequested({ sectionId, command: "addChild", numSections });
     }
   };
 
@@ -28,12 +47,16 @@ export default function Incrementer({
     if (isListRoot) {
       deleteChild(null, numSections);
     } else {
-      parentControls.deleteChild(nextId, numSections);
+      setUpdateRequested({ sectionId, command: "deleteChild", numSections });
     }
   };
 
   const deleteThisSection = () => {
-    parentControls.deleteChild(sectionId);
+    setUpdateRequested({
+      sectionId,
+      command: "deleteThisSection",
+      numSections,
+    });
   };
 
   const numSectionsOnChange = (value) => {

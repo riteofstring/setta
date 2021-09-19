@@ -2,7 +2,7 @@ import { nullOrUndefined, firstValue } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 
 export const createNewId = () => {
-  return uuidv4();
+  return uuidv4().slice(0, 4);
 };
 
 export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
