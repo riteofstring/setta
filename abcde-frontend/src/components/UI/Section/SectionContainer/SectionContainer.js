@@ -16,6 +16,8 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
+import { useAtom } from "jotai";
+import { sectionChildren } from "../state";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -29,11 +31,11 @@ function SectionContainer({
   dragControls,
   parentControls,
   isCollapsed,
-  setIdsOverview,
   setIdNames,
+  sectionChildren,
 }) {
   const [selectedItem, setSelectedItem] = useState([]);
-  const [children, setChildren] = useState([]);
+  const [children, setChildren] = useAtom(sectionChildren);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
@@ -73,7 +75,6 @@ function SectionContainer({
   }, [isCollapsed]);
 
   useEffect(() => {
-    setIdsOverview({ sectionId, children });
     setIdNames({ sectionId, name: sectionInfo.name });
   }, [children]);
 
@@ -116,7 +117,6 @@ function SectionContainer({
                 updatePosition={updatePosition}
                 updateOrder={updateOrder}
                 isCollapsed={childrenAreCollapsed}
-                setIdsOverview={setIdsOverview}
                 setIdNames={setIdNames}
               />
             );

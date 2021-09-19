@@ -22,7 +22,6 @@ const master = {
   pageMinMaxList: [],
   available: {},
   uiSpecs: {},
-  idsOverview: {},
   idNames: {},
 
   // actions
@@ -64,11 +63,6 @@ const master = {
     } else {
       // action._loadSections(payload);
     }
-  }),
-  
-  setIdsOverview: action((state, payload) => {
-    const {sectionId, children} = payload
-    state.idsOverview[sectionId] = children
   }),
 
   setIdNames: action((state, payload) =>{

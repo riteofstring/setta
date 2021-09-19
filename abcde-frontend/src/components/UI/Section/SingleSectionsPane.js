@@ -4,18 +4,26 @@ import SectionContainer from "./SectionContainer/SectionContainer";
 import { Heading, Stack } from "@chakra-ui/react";
 import { SectionInfo } from "../../../classes/jsonParser";
 import { createNewId } from "../../../utils/sectionIds";
+import { useAtom } from "jotai";
+import { useAtomValue } from "jotai/utils";
+import { sectionChildren as sectionChildrenState } from "./state";
 
-function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
+function SingleSectionsPane({
+  minIdx,
+  maxIdx,
+  groupId,
+  available,
+  groupChildren,
+}) {
   const uiSpecs = useStoreState((state) => state.master.uiSpecs);
-  const setIdsOverview = useStoreActions(
-    (actions) => actions.master.setIdsOverview
-  );
+  const [children, setChildren] = useAtom(groupChildren);
+  const sectionChildren = useAtomValue(sectionChildrenState);
   const setIdNames = useStoreActions((actions) => actions.master.setIdNames);
 
-  const [children, setChildren] = useState([]);
-
   useEffect(() => {
-    getSectionIds();
+    const sectionIds = getSectionIds();
+    console.log("groupId sectionIds", groupId, sectionIds);
+    setChildren(sectionIds);
   }, []);
 
   console.log(
@@ -41,12 +49,10 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
         newIds.push(createNewId());
       }
     }
-    setIdsOverview({
-      sectionId: groupId,
-      children: newIds,
-    });
-    setChildren(newIds);
+    return newIds;
   }
+
+  console.log("SingleSectionsPane groupChildren", children);
 
   return (
     <>
@@ -63,8 +69,8 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
             available={available}
             key={`${e}-${idx}`}
             depth={0}
-            setIdsOverview={setIdsOverview}
             setIdNames={setIdNames}
+            sectionChildren={sectionChildren[e]}
           />
         ))}
       </Stack>

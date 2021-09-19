@@ -1,4 +1,5 @@
 import { PANEID } from "../../../utils/constants";
+import { defaultDict } from "../../../utils/utils";
 import { atomFamily } from "jotai/utils";
 import { atom } from "jotai";
 import deepEqual from "fast-deep-equal";
@@ -19,3 +20,10 @@ export const enteredValues = atomFamily(
   ({ sectionId, selected, paramName }) => atom(null),
   deepEqual
 );
+
+export const groupChildren = atom(defaultDict(() => atom([])));
+export const sectionChildren = atom(defaultDict(() => atom([])));
+
+export const allChildren = atom((get) => {
+  return { ...get(groupChildren), ...get(sectionChildren) };
+});
