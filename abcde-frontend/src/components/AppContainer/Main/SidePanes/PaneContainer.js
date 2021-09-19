@@ -13,6 +13,7 @@ import {
 } from "./paneState";
 import { useAtom } from "jotai";
 import { focusAtom } from "jotai/optics";
+import { useUpdateAtom } from "jotai/utils";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
@@ -27,9 +28,9 @@ export default function PaneContainer(props) {
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
   const [vis, setVis] = useAtom(focusAtom(visState, (x) => x.prop(paneName)));
-  const setTrueWidth = useAtom(
+  const setTrueWidth = useUpdateAtom(
     focusAtom(trueWidthState, (x) => x.prop(paneName))
-  )[1];
+  );
   function uiToggle() {
     const newVis = !vis;
     setVis(newVis);
@@ -69,9 +70,9 @@ export default function PaneContainer(props) {
   );
   const [height, setHeight] = useState("100%");
 
-  const setIsDragging = useAtom(
+  const setIsDragging = useUpdateAtom(
     focusAtom(isDraggingState, (x) => x.prop(paneName))
-  )[1];
+  );
 
   const variants = {
     open: { x: "0rem" },

@@ -8,13 +8,14 @@ import { hovering, goToCoordinates as goToCoordinatesState } from "./mapState";
 import { trueWidth } from "../SidePanes/paneState";
 import { useAtom } from "jotai";
 import { focusAtom } from "jotai/optics";
+import { useAtomValue, useUpdateAtom } from "jotai/utils";
 
 export default function CustomMapInteractionCSS(props) {
-  const setHovering = useAtom(hovering)[1];
+  const setHovering = useUpdateAtom(hovering);
   const [goToCoordinates, setGoToCoordinates] = useAtom(goToCoordinatesState);
-  const overviewCssWidth = useAtom(
+  const overviewCssWidth = useAtomValue(
     focusAtom(trueWidth, (x) => x.prop("overview"))
-  )[0];
+  );
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;

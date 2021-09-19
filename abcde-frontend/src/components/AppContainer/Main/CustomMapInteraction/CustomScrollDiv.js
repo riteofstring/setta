@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
 import { motion } from "framer-motion";
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai/utils";
 import { hovering as hoveringState } from "./mapState";
 import {
   trueWidth as trueWidthState,
@@ -20,8 +20,8 @@ export default function CustomScrollDiv({
   children,
   isVertical,
 }) {
-  const mapHovering = useAtom(hoveringState)[0];
-  const paneTrueWidths = useAtom(trueWidthState)[0];
+  const mapHovering = useAtomValue(hoveringState);
+  const paneTrueWidths = useAtomValue(trueWidthState);
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
@@ -185,13 +185,13 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
 }
 
 function VerticalScrollDiv({ children }) {
-  const vis = useAtom(focusAtom(visState, (x) => x.prop("uiEditor")))[0];
-  const trueWidth = useAtom(
+  const vis = useAtomValue(focusAtom(visState, (x) => x.prop("uiEditor")));
+  const trueWidth = useAtomValue(
     focusAtom(trueWidthState, (x) => x.prop("uiEditor"))
-  )[0];
-  const draggingPane = useAtom(
+  );
+  const draggingPane = useAtomValue(
     focusAtom(isDraggingState, (x) => x.prop("uiEditor"))
-  )[0];
+  );
 
   const variants = {
     closed: { x: `-${trueWidth}px` },
@@ -214,15 +214,15 @@ function VerticalScrollDiv({ children }) {
 }
 
 function HorizontalScrollDiv({ children }) {
-  const overviewTrueWidth = useAtom(
+  const overviewTrueWidth = useAtomValue(
     focusAtom(trueWidthState, (x) => x.prop("overview"))
-  )[0];
-  const uiEditorTrueWidth = useAtom(
-    focusAtom(trueWidthState, (x) => x.prop("uiEditor"))
-  )[0];
-  const anyPanesDragging = Object.values(useAtom(isDraggingState)[0]).includes(
-    true
   );
+  const uiEditorTrueWidth = useAtomValue(
+    focusAtom(trueWidthState, (x) => x.prop("uiEditor"))
+  );
+  const anyPanesDragging = Object.values(
+    useAtomValue(isDraggingState)
+  ).includes(true);
 
   const getTotalMargin = () => {
     return `(${overviewTrueWidth}px + ${uiEditorTrueWidth}px)`;
