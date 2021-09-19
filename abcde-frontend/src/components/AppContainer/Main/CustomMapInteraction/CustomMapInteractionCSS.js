@@ -2,17 +2,26 @@ import { MapInteractionCSS } from "react-map-interaction";
 import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
-import { hovering, goToCoordinates as goToCoordinatesState } from "./state";
-import { trueWidth } from "../SidePanes/state";
-import { useAtom } from "jotai";
-import { useAtomValue, useUpdateAtom, selectAtom } from "jotai/utils";
 
 export default function CustomMapInteractionCSS(props) {
-  const setHovering = useUpdateAtom(hovering);
-  const [goToCoordinates, setGoToCoordinates] = useAtom(goToCoordinatesState);
-  const overviewCssWidth = useAtomValue(selectAtom(trueWidth, (x) => x.overview));
+  const setHovering = useStoreActions(
+    (actions) => actions.mapInteraction.setHovering
+  );
+
+  const setGoToCoordinates = useStoreActions(
+    (actions) => actions.mapInteraction.setGoToCoordinates
+  );
+
+  const goToCoordinates = useStoreState(
+    (state) => state.mapInteraction.goToCoordinates
+  );
+
+  const overviewCssWidth = useStoreState(
+    (state) => state.panes.trueWidth["overview"]
+  );
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;
@@ -79,11 +88,15 @@ export default function CustomMapInteractionCSS(props) {
     }
   };
 
-  const getMinMaxCoordinate = (contentDim, inputMargin, scale) => {
+  const getMinMaxCoordinate = (
+    contentDim,
+    inputMargin,
+    scale
+  ) => {
     if (contentDim) {
       return {
         newMax: inputMargin,
-        newMin: -contentDim * scale,
+        newMin: -contentDim*scale,
       };
     }
     return { newMax: 0, newMin: 0 };

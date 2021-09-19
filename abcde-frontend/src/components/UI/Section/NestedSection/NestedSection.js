@@ -18,6 +18,7 @@ export default function NestedSection({
   updatePosition,
   updateOrder,
   isCollapsed,
+  setIdsOverview,
   setIdNames,
 }) {
   const getNestedSection = (dragControls) => {
@@ -32,6 +33,7 @@ export default function NestedSection({
         dragControls={dragControls}
         parentControls={parentControls}
         isCollapsed={isCollapsed}
+        setIdsOverview={setIdsOverview}
         setIdNames={setIdNames}
       />
     );

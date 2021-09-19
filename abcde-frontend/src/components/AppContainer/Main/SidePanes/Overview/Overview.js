@@ -4,8 +4,6 @@ import { Heading } from "@chakra-ui/react";
 import SectionList from "./SectionList/SectionList";
 import { useStoreState } from "easy-peasy";
 import { getOverviewListing } from "../../../../../utils/sectionIds";
-import { useAtomValue } from "jotai/utils";
-import { allChildren } from "../../../../UI/Section/state";
 
 const paneProps = {
   right: false,
@@ -16,16 +14,15 @@ export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
-  const childrenOverview = useAtomValue(allChildren);
+  const idsOverview = useStoreState((state) => state.master.idsOverview);
   const idNames = useStoreState((state) => state.master.idNames);
 
   useEffect(() => {
-    console.log("**************Overview useEffect");
-    console.log("childrenOverview", childrenOverview);
+    console.log("Overview useEffect");
     setListOfSectionIdsAndNames(
-      getOverviewListing(pageMinMaxList, childrenOverview, idNames)
+      getOverviewListing(pageMinMaxList, idsOverview, idNames)
     );
-  }, [childrenOverview, pageMinMaxList, idNames]);
+  }, [idsOverview]);
 
   return (
     <PaneContainer paneProps={paneProps}>

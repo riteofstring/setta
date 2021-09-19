@@ -1,13 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
 import { motion } from "framer-motion";
-import { useAtomValue, selectAtom } from "jotai/utils";
-import { hovering as hoveringState } from "./state";
-import {
-  trueWidth as trueWidthState,
-  vis as visState,
-  isDragging as isDraggingState,
-} from "../SidePanes/state";
+import { useStoreState } from "easy-peasy";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 
@@ -19,8 +13,8 @@ export default function CustomScrollDiv({
   children,
   isVertical,
 }) {
-  const mapHovering = useAtomValue(hoveringState);
-  const paneTrueWidths = useAtomValue(trueWidthState);
+  const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
+  const paneTrueWidths = useStoreState((state) => state.panes.trueWidth);
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
@@ -39,12 +33,16 @@ export default function CustomScrollDiv({
 
   const getClientDim = (scrollHostElement) => {
     if (isVertical) {
-      const { clientHeight: clientDim, offsetHeight: offsetDim } =
-        scrollHostElement;
+      const {
+        clientHeight: clientDim,
+        offsetHeight: offsetDim,
+      } = scrollHostElement;
       return { clientDim, offsetDim };
     } else {
-      const { clientWidth: clientDim, offsetWidth: offsetDim } =
-        scrollHostElement;
+      const {
+        clientWidth: clientDim,
+        offsetWidth: offsetDim,
+      } = scrollHostElement;
       return { clientDim, offsetDim };
     }
   };
@@ -184,10 +182,10 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
 }
 
 function VerticalScrollDiv({ children }) {
-  const vis = useAtomValue(selectAtom(visState, (x) => x.uiEditor));
-  const trueWidth = useAtomValue(selectAtom(trueWidthState, (x) => x.uiEditor));
-  const draggingPane = useAtomValue(
-    selectAtom(isDraggingState, (x) => x.uiEditor)
+  const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
+  const trueWidth = useStoreState((state) => state.panes.trueWidth["uiEditor"]);
+  const draggingPane = useStoreState(
+    (state) => state.panes.isDragging["uiEditor"]
   );
 
   const variants = {
@@ -211,15 +209,15 @@ function VerticalScrollDiv({ children }) {
 }
 
 function HorizontalScrollDiv({ children }) {
-  const overviewTrueWidth = useAtomValue(
-    selectAtom(trueWidthState, (x) => x.overview)
+  const overviewTrueWidth = useStoreState(
+    (state) => state.panes.trueWidth["overview"]
   );
-  const uiEditorTrueWidth = useAtomValue(
-    selectAtom(trueWidthState, (x) => x.uiEditor)
+  const uiEditorTrueWidth = useStoreState(
+    (state) => state.panes.trueWidth["uiEditor"]
   );
-  const anyPanesDragging = Object.values(
-    useAtomValue(isDraggingState)
-  ).includes(true);
+  const anyPanesDragging = useStoreState((state) =>
+    Object.values(state.panes.isDragging).includes(true)
+  );
 
   const getTotalMargin = () => {
     return `(${overviewTrueWidth}px + ${uiEditorTrueWidth}px)`;

@@ -1,28 +1,34 @@
 import { useEffect, useRef } from "react";
-
-import { useAtom } from "jotai";
-import {
-  sectionPosition,
-  positionUpdated,
-  positionUpdateRequested as positionUpdateRequestedState,
-} from "../components/UI/Section/state";
-import { useUpdateAtom } from "jotai/utils";
+import { useStoreState, useStoreActions } from "easy-peasy";
 
 export function useSetSectionPosition(sectionId) {
   const refForPosition = useRef(null);
 
-  const setSectionPosition = useUpdateAtom(sectionPosition(sectionId));
-  const setPositionUpdated = useUpdateAtom(positionUpdated(sectionId));
-  const [positionUpdateRequested, setPositionUpdateRequested] = useAtom(
-    positionUpdateRequestedState(sectionId)
+  const setSectionPosition = useStoreActions(
+    (action) => action.sectionPositions.setSectionPosition
+  );
+
+  const setPositionUpdated = useStoreActions(
+    (action) => action.sectionPositions.setPositionUpdated
+  );
+
+  const setPositionUpdateRequested = useStoreActions(
+    (action) => action.sectionPositions.setPositionUpdateRequested
+  );
+
+  const positionUpdateRequested = useStoreState(
+    (state) => state.sectionPositions.positionUpdateRequested[sectionId]
   );
 
   useEffect(() => {
     if (positionUpdateRequested && refForPosition.current) {
       const { y, x } = refForPosition.current.getBoundingClientRect();
-      setSectionPosition({ y: y, x: x });
-      setPositionUpdateRequested(false);
-      setPositionUpdated(true);
+      setSectionPosition({ sectionId, y: y, x: x });
+      setPositionUpdateRequested({
+        sectionId,
+        positionUpdateRequested: false,
+      });
+      setPositionUpdated({ sectionId, positionUpdated: true });
     }
   }, [positionUpdateRequested]);
 

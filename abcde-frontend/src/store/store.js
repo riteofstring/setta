@@ -5,7 +5,10 @@ import auth from "../models/auth";
 import uiInfo from "../models/uiInfo";
 import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
+import panes from "../models/panes";
+import mapInteraction from "../models/mapInteraction";
 import cliSocket from "../models/cliSocket";
+import sectionPositions from "../models/sectionPositions";
 
 const store = createStore({
   master: master,
@@ -14,7 +17,10 @@ const store = createStore({
   uiInfo: uiInfo,
   factoriesInfo: factoriesInfo,
   funcsInfo: funcsInfo,
+  panes: panes,
+  mapInteraction: mapInteraction,
   cliSocket: cliSocket,
+  sectionPositions: sectionPositions,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

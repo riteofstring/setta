@@ -1,19 +1,18 @@
 import { useState, useEffect } from "react";
-import { IconButton, Box, GridItem, forwardRef } from "@chakra-ui/react";
+import {
+  Flex,
+  Stack,
+  IconButton,
+  Box,
+  GridItem,
+  forwardRef,
+} from "@chakra-ui/react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";
 import useWindowSize from "../../../../utils/useWindowSize";
 import { clamp } from "../../../../utils/utils";
-import {
-  vis as visState,
-  trueWidth as trueWidthState,
-  width as widthState,
-  isDragging as isDraggingState,
-} from "./state";
-import { useAtom } from "jotai";
-import { focusAtom } from "jotai/optics";
-import { useUpdateAtom } from "jotai/utils";
+import { useStoreActions, useStoreState } from "easy-peasy";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
@@ -27,15 +26,14 @@ const Pane = motion.custom(
 export default function PaneContainer(props) {
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
-  const [vis, setVis] = useAtom(focusAtom(visState, (x) => x.prop(paneName)));
-  const setTrueWidth = useUpdateAtom(
-    focusAtom(trueWidthState, (x) => x.prop(paneName))
-  );
+  const vis = useStoreState((state) => state.panes.vis[paneName]);
+  const setVis = useStoreActions((actions) => actions.panes.setVis);
+  const setTrueWidth = useStoreActions((actions) => actions.panes.setTrueWidth);
   function uiToggle() {
     const newVis = !vis;
-    setVis(newVis);
+    setVis({ paneName, vis: newVis });
     btnDirFlip();
-    setTrueWidth(newVis ? width : 40);
+    setTrueWidth({ paneName, trueWidth: newVis ? width : 40 });
   }
   const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
@@ -57,21 +55,20 @@ export default function PaneContainer(props) {
     setVMax(newVMax);
     setVMin(newVMin);
     if (width > newVMax) {
-      setWidth(newVMax);
-      setTrueWidth(vis ? newVMax : 40);
+      setWidth({ paneName, width: newVMax });
+      setTrueWidth({ paneName, trueWidth: vis ? newVMax : 40 });
     } else if (width < newVMin) {
-      setWidth(newVMin);
-      setTrueWidth(vis ? newVMin : 40);
+      setWidth({ paneName, width: newVMin });
+      setTrueWidth({ paneName, trueWidth: vis ? newVMin : 40 });
     }
   }, [vis, size.winWidth]);
 
-  const [width, setWidth] = useAtom(
-    focusAtom(widthState, (x) => x.prop(paneName))
-  );
+  const width = useStoreState((state) => state.panes.width[paneName]);
+  const setWidth = useStoreActions((actions) => actions.panes.setWidth);
   const [height, setHeight] = useState("100%");
 
-  const setIsDragging = useUpdateAtom(
-    focusAtom(isDraggingState, (x) => x.prop(paneName))
+  const setIsDragging = useStoreActions(
+    (actions) => actions.panes.setIsDragging
   );
 
   const variants = {
@@ -102,14 +99,17 @@ export default function PaneContainer(props) {
         <Resizable
           size={{ width, height }}
           onResizeStart={(e, dir, ref) => {
-            setIsDragging(true);
+            setIsDragging({ paneName, isDragging: true });
           }}
           onResizeStop={(e, direction, ref, d) => {
             const newWidth = clamp(width + d.width, vMin, vMax);
-            setWidth(newWidth);
-            setTrueWidth(vis ? newWidth : 40);
+            setWidth({ paneName, width: newWidth });
+            setTrueWidth({
+              paneName,
+              trueWidth: vis ? newWidth : 40,
+            });
             setHeight(height);
-            setIsDragging(false);
+            setIsDragging({ paneName, isDragging: false });
           }}
           maxWidth={vMax}
           minWidth={vMin}

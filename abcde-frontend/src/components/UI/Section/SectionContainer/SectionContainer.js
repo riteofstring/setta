@@ -16,8 +16,6 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
-import { useAtom } from "jotai";
-import { sectionChildren } from "../state";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -31,11 +29,13 @@ function SectionContainer({
   dragControls,
   parentControls,
   isCollapsed,
+  setIdsOverview,
   setIdNames,
-  sectionChildren,
 }) {
+  const refForPosition = useSetSectionPosition(sectionId);
+
   const [selectedItem, setSelectedItem] = useState([]);
-  const [children, setChildren] = useAtom(sectionChildren);
+  const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
@@ -75,11 +75,12 @@ function SectionContainer({
   }, [isCollapsed]);
 
   useEffect(() => {
-    setIdNames({ sectionId, name: sectionInfo.name });
-  }, [children]);
+    setIdsOverview({sectionId, children})
+    setIdNames({sectionId, name: sectionInfo.name})
+  }, [children])
 
   return (
-    <Stack>
+    <Stack ref={refForPosition}>
       <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
           sectionId={sectionId}
@@ -117,6 +118,7 @@ function SectionContainer({
                 updatePosition={updatePosition}
                 updateOrder={updateOrder}
                 isCollapsed={childrenAreCollapsed}
+                setIdsOverview={setIdsOverview}
                 setIdNames={setIdNames}
               />
             );
@@ -141,7 +143,6 @@ function SectionContainerCore({
   selectedItem,
   setSelectedItem,
 }) {
-  const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
@@ -162,7 +163,6 @@ function SectionContainerCore({
   const tempBoolDesc = false;
   return (
     <HStack
-      ref={refForPosition}
       direction="column"
       bg="gray.50"
       borderRadius="md"
