@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
 import ParamUI from "../ParamUIs/ParamUI";
-import { nullOrUndefined, createSelectedString } from "../../../../../../../../../utils/utils";
-import { HistoryContext } from "../../../GroupContainer";
+import {
+  nullOrUndefined,
+  createSelectedString,
+} from "../../../../../../../../../utils/utils";
+import { enteredValues } from "../../../../../../state";
+import { useAtom } from "jotai";
 
 export default function ParamInput(props) {
   const { sectionId, paramInfo } = props;
@@ -11,13 +14,8 @@ export default function ParamInput(props) {
 
   const [selectedString, setSelectedString] = useState(null);
 
-  const setEnteredValue = useStoreActions(
-    (actions) => actions.master.setEnteredValue
-  );
-
-  const storedValue = useStoreState(
-    (state) =>
-      state.master.enteredValues.history[sectionId]?.[selectedString]?.[paramName]
+  const [storedValue, setEnteredValue] = useAtom(
+    enteredValues({ sectionId, selected: selectedString, paramName })
   );
 
   const [value, setValue] = useState("");
@@ -34,12 +32,7 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setEnteredValue({
-      sectionId,
-      selected: selectedString,
-      paramName,
-      value: v,
-    });
+    setEnteredValue(v);
   };
 
   useEffect(() => {
