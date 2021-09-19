@@ -12,7 +12,6 @@ function NestedSection({
   nextId,
   sectionInfo,
   available,
-  parentControls,
   idx,
   depth,
   updatePosition,
@@ -31,7 +30,6 @@ function NestedSection({
         available={available}
         depth={depth}
         dragControls={dragControls}
-        parentControls={parentControls}
         isCollapsed={isCollapsed}
         setIdsOverview={setIdsOverview}
         setIdNames={setIdNames}
@@ -98,6 +96,7 @@ function NestedSection({
 function areEqual(prevProps, nextProps) {
   return (
     prevProps.sectionId === nextProps.sectionId &&
+    prevProps.nextId === nextProps.nextId &&
     prevProps.idx === nextProps.idx
   );
 }

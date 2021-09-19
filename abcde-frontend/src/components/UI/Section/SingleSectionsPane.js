@@ -10,7 +10,8 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
   const setIdsOverview = useStoreActions((x) => x.sections.setIdsOverview);
   const setIdNames = useStoreActions((x) => x.sections.setIdNames);
 
-  const [children, setChildren] = useState([]);
+  const children = useStoreState((x) => x.sections.children[groupId]);
+  const setChildren = useStoreActions((x) => x.sections.setChildren);
 
   useEffect(() => {
     getSectionIds();
@@ -36,14 +37,16 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
     let newIds = [];
     for (let idx = 0; idx < Object.keys(uiSpecs).length; idx++) {
       if (idxCondition(idx)) {
-        newIds.push(createNewId());
+        const newId = createNewId();
+        newIds.push(newId);
+        setChildren({ sectionId: newId, children: [] });
       }
     }
     setIdsOverview({
       sectionId: groupId,
       children: newIds,
     });
-    setChildren(newIds);
+    setChildren({ sectionId: groupId, children: newIds });
   }
 
   return (
@@ -52,7 +55,7 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
         <Heading size="md" color="gray.300">
           Group {groupId}
         </Heading>
-        {children.map((e, idx) => (
+        {children && children.map((e, idx) => (
           <SectionContainer
             sectionId={e}
             parentId={null}
