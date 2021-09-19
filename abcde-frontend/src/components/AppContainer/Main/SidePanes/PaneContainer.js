@@ -1,27 +1,13 @@
 import { useState, useEffect } from "react";
-import {
-  Flex,
-  Stack,
-  IconButton,
-  Box,
-  GridItem,
-  forwardRef,
-} from "@chakra-ui/react";
+import { IconButton, Box, GridItem } from "@chakra-ui/react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
-import { motion, isValidMotionProp } from "framer-motion";
+import { motion } from "framer-motion";
 import { Resizable } from "re-resizable";
 import useWindowSize from "../../../../utils/useWindowSize";
 import { clamp } from "../../../../utils/utils";
 import { useStoreActions, useStoreState } from "easy-peasy";
 
-const Pane = motion.custom(
-  forwardRef((props, ref) => {
-    const chakraProps = Object.fromEntries(
-      Object.entries(props).filter(([key]) => !isValidMotionProp(key))
-    );
-    return <GridItem ref={ref} {...chakraProps} />;
-  })
-);
+const Pane = motion(GridItem);
 
 export default function PaneContainer(props) {
   const size = useWindowSize();

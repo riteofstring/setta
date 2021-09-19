@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { clamp, distance } from "popmotion";
-import move from "array-move";
+import { arrayMoveImmutable } from "array-move";
 import { arraysAreEqual } from "./commonFunctions";
 
 export function usePositionReorder(initialState) {
@@ -21,7 +21,7 @@ export function usePositionReorder(initialState) {
   // sibling.
   const updateOrder = (i, dragOffset) => {
     const targetIndex = findIndex(i, dragOffset, positions);
-    if (targetIndex !== i) setOrder(move(order, i, targetIndex));
+    if (targetIndex !== i) setOrder(arrayMoveImmutable(order, i, targetIndex));
   };
 
   return [order, updatePosition, updateOrder];
