@@ -2,19 +2,19 @@ import { MapInteractionCSS } from "react-map-interaction";
 import { useState, useEffect } from "react";
 import CustomScrollDiv from "./CustomScrollDiv";
 import useKeyPress from "../../../../utils/use-key-press";
-import { useStoreState } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
-import { hoveringState, coordinateState } from "./mapState";
+import { hovering, goToCoordinates as goToCoordinatesState } from "./mapState";
+import { trueWidth } from "../SidePanes/paneState";
 import { useAtom } from "jotai";
+import { focusAtom } from "jotai/optics";
 
 export default function CustomMapInteractionCSS(props) {
-  const setHovering = useAtom(hoveringState)[1];
-  const [goToCoordinates, setGoToCoordinates] = useAtom(coordinateState);
-
-  const overviewCssWidth = useStoreState(
-    (state) => state.panes.trueWidth["overview"]
-  );
+  const setHovering = useAtom(hovering)[1];
+  const [goToCoordinates, setGoToCoordinates] = useAtom(goToCoordinatesState);
+  const overviewCssWidth = useAtom(
+    focusAtom(trueWidth, (x) => x.prop("overview"))
+  )[0];
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;

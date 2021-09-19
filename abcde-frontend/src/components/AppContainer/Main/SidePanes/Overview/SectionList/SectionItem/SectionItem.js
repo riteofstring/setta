@@ -4,10 +4,10 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect } from "react";
 import { PANEID } from "../../../../../../../utils/constants";
 import { useAtom } from "jotai";
-import { coordinateState } from "../../../../CustomMapInteraction/mapState";
+import { goToCoordinates } from "../../../../CustomMapInteraction/mapState";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const setGoToCoordinates = useAtom(coordinateState)[1]
+  const setGoToCoordinates = useAtom(goToCoordinates)[1]
   const getCurrPositionOfSection = useStoreActions(
     (actions) => actions.sectionPositions.getCurrPositionOfSection
   );

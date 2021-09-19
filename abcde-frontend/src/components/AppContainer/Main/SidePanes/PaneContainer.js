@@ -5,7 +5,14 @@ import { motion, isValidMotionProp } from "framer-motion";
 import { Resizable } from "re-resizable";
 import useWindowSize from "../../../../utils/useWindowSize";
 import { clamp } from "../../../../utils/utils";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import {
+  vis as visState,
+  trueWidth as trueWidthState,
+  width as widthState,
+  isDragging as isDraggingState,
+} from "./paneState";
+import { useAtom } from "jotai";
+import { focusAtom } from "jotai/optics";
 
 const Pane = motion.custom(
   forwardRef((props, ref) => {
@@ -19,14 +26,15 @@ const Pane = motion.custom(
 export default function PaneContainer(props) {
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
-  const vis = useStoreState((state) => state.panes.vis[paneName]);
-  const setVis = useStoreActions((actions) => actions.panes.setVis);
-  const setTrueWidth = useStoreActions((actions) => actions.panes.setTrueWidth);
+  const [vis, setVis] = useAtom(focusAtom(visState, (x) => x.prop(paneName)));
+  const setTrueWidth = useAtom(
+    focusAtom(trueWidthState, (x) => x.prop(paneName))
+  )[1];
   function uiToggle() {
     const newVis = !vis;
-    setVis({ paneName, vis: newVis });
+    setVis({ vis: newVis });
     btnDirFlip();
-    setTrueWidth({ paneName, trueWidth: newVis ? width : 40 });
+    setTrueWidth({ trueWidth: newVis ? width : 40 });
   }
   const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
@@ -48,21 +56,22 @@ export default function PaneContainer(props) {
     setVMax(newVMax);
     setVMin(newVMin);
     if (width > newVMax) {
-      setWidth({ paneName, width: newVMax });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMax : 40 });
+      setWidth({ width: newVMax });
+      setTrueWidth({ trueWidth: vis ? newVMax : 40 });
     } else if (width < newVMin) {
-      setWidth({ paneName, width: newVMin });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMin : 40 });
+      setWidth({ width: newVMin });
+      setTrueWidth({ trueWidth: vis ? newVMin : 40 });
     }
   }, [vis, size.winWidth]);
 
-  const width = useStoreState((state) => state.panes.width[paneName]);
-  const setWidth = useStoreActions((actions) => actions.panes.setWidth);
+  const [width, setWidth] = useAtom(
+    focusAtom(widthState, (x) => x.prop(paneName))
+  );
   const [height, setHeight] = useState("100%");
 
-  const setIsDragging = useStoreActions(
-    (actions) => actions.panes.setIsDragging
-  );
+  const setIsDragging = useAtom(
+    focusAtom(isDraggingState, (x) => x.prop(paneName))
+  )[1];
 
   const variants = {
     open: { x: "0rem" },
@@ -92,17 +101,14 @@ export default function PaneContainer(props) {
         <Resizable
           size={{ width, height }}
           onResizeStart={(e, dir, ref) => {
-            setIsDragging({ paneName, isDragging: true });
+            setIsDragging({ isDragging: true });
           }}
           onResizeStop={(e, direction, ref, d) => {
             const newWidth = clamp(width + d.width, vMin, vMax);
-            setWidth({ paneName, width: newWidth });
-            setTrueWidth({
-              paneName,
-              trueWidth: vis ? newWidth : 40,
-            });
+            setWidth({ width: newWidth });
+            setTrueWidth({ trueWidth: vis ? newWidth : 40 });
             setHeight(height);
-            setIsDragging({ paneName, isDragging: false });
+            setIsDragging({ isDragging: false });
           }}
           maxWidth={vMax}
           minWidth={vMin}

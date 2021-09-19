@@ -1,4 +1,4 @@
 import { atom } from 'jotai'
 
-export const hoveringState = atom(false)
-export const coordinateState = atom(null)
+export const hovering = atom(false)
+export const goToCoordinates = atom(null)
