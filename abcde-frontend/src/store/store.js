@@ -5,7 +5,6 @@ import auth from "../models/auth";
 import uiInfo from "../models/uiInfo";
 import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
-import panes from "../models/panes";
 import cliSocket from "../models/cliSocket";
 import sectionPositions from "../models/sectionPositions";
 
@@ -16,7 +15,6 @@ const store = createStore({
   uiInfo: uiInfo,
   factoriesInfo: factoriesInfo,
   funcsInfo: funcsInfo,
-  panes: panes,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
   setState: action((state, payload) => payload),

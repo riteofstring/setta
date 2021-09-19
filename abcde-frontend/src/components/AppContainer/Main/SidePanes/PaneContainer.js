@@ -32,9 +32,9 @@ export default function PaneContainer(props) {
   )[1];
   function uiToggle() {
     const newVis = !vis;
-    setVis({ vis: newVis });
+    setVis(newVis);
     btnDirFlip();
-    setTrueWidth({ trueWidth: newVis ? width : 40 });
+    setTrueWidth(newVis ? width : 40);
   }
   const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
@@ -56,11 +56,11 @@ export default function PaneContainer(props) {
     setVMax(newVMax);
     setVMin(newVMin);
     if (width > newVMax) {
-      setWidth({ width: newVMax });
-      setTrueWidth({ trueWidth: vis ? newVMax : 40 });
+      setWidth(newVMax);
+      setTrueWidth(vis ? newVMax : 40);
     } else if (width < newVMin) {
-      setWidth({ width: newVMin });
-      setTrueWidth({ trueWidth: vis ? newVMin : 40 });
+      setWidth(newVMin);
+      setTrueWidth(vis ? newVMin : 40);
     }
   }, [vis, size.winWidth]);
 
@@ -101,14 +101,14 @@ export default function PaneContainer(props) {
         <Resizable
           size={{ width, height }}
           onResizeStart={(e, dir, ref) => {
-            setIsDragging({ isDragging: true });
+            setIsDragging(true);
           }}
           onResizeStop={(e, direction, ref, d) => {
             const newWidth = clamp(width + d.width, vMin, vMax);
-            setWidth({ width: newWidth });
-            setTrueWidth({ trueWidth: vis ? newWidth : 40 });
+            setWidth(newWidth);
+            setTrueWidth(vis ? newWidth : 40);
             setHeight(height);
-            setIsDragging({ isDragging: false });
+            setIsDragging(false);
           }}
           maxWidth={vMax}
           minWidth={vMin}
