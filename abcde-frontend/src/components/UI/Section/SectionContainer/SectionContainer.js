@@ -32,8 +32,6 @@ function SectionContainer({
   setIdsOverview,
   setIdNames,
 }) {
-  const refForPosition = useSetSectionPosition(sectionId);
-
   const [selectedItem, setSelectedItem] = useState([]);
   const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
@@ -75,12 +73,12 @@ function SectionContainer({
   }, [isCollapsed]);
 
   useEffect(() => {
-    setIdsOverview({sectionId, children})
-    setIdNames({sectionId, name: sectionInfo.name})
-  }, [children])
+    setIdsOverview({ sectionId, children });
+    setIdNames({ sectionId, name: sectionInfo.name });
+  }, [children]);
 
   return (
-    <Stack ref={refForPosition}>
+    <Stack>
       <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
           sectionId={sectionId}
@@ -143,6 +141,7 @@ function SectionContainerCore({
   selectedItem,
   setSelectedItem,
 }) {
+  const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
@@ -163,6 +162,7 @@ function SectionContainerCore({
   const tempBoolDesc = false;
   return (
     <HStack
+      ref={refForPosition}
       direction="column"
       bg="gray.50"
       borderRadius="md"
