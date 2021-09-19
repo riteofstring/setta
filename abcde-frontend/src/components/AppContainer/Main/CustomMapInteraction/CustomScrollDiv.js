@@ -1,14 +1,13 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import "./onHoverStyle.css";
 import { motion } from "framer-motion";
-import { useAtomValue } from "jotai/utils";
+import { useAtomValue, selectAtom } from "jotai/utils";
 import { hovering as hoveringState } from "./mapState";
 import {
   trueWidth as trueWidthState,
   vis as visState,
   isDragging as isDraggingState,
 } from "../SidePanes/paneState";
-import { focusAtom } from "jotai/optics";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 
@@ -185,12 +184,10 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
 }
 
 function VerticalScrollDiv({ children }) {
-  const vis = useAtomValue(focusAtom(visState, (x) => x.prop("uiEditor")));
-  const trueWidth = useAtomValue(
-    focusAtom(trueWidthState, (x) => x.prop("uiEditor"))
-  );
+  const vis = useAtomValue(selectAtom(visState, (x) => x.uiEditor));
+  const trueWidth = useAtomValue(selectAtom(trueWidthState, (x) => x.uiEditor));
   const draggingPane = useAtomValue(
-    focusAtom(isDraggingState, (x) => x.prop("uiEditor"))
+    selectAtom(isDraggingState, (x) => x.uiEditor)
   );
 
   const variants = {
@@ -215,10 +212,10 @@ function VerticalScrollDiv({ children }) {
 
 function HorizontalScrollDiv({ children }) {
   const overviewTrueWidth = useAtomValue(
-    focusAtom(trueWidthState, (x) => x.prop("overview"))
+    selectAtom(trueWidthState, (x) => x.overview)
   );
   const uiEditorTrueWidth = useAtomValue(
-    focusAtom(trueWidthState, (x) => x.prop("uiEditor"))
+    selectAtom(trueWidthState, (x) => x.uiEditor)
   );
   const anyPanesDragging = Object.values(
     useAtomValue(isDraggingState)

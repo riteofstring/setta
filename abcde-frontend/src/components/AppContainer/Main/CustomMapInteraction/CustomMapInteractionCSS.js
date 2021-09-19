@@ -7,15 +7,12 @@ import graphPaperBg from "../../../../assets/images/graph-paper.svg";
 import { hovering, goToCoordinates as goToCoordinatesState } from "./mapState";
 import { trueWidth } from "../SidePanes/paneState";
 import { useAtom } from "jotai";
-import { focusAtom } from "jotai/optics";
-import { useAtomValue, useUpdateAtom } from "jotai/utils";
+import { useAtomValue, useUpdateAtom, selectAtom } from "jotai/utils";
 
 export default function CustomMapInteractionCSS(props) {
   const setHovering = useUpdateAtom(hovering);
   const [goToCoordinates, setGoToCoordinates] = useAtom(goToCoordinatesState);
-  const overviewCssWidth = useAtomValue(
-    focusAtom(trueWidth, (x) => x.prop("overview"))
-  );
+  const overviewCssWidth = useAtomValue(selectAtom(trueWidth, (x) => x.overview));
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;
   const { y: yMargin, x: xMargin } = props.marginRatios;
