@@ -5,9 +5,7 @@ import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import { SectionHeader } from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
-import { usePositionReorder } from "../../../../utils/usePositionReorder";
 import NestedSection from "../NestedSection/NestedSection";
-import { arraysAreEqual } from "../../../../utils/commonFunctions";
 import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
@@ -16,6 +14,8 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
+import { Container, Draggable } from "react-smooth-dnd";
+import { arrayMoveImmutable } from "array-move";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -26,7 +26,6 @@ function SectionContainer({
   sectionInfo,
   available,
   depth,
-  dragControls,
   parentControls,
   isCollapsed,
   setIdsOverview,
@@ -36,7 +35,6 @@ function SectionContainer({
   const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
-  const [order, updatePosition, updateOrder] = usePositionReorder(children);
   const hasNested = children.length > 0;
 
   console.log("*********SectionContainer", sectionId, selectedItem);
@@ -62,11 +60,10 @@ function SectionContainer({
     setChildrenAreCollapsed
   );
 
-  useEffect(() => {
-    if (!arraysAreEqual(children, order)) {
-      setChildren(order);
-    }
-  }, [order]);
+  const onDrop = (dropResult) => {
+    const { removedIndex, addedIndex } = dropResult;
+    setChildren(arrayMoveImmutable(children, removedIndex, addedIndex));
+  };
 
   useEffect(() => {
     setChildrenAreCollapsed(isCollapsed);
@@ -85,7 +82,6 @@ function SectionContainer({
           parentId={parentId}
           nextId={nextId}
           sectionInfo={sectionInfo}
-          dragControls={dragControls}
           addChild={addChild}
           deleteChild={deleteChild}
           parentControls={parentControls}
@@ -100,27 +96,33 @@ function SectionContainer({
         flexDirection="column"
         display={childrenAreCollapsed ? "none" : "flex"}
       >
-        {hasNested &&
-          order.map((e, idx) => {
-            return (
-              <NestedSection
-                parentId={sectionId}
-                sectionId={e}
-                nextId={order[idx + 1]}
-                sectionInfo={childSectionInfo[e]}
-                available={available}
-                parentControls={{ addChild, deleteChild }}
-                idx={idx}
-                key={`Nested-Sec-${e}`}
-                depth={depth + 1}
-                updatePosition={updatePosition}
-                updateOrder={updateOrder}
-                isCollapsed={childrenAreCollapsed}
-                setIdsOverview={setIdsOverview}
-                setIdNames={setIdNames}
-              />
-            );
-          })}
+        {hasNested && (
+          <Container
+            onDrop={onDrop}
+            dragHandleSelector=".DragHandle"
+            getGhostParent={() => document.body}
+            animationDuration={100}
+          >
+            {children.map((e, idx) => (
+              <Draggable key={`Nested-Sec-${e}`}>
+                <NestedSection
+                  parentId={sectionId}
+                  sectionId={e}
+                  nextId={children[idx + 1]}
+                  sectionInfo={childSectionInfo[e]}
+                  available={available}
+                  parentControls={{ addChild, deleteChild }}
+                  idx={idx}
+                  // key={`Nested-Sec-${e}`}
+                  depth={depth + 1}
+                  isCollapsed={childrenAreCollapsed}
+                  setIdsOverview={setIdsOverview}
+                  setIdNames={setIdNames}
+                />
+              </Draggable>
+            ))}
+          </Container>
+        )}
       </Box>
     </Stack>
   );
@@ -131,7 +133,6 @@ function SectionContainerCore({
   parentId,
   nextId,
   sectionInfo,
-  dragControls,
   addChild,
   deleteChild,
   parentControls,
@@ -156,7 +157,6 @@ function SectionContainerCore({
   }
 
   // console.log("paramInfos", variableName, paramInfos);
-  // console.log("dragControls", dragControls);
 
   // // temp_
   const tempBoolDesc = false;
@@ -168,7 +168,7 @@ function SectionContainerCore({
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {isList && <DragHandle dragControls={dragControls} />}
+      {isList && <DragHandle />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -208,7 +208,7 @@ function SectionContainerCore({
   );
 }
 
-function DragHandle({ dragControls }) {
+function DragHandle() {
   return (
     <HStack
       alignSelf="stretch"
@@ -217,7 +217,6 @@ function DragHandle({ dragControls }) {
       px="0.5rem"
       bg="gray.100"
       className="DragHandle"
-      onMouseDown={(e) => dragControls.start(e)}
     >
       <DragHandleIcon size="sm" color="gray.300" />
     </HStack>

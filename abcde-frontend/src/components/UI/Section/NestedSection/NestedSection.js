@@ -1,8 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
 import SectionContainer from "../SectionContainer/SectionContainer";
-import { motion, useDragControls } from "framer-motion";
-import { useMeasurePosition } from "../../../../utils/useMeasurePosition";
 
 const borderLeft = theme.colors.gray;
 
@@ -15,13 +13,11 @@ function NestedSection({
   parentControls,
   idx,
   depth,
-  updatePosition,
-  updateOrder,
   isCollapsed,
   setIdsOverview,
   setIdNames,
 }) {
-  const getNestedSection = (dragControls) => {
+  const getNestedSection = () => {
     return (
       <SectionContainer
         sectionId={sectionId}
@@ -30,46 +26,11 @@ function NestedSection({
         sectionInfo={sectionInfo}
         available={available}
         depth={depth}
-        dragControls={dragControls}
         parentControls={parentControls}
         isCollapsed={isCollapsed}
         setIdsOverview={setIdsOverview}
         setIdNames={setIdNames}
       />
-    );
-  };
-
-  const MotionDivWrapper = (inner) => {
-    const dragControls = useDragControls();
-    const [isDragging, setDragging] = useState(false);
-
-    const ref = useMeasurePosition((pos) => updatePosition(idx, pos));
-
-    return (
-      <motion.div
-        id="NESTED"
-        ref={ref}
-        layout
-        initial={false}
-        whileDrag={{
-          scale: 1.03,
-          boxShadow: "0px 5px 5px rgba(0,0,0,0.1)",
-        }}
-        drag="y"
-        onDragStart={() => {
-          setDragging(true);
-        }}
-        onDragEnd={() => {
-          setDragging(false);
-        }}
-        onViewportBoxUpdate={(_viewportBox, delta) => {
-          isDragging && updateOrder(idx, delta.y.translate);
-        }}
-        dragListener={false}
-        dragControls={dragControls}
-      >
-        {inner(dragControls)}
-      </motion.div>
     );
   };
 
@@ -86,13 +47,7 @@ function NestedSection({
     );
   };
 
-  const WithOrWithoutMotion = () => {
-    return sectionInfo.isList
-      ? MotionDivWrapper(getNestedSection)
-      : getNestedSection();
-  };
-
-  return StackWrapper(WithOrWithoutMotion());
+  return StackWrapper(getNestedSection());
 }
 
 function areEqual(prevProps, nextProps) {
@@ -102,4 +57,6 @@ function areEqual(prevProps, nextProps) {
   );
 }
 
-export default React.memo(NestedSection, areEqual);
+// export default React.memo(NestedSection, areEqual);
+
+export default React.memo(NestedSection);
