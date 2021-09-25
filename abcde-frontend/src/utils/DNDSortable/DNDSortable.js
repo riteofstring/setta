@@ -12,6 +12,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 export function DNDSortable({ items, setItems, ...props }) {
   const sensors = useSensors(
@@ -38,6 +39,7 @@ export function DNDSortable({ items, setItems, ...props }) {
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
+      modifiers={[restrictToVerticalAxis]}
     >
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {props.children}

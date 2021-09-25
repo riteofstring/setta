@@ -19,7 +19,8 @@ function _SortableNestedSection({ sectionId, ...props }) {
     <NestedSection
       sectionId={sectionId}
       {...props}
-      stackProps={{ style, ref: setNodeRef, ...attributes, ...listeners }}
+      stackProps={{ style, ref: setNodeRef, ...attributes }}
+      dragListeners={listeners}
     />
   );
 }
@@ -37,6 +38,7 @@ function _NestedSection({
   setIdsOverview,
   setIdNames,
   stackProps,
+  dragListeners,
 }) {
   return (
     <Stack
@@ -58,6 +60,7 @@ function _NestedSection({
           isCollapsed={isCollapsed}
           setIdsOverview={setIdsOverview}
           setIdNames={setIdNames}
+          dragListeners={dragListeners}
         />
       </Grid>
     </Stack>

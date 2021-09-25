@@ -28,6 +28,7 @@ function SectionContainer({
   isCollapsed,
   setIdsOverview,
   setIdNames,
+  dragListeners,
 }) {
   const [selectedItem, setSelectedItem] = useState([]);
   const [children, setChildren] = useState([]);
@@ -83,6 +84,7 @@ function SectionContainer({
           flipChildrenAreCollapsed={flipChildrenAreCollapsed}
           selectedItem={selectedItem}
           setSelectedItem={setSelectedItem}
+          dragListeners={dragListeners}
         />
       </ChildrenContext.Provider>
       <Box
@@ -121,6 +123,7 @@ function SectionContainerCore({
   flipChildrenAreCollapsed,
   selectedItem,
   setSelectedItem,
+  dragListeners,
 }) {
   const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
@@ -148,7 +151,7 @@ function SectionContainerCore({
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
     >
-      {isList && <DragHandle />}
+      {isList && <DragHandle dragListeners={dragListeners} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -188,7 +191,7 @@ function SectionContainerCore({
   );
 }
 
-function DragHandle() {
+function DragHandle({ dragListeners }) {
   return (
     <HStack
       alignSelf="stretch"
@@ -197,6 +200,7 @@ function DragHandle() {
       px="0.5rem"
       bg="gray.100"
       className="DragHandle"
+      {...dragListeners}
     >
       <DragHandleIcon size="sm" color="gray.300" />
     </HStack>
