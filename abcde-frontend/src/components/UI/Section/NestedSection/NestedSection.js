@@ -99,12 +99,7 @@ function areEqual(prevProps, nextProps) {
   return (
     prevProps.sectionId === nextProps.sectionId &&
     prevProps.idx === nextProps.idx
-    // prevProps.parentControls.addChildOnRequest ===
-    //   nextProps.parentControls.addChildOnRequest &&
-    // prevProps.parentControls.deleteChildOnRequest ===
-    //   nextProps.parentControls.deleteChildOnRequest
   );
 }
 
 export default React.memo(NestedSection, areEqual);
-// export default React.memo(NestedSection);

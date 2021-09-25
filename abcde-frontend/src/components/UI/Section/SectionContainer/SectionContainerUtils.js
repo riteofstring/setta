@@ -17,7 +17,6 @@ export function funcAddChild(
     startId = null,
     numChildren = 1
   ) {
-    console.log("addChild children", children);
     let newIds = [];
     let newInfos = {};
     for (let i = 0; i < numChildren; i++) {

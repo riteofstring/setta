@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
 import GroupContainer from "./Main/Group/GroupContainer";
@@ -37,11 +37,9 @@ function SectionContainer({
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const [order, updatePosition, updateOrder] = usePositionReorder(children);
-  const [updateRequested, setUpdateRequested] = useState(false);
   const hasNested = children.length > 0;
 
-  console.log("*********SectionContainer", updateRequested);
-  console.log("children", children);
+  console.log("*********SectionContainer", sectionId, selectedItem);
 
   const addChild = funcAddChild(
     sectionInfo,
@@ -52,33 +50,11 @@ function SectionContainer({
     setChildSectionInfo
   );
 
-  const addChildOnRequest = useCallback(
-    funcAddChild(
-      sectionInfo,
-      available,
-      children,
-      childSectionInfo,
-      setChildren,
-      setChildSectionInfo
-    ),
-    [children, updateRequested]
-  );
-
   const deleteChild = funcDeleteChild(
     children,
     childSectionInfo,
     setChildren,
     setChildSectionInfo
-  );
-
-  const deleteChildOnRequest = useCallback(
-    funcDeleteChild(
-      children,
-      childSectionInfo,
-      setChildren,
-      setChildSectionInfo
-    ),
-    [children, updateRequested]
   );
 
   const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
@@ -103,9 +79,7 @@ function SectionContainer({
 
   return (
     <Stack>
-      <ChildrenContext.Provider
-        value={{ addChild, updateRequested, setUpdateRequested }}
-      >
+      <ChildrenContext.Provider value={{ children, addChild }}>
         <SectionContainerCore
           sectionId={sectionId}
           parentId={parentId}
@@ -135,7 +109,7 @@ function SectionContainer({
                 nextId={order[idx + 1]}
                 sectionInfo={childSectionInfo[e]}
                 available={available}
-                parentControls={{ addChildOnRequest, deleteChildOnRequest }}
+                parentControls={{ addChild, deleteChild }}
                 idx={idx}
                 key={`Nested-Sec-${e}`}
                 depth={depth + 1}

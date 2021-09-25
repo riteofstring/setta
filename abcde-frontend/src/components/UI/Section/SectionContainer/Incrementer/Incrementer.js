@@ -1,8 +1,7 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState } from "react";
 import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { HiX } from "react-icons/hi";
-import { ChildrenContext } from "../SectionContainer";
 
 export default function Incrementer({
   sectionId,
@@ -13,24 +12,6 @@ export default function Incrementer({
   parentControls,
   hasNested,
 }) {
-  const { updateRequested, setUpdateRequested } = useContext(ChildrenContext);
-
-  useEffect(() => {
-    if (!updateRequested || updateRequested.sectionId !== sectionId) {
-      return;
-    }
-    const { command, numSections } = updateRequested;
-    console.log("updateRequested", updateRequested)
-    if (command === "addChild") {
-      parentControls.addChildOnRequest(null, null, sectionId, numSections);
-    } else if (command === "deleteChild") {
-      parentControls.deleteChildOnRequest(nextId, numSections);
-    } else if (command === "deleteThisSection") {
-      parentControls.deleteChildOnRequest(sectionId);
-    }
-    setUpdateRequested(false);
-  }, [updateRequested]);
-
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
   };
@@ -39,7 +20,7 @@ export default function Incrementer({
     if (isListRoot) {
       addChild(null, null, null, numSections);
     } else {
-      setUpdateRequested({ sectionId, command: "addChild", numSections });
+      parentControls.addChild(null, null, sectionId, numSections);
     }
   };
 
@@ -47,16 +28,12 @@ export default function Incrementer({
     if (isListRoot) {
       deleteChild(null, numSections);
     } else {
-      setUpdateRequested({ sectionId, command: "deleteChild", numSections });
+      parentControls.deleteChild(nextId, numSections);
     }
   };
 
   const deleteThisSection = () => {
-    setUpdateRequested({
-      sectionId,
-      command: "deleteThisSection",
-      numSections,
-    });
+    parentControls.deleteChild(sectionId);
   };
 
   const numSectionsOnChange = (value) => {
