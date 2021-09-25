@@ -20,7 +20,7 @@ const master = {
   spaceBetweenPages: 500,
   pageMinMaxList: [],
   available: {},
-  uiSpecs: {},
+  uiSpecs: new Map(),
 
   // actions
   // Load DATA
@@ -30,7 +30,7 @@ const master = {
       objects: payload.OBJECTS,
       parameters: payload.PARAMETERS,
     };
-    state.uiSpecs = payload.UI;
+    state.uiSpecs = new Map(Object.entries(payload.UI));
     // for (let key of Object.keys(payload.UI)) {
     //   const currSectionInfo = payload.UI[key];
     //   const newSection = new Section(
@@ -45,7 +45,7 @@ const master = {
     //   parseChildren(state.sections, currSectionInfo);
     // }
     state.pageMinMaxList = getPageMinMaxList(
-      Object.keys(state.uiSpecs).length,
+      state.uiSpecs.size,
       state.sectionsPerPage
     );
   }),

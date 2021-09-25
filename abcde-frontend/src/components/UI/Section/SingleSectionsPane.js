@@ -28,13 +28,14 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
     return idx >= minIdx && idx < maxIdx;
   }
 
-  function getSectionInfo(variableName) {
-    return new SectionInfo(variableName, uiSpecs[variableName], available);
+  function getSectionInfo(idx) {
+    const variableName = [...uiSpecs.keys()][idx];
+    return new SectionInfo(variableName, uiSpecs.get(variableName), available);
   }
 
   function getSectionIds() {
     let newIds = [];
-    for (let idx = 0; idx < Object.keys(uiSpecs).length; idx++) {
+    for (let idx = 0; idx < uiSpecs.size; idx++) {
       if (idxCondition(idx)) {
         newIds.push(createNewId());
       }
@@ -57,7 +58,7 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
             sectionId={e}
             parentId={null}
             // nextId={idx + 1}
-            sectionInfo={getSectionInfo(Object.keys(uiSpecs)[idx + minIdx])}
+            sectionInfo={getSectionInfo(idx + minIdx)}
             available={available}
             key={`${e}-${idx}`}
             depth={0}

@@ -35,7 +35,7 @@ function SectionContainer({
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = children.length > 0;
 
-  console.log("*********SectionContainer", sectionId, selectedItem);
+  // console.log("*********SectionContainer", sectionId, selectedItem);
 
   const addChild = funcAddChild(
     sectionInfo,
