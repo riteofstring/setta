@@ -6,7 +6,25 @@ import { CSS } from "@dnd-kit/utilities";
 
 const borderLeft = theme.colors.gray;
 
-function NestedSection({
+function _SortableNestedSection({ sectionId, ...props }) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: sectionId });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <NestedSection
+      sectionId={sectionId}
+      {...props}
+      stackProps={{ style, ref: setNodeRef, ...attributes, ...listeners }}
+    />
+  );
+}
+
+function _NestedSection({
   parentId,
   sectionId,
   nextId,
@@ -18,59 +36,42 @@ function NestedSection({
   isCollapsed,
   setIdsOverview,
   setIdNames,
+  stackProps,
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: sectionId });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const getNestedSection = () => {
-    return (
-      <SectionContainer
-        sectionId={sectionId}
-        parentId={parentId}
-        nextId={nextId}
-        sectionInfo={sectionInfo}
-        available={available}
-        depth={depth}
-        parentControls={parentControls}
-        isCollapsed={isCollapsed}
-        setIdsOverview={setIdsOverview}
-        setIdNames={setIdNames}
-      />
-    );
-  };
-
-  const StackWrapper = (inner) => {
-    return (
-      <Stack
-        direction="column"
-        pl="1rem"
-        ml=".5rem"
-        boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
-        style={style}
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-      >
-        <Grid gap={2}>{inner}</Grid>
-      </Stack>
-    );
-  };
-
-  return StackWrapper(getNestedSection());
-}
-
-function areEqual(prevProps, nextProps) {
   return (
-    prevProps.sectionId === nextProps.sectionId &&
-    prevProps.idx === nextProps.idx
+    <Stack
+      direction="column"
+      pl="1rem"
+      ml=".5rem"
+      boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
+      {...stackProps}
+    >
+      <Grid gap={2}>
+        <SectionContainer
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          sectionInfo={sectionInfo}
+          available={available}
+          depth={depth}
+          parentControls={parentControls}
+          isCollapsed={isCollapsed}
+          setIdsOverview={setIdsOverview}
+          setIdNames={setIdNames}
+        />
+      </Grid>
+    </Stack>
   );
 }
 
+// function areEqual(prevProps, nextProps) {
+//   return (
+//     prevProps.sectionId === nextProps.sectionId &&
+//     prevProps.idx === nextProps.idx
+//   );
+// }
+
 // export default React.memo(NestedSection, areEqual);
 
-export default React.memo(NestedSection);
+export const NestedSection = React.memo(_NestedSection);
+export const SortableNestedSection = React.memo(_SortableNestedSection);
