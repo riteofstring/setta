@@ -5,7 +5,7 @@ import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import { SectionHeader } from "./Header/SectionHeader";
 import SectionFooter from "./Footer/SectionFooter";
-import NestedSection from "../NestedSection/NestedSection";
+import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
@@ -14,22 +14,6 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
-
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-
 
 export const ChildrenContext = React.createContext(null);
 
@@ -50,13 +34,6 @@ function SectionContainer({
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = children.length > 0;
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   console.log("*********SectionContainer", sectionId, selectedItem);
 
@@ -90,19 +67,6 @@ function SectionContainer({
     setIdNames({ sectionId, name: sectionInfo.name });
   }, [children]);
 
-  function handleDragEnd(event) {
-    const { active, over } = event;
-
-    if (active.id !== over.id) {
-      setChildren((items) => {
-        const oldIndex = items.indexOf(active.id);
-        const newIndex = items.indexOf(over.id);
-
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  }
-
   return (
     <Stack>
       <ChildrenContext.Provider value={{ children, addChild }}>
@@ -126,33 +90,18 @@ function SectionContainer({
         display={childrenAreCollapsed ? "none" : "flex"}
       >
         {hasNested && (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={children}
-              strategy={verticalListSortingStrategy}
-            >
-              {children.map((e, idx) => (
-                <NestedSection
-                  parentId={sectionId}
-                  sectionId={e}
-                  nextId={children[idx + 1]}
-                  sectionInfo={childSectionInfo[e]}
-                  available={available}
-                  parentControls={{ addChild, deleteChild }}
-                  idx={idx}
-                  key={`Nested-Sec-${e}`}
-                  depth={depth + 1}
-                  isCollapsed={childrenAreCollapsed}
-                  setIdsOverview={setIdsOverview}
-                  setIdNames={setIdNames}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+          <ManyNestedSections
+            childIds={children}
+            sectionId={sectionId}
+            childSectionInfo={childSectionInfo}
+            available={available}
+            parentControls={{ addChild, deleteChild }}
+            depth={depth}
+            isCollapsed={childrenAreCollapsed}
+            setIdsOverview={setIdsOverview}
+            setIdNames={setIdNames}
+            setChildren={setChildren}
+          />
         )}
       </Box>
     </Stack>
