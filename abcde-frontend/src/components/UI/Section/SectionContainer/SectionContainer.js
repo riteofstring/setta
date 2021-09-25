@@ -14,8 +14,22 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
-import { Container, Draggable } from "react-smooth-dnd";
-import { arrayMoveImmutable } from "array-move";
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+
 
 export const ChildrenContext = React.createContext(null);
 
@@ -36,6 +50,13 @@ function SectionContainer({
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = children.length > 0;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   console.log("*********SectionContainer", sectionId, selectedItem);
 
@@ -60,11 +81,6 @@ function SectionContainer({
     setChildrenAreCollapsed
   );
 
-  const onDrop = (dropResult) => {
-    const { removedIndex, addedIndex } = dropResult;
-    setChildren(arrayMoveImmutable(children, removedIndex, addedIndex));
-  };
-
   useEffect(() => {
     setChildrenAreCollapsed(isCollapsed);
   }, [isCollapsed]);
@@ -73,6 +89,19 @@ function SectionContainer({
     setIdsOverview({ sectionId, children });
     setIdNames({ sectionId, name: sectionInfo.name });
   }, [children]);
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setChildren((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }
 
   return (
     <Stack>
@@ -97,14 +126,16 @@ function SectionContainer({
         display={childrenAreCollapsed ? "none" : "flex"}
       >
         {hasNested && (
-          <Container
-            onDrop={onDrop}
-            dragHandleSelector=".DragHandle"
-            getGhostParent={() => document.body}
-            animationDuration={100}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            {children.map((e, idx) => (
-              <Draggable key={`Nested-Sec-${e}`}>
+            <SortableContext
+              items={children}
+              strategy={verticalListSortingStrategy}
+            >
+              {children.map((e, idx) => (
                 <NestedSection
                   parentId={sectionId}
                   sectionId={e}
@@ -113,15 +144,15 @@ function SectionContainer({
                   available={available}
                   parentControls={{ addChild, deleteChild }}
                   idx={idx}
-                  // key={`Nested-Sec-${e}`}
+                  key={`Nested-Sec-${e}`}
                   depth={depth + 1}
                   isCollapsed={childrenAreCollapsed}
                   setIdsOverview={setIdsOverview}
                   setIdNames={setIdNames}
                 />
-              </Draggable>
-            ))}
-          </Container>
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </Box>
     </Stack>
