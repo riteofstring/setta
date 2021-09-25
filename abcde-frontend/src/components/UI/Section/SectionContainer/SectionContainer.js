@@ -14,30 +14,9 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
-import { useStoreState, useStoreActions } from "easy-peasy";
-import { curryAction, defaultState } from "../../../../utils/utils";
+import { useIdsOverview } from "../../../../utils/useIdsOverview";
 
 export const ChildrenContext = React.createContext(null);
-
-function SectionContainerWrapper({ sectionId, ...props }) {
-  const setIdsOverview = curryAction(
-    useStoreActions((x) => x.sections.setIdsOverview),
-    { sectionId },
-    "children"
-  );
-  const idsOverview = defaultState(
-    useStoreState((x) => x.sections.idsOverview[sectionId]),
-    []
-  );
-  return (
-    <SectionContainer
-      sectionId={sectionId}
-      {...props}
-      idsOverview={idsOverview}
-      setIdsOverview={setIdsOverview}
-    />
-  );
-}
 
 function SectionContainer({
   sectionId,
@@ -48,11 +27,10 @@ function SectionContainer({
   depth,
   parentControls,
   isCollapsed,
-  idsOverview,
-  setIdsOverview,
   setIdNames,
   dragListeners,
 }) {
+  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
@@ -225,4 +203,4 @@ function DragHandle({ dragListeners }) {
   );
 }
 
-export default React.memo(SectionContainerWrapper);
+export default React.memo(SectionContainer);

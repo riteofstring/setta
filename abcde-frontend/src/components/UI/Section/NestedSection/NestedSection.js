@@ -1,6 +1,6 @@
 import React from "react";
 import { Grid, Stack, theme } from "@chakra-ui/react";
-import SectionContainerWrapper from "../SectionContainer/SectionContainer";
+import SectionContainer from "../SectionContainer/SectionContainer";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -49,7 +49,7 @@ function _NestedSection({
       {...stackProps}
     >
       <Grid gap={2}>
-        <SectionContainerWrapper
+        <SectionContainer
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}

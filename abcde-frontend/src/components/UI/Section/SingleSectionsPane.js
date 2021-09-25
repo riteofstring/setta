@@ -1,24 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import SectionContainerWrapper from "./SectionContainer/SectionContainer";
+import SectionContainer from "./SectionContainer/SectionContainer";
 import { Heading, Stack } from "@chakra-ui/react";
 import { SectionInfo } from "../../../classes/jsonParser";
 import { createNewId } from "../../../utils/sectionIds";
-import { curryAction, defaultState } from "../../../utils/utils";
+import { useIdsOverview } from "../../../utils/useIdsOverview";
 
 function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
-
-  const idsOverview = defaultState(
-    useStoreState((x) => x.sections.idsOverview[groupId]),
-    []
-  );
-
-  const setIdsOverview = curryAction(
-    useStoreActions((x) => x.sections.setIdsOverview),
-    { sectionId: groupId },
-    "children"
-  );
+  const [idsOverview, setIdsOverview] = useIdsOverview(groupId);
   const setIdNames = useStoreActions((x) => x.sections.setIdNames);
 
   useEffect(() => {
@@ -51,7 +41,7 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
           Group {groupId}
         </Heading>
         {idsOverview.map((e, idx) => (
-          <SectionContainerWrapper
+          <SectionContainer
             sectionId={e}
             parentId={null}
             // nextId={idx + 1}
