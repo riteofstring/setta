@@ -14,8 +14,30 @@ import {
   funcDeleteChild,
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
+import { useStoreState, useStoreActions } from "easy-peasy";
+import { curryAction, defaultState } from "../../../../utils/utils";
 
 export const ChildrenContext = React.createContext(null);
+
+function SectionContainerWrapper({ sectionId, ...props }) {
+  const setIdsOverview = curryAction(
+    useStoreActions((x) => x.sections.setIdsOverview),
+    { sectionId },
+    "children"
+  );
+  const idsOverview = defaultState(
+    useStoreState((x) => x.sections.idsOverview[sectionId]),
+    []
+  );
+  return (
+    <SectionContainer
+      sectionId={sectionId}
+      {...props}
+      idsOverview={idsOverview}
+      setIdsOverview={setIdsOverview}
+    />
+  );
+}
 
 function SectionContainer({
   sectionId,
@@ -26,31 +48,29 @@ function SectionContainer({
   depth,
   parentControls,
   isCollapsed,
+  idsOverview,
   setIdsOverview,
   setIdNames,
   dragListeners,
 }) {
   const [selectedItem, setSelectedItem] = useState([]);
-  const [children, setChildren] = useState([]);
   const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
-  const hasNested = children.length > 0;
-
-  // console.log("*********SectionContainer", sectionId, selectedItem);
+  const hasNested = idsOverview.length > 0;
 
   const addChild = funcAddChild(
     sectionInfo,
     available,
-    children,
+    idsOverview,
     childSectionInfo,
-    setChildren,
+    setIdsOverview,
     setChildSectionInfo
   );
 
   const deleteChild = funcDeleteChild(
-    children,
+    idsOverview,
     childSectionInfo,
-    setChildren,
+    setIdsOverview,
     setChildSectionInfo
   );
 
@@ -64,13 +84,12 @@ function SectionContainer({
   }, [isCollapsed]);
 
   useEffect(() => {
-    setIdsOverview({ sectionId, children });
     setIdNames({ sectionId, name: sectionInfo.name });
-  }, [children]);
+  }, [idsOverview]);
 
   return (
     <Stack>
-      <ChildrenContext.Provider value={{ children, addChild }}>
+      <ChildrenContext.Provider value={{ addChild }}>
         <SectionContainerCore
           sectionId={sectionId}
           parentId={parentId}
@@ -93,16 +112,15 @@ function SectionContainer({
       >
         {hasNested && (
           <ManyNestedSections
-            childIds={children}
+            childIds={idsOverview}
             sectionId={sectionId}
             childSectionInfo={childSectionInfo}
             available={available}
             parentControls={{ addChild, deleteChild }}
             depth={depth}
             isCollapsed={childrenAreCollapsed}
-            setIdsOverview={setIdsOverview}
             setIdNames={setIdNames}
-            setChildren={setChildren}
+            setChildren={setIdsOverview}
           />
         )}
       </Box>
@@ -207,4 +225,4 @@ function DragHandle({ dragListeners }) {
   );
 }
 
-export default React.memo(SectionContainer);
+export default React.memo(SectionContainerWrapper);

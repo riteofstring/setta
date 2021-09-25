@@ -19,10 +19,11 @@ export default function Overview() {
 
   useEffect(() => {
     console.log("Overview useEffect");
+    console.log("idsOverview", idsOverview)
     setListOfSectionIdsAndNames(
       getOverviewListing(pageMinMaxList, idsOverview, idNames)
     );
-  }, [idsOverview]);
+  }, [idsOverview, idNames]);
 
   return (
     <PaneContainer paneProps={paneProps}>

@@ -104,3 +104,15 @@ export function createSelectedString(moduleName, objName) {
   }
   return null;
 }
+
+export function curryAction(action, args, key = null) {
+  const fn = (newState) => {
+    const asArg = key ? {[key]: newState} : newState;
+    return action({ ...args, ...asArg });
+  };
+  return fn;
+}
+
+export function defaultState(state, value) {
+  return state === undefined ? value : state;
+}

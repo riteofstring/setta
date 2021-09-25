@@ -10,7 +10,6 @@ export default function ManyNestedSections({
   parentControls,
   depth,
   isCollapsed,
-  setIdsOverview,
   setIdNames,
   setChildren,
 }) {
@@ -30,7 +29,6 @@ export default function ManyNestedSections({
         key: `Nested-Sec-${e}`,
         depth: depth + 1,
         isCollapsed,
-        setIdsOverview,
         setIdNames,
       })
     );
