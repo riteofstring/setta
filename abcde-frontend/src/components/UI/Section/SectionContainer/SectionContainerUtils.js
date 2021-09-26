@@ -51,11 +51,15 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         } else {
           config = uiSpecs.get(childVariableName);
         }
-        const [newSectionInfo, newInfoId] = createSectionInfo(
+
+        const infoFactoryOutput = createSectionInfo(
           childVariableName,
           config,
           available
         );
+        console.log("infoFactoryOutput", infoFactoryOutput);
+
+        const { info: newSectionInfo, id: newInfoId } = infoFactoryOutput;
         setSectionInfo({
           sectionInfoId: newInfoId,
           sectionInfo: newSectionInfo,
