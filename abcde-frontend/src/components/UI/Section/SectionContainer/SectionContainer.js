@@ -98,7 +98,7 @@ function SectionContainerCore({
   dragListeners,
 }) {
   const [sectionInfo, sectionInfoId] = useGetSectionInfo(sectionId);
-  const moduleInfos = useGetModuleInfos(sectionInfoId)[0];
+  const [moduleInfos, moduleInfoIds] = useGetModuleInfos(sectionInfoId);
   const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
@@ -142,6 +142,7 @@ function SectionContainerCore({
             {showSearch && (
               <SectionSearch
                 moduleInfos={moduleInfos}
+                moduleInfoIds={moduleInfoIds}
                 initialSelection={selectedItem}
                 onSelectedItemChange={onSelectedItemChange}
               />

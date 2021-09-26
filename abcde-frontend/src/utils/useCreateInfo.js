@@ -38,13 +38,13 @@ export function useCreateSectionInfo() {
     for (let m of moduleInfos) {
       setModuleInfo({ moduleInfo: m.info, moduleInfoId: m.id });
       setObjInfoIds({
-        moduleInfoId: id,
+        moduleInfoId: m.id,
         objInfoIds: m.objInfos.map((x) => x.id),
       });
       for (let o of m.objInfos) {
         setObjInfo({ objInfo: o.info, objInfoId: o.id });
         setParamInfoIds({
-          objInfoId: id,
+          objInfoId: o.id,
           paramInfoIds: o.parameterInfos.map((x) => x.id),
         });
         for (let p of o.parameterInfos) {
@@ -96,6 +96,22 @@ export function useGetModuleInfos(sectionInfoId) {
   );
   const moduleInfos = useStoreState((x) => x.moduleInfos.moduleInfo);
   return [moduleInfoIds.map((x) => moduleInfos[x]), moduleInfoIds];
+}
+
+export function useGetObjInfos(moduleInfoIds) {
+  const objInfoIds = useStoreState((x) => x.moduleInfos.objInfoIds);
+  const objInfos = useStoreState((x) => x.objInfos.objInfo);
+
+  console.log("useGetObjInfos objInfoIds", objInfoIds);
+
+  const output = [];
+  const outputIds = [];
+  for (let m of moduleInfoIds) {
+    const currIds = objInfoIds[m];
+    outputIds.push(currIds);
+    output.push(currIds.map((x) => objInfos[x]));
+  }
+  return [output, outputIds];
 }
 
 export function useGetSectionParamInfos(sectionInfoId) {

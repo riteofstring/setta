@@ -3,28 +3,29 @@ import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import React, { useState } from "react";
 
+import { useGetObjInfos } from "../../../../../../utils/useCreateInfo";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 
 export default function SectionSearch({
   moduleInfos,
+  moduleInfoIds,
   onSelectedItemChange,
   initialSelection,
 }) {
   const [selection, setSelection] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
-
-  console.log("selection", selection);
+  const [objInfos, objInfoIds] = useGetObjInfos(moduleInfoIds);
 
   const itemToString = (x) => {
-    return x ? x[1] : "";
+    return x ? objInfos[x[0]][x[1]].name : "";
   };
 
   const getSearchItems = () => {
     let output = [];
-    for (let moduleName of Object.keys(moduleInfos)) {
-      for (let objName of Object.keys(moduleInfos[moduleName].objs)) {
-        output.push([moduleName, objName]);
+    for (let i = 0; i < moduleInfos.length; i++) {
+      for (let j = 0; j < objInfoIds[i].length; j++) {
+        output.push([i, j]);
       }
     }
     return output;
