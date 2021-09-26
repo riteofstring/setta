@@ -6,18 +6,15 @@ const sectionInfos = {
   paramInfoIds: {},
 
   setSectionInfo: action((state, payload) => {
-    const { sectionInfoId, sectionInfo } = payload;
-    state.sectionInfo[sectionInfoId] = sectionInfo;
+    state.sectionInfo = payload(state.sectionInfo);
   }),
 
   setModuleInfoIds: action((state, payload) => {
-    const { sectionInfoId, moduleInfoIds } = payload;
-    state.moduleInfoIds[sectionInfoId] = moduleInfoIds;
+    state.moduleInfoIds = payload(state.moduleInfoIds);
   }),
 
   setParamInfoIds: action((state, payload) => {
-    const { sectionInfoId, paramInfoIds } = payload;
-    state.paramInfoIds[sectionInfoId] = paramInfoIds;
+    state.paramInfoIds = payload(state.paramInfoIds);
   }),
 };
 

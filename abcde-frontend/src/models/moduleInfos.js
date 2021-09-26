@@ -5,13 +5,11 @@ const moduleInfos = {
   objInfoIds: {},
 
   setModuleInfo: action((state, payload) => {
-    const { moduleInfoId, moduleInfo } = payload;
-    state.moduleInfo[moduleInfoId] = moduleInfo;
+    state.moduleInfo = payload(state.moduleInfo);
   }),
 
   setObjInfoIds: action((state, payload) => {
-    const { moduleInfoId, objInfoIds } = payload;
-    state.objInfoIds[moduleInfoId] = objInfoIds;
+    state.objInfoIds = payload(state.objInfoIds);
   }),
 };
 

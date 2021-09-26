@@ -22,62 +22,57 @@ export function useCreateSectionInfo() {
     console.log("useCreateSectionInfo infoFactoryOutput", infoFactoryOutput);
 
     const { info, id, moduleInfos, parameterInfos } = infoFactoryOutput;
-    setSectionInfo({
-      sectionInfo: info,
-      sectionInfoId: id,
+    setSectionInfo((x) => {
+      return { ...x, [id]: info };
     });
-    setModuleInfoIds({
-      sectionInfoId: id,
-      moduleInfoIds: moduleInfos.map((x) => x.id),
+    setModuleInfoIds((x) => {
+      return { ...x, [id]: moduleInfos.map((x) => x.id) };
     });
-    setSectionParamInfoIds({
-      sectionInfoId: id,
-      paramInfoIds: parameterInfos.map((x) => x.id),
+    setSectionParamInfoIds((x) => {
+      return { ...x, [id]: parameterInfos.map((x) => x.id) };
     });
 
+    const newModuleInfos = {};
+    const newModuleObjInfos = {};
+    const newObjInfos = {};
+    const newObjParamInfos = {};
+    const newParamInfos = {};
     for (let m of moduleInfos) {
-      setModuleInfo({ moduleInfo: m.info, moduleInfoId: m.id });
-      setObjInfoIds({
-        moduleInfoId: m.id,
-        objInfoIds: m.objInfos.map((x) => x.id),
-      });
+      newModuleInfos[m.id] = m.info;
+      newModuleObjInfos[m.id] = m.objInfos.map((x) => x.id);
       for (let o of m.objInfos) {
-        setObjInfo({ objInfo: o.info, objInfoId: o.id });
-        setParamInfoIds({
-          objInfoId: o.id,
-          paramInfoIds: o.parameterInfos.map((x) => x.id),
-        });
+        newObjInfos[o.id] = o.info;
+        newObjParamInfos[o.id] = o.parameterInfos.map((x) => x.id);
         for (let p of o.parameterInfos) {
-          setParamInfo({ paramInfo: p.info, paramInfoId: p.id });
+          newParamInfos[p.id] = p.info;
         }
       }
     }
     for (let p of parameterInfos) {
-      setParamInfo({ paramInfo: p.info, paramInfoId: p.id });
+      newParamInfos[p.id] = p.info;
     }
+
+    setModuleInfo((x) => {
+      return { ...x, ...newModuleInfos };
+    });
+    setObjInfoIds((x) => {
+      return { ...x, ...newModuleObjInfos };
+    });
+    setObjInfo((x) => {
+      return { ...x, ...newObjInfos };
+    });
+    setParamInfoIds((x) => {
+      return { ...x, ...newObjParamInfos };
+    });
+    setParamInfo((x) => {
+      return { ...x, ...newParamInfos };
+    });
 
     return id;
   };
 
   return createInfo;
 }
-
-// export function useCreateModuleInfo() {
-
-//   const createInfo = (name, jsonInput) => {
-//     const infoFactoryOutput = createModuleInfo(name, jsonInput);
-//     console.log("useCreateModuleInfo infoFactoryOutput", infoFactoryOutput);
-
-//     const { info, id } = infoFactoryOutput;
-//     setModuleInfo({
-//       sectionInfo: info,
-//       sectionInfoId: id,
-//     });
-//     return id;
-//   };
-
-//   return createInfo;
-// }
 
 export function useGetSectionInfo(sectionId) {
   const sectionInfoId = useStoreState(
