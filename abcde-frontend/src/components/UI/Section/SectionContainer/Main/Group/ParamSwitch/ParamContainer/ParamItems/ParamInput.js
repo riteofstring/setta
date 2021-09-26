@@ -5,7 +5,8 @@ import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
-  const { paramInfo, paramInfoId } = props;
+  const { paramInfo } = props;
+  const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
   const setEnteredValue = useStoreActions((x) => x.paramInfos.setEnteredValue);
   const storedValue = useStoreState(

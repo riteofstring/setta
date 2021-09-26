@@ -4,7 +4,7 @@ import { useGetSectionParamInfos } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, sectionInfoId }) {
-  const [paramInfos, paramInfoIds] = useGetSectionParamInfos(sectionInfoId);
+  const paramInfos = useGetSectionParamInfos(sectionInfoId);
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
@@ -51,7 +51,6 @@ export default function GroupContainer({ sectionId, sectionInfoId }) {
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               paramInfo={e}
-              paramInfoId={paramInfoIds[idx]}
             />
           ))}
         </FormControl>

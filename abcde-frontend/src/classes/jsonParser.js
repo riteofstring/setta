@@ -8,7 +8,8 @@ export const convertSpecsToDict = (specs) => {
 };
 
 export class ParameterInfo {
-  constructor(name, jsonInput) {
+  constructor(id, name, jsonInput) {
+    this.id = id;
     this.name = name;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
@@ -27,19 +28,22 @@ export class ParameterInfo {
 }
 
 export class ObjInfo {
-  constructor(name, jsonInput) {
+  constructor(id, name, jsonInput) {
+    this.id = id;
     this.name = name;
   }
 }
 
 export class ModuleInfo {
-  constructor(name, jsonInput) {
+  constructor(id, name, jsonInput) {
+    this.id = id;
     this.name = name;
   }
 }
 
 export class SectionInfo {
-  constructor(name, jsonInput) {
+  constructor(id, name, jsonInput) {
+    this.id = id;
     this.name = name;
   }
 }

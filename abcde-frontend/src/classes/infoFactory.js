@@ -38,9 +38,8 @@ const createJson = (specs, available) => {
 };
 
 function createInfo(infoType, name, jsonInput) {
-  const info = new infoType(name, jsonInput);
-  const id = createNewId();
-  return { info, id };
+  const info = new infoType(createNewId(), name, jsonInput);
+  return { info, id: info.id };
 }
 
 export function createSectionInfo(name, specs, available) {

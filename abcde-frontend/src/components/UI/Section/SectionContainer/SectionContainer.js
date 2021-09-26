@@ -98,9 +98,11 @@ function SectionContainerCore({
   setSelectedItem,
   dragListeners,
 }) {
-  const [sectionInfo, sectionInfoId] = useGetSectionInfo(sectionId);
-  const [moduleInfos, moduleInfoIds] = useGetModuleInfos(sectionInfoId);
-  const [objInfos, objInfoIds] = useGetObjInfos(moduleInfoIds);
+  const sectionInfo = useGetSectionInfo(sectionId);
+  const sectionInfoId = sectionInfo.id;
+  const moduleInfos = useGetModuleInfos(sectionInfoId);
+  const moduleInfoIds = moduleInfos.map((x) => x.id);
+  const objInfos = useGetObjInfos(moduleInfoIds);
   const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;

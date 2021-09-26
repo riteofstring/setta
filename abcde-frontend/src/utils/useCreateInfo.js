@@ -87,7 +87,7 @@ export function useGetSectionInfo(sectionId) {
     (x) => x.sectionInfos.sectionInfo[sectionInfoId]
   );
 
-  return [sectionInfo, sectionInfoId];
+  return sectionInfo;
 }
 
 export function useGetModuleInfos(sectionInfoId) {
@@ -95,7 +95,7 @@ export function useGetModuleInfos(sectionInfoId) {
     (x) => x.sectionInfos.moduleInfoIds[sectionInfoId]
   );
   const moduleInfos = useStoreState((x) => x.moduleInfos.moduleInfo);
-  return [moduleInfoIds.map((x) => moduleInfos[x]), moduleInfoIds];
+  return moduleInfoIds.map((x) => moduleInfos[x]);
 }
 
 export function useGetObjInfos(moduleInfoIds) {
@@ -103,13 +103,11 @@ export function useGetObjInfos(moduleInfoIds) {
   const objInfos = useStoreState((x) => x.objInfos.objInfo);
 
   const output = [];
-  const outputIds = [];
   for (let m of moduleInfoIds) {
     const currIds = objInfoIds[m];
-    outputIds.push(currIds);
     output.push(currIds.map((x) => objInfos[x]));
   }
-  return [output, outputIds];
+  return output;
 }
 
 export function useGetParamInfos(objInfoIds) {
@@ -117,13 +115,11 @@ export function useGetParamInfos(objInfoIds) {
   const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
 
   const output = [];
-  const outputIds = [];
   for (let o of objInfoIds) {
     const currIds = paramInfoIds[o];
-    outputIds.push(currIds);
     output.push(currIds.map((x) => paramInfos[x]));
   }
-  return [output, outputIds];
+  return output;
 }
 
 export function useGetSectionParamInfos(sectionInfoId) {
@@ -131,5 +127,5 @@ export function useGetSectionParamInfos(sectionInfoId) {
     (x) => x.sectionInfos.paramInfoIds[sectionInfoId]
   );
   const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
-  return [paramInfoIds.map((x) => paramInfos[x]), paramInfoIds];
+  return paramInfoIds.map((x) => paramInfos[x]);
 }
