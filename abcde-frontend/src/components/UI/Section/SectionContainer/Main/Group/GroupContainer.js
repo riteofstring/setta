@@ -1,7 +1,4 @@
-import {
-  Stack,
-  FormControl,
-} from "@chakra-ui/react";
+import { Stack, FormControl } from "@chakra-ui/react";
 
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 

@@ -1,2 +1,2 @@
-yarn prettier --write .
-@REM yarn run eslint . --fix
+yarn run eslint . --fix
+yarn prettier . --write

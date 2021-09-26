@@ -1,4 +1,3 @@
-
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 

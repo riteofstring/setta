@@ -1,9 +1,7 @@
 import { action, thunk } from "easy-peasy";
 
 import Data from "../data/simpleTrainTest.json";
-import {
-  parseUI,
-} from "../graphql/parsers/uiParsers";
+import { parseUI } from "../graphql/parsers/uiParsers";
 import { getPageMinMaxList } from "../utils/sectionIds";
 
 const master = {
