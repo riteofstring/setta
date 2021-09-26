@@ -7,6 +7,7 @@ import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
 import {
   useGetSectionInfo,
   useGetModuleInfos,
+  useGetObjInfos,
 } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
@@ -99,6 +100,7 @@ function SectionContainerCore({
 }) {
   const [sectionInfo, sectionInfoId] = useGetSectionInfo(sectionId);
   const [moduleInfos, moduleInfoIds] = useGetModuleInfos(sectionInfoId);
+  const [objInfos, objInfoIds] = useGetObjInfos(moduleInfoIds);
   const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
@@ -142,7 +144,7 @@ function SectionContainerCore({
             {showSearch && (
               <SectionSearch
                 moduleInfos={moduleInfos}
-                moduleInfoIds={moduleInfoIds}
+                objInfos={objInfos}
                 initialSelection={selectedItem}
                 onSelectedItemChange={onSelectedItemChange}
               />
@@ -151,6 +153,9 @@ function SectionContainerCore({
             <GroupContainer
               sectionId={sectionId}
               sectionInfoId={sectionInfoId}
+              moduleInfos={moduleInfos}
+              objInfos={objInfos}
+              selectedItem={selectedItem}
             />
             <SectionFooter
               sectionId={sectionId}

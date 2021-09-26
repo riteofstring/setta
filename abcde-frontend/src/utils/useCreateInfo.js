@@ -102,14 +102,26 @@ export function useGetObjInfos(moduleInfoIds) {
   const objInfoIds = useStoreState((x) => x.moduleInfos.objInfoIds);
   const objInfos = useStoreState((x) => x.objInfos.objInfo);
 
-  console.log("useGetObjInfos objInfoIds", objInfoIds);
-
   const output = [];
   const outputIds = [];
   for (let m of moduleInfoIds) {
     const currIds = objInfoIds[m];
     outputIds.push(currIds);
     output.push(currIds.map((x) => objInfos[x]));
+  }
+  return [output, outputIds];
+}
+
+export function useGetParamInfos(objInfoIds) {
+  const paramInfoIds = useStoreState((x) => x.objInfos.paramInfoIds);
+  const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
+
+  const output = [];
+  const outputIds = [];
+  for (let o of objInfoIds) {
+    const currIds = paramInfoIds[o];
+    outputIds.push(currIds);
+    output.push(currIds.map((x) => paramInfos[x]));
   }
   return [output, outputIds];
 }
