@@ -105,7 +105,7 @@ export function useGetObjInfos(moduleInfoIds) {
   const output = [];
   for (let m of moduleInfoIds) {
     const currIds = objInfoIds[m];
-    output.push(currIds.map((x) => objInfos[x]));
+    output.push(...currIds.map((x) => objInfos[x]));
   }
   return output;
 }
@@ -117,7 +117,7 @@ export function useGetParamInfos(objInfoIds) {
   const output = [];
   for (let o of objInfoIds) {
     const currIds = paramInfoIds[o];
-    output.push(currIds.map((x) => paramInfos[x]));
+    output.push(...currIds.map((x) => paramInfos[x]));
   }
   return output;
 }

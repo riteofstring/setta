@@ -1,32 +1,35 @@
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
+import _ from "lodash";
 import React, { useState } from "react";
 
+import {
+  useGetModuleInfos,
+  useGetObjInfos,
+} from "../../../../../../utils/useCreateInfo";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 
 export default function SectionSearch({
-  moduleInfos,
-  objInfos,
+  sectionInfoId,
   onSelectedItemChange,
   initialSelection,
 }) {
+  const moduleInfos = useGetModuleInfos(sectionInfoId);
+  const moduleInfoIds = moduleInfos.map((x) => x.id);
+  const objInfos = useGetObjInfos(moduleInfoIds);
   const [selection, setSelection] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
-    return x ? objInfos[x[0]][x[1]].name : "";
+    return x ? objInfos[x.idx].name : "";
   };
 
   const getSearchItems = () => {
-    let output = [];
-    for (let i = 0; i < moduleInfos.length; i++) {
-      for (let j = 0; j < objInfos[i].length; j++) {
-        output.push([i, j]);
-      }
-    }
-    return output;
+    return objInfos.map((x, idx) => {
+      return { id: x.id, idx };
+    });
   };
 
   const onClick = () => {
@@ -36,11 +39,8 @@ export default function SectionSearch({
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
     console.log("localOnSelectedItemChange", selectedItem);
-    if (selectedItem) {
-      const [moduleIdx, objIdx] = selectedItem;
-      if (moduleIdx !== selection[0] || objIdx !== selection[1]) {
-        setSelection([moduleIdx, objIdx]);
-      }
+    if (!_.isEqual(selectedItem, selection)) {
+      setSelection(selectedItem);
     }
     onSelectedItemChange(selectedItem);
   };

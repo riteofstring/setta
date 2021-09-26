@@ -4,11 +4,7 @@ import { useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 
 import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
-import {
-  useGetSectionInfo,
-  useGetModuleInfos,
-  useGetObjInfos,
-} from "../../../../utils/useCreateInfo";
+import { useGetSectionInfo } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
@@ -100,13 +96,10 @@ function SectionContainerCore({
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
   const sectionInfoId = sectionInfo.id;
-  const moduleInfos = useGetModuleInfos(sectionInfoId);
-  const moduleInfoIds = moduleInfos.map((x) => x.id);
-  const objInfos = useGetObjInfos(moduleInfoIds);
   const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
-  const showSearch = Object.keys(moduleInfos).length > 0;
+  const showSearch = sectionInfo.hasModules;
   const isList = sectionType === LIST;
   const isListRoot = sectionType === LIST_ROOT;
 
@@ -145,8 +138,7 @@ function SectionContainerCore({
           <Stack>
             {showSearch && (
               <SectionSearch
-                moduleInfos={moduleInfos}
-                objInfos={objInfos}
+                sectionInfoId={sectionInfoId}
                 initialSelection={selectedItem}
                 onSelectedItemChange={onSelectedItemChange}
               />
@@ -155,9 +147,6 @@ function SectionContainerCore({
             <GroupContainer
               sectionId={sectionId}
               sectionInfoId={sectionInfoId}
-              moduleInfos={moduleInfos}
-              objInfos={objInfos}
-              selectedItem={selectedItem}
             />
             <SectionFooter
               sectionId={sectionId}

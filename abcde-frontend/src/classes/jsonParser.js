@@ -45,5 +45,6 @@ export class SectionInfo {
   constructor(id, name, jsonInput) {
     this.id = id;
     this.name = name;
+    this.hasModules = "ModuleInfo" in jsonInput;
   }
 }
