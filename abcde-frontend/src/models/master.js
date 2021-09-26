@@ -1,20 +1,10 @@
-import { action, thunk, debug } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 
-import { SectionInfo } from "../classes/jsonParser";
-import { Section } from "../classes/section";
-import { Sections } from "../classes/sections";
 import Data from "../data/simpleTrainTest.json";
-import { generateAndRunCode } from "../dbRequests/ui";
 import {
   parseUI,
-  parseEnteredValues,
-  parseUITypes,
-  parseSelected,
-  parseChildren,
 } from "../graphql/parsers/uiParsers";
-import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
-import { NO_AUTH } from "../utils/constants";
-import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
+import { getPageMinMaxList } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,

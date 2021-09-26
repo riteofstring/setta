@@ -1,6 +1,4 @@
-import { useStoreState } from "easy-peasy";
 
-import { NestedObjectInputConfig } from "./NestedObjectInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 

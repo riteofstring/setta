@@ -7,7 +7,6 @@ import React, { useLayoutEffect } from "react";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { websocketAuth } from "../../dbRequests/authentication.js";
 import { resetState } from "../../store/store";
-import { NO_AUTH } from "../../utils/constants";
 import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {

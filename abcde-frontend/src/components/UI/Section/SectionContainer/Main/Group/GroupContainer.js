@@ -1,15 +1,8 @@
-import { AddIcon } from "@chakra-ui/icons";
 import {
   Stack,
-  HStack,
-  Heading,
   FormControl,
-  IconButton,
 } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
-import { useState, useEffect, createContext } from "react";
 
-import { arraysAreEqual } from "../../../../../../utils/commonFunctions";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, paramInfos }) {

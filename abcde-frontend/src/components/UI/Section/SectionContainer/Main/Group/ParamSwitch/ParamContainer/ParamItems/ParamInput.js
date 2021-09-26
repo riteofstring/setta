@@ -5,7 +5,6 @@ import {
   nullOrUndefined,
   createSelectedString,
 } from "../../../../../../../../../utils/utils";
-import { HistoryContext } from "../../../GroupContainer";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {

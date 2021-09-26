@@ -14,7 +14,7 @@ import {
   PopoverCloseButton,
   PopoverFooter,
 } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { RiPlayMiniFill } from "react-icons/ri";
 
 import ExportYamlButton from "./ExportYamlButton";

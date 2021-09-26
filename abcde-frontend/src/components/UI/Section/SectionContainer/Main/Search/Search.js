@@ -1,8 +1,7 @@
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
-import { useStoreState, useStoreActions } from "easy-peasy";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 

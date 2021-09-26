@@ -3,7 +3,8 @@ module.exports = {
     browser: true,
     es2021: true,
   },
-  extends: ["eslint:recommended"],
+  extends: ["eslint:recommended", "plugin:react/recommended"],
+  parser: "babel-eslint",
   parserOptions: {
     ecmaFeatures: {
       jsx: true,
@@ -12,5 +13,17 @@ module.exports = {
     sourceType: "module",
   },
   plugins: ["unused-imports"],
-  rules: { "unused-imports/no-unused-imports": "error", "no-unused-vars": 0 },
+  rules: {
+    "react/prop-types": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/display-name": "off",
+    "unused-imports/no-unused-imports": "warn",
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    "react/jsx-uses-react": "warn",
+    "react/jsx-uses-vars": "warn",
+    "react/jsx-no-duplicate-props": "warn",
+    "react/no-children-prop": "warn",
+    "no-constant-condition": "warn",
+  },
 };

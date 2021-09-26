@@ -3,11 +3,8 @@ import { action, thunk } from "easy-peasy";
 import {
   loadFolderAndUINames as loadFolderAndUINamesBackend,
   loadUI as loadUIBackend,
-  loadDraftUI as loadDraftUIBackend,
   saveUI as saveUIBackend,
-  saveDraftUI as saveDraftUIBackend,
 } from "../dbRequests/ui";
-import { getCompleteState } from "../utils/commonFunctions";
 import { allDefined } from "../utils/utils";
 
 const uiInfo = {

@@ -5,7 +5,6 @@ import EnvSelectButton from "./EnvSelect/EnvSelectButton";
 import FileMenu from "./FileMenu/FileMenu";
 import RunButton from "./RunButton/RunButton";
 import SelectMachine from "./SelectMachine/SelectMachine";
-import TerminalButton from "./TerminalButton/TerminalButton";
 
 export default function SubNav() {
   return (

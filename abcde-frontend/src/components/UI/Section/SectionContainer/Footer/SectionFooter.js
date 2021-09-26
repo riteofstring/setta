@@ -1,9 +1,7 @@
 import { Grid, useDisclosure } from "@chakra-ui/react";
-import { createContext, useState } from "react";
+import { useState } from "react";
 
 import CollapseSectionButton from "./CollapseSectionButton/CollapseSectionButton";
-import GearMenu from "./GearMenu/GearMenu";
-import GearModal from "./GearModal/GearModal";
 import ViewNestedButton from "./ViewNestedButton/ViewNestedButton";
 
 // export const MenuContext = createContext(null);

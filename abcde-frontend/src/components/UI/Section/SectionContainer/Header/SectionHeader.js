@@ -1,5 +1,4 @@
-import { Stack, Spacer, Select } from "@chakra-ui/react";
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { Stack, Spacer } from "@chakra-ui/react";
 
 import Incrementer from "../Incrementer/Incrementer";
 import SectionTitle from "./Title/SectionTitle";
