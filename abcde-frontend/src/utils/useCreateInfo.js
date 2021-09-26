@@ -143,9 +143,10 @@ export function useGetAllParamInfos(sectionInfoId, objInfoId) {
 }
 
 export function useGetUIType(paramInfoId) {
-  const uiTypeIds = useStoreState((x) => x.paramInfos.uiTypeId);
   const uiTypeId = useStoreState((x) => x.paramInfos.uiTypeId[paramInfoId]);
-  console.log("useGetUIType", paramInfoId, uiTypeId, uiTypeIds[paramInfoId]);
-  const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
+  const uiType = useStoreState(
+    (x) => x.uiTypes.uiType[uiTypeId],
+    (prev, next) => prev.name === next.name
+  );
   return uiType;
 }

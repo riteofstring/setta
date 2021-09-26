@@ -24,6 +24,7 @@ export class UIType {
   constructor({ id, name, specs, parentUIType }) {
     this.id = id;
     this.name = name;
+    this.specs = specs;
     this.initializeListProps(parentUIType);
     this.initializeDictProps();
     this.initializeConfig(specs);

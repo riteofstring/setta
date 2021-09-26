@@ -10,8 +10,9 @@ import {
   AccordionPanel,
   AccordionIcon,
 } from "@chakra-ui/react";
+import { useStoreActions } from "easy-peasy";
 
-import { UITYPES } from "../../../../../../../classes/uiType";
+import { UIType, UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
 import { useGetUIType } from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
@@ -19,6 +20,8 @@ import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/Pa
 export default function Item({ paramInfo }) {
   const uiType = useGetUIType(paramInfo.id);
   const paramName = paramInfo.name;
+
+  const setOneUIType = useStoreActions((x) => x.uiTypes.setOneUIType);
 
   console.log("Item", paramName, uiType);
 
@@ -33,13 +36,13 @@ export default function Item({ paramInfo }) {
   //   (actions) => actions.master.setParamUITypeConfig
   // );
 
-  // const onSelect = (e) => {
-  //   setParamUIType({
-  //     sectionId,
-  //     paramName,
-  //     uiName: e.target.value,
-  //   });
-  // };
+  const onSelect = (e) => {
+    const id = uiType.id;
+    setOneUIType({
+      uiTypeId: id,
+      uiType: new UIType({ id, name: e.target.value, specs: uiType.specs }),
+    });
+  };
 
   // const onChange = (configName, value) => {
   //   setParamUITypeConfig({
@@ -69,7 +72,7 @@ export default function Item({ paramInfo }) {
                 <FormLabel>placeholder</FormLabel>
                 <Select
                   placeholder="Select UI Type"
-                  // onChange={onSelect}
+                  onChange={onSelect}
                   defaultValue={uiType.name}
                 >
                   {UITYPES.map((e, idx) => (
