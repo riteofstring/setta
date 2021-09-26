@@ -15,6 +15,7 @@ import {
   funcFlipChildrenAreCollapsed,
 } from "./SectionContainerUtils";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
+import { useStoreActions, useStoreState } from "easy-peasy";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -22,7 +23,6 @@ function SectionContainer({
   sectionId,
   parentId,
   nextId,
-  sectionInfo,
   available,
   depth,
   parentControls,
@@ -30,9 +30,11 @@ function SectionContainer({
   setIdNames,
   dragListeners,
 }) {
+  const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
+  const setChildSectionInfo = useStoreActions((x) => x.sections.setSectionInfo);
+  const deleteSections = useStoreActions((x) => x.sections.deleteSections);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState([]);
-  const [childSectionInfo, setChildSectionInfo] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
@@ -40,16 +42,14 @@ function SectionContainer({
     sectionInfo,
     available,
     idsOverview,
-    childSectionInfo,
     setIdsOverview,
     setChildSectionInfo
   );
 
   const deleteChild = funcDeleteChild(
     idsOverview,
-    childSectionInfo,
     setIdsOverview,
-    setChildSectionInfo
+    deleteSections
   );
 
   const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
@@ -92,7 +92,6 @@ function SectionContainer({
           <ManyNestedSections
             childIds={idsOverview}
             sectionId={sectionId}
-            childSectionInfo={childSectionInfo}
             available={available}
             parentControls={{ addChild, deleteChild }}
             depth={depth}

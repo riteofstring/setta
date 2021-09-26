@@ -29,7 +29,6 @@ function _NestedSection({
   parentId,
   sectionId,
   nextId,
-  sectionInfo,
   available,
   parentControls,
   idx,
@@ -53,7 +52,6 @@ function _NestedSection({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          sectionInfo={sectionInfo}
           available={available}
           depth={depth}
           parentControls={parentControls}

@@ -10,26 +10,32 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const [idsOverview, setIdsOverview] = useIdsOverview(groupId);
   const setIdNames = useStoreActions((x) => x.sections.setIdNames);
+  const setSectionInfoAction = useStoreActions(
+    (x) => x.sections.setSectionInfo
+  );
 
   useEffect(() => {
     getSectionIds();
   }, []);
 
-  function idxCondition(idx) {
-    return idx >= minIdx && idx < maxIdx;
-  }
-
-  function getSectionInfo(idx) {
+  function setSectionInfo(sectionId, idx) {
     const variableName = [...uiSpecs.keys()][idx];
-    return new SectionInfo(variableName, uiSpecs.get(variableName), available);
+    setSectionInfoAction({
+      sectionId,
+      sectionInfo: new SectionInfo(
+        variableName,
+        uiSpecs.get(variableName),
+        available
+      ),
+    });
   }
 
   function getSectionIds() {
     let newIds = [];
-    for (let idx = 0; idx < uiSpecs.size; idx++) {
-      if (idxCondition(idx)) {
-        newIds.push(createNewId());
-      }
+    for (let idx = minIdx; idx < Math.min(maxIdx, uiSpecs.size); idx++) {
+      const sectionId = createNewId();
+      setSectionInfo(sectionId, idx);
+      newIds.push(sectionId);
     }
     setIdsOverview(newIds);
   }
@@ -45,7 +51,6 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
             sectionId={e}
             parentId={null}
             // nextId={idx + 1}
-            sectionInfo={getSectionInfo(idx + minIdx)}
             available={available}
             key={`${e}-${idx}`}
             depth={0}

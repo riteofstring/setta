@@ -7,7 +7,6 @@ export function funcAddChild(
   sectionInfo,
   available,
   children,
-  childSectionInfo,
   setChildren,
   setChildSectionInfo
 ) {
@@ -49,20 +48,14 @@ export function funcAddChild(
       insertIdx = children.indexOf(startId) + 1;
     }
     setChildren(insertIntoArrayOrPrepend(children, insertIdx, ...newIds));
-    setChildSectionInfo({
-      ...newInfos,
-      ...childSectionInfo,
-    });
+    for (let k of Object.keys(newInfos)) {
+      setChildSectionInfo({ sectionId: k, sectionInfo: newInfos[k] });
+    }
   }
   return addChild;
 }
 
-export function funcDeleteChild(
-  children,
-  childSectionInfo,
-  setChildren,
-  setChildSectionInfo
-) {
+export function funcDeleteChild(children, setChildren, deleteSections) {
   function deleteChild(startId = null, numChildren = 1) {
     if (children.length === 0) {
       return;
@@ -75,8 +68,8 @@ export function funcDeleteChild(
     const newChildren = children.filter(
       (e, idx) => !(idx >= startIdx && idx < endIdx)
     );
-    setChildSectionInfo(_.pick(childSectionInfo, newChildren));
     setChildren(newChildren);
+    deleteSections({ sectionIds: _.difference(children, newChildren) });
   }
   return deleteChild;
 }

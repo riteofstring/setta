@@ -5,7 +5,6 @@ import { NestedSection, SortableNestedSection } from "./NestedSection";
 export default function ManyNestedSections({
   childIds,
   sectionId,
-  childSectionInfo,
   available,
   parentControls,
   depth,
@@ -13,7 +12,8 @@ export default function ManyNestedSections({
   setIdNames,
   setChildren,
 }) {
-  const isList = Object.values(childSectionInfo)[0].isList;
+  //   const isList = Object.values(childSectionInfo)[0].isList;
+  const isList = true;
 
   const getNestedSections = () => {
     const componentType = isList ? SortableNestedSection : NestedSection;
@@ -22,7 +22,6 @@ export default function ManyNestedSections({
         parentId: sectionId,
         sectionId: e,
         nextId: childIds[idx + 1],
-        sectionInfo: childSectionInfo[e],
         available,
         parentControls,
         idx,
