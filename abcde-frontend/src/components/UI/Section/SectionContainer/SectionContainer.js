@@ -151,6 +151,8 @@ function SectionContainerCore({
             />
             <SectionFooter
               sectionId={sectionId}
+              sectionInfoId={sectionInfoId}
+              objInfoId={selectedItem.id}
               isListRoot={isListRoot}
               hasNested={hasNested}
               childrenAreCollapsed={childrenAreCollapsed}

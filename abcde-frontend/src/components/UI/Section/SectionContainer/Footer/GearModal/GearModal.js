@@ -23,7 +23,8 @@ export default function GearModal(props) {
         <UITypesModal
           isOpen={props.isOpen}
           onClose={props.onClose}
-          sectionId={props.sectionId}
+          sectionInfoId={props.sectionInfoId}
+          objInfoId={props.objInfoId}
         />
       );
     default:

@@ -10,44 +10,41 @@ import {
   AccordionPanel,
   AccordionIcon,
 } from "@chakra-ui/react";
-import { useStoreState, useStoreActions } from "easy-peasy";
 
 import { UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
-import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
-export default function Item({ sectionId, paramName }) {
-  const uiType = useStoreState((state) =>
-    state.master.sections.getParamUIType(sectionId, paramName)
-  );
+export default function Item({ paramInfo }) {
+  const uiType = paramInfo.uiType;
+  const paramName = paramInfo.name;
 
-  const savedConfig = useStoreState((state) =>
-    state.master.sections.getParamUITypeConfig(sectionId, paramName)
-  );
+  // const savedConfig = useStoreState((state) =>
+  //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
+  // );
 
-  const setParamUIType = useStoreActions(
-    (actions) => actions.master.setParamUIType
-  );
-  const setParamUITypeConfig = useStoreActions(
-    (actions) => actions.master.setParamUITypeConfig
-  );
+  // const setParamUIType = useStoreActions(
+  //   (actions) => actions.master.setParamUIType
+  // );
+  // const setParamUITypeConfig = useStoreActions(
+  //   (actions) => actions.master.setParamUITypeConfig
+  // );
 
-  const onSelect = (e) => {
-    setParamUIType({
-      sectionId,
-      paramName,
-      uiName: e.target.value,
-    });
-  };
+  // const onSelect = (e) => {
+  //   setParamUIType({
+  //     sectionId,
+  //     paramName,
+  //     uiName: e.target.value,
+  //   });
+  // };
 
-  const onChange = (configName, value) => {
-    setParamUITypeConfig({
-      sectionId,
-      paramName,
-      configName,
-      value,
-    });
-  };
+  // const onChange = (configName, value) => {
+  //   setParamUITypeConfig({
+  //     sectionId,
+  //     paramName,
+  //     configName,
+  //     value,
+  //   });
+  // };
 
   return (
     <VStack align="stretch">
@@ -68,7 +65,7 @@ export default function Item({ sectionId, paramName }) {
                 <FormLabel>placeholder</FormLabel>
                 <Select
                   placeholder="Select UI Type"
-                  onChange={onSelect}
+                  // onChange={onSelect}
                   defaultValue={uiType.name}
                 >
                   {UITYPES.map((e, idx) => (
@@ -78,11 +75,11 @@ export default function Item({ sectionId, paramName }) {
                   ))}
                 </Select>
               </FormControl>
-              <ParamUIConfig
+              {/* <ParamUIConfig
                 name={uiType.name}
                 savedConfig={savedConfig}
                 onChange={onChange}
-              />
+              /> */}
             </VStack>
           </AccordionPanel>
         </AccordionItem>

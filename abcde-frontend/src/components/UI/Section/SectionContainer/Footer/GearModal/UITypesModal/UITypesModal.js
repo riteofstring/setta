@@ -1,16 +1,16 @@
 import { Box, Text, VStack } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
 
 import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
-import { arraysAreEqual } from "../../../../../../../utils/commonFunctions";
+import { useGetAllParamInfos } from "../../../../../../../utils/useCreateInfo";
 import Item from "./Item";
 
-export default function UITypesModal({ isOpen, onClose, sectionId }) {
-  const paramNames = useStoreState(
-    (state) =>
-      Object.keys(state.master.sections.getParametersAndKwargs(sectionId)),
-    arraysAreEqual
-  );
+export default function UITypesModal({
+  isOpen,
+  onClose,
+  sectionInfoId,
+  objInfoId,
+}) {
+  const paramInfos = useGetAllParamInfos(sectionInfoId, objInfoId);
 
   return (
     <ModalContainer
@@ -19,7 +19,7 @@ export default function UITypesModal({ isOpen, onClose, sectionId }) {
       size={"2xl"}
       maxH="80vh"
       header={<Header />}
-      body={<Body sectionId={sectionId} paramNames={paramNames} />}
+      body={<Body paramInfos={paramInfos} />}
       footer={<Footer />}
     />
   );
@@ -29,11 +29,11 @@ function Header() {
   return <Box>UI Types</Box>;
 }
 
-function Body({ sectionId, paramNames }) {
-  return paramNames.length > 0 ? (
+function Body({ paramInfos }) {
+  return paramInfos.length > 0 ? (
     <VStack align="stretch" spacing="0">
-      {paramNames.map((e, idx) => (
-        <Item sectionId={sectionId} paramName={e} key={`${e}-${idx}`} />
+      {paramInfos.map((e, idx) => (
+        <Item paramInfo={e} key={`${e.name}-${idx}`} />
       ))}
     </VStack>
   ) : (
