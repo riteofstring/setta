@@ -95,14 +95,12 @@ class ModuleInfo {
 }
 
 export class SectionInfo {
-  constructor(name, specs, available, isList, isListRoot) {
+  constructor(name, specs, available) {
     this.name = name;
     this.specs = convertSpecsToDict(specs);
     const jsonInput = createJson(this.specs, available);
     this.setModuleInfos([name], jsonInput);
     this.setParameterInfos([name], jsonInput);
-    this.isList = isList;
-    this.isListRoot = isListRoot;
   }
 
   getCorrectInfo = (moduleName, objName) => {

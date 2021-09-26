@@ -9,10 +9,16 @@ import { insertIntoArrayOrXpend } from "../../../../utils/utils";
 export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const available = useStoreState((x) => x.master.available);
+  const isListRoot = useStoreState((x) => x.sections.isListRoot[sectionId]);
   const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
+  const sectionInfoId = useStoreState(
+    (x) => x.sections.sectionInfoId[sectionId]
+  );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const setSectionInfoId = useStoreActions((x) => x.sections.setSectionInfoId);
   const setIdsOverview = useIdsOverview(sectionId)[1];
+  const setIsList = useStoreActions((x) => x.sections.setIsList);
+  const setIsListRoot = useStoreActions((x) => x.sections.setIsListRoot);
 
   function addChild(
     childVariableName,
@@ -24,33 +30,37 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
     for (let i = 0; i < numChildren; i++) {
       const newId = createNewId();
       newIds.push(newId);
-      if (!childVariableName) {
-        childVariableName = sectionInfo.name;
-      }
-      let [config, isList, isListRoot] = [null, null, null];
-      if (parentIsSection) {
-        if (!uiType) {
-          ({ specs: config, isList, isListRoot } = sectionInfo);
-          // isList = true if parent is list root, false otherwise
-          isList = isListRoot;
-          isListRoot = false;
-        } else {
-          ({ config, isList, isListRoot } = uiType);
-        }
+      if (isListRoot) {
+        // use parent section info
+        setSectionInfoId({ sectionId: newId, sectionInfoId });
+        setIsList({ sectionId: newId, isList: true });
       } else {
-        config = uiSpecs.get(childVariableName);
+        if (!childVariableName) {
+          childVariableName = sectionInfo.name;
+        }
+        let config = null;
+        if (parentIsSection) {
+          if (!uiType) {
+            ({ specs: config } = sectionInfo);
+          } else {
+            ({ config } = uiType);
+            setIsListRoot({ sectionId: newId, isListRoot: uiType.isListRoot });
+          }
+        } else {
+          config = uiSpecs.get(childVariableName);
+        }
+        const newSectionInfo = new SectionInfo(
+          childVariableName,
+          config,
+          available
+        );
+        const newInfoId = createNewId();
+        setSectionInfo({
+          sectionInfoId: newInfoId,
+          sectionInfo: newSectionInfo,
+        });
+        setSectionInfoId({ sectionId: newId, sectionInfoId: newInfoId });
       }
-
-      const newSectionInfo = new SectionInfo(
-        childVariableName,
-        config,
-        available,
-        isList,
-        isListRoot
-      );
-      const newInfoId = createNewId();
-      setSectionInfo({ sectionInfoId: newInfoId, sectionInfo: newSectionInfo });
-      setSectionInfoId({ sectionId: newId, sectionInfoId: newInfoId });
     }
 
     let insertIdx = null;

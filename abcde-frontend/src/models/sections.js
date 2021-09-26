@@ -8,6 +8,8 @@ const sections = {
   sectionInfoId: {},
   enteredValues: new SimpleHistory(3, undefined),
   idsOverview: {},
+  isList: {},
+  isListRoot: {},
 
   setSectionInfoId: action((state, payload) => {
     const { sectionId, sectionInfoId } = payload;
@@ -23,6 +25,16 @@ const sections = {
     const { sectionId, newStateFn } = payload;
     const currState = defaultState(state.idsOverview[sectionId], []);
     state.idsOverview[sectionId] = newStateFn(currState);
+  }),
+
+  setIsList: action((state, payload) => {
+    const { sectionId, isList } = payload;
+    state.isList[sectionId] = isList;
+  }),
+
+  setIsListRoot: action((state, payload) => {
+    const { sectionId, isListRoot } = payload;
+    state.isListRoot[sectionId] = isListRoot;
   }),
 
   deleteSections: action((state, payload) => {
@@ -56,8 +68,6 @@ const sections = {
       for (let k of Object.keys(sectionInfoId)) {
         output[k] = sectionInfo[sectionInfoId[k]];
       }
-      console.log("sectionInfoId", sectionInfoId);
-      console.log("sectionInfo", sectionInfo);
       return output;
     }
   ),

@@ -1,9 +1,9 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState } from "react";
 
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
-import { ChildrenContext } from "../../../../../SectionContainer";
+import { useAddChild } from "../../../../../SectionContainerUtils";
 
 function valueAndLabel(x, type) {
   return { value: [x, type], label: x };
@@ -98,7 +98,7 @@ export default function NestedObjectInput({
   uiType,
   paramUITypeConfig,
 }) {
-  const { addChild } = useContext(ChildrenContext);
+  const addChild = useAddChild(sectionId);
 
   useEffect(() => {
     addChild(paramName, uiType);

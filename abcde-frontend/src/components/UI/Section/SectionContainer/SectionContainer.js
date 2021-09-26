@@ -18,8 +18,6 @@ import {
   useDeleteChild,
 } from "./SectionContainerUtils";
 
-export const ChildrenContext = React.createContext(null);
-
 function SectionContainer({
   sectionId,
   parentId,
@@ -48,22 +46,20 @@ function SectionContainer({
 
   return (
     <Stack>
-      <ChildrenContext.Provider value={{ addChild }}>
-        <SectionContainerCore
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          addChild={addChild}
-          deleteChild={deleteChild}
-          parentControls={parentControls}
-          hasNested={hasNested}
-          childrenAreCollapsed={childrenAreCollapsed}
-          flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-          selectedItem={selectedItem}
-          setSelectedItem={setSelectedItem}
-          dragListeners={dragListeners}
-        />
-      </ChildrenContext.Provider>
+      <SectionContainerCore
+        sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
+        addChild={addChild}
+        deleteChild={deleteChild}
+        parentControls={parentControls}
+        hasNested={hasNested}
+        childrenAreCollapsed={childrenAreCollapsed}
+        flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+        selectedItem={selectedItem}
+        setSelectedItem={setSelectedItem}
+        dragListeners={dragListeners}
+      />
       <Box
         flexDirection="column"
         display={childrenAreCollapsed ? "none" : "flex"}
@@ -98,8 +94,10 @@ function SectionContainerCore({
   dragListeners,
 }) {
   const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
+  const isList = useStoreState((x) => x.sections.isList[sectionId]);
+  const isListRoot = useStoreState((x) => x.sections.isListRoot[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
-  const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
+  const { name: variableName, moduleInfos } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
 
   const [paramInfos, setParamInfos] = useState(sectionInfo.parameterInfos);
