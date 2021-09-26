@@ -1,10 +1,14 @@
 import { Stack, FormControl } from "@chakra-ui/react";
 
-import { useGetSectionParamInfos } from "../../../../../../utils/useCreateInfo";
+import { useGetAllParamInfos } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
-export default function GroupContainer({ sectionId, sectionInfoId }) {
-  const paramInfos = useGetSectionParamInfos(sectionInfoId);
+export default function GroupContainer({
+  sectionId,
+  sectionInfoId,
+  objInfoId,
+}) {
+  const paramInfos = useGetAllParamInfos(sectionInfoId, objInfoId);
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),

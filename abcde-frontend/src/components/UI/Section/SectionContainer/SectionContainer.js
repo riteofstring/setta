@@ -147,6 +147,7 @@ function SectionContainerCore({
             <GroupContainer
               sectionId={sectionId}
               sectionInfoId={sectionInfoId}
+              objInfoId={selectedItem.id}
             />
             <SectionFooter
               sectionId={sectionId}

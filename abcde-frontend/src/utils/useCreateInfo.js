@@ -110,16 +110,13 @@ export function useGetObjInfos(moduleInfoIds) {
   return output;
 }
 
-export function useGetParamInfos(objInfoIds) {
-  const paramInfoIds = useStoreState((x) => x.objInfos.paramInfoIds);
+export function useGetParamInfos(objInfoId) {
+  const paramInfoIds = useStoreState((x) => x.objInfos.paramInfoIds[objInfoId]);
   const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
-
-  const output = [];
-  for (let o of objInfoIds) {
-    const currIds = paramInfoIds[o];
-    output.push(...currIds.map((x) => paramInfos[x]));
+  if (paramInfoIds) {
+    return paramInfoIds.map((x) => paramInfos[x]);
   }
-  return output;
+  return [];
 }
 
 export function useGetSectionParamInfos(sectionInfoId) {
@@ -128,4 +125,10 @@ export function useGetSectionParamInfos(sectionInfoId) {
   );
   const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
   return paramInfoIds.map((x) => paramInfos[x]);
+}
+
+export function useGetAllParamInfos(sectionInfoId, objInfoId) {
+  const objParamInfos = useGetParamInfos(objInfoId);
+  const sectionParamInfos = useGetSectionParamInfos(sectionInfoId);
+  return [...objParamInfos, ...sectionParamInfos];
 }
