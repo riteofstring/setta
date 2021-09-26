@@ -38,14 +38,14 @@ const createJson = (specs, available) => {
   return output;
 };
 
-function createInfo(infoType, name, jsonInput) {
-  const info = new infoType(createNewId(), name, jsonInput);
+function createInfo(infoType, name, jsonInput, ...otherArgs) {
+  const info = new infoType(createNewId(), name, jsonInput, ...otherArgs);
   return { info, id: info.id };
 }
 
 export function createSectionInfo(name, specs, available) {
   const jsonInput = createJson(specs, available);
-  const { info, id } = createInfo(SectionInfo, name, jsonInput);
+  const { info, id } = createInfo(SectionInfo, name, jsonInput, specs);
   const moduleInfos = getInfos(jsonInput, createModuleInfo, true);
   const parameterInfos = getInfos(jsonInput, createParameterInfo, true);
   return { info, id, moduleInfos, parameterInfos };

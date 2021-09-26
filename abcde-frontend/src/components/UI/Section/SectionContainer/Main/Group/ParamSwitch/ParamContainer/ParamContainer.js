@@ -46,7 +46,7 @@ export default function ParamContainer(props) {
       sectionId={sectionId}
       paramName={paramInfo.name}
       uiType={uiType}
-      // paramUITypeConfig={paramUITypeConfig}
+      uiTypeConfig={uiTypeConfig}
     />
   );
 }

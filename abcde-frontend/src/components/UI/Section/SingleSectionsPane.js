@@ -14,7 +14,7 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId }) {
   useEffect(() => {
     for (let idx = minIdx; idx < Math.min(maxIdx, uiSpecs.size); idx++) {
       const variableName = [...uiSpecs.keys()][idx];
-      addChild(variableName);
+      addChild({ childVariableName: variableName });
     }
   }, []);
 

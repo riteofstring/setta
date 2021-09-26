@@ -173,6 +173,5 @@ export function useGetUITypeConfig(uiTypeId) {
   const uiTypeConfig = useStoreState(
     (x) => x.uiTypeConfigs.config[uiTypeConfigId]
   );
-  console.log("");
   return uiTypeConfig;
 }

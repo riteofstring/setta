@@ -24,12 +24,13 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const setType = useStoreActions((x) => x.sections.setType);
   const createInfo = useCreateSectionInfo();
 
-  function addChild(
-    childVariableName,
-    uiType,
+  function addChild({
+    childVariableName = null,
+    uiType = null,
+    uiTypeConfig = null,
     startId = null,
-    numChildren = 1
-  ) {
+    numChildren = 1,
+  }) {
     let newIds = [];
     for (let i = 0; i < numChildren; i++) {
       const newId = createNewId();
@@ -42,15 +43,13 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         if (!childVariableName) {
           childVariableName = sectionInfo.name;
         }
-        let config = null;
+        let config = uiTypeConfig;
         if (parentIsSection) {
-          if (!uiType) {
-            ({ specs: config } = sectionInfo);
-          } else {
-            ({ config } = uiType);
-            if (uiType.isListRoot) {
-              setType({ sectionId: newId, type: LIST_ROOT });
-            }
+          if (config === null) {
+            config = sectionInfo.specs;
+          }
+          if (uiType.isListRoot) {
+            setType({ sectionId: newId, type: LIST_ROOT });
           }
         } else {
           config = uiSpecs.get(childVariableName);
@@ -76,7 +75,7 @@ export function useDeleteChild(sectionId) {
   const deleteSections = useStoreActions((x) => x.sections.deleteSections);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
 
-  function deleteChild(startId = null, numChildren = 1) {
+  function deleteChild({ startId = null, numChildren = 1 }) {
     if (idsOverview.length === 0) {
       return;
     }

@@ -18,22 +18,22 @@ export default function Incrementer({
 
   const addSections = (numSections) => {
     if (isListRoot) {
-      addChild(null, null, null, numSections);
+      addChild({ numChildren: numSections });
     } else {
-      parentControls.addChild(null, null, sectionId, numSections);
+      parentControls.addChild({ startId: sectionId, numChildren: numSections });
     }
   };
 
   const deleteChildren = (numSections) => {
     if (isListRoot) {
-      deleteChild(null, numSections);
+      deleteChild({ numChildren: numSections });
     } else {
-      parentControls.deleteChild(nextId, numSections);
+      parentControls.deleteChild({ startId: nextId, numChildren: numSections });
     }
   };
 
   const deleteThisSection = () => {
-    parentControls.deleteChild(sectionId);
+    parentControls.deleteChild({ startId: sectionId });
   };
 
   const numSectionsOnChange = (value) => {

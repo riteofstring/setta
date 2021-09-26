@@ -39,9 +39,10 @@ export class ModuleInfo {
 }
 
 export class SectionInfo {
-  constructor(id, name, jsonInput) {
+  constructor(id, name, jsonInput, specs) {
     this.id = id;
     this.name = name;
     this.hasModules = "ModuleInfo" in jsonInput;
+    this.specs = specs;
   }
 }

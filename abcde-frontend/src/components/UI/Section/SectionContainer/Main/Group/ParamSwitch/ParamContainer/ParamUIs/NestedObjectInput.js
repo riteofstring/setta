@@ -96,12 +96,12 @@ export default function NestedObjectInput({
   sectionId,
   paramName,
   uiType,
-  paramUITypeConfig,
+  uiTypeConfig,
 }) {
   const addChild = useAddChild(sectionId);
 
   useEffect(() => {
-    addChild(paramName, uiType);
+    addChild({ childVariableName: paramName, uiType, uiTypeConfig });
   }, []);
 
   // const addChildren = useStoreActions((actions) => actions.master.addChildren);
