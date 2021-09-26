@@ -47,6 +47,7 @@ export default function ParamContainer(props) {
       paramName={paramInfo.name}
       uiType={uiType}
       uiTypeConfig={uiTypeConfig}
+      parentParamInfoId={paramInfo.id}
     />
   );
 }

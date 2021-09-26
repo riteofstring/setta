@@ -1,13 +1,9 @@
+import { NestedObjectInputConfig } from "./NestedObjectInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 
 export function ParamUIConfig({ name, savedConfig, onChange }) {
   console.log("ParamUIConfig", name);
-  // const available = useStoreState((state) => state.master.sections.available);
-
-  // const availableObjects = Object.keys(available.objects);
-  // const availableParameters = Object.keys(available.parameters);
-
   switch (name) {
     default:
       return <TextInputConfig savedConfig={savedConfig} onChange={onChange} />;
@@ -15,18 +11,16 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
       return (
         <SliderInputConfig savedConfig={savedConfig} onChange={onChange} />
       );
-    // case "NESTED_OBJECT":
-    // case "LIST_NESTED_OBJECT":
-    // case "DICT_NESTED_OBJECT":
-    //   return (
-    //     <NestedObjectInputConfig
-    //       name={name}
-    //       savedConfig={savedConfig}
-    //       onChange={onChange}
-    //       availableObjects={availableObjects}
-    //       availableParameters={availableParameters}
-    //     />
-    //   );
+    case "NESTED_OBJECT":
+    case "LIST_NESTED_OBJECT":
+    case "DICT_NESTED_OBJECT":
+      return (
+        <NestedObjectInputConfig
+          name={name}
+          savedConfig={savedConfig}
+          onChange={onChange}
+        />
+      );
   }
 }
 

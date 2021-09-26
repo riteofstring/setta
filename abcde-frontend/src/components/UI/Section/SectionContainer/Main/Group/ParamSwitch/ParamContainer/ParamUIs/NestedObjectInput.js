@@ -1,4 +1,5 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
+import { useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
@@ -28,13 +29,11 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
   );
 }
 
-export function NestedObjectInputConfig({
-  name,
-  availableObjects,
-  availableParameters,
-  onChange,
-  savedConfig,
-}) {
+export function NestedObjectInputConfig({ name, onChange, savedConfig }) {
+  const available = useStoreState((x) => x.master.available);
+  const availableObjects = Object.keys(available.objects);
+  const availableParameters = Object.keys(available.parameters);
+
   const pickerObjects = availableObjects.map((x) =>
     valueAndLabel(x, "objects")
   );
@@ -97,12 +96,24 @@ export default function NestedObjectInput({
   paramName,
   uiType,
   uiTypeConfig,
+  parentParamInfoId,
 }) {
+  console.log("NestedObjectInput", uiTypeConfig);
+  const existingChildId = useStoreState(
+    (x) => x.paramInfos.childId[parentParamInfoId]
+  );
   const addChild = useAddChild(sectionId);
 
   useEffect(() => {
-    addChild({ childVariableName: paramName, uiType, uiTypeConfig });
-  }, []);
+    if (!existingChildId) {
+      addChild({
+        childVariableName: paramName,
+        uiType,
+        uiTypeConfig,
+        parentParamInfoId,
+      });
+    }
+  }, [uiTypeConfig]);
 
   // const addChildren = useStoreActions((actions) => actions.master.addChildren);
   // const childId = useStoreState(

@@ -28,8 +28,6 @@ export default function Item({ paramInfo }) {
   const setOneUIType = useStoreActions((x) => x.uiTypes.setOneUIType);
   const setOneConfig = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
 
-  console.log("Item", paramName, uiType);
-
   const onSelect = (e) => {
     const id = uiType.id;
     setOneUIType({
@@ -39,10 +37,12 @@ export default function Item({ paramInfo }) {
   };
 
   const onChange = (configName, value) => {
+    console.log("onChange", configName, value);
     const id = uiTypeConfig.id;
     setOneConfig({
       configId: id,
-      config: { ...uiTypeConfig, [configName]: value },
+      configName,
+      value,
     });
   };
 

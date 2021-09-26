@@ -8,8 +8,8 @@ const uiTypeConfigs = {
   }),
 
   setOneConfig: action((state, payload) => {
-    const { configId, config } = payload;
-    state.config[configId] = config;
+    const { configId, configName, value } = payload;
+    state.config[configId][configName] = value;
   }),
 };
 

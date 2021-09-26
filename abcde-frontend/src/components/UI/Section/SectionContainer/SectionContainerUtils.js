@@ -22,6 +22,7 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const setSectionInfoId = useStoreActions((x) => x.sections.setSectionInfoId);
   const setIdsOverview = useIdsOverview(sectionId)[1];
   const setType = useStoreActions((x) => x.sections.setType);
+  const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
   const createInfo = useCreateSectionInfo();
 
   function addChild({
@@ -30,6 +31,7 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
     uiTypeConfig = null,
     startId = null,
     numChildren = 1,
+    parentParamInfoId = null,
   }) {
     let newIds = [];
     for (let i = 0; i < numChildren; i++) {
@@ -59,13 +61,17 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
       }
     }
 
-    let insertIdx = null;
     setIdsOverview((x) => {
+      let insertIdx = null;
       if (startId !== null) {
         insertIdx = x.indexOf(startId) + 1;
       }
       return insertIntoArrayOrXpend(x, insertIdx, prepend, ...newIds);
     });
+
+    if (parentParamInfoId) {
+      setChildId({ paramInfoId: parentParamInfoId, childId: newIds[0] });
+    }
   }
 
   return addChild;
