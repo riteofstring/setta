@@ -7,6 +7,7 @@ const sections = {
   sectionInfoId: {},
   idsOverview: {},
   type: {},
+  isRendered: {},
 
   setSectionInfoId: action((state, payload) => {
     const { sectionId, sectionInfoId } = payload;
@@ -22,6 +23,10 @@ const sections = {
   setType: action((state, payload) => {
     const { sectionId, type } = payload;
     state.type[sectionId] = type;
+  }),
+
+  setIsRendered: action((state, payload) => {
+    state.isRendered = payload(state.isRendered);
   }),
 
   deleteSections: action((state, payload) => {

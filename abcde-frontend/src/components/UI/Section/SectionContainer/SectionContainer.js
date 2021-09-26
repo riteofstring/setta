@@ -28,6 +28,7 @@ function SectionContainer({
   isCollapsed,
   dragListeners,
 }) {
+  const isRendered = useStoreState((x) => x.sections.isRendered[sectionId]);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState([]);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
@@ -45,7 +46,7 @@ function SectionContainer({
     setChildrenAreCollapsed(isCollapsed);
   }, [isCollapsed]);
 
-  return (
+  return isRendered ? (
     <Stack>
       <SectionContainerCore
         sectionId={sectionId}
@@ -77,6 +78,8 @@ function SectionContainer({
         )}
       </Box>
     </Stack>
+  ) : (
+    <></>
   );
 }
 

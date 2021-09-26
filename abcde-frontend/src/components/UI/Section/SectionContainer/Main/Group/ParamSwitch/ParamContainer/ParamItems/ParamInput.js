@@ -9,6 +9,10 @@ export default function ParamInput(props) {
   const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
   const setEnteredValue = useStoreActions((x) => x.paramInfos.setEnteredValue);
+  const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
+  const existingChildId = useStoreState(
+    (x) => x.paramInfos.childId[paramInfoId]
+  );
   const storedValue = useStoreState(
     (x) => x.paramInfos.enteredValue[paramInfoId]
   );
@@ -29,6 +33,12 @@ export default function ParamInput(props) {
   useEffect(() => {
     setValue(!nullOrUndefined(storedValue) ? storedValue : "");
   }, [storedValue]);
+
+  useEffect(() => {
+    setIsRendered((x) => {
+      return { ...x, [existingChildId]: false };
+    });
+  }, [existingChildId]);
 
   return (
     <ParamUI
