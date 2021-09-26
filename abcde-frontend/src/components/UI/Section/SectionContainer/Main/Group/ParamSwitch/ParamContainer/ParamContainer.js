@@ -4,7 +4,7 @@ import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramInfo } = props;
+  const { sectionId, paramInfo, paramInfoId } = props;
 
   const uiType = paramInfo.uiType;
 
@@ -29,8 +29,8 @@ export default function ParamContainer(props) {
           {props.children}
           <Spacer />
           <ParamInput
-            sectionId={sectionId}
             paramInfo={paramInfo}
+            paramInfoId={paramInfoId}
             // paramUITypeConfig={paramUITypeConfig}
             isDisabled={!paramInfo.name}
           />

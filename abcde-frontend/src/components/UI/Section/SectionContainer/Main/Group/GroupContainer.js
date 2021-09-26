@@ -4,8 +4,7 @@ import { useGetSectionParamInfos } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, sectionInfoId }) {
-  const paramInfos = useGetSectionParamInfos(sectionInfoId)[0];
-  const paramNames = paramInfos ? Object.keys(paramInfos) : [];
+  const [paramInfos, paramInfoIds] = useGetSectionParamInfos(sectionInfoId);
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
@@ -45,13 +44,14 @@ export default function GroupContainer({ sectionId, sectionInfoId }) {
 
   return (
     <Stack>
-      {paramNames.length > 0 && (
+      {paramInfos.length > 0 && (
         <FormControl id="groupone">
-          {paramNames.map((e, idx) => (
+          {paramInfos.map((e, idx) => (
             <ParamSwitch
-              key={`${e}-${idx}`}
+              key={`${e.name}-${idx}`}
               sectionId={sectionId}
-              paramInfo={paramInfos[e]}
+              paramInfo={e}
+              paramInfoId={paramInfoIds[idx]}
             />
           ))}
         </FormControl>

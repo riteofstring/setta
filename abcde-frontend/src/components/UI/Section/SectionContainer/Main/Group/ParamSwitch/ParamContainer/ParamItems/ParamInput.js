@@ -5,26 +5,13 @@ import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
-  const { sectionId, paramInfo } = props;
-
-  const { name: paramName, defaultVal } = paramInfo;
-
-  const [selectedString, setSelectedString] = useState("PLACEHOLDER");
-
-  const setEnteredValue = useStoreActions((x) => x.sections.setEnteredValue);
-
+  const { paramInfo, paramInfoId } = props;
+  const { defaultVal } = paramInfo;
+  const setEnteredValue = useStoreActions((x) => x.paramInfos.setEnteredValue);
   const storedValue = useStoreState(
-    (x) =>
-      x.sections.enteredValues.history[sectionId]?.[selectedString]?.[paramName]
+    (x) => x.paramInfos.enteredValue[paramInfoId]
   );
-
   const [value, setValue] = useState("");
-
-  // useEffect(() => {
-  //   setSelectedString(createSelectedString(ancestorNames[1], ancestorNames[2]));
-  // }, [ancestorNames]);
-
-  // console.log("ParamInput", paramName, value, history);
 
   const onChange = (v) => {
     setValue(v);
@@ -33,9 +20,7 @@ export default function ParamInput(props) {
   const onChangeEnd = (v) => {
     onChange(v);
     setEnteredValue({
-      sectionId,
-      selected: selectedString,
-      paramName,
+      paramInfoId,
       value: v,
     });
   };
