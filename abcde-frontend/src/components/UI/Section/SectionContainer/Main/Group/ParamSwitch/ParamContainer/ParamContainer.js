@@ -1,12 +1,13 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 
+import { useGetUIType } from "../../../../../../../../utils/useCreateInfo";
 import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
   const { sectionId, paramInfo } = props;
-
-  const uiType = paramInfo.uiType;
+  const uiType = useGetUIType(paramInfo.id);
+  console.log("paramInfo.id", paramInfo.id, uiType);
 
   // const paramUITypeConfig = useStoreState((state) =>
   //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
@@ -30,6 +31,7 @@ export default function ParamContainer(props) {
           <Spacer />
           <ParamInput
             paramInfo={paramInfo}
+            uiType={uiType}
             // paramUITypeConfig={paramUITypeConfig}
             isDisabled={!paramInfo.name}
           />

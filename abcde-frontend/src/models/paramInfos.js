@@ -1,4 +1,4 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 
 const paramInfos = {
   paramInfo: {},
@@ -7,6 +7,11 @@ const paramInfos = {
 
   setParamInfo: action((state, payload) => {
     state.paramInfo = payload(state.paramInfo);
+  }),
+
+  setUITypeId: action((state, payload) => {
+    state.uiTypeId = payload(state.uiTypeId);
+    console.log("setUITypeId", debug(state.uiTypeId));
   }),
 
   setEnteredValue: action((state, payload) => {

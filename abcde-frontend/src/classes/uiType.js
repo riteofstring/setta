@@ -21,7 +21,8 @@ function requiresKeyInput(uiTypeName) {
 }
 
 export class UIType {
-  constructor({ name, specs, parentUIType }) {
+  constructor({ id, name, specs, parentUIType }) {
+    this.id = id;
     this.name = name;
     this.initializeListProps(parentUIType);
     this.initializeDictProps();

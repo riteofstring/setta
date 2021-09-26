@@ -13,10 +13,14 @@ import {
 
 import { UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
+import { useGetUIType } from "../../../../../../../utils/useCreateInfo";
+import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ paramInfo }) {
-  const uiType = paramInfo.uiType;
+  const uiType = useGetUIType(paramInfo.id);
   const paramName = paramInfo.name;
+
+  console.log("Item", paramName, uiType);
 
   // const savedConfig = useStoreState((state) =>
   //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
@@ -75,11 +79,11 @@ export default function Item({ paramInfo }) {
                   ))}
                 </Select>
               </FormControl>
-              {/* <ParamUIConfig
+              <ParamUIConfig
                 name={uiType.name}
-                savedConfig={savedConfig}
-                onChange={onChange}
-              /> */}
+                // savedConfig={savedConfig}
+                // onChange={onChange}
+              />
             </VStack>
           </AccordionPanel>
         </AccordionItem>

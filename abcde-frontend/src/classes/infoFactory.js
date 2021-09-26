@@ -6,6 +6,7 @@ import {
   ParameterInfo,
   convertSpecsToDict,
 } from "./jsonParser";
+import { UIType } from "./uiType";
 
 const { createNewId } = require("../utils/sectionIds");
 
@@ -64,5 +65,10 @@ export function createObjInfo(name, jsonInput) {
 
 export function createParameterInfo(name, jsonInput) {
   const { info, id } = createInfo(ParameterInfo, name, jsonInput);
-  return { info, id };
+  const uiType = new UIType({
+    id: createNewId(),
+    name: jsonInput.uiType,
+    specs: info.specs,
+  });
+  return { info, id, uiType };
 }

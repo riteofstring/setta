@@ -1,5 +1,3 @@
-import { UIType } from "./uiType";
-
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
     return { objects: specs };
@@ -16,7 +14,6 @@ export class ParameterInfo {
     this.specs = convertSpecsToDict(jsonInput.specs);
     this.isKwarg = jsonInput.isKwarg;
     this.isHidden = jsonInput.isHidden;
-    this.uiType = new UIType({ name: jsonInput.uiType, specs: this.specs });
   }
 
   shouldHaveNested = () => {

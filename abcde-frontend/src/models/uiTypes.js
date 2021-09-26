@@ -1,11 +1,11 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 
 const uiTypes = {
   uiType: {},
 
   setUIType: action((state, payload) => {
-    const { uiTypeId, uiType } = payload;
-    state.sectionInfo[uiTypeId] = uiType;
+    state.uiType = payload(state.uiType);
+    console.log("setUIType", debug(state.uiType));
   }),
 };
 

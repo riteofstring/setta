@@ -5,7 +5,7 @@ import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
-  const { paramInfo } = props;
+  const { paramInfo, uiType } = props;
   const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
   const setEnteredValue = useStoreActions((x) => x.paramInfos.setEnteredValue);
@@ -32,7 +32,7 @@ export default function ParamInput(props) {
 
   return (
     <ParamUI
-      name={paramInfo.uiType}
+      name={uiType.name}
       childProps={{
         value,
         defaultVal,

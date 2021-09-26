@@ -8,6 +8,7 @@ export function useCreateSectionInfo() {
   const setModuleInfo = useStoreActions((x) => x.moduleInfos.setModuleInfo);
   const setObjInfo = useStoreActions((x) => x.objInfos.setObjInfo);
   const setParamInfo = useStoreActions((x) => x.paramInfos.setParamInfo);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setModuleInfoIds = useStoreActions(
     (x) => x.sectionInfos.setModuleInfoIds
   );
@@ -16,6 +17,7 @@ export function useCreateSectionInfo() {
   );
   const setObjInfoIds = useStoreActions((x) => x.moduleInfos.setObjInfoIds);
   const setParamInfoIds = useStoreActions((x) => x.objInfos.setParamInfoIds);
+  const setUITypeId = useStoreActions((x) => x.paramInfos.setUITypeId);
 
   const createInfo = (name, specs) => {
     const infoFactoryOutput = createSectionInfo(name, specs, available);
@@ -37,6 +39,8 @@ export function useCreateSectionInfo() {
     const newObjInfos = {};
     const newObjParamInfos = {};
     const newParamInfos = {};
+    const newParamUITypeIds = {};
+    const newUITypes = {};
     for (let m of moduleInfos) {
       newModuleInfos[m.id] = m.info;
       newModuleObjInfos[m.id] = m.objInfos.map((x) => x.id);
@@ -45,11 +49,15 @@ export function useCreateSectionInfo() {
         newObjParamInfos[o.id] = o.parameterInfos.map((x) => x.id);
         for (let p of o.parameterInfos) {
           newParamInfos[p.id] = p.info;
+          newParamUITypeIds[p.id] = p.uiType.id;
+          newUITypes[p.uiType.id] = p.uiType;
         }
       }
     }
     for (let p of parameterInfos) {
       newParamInfos[p.id] = p.info;
+      newParamUITypeIds[p.id] = p.uiType.id;
+      newUITypes[p.uiType.id] = p.uiType;
     }
 
     setModuleInfo((x) => {
@@ -66,6 +74,12 @@ export function useCreateSectionInfo() {
     });
     setParamInfo((x) => {
       return { ...x, ...newParamInfos };
+    });
+    setUITypeId((x) => {
+      return { ...x, ...newParamUITypeIds };
+    });
+    setUIType((x) => {
+      return { ...x, ...newUITypes };
     });
 
     return id;
@@ -126,4 +140,12 @@ export function useGetAllParamInfos(sectionInfoId, objInfoId) {
   const objParamInfos = useGetParamInfos(objInfoId);
   const sectionParamInfos = useGetSectionParamInfos(sectionInfoId);
   return [...objParamInfos, ...sectionParamInfos];
+}
+
+export function useGetUIType(paramInfoId) {
+  const uiTypeIds = useStoreState((x) => x.paramInfos.uiTypeId);
+  const uiTypeId = useStoreState((x) => x.paramInfos.uiTypeId[paramInfoId]);
+  console.log("useGetUIType", paramInfoId, uiTypeId, uiTypeIds[paramInfoId]);
+  const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
+  return uiType;
 }
