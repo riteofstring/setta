@@ -1,4 +1,3 @@
-import { combineObjects, combineParameters } from "../utils/utils";
 import { UIType } from "./uiType";
 
 export const convertSpecsToDict = (specs) => {
@@ -8,30 +7,15 @@ export const convertSpecsToDict = (specs) => {
   return specs;
 };
 
-export const createJson = (specs, available) => {
-  const sp = convertSpecsToDict(specs);
-  let output = {};
-  for (let x of [
-    ["objects", available.objects, combineObjects],
-    ["parameters", available.parameters, combineParameters],
-  ]) {
-    if (x[0] in sp) {
-      output = { ...output, ...x[2](x[1], sp[x[0]]) };
-    }
-  }
-  return output;
-};
-
-const getInfos = (jsonInput, infoTypes, infoTypeStr, key_in_json) => {
-  let outputObject = {};
+const getInfos = (jsonInput, infoType, key_in_json) => {
+  const outputObject = {};
   let info = jsonInput;
   if (key_in_json) {
-    info = info[infoTypeStr];
+    info = info[infoType.name];
   }
   if (info) {
-    let infoTypeObj = infoTypes[infoTypeStr];
     for (let key of Object.keys(info)) {
-      outputObject[key] = new infoTypeObj(key, info[key]);
+      outputObject[key] = new infoType(key, info[key]);
     }
   }
   return outputObject;
@@ -58,38 +42,22 @@ class ParameterInfo {
 
 class ObjInfo {
   constructor(name, jsonInput) {
-    const infoTypes = { ParameterInfo };
     this.name = name;
-    this.params = getInfos(jsonInput, infoTypes, "ParameterInfo", false);
+    this.params = getInfos(jsonInput, ParameterInfo, false);
   }
 }
 
 class ModuleInfo {
   constructor(name, jsonInput) {
-    const infoTypes = { ObjInfo };
     this.name = name;
-    this.objs = getInfos(jsonInput, infoTypes, "ObjInfo", false);
+    this.objs = getInfos(jsonInput, ObjInfo, false);
   }
 }
 
 export class SectionInfo {
-  constructor(name, specs, available) {
+  constructor(name, jsonInput) {
     this.name = name;
-    this.specs = convertSpecsToDict(specs);
-    const jsonInput = createJson(this.specs, available);
-    this.setModuleInfos(jsonInput);
-    this.setParameterInfos(jsonInput);
+    this.moduleInfos = getInfos(jsonInput, ModuleInfo, true);
+    this.parameterInfos = getInfos(jsonInput, ParameterInfo, true);
   }
-  setModuleInfos = (jsonInput) => {
-    this.moduleInfos = getInfos(jsonInput, { ModuleInfo }, "ModuleInfo", true);
-  };
-
-  setParameterInfos = (jsonInput) => {
-    this.parameterInfos = getInfos(
-      jsonInput,
-      { ParameterInfo },
-      "ParameterInfo",
-      true
-    );
-  };
 }
