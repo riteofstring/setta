@@ -2,6 +2,7 @@ import { action } from "easy-peasy";
 
 const sectionInfos = {
   sectionInfo: {},
+  moduleInfoId: {},
 
   setSectionInfo: action((state, payload) => {
     const { sectionInfoId, sectionInfo } = payload;

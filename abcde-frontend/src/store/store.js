@@ -6,11 +6,15 @@ import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
 import mapInteraction from "../models/mapInteraction";
 import master from "../models/master";
+import moduleInfos from "../models/moduleInfos";
+import objInfos from "../models/objInfos";
 import panes from "../models/panes";
+import paramInfos from "../models/paramInfos";
 import sectionInfos from "../models/sectionInfos";
 import sectionPositions from "../models/sectionPositions";
 import sections from "../models/sections";
 import uiInfo from "../models/uiInfo";
+import uiTypes from "../models/uiTypes";
 import yamlEntry from "../models/yamlEntry";
 
 const store = createStore({
@@ -26,6 +30,10 @@ const store = createStore({
   sectionPositions: sectionPositions,
   sections: sections,
   sectionInfos: sectionInfos,
+  moduleInfos: moduleInfos,
+  objInfos: objInfos,
+  paramInfos: paramInfos,
+  uiTypes: uiTypes,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

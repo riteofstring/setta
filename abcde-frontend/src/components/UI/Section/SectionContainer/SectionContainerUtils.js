@@ -1,7 +1,7 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
-import { SectionInfo } from "../../../../classes/jsonParser";
+import { createSectionInfo } from "../../../../classes/infoFactory";
 import { LIST, LIST_ROOT } from "../../../../utils/constants";
 import { createNewId } from "../../../../utils/sectionIds";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
@@ -51,12 +51,11 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         } else {
           config = uiSpecs.get(childVariableName);
         }
-        const newSectionInfo = new SectionInfo(
+        const [newSectionInfo, newInfoId] = createSectionInfo(
           childVariableName,
           config,
           available
         );
-        const newInfoId = createNewId();
         setSectionInfo({
           sectionInfoId: newInfoId,
           sectionInfo: newSectionInfo,

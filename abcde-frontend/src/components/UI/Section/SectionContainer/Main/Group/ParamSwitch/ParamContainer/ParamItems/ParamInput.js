@@ -1,18 +1,15 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 
-import {
-  nullOrUndefined,
-  createSelectedString,
-} from "../../../../../../../../../utils/utils";
+import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
   const { sectionId, paramInfo } = props;
 
-  const { name: paramName, defaultVal, ancestorNames } = paramInfo;
+  const { name: paramName, defaultVal } = paramInfo;
 
-  const [selectedString, setSelectedString] = useState(null);
+  const [selectedString, setSelectedString] = useState("PLACEHOLDER");
 
   const setEnteredValue = useStoreActions((x) => x.sections.setEnteredValue);
 
@@ -23,9 +20,9 @@ export default function ParamInput(props) {
 
   const [value, setValue] = useState("");
 
-  useEffect(() => {
-    setSelectedString(createSelectedString(ancestorNames[1], ancestorNames[2]));
-  }, [ancestorNames]);
+  // useEffect(() => {
+  //   setSelectedString(createSelectedString(ancestorNames[1], ancestorNames[2]));
+  // }, [ancestorNames]);
 
   // console.log("ParamInput", paramName, value, history);
 
