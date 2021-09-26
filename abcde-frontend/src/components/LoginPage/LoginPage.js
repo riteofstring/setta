@@ -1,6 +1,3 @@
-import React, { useState } from "react";
-import { useFormik } from "formik";
-import { useHistory } from "react-router-dom";
 import {
   FormErrorMessage,
   FormLabel,
@@ -14,6 +11,10 @@ import {
   Grid,
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
+import { useFormik } from "formik";
+import React, { useState } from "react";
+import { useHistory } from "react-router-dom";
+
 import { login } from "../../dbRequests/authentication.js";
 
 const LoginPage = () => {
@@ -27,32 +28,26 @@ const LoginPage = () => {
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
 
-  const {
-    handleSubmit,
-    handleChange,
-    values,
-    touched,
-    errors,
-    handleBlur,
-  } = useFormik({
-    initialValues: {
-      username: "",
-      password: "",
-    },
-    onSubmit: ({ username, password }) => {
-      // alert(`username: ${username}, password: ${password}`);
-      login({
-        username,
-        password,
-        actionLoginSuccess,
-        actionLoginFail,
-      }).then((x) => {
-        if (x) {
-          history.push("/");
-        }
-      });
-    },
-  });
+  const { handleSubmit, handleChange, values, touched, errors, handleBlur } =
+    useFormik({
+      initialValues: {
+        username: "",
+        password: "",
+      },
+      onSubmit: ({ username, password }) => {
+        // alert(`username: ${username}, password: ${password}`);
+        login({
+          username,
+          password,
+          actionLoginSuccess,
+          actionLoginFail,
+        }).then((x) => {
+          if (x) {
+            history.push("/");
+          }
+        });
+      },
+    });
 
   return (
     <Flex

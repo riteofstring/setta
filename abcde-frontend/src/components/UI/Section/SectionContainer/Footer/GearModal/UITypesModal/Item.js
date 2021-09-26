@@ -11,9 +11,10 @@ import {
   AccordionIcon,
 } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+
 import { UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
+import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ sectionId, paramName }) {
   const uiType = useStoreState((state) =>

@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
 import { HStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { useState, useEffect } from "react";
+
+import ModalContainer from "../ModalContainer/ModalContainer";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
-import ModalContainer from "../ModalContainer/ModalContainer";
 
 export default function SaveLoadModal(props) {
   const {

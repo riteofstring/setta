@@ -1,7 +1,6 @@
 import { Icon, GridItem, IconButton } from "@chakra-ui/react";
 import {
-  HiChevronUp,
-  // HiChevronDown,
+  HiChevronUp, // HiChevronDown,
 } from "react-icons/hi";
 
 export default function CollapseSectionButton() {

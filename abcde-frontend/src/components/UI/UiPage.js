@@ -1,13 +1,14 @@
-import React, { useLayoutEffect } from "react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import SectionsPane from "./Section/SectionsPane";
 // import RunContainer from "./RunContainer/RunContainer";
 // import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex, Grid } from "@chakra-ui/react";
-import { NO_AUTH } from "../../utils/constants";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import React, { useLayoutEffect } from "react";
+
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { websocketAuth } from "../../dbRequests/authentication.js";
 import { resetState } from "../../store/store";
+import { NO_AUTH } from "../../utils/constants";
+import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {
   const loadSections = useStoreActions(

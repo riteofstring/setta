@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { Stack, HStack, Box } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
+import { Stack, HStack, Box } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
+import React, { useEffect, useState } from "react";
+
+import { SECTIONWIDTH } from "../../../../utils/constants";
+import { useIdsOverview } from "../../../../utils/useIdsOverview";
+import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
+import ManyNestedSections from "../NestedSection/ManyNestedSections";
+import SectionFooter from "./Footer/SectionFooter";
+import { SectionHeader } from "./Header/SectionHeader";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
-import { SectionHeader } from "./Header/SectionHeader";
-import SectionFooter from "./Footer/SectionFooter";
-import ManyNestedSections from "../NestedSection/ManyNestedSections";
-import { SECTIONWIDTH } from "../../../../utils/constants";
-import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 import {
   useAddChild,
   funcFlipChildrenAreCollapsed,
   useDeleteChild,
 } from "./SectionContainerUtils";
-import { useIdsOverview } from "../../../../utils/useIdsOverview";
-import { useStoreState } from "easy-peasy";
 
 export const ChildrenContext = React.createContext(null);
 

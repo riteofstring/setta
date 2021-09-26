@@ -1,7 +1,8 @@
-import { createContext, useRef } from "react";
 import { useDisclosure } from "@chakra-ui/react";
-import DrawerPane from "./DrawerPane";
+import { createContext, useRef } from "react";
+
 import DrawerButton from "./DrawerButton";
+import DrawerPane from "./DrawerPane";
 
 export const DrawerContext = createContext(null);
 

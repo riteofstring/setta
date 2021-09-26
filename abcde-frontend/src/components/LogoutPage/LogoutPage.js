@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
-import { logout } from "../../dbRequests/authentication.js";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { resetEntireState } from "../../store/store";
+import React, { useEffect } from "react";
 import { useHistory } from "react-router-dom";
+
+import { logout } from "../../dbRequests/authentication.js";
+import { resetEntireState } from "../../store/store";
 
 const LogoutPage = () => {
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);

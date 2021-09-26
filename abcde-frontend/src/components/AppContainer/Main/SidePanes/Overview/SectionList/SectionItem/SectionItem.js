@@ -1,7 +1,8 @@
-import { Text, HStack } from "@chakra-ui/react";
 import { DragHandleIcon } from "@chakra-ui/icons";
+import { Text, HStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect } from "react";
+
 import { PANEID } from "../../../../../../../utils/constants";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {

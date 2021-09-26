@@ -1,5 +1,4 @@
 import { Button, Icon } from "@chakra-ui/react";
-
 import { BiTerminal } from "react-icons/bi";
 
 export default function TerminalButton() {

@@ -1,5 +1,3 @@
-import React from "react";
-import { useFormik } from "formik";
 import {
   FormErrorMessage,
   FormLabel,
@@ -10,8 +8,11 @@ import {
   Input,
   Grid,
 } from "@chakra-ui/react";
-import * as Yup from "yup";
 import { useStoreActions } from "easy-peasy";
+import { useFormik } from "formik";
+import React from "react";
+import * as Yup from "yup";
+
 import { register } from "../../dbRequests/authentication.js";
 
 const SignUpPage = () => {
@@ -20,44 +21,38 @@ const SignUpPage = () => {
   );
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
 
-  const {
-    handleSubmit,
-    handleChange,
-    values,
-    touched,
-    errors,
-    handleBlur,
-  } = useFormik({
-    initialValues: {
-      email: "",
-      username: "",
-      password: "",
-      confirmpassword: "",
-    },
-    validationSchema: Yup.object({
-      email: Yup.string().email("Invalid email").required("Required"),
-      username: Yup.string()
-        .max(10, "Username must be shorter than 10 characters")
-        .required("Required"),
-      password: Yup.string()
-        .min(6, "Password should be longer than 6 characters")
-        .required(),
-      confirmpassword: Yup.string().oneOf(
-        [Yup.ref("password"), null],
-        "Passwords must match"
-      ),
-    }),
-    onSubmit: ({ email, username, password }) => {
-      // alert(`email: ${email}, username: ${username}, password: ${password}`);
-      register({
-        username,
-        email,
-        password,
-        actionLoginSuccess,
-        actionLoginFail,
-      });
-    },
-  });
+  const { handleSubmit, handleChange, values, touched, errors, handleBlur } =
+    useFormik({
+      initialValues: {
+        email: "",
+        username: "",
+        password: "",
+        confirmpassword: "",
+      },
+      validationSchema: Yup.object({
+        email: Yup.string().email("Invalid email").required("Required"),
+        username: Yup.string()
+          .max(10, "Username must be shorter than 10 characters")
+          .required("Required"),
+        password: Yup.string()
+          .min(6, "Password should be longer than 6 characters")
+          .required(),
+        confirmpassword: Yup.string().oneOf(
+          [Yup.ref("password"), null],
+          "Passwords must match"
+        ),
+      }),
+      onSubmit: ({ email, username, password }) => {
+        // alert(`email: ${email}, username: ${username}, password: ${password}`);
+        register({
+          username,
+          email,
+          password,
+          actionLoginSuccess,
+          actionLoginFail,
+        });
+      },
+    });
 
   return (
     <Flex

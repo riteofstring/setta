@@ -1,12 +1,10 @@
 import { action, thunk, debug } from "easy-peasy";
-import Data from "../data/simpleTrainTest.json";
+
 import { SectionInfo } from "../classes/jsonParser";
 import { Section } from "../classes/section";
 import { Sections } from "../classes/sections";
-import { NO_AUTH } from "../utils/constants";
+import Data from "../data/simpleTrainTest.json";
 import { generateAndRunCode } from "../dbRequests/ui";
-import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
-import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 import {
   parseUI,
   parseEnteredValues,
@@ -14,6 +12,9 @@ import {
   parseSelected,
   parseChildren,
 } from "../graphql/parsers/uiParsers";
+import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
+import { NO_AUTH } from "../utils/constants";
+import { getPageMinMaxList, createExportableObject } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,

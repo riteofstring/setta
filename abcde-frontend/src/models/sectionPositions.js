@@ -1,4 +1,5 @@
 import { thunk, action } from "easy-peasy";
+
 import { PANEID } from "../utils/constants";
 
 const sectionPositions = {

@@ -1,6 +1,6 @@
 {
-    "MODULES": {
-      "transforms": {
+  "MODULES": {
+    "transforms": {
       "ModuleInfo": {
         "torchvision.transforms": {
           "No compose!": {
@@ -176,8 +176,6 @@
     }
   },
   "UI": {
-    "Transform": [
-        "transforms"
-    ]
+    "Transform": ["transforms"]
   }
 }

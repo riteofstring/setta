@@ -1,4 +1,5 @@
 import { action, thunk } from "easy-peasy";
+
 import {
   loadFolderAndUINames as loadFolderAndUINamesBackend,
   loadUI as loadUIBackend,
@@ -30,9 +31,9 @@ const uiInfo = {
   }),
 
   loadUI: thunk(async (action, payload, helpers) => {
-    console.log("loadUI", payload)
-    const ui = await loadUIBackend(payload)
-    helpers.getStoreActions().master.setEntireState(ui)
+    console.log("loadUI", payload);
+    const ui = await loadUIBackend(payload);
+    helpers.getStoreActions().master.setEntireState(ui);
     // const masterSetEntireState =
     //   helpers.getStoreActions().master.setEntireState;
     // const yamlEntrySetEntireState =

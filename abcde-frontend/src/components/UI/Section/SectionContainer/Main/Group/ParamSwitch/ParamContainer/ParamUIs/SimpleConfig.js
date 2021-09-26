@@ -1,7 +1,6 @@
 import { Input } from "@chakra-ui/react";
 
 export default function SimpleConfig({ options, onChange, savedConfig }) {
-
   return options.map((e, idx) => (
     <Input
       placeholder={e}

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
 import { Box } from "@chakra-ui/react";
+import React, { useState, useEffect } from "react";
+
 import Xterm from "./Terminal";
+import "./TerminalPage.module.css";
 // import { FitAddon } from "xterm-addon-fit";
 import "./xterm.module.css";
-import "./TerminalPage.module.css";
 
 // const fitAddon = new FitAddon();
 

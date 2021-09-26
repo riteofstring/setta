@@ -1,4 +1,9 @@
-import { useCallback, useState } from "react";
+import {
+  AddIcon,
+  SmallCloseIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@chakra-ui/icons";
 import {
   Heading,
   Tabs,
@@ -9,17 +14,13 @@ import {
   IconButton,
   HStack,
 } from "@chakra-ui/react";
-import {
-  AddIcon,
-  SmallCloseIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from "@chakra-ui/icons";
-import TextEditor from "./TextEditor/TextEditor";
-import PaneContainer from "../PaneContainer";
-import { useDropzone } from "react-dropzone";
 import { useStoreActions } from "easy-peasy";
+import { useCallback, useState } from "react";
+import { useDropzone } from "react-dropzone";
+
 import { rangeArray, mod } from "../../../../../utils/utils";
+import PaneContainer from "../PaneContainer";
+import TextEditor from "./TextEditor/TextEditor";
 
 const paneProps = {
   right: true,

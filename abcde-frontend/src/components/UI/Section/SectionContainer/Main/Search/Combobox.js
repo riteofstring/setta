@@ -1,6 +1,6 @@
-import React from "react";
-import { InputLeftElement, Input, List, ListItem } from "@chakra-ui/react";
 import { SearchIcon } from "@chakra-ui/icons";
+import { InputLeftElement, Input, List, ListItem } from "@chakra-ui/react";
+import React from "react";
 
 export const ComboboxInput = React.forwardRef(({ ...props }, ref) => {
   return (

@@ -1,5 +1,5 @@
-import RegularParam from "./ParamSwitchOptions/RegularParam";
 import KwargParam from "./ParamSwitchOptions/KwargParam";
+import RegularParam from "./ParamSwitchOptions/RegularParam";
 
 export default function ParamSwitch(props) {
   switch (props.metaUIType) {

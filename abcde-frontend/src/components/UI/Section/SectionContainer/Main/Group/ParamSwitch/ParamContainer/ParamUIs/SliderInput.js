@@ -5,6 +5,7 @@ import {
   SliderThumb,
   HStack,
 } from "@chakra-ui/react";
+
 import SimpleConfig from "./SimpleConfig";
 
 function defaultIfNotNumber(x) {

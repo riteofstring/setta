@@ -1,5 +1,6 @@
-import "./App.css";
 import { Flex } from "@chakra-ui/react";
+
+import "./App.css";
 import AppContainer from "./components/AppContainer/AppContainer";
 
 // import {

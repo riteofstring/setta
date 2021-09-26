@@ -1,6 +1,6 @@
 export const isObject = (x) => {
-  return (typeof(x) === 'object' && x !== null)
-}
+  return typeof x === "object" && x !== null;
+};
 
 export const getAllNonFunctions = (x) => {
   return Object.fromEntries(
@@ -9,15 +9,15 @@ export const getAllNonFunctions = (x) => {
 };
 
 export const recursivelyGetAllNonFunctions = (x) => {
-  if (!isObject(x)){
-    return x
+  if (!isObject(x)) {
+    return x;
   }
-  const output = {}
-  for (let k of Object.keys(getAllNonFunctions(x))){
-    output[k] = recursivelyGetAllNonFunctions(x[k])
+  const output = {};
+  for (let k of Object.keys(getAllNonFunctions(x))) {
+    output[k] = recursivelyGetAllNonFunctions(x[k]);
   }
-  return output
-}
+  return output;
+};
 
 export const setEntireState = (state, newState) => {
   for (let key of Object.keys(getAllNonFunctions(state))) {

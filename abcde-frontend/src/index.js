@@ -1,11 +1,12 @@
+import { ChakraProvider } from "@chakra-ui/react";
+import { StoreProvider } from "easy-peasy";
 import React from "react";
 import ReactDOM from "react-dom";
-import { StoreProvider } from "easy-peasy";
-import store from "./store/store";
-import "./index.css";
+
 import App from "./App";
+import "./index.css";
 import reportWebVitals from "./reportWebVitals";
-import { ChakraProvider } from "@chakra-ui/react";
+import store from "./store/store";
 import { AppTheme } from "./styles/Theme";
 
 ReactDOM.render(

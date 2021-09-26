@@ -6,12 +6,11 @@ import {
   Button,
   Spacer,
 } from "@chakra-ui/react";
-import ListItem from "./ListItem";
-import FileListContainer from "./FileListContainer";
 import { useState } from "react";
-import {
-  createNewFolder
-} from "../../dbRequests/ui"
+
+import { createNewFolder } from "../../dbRequests/ui";
+import FileListContainer from "./FileListContainer";
+import ListItem from "./ListItem";
 
 export default function FileExplorer({
   token,
@@ -35,14 +34,12 @@ export default function FileExplorer({
     onChange: onFolderSelect,
   });
 
-  const {
-    getRootProps: getRootPropsFile,
-    getRadioProps: getRadioPropsFile,
-  } = useRadioGroup({
-    name: "fileSelection",
-    value: selectedFile[selectedFolder],
-    onChange: onFileSelect,
-  });
+  const { getRootProps: getRootPropsFile, getRadioProps: getRadioPropsFile } =
+    useRadioGroup({
+      name: "fileSelection",
+      value: selectedFile[selectedFolder],
+      onChange: onFileSelect,
+    });
 
   const [newFolderName, setNewFolderName] = useState("");
   const [showNewFolderField, setShowNewFolderField] = useState(false);
@@ -53,7 +50,7 @@ export default function FileExplorer({
       setFoldersAndFiles({ ...foldersAndFiles, [newFolderName]: [] });
       setShowNewFolderField(false);
       onFolderSelect(newFolderName);
-      createNewFolder({token, name: newFolderName})
+      createNewFolder({ token, name: newFolderName });
     }
   };
 

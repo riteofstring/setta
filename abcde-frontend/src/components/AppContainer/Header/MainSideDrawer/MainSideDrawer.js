@@ -1,7 +1,8 @@
-import { VStack, Button } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
-import { useHistory } from "react-router-dom";
+import { VStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { useHistory } from "react-router-dom";
+
 import DrawerContainer from "../../../../utils/DrawerContainer/DrawerContainer";
 
 export default function HeaderContainer() {

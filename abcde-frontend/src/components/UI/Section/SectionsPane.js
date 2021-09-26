@@ -1,9 +1,10 @@
-import React from "react";
+import { Stack } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import SingleSectionsPane from "./SingleSectionsPane";
+import React from "react";
+
 import { PANEID } from "../../../utils/constants";
 import { useSetSectionPosition } from "../../../utils/useSetSectionPosition";
-import { Stack } from "@chakra-ui/react";
+import SingleSectionsPane from "./SingleSectionsPane";
 
 function SectionsPane() {
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);

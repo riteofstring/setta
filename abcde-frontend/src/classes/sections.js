@@ -1,8 +1,8 @@
 import { nullOrUndefined, allDefined, generateUUIDs } from "../utils/utils";
+import { SectionInfo } from "./jsonParser";
+import { Section } from "./section";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
-import { Section } from "./section";
-import { SectionInfo } from "./jsonParser";
 
 // start of helper functions
 function _childSectionHeading(parent, paramName) {

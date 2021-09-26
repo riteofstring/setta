@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { useCombobox } from "downshift";
-import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
-import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
+import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
+import { useCombobox } from "downshift";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import React, { useState, useEffect } from "react";
+
+import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 
 export default function SectionSearch({
   moduleInfos,

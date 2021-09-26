@@ -1,10 +1,11 @@
-import { MapInteractionCSS } from "react-map-interaction";
-import { useState, useEffect } from "react";
-import CustomScrollDiv from "./CustomScrollDiv";
-import useKeyPress from "../../../../utils/use-key-press";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
+import { useState, useEffect } from "react";
+import { MapInteractionCSS } from "react-map-interaction";
+
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
+import useKeyPress from "../../../../utils/use-key-press";
+import CustomScrollDiv from "./CustomScrollDiv";
 
 export default function CustomMapInteractionCSS(props) {
   const setHovering = useStoreActions(
@@ -88,15 +89,11 @@ export default function CustomMapInteractionCSS(props) {
     }
   };
 
-  const getMinMaxCoordinate = (
-    contentDim,
-    inputMargin,
-    scale
-  ) => {
+  const getMinMaxCoordinate = (contentDim, inputMargin, scale) => {
     if (contentDim) {
       return {
         newMax: inputMargin,
-        newMin: -contentDim*scale,
+        newMin: -contentDim * scale,
       };
     }
     return { newMax: 0, newMin: 0 };

@@ -1,758 +1,758 @@
 {
-    "Model": {
-        "ModuleInfo": {
-            "torchvision.models": {
-                "resnet101": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "resnet152": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "resnet18": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "resnet34": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "resnet50": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "resnext101_32x8d": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "resnext50_32x4d": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "wide_resnet101_2": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "wide_resnet50_2": {
-                    "pretrained": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                },
-                "densenet161": {
-                    "pretrained": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "CRAZY_SHIT"
-                    },
-                    "progress": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "kwargs": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "TEXT"
-                    }
-                }
-            }
+  "Model": {
+    "ModuleInfo": {
+      "torchvision.models": {
+        "resnet101": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet152": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet18": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet34": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnet50": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnext101_32x8d": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "resnext50_32x4d": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "wide_resnet101_2": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "wide_resnet50_2": {
+          "pretrained": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
+        },
+        "densenet161": {
+          "pretrained": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "CRAZY_SHIT"
+          },
+          "progress": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "kwargs": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "TEXT"
+          }
         }
-    },
-    "Other Stuff": {
-        "ParameterInfo": {
-            "dataset_root": {
-                "default_val": ".",
-                "type": "",
-                "ui_type": "UNKNOWN"
-            },
-            "batch_size": {
-                "type": "int",
-                "default_val": "",
-                "ui_type": "INT"
-            },
-            "name": {
-                "default_val": "",
-                "type": "",
-                "ui_type": "UNKNOWN"
-            },
-            "weights": {
-                "type": "torch.Tensor",
-                "default_val": "",
-                "ui_type": "LIST"
-            }
-        }
-    },
-    "Dataset": {
-        "ModuleInfo": {
-            "torchvision.datasets": {
-                "CIFAR10": {
-                    "root": {
-                        "default_val": "_empty",
-                        "type": "str",
-                        "ui_type": "TEXT"
-                    },
-                    "train": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "transform": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "target_transform": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "download": {
-                        "default_val": "False",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "transforms": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    }
-                },
-                "CIFAR100": {
-                    "root": {
-                        "default_val": "_empty",
-                        "type": "str",
-                        "ui_type": "TEXT"
-                    },
-                    "train": {
-                        "default_val": "True",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "transform": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "target_transform": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "download": {
-                        "default_val": "False",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "transforms": {
-                        "default_val": "None",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    }
-                }
-            }
-        }
-    },
-    "Transform": {
-        "ModuleInfo": {
-            "torchvision.transforms": {
-                "Compose": {
-                    "transformsA": {
-                        "default_val": "_empty",
-                        "type": {
-                            "ModuleInfo": {
-                                "torchvision.transforms": {
-                                    "Compose": {
-                                        "transformsB": {
-                                            "default_val": "_empty",
-                                            "type": {
-                                                "ModuleInfo": {
-                                                    "torchvision.transforms": {
-                                                        "Compose": {
-                                                            "transformsC": {
-                                                                "default_val": "_empty",
-                                                                "type": {
-                                                                    "ModuleInfo": {
-                                                                        "torchvision.transforms": {
-                                                                            "Compose": {
-                                                                                "transformsD": {
-                                                                                    "default_val": "_empty",
-                                                                                    "type": {
-                                                                                        "ModuleInfo": {
-                                                                                            "torchvision.transforms": {
-                                                                                                "Compose": {
-                                                                                                    "transformsE": {
-                                                                                                        "default_val": "_empty",
-                                                                                                        "type": {
-                                                                                                            "ModuleInfo": {
-                                                                                                                "torchvision.transforms": {
-                                                                                                                    "Compose": {
-                                                                                                                        "transformsF": {
-                                                                                                                            "default_val": "_empty",
-                                                                                                                            "type": {
-                                                                                                                                "ModuleInfo": {
-                                                                                                                                    "torchvision.transforms": {
-                                                                                                                                        "Compose": {
-                                                                                                                                            "transformsG": {
-                                                                                                                                                "default_val": "_empty",
-                                                                                                                                                "type": {
-                                                                                                                                                    "ModuleInfo": {
-                                                                                                                                                        "torchvision.transforms": {
-                                                                                                                                                            "Compose": {
-                                                                                                                                                                "transformsH": {
-                                                                                                                                                                    "default_val": "_empty",
-                                                                                                                                                                    "type": {
-                                                                                                                                                                        "ModuleInfo": {
-                                                                                                                                                                            "torchvision.transforms": {
-                                                                                                                                                                                "Compose": {
-                                                                                                                                                                                    "transformsI": {
-                                                                                                                                                                                        "default_val": "_empty",
-                                                                                                                                                                                        "type": {
-                                                                                                                                                                                            "ModuleInfo": {
-                                                                                                                                                                                                "torchvision.transforms": {
-                                                                                                                                                                                                    "RandomAffine": {
-                                                                                                                                                                                                        "degrees": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "translate": {
-                                                                                                                                                                                                            "default_val": "None",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "scale": {
-                                                                                                                                                                                                            "default_val": "None",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "shear": {
-                                                                                                                                                                                                            "default_val": "None",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "resample": {
-                                                                                                                                                                                                            "default_val": "False",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "fillcolor": {
-                                                                                                                                                                                                            "default_val": "0",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomApply": {
-                                                                                                                                                                                                        "transforms": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "p": {
-                                                                                                                                                                                                            "default_val": "0.5",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomChoice": {
-                                                                                                                                                                                                        "transforms": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomCrop": {
-                                                                                                                                                                                                        "size": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "padding": {
-                                                                                                                                                                                                            "default_val": "None",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "pad_if_needed": {
-                                                                                                                                                                                                            "default_val": "False",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "fill": {
-                                                                                                                                                                                                            "default_val": "0",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "padding_mode": {
-                                                                                                                                                                                                            "default_val": "constant",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomErasing": {
-                                                                                                                                                                                                        "p": {
-                                                                                                                                                                                                            "default_val": "0.5",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "scale": {
-                                                                                                                                                                                                            "default_val": "(0.02, 0.33)",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "ratio": {
-                                                                                                                                                                                                            "default_val": "(0.3, 3.3)",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "value": {
-                                                                                                                                                                                                            "default_val": "0",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "inplace": {
-                                                                                                                                                                                                            "default_val": "False",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomGrayscale": {
-                                                                                                                                                                                                        "p": {
-                                                                                                                                                                                                            "default_val": "0.1",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomHorizontalFlip": {
-                                                                                                                                                                                                        "p": {
-                                                                                                                                                                                                            "default_val": "0.5",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomOrder": {
-                                                                                                                                                                                                        "transforms": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomPerspective": {
-                                                                                                                                                                                                        "distortion_scale": {
-                                                                                                                                                                                                            "default_val": "0.5",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "p": {
-                                                                                                                                                                                                            "default_val": "0.5",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "interpolation": {
-                                                                                                                                                                                                            "default_val": "3",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "fill": {
-                                                                                                                                                                                                            "default_val": "0",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomResizedCrop": {
-                                                                                                                                                                                                        "size": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "scale": {
-                                                                                                                                                                                                            "default_val": "(0.08, 1.0)",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "ratio": {
-                                                                                                                                                                                                            "default_val": "(0.75, 1.3333333333333333)",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "interpolation": {
-                                                                                                                                                                                                            "default_val": "2",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomRotation": {
-                                                                                                                                                                                                        "degrees": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "resample": {
-                                                                                                                                                                                                            "default_val": "False",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "expand": {
-                                                                                                                                                                                                            "default_val": "False",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "center": {
-                                                                                                                                                                                                            "default_val": "None",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "fill": {
-                                                                                                                                                                                                            "default_val": "None",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomSizedCrop": {
-                                                                                                                                                                                                        "args": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "kwargs": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "TEXT"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "size": {
-                                                                                                                                                                                                            "default_val": "_empty",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "scale": {
-                                                                                                                                                                                                            "default_val": "(0.08, 1.0)",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "ratio": {
-                                                                                                                                                                                                            "default_val": "(0.75, 1.3333333333333333)",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        },
-                                                                                                                                                                                                        "interpolation": {
-                                                                                                                                                                                                            "default_val": "2",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    },
-                                                                                                                                                                                                    "RandomVerticalFlip": {
-                                                                                                                                                                                                        "p": {
-                                                                                                                                                                                                            "default_val": "0.5",
-                                                                                                                                                                                                            "type": "_empty",
-                                                                                                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                    }
-                                                                                                                                                                                                }
-                                                                                                                                                                                            }
-                                                                                                                                                                                        },
-                                                                                                                                                                                        "ui_type": "NESTED_OBJECT"
-                                                                                                                                                                                    }
-                                                                                                                                                                                },
-                                                                                                                                                                                "RandomHorizontalFlip": {
-                                                                                                                                                                                    "p": {
-                                                                                                                                                                                        "default_val": "0.5",
-                                                                                                                                                                                        "type": "_empty",
-                                                                                                                                                                                        "ui_type": "UNKNOWN"
-                                                                                                                                                                                    }
-                                                                                                                                                                                }
-                                                                                                                                                                            }
-                                                                                                                                                                        }
-                                                                                                                                                                    },
-                                                                                                                                                                    "ui_type": "NESTED_OBJECT"
-                                                                                                                                                                }
-                                                                                                                                                            },
-                                                                                                                                                            "RandomHorizontalFlip": {
-                                                                                                                                                                "p": {
-                                                                                                                                                                    "default_val": "0.5",
-                                                                                                                                                                    "type": "_empty",
-                                                                                                                                                                    "ui_type": "UNKNOWN"
-                                                                                                                                                                }
-                                                                                                                                                            }
-                                                                                                                                                        }
-                                                                                                                                                    }
-                                                                                                                                                },
-                                                                                                                                                "ui_type": "NESTED_OBJECT"
-                                                                                                                                            }
-                                                                                                                                        },
-                                                                                                                                        "RandomHorizontalFlip": {
-                                                                                                                                            "p": {
-                                                                                                                                                "default_val": "0.5",
-                                                                                                                                                "type": "_empty",
-                                                                                                                                                "ui_type": "UNKNOWN"
-                                                                                                                                            }
-                                                                                                                                        }
-                                                                                                                                    }
-                                                                                                                                }
-                                                                                                                            },
-                                                                                                                            "ui_type": "NESTED_OBJECT"
-                                                                                                                        }
-                                                                                                                    },
-                                                                                                                    "RandomHorizontalFlip": {
-                                                                                                                        "p": {
-                                                                                                                            "default_val": "0.5",
-                                                                                                                            "type": "_empty",
-                                                                                                                            "ui_type": "UNKNOWN"
-                                                                                                                        }
-                                                                                                                    }
-                                                                                                                }
-                                                                                                            }
-                                                                                                        },
-                                                                                                        "ui_type": "NESTED_OBJECT"
-                                                                                                    }
-                                                                                                },
-                                                                                                "RandomHorizontalFlip": {
-                                                                                                    "p": {
-                                                                                                        "default_val": "0.5",
-                                                                                                        "type": "_empty",
-                                                                                                        "ui_type": "UNKNOWN"
-                                                                                                    }
-                                                                                                }
-                                                                                            }
-                                                                                        }
-                                                                                    },
-                                                                                    "ui_type": "NESTED_OBJECT"
-                                                                                }
-                                                                            },
-                                                                            "RandomHorizontalFlip": {
-                                                                                "p": {
-                                                                                    "default_val": "0.5",
-                                                                                    "type": "_empty",
-                                                                                    "ui_type": "UNKNOWN"
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                },
-                                                                "ui_type": "NESTED_OBJECT"
-                                                            }
-                                                        },
-                                                        "RandomHorizontalFlip": {
-                                                            "p": {
-                                                                "default_val": "0.5",
-                                                                "type": "_empty",
-                                                                "ui_type": "UNKNOWN"
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            "ui_type": "NESTED_OBJECT"
-                                        }
-                                    },
-                                    "RandomHorizontalFlip": {
-                                        "p": {
-                                            "default_val": "0.5",
-                                            "type": "_empty",
-                                            "ui_type": "UNKNOWN"
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        "ui_type": "LIST_NESTED_OBJECT"
-                    }
-                }
-            }
-        }
-    },
-    "Optimizer": {
-        "ModuleInfo": {
-            "torch.optim": {
-                "Adam": {
-                    "params": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "lr": {
-                        "default_val": "0.001",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "betas": {
-                        "default_val": "(0.9, 0.999)",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "eps": {
-                        "default_val": "1e-08",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "weight_decay": {
-                        "default_val": "0",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "amsgrad": {
-                        "default_val": "False",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "defaults": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    }
-                },
-                "SGD": {
-                    "params": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "lr": {
-                        "default_val": "<required parameter>",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "momentum": {
-                        "default_val": "0",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "dampening": {
-                        "default_val": "0",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "weight_decay": {
-                        "default_val": "0",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "nesterov": {
-                        "default_val": "False",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    },
-                    "defaults": {
-                        "default_val": "_empty",
-                        "type": "_empty",
-                        "ui_type": "UNKNOWN"
-                    }
-                }
-            }
-        }
+      }
     }
+  },
+  "Other Stuff": {
+    "ParameterInfo": {
+      "dataset_root": {
+        "default_val": ".",
+        "type": "",
+        "ui_type": "UNKNOWN"
+      },
+      "batch_size": {
+        "type": "int",
+        "default_val": "",
+        "ui_type": "INT"
+      },
+      "name": {
+        "default_val": "",
+        "type": "",
+        "ui_type": "UNKNOWN"
+      },
+      "weights": {
+        "type": "torch.Tensor",
+        "default_val": "",
+        "ui_type": "LIST"
+      }
+    }
+  },
+  "Dataset": {
+    "ModuleInfo": {
+      "torchvision.datasets": {
+        "CIFAR10": {
+          "root": {
+            "default_val": "_empty",
+            "type": "str",
+            "ui_type": "TEXT"
+          },
+          "train": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transform": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "target_transform": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "download": {
+            "default_val": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transforms": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        },
+        "CIFAR100": {
+          "root": {
+            "default_val": "_empty",
+            "type": "str",
+            "ui_type": "TEXT"
+          },
+          "train": {
+            "default_val": "True",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transform": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "target_transform": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "download": {
+            "default_val": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "transforms": {
+            "default_val": "None",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        }
+      }
+    }
+  },
+  "Transform": {
+    "ModuleInfo": {
+      "torchvision.transforms": {
+        "Compose": {
+          "transformsA": {
+            "default_val": "_empty",
+            "type": {
+              "ModuleInfo": {
+                "torchvision.transforms": {
+                  "Compose": {
+                    "transformsB": {
+                      "default_val": "_empty",
+                      "type": {
+                        "ModuleInfo": {
+                          "torchvision.transforms": {
+                            "Compose": {
+                              "transformsC": {
+                                "default_val": "_empty",
+                                "type": {
+                                  "ModuleInfo": {
+                                    "torchvision.transforms": {
+                                      "Compose": {
+                                        "transformsD": {
+                                          "default_val": "_empty",
+                                          "type": {
+                                            "ModuleInfo": {
+                                              "torchvision.transforms": {
+                                                "Compose": {
+                                                  "transformsE": {
+                                                    "default_val": "_empty",
+                                                    "type": {
+                                                      "ModuleInfo": {
+                                                        "torchvision.transforms": {
+                                                          "Compose": {
+                                                            "transformsF": {
+                                                              "default_val": "_empty",
+                                                              "type": {
+                                                                "ModuleInfo": {
+                                                                  "torchvision.transforms": {
+                                                                    "Compose": {
+                                                                      "transformsG": {
+                                                                        "default_val": "_empty",
+                                                                        "type": {
+                                                                          "ModuleInfo": {
+                                                                            "torchvision.transforms": {
+                                                                              "Compose": {
+                                                                                "transformsH": {
+                                                                                  "default_val": "_empty",
+                                                                                  "type": {
+                                                                                    "ModuleInfo": {
+                                                                                      "torchvision.transforms": {
+                                                                                        "Compose": {
+                                                                                          "transformsI": {
+                                                                                            "default_val": "_empty",
+                                                                                            "type": {
+                                                                                              "ModuleInfo": {
+                                                                                                "torchvision.transforms": {
+                                                                                                  "RandomAffine": {
+                                                                                                    "degrees": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "translate": {
+                                                                                                      "default_val": "None",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "scale": {
+                                                                                                      "default_val": "None",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "shear": {
+                                                                                                      "default_val": "None",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "resample": {
+                                                                                                      "default_val": "False",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "fillcolor": {
+                                                                                                      "default_val": "0",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomApply": {
+                                                                                                    "transforms": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "p": {
+                                                                                                      "default_val": "0.5",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomChoice": {
+                                                                                                    "transforms": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomCrop": {
+                                                                                                    "size": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "padding": {
+                                                                                                      "default_val": "None",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "pad_if_needed": {
+                                                                                                      "default_val": "False",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "fill": {
+                                                                                                      "default_val": "0",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "padding_mode": {
+                                                                                                      "default_val": "constant",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomErasing": {
+                                                                                                    "p": {
+                                                                                                      "default_val": "0.5",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "scale": {
+                                                                                                      "default_val": "(0.02, 0.33)",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "ratio": {
+                                                                                                      "default_val": "(0.3, 3.3)",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "value": {
+                                                                                                      "default_val": "0",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "inplace": {
+                                                                                                      "default_val": "False",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomGrayscale": {
+                                                                                                    "p": {
+                                                                                                      "default_val": "0.1",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomHorizontalFlip": {
+                                                                                                    "p": {
+                                                                                                      "default_val": "0.5",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomOrder": {
+                                                                                                    "transforms": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomPerspective": {
+                                                                                                    "distortion_scale": {
+                                                                                                      "default_val": "0.5",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "p": {
+                                                                                                      "default_val": "0.5",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "interpolation": {
+                                                                                                      "default_val": "3",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "fill": {
+                                                                                                      "default_val": "0",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomResizedCrop": {
+                                                                                                    "size": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "scale": {
+                                                                                                      "default_val": "(0.08, 1.0)",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "ratio": {
+                                                                                                      "default_val": "(0.75, 1.3333333333333333)",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "interpolation": {
+                                                                                                      "default_val": "2",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomRotation": {
+                                                                                                    "degrees": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "resample": {
+                                                                                                      "default_val": "False",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "expand": {
+                                                                                                      "default_val": "False",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "center": {
+                                                                                                      "default_val": "None",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "fill": {
+                                                                                                      "default_val": "None",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomSizedCrop": {
+                                                                                                    "args": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "kwargs": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "TEXT"
+                                                                                                    },
+                                                                                                    "size": {
+                                                                                                      "default_val": "_empty",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "scale": {
+                                                                                                      "default_val": "(0.08, 1.0)",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "ratio": {
+                                                                                                      "default_val": "(0.75, 1.3333333333333333)",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    },
+                                                                                                    "interpolation": {
+                                                                                                      "default_val": "2",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  },
+                                                                                                  "RandomVerticalFlip": {
+                                                                                                    "p": {
+                                                                                                      "default_val": "0.5",
+                                                                                                      "type": "_empty",
+                                                                                                      "ui_type": "UNKNOWN"
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            },
+                                                                                            "ui_type": "NESTED_OBJECT"
+                                                                                          }
+                                                                                        },
+                                                                                        "RandomHorizontalFlip": {
+                                                                                          "p": {
+                                                                                            "default_val": "0.5",
+                                                                                            "type": "_empty",
+                                                                                            "ui_type": "UNKNOWN"
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  },
+                                                                                  "ui_type": "NESTED_OBJECT"
+                                                                                }
+                                                                              },
+                                                                              "RandomHorizontalFlip": {
+                                                                                "p": {
+                                                                                  "default_val": "0.5",
+                                                                                  "type": "_empty",
+                                                                                  "ui_type": "UNKNOWN"
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                        "ui_type": "NESTED_OBJECT"
+                                                                      }
+                                                                    },
+                                                                    "RandomHorizontalFlip": {
+                                                                      "p": {
+                                                                        "default_val": "0.5",
+                                                                        "type": "_empty",
+                                                                        "ui_type": "UNKNOWN"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              },
+                                                              "ui_type": "NESTED_OBJECT"
+                                                            }
+                                                          },
+                                                          "RandomHorizontalFlip": {
+                                                            "p": {
+                                                              "default_val": "0.5",
+                                                              "type": "_empty",
+                                                              "ui_type": "UNKNOWN"
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "ui_type": "NESTED_OBJECT"
+                                                  }
+                                                },
+                                                "RandomHorizontalFlip": {
+                                                  "p": {
+                                                    "default_val": "0.5",
+                                                    "type": "_empty",
+                                                    "ui_type": "UNKNOWN"
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          },
+                                          "ui_type": "NESTED_OBJECT"
+                                        }
+                                      },
+                                      "RandomHorizontalFlip": {
+                                        "p": {
+                                          "default_val": "0.5",
+                                          "type": "_empty",
+                                          "ui_type": "UNKNOWN"
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "ui_type": "NESTED_OBJECT"
+                              }
+                            },
+                            "RandomHorizontalFlip": {
+                              "p": {
+                                "default_val": "0.5",
+                                "type": "_empty",
+                                "ui_type": "UNKNOWN"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "ui_type": "NESTED_OBJECT"
+                    }
+                  },
+                  "RandomHorizontalFlip": {
+                    "p": {
+                      "default_val": "0.5",
+                      "type": "_empty",
+                      "ui_type": "UNKNOWN"
+                    }
+                  }
+                }
+              }
+            },
+            "ui_type": "LIST_NESTED_OBJECT"
+          }
+        }
+      }
+    }
+  },
+  "Optimizer": {
+    "ModuleInfo": {
+      "torch.optim": {
+        "Adam": {
+          "params": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "lr": {
+            "default_val": "0.001",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "betas": {
+            "default_val": "(0.9, 0.999)",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "eps": {
+            "default_val": "1e-08",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "weight_decay": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "amsgrad": {
+            "default_val": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "defaults": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        },
+        "SGD": {
+          "params": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "lr": {
+            "default_val": "<required parameter>",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "momentum": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "dampening": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "weight_decay": {
+            "default_val": "0",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "nesterov": {
+            "default_val": "False",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          },
+          "defaults": {
+            "default_val": "_empty",
+            "type": "_empty",
+            "ui_type": "UNKNOWN"
+          }
+        }
+      }
+    }
+  }
 }

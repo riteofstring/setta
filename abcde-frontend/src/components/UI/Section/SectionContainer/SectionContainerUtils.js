@@ -1,9 +1,10 @@
-import { insertIntoArrayOrXpend } from "../../../../utils/utils";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
+
 import { SectionInfo } from "../../../../classes/jsonParser";
 import { createNewId } from "../../../../utils/sectionIds";
-import { useStoreState, useStoreActions } from "easy-peasy";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
+import { insertIntoArrayOrXpend } from "../../../../utils/utils";
 
 export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);

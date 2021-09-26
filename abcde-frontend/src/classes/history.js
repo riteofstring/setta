@@ -16,9 +16,8 @@ export class History {
     } else {
       let output = {};
       for (let p of paramNames) {
-        output[p] = this[dataName][selected][p][
-          this.getUITypeName(selected, p)
-        ];
+        output[p] =
+          this[dataName][selected][p][this.getUITypeName(selected, p)];
       }
       return output;
     }
@@ -73,7 +72,7 @@ export class History {
       }
     }
     // return all childIds that need to have their name replaced
-    return flattenDictOfArrays(this.childrenIdsPerParam[selected][newParam])
+    return flattenDictOfArrays(this.childrenIdsPerParam[selected][newParam]);
   };
 
   isNotPerUIType = (dataName) => {

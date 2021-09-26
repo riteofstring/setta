@@ -1,3 +1,4 @@
+import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
   ButtonGroup,
   Button,
@@ -13,9 +14,9 @@ import {
   PopoverCloseButton,
   PopoverFooter,
 } from "@chakra-ui/react";
-import { RiPlayMiniFill } from "react-icons/ri";
-import { ChevronDownIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { RiPlayMiniFill } from "react-icons/ri";
+
 import ExportYamlButton from "./ExportYamlButton";
 
 export default function RunButton() {
@@ -52,7 +53,7 @@ export default function RunButton() {
             <PopoverHeader>Run Options</PopoverHeader>
             <PopoverCloseButton />
             <PopoverBody>
-              <ExportYamlButton exportSelected={exportSelected}/>
+              <ExportYamlButton exportSelected={exportSelected} />
             </PopoverBody>
             <PopoverFooter>This is the footer</PopoverFooter>
           </PopoverContent>

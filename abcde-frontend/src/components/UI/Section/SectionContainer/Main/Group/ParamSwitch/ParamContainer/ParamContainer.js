@@ -1,6 +1,7 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
-import ParamInput from "./ParamItems/ParamInput";
 import { useStoreState } from "easy-peasy";
+
+import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {

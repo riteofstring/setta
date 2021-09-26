@@ -1,9 +1,10 @@
 import { action } from "easy-peasy";
+
 import { NO_AUTH } from "../utils/constants";
 
 const auth = {
-  token: localStorage.getItem('token'),
-  websocketToken: localStorage.getItem('websocketToken'),
+  token: localStorage.getItem("token"),
+  websocketToken: localStorage.getItem("websocketToken"),
   isAuthenticated: NO_AUTH,
   user: null,
 
@@ -34,10 +35,10 @@ const auth = {
   }),
 
   stayLoggedIn: action((state, payload) => {
-    console.log("verified existing token", payload)
+    console.log("verified existing token", payload);
     state.isAuthenticated = true;
-    state.user = payload.user
+    state.user = payload.user;
   }),
 };
 
-export default auth
+export default auth;

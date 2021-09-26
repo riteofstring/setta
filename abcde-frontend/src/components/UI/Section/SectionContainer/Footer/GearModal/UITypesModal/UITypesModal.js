@@ -1,7 +1,8 @@
 import { Box, Text, VStack } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
+
 import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
 import { arraysAreEqual } from "../../../../../../../utils/commonFunctions";
-import { useStoreState } from "easy-peasy";
 import Item from "./Item";
 
 export default function UITypesModal({ isOpen, onClose, sectionId }) {

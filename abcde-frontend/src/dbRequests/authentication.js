@@ -1,4 +1,5 @@
 import axios from "axios";
+
 import { BACKEND } from "../utils/constants";
 
 export const verifyToken = ({
@@ -6,7 +7,7 @@ export const verifyToken = ({
   actionStayLoggedIn,
   actionLoginFail,
 }) => {
-  console.log("trying to verify existing token", authToken)
+  console.log("trying to verify existing token", authToken);
   return axios
     .post(BACKEND + "api/auth/verifyToken", null, tokenConfig(authToken))
     .then((res) => {

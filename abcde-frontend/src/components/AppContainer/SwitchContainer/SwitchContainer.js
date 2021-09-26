@@ -1,13 +1,14 @@
+import { useStoreState } from "easy-peasy";
 import React from "react";
 import { Route, Switch, Redirect } from "react-router-dom";
+
+import { NO_AUTH } from "../../../utils/constants";
 import LoginPage from "../../LoginPage/LoginPage";
-import SignUpPage from "../../SignUpPage/SignUpPage";
 // import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
-import { useStoreState } from "easy-peasy";
+import SignUpPage from "../../SignUpPage/SignUpPage";
 import HeaderContainer from "../Header/Header";
 import MainContainer from "../Main/MainContainer";
-import { NO_AUTH } from "../../../utils/constants";
 
 const SwitchContainer = ({ isAuthenticated }) => {
   const getRoute = () => {

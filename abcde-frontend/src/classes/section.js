@@ -1,8 +1,8 @@
 import { insertIntoArray, flattenDictOfArrays } from "../utils/utils";
+import { History } from "./history";
 import { createJson } from "./jsonParser";
 import { Selected } from "./selected";
 import { UIType } from "./uiType";
-import { History } from "./history";
 
 export class Section {
   constructor(name, sectionInfo, depth) {

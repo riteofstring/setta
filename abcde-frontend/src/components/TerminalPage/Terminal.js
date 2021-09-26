@@ -1,9 +1,6 @@
 // FROM https://github.com/robert-harbison/xterm-for-react
-
 import * as React from "react";
-
 import { Terminal } from "xterm";
-
 import "xterm/css/xterm.css";
 
 export default class Xterm extends React.Component {

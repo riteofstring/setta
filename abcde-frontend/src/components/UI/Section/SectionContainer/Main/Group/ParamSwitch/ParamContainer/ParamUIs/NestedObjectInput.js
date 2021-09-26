@@ -1,8 +1,9 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { useEffect, useState, useContext } from "react";
-import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
+
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
+import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
 import { ChildrenContext } from "../../../../../SectionContainer";
 
 function valueAndLabel(x, type) {

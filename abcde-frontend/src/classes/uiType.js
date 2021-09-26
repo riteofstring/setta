@@ -45,7 +45,7 @@ export class UIType {
 
   initializeConfig = (specs) => {
     if (specs && this.isNested()) {
-      this.config = specs
+      this.config = specs;
     } else {
       this.config = {};
     }

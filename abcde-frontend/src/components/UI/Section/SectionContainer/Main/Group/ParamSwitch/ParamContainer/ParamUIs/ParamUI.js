@@ -1,10 +1,11 @@
-import TextInput, { TextInputConfig } from "./TextInput";
-import SliderInput, { SliderInputConfig } from "./SliderInput";
-import { NestedObjectInputConfig } from "./NestedObjectInput";
 import { useStoreState } from "easy-peasy";
 
+import { NestedObjectInputConfig } from "./NestedObjectInput";
+import SliderInput, { SliderInputConfig } from "./SliderInput";
+import TextInput, { TextInputConfig } from "./TextInput";
+
 export function ParamUIConfig({ name, savedConfig, onChange }) {
-  console.log("ParamUIConfig", name)
+  console.log("ParamUIConfig", name);
   // const available = useStoreState((state) => state.master.sections.available);
 
   // const availableObjects = Object.keys(available.objects);

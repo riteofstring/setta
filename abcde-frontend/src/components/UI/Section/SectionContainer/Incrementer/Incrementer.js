@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
+import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
+import React, { useState } from "react";
 import { HiX } from "react-icons/hi";
 
 export default function Incrementer({

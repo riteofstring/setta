@@ -1,3 +1,4 @@
+import { AddIcon } from "@chakra-ui/icons";
 import {
   Stack,
   HStack,
@@ -5,15 +6,14 @@ import {
   FormControl,
   IconButton,
 } from "@chakra-ui/react";
-import { AddIcon } from "@chakra-ui/icons";
-import ParamSwitch from "./ParamSwitch/ParamSwitch";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect, createContext } from "react";
+
 import { arraysAreEqual } from "../../../../../../utils/commonFunctions";
+import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, paramInfos }) {
   const paramNames = paramInfos ? Object.keys(paramInfos) : [];
-
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),

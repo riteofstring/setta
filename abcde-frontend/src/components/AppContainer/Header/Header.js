@@ -1,7 +1,8 @@
 import { Flex, Heading, Box, Spacer } from "@chakra-ui/react";
-import TabNav from "./Tabs/TabNav";
+
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
+import TabNav from "./Tabs/TabNav";
 
 export default function HeaderContainer() {
   return (

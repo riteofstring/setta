@@ -1,8 +1,9 @@
 import axios from "axios";
-import { BACKEND } from "../utils/constants";
+
+import { allFoldersQuery, UIQuery } from "../graphql/queries/uiQueries";
 import { stringifyCompleteState } from "../utils/commonFunctions";
+import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
-import { allFoldersQuery, UIQuery } from "../graphql/queries/uiQueries"
 
 export const generateAndRunCode = ({
   cliSocket,
@@ -20,7 +21,7 @@ export const createUI = ({ cliSocket, enteredText }) => {
 };
 
 export const saveUI = ({ token, name, folder, ui }) => {
-  const body = {ui: {name, ...ui}, folder: {name: folder}}
+  const body = { ui: { name, ...ui }, folder: { name: folder } };
   return axios
     .post(BACKEND + "api/foldersAndUIs", body, tokenConfig(token))
     .then((res) => {})
@@ -28,9 +29,13 @@ export const saveUI = ({ token, name, folder, ui }) => {
 };
 
 export const loadFolderAndUINames = ({ token }) => {
-  const query = allFoldersQuery()
+  const query = allFoldersQuery();
   return axios
-    .post(BACKEND + "graphql", JSON.stringify({query: query}), tokenConfig(token))
+    .post(
+      BACKEND + "graphql",
+      JSON.stringify({ query: query }),
+      tokenConfig(token)
+    )
     .then((res) => res.data.data.allFolders)
     .catch((err) => {});
 };
@@ -43,11 +48,15 @@ export const createNewFolder = ({ token, name }) => {
 };
 
 export const loadUI = ({ token, folderName, uiName }) => {
-  console.log("loadUI", token, folderName, uiName)
-  const query = UIQuery(uiName)
-  console.log("query", query)
+  console.log("loadUI", token, folderName, uiName);
+  const query = UIQuery(uiName);
+  console.log("query", query);
   return axios
-    .post(BACKEND + "graphql", JSON.stringify({query: query}), tokenConfig(token))
+    .post(
+      BACKEND + "graphql",
+      JSON.stringify({ query: query }),
+      tokenConfig(token)
+    )
     .then((res) => res.data.data.fullUi)
     .catch((err) => {});
 };

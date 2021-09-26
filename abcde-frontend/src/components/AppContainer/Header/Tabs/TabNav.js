@@ -1,3 +1,4 @@
+import { SmallCloseIcon, AddIcon } from "@chakra-ui/icons";
 import {
   Box,
   Flex,
@@ -7,7 +8,6 @@ import {
   Text,
   IconButton,
 } from "@chakra-ui/react";
-import { SmallCloseIcon, AddIcon } from "@chakra-ui/icons";
 
 function RadioCard(props) {
   const { getInputProps, getCheckboxProps } = useRadio(props);

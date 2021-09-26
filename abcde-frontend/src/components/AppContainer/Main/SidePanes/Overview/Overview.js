@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import PaneContainer from "../PaneContainer";
 import { Heading } from "@chakra-ui/react";
-import SectionList from "./SectionList/SectionList";
 import { useStoreState } from "easy-peasy";
+import { useState, useEffect } from "react";
+
 import { getOverviewListing } from "../../../../../utils/sectionIds";
+import PaneContainer from "../PaneContainer";
+import SectionList from "./SectionList/SectionList";
 
 const paneProps = {
   right: false,
@@ -19,7 +20,7 @@ export default function Overview() {
 
   useEffect(() => {
     console.log("Overview useEffect");
-    console.log("idsOverview", idsOverview)
+    console.log("idsOverview", idsOverview);
     setListOfSectionIdsAndNames(
       getOverviewListing(pageMinMaxList, idsOverview, idNames)
     );

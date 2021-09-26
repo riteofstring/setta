@@ -1,7 +1,8 @@
 import { Stack, Spacer, Select } from "@chakra-ui/react";
-import SectionTitle from "./Title/SectionTitle";
 import { useStoreState, useStoreActions } from "easy-peasy";
+
 import Incrementer from "../Incrementer/Incrementer";
+import SectionTitle from "./Title/SectionTitle";
 
 export function SectionHeader({
   sectionId,

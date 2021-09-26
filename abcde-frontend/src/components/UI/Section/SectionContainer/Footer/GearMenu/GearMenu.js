@@ -1,3 +1,4 @@
+import { SettingsIcon } from "@chakra-ui/icons";
 import {
   GridItem,
   IconButton,
@@ -8,7 +9,6 @@ import {
   MenuDivider,
 } from "@chakra-ui/react";
 
-import { SettingsIcon } from "@chakra-ui/icons";
 // import { MenuContext } from "../SectionFooter";
 // import ModalContext from "../../../../../../utils/ModalContainer/ModalContext";
 // import { useContext } from "react";

@@ -39,7 +39,7 @@
 
 .horizontal-scrollhost-container {
   position: absolute;
-  bottom: 0
+  bottom: 0;
 }
 .horizontal-scrollhost {
   overflow: hidden;

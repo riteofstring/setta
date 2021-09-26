@@ -1,7 +1,8 @@
 import { action, computed } from "easy-peasy";
+import _ from "lodash";
+
 import { SimpleHistory } from "../classes/simpleHistory";
 import { defaultState } from "../utils/utils";
-import _ from "lodash";
 
 const sections = {
   sectionInfo: {},

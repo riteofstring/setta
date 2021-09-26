@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import { useEffect, useRef } from "react";
 
 export function useSetSectionPosition(sectionId) {
   const refForPosition = useRef(null);

@@ -1,15 +1,16 @@
 import { createStore, action } from "easy-peasy";
-import master from "../models/master";
-import yamlEntry from "../models/yamlEntry";
+
 import auth from "../models/auth";
-import uiInfo from "../models/uiInfo";
+import cliSocket from "../models/cliSocket";
 import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
-import panes from "../models/panes";
 import mapInteraction from "../models/mapInteraction";
-import cliSocket from "../models/cliSocket";
+import master from "../models/master";
+import panes from "../models/panes";
 import sectionPositions from "../models/sectionPositions";
-import sections from "../models/sections"
+import sections from "../models/sections";
+import uiInfo from "../models/uiInfo";
+import yamlEntry from "../models/yamlEntry";
 
 const store = createStore({
   master: master,

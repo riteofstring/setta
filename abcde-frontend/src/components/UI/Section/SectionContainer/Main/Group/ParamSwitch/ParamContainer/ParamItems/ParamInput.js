@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import ParamUI from "../ParamUIs/ParamUI";
+import { useState, useEffect } from "react";
+
 import {
   nullOrUndefined,
   createSelectedString,
 } from "../../../../../../../../../utils/utils";
 import { HistoryContext } from "../../../GroupContainer";
+import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
   const { sectionId, paramInfo } = props;

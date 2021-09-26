@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
-import "./onHoverStyle.css";
-import { motion } from "framer-motion";
 import { useStoreState } from "easy-peasy";
+import { motion } from "framer-motion";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+
+import "./onHoverStyle.css";
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
 
@@ -33,16 +34,12 @@ export default function CustomScrollDiv({
 
   const getClientDim = (scrollHostElement) => {
     if (isVertical) {
-      const {
-        clientHeight: clientDim,
-        offsetHeight: offsetDim,
-      } = scrollHostElement;
+      const { clientHeight: clientDim, offsetHeight: offsetDim } =
+        scrollHostElement;
       return { clientDim, offsetDim };
     } else {
-      const {
-        clientWidth: clientDim,
-        offsetWidth: offsetDim,
-      } = scrollHostElement;
+      const { clientWidth: clientDim, offsetWidth: offsetDim } =
+        scrollHostElement;
       return { clientDim, offsetDim };
     }
   };

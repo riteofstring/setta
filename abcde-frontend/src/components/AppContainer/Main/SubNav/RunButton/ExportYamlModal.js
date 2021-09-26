@@ -1,5 +1,6 @@
-import ModalContainer from "../../../../../utils/ModalContainer/ModalContainer";
 import { Box, Text } from "@chakra-ui/react";
+
+import ModalContainer from "../../../../../utils/ModalContainer/ModalContainer";
 
 function numSpaces(x) {
   return x.search(/\S|$/);

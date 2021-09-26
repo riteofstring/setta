@@ -1,9 +1,10 @@
-import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { resetState } from "../../../../../../store/store";
+import React, { useRef, useState, useEffect } from "react";
 import { IoIosRocket } from "react-icons/io";
+
+import { resetState } from "../../../../../../store/store";
 
 export default function TextEditor({ idx }) {
   const [isEditorReady, setIsEditorReady] = useState(false);

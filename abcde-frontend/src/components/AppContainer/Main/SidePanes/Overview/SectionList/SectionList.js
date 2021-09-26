@@ -1,5 +1,5 @@
-import SectionListItems from "./SectionListItems";
 import PageAccordion from "./PageAccordion";
+import SectionListItems from "./SectionListItems";
 
 export default function SectionList({ listOfSectionIdsAndNames }) {
   return (

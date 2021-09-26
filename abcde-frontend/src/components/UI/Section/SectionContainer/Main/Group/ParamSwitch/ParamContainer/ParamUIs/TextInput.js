@@ -1,10 +1,15 @@
 import { Input, Tooltip } from "@chakra-ui/react";
 
-export function TextInputConfig(){
+export function TextInputConfig() {
   return null;
 }
 
-export default function TextInput({ value, defaultVal, onChangeEnd, isDisabled }) {
+export default function TextInput({
+  value,
+  defaultVal,
+  onChangeEnd,
+  isDisabled,
+}) {
   return (
     <Tooltip isDisabled={isDisabled} hasArrow label="Label Tooltip Placeholder">
       <Input

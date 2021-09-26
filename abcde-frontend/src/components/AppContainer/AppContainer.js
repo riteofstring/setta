@@ -1,10 +1,12 @@
-import React, { useEffect } from "react";
 import { Flex, HStack, Heading } from "@chakra-ui/react";
-import SwitchContainer from "./SwitchContainer/SwitchContainer";
-import { Link, BrowserRouter } from "react-router-dom";
 import { useStoreState, useStoreActions } from "easy-peasy";
+import React, { useEffect } from "react";
+import { Link, BrowserRouter } from "react-router-dom";
+
 import { verifyToken } from "../../dbRequests/authentication";
 import { NO_AUTH } from "../../utils/constants";
+import SwitchContainer from "./SwitchContainer/SwitchContainer";
+
 // import HeaderContainer from "./Header/Header";
 // import MainContainer from "./Main/MainContainer";
 

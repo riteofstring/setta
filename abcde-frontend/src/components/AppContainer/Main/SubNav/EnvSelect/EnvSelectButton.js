@@ -1,5 +1,4 @@
 import { Button, Icon } from "@chakra-ui/react";
-
 import { BiCube } from "react-icons/bi";
 
 export default function EnvSelectButton() {

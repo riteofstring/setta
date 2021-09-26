@@ -1,5 +1,4 @@
-import { useState, createContext, useContext } from "react";
-
+import { SearchIcon } from "@chakra-ui/icons";
 import {
   Box,
   Heading,
@@ -14,7 +13,8 @@ import {
   Button,
   HStack,
 } from "@chakra-ui/react";
-import { SearchIcon } from "@chakra-ui/icons";
+import { useState, createContext, useContext } from "react";
+
 import ModalContainer from "../../../../../utils/ModalContainer/ModalContainer";
 
 export const EcoSysContext = createContext(null);
