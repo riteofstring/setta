@@ -106,17 +106,11 @@ function SectionContainerCore({
   const isList = sectionType === LIST;
   const isListRoot = sectionType === LIST_ROOT;
 
-  const [paramInfos, setParamInfos] = useState(sectionInfo.parameterInfos);
-
   function onSelectedItemChange(inputSelectedItem) {
     if (inputSelectedItem) {
-      const [moduleName, objName] = inputSelectedItem;
-      setParamInfos(moduleInfos[moduleName].objs[objName].params);
       setSelectedItem(inputSelectedItem);
     }
   }
-
-  // console.log("paramInfos", variableName, paramInfos);
 
   // // temp_
   const tempBoolDesc = false;
@@ -153,7 +147,10 @@ function SectionContainerCore({
               />
             )}
             {tempBoolDesc && <SectionDescription />}
-            <GroupContainer sectionId={sectionId} paramInfos={paramInfos} />
+            <GroupContainer
+              sectionId={sectionId}
+              sectionInfoId={sectionInfoId}
+            />
             <SectionFooter
               sectionId={sectionId}
               isListRoot={isListRoot}
