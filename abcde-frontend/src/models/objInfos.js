@@ -2,11 +2,16 @@ import { action } from "easy-peasy";
 
 const objInfos = {
   objInfo: {},
-  paramInfoId: {},
+  paramInfoIds: {},
 
   setObjInfo: action((state, payload) => {
     const { objInfoId, objInfo } = payload;
-    state.sectionInfo[objInfoId] = objInfo;
+    state.objInfo[objInfoId] = objInfo;
+  }),
+
+  setParamInfoIds: action((state, payload) => {
+    const { objInfoId, paramInfoIds } = payload;
+    state.paramInfoIds[objInfoId] = paramInfoIds;
   }),
 };
 

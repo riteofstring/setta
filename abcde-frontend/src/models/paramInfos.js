@@ -6,7 +6,7 @@ const paramInfos = {
 
   setParamInfo: action((state, payload) => {
     const { paramInfoId, paramInfo } = payload;
-    state.sectionInfo[paramInfoId] = paramInfo;
+    state.paramInfo[paramInfoId] = paramInfo;
   }),
 };
 

@@ -4,6 +4,10 @@ import { useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 
 import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
+import {
+  useGetSectionInfo,
+  useGetModuleInfos,
+} from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
@@ -93,10 +97,11 @@ function SectionContainerCore({
   setSelectedItem,
   dragListeners,
 }) {
-  const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
+  const [sectionInfo, sectionInfoId] = useGetSectionInfo(sectionId);
+  const moduleInfos = useGetModuleInfos(sectionInfoId)[0];
   const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
-  const { name: variableName, moduleInfos } = sectionInfo;
+  const variableName = sectionInfo.name;
   const showSearch = Object.keys(moduleInfos).length > 0;
   const isList = sectionType === LIST;
   const isListRoot = sectionType === LIST_ROOT;

@@ -1,24 +1,28 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
-import { createSectionInfo } from "../../../../classes/infoFactory";
 import { LIST, LIST_ROOT } from "../../../../utils/constants";
 import { createNewId } from "../../../../utils/sectionIds";
+import {
+  useCreateSectionInfo,
+  useGetSectionInfo,
+} from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { insertIntoArrayOrXpend } from "../../../../utils/utils";
 
 export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
-  const available = useStoreState((x) => x.master.available);
+
   const type = useStoreState((x) => x.sections.type[sectionId]);
-  const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
+  const sectionInfo = useGetSectionInfo(sectionId);
   const sectionInfoId = useStoreState(
     (x) => x.sections.sectionInfoId[sectionId]
   );
-  const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
+
   const setSectionInfoId = useStoreActions((x) => x.sections.setSectionInfoId);
   const setIdsOverview = useIdsOverview(sectionId)[1];
   const setType = useStoreActions((x) => x.sections.setType);
+  const createInfo = useCreateSectionInfo();
 
   function addChild(
     childVariableName,
@@ -51,19 +55,7 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         } else {
           config = uiSpecs.get(childVariableName);
         }
-
-        const infoFactoryOutput = createSectionInfo(
-          childVariableName,
-          config,
-          available
-        );
-        console.log("infoFactoryOutput", infoFactoryOutput);
-
-        const { info: newSectionInfo, id: newInfoId } = infoFactoryOutput;
-        setSectionInfo({
-          sectionInfoId: newInfoId,
-          sectionInfo: newSectionInfo,
-        });
+        const newInfoId = createInfo(childVariableName, config);
         setSectionInfoId({ sectionId: newId, sectionInfoId: newInfoId });
       }
     }

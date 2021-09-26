@@ -51,20 +51,6 @@ const sections = {
       return names;
     }
   ),
-
-  sectionInfo: computed(
-    [
-      (state) => state.sectionInfoId,
-      (state, storeState) => storeState.sectionInfos.sectionInfo,
-    ],
-    (sectionInfoId, sectionInfo) => {
-      const output = {};
-      for (let k of Object.keys(sectionInfoId)) {
-        output[k] = sectionInfo[sectionInfoId[k]];
-      }
-      return output;
-    }
-  ),
 };
 
 export default sections;

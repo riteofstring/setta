@@ -2,11 +2,16 @@ import { action } from "easy-peasy";
 
 const moduleInfos = {
   moduleInfo: {},
-  objInfoId: {},
+  objInfoIds: {},
 
   setModuleInfo: action((state, payload) => {
     const { moduleInfoId, moduleInfo } = payload;
-    state.sectionInfo[moduleInfoId] = moduleInfo;
+    state.moduleInfo[moduleInfoId] = moduleInfo;
+  }),
+
+  setObjInfoIds: action((state, payload) => {
+    const { moduleInfoId, objInfoIds } = payload;
+    state.objInfoIds[moduleInfoId] = objInfoIds;
   }),
 };
 
