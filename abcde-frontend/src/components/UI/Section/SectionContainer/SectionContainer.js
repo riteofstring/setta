@@ -3,7 +3,7 @@ import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 
-import { SECTIONWIDTH } from "../../../../utils/constants";
+import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
@@ -94,11 +94,12 @@ function SectionContainerCore({
   dragListeners,
 }) {
   const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
-  const isList = useStoreState((x) => x.sections.isList[sectionId]);
-  const isListRoot = useStoreState((x) => x.sections.isListRoot[sectionId]);
+  const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, moduleInfos } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
+  const isList = sectionType === LIST;
+  const isListRoot = sectionType === LIST_ROOT;
 
   const [paramInfos, setParamInfos] = useState(sectionInfo.parameterInfos);
 

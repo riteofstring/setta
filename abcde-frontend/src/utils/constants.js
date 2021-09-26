@@ -3,3 +3,6 @@ export const BACKEND = "http://localhost:8000/";
 export const SECTIONWIDTH = 650;
 export const PANEID = -1;
 export const DEFAULT_ENTERED_TEXT = "// write your code here";
+
+export const LIST = "LIST";
+export const LIST_ROOT = "LIST_ROOT";
