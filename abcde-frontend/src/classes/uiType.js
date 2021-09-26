@@ -21,13 +21,11 @@ function requiresKeyInput(uiTypeName) {
 }
 
 export class UIType {
-  constructor({ id, name, specs, parentUIType }) {
+  constructor({ id, name, parentUIType }) {
     this.id = id;
     this.name = name;
-    this.specs = specs;
     this.initializeListProps(parentUIType);
     this.initializeDictProps();
-    this.initializeConfig(specs);
   }
 
   initializeListProps = (parentUIType) => {
@@ -43,18 +41,6 @@ export class UIType {
   initializeDictProps = () => {
     this.isDictRoot = requiresKeyInput(this.name) && this.isListRoot;
     this.requiresKeyInput = requiresKeyInput(this.name) && !this.isListRoot;
-  };
-
-  initializeConfig = (specs) => {
-    if (specs && this.isNested()) {
-      this.config = specs;
-    } else {
-      this.config = {};
-    }
-  };
-
-  setConfig = (configName, value) => {
-    this.config = { ...this.config, [configName]: value };
   };
 
   isNested = () => {

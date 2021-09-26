@@ -68,7 +68,11 @@ export function createParameterInfo(name, jsonInput) {
   const uiType = new UIType({
     id: createNewId(),
     name: jsonInput.uiType,
-    specs: info.specs,
   });
-  return { info, id, uiType };
+  return {
+    info,
+    id,
+    uiType,
+    config: { id: createNewId(), config: info.specs },
+  };
 }

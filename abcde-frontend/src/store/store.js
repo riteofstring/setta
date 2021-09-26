@@ -14,6 +14,7 @@ import sectionInfos from "../models/sectionInfos";
 import sectionPositions from "../models/sectionPositions";
 import sections from "../models/sections";
 import uiInfo from "../models/uiInfo";
+import uiTypeConfigs from "../models/uiTypeConfigs";
 import uiTypes from "../models/uiTypes";
 import yamlEntry from "../models/yamlEntry";
 
@@ -34,6 +35,7 @@ const store = createStore({
   objInfos: objInfos,
   paramInfos: paramInfos,
   uiTypes: uiTypes,
+  uiTypeConfigs: uiTypeConfigs,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

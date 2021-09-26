@@ -9,6 +9,7 @@ export function useCreateSectionInfo() {
   const setObjInfo = useStoreActions((x) => x.objInfos.setObjInfo);
   const setParamInfo = useStoreActions((x) => x.paramInfos.setParamInfo);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   const setModuleInfoIds = useStoreActions(
     (x) => x.sectionInfos.setModuleInfoIds
   );
@@ -18,6 +19,7 @@ export function useCreateSectionInfo() {
   const setObjInfoIds = useStoreActions((x) => x.moduleInfos.setObjInfoIds);
   const setParamInfoIds = useStoreActions((x) => x.objInfos.setParamInfoIds);
   const setUITypeId = useStoreActions((x) => x.paramInfos.setUITypeId);
+  const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
 
   const createInfo = (name, specs) => {
     const infoFactoryOutput = createSectionInfo(name, specs, available);
@@ -41,6 +43,8 @@ export function useCreateSectionInfo() {
     const newParamInfos = {};
     const newParamUITypeIds = {};
     const newUITypes = {};
+    const newUITypeConfigIds = {};
+    const newUITypeConfigs = {};
     for (let m of moduleInfos) {
       newModuleInfos[m.id] = m.info;
       newModuleObjInfos[m.id] = m.objInfos.map((x) => x.id);
@@ -51,6 +55,11 @@ export function useCreateSectionInfo() {
           newParamInfos[p.id] = p.info;
           newParamUITypeIds[p.id] = p.uiType.id;
           newUITypes[p.uiType.id] = p.uiType;
+          newUITypeConfigIds[p.uiType.id] = p.config.id;
+          newUITypeConfigs[p.config.id] = {
+            id: p.config.id,
+            ...p.config.config,
+          };
         }
       }
     }
@@ -58,6 +67,11 @@ export function useCreateSectionInfo() {
       newParamInfos[p.id] = p.info;
       newParamUITypeIds[p.id] = p.uiType.id;
       newUITypes[p.uiType.id] = p.uiType;
+      newUITypeConfigIds[p.uiType.id] = p.config.id;
+      newUITypeConfigs[p.config.id] = {
+        id: p.config.id,
+        ...p.config.config,
+      };
     }
 
     setModuleInfo((x) => {
@@ -80,6 +94,12 @@ export function useCreateSectionInfo() {
     });
     setUIType((x) => {
       return { ...x, ...newUITypes };
+    });
+    setConfigId((x) => {
+      return { ...x, ...newUITypeConfigIds };
+    });
+    setConfig((x) => {
+      return { ...x, ...newUITypeConfigs };
     });
 
     return id;
@@ -144,9 +164,15 @@ export function useGetAllParamInfos(sectionInfoId, objInfoId) {
 
 export function useGetUIType(paramInfoId) {
   const uiTypeId = useStoreState((x) => x.paramInfos.uiTypeId[paramInfoId]);
-  const uiType = useStoreState(
-    (x) => x.uiTypes.uiType[uiTypeId],
-    (prev, next) => prev.name === next.name
-  );
+  const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
   return uiType;
+}
+
+export function useGetUITypeConfig(uiTypeId) {
+  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiTypeId]);
+  const uiTypeConfig = useStoreState(
+    (x) => x.uiTypeConfigs.config[uiTypeConfigId]
+  );
+  console.log("");
+  return uiTypeConfig;
 }

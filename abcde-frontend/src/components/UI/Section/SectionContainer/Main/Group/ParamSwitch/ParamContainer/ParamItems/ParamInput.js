@@ -39,7 +39,7 @@ export default function ParamInput(props) {
         onChange,
         onChangeEnd,
         isDisabled: props.isDisabled,
-        // ...props.paramUITypeConfig,
+        ...props.uiTypeConfig,
       }}
     />
   );

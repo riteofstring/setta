@@ -14,44 +14,37 @@ import { useStoreActions } from "easy-peasy";
 
 import { UIType, UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
-import { useGetUIType } from "../../../../../../../utils/useCreateInfo";
+import {
+  useGetUIType,
+  useGetUITypeConfig,
+} from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ paramInfo }) {
   const uiType = useGetUIType(paramInfo.id);
+  const uiTypeConfig = useGetUITypeConfig(uiType.id);
   const paramName = paramInfo.name;
 
   const setOneUIType = useStoreActions((x) => x.uiTypes.setOneUIType);
+  const setOneConfig = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
 
   console.log("Item", paramName, uiType);
-
-  // const savedConfig = useStoreState((state) =>
-  //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
-  // );
-
-  // const setParamUIType = useStoreActions(
-  //   (actions) => actions.master.setParamUIType
-  // );
-  // const setParamUITypeConfig = useStoreActions(
-  //   (actions) => actions.master.setParamUITypeConfig
-  // );
 
   const onSelect = (e) => {
     const id = uiType.id;
     setOneUIType({
       uiTypeId: id,
-      uiType: new UIType({ id, name: e.target.value, specs: uiType.specs }),
+      uiType: new UIType({ id, name: e.target.value }),
     });
   };
 
-  // const onChange = (configName, value) => {
-  //   setParamUITypeConfig({
-  //     sectionId,
-  //     paramName,
-  //     configName,
-  //     value,
-  //   });
-  // };
+  const onChange = (configName, value) => {
+    const id = uiTypeConfig.id;
+    setOneConfig({
+      configId: id,
+      config: { ...uiTypeConfig, [configName]: value },
+    });
+  };
 
   return (
     <VStack align="stretch">
@@ -84,8 +77,8 @@ export default function Item({ paramInfo }) {
               </FormControl>
               <ParamUIConfig
                 name={uiType.name}
-                // savedConfig={savedConfig}
-                // onChange={onChange}
+                savedConfig={uiTypeConfig}
+                onChange={onChange}
               />
             </VStack>
           </AccordionPanel>
