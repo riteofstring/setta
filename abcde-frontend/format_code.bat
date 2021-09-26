@@ -1,2 +1,2 @@
-yarn run eslint . --fix
-yarn prettier . --write
+call yarn run eslint . --fix
+call yarn prettier . --write
