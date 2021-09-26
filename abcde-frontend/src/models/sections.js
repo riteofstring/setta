@@ -5,13 +5,13 @@ import { SimpleHistory } from "../classes/simpleHistory";
 import { defaultState } from "../utils/utils";
 
 const sections = {
-  sectionInfo: {},
+  sectionInfoId: {},
   enteredValues: new SimpleHistory(3, undefined),
   idsOverview: {},
 
-  setSectionInfo: action((state, payload) => {
-    const { sectionId, sectionInfo } = payload;
-    state.sectionInfo[sectionId] = sectionInfo;
+  setSectionInfoId: action((state, payload) => {
+    const { sectionId, sectionInfoId } = payload;
+    state.sectionInfoId[sectionId] = sectionInfoId;
   }),
 
   setEnteredValue: action((state, payload) => {
@@ -27,18 +27,40 @@ const sections = {
 
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
-    state.sectionInfo = _.omit(state.sectionInfo, sectionIds);
+    state.sectionInfoId = _.omit(state.sectionInfoId, sectionIds);
     state.enteredValues = _.omit(state.enteredValues, sectionIds);
     state.idsOverview = _.omit(state.idsOverview, sectionIds);
   }),
 
-  idNames: computed((state) => {
-    const names = {};
-    for (let k of Object.keys(state.sectionInfo)) {
-      names[k] = state.sectionInfo[k].name;
+  idNames: computed(
+    [
+      (state) => state.sectionInfoId,
+      (state, storeState) => storeState.sectionInfos.sectionInfo,
+    ],
+    (sectionInfoId, sectionInfo) => {
+      const names = {};
+      for (let k of Object.keys(sectionInfoId)) {
+        names[k] = sectionInfo[sectionInfoId[k]].name;
+      }
+      return names;
     }
-    return names;
-  }),
+  ),
+
+  sectionInfo: computed(
+    [
+      (state) => state.sectionInfoId,
+      (state, storeState) => storeState.sectionInfos.sectionInfo,
+    ],
+    (sectionInfoId, sectionInfo) => {
+      const output = {};
+      for (let k of Object.keys(sectionInfoId)) {
+        output[k] = sectionInfo[sectionInfoId[k]];
+      }
+      console.log("sectionInfoId", sectionInfoId);
+      console.log("sectionInfo", sectionInfo);
+      return output;
+    }
+  ),
 };
 
 export default sections;

@@ -7,6 +7,7 @@ import funcsInfo from "../models/funcsInfo";
 import mapInteraction from "../models/mapInteraction";
 import master from "../models/master";
 import panes from "../models/panes";
+import sectionInfos from "../models/sectionInfos";
 import sectionPositions from "../models/sectionPositions";
 import sections from "../models/sections";
 import uiInfo from "../models/uiInfo";
@@ -24,6 +25,7 @@ const store = createStore({
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
   sections: sections,
+  sectionInfos: sectionInfos,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
     const { name, value } = payload;

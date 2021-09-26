@@ -10,7 +10,8 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const available = useStoreState((x) => x.master.available);
   const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
-  const setSectionInfo = useStoreActions((x) => x.sections.setSectionInfo);
+  const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
+  const setSectionInfoId = useStoreActions((x) => x.sections.setSectionInfoId);
   const setIdsOverview = useIdsOverview(sectionId)[1];
 
   function addChild(
@@ -47,7 +48,9 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         isList,
         isListRoot
       );
-      setSectionInfo({ sectionId: newId, sectionInfo: newSectionInfo });
+      const newInfoId = createNewId();
+      setSectionInfo({ sectionInfoId: newInfoId, sectionInfo: newSectionInfo });
+      setSectionInfoId({ sectionId: newId, sectionInfoId: newInfoId });
     }
 
     let insertIdx = null;
