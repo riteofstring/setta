@@ -1,44 +1,21 @@
 import React, { useEffect } from "react";
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import SectionContainer from "./SectionContainer/SectionContainer";
 import { Heading, Stack } from "@chakra-ui/react";
-import { SectionInfo } from "../../../classes/jsonParser";
-import { createNewId } from "../../../utils/sectionIds";
 import { useIdsOverview } from "../../../utils/useIdsOverview";
+import { useAddChild } from "./SectionContainer/SectionContainerUtils";
 
 function SingleSectionsPane({ minIdx, maxIdx, groupId }) {
-  const available = useStoreState((x) => x.master.available);
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
-  const [idsOverview, setIdsOverview] = useIdsOverview(groupId);
-  const setSectionInfoAction = useStoreActions(
-    (x) => x.sections.setSectionInfo
-  );
+  const idsOverview = useIdsOverview(groupId)[0];
+  const addChild = useAddChild(groupId, false, false);
 
   useEffect(() => {
-    getSectionIds();
-  }, []);
-
-  function setSectionInfo(sectionId, idx) {
-    const variableName = [...uiSpecs.keys()][idx];
-    setSectionInfoAction({
-      sectionId,
-      sectionInfo: new SectionInfo(
-        variableName,
-        uiSpecs.get(variableName),
-        available
-      ),
-    });
-  }
-
-  function getSectionIds() {
-    let newIds = [];
     for (let idx = minIdx; idx < Math.min(maxIdx, uiSpecs.size); idx++) {
-      const sectionId = createNewId();
-      setSectionInfo(sectionId, idx);
-      newIds.push(sectionId);
+      const variableName = [...uiSpecs.keys()][idx];
+      addChild(variableName);
     }
-    setIdsOverview(newIds);
-  }
+  }, []);
 
   return (
     <>

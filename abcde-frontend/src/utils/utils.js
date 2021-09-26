@@ -43,9 +43,13 @@ export function insertIntoArray(arr, index, ...newItems) {
   ];
 }
 
-export function insertIntoArrayOrPrepend(arr, index, ...newItems) {
+export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
   if (index === null) {
-    return [...newItems, ...arr];
+    if (prepend) {
+      return [...newItems, ...arr];
+    } else {
+      return [...arr, ...newItems];
+    }
   } else {
     return insertIntoArray(arr, index, ...newItems);
   }
@@ -107,7 +111,7 @@ export function createSelectedString(moduleName, objName) {
 
 export function curryAction(action, args, key = null) {
   const fn = (newState) => {
-    const asArg = key ? {[key]: newState} : newState;
+    const asArg = key ? { [key]: newState } : newState;
     return action({ ...args, ...asArg });
   };
   return fn;

@@ -1,5 +1,6 @@
 import { action, computed } from "easy-peasy";
 import { SimpleHistory } from "../classes/simpleHistory";
+import { defaultState } from "../utils/utils";
 import _ from "lodash";
 
 const sections = {
@@ -18,8 +19,9 @@ const sections = {
   }),
 
   setIdsOverview: action((state, payload) => {
-    const { sectionId, children } = payload;
-    state.idsOverview[sectionId] = children;
+    const { sectionId, newStateFn } = payload;
+    const currState = defaultState(state.idsOverview[sectionId], []);
+    state.idsOverview[sectionId] = newStateFn(currState);
   }),
 
   deleteSections: action((state, payload) => {
