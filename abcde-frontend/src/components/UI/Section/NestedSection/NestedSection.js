@@ -29,12 +29,10 @@ function _NestedSection({
   parentId,
   sectionId,
   nextId,
-  available,
   parentControls,
   idx,
   depth,
   isCollapsed,
-  setIdsOverview,
   stackProps,
   dragListeners,
 }) {
@@ -51,7 +49,6 @@ function _NestedSection({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          available={available}
           depth={depth}
           parentControls={parentControls}
           isCollapsed={isCollapsed}

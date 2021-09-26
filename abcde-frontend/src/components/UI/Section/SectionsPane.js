@@ -5,8 +5,7 @@ import { PANEID } from "../../../utils/constants";
 import { useSetSectionPosition } from "../../../utils/useSetSectionPosition";
 import { Stack } from "@chakra-ui/react";
 
-function SectionsPane(){
-  const available = useStoreState((state) => state.master.available);
+function SectionsPane() {
   const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
   const spaceBetweenPages = useStoreState(
     (state) => state.master.spaceBetweenPages
@@ -28,13 +27,12 @@ function SectionsPane(){
             minIdx={e.minIdx}
             maxIdx={e.maxIdx}
             groupId={idx}
-            available={available}
             key={`SingleSectionsPane-${idx}`}
           />
         ))}
       </Stack>
     </>
   );
-};
+}
 
 export default React.memo(SectionsPane);

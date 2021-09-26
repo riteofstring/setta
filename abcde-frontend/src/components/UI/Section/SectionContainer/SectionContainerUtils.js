@@ -5,7 +5,8 @@ import { createNewId } from "../../../../utils/sectionIds";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 
-export function useAddChild(sectionId, available) {
+export function useAddChild(sectionId) {
+  const available = useStoreState((x) => x.master.available);
   const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
   const setSectionInfo = useStoreActions((x) => x.sections.setSectionInfo);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);

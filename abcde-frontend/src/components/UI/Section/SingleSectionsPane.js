@@ -6,7 +6,8 @@ import { SectionInfo } from "../../../classes/jsonParser";
 import { createNewId } from "../../../utils/sectionIds";
 import { useIdsOverview } from "../../../utils/useIdsOverview";
 
-function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
+function SingleSectionsPane({ minIdx, maxIdx, groupId }) {
+  const available = useStoreState((x) => x.master.available);
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const [idsOverview, setIdsOverview] = useIdsOverview(groupId);
   const setSectionInfoAction = useStoreActions(
@@ -50,7 +51,6 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
             sectionId={e}
             parentId={null}
             // nextId={idx + 1}
-            available={available}
             key={`${e}-${idx}`}
             depth={0}
           />

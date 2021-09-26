@@ -23,7 +23,6 @@ function SectionContainer({
   sectionId,
   parentId,
   nextId,
-  available,
   depth,
   parentControls,
   isCollapsed,
@@ -34,7 +33,7 @@ function SectionContainer({
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
-  const addChild = useAddChild(sectionId, available);
+  const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
 
   const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
@@ -72,7 +71,6 @@ function SectionContainer({
           <ManyNestedSections
             childIds={idsOverview}
             sectionId={sectionId}
-            available={available}
             parentControls={{ addChild, deleteChild }}
             depth={depth}
             isCollapsed={childrenAreCollapsed}
