@@ -35,7 +35,6 @@ function _NestedSection({
   depth,
   isCollapsed,
   setIdsOverview,
-  setIdNames,
   stackProps,
   dragListeners,
 }) {
@@ -56,7 +55,6 @@ function _NestedSection({
           depth={depth}
           parentControls={parentControls}
           isCollapsed={isCollapsed}
-          setIdNames={setIdNames}
           dragListeners={dragListeners}
         />
       </Grid>

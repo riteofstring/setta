@@ -2,14 +2,14 @@ import { insertIntoArrayOrPrepend } from "../../../../utils/utils";
 import _ from "lodash";
 import { SectionInfo } from "../../../../classes/jsonParser";
 import { createNewId } from "../../../../utils/sectionIds";
+import { useStoreState, useStoreActions } from "easy-peasy";
+import { useIdsOverview } from "../../../../utils/useIdsOverview";
 
-export function funcAddChild(
-  sectionInfo,
-  available,
-  children,
-  setChildren,
-  setChildSectionInfo
-) {
+export function useAddChild(sectionId, available) {
+  const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
+  const setSectionInfo = useStoreActions((x) => x.sections.setSectionInfo);
+  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
+
   function addChild(
     childVariableName,
     uiType,
@@ -45,31 +45,34 @@ export function funcAddChild(
 
     let insertIdx = null;
     if (startId !== null) {
-      insertIdx = children.indexOf(startId) + 1;
+      insertIdx = idsOverview.indexOf(startId) + 1;
     }
-    setChildren(insertIntoArrayOrPrepend(children, insertIdx, ...newIds));
+    setIdsOverview(insertIntoArrayOrPrepend(idsOverview, insertIdx, ...newIds));
     for (let k of Object.keys(newInfos)) {
-      setChildSectionInfo({ sectionId: k, sectionInfo: newInfos[k] });
+      setSectionInfo({ sectionId: k, sectionInfo: newInfos[k] });
     }
   }
   return addChild;
 }
 
-export function funcDeleteChild(children, setChildren, deleteSections) {
+export function useDeleteChild(sectionId) {
+  const deleteSections = useStoreActions((x) => x.sections.deleteSections);
+  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
+
   function deleteChild(startId = null, numChildren = 1) {
-    if (children.length === 0) {
+    if (idsOverview.length === 0) {
       return;
     }
     let startIdx = 0;
     if (startId !== null) {
-      startIdx = children.indexOf(startId);
+      startIdx = idsOverview.indexOf(startId);
     }
     const endIdx = startIdx + numChildren;
-    const newChildren = children.filter(
+    const newChildren = idsOverview.filter(
       (e, idx) => !(idx >= startIdx && idx < endIdx)
     );
-    setChildren(newChildren);
-    deleteSections({ sectionIds: _.difference(children, newChildren) });
+    setIdsOverview(newChildren);
+    deleteSections({ sectionIds: _.difference(idsOverview, newChildren) });
   }
   return deleteChild;
 }

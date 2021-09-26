@@ -1,12 +1,11 @@
-import { action } from "easy-peasy";
+import { action, computed } from "easy-peasy";
 import { SimpleHistory } from "../classes/simpleHistory";
-import _ from "lodash"
+import _ from "lodash";
 
 const sections = {
   sectionInfo: {},
   enteredValues: new SimpleHistory(3, undefined),
   idsOverview: {},
-  idNames: {},
 
   setSectionInfo: action((state, payload) => {
     const { sectionId, sectionInfo } = payload;
@@ -23,19 +22,19 @@ const sections = {
     state.idsOverview[sectionId] = children;
   }),
 
-  setIdNames: action((state, payload) => {
-    const { sectionId, name } = payload;
-    state.idNames[sectionId] = name;
-  }),
-
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
-    state.sectionInfo = _.omit(state.sectionInfo, sectionIds)
-    state.enteredValues = _.omit(state.enteredValues, sectionIds)
-    state.idsOverview = _.omit(state.idsOverview, sectionIds)
-    // delete state.sectionInfo[sectionId];
-    // delete state.enteredValues[sectionId];
-    // delete state.idsOverview[sectionId];
+    state.sectionInfo = _.omit(state.sectionInfo, sectionIds);
+    state.enteredValues = _.omit(state.enteredValues, sectionIds);
+    state.idsOverview = _.omit(state.idsOverview, sectionIds);
+  }),
+
+  idNames: computed((state) => {
+    const names = {};
+    for (let k of Object.keys(state.sectionInfo)) {
+      names[k] = state.sectionInfo[k].name;
+    }
+    return names;
   }),
 };
 

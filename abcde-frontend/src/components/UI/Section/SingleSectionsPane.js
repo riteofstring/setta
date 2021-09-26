@@ -9,7 +9,6 @@ import { useIdsOverview } from "../../../utils/useIdsOverview";
 function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const [idsOverview, setIdsOverview] = useIdsOverview(groupId);
-  const setIdNames = useStoreActions((x) => x.sections.setIdNames);
   const setSectionInfoAction = useStoreActions(
     (x) => x.sections.setSectionInfo
   );
@@ -54,7 +53,6 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId, available }) {
             available={available}
             key={`${e}-${idx}`}
             depth={0}
-            setIdNames={setIdNames}
           />
         ))}
       </Stack>

@@ -10,12 +10,12 @@ import { SECTIONWIDTH } from "../../../../utils/constants";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 import {
-  funcAddChild,
-  funcDeleteChild,
+  useAddChild,
   funcFlipChildrenAreCollapsed,
+  useDeleteChild,
 } from "./SectionContainerUtils";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 
 export const ChildrenContext = React.createContext(null);
 
@@ -27,30 +27,15 @@ function SectionContainer({
   depth,
   parentControls,
   isCollapsed,
-  setIdNames,
   dragListeners,
 }) {
-  const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
-  const setChildSectionInfo = useStoreActions((x) => x.sections.setSectionInfo);
-  const deleteSections = useStoreActions((x) => x.sections.deleteSections);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState([]);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
-  const addChild = funcAddChild(
-    sectionInfo,
-    available,
-    idsOverview,
-    setIdsOverview,
-    setChildSectionInfo
-  );
-
-  const deleteChild = funcDeleteChild(
-    idsOverview,
-    setIdsOverview,
-    deleteSections
-  );
+  const addChild = useAddChild(sectionId, available);
+  const deleteChild = useDeleteChild(sectionId);
 
   const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
     childrenAreCollapsed,
@@ -61,10 +46,6 @@ function SectionContainer({
     setChildrenAreCollapsed(isCollapsed);
   }, [isCollapsed]);
 
-  useEffect(() => {
-    setIdNames({ sectionId, name: sectionInfo.name });
-  }, [idsOverview]);
-
   return (
     <Stack>
       <ChildrenContext.Provider value={{ addChild }}>
@@ -72,7 +53,6 @@ function SectionContainer({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          sectionInfo={sectionInfo}
           addChild={addChild}
           deleteChild={deleteChild}
           parentControls={parentControls}
@@ -96,7 +76,6 @@ function SectionContainer({
             parentControls={{ addChild, deleteChild }}
             depth={depth}
             isCollapsed={childrenAreCollapsed}
-            setIdNames={setIdNames}
             setChildren={setIdsOverview}
           />
         )}
@@ -109,7 +88,6 @@ function SectionContainerCore({
   sectionId,
   parentId,
   nextId,
-  sectionInfo,
   addChild,
   deleteChild,
   parentControls,
@@ -120,6 +98,7 @@ function SectionContainerCore({
   setSelectedItem,
   dragListeners,
 }) {
+  const sectionInfo = useStoreState((x) => x.sections.sectionInfo[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, moduleInfos, isList, isListRoot } = sectionInfo;
   const showSearch = Object.keys(moduleInfos).length > 0;
