@@ -56,30 +56,27 @@ export function useGetSectionInfo(sectionId) {
   return sectionInfo;
 }
 
+export function useGetXInfos(collectionName, allCollectionName) {
+  const collectionIds = useStoreState((x) => x.sectionInfos[collectionName]);
+  const allCollections = useStoreState((x) => x.master[allCollectionName]);
+  return (sectionInfoId) => {
+    const collections = collectionIds[sectionInfoId].map(
+      (x) => allCollections.children[x]
+    );
+    const output = _.merge({}, ...collections.map((x) => x.children));
+    return Object.values(output);
+  };
+}
+
 export function useGetObjInfos(sectionInfoId) {
-  const objCollectionIds = useStoreState(
-    (x) => x.sectionInfos.objCollectionIds[sectionInfoId]
-  );
-  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
-  const objCollections = objCollectionIds.map(
-    (x) => allObjCollections.children[x]
-  );
-  const objs = _.merge({}, ...objCollections.map((x) => x.children));
-  return Object.values(objs);
+  return useGetXInfos("objCollectionIds", "allObjCollections")(sectionInfoId);
 }
 
 export function useGetParamCollections(sectionInfoId) {
-  const paramCollectionIds = useStoreState(
-    (x) => x.sectionInfos.paramCollectionIds[sectionInfoId]
-  );
-  const allParamCollections = useStoreState(
-    (x) => x.master.allParamCollections
-  );
-  const paramCollections = paramCollectionIds.map(
-    (x) => allParamCollections.children[x]
-  );
-  const pc = _.merge({}, ...paramCollections.map((x) => x.children));
-  return Object.values(pc);
+  return useGetXInfos(
+    "paramCollectionIds",
+    "allParamCollections"
+  )(sectionInfoId);
 }
 
 export function useGetAllParamInfos(sectionInfoId, objInfo) {
