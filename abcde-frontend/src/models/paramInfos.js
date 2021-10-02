@@ -1,14 +1,9 @@
 import { action } from "easy-peasy";
 
 const paramInfos = {
-  paramInfo: {},
   uiTypeId: {},
   enteredValue: {},
   childId: {},
-
-  setParamInfo: action((state, payload) => {
-    state.paramInfo = payload(state.paramInfo);
-  }),
 
   setUITypeId: action((state, payload) => {
     state.uiTypeId = payload(state.uiTypeId);

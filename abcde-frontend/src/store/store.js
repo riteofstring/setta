@@ -6,8 +6,6 @@ import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
 import mapInteraction from "../models/mapInteraction";
 import master from "../models/master";
-import moduleInfos from "../models/moduleInfos";
-import objInfos from "../models/objInfos";
 import panes from "../models/panes";
 import paramInfos from "../models/paramInfos";
 import sectionInfos from "../models/sectionInfos";
@@ -31,8 +29,6 @@ const store = createStore({
   sectionPositions: sectionPositions,
   sections: sections,
   sectionInfos: sectionInfos,
-  moduleInfos: moduleInfos,
-  objInfos: objInfos,
   paramInfos: paramInfos,
   uiTypes: uiTypes,
   uiTypeConfigs: uiTypeConfigs,

@@ -11,6 +11,9 @@ const master = {
   pageMinMaxList: [],
   available: {},
   uiSpecs: new Map(),
+  allModuleInfo: null,
+  allObjCollections: null,
+  allParamCollections: null,
 
   // actions
   // Load DATA
@@ -21,8 +24,18 @@ const master = {
       parameters: payload.PARAMETERS,
     };
     state.uiSpecs = new Map(Object.entries(payload.UI));
+    ({
+      allModuleInfo: state.allModuleInfo,
+      allObjCollections: state.allObjCollections,
+      allParamCollections: state.allParamCollections,
+    } = createAllInfo(state.available));
+
     console.log("available", debug(state.available));
-    createAllInfo(state.available);
+    console.log("uiSpecs", debug(state.uiSpecs));
+    console.log("allModuleInfo", debug(state.allModuleInfo));
+    console.log("allObjCollections", debug(state.allObjCollections));
+    console.log("allParamCollections", debug(state.allParamCollections));
+
     // for (let key of Object.keys(payload.UI)) {
     //   const currSectionInfo = payload.UI[key];
     //   const newSection = new Section(

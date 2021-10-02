@@ -3,43 +3,45 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import { createSectionInfo } from "../classes/infoFactory";
 
 export function useCreateSectionInfo() {
-  const available = useStoreState((x) => x.master.available);
+  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+  const allParamCollections = useStoreState(
+    (x) => x.master.allParamCollections
+  );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setModuleInfo = useStoreActions((x) => x.moduleInfos.setModuleInfo);
-  const setObjInfo = useStoreActions((x) => x.objInfos.setObjInfo);
   const setParamInfo = useStoreActions((x) => x.paramInfos.setParamInfo);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
-  const setModuleInfoIds = useStoreActions(
-    (x) => x.sectionInfos.setModuleInfoIds
+  const setObjCollectionIds = useStoreActions(
+    (x) => x.sectionInfos.setObjCollectionIds
   );
-  const setSectionParamInfoIds = useStoreActions(
-    (x) => x.sectionInfos.setParamInfoIds
+  const setParamCollectionIds = useStoreActions(
+    (x) => x.sectionInfos.setParamCollectionIds
   );
-  const setObjInfoIds = useStoreActions((x) => x.moduleInfos.setObjInfoIds);
-  const setParamInfoIds = useStoreActions((x) => x.objInfos.setParamInfoIds);
   const setUITypeId = useStoreActions((x) => x.paramInfos.setUITypeId);
   const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
 
   const createInfo = (name, specs) => {
-    const infoFactoryOutput = createSectionInfo(name, specs, available);
+    const infoFactoryOutput = createSectionInfo(
+      name,
+      specs,
+      allObjCollections,
+      allParamCollections
+    );
     console.log("useCreateSectionInfo infoFactoryOutput", infoFactoryOutput);
 
-    const { info, id, moduleInfos, parameterInfos } = infoFactoryOutput;
+    const { info, id, objCollectionIds, paramCollectionIds } =
+      infoFactoryOutput;
+
     setSectionInfo((x) => {
       return { ...x, [id]: info };
     });
-    setModuleInfoIds((x) => {
-      return { ...x, [id]: moduleInfos.map((x) => x.id) };
+    setObjCollectionIds((x) => {
+      return { ...x, [id]: objCollectionIds };
     });
-    setSectionParamInfoIds((x) => {
-      return { ...x, [id]: parameterInfos.map((x) => x.id) };
+    setParamCollectionIds((x) => {
+      return { ...x, [id]: paramCollectionIds };
     });
 
-    const newModuleInfos = {};
-    const newModuleObjInfos = {};
-    const newObjInfos = {};
-    const newObjParamInfos = {};
     const newParamInfos = {};
     const newParamUITypeIds = {};
     const newUITypes = {};
@@ -74,18 +76,6 @@ export function useCreateSectionInfo() {
       };
     }
 
-    setModuleInfo((x) => {
-      return { ...x, ...newModuleInfos };
-    });
-    setObjInfoIds((x) => {
-      return { ...x, ...newModuleObjInfos };
-    });
-    setObjInfo((x) => {
-      return { ...x, ...newObjInfos };
-    });
-    setParamInfoIds((x) => {
-      return { ...x, ...newObjParamInfos };
-    });
     setParamInfo((x) => {
       return { ...x, ...newParamInfos };
     });

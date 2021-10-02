@@ -130,10 +130,10 @@ export class AllParamCollectionInfo {
 }
 
 export class SectionInfo {
-  constructor(id, name, jsonInput, specs) {
+  constructor(id, name, specs) {
     this.id = id;
     this.name = name;
-    this.hasModules = "ModuleInfo" in jsonInput;
-    this.specs = specs;
+    this.specs = convertSpecsToDict(specs);
+    this.hasObjects = "objects" in this.specs;
   }
 }

@@ -102,7 +102,7 @@ function SectionContainerCore({
   const sectionType = useStoreState((x) => x.sections.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
-  const showSearch = sectionInfo.hasModules;
+  const showSearch = sectionInfo.hasObjects;
   const isList = sectionType === LIST;
   const isListRoot = sectionType === LIST_ROOT;
 
