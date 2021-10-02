@@ -1,6 +1,7 @@
 import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
+import { SimpleHistory } from "../classes/simpleHistory";
 import { defaultState } from "../utils/utils";
 
 const sections = {
@@ -8,6 +9,7 @@ const sections = {
   idsOverview: {},
   type: {},
   isRendered: {},
+  enteredValue: new SimpleHistory(2, null),
 
   setSectionInfoId: action((state, payload) => {
     const { sectionId, sectionInfoId } = payload;
@@ -27,6 +29,11 @@ const sections = {
 
   setIsRendered: action((state, payload) => {
     state.isRendered = payload(state.isRendered);
+  }),
+
+  setEnteredValue: action((state, payload) => {
+    const { sectionId, paramInfoId, value } = payload;
+    state.enteredValue.h[sectionId][paramInfoId] = value;
   }),
 
   deleteSections: action((state, payload) => {

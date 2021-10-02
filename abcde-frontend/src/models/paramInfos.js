@@ -2,7 +2,6 @@ import { action } from "easy-peasy";
 
 const paramInfos = {
   uiTypeId: {},
-  enteredValue: {},
   childId: {},
 
   setUITypeId: action((state, payload) => {
@@ -11,14 +10,6 @@ const paramInfos = {
       state.uiTypeId[sectionId] = {};
     }
     state.uiTypeId[sectionId][paramInfoId] = uiTypeId;
-  }),
-
-  setEnteredValue: action((state, payload) => {
-    const { sectionId, paramInfoId, value } = payload;
-    if (state.enteredValue[sectionId] === undefined) {
-      state.enteredValue[sectionId] = {};
-    }
-    state.enteredValue[sectionId][paramInfoId] = value;
   }),
 
   setChildId: action((state, payload) => {

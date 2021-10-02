@@ -2,7 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
-import { defaultState } from "./utils";
+import { curryAction, defaultState } from "./utils";
 
 export function useCreateSectionInfo() {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -103,9 +103,19 @@ export function useGetUITypeConfig(uiType) {
   return uiTypeConfig ? uiTypeConfig : uiType.config;
 }
 
-export function useEnteredValue(sectionId, paramInfoId) {
-  const firstDict = useStoreState((x) => x.paramInfos.enteredValue[sectionId]);
-  return firstDict ? firstDict[paramInfoId] : null;
+export function useSectionEnteredValue(id) {
+  const setX = curryAction(
+    useStoreActions((x) => x.sections.setEnteredValue),
+    { sectionId: id }
+  );
+  const x = useStoreState((x) => x.sections.enteredValue.h[id]);
+  return [x, setX];
+}
+
+export function useParamEnteredValue(id, x, setX) {
+  const setX_ = curryAction(setX, { paramInfoId: id }, "value");
+  const x_ = x?.[id];
+  return [x_, setX_];
 }
 
 export function useChildId(sectionId, paramInfoId) {

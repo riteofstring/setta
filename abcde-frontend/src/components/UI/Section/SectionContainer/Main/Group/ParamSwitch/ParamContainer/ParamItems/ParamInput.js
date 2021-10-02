@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 
 import {
   useChildId,
-  useEnteredValue,
+  useParamEnteredValue,
 } from "../../../../../../../../../utils/useCreateInfo";
 import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
@@ -12,10 +12,14 @@ export default function ParamInput(props) {
   const { sectionId, paramInfo, uiType } = props;
   const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
-  const setEnteredValue = useStoreActions((x) => x.paramInfos.setEnteredValue);
+
+  const [enteredValue, setEnteredValue] = useParamEnteredValue(
+    paramInfo.id,
+    props.enteredValue,
+    props.setEnteredValue
+  );
   const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
   const existingChildId = useChildId(sectionId, paramInfoId);
-  const storedValue = useEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState("");
 
   const onChange = (v) => {
@@ -24,16 +28,12 @@ export default function ParamInput(props) {
 
   const onChangeEnd = (v) => {
     onChange(v);
-    setEnteredValue({
-      sectionId,
-      paramInfoId,
-      value: v,
-    });
+    setEnteredValue(v);
   };
 
   useEffect(() => {
-    setValue(!nullOrUndefined(storedValue) ? storedValue : "");
-  }, [storedValue]);
+    setValue(!nullOrUndefined(enteredValue) ? enteredValue : "");
+  }, [enteredValue]);
 
   useEffect(() => {
     setIsRendered((x) => {
