@@ -1,5 +1,4 @@
 import { jsonCombiner } from "../utils/utils";
-import { UIType } from "./uiType";
 
 const { createNewId } = require("../utils/sectionIds");
 
@@ -51,22 +50,9 @@ export class ParameterInfo {
     this.name = name;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
-    this.specs = convertSpecsToDict(jsonInput.specs);
-    this.isKwarg = jsonInput.isKwarg;
-    this.isHidden = jsonInput.isHidden;
-    this.uiType = new UIType({
-      id: createNewId(),
-      name: jsonInput.uiType,
-      specs: this.specs,
-    });
+    this.uiTypeName = jsonInput.uiType;
+    this.uiTypeConfig = jsonInput.specs;
   }
-
-  shouldHaveNested = () => {
-    return (
-      this.specs &&
-      (this.specs.objects.length > 0 || this.specs.parameters.length > 0)
-    );
-  };
 }
 
 export class ObjInfo {

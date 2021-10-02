@@ -28,20 +28,6 @@ export function createSectionInfo(
   return { info, id, objCollectionIds, paramCollectionIds };
 }
 
-// export function createParameterInfo(name, jsonInput) {
-//   const { info, id } = createInfo(ParameterInfo, name, jsonInput);
-//   const uiType = new UIType({
-//     id: createNewId(),
-//     name: jsonInput.uiType,
-//   });
-//   return {
-//     info,
-//     id,
-//     uiType,
-//     config: { id: createNewId(), config: info.specs },
-//   };
-// }
-
 export const createAllInfo = (available) => {
   const allModuleInfo = new AllModuleInfo(available);
   const allObjCollections = new AllObjCollectionInfo(available, allModuleInfo);

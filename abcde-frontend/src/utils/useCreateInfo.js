@@ -2,6 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
+import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
 import { curryAction } from "./utils";
 
@@ -130,6 +131,14 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
+// export function useGetUITypeConfig(uiType) {
+//   const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
+//   const uiTypeConfig = useStoreState(
+//     (x) => x.uiTypeConfigs.config[uiTypeConfigId]
+//   );
+//   return uiTypeConfig ? uiTypeConfig : uiType.config;
+// }
+
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
@@ -137,8 +146,11 @@ export function useInitializeUIType(sectionId) {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     if (!uiTypeId) {
       const id = createNewId();
-      const newUIType = Object.assign({}, paramInfo.uiType);
-      newUIType.id = id;
+      const newUIType = new UIType({
+        id,
+        name: paramInfo.uiTypeName,
+        specs: paramInfo.uiTypeConfig,
+      });
       setUITypeId(id);
       setUIType({ uiTypeId: id, uiType: newUIType });
     }
