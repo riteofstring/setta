@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
 
 export function clamp(number, min, max) {
@@ -64,11 +65,9 @@ export function flattenDictOfArrays(x) {
 
 function jsonCombiner(available, listOfSelection, key) {
   if (listOfSelection) {
+    const listToAssign = listOfSelection.map((x) => available[x][key]);
     return {
-      [key]: Object.assign(
-        {},
-        ...listOfSelection.map((x) => available[x][key])
-      ),
+      [key]: _.merge({}, ...listToAssign),
     };
   }
   return {};

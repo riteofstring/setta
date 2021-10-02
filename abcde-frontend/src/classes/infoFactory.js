@@ -76,3 +76,60 @@ export function createParameterInfo(name, jsonInput) {
     config: { id: createNewId(), config: info.specs },
   };
 }
+
+export const createAllInfo = (available) => {
+  const allModules = createJson(
+    Object.keys(available.objects),
+    available
+  ).ModuleInfo;
+  const allParameters = available.parameters;
+
+  const newModuleInfos = {};
+  const newModuleObjInfos = {};
+  const newObjInfos = {};
+  const newObjParamInfos = {};
+  const newParamInfos = {};
+  const newParamUITypeIds = {};
+  const newUITypes = {};
+  const newUITypeConfigIds = {};
+  const newUITypeConfigs = {};
+
+  for (let m of Object.keys(allModules)) {
+    const { info, id, objInfos } = createModuleInfo(m, allModules[m]);
+    newModuleInfos[id] = info;
+    newModuleObjInfos[id] = objInfos.map((x) => x.id);
+    for (let o of objInfos) {
+      newObjInfos[o.id] = o.info;
+      newObjParamInfos[o.id] = o.parameterInfos.map((x) => x.id);
+      for (let p of o.parameterInfos) {
+        newParamInfos[p.id] = p.info;
+        newParamUITypeIds[p.id] = p.uiType.id;
+        newUITypes[p.uiType.id] = p.uiType;
+        newUITypeConfigIds[p.uiType.id] = p.config.id;
+        newUITypeConfigs[p.config.id] = {
+          id: p.config.id,
+          ...p.config.config,
+        };
+      }
+    }
+  }
+  // for (let p of Object.keys(allParameters)) {
+
+  //   const { info, id, uiType, config } = createParameterInfo(
+  //     name,
+  //     allParameters
+  //   );
+  //   newParamInfos[p.id] = p.info;
+  //   newParamUITypeIds[p.id] = p.uiType.id;
+  //   newUITypes[p.uiType.id] = p.uiType;
+  //   newUITypeConfigIds[p.uiType.id] = p.config.id;
+  //   newUITypeConfigs[p.config.id] = {
+  //     id: p.config.id,
+  //     ...p.config.config,
+  //   };
+  // }
+
+  console.log("newModuleInfos", newModuleInfos);
+  console.log("newObjInfos", newObjInfos);
+  console.log("newParamInfos", newParamInfos);
+};

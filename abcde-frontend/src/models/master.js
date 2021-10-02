@@ -1,5 +1,6 @@
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 
+import { createAllInfo } from "../classes/infoFactory";
 import Data from "../data/simpleTrainTest.json";
 import { parseUI } from "../graphql/parsers/uiParsers";
 import { getPageMinMaxList } from "../utils/sectionIds";
@@ -20,6 +21,8 @@ const master = {
       parameters: payload.PARAMETERS,
     };
     state.uiSpecs = new Map(Object.entries(payload.UI));
+    console.log("available", debug(state.available));
+    createAllInfo(state.available);
     // for (let key of Object.keys(payload.UI)) {
     //   const currSectionInfo = payload.UI[key];
     //   const newSection = new Section(
