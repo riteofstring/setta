@@ -8,7 +8,8 @@ import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramInfo, enteredValue, setEnteredValue } = props;
+  const { sectionId, paramInfo, enteredValue, setEnteredValue, childId } =
+    props;
   const uiType = useGetUIType(sectionId, paramInfo);
   const uiTypeConfig = useGetUITypeConfig(uiType);
 
@@ -42,6 +43,7 @@ export default function ParamContainer(props) {
             isDisabled={!paramInfo.name}
             enteredValue={enteredValue}
             setEnteredValue={setEnteredValue}
+            childId={childId}
           />
         </HStack>
       </FormControl>

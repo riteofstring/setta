@@ -103,22 +103,37 @@ export function useGetUITypeConfig(uiType) {
   return uiTypeConfig ? uiTypeConfig : uiType.config;
 }
 
-export function useSectionEnteredValue(id) {
-  const setX = curryAction(
-    useStoreActions((x) => x.paramInfos.setEnteredValue),
-    { sectionId: id }
-  );
-  const x = useStoreState((x) => x.paramInfos.enteredValue.h[id]);
-  return [x, setX];
+export function useSectionParamInfoState(stateName, setStateFn) {
+  return (id) => {
+    const setX = curryAction(
+      useStoreActions((x) => x.paramInfos[setStateFn]),
+      { sectionId: id }
+    );
+    const x = useStoreState((x) => x.paramInfos[stateName].h[id]);
+    return [x, setX];
+  };
+}
+
+export function useParamInfoState(key) {
+  return (id, x, setX) => {
+    const setX_ = curryAction(setX, { paramInfoId: id }, key);
+    const x_ = x?.[id];
+    return [x_, setX_];
+  };
+}
+
+export function useSectionParamEnteredValue(id) {
+  return useSectionParamInfoState("enteredValue", "setEnteredValue")(id);
 }
 
 export function useParamEnteredValue(id, x, setX) {
-  const setX_ = curryAction(setX, { paramInfoId: id }, "value");
-  const x_ = x?.[id];
-  return [x_, setX_];
+  return useParamInfoState("value")(id, x, setX);
 }
 
-export function useChildId(sectionId, paramInfoId) {
-  const firstDict = useStoreState((x) => x.paramInfos.childId[sectionId]);
-  return firstDict ? firstDict[paramInfoId] : null;
+export function useSectionParamChildId(id) {
+  return useSectionParamInfoState("childId", "setChildId")(id);
+}
+
+export function useParamChildId(id, x, setX) {
+  return useParamInfoState("childId")(id, x, setX);
 }

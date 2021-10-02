@@ -2,14 +2,14 @@ import { useStoreActions } from "easy-peasy";
 import { useState, useEffect } from "react";
 
 import {
-  useChildId,
   useParamEnteredValue,
+  useParamChildId,
 } from "../../../../../../../../../utils/useCreateInfo";
 import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
-  const { sectionId, paramInfo, uiType } = props;
+  const { paramInfo, uiType } = props;
   const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
 
@@ -18,8 +18,8 @@ export default function ParamInput(props) {
     props.enteredValue,
     props.setEnteredValue
   );
+  const childId = useParamChildId(paramInfoId, props.childId, props.setChildId);
   const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
-  const existingChildId = useChildId(sectionId, paramInfoId);
   const [value, setValue] = useState("");
 
   const onChange = (v) => {
@@ -37,9 +37,9 @@ export default function ParamInput(props) {
 
   useEffect(() => {
     setIsRendered((x) => {
-      return { ...x, [existingChildId]: false };
+      return { ...x, [childId]: false };
     });
-  }, [existingChildId]);
+  }, [childId]);
 
   return (
     <ParamUI
