@@ -2,7 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
-import { curryAction, defaultState } from "./utils";
+import { curryAction } from "./utils";
 
 export function useCreateSectionInfo() {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -86,23 +86,6 @@ export function useGetAllParamInfos(sectionInfoId, objInfo) {
   return [...objParamInfos, ...paramCollections];
 }
 
-export function useGetUIType(sectionId, paramInfo) {
-  const uiTypeId = defaultState(
-    useStoreState((x) => x.paramInfos.uiTypeId[sectionId]),
-    {}
-  )[paramInfo.id];
-  const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
-  return uiType ? uiType : paramInfo.uiType;
-}
-
-export function useGetUITypeConfig(uiType) {
-  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
-  const uiTypeConfig = useStoreState(
-    (x) => x.uiTypeConfigs.config[uiTypeConfigId]
-  );
-  return uiTypeConfig ? uiTypeConfig : uiType.config;
-}
-
 export function useSectionParamInfoState(stateName, setStateFn) {
   return (id) => {
     const setX = curryAction(
@@ -136,4 +119,26 @@ export function useSectionParamChildId(id) {
 
 export function useParamChildId(id, x, setX) {
   return useParamInfoState("childId")(id, x, setX);
+}
+
+export function useSectionParamUITypeId(id) {
+  return useSectionParamInfoState("uiTypeId", "setUITypeId")(id);
+}
+
+export function useParamUITypeId(id, x, setX) {
+  return useParamInfoState("uiTypeId")(id, x, setX);
+}
+
+export function useGetUIType(paramInfo, x, setX) {
+  const uiTypeId = useParamUITypeId(paramInfo.id, x, setX)[0];
+  const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
+  return uiType ? uiType : paramInfo.uiType;
+}
+
+export function useGetUITypeConfig(uiType) {
+  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
+  const uiTypeConfig = useStoreState(
+    (x) => x.uiTypeConfigs.config[uiTypeConfigId]
+  );
+  return uiTypeConfig ? uiTypeConfig : uiType.config;
 }

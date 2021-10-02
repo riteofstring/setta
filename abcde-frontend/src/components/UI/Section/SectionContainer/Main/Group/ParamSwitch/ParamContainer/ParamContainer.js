@@ -10,7 +10,7 @@ import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 export default function ParamContainer(props) {
   const { sectionId, paramInfo, enteredValue, setEnteredValue, childId } =
     props;
-  const uiType = useGetUIType(sectionId, paramInfo);
+  const uiType = useGetUIType(paramInfo, props.uiTypeId, null);
   const uiTypeConfig = useGetUITypeConfig(uiType);
 
   console.log("ParamContainer");
@@ -36,7 +36,6 @@ export default function ParamContainer(props) {
           {props.children}
           <Spacer />
           <ParamInput
-            sectionId={sectionId}
             paramInfo={paramInfo}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
