@@ -7,7 +7,6 @@ import React, { useLayoutEffect } from "react";
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { websocketAuth } from "../../dbRequests/authentication.js";
 import { resetState } from "../../store/store";
-import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {
   const loadSections = useStoreActions(
@@ -54,9 +53,7 @@ const UiPage = () => {
   return (
     <>
       <Flex justify="flex-start" h="inherit">
-        <Grid gap={2}>
-          <SectionsPane />
-        </Grid>
+        <Grid gap={2}>{/* <SectionsPane /> */}</Grid>
       </Flex>
     </>
   );
