@@ -54,7 +54,7 @@ export class ParameterInfo {
     this.specs = convertSpecsToDict(jsonInput.specs);
     this.isKwarg = jsonInput.isKwarg;
     this.isHidden = jsonInput.isHidden;
-    this.defaultUIType = new UIType({
+    this.uiType = new UIType({
       id: createNewId(),
       name: jsonInput.uiType,
     });

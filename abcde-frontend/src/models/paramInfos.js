@@ -6,7 +6,8 @@ const paramInfos = {
   childId: {},
 
   setUITypeId: action((state, payload) => {
-    state.uiTypeId = payload(state.uiTypeId);
+    const { sectionId, paramInfoId, uiTypeId } = payload;
+    state.uiTypeId[sectionId][paramInfoId] = uiTypeId;
   }),
 
   setEnteredValue: action((state, payload) => {

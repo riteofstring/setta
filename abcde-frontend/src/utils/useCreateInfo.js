@@ -2,6 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
+import { defaultState } from "./utils";
 
 export function useCreateSectionInfo() {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -65,33 +66,33 @@ export function useGetObjInfos(sectionInfoId) {
   return Object.values(objs);
 }
 
-export function useGetParamInfos(objInfoId) {
-  const paramInfoIds = useStoreState((x) => x.objInfos.paramInfoIds[objInfoId]);
-  const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
-  if (paramInfoIds) {
-    return paramInfoIds.map((x) => paramInfos[x]);
-  }
-  return [];
-}
-
-export function useGetSectionParamInfos(sectionInfoId) {
-  const paramInfoIds = useStoreState(
-    (x) => x.sectionInfos.paramInfoIds[sectionInfoId]
+export function useGetParamCollections(sectionInfoId) {
+  const paramCollectionIds = useStoreState(
+    (x) => x.sectionInfos.paramCollectionIds[sectionInfoId]
   );
-  const paramInfos = useStoreState((x) => x.paramInfos.paramInfo);
-  return paramInfoIds.map((x) => paramInfos[x]);
+  const allParamCollections = useStoreState(
+    (x) => x.master.allParamCollections
+  );
+  const paramCollections = paramCollectionIds.map(
+    (x) => allParamCollections.children[x]
+  );
+  const pc = _.merge({}, ...paramCollections.map((x) => x.children));
+  return Object.values(pc);
 }
 
-export function useGetAllParamInfos(sectionInfoId, objInfoId) {
-  const objParamInfos = useGetParamInfos(objInfoId);
-  const sectionParamInfos = useGetSectionParamInfos(sectionInfoId);
-  return [...objParamInfos, ...sectionParamInfos];
+export function useGetAllParamInfos(sectionInfoId, objInfo) {
+  const objParamInfos = objInfo.children ? Object.values(objInfo.children) : [];
+  const paramCollections = useGetParamCollections(sectionInfoId);
+  return [...objParamInfos, ...paramCollections];
 }
 
-export function useGetUIType(paramInfoId) {
-  const uiTypeId = useStoreState((x) => x.paramInfos.uiTypeId[paramInfoId]);
+export function useGetUIType(sectionId, paramInfo) {
+  const uiTypeId = defaultState(
+    useStoreState((x) => x.paramInfos.uiTypeId[sectionId]),
+    {}
+  )[paramInfo.id];
   const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
-  return uiType;
+  return uiType ? uiType : paramInfo.uiType;
 }
 
 export function useGetUITypeConfig(uiTypeId) {

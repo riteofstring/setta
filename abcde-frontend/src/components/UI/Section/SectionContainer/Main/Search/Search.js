@@ -18,13 +18,11 @@ export default function SectionSearch({
   const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
-    return x ? objInfos[x.idx].name : "";
+    return x ? x.name : "";
   };
 
   const getSearchItems = () => {
-    return objInfos.map((x, idx) => {
-      return { id: x.id, idx };
-    });
+    return objInfos;
   };
 
   const onClick = () => {
