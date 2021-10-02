@@ -57,6 +57,7 @@ export class ParameterInfo {
     this.uiType = new UIType({
       id: createNewId(),
       name: jsonInput.uiType,
+      specs: this.specs,
     });
   }
 
