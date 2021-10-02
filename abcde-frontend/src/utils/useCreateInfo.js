@@ -105,10 +105,10 @@ export function useGetUITypeConfig(uiType) {
 
 export function useSectionEnteredValue(id) {
   const setX = curryAction(
-    useStoreActions((x) => x.sections.setEnteredValue),
+    useStoreActions((x) => x.paramInfos.setEnteredValue),
     { sectionId: id }
   );
-  const x = useStoreState((x) => x.sections.enteredValue.h[id]);
+  const x = useStoreState((x) => x.paramInfos.enteredValue.h[id]);
   return [x, setX];
 }
 

@@ -77,7 +77,11 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
     });
 
     if (parentParamInfoId) {
-      setChildId({ paramInfoId: parentParamInfoId, childId: newIds[0] });
+      setChildId({
+        sectionId,
+        paramInfoId: parentParamInfoId,
+        childId: newIds[0],
+      });
     }
   }
 
