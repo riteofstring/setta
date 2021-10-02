@@ -11,7 +11,7 @@ import ViewNestedButton from "./ViewNestedButton/ViewNestedButton";
 export default function SectionFooter({
   sectionId,
   sectionInfoId,
-  objInfoId,
+  objInfo,
   isListRoot,
   hasNested,
   childrenAreCollapsed,
@@ -36,7 +36,7 @@ export default function SectionFooter({
       </Grid>
       <GearModal
         sectionInfoId={sectionInfoId}
-        objInfoId={objInfoId}
+        objInfo={objInfo}
         name={selectedMenuItem}
         isOpen={isOpen}
         onClose={onClose}

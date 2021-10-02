@@ -2,19 +2,18 @@ import { Stack, FormControl } from "@chakra-ui/react";
 
 import {
   useGetAllParamInfos,
-  useSectionParamChildId,
-  useSectionParamEnteredValue,
-  useSectionParamUITypeId,
+  useParamChildId,
+  useGetParamUIType,
+  useParamEnteredValue,
 } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, sectionInfoId, objInfo }) {
   console.log("GroupContainer", objInfo);
   const paramInfos = useGetAllParamInfos(sectionInfoId, objInfo);
-  const [enteredValue, setEnteredValue] =
-    useSectionParamEnteredValue(sectionId);
-  const childId = useSectionParamChildId(sectionId)[0];
-  const uiTypeId = useSectionParamUITypeId(sectionId)[0];
+  const enteredValueFn = useParamEnteredValue(sectionId);
+  const childIdFn = useParamChildId(sectionId);
+  const getUITypeFn = useGetParamUIType(sectionId);
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
@@ -61,10 +60,9 @@ export default function GroupContainer({ sectionId, sectionInfoId, objInfo }) {
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               paramInfo={e}
-              enteredValue={enteredValue}
-              setEnteredValue={setEnteredValue}
-              childId={childId}
-              uiTypeId={uiTypeId}
+              enteredValueFn={enteredValueFn}
+              childIdFn={childIdFn}
+              getUITypeFn={getUITypeFn}
             />
           ))}
         </FormControl>

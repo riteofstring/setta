@@ -14,14 +14,11 @@ import { useStoreActions } from "easy-peasy";
 
 import { UIType, UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
-import {
-  useGetUIType,
-  useGetUITypeConfig,
-} from "../../../../../../../utils/useCreateInfo";
+import { useGetUITypeConfig } from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
-export default function Item({ paramInfo }) {
-  const uiType = useGetUIType(paramInfo.id);
+export default function Item({ paramInfo, getUITypeFn }) {
+  const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = useGetUITypeConfig(uiType.id);
   const paramName = paramInfo.name;
 

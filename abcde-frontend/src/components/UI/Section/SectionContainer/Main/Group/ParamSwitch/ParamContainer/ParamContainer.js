@@ -1,16 +1,13 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 
-import {
-  useGetUIType,
-  useGetUITypeConfig,
-} from "../../../../../../../../utils/useCreateInfo";
+import { useGetUITypeConfig } from "../../../../../../../../utils/useCreateInfo";
 import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramInfo, enteredValue, setEnteredValue, childId } =
+  const { sectionId, paramInfo, enteredValueFn, childIdFn, getUITypeFn } =
     props;
-  const uiType = useGetUIType(paramInfo, props.uiTypeId, null);
+  const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = useGetUITypeConfig(uiType);
 
   console.log("ParamContainer");
@@ -40,9 +37,8 @@ export default function ParamContainer(props) {
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
             isDisabled={!paramInfo.name}
-            enteredValue={enteredValue}
-            setEnteredValue={setEnteredValue}
-            childId={childId}
+            enteredValueFn={enteredValueFn}
+            childIdFn={childIdFn}
           />
         </HStack>
       </FormControl>

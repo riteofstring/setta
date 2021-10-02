@@ -86,53 +86,44 @@ export function useGetAllParamInfos(sectionInfoId, objInfo) {
   return [...objParamInfos, ...paramCollections];
 }
 
-export function useSectionParamInfoState(stateName, setStateFn) {
-  return (id) => {
+export function useParamInfoState(stateName, setStateFn, key) {
+  return (sectionId) => {
     const setX = curryAction(
       useStoreActions((x) => x.paramInfos[setStateFn]),
-      { sectionId: id }
+      { sectionId }
     );
-    const x = useStoreState((x) => x.paramInfos[stateName].h[id]);
-    return [x, setX];
+    const x = useStoreState((x) => x.paramInfos[stateName].h[sectionId]);
+    return (paramInfoId) => {
+      const setX_ = curryAction(setX, { paramInfoId }, key);
+      const x_ = x?.[paramInfoId];
+      return [x_, setX_];
+    };
   };
 }
 
-export function useParamInfoState(key) {
-  return (id, x, setX) => {
-    const setX_ = curryAction(setX, { paramInfoId: id }, key);
-    const x_ = x?.[id];
-    return [x_, setX_];
+export function useParamEnteredValue(sectionId) {
+  return useParamInfoState(
+    "enteredValue",
+    "setEnteredValue",
+    "value"
+  )(sectionId);
+}
+
+export function useParamChildId(sectionId) {
+  return useParamInfoState("childId", "setChildId", "childId")(sectionId);
+}
+
+export function useParamUITypeId(sectionId) {
+  return useParamInfoState("uiTypeId", "setUITypeId", "uiTypeId")(sectionId);
+}
+
+export function useGetParamUIType(sectionId) {
+  const uiTypeIdFn = useParamUITypeId(sectionId);
+  return (paramInfo) => {
+    const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
+    const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
+    return uiType ? uiType : paramInfo.uiType;
   };
-}
-
-export function useSectionParamEnteredValue(id) {
-  return useSectionParamInfoState("enteredValue", "setEnteredValue")(id);
-}
-
-export function useParamEnteredValue(id, x, setX) {
-  return useParamInfoState("value")(id, x, setX);
-}
-
-export function useSectionParamChildId(id) {
-  return useSectionParamInfoState("childId", "setChildId")(id);
-}
-
-export function useParamChildId(id, x, setX) {
-  return useParamInfoState("childId")(id, x, setX);
-}
-
-export function useSectionParamUITypeId(id) {
-  return useSectionParamInfoState("uiTypeId", "setUITypeId")(id);
-}
-
-export function useParamUITypeId(id, x, setX) {
-  return useParamInfoState("uiTypeId")(id, x, setX);
-}
-
-export function useGetUIType(paramInfo, x, setX) {
-  const uiTypeId = useParamUITypeId(paramInfo.id, x, setX)[0];
-  const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
-  return uiType ? uiType : paramInfo.uiType;
 }
 
 export function useGetUITypeConfig(uiType) {

@@ -8,6 +8,7 @@ import { useGetSectionInfo } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
+import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
@@ -29,7 +30,7 @@ function SectionContainer({
 }) {
   const isRendered = useStoreState((x) => x.sections.isRendered[sectionId]);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
-  const [selectedItem, setSelectedItem] = useState([]);
+  const [selectedItem, setSelectedItem] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
@@ -151,15 +152,15 @@ function SectionContainerCore({
               sectionInfoId={sectionInfoId}
               objInfo={selectedItem}
             />
-            {/* <SectionFooter
+            <SectionFooter
               sectionId={sectionId}
               sectionInfoId={sectionInfoId}
-              objInfoId={selectedItem.id}
+              objInfo={selectedItem}
               isListRoot={isListRoot}
               hasNested={hasNested}
               childrenAreCollapsed={childrenAreCollapsed}
               flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-            /> */}
+            />
           </Stack>
         )}
       </Stack>
