@@ -1,4 +1,9 @@
-import { SectionInfo, AllModuleInfo, AllObjCollectionInfo } from "./jsonParser";
+import {
+  SectionInfo,
+  AllModuleInfo,
+  AllObjCollectionInfo,
+  AllParamCollectionInfo,
+} from "./jsonParser";
 
 function createInfo(infoType, name, jsonInput, ...otherArgs) {
   const info = new infoType(createNewId(), name, jsonInput, ...otherArgs);
@@ -30,8 +35,10 @@ export function createSectionInfo(name, specs, available) {
 export const createAllInfo = (available) => {
   const allModuleInfo = new AllModuleInfo(available);
   const allObjCollections = new AllObjCollectionInfo(available, allModuleInfo);
+  const allParamCollections = new AllParamCollectionInfo(available);
   console.log("allModuleInfo", allModuleInfo);
   console.log("allObjCollections", allObjCollections);
+  console.log("allParamCollections", allParamCollections);
 
   // const newModuleInfos = {};
   // const newModuleObjInfos = {};

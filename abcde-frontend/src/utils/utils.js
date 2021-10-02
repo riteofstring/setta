@@ -63,22 +63,12 @@ export function flattenDictOfArrays(x) {
   );
 }
 
-function jsonCombiner(available, listOfSelection, key) {
+export function jsonCombiner(available, listOfSelection) {
   if (listOfSelection) {
-    const listToAssign = listOfSelection.map((x) => available[x][key]);
-    return {
-      [key]: _.merge({}, ...listToAssign),
-    };
+    const listToAssign = listOfSelection.map((x) => available[x]);
+    return _.merge({}, ...listToAssign);
   }
   return {};
-}
-
-export function combineObjects(objects, listOfObjects) {
-  return jsonCombiner(objects, listOfObjects, "ModuleInfo");
-}
-
-export function combineParameters(parameters, listOfParameters) {
-  return jsonCombiner(parameters, listOfParameters, "ParameterInfo");
 }
 
 export function firstValue(x) {

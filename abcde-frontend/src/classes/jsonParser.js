@@ -1,25 +1,11 @@
-import { combineObjects, combineParameters } from "../utils/utils";
+import { jsonCombiner } from "../utils/utils";
 
 const { createNewId } = require("../utils/sectionIds");
 
-export function createParameterInfo() {
+export function createInfo(infoType) {
   return (name, jsonInput) => {
     const id = createNewId();
-    return { id, info: new ParameterInfo(id, name, jsonInput) };
-  };
-}
-
-export function createObjInfo() {
-  return (name, jsonInput) => {
-    const id = createNewId();
-    return { id, info: new ObjInfo(id, name, jsonInput) };
-  };
-}
-
-export function createModuleInfo() {
-  return (name, jsonInput) => {
-    const id = createNewId();
-    return { id, info: new ModuleInfo(id, name, jsonInput) };
+    return { id, info: new infoType(id, name, jsonInput) };
   };
 }
 
@@ -35,12 +21,9 @@ export const getInfos = (jsonInput, factory_fn) => {
 const createJson = (specs, available) => {
   const sp = convertSpecsToDict(specs);
   let output = {};
-  for (let x of [
-    ["objects", available.objects, combineObjects],
-    ["parameters", available.parameters, combineParameters],
-  ]) {
-    if (x[0] in sp) {
-      output = { ...output, ...x[2](x[1], sp[x[0]]) };
+  for (let x of ["objects", "parameters"]) {
+    if (x in sp) {
+      output = { ...output, ...jsonCombiner(available[x], sp[x]) };
     }
   }
   return output;
@@ -80,18 +63,11 @@ export class ParameterInfo {
   };
 }
 
-export class ParamCollectionInfo {
-  constructor(id, name, jsonInput) {
-    this.id = id;
-    this.name = name;
-  }
-}
-
 export class ObjInfo {
   constructor(id, name, jsonInput) {
     this.id = id;
     this.name = name;
-    this.children = getInfos(jsonInput, createParameterInfo());
+    this.children = getInfos(jsonInput, createInfo(ParameterInfo));
     this.nameToId = createNameToId(this.children);
   }
 }
@@ -100,19 +76,16 @@ export class ModuleInfo {
   constructor(id, name, jsonInput) {
     this.id = id;
     this.name = name;
-    this.children = getInfos(jsonInput, createObjInfo());
+    this.children = getInfos(jsonInput, createInfo(ObjInfo));
     this.nameToId = createNameToId(this.children);
   }
 }
 
 export class AllModuleInfo {
   constructor(available) {
-    const allObjs = createJson(
-      Object.keys(available.objects),
-      available
-    ).ModuleInfo;
+    const allObjs = createJson(Object.keys(available.objects), available);
 
-    this.children = getInfos(allObjs, createModuleInfo());
+    this.children = getInfos(allObjs, createInfo(ModuleInfo));
     this.nameToId = createNameToId(this.children);
   }
 }
@@ -139,7 +112,7 @@ export class AllObjCollectionInfo {
     const availableObjs = available.objects;
     this.children = {};
     for (let c of Object.keys(availableObjs)) {
-      const modulesInCollection = availableObjs[c].ModuleInfo;
+      const modulesInCollection = availableObjs[c];
       const id = createNewId();
       this.children[id] = new ObjCollectionInfo(
         id,
@@ -148,6 +121,18 @@ export class AllObjCollectionInfo {
         allModuleInfo
       );
     }
+    this.nameToId = createNameToId(this.children);
+  }
+}
+
+export class ParamCollectionInfo extends ObjInfo {}
+
+export class AllParamCollectionInfo {
+  constructor(available) {
+    this.children = getInfos(
+      available.parameters,
+      createInfo(ParamCollectionInfo)
+    );
     this.nameToId = createNameToId(this.children);
   }
 }
