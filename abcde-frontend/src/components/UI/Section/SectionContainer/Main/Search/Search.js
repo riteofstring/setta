@@ -4,10 +4,7 @@ import { useCombobox } from "downshift";
 import _ from "lodash";
 import React, { useState } from "react";
 
-import {
-  useGetModuleInfos,
-  useGetObjInfos,
-} from "../../../../../../utils/useCreateInfo";
+import { useGetObjInfos } from "../../../../../../utils/useCreateInfo";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 
 export default function SectionSearch({
@@ -15,9 +12,7 @@ export default function SectionSearch({
   onSelectedItemChange,
   initialSelection,
 }) {
-  const moduleInfos = useGetModuleInfos(sectionInfoId);
-  const moduleInfoIds = moduleInfos.map((x) => x.id);
-  const objInfos = useGetObjInfos(moduleInfoIds);
+  const objInfos = useGetObjInfos(sectionInfoId);
   const [selection, setSelection] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);

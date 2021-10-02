@@ -1,4 +1,5 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
+import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
 
@@ -8,17 +9,12 @@ export function useCreateSectionInfo() {
     (x) => x.master.allParamCollections
   );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setParamInfo = useStoreActions((x) => x.paramInfos.setParamInfo);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   const setObjCollectionIds = useStoreActions(
     (x) => x.sectionInfos.setObjCollectionIds
   );
   const setParamCollectionIds = useStoreActions(
     (x) => x.sectionInfos.setParamCollectionIds
   );
-  const setUITypeId = useStoreActions((x) => x.paramInfos.setUITypeId);
-  const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
 
   const createInfo = (name, specs) => {
     const infoFactoryOutput = createSectionInfo(
@@ -27,8 +23,6 @@ export function useCreateSectionInfo() {
       allObjCollections,
       allParamCollections
     );
-    console.log("useCreateSectionInfo infoFactoryOutput", infoFactoryOutput);
-
     const { info, id, objCollectionIds, paramCollectionIds } =
       infoFactoryOutput;
 
@@ -40,56 +34,6 @@ export function useCreateSectionInfo() {
     });
     setParamCollectionIds((x) => {
       return { ...x, [id]: paramCollectionIds };
-    });
-
-    const newParamInfos = {};
-    const newParamUITypeIds = {};
-    const newUITypes = {};
-    const newUITypeConfigIds = {};
-    const newUITypeConfigs = {};
-    for (let m of moduleInfos) {
-      newModuleInfos[m.id] = m.info;
-      newModuleObjInfos[m.id] = m.objInfos.map((x) => x.id);
-      for (let o of m.objInfos) {
-        newObjInfos[o.id] = o.info;
-        newObjParamInfos[o.id] = o.parameterInfos.map((x) => x.id);
-        for (let p of o.parameterInfos) {
-          newParamInfos[p.id] = p.info;
-          newParamUITypeIds[p.id] = p.uiType.id;
-          newUITypes[p.uiType.id] = p.uiType;
-          newUITypeConfigIds[p.uiType.id] = p.config.id;
-          newUITypeConfigs[p.config.id] = {
-            id: p.config.id,
-            ...p.config.config,
-          };
-        }
-      }
-    }
-    for (let p of parameterInfos) {
-      newParamInfos[p.id] = p.info;
-      newParamUITypeIds[p.id] = p.uiType.id;
-      newUITypes[p.uiType.id] = p.uiType;
-      newUITypeConfigIds[p.uiType.id] = p.config.id;
-      newUITypeConfigs[p.config.id] = {
-        id: p.config.id,
-        ...p.config.config,
-      };
-    }
-
-    setParamInfo((x) => {
-      return { ...x, ...newParamInfos };
-    });
-    setUITypeId((x) => {
-      return { ...x, ...newParamUITypeIds };
-    });
-    setUIType((x) => {
-      return { ...x, ...newUITypes };
-    });
-    setConfigId((x) => {
-      return { ...x, ...newUITypeConfigIds };
-    });
-    setConfig((x) => {
-      return { ...x, ...newUITypeConfigs };
     });
 
     return id;
@@ -109,24 +53,16 @@ export function useGetSectionInfo(sectionId) {
   return sectionInfo;
 }
 
-export function useGetModuleInfos(sectionInfoId) {
-  const moduleInfoIds = useStoreState(
-    (x) => x.sectionInfos.moduleInfoIds[sectionInfoId]
+export function useGetObjInfos(sectionInfoId) {
+  const objCollectionIds = useStoreState(
+    (x) => x.sectionInfos.objCollectionIds[sectionInfoId]
   );
-  const moduleInfos = useStoreState((x) => x.moduleInfos.moduleInfo);
-  return moduleInfoIds.map((x) => moduleInfos[x]);
-}
-
-export function useGetObjInfos(moduleInfoIds) {
-  const objInfoIds = useStoreState((x) => x.moduleInfos.objInfoIds);
-  const objInfos = useStoreState((x) => x.objInfos.objInfo);
-
-  const output = [];
-  for (let m of moduleInfoIds) {
-    const currIds = objInfoIds[m];
-    output.push(...currIds.map((x) => objInfos[x]));
-  }
-  return output;
+  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+  const objCollections = objCollectionIds.map(
+    (x) => allObjCollections.children[x]
+  );
+  const objs = _.merge({}, ...objCollections.map((x) => x.children));
+  return Object.values(objs);
 }
 
 export function useGetParamInfos(objInfoId) {

@@ -3,10 +3,11 @@ import {
   AllModuleInfo,
   AllObjCollectionInfo,
   AllParamCollectionInfo,
+  createInfo,
 } from "./jsonParser";
 
 function getCollectionIds(specs, allCollections) {
-  return specs ? Object.keys(specs).map((x) => allCollections.nameToId[x]) : [];
+  return specs ? specs.map((x) => allCollections.nameToId[x]) : [];
 }
 
 export function createSectionInfo(

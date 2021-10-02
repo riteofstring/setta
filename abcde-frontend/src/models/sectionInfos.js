@@ -2,19 +2,19 @@ import { action } from "easy-peasy";
 
 const sectionInfos = {
   sectionInfo: {},
-  moduleInfoIds: {},
-  paramInfoIds: {},
+  objCollectionIds: {},
+  paramCollectionIds: {},
 
   setSectionInfo: action((state, payload) => {
     state.sectionInfo = payload(state.sectionInfo);
   }),
 
-  setModuleInfoIds: action((state, payload) => {
-    state.moduleInfoIds = payload(state.moduleInfoIds);
+  setObjCollectionIds: action((state, payload) => {
+    state.objCollectionIds = payload(state.objCollectionIds);
   }),
 
-  setParamInfoIds: action((state, payload) => {
-    state.paramInfoIds = payload(state.paramInfoIds);
+  setParamCollectionIds: action((state, payload) => {
+    state.paramCollectionIds = payload(state.paramCollectionIds);
   }),
 };
 

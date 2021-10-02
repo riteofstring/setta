@@ -8,11 +8,8 @@ import { useGetSectionInfo } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
-import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";
-import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
-import SectionDescription from "./Main/SectionDescription/SectionDescription";
 import {
   useAddChild,
   funcFlipChildrenAreCollapsed,
@@ -146,7 +143,7 @@ function SectionContainerCore({
                 onSelectedItemChange={onSelectedItemChange}
               />
             )}
-            {tempBoolDesc && <SectionDescription />}
+            {/* {tempBoolDesc && <SectionDescription />}
             <GroupContainer
               sectionId={sectionId}
               sectionInfoId={sectionInfoId}
@@ -160,7 +157,7 @@ function SectionContainerCore({
               hasNested={hasNested}
               childrenAreCollapsed={childrenAreCollapsed}
               flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-            />
+            /> */}
           </Stack>
         )}
       </Stack>
