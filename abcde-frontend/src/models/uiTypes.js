@@ -13,7 +13,8 @@ const uiTypes = {
   }),
 
   setConfigId: action((state, payload) => {
-    state.configId = payload(state.configId);
+    const { uiTypeId, configId } = payload;
+    state.configId[uiTypeId] = configId;
   }),
 };
 

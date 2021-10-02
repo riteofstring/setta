@@ -4,7 +4,7 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
-import { curryAction } from "./utils";
+import { curryAction, defaultState } from "./utils";
 
 export function useCreateSectionInfo() {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -131,28 +131,38 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-// export function useGetUITypeConfig(uiType) {
-//   const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
-//   const uiTypeConfig = useStoreState(
-//     (x) => x.uiTypeConfigs.config[uiTypeConfigId]
-//   );
-//   return uiTypeConfig ? uiTypeConfig : uiType.config;
-// }
+export function useUITypeConfig(uiType) {
+  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
+  const uiTypeConfig = defaultState(
+    useStoreState((x) => x.uiTypeConfigs.config[uiTypeConfigId]),
+    {}
+  );
+  const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
+  const setUITypeConfig = ({ configName, value }) => {
+    x({ configId: uiTypeConfigId, configName, value });
+  };
+  return [uiTypeConfig, setUITypeConfig];
+}
 
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
+  const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     if (!uiTypeId) {
-      const id = createNewId();
       const newUIType = new UIType({
-        id,
+        id: createNewId(),
         name: paramInfo.uiTypeName,
-        specs: paramInfo.uiTypeConfig,
       });
-      setUITypeId(id);
-      setUIType({ uiTypeId: id, uiType: newUIType });
+      setUITypeId(newUIType.id);
+      setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
+
+      const configId = createNewId();
+      const config = Object.assign({}, paramInfo.uiTypeConfig);
+      setConfigId({ uiTypeId: newUIType.id, configId: configId });
+      setConfig({ configId, config });
     }
   };
 }

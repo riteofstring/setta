@@ -14,15 +14,17 @@ import { useStoreActions } from "easy-peasy";
 
 import { UIType, UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
+import { useUITypeConfig } from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ paramInfo, getUITypeFn }) {
   const uiType = getUITypeFn(paramInfo);
-  const uiTypeConfig = uiType.config;
+  const [uiTypeConfig, setUITypeConfig] = useUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
+  console.log("Item", uiTypeConfig);
+
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setOneConfig = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
 
   const onSelect = (e) => {
     const id = uiType.id;
@@ -34,12 +36,7 @@ export default function Item({ paramInfo, getUITypeFn }) {
 
   const onChange = (configName, value) => {
     console.log("onChange", configName, value);
-    const id = uiTypeConfig.id;
-    setOneConfig({
-      configId: id,
-      configName,
-      value,
-    });
+    setUITypeConfig({ configName, value });
   };
 
   return (

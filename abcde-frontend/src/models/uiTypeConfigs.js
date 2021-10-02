@@ -4,7 +4,8 @@ const uiTypeConfigs = {
   config: {},
 
   setConfig: action((state, payload) => {
-    state.config = payload(state.config);
+    const { configId, config } = payload;
+    state.config[configId] = config;
   }),
 
   setOneConfig: action((state, payload) => {
