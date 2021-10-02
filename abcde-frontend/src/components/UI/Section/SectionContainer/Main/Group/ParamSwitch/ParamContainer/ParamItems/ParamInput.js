@@ -1,21 +1,21 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useState, useEffect } from "react";
 
+import {
+  useChildId,
+  useEnteredValue,
+} from "../../../../../../../../../utils/useCreateInfo";
 import { nullOrUndefined } from "../../../../../../../../../utils/utils";
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
-  const { paramInfo, uiType } = props;
+  const { sectionId, paramInfo, uiType } = props;
   const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
   const setEnteredValue = useStoreActions((x) => x.paramInfos.setEnteredValue);
   const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
-  const existingChildId = useStoreState(
-    (x) => x.paramInfos.childId[paramInfoId]
-  );
-  const storedValue = useStoreState(
-    (x) => x.paramInfos.enteredValue[paramInfoId]
-  );
+  const existingChildId = useChildId(sectionId, paramInfoId);
+  const storedValue = useEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState("");
 
   const onChange = (v) => {
@@ -25,6 +25,7 @@ export default function ParamInput(props) {
   const onChangeEnd = (v) => {
     onChange(v);
     setEnteredValue({
+      sectionId,
       paramInfoId,
       value: v,
     });

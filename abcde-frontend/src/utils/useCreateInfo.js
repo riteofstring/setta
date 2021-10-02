@@ -95,10 +95,20 @@ export function useGetUIType(sectionId, paramInfo) {
   return uiType ? uiType : paramInfo.uiType;
 }
 
-export function useGetUITypeConfig(uiTypeId) {
-  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiTypeId]);
+export function useGetUITypeConfig(uiType) {
+  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
   const uiTypeConfig = useStoreState(
     (x) => x.uiTypeConfigs.config[uiTypeConfigId]
   );
-  return uiTypeConfig;
+  return uiTypeConfig ? uiTypeConfig : uiType.config;
+}
+
+export function useEnteredValue(sectionId, paramInfoId) {
+  const firstDict = useStoreState((x) => x.paramInfos.enteredValue[sectionId]);
+  return firstDict ? firstDict[paramInfoId] : null;
+}
+
+export function useChildId(sectionId, paramInfoId) {
+  const firstDict = useStoreState((x) => x.paramInfos.childId[sectionId]);
+  return firstDict ? firstDict[paramInfoId] : null;
 }

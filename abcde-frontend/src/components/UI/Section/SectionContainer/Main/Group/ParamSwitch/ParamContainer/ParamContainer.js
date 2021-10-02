@@ -10,7 +10,7 @@ import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 export default function ParamContainer(props) {
   const { sectionId, paramInfo } = props;
   const uiType = useGetUIType(sectionId, paramInfo);
-  const uiTypeConfig = useGetUITypeConfig(uiType.id);
+  const uiTypeConfig = useGetUITypeConfig(uiType);
 
   // const paramUITypeConfig = useStoreState((state) =>
   //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
@@ -33,6 +33,7 @@ export default function ParamContainer(props) {
           {props.children}
           <Spacer />
           <ParamInput
+            sectionId={sectionId}
             paramInfo={paramInfo}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
