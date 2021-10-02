@@ -26,7 +26,7 @@ export function defaultDict(defaultValueFn) {
 
 export function createDefaultNestedDict(levels, finalType) {
   if (levels === 0) {
-    return finalType;
+    return finalType();
   }
   return defaultDict(() => createDefaultNestedDict(levels - 1, finalType));
 }

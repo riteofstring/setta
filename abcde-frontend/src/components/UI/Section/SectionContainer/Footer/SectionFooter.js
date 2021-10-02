@@ -35,6 +35,7 @@ export default function SectionFooter({
         <GearMenu setSelectedMenuItem={setSelectedMenuItem} onOpen={onOpen} />
       </Grid>
       <GearModal
+        sectionId={sectionId}
         sectionInfoId={sectionInfoId}
         objInfo={objInfo}
         name={selectedMenuItem}

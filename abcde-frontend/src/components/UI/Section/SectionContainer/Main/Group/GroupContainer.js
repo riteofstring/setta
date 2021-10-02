@@ -5,6 +5,7 @@ import {
   useParamChildId,
   useGetParamUIType,
   useParamEnteredValue,
+  useInitializeUIType,
 } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
@@ -14,6 +15,7 @@ export default function GroupContainer({ sectionId, sectionInfoId, objInfo }) {
   const enteredValueFn = useParamEnteredValue(sectionId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
+  const initUITypeFn = useInitializeUIType(sectionId);
 
   // const kwargNames = useStoreState(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
@@ -63,6 +65,7 @@ export default function GroupContainer({ sectionId, sectionInfoId, objInfo }) {
               enteredValueFn={enteredValueFn}
               childIdFn={childIdFn}
               getUITypeFn={getUITypeFn}
+              initUITypeFn={initUITypeFn}
             />
           ))}
         </FormControl>

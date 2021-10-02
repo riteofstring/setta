@@ -14,20 +14,19 @@ import { useStoreActions } from "easy-peasy";
 
 import { UIType, UITYPES } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
-import { useGetUITypeConfig } from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ paramInfo, getUITypeFn }) {
   const uiType = getUITypeFn(paramInfo);
-  const uiTypeConfig = useGetUITypeConfig(uiType.id);
+  const uiTypeConfig = uiType.config;
   const paramName = paramInfo.name;
 
-  const setOneUIType = useStoreActions((x) => x.uiTypes.setOneUIType);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setOneConfig = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
 
   const onSelect = (e) => {
     const id = uiType.id;
-    setOneUIType({
+    setUIType({
       uiTypeId: id,
       uiType: new UIType({ id, name: e.target.value }),
     });

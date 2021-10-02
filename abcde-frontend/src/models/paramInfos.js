@@ -3,9 +3,9 @@ import { action } from "easy-peasy";
 import { SimpleHistory } from "../classes/simpleHistory";
 
 const paramInfos = {
-  uiTypeId: new SimpleHistory(2, null),
-  enteredValue: new SimpleHistory(2, null),
-  childId: new SimpleHistory(2, null),
+  uiTypeId: new SimpleHistory(2, () => null),
+  enteredValue: new SimpleHistory(2, () => null),
+  childId: new SimpleHistory(2, () => null),
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;

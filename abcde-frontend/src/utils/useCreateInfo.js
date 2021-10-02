@@ -2,6 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
+import { createNewId } from "./sectionIds";
 import { curryAction } from "./utils";
 
 export function useCreateSectionInfo() {
@@ -121,15 +122,25 @@ export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
-    const uiType = useStoreState((x) => x.uiTypes.uiType[uiTypeId]);
-    return uiType ? uiType : paramInfo.uiType;
+    const x = useStoreState(
+      (x) => x.paramInfos.uiTypeId.h[sectionId]?.[paramInfo.id]
+    );
+    const output = useStoreState((x) => x.uiTypes.uiType.h[uiTypeId]);
+    return output;
   };
 }
 
-export function useGetUITypeConfig(uiType) {
-  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
-  const uiTypeConfig = useStoreState(
-    (x) => x.uiTypeConfigs.config[uiTypeConfigId]
-  );
-  return uiTypeConfig ? uiTypeConfig : uiType.config;
+export function useInitializeUIType(sectionId) {
+  const uiTypeFn = useParamUITypeId(sectionId);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  return (paramInfo) => {
+    const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
+    if (!uiTypeId) {
+      const id = createNewId();
+      const newUIType = Object.assign({}, paramInfo.uiType);
+      newUIType.id = id;
+      setUITypeId(id);
+      setUIType({ uiTypeId: id, uiType: newUIType });
+    }
+  };
 }

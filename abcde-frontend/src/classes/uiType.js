@@ -21,30 +21,10 @@ function requiresKeyInput(uiTypeName) {
 }
 
 export class UIType {
-  constructor({ id, name, specs, parentUIType }) {
+  constructor({ id, name, specs }) {
     this.id = id;
     this.name = name;
     this.config = specs;
-    this.initializeListProps(parentUIType);
-    this.initializeDictProps();
+    this.isNested = requiresNestedSection(this.name);
   }
-
-  initializeListProps = (parentUIType) => {
-    if (isList(this.name)) {
-      this.isList = !!(parentUIType && parentUIType.isListRoot);
-      this.isListRoot = !this.isList;
-    } else {
-      this.isList = false;
-      this.isListRoot = false;
-    }
-  };
-
-  initializeDictProps = () => {
-    this.isDictRoot = requiresKeyInput(this.name) && this.isListRoot;
-    this.requiresKeyInput = requiresKeyInput(this.name) && !this.isListRoot;
-  };
-
-  isNested = () => {
-    return requiresNestedSection(this.name);
-  };
 }
