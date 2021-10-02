@@ -2,10 +2,10 @@ import { jsonCombiner } from "../utils/utils";
 
 const { createNewId } = require("../utils/sectionIds");
 
-export function createInfo(infoType) {
+export function createInfo(infoType, ...otherArgs) {
   return (name, jsonInput) => {
     const id = createNewId();
-    return { id, info: new infoType(id, name, jsonInput) };
+    return { id, info: new infoType(id, name, jsonInput, ...otherArgs) };
   };
 }
 
@@ -84,7 +84,6 @@ export class ModuleInfo {
 export class AllModuleInfo {
   constructor(available) {
     const allObjs = createJson(Object.keys(available.objects), available);
-
     this.children = getInfos(allObjs, createInfo(ModuleInfo));
     this.nameToId = createNameToId(this.children);
   }
@@ -110,17 +109,10 @@ export class ObjCollectionInfo {
 export class AllObjCollectionInfo {
   constructor(available, allModuleInfo) {
     const availableObjs = available.objects;
-    this.children = {};
-    for (let c of Object.keys(availableObjs)) {
-      const modulesInCollection = availableObjs[c];
-      const id = createNewId();
-      this.children[id] = new ObjCollectionInfo(
-        id,
-        c,
-        modulesInCollection,
-        allModuleInfo
-      );
-    }
+    this.children = getInfos(
+      availableObjs,
+      createInfo(ObjCollectionInfo, allModuleInfo)
+    );
     this.nameToId = createNameToId(this.children);
   }
 }
