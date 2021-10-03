@@ -91,10 +91,10 @@ export function useParamInfoState(stateName, setStateFn, key) {
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { sectionId }
     );
-    const x = useStoreState((x) => x.paramInfos[stateName].h[sectionId]);
+    const x = useStoreState((x) => x.paramInfos.x.h[sectionId]);
     return (paramInfoId) => {
       const setX_ = curryAction(setX, { paramInfoId }, key);
-      const x_ = x?.[paramInfoId];
+      const x_ = x?.[paramInfoId]?.[stateName];
       return [x_, setX_];
     };
   };
@@ -120,9 +120,6 @@ export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
-    const x = useStoreState(
-      (x) => x.paramInfos.uiTypeId.h[sectionId]?.[paramInfo.id]
-    );
     const output = useStoreState((x) => x.uiTypes.uiType.h[uiTypeId]);
     return output;
   };
