@@ -5,7 +5,10 @@ const { createNewId } = require("../utils/sectionIds");
 export function createInfo(infoType, ...otherArgs) {
   return (name, jsonInput) => {
     const id = createNewId();
-    return { id, info: new infoType(id, name, jsonInput, ...otherArgs) };
+    return {
+      id,
+      info: Object.freeze(new infoType(id, name, jsonInput, ...otherArgs)),
+    };
   };
 }
 

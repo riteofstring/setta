@@ -3,7 +3,7 @@ import {
   AllModuleInfo,
   AllObjCollectionInfo,
   AllParamCollectionInfo,
-} from "./jsonParser";
+} from "./immutableInfo";
 import { SectionInfo } from "./mutableInfo";
 
 function getCollectionIds(specs, allCollections) {
@@ -30,8 +30,12 @@ export function createSectionInfo(
 }
 
 export const createAllInfo = (available) => {
-  const allModuleInfo = new AllModuleInfo(available);
-  const allObjCollections = new AllObjCollectionInfo(available, allModuleInfo);
-  const allParamCollections = new AllParamCollectionInfo(available);
+  const allModuleInfo = Object.freeze(new AllModuleInfo(available));
+  const allObjCollections = Object.freeze(
+    new AllObjCollectionInfo(available, allModuleInfo)
+  );
+  const allParamCollections = Object.freeze(
+    new AllParamCollectionInfo(available)
+  );
   return { allModuleInfo, allObjCollections, allParamCollections };
 };

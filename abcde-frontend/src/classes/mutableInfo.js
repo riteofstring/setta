@@ -1,4 +1,4 @@
-import { convertSpecsToDict } from "./jsonParser";
+import { convertSpecsToDict } from "./immutableInfo";
 
 export class MutableParamInfo {
   constructor({ id, uiTypeId, enteredValue, childId }) {
