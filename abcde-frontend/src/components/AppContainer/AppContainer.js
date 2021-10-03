@@ -1,19 +1,18 @@
 import { Flex, HStack, Heading } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import React, { useEffect } from "react";
 import { Link, BrowserRouter } from "react-router-dom";
 
 import { verifyToken } from "../../dbRequests/authentication";
 import { NO_AUTH } from "../../utils/constants";
-import { useIsEqual } from "../../utils/useCreateInfo";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 // import HeaderContainer from "./Header/Header";
 // import MainContainer from "./Main/MainContainer";
 
 const AppContainer = () => {
-  const isAuthenticated = useIsEqual((state) => state.auth.isAuthenticated);
-  const token = useIsEqual((state) => state.auth.token);
+  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
+  const token = useStoreState((state) => state.auth.token);
   const loginFail = useStoreActions((action) => action.auth.loginFail);
   const stayLoggedIn = useStoreActions((action) => action.auth.stayLoggedIn);
 

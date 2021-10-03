@@ -1,13 +1,13 @@
 import { Heading, Stack } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
-import { useIsEqual } from "../../../utils/useCreateInfo";
 
 import { useIdsOverview } from "../../../utils/useIdsOverview";
 import SectionContainer from "./SectionContainer/SectionContainer";
 import { useAddChild } from "./SectionContainer/SectionContainerUtils";
 
 function SingleSectionsPane({ minIdx, maxIdx, groupId }) {
-  const uiSpecs = useIsEqual((x) => x.master.uiSpecs);
+  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const idsOverview = useIdsOverview(groupId)[0];
   const addChild = useAddChild(groupId, false, false);
 

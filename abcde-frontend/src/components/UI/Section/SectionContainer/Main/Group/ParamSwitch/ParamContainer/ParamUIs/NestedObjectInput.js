@@ -1,9 +1,8 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
-import { useIsEqual } from "../../../../../../../../../utils/useCreateInfo";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
 import { useAddChild } from "../../../../../SectionContainerUtils";
 
@@ -31,7 +30,7 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
 }
 
 export function NestedObjectInputConfig({ name, onChange, savedConfig }) {
-  const available = useIsEqual((x) => x.master.available);
+  const available = useStoreState((x) => x.master.available);
   const availableObjects = Object.keys(available.objects);
   const availableParameters = Object.keys(available.parameters);
 
@@ -121,7 +120,7 @@ export default function NestedObjectInput({
   }, [uiTypeConfig]);
 
   // const addChildren = useStoreActions((actions) => actions.master.addChildren);
-  // const childId = useIsEqual(
+  // const childId = useStoreState(
   //   (state) =>
   //     state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
   // );

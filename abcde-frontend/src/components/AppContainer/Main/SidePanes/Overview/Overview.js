@@ -1,8 +1,8 @@
 import { Heading } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 
 import { getOverviewListing } from "../../../../../utils/sectionIds";
-import { useIsEqual } from "../../../../../utils/useCreateInfo";
 import PaneContainer from "../PaneContainer";
 import SectionList from "./SectionList/SectionList";
 
@@ -14,9 +14,9 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const pageMinMaxList = useIsEqual((x) => x.master.pageMinMaxList);
-  const idsOverview = useIsEqual((x) => x.sectionInfos.idsOverview);
-  const idNames = useIsEqual((x) => x.sectionInfos.idNames);
+  const pageMinMaxList = useStoreState((x) => x.master.pageMinMaxList);
+  const idsOverview = useStoreState((x) => x.sectionInfos.idsOverview);
+  const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useEffect(() => {
     console.log("Overview useEffect");

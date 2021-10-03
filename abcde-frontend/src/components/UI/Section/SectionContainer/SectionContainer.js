@@ -1,6 +1,7 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useStoreState } from "easy-peasy";
+import React, { useEffect, useState } from "react";
 
 import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
 import {
@@ -27,25 +28,28 @@ function SectionContainer({
   nextId,
   depth,
   parentControls,
+  isCollapsed,
   dragListeners,
 }) {
-  // const isRendered = useIsEqual((x) => x.sectionInfos.isRendered[sectionId]);
+  const isRendered = useStoreState((x) => x.sectionInfos.isRendered[sectionId]);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
-  console.log("idsOverview", idsOverview)
+  const addChild = useAddChild(sectionId);
+  const deleteChild = useDeleteChild(sectionId);
 
-  const addChild = useCallback(useAddChild(sectionId), []);
-  const deleteChild = useCallback(useDeleteChild(sectionId), []);
-
-  const flipChildrenAreCollapsed = useCallback(
-    funcFlipChildrenAreCollapsed(childrenAreCollapsed, setChildrenAreCollapsed),
-    [childrenAreCollapsed]
+  const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
+    childrenAreCollapsed,
+    setChildrenAreCollapsed
   );
 
-  return (
+  useEffect(() => {
+    setChildrenAreCollapsed(isCollapsed);
+  }, [isCollapsed]);
+
+  return isRendered ? (
     <Stack>
       <SectionContainerCore
         sectionId={sectionId}
@@ -53,13 +57,13 @@ function SectionContainer({
         nextId={nextId}
         addChild={addChild}
         deleteChild={deleteChild}
-        // parentControls={parentControls}
+        parentControls={parentControls}
         hasNested={hasNested}
         childrenAreCollapsed={childrenAreCollapsed}
         flipChildrenAreCollapsed={flipChildrenAreCollapsed}
         selectedItem={selectedItem}
         setSelectedItem={setSelectedItem}
-        // dragListeners={dragListeners}
+        dragListeners={dragListeners}
       />
       <Box
         flexDirection="column"
@@ -71,15 +75,18 @@ function SectionContainer({
             sectionId={sectionId}
             parentControls={{ addChild, deleteChild }}
             depth={depth}
+            isCollapsed={childrenAreCollapsed}
             setChildren={setIdsOverview}
           />
         )}
       </Box>
     </Stack>
+  ) : (
+    <></>
   );
 }
 
-function _SectionContainerCore({
+function SectionContainerCore({
   sectionId,
   parentId,
   nextId,
@@ -106,23 +113,6 @@ function _SectionContainerCore({
       setSelectedItem(inputSelectedItem);
     }
   }
-
-  useTraceUpdate({
-    sectionId,
-    parentId,
-    nextId,
-    addChild,
-    deleteChild,
-    parentControls,
-    hasNested,
-    childrenAreCollapsed,
-    flipChildrenAreCollapsed,
-    selectedItem,
-    setSelectedItem,
-    dragListeners,
-  });
-
-  console.log("SectionContainerCore", variableName);
 
   // // temp_
   const tempBoolDesc = false;
@@ -192,26 +182,3 @@ function DragHandle({ dragListeners }) {
 }
 
 export default React.memo(SectionContainer);
-
-const SectionContainerCore = React.memo(
-  _SectionContainerCore
-  // (prevProps, nextProps) =>
-  //   prevProps.sectionId === nextProps.sectionId &&
-  //   prevProps.hasNested === nextProps.hasNested
-);
-
-function useTraceUpdate(props) {
-  const prev = useRef(props);
-  useEffect(() => {
-    const changedProps = Object.entries(props).reduce((ps, [k, v]) => {
-      if (prev.current[k] !== v) {
-        ps[k] = [prev.current[k], v];
-      }
-      return ps;
-    }, {});
-    if (Object.keys(changedProps).length > 0) {
-      console.log("Changed props:", changedProps);
-    }
-    prev.current = props;
-  });
-}

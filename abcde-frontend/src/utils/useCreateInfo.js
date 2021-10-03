@@ -5,22 +5,15 @@ import { createSectionInfo } from "../classes/infoFactory";
 import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
 import { curryAction, defaultState } from "./utils";
-import shallowEqual from 'shallowequal';
-
-
-export function useIsEqual(fn){
-  return useStoreState(fn, shallowEqual)
-}
-
 
 function getInfo(x) {
   return x.x;
 }
 
 export function useCreateSectionInfo(sectionId, parentIsSection) {
-  const uiSpecs = useIsEqual((x) => x.master.uiSpecs);
-  const allObjCollections = useIsEqual((x) => x.master.allObjCollections);
-  const allParamCollections = useIsEqual(
+  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
+  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+  const allParamCollections = useStoreState(
     (x) => x.master.allParamCollections
   );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
@@ -53,7 +46,7 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
 
 export function useGetSectionInfo(sectionId) {
   return defaultState(
-    useIsEqual((x) => getInfo(x.sectionInfos)[sectionId]),
+    useStoreState((x) => getInfo(x.sectionInfos)[sectionId]),
     () => ({})
   );
 }
@@ -61,7 +54,7 @@ export function useGetSectionInfo(sectionId) {
 export function useGetSectionType(sectionId) {
   const sectionTypeId = useGetSectionInfo(sectionId).sectionTypeId;
   return defaultState(
-    useIsEqual((x) => getInfo(x.sectionTypes)[sectionTypeId]),
+    useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
     () => ({})
   );
 }
@@ -69,7 +62,7 @@ export function useGetSectionType(sectionId) {
 export function useGetXInfos(collectionName, allCollectionName, sectionId) {
   const sectionType = useGetSectionType(sectionId);
   const collectionIds = sectionType[collectionName];
-  const allCollections = useIsEqual((x) => x.master[allCollectionName]);
+  const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const collections = collectionIds.map((x) => allCollections.children[x]);
   const output = _.merge({}, ...collections.map((x) => x.children));
   return Object.values(output);
@@ -95,7 +88,7 @@ export function useParamInfoState(stateName, setStateFn, key) {
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { sectionId }
     );
-    const x = useIsEqual((x) => getInfo(x.paramInfos)[sectionId]);
+    const x = useStoreState((x) => getInfo(x.paramInfos)[sectionId]);
     return (paramInfoId) => {
       const setX_ = curryAction(setX, { paramInfoId }, key);
       const x_ = x?.[paramInfoId]?.[stateName];
@@ -125,7 +118,7 @@ export function useGetParamUIType(sectionId) {
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
     return defaultState(
-      useIsEqual((x) => getInfo(x.uiTypes)[uiTypeId]),
+      useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
       () => ({})
     );
   };
@@ -133,7 +126,7 @@ export function useGetParamUIType(sectionId) {
 
 export function useUITypeConfig(uiType) {
   const uiTypeConfig = defaultState(
-    useIsEqual((x) => getInfo(x.uiTypeConfigs)[uiType.configId]),
+    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiType.configId]),
     () => {}
   );
   const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
