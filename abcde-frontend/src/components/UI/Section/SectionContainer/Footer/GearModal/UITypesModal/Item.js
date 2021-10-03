@@ -22,16 +22,15 @@ export default function Item({ paramInfo, getUITypeFn }) {
   const [uiTypeConfig, setUITypeConfig] = useUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
-  console.log("Item uiType.name", uiType.name);
   console.log("Item", uiTypeConfig);
 
-  const setName = useStoreActions((x) => x.uiTypes.setName);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
 
   const onSelect = (e) => {
     const id = uiType.id;
-    setName({
+    setUIType({
       uiTypeId: id,
-      name: e.target.value,
+      uiType: new UIType({ id, name: e.target.value }),
     });
   };
 

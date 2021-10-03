@@ -1,4 +1,3 @@
-import { immerable } from "immer";
 import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
 
@@ -14,38 +13,22 @@ export function allDefined(...x) {
   return x.every((a) => !nullOrUndefined(a));
 }
 
-export function setDefault(obj, keys, defaultFn) {
-  let currObj = obj;
-  for (let k of keys) {
-    if (!(k in currObj)) {
-      obj[k] = defaultFn(k);
-    }
-    currObj = obj[k];
-  }
-  console.log("currObj", currObj)
-  return currObj
-}
-
 // https://stackoverflow.com/a/63954561
 export function defaultDict(defaultValueFn) {
   const handler = {
     get: (obj, prop) => {
-      if (!(prop in obj)) obj[prop] = defaultValueFn(prop);
+      if (!(prop in obj)) obj[prop] = defaultValueFn();
       return obj[prop];
     },
   };
-  const output = new Proxy({}, handler);
-  output[immerable] = true;
-  return output;
+  return new Proxy({}, handler);
 }
 
-export function createDefaultNestedDict(levels, finalType, prop) {
+export function createDefaultNestedDict(levels, finalType) {
   if (levels === 0) {
-    return finalType(prop);
+    return finalType();
   }
-  return defaultDict((prop) =>
-    createDefaultNestedDict(levels - 1, finalType, prop)
-  );
+  return defaultDict(() => createDefaultNestedDict(levels - 1, finalType));
 }
 
 // https://stackoverflow.com/a/38181008
