@@ -97,11 +97,10 @@ export default function NestedObjectInput({
   uiType,
   uiTypeConfig,
   parentParamInfoId,
+  childIdFn,
 }) {
   console.log("NestedObjectInput", uiTypeConfig);
-  const existingChildId = useStoreState(
-    (x) => x.paramInfos.childId[parentParamInfoId]
-  );
+  const existingChildId = childIdFn(parentParamInfoId)[0];
   const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const addChild = useAddChild(sectionId);
 

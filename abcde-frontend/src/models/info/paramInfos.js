@@ -1,24 +1,37 @@
 import { action } from "easy-peasy";
 
 import { MutableParamInfo } from "../../classes/mutableInfo";
-import { SimpleHistory } from "../../classes/simpleHistory";
+
+function setToDefault(state, sectionId, paramInfoId) {
+  if (!(sectionId in state.x)) {
+    state.x[sectionId] = {};
+  }
+  if (!(paramInfoId in state.x[sectionId])) {
+    state.x[sectionId][paramInfoId] = new MutableParamInfo({
+      id: paramInfoId,
+    });
+  }
+}
 
 const paramInfos = {
-  x: new SimpleHistory(2, (id) => new MutableParamInfo({ id })),
+  x: {},
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;
-    state.x.h[sectionId][paramInfoId].uiTypeId = uiTypeId;
+    setToDefault(state, sectionId, paramInfoId);
+    state.x[sectionId][paramInfoId].uiTypeId = uiTypeId;
   }),
 
   setEnteredValue: action((state, payload) => {
     const { sectionId, paramInfoId, value } = payload;
-    state.x.h[sectionId][paramInfoId].enteredValue = value;
+    setToDefault(state, sectionId, paramInfoId);
+    state.x[sectionId][paramInfoId].enteredValue = value;
   }),
 
   setChildId: action((state, payload) => {
     const { sectionId, paramInfoId, childId } = payload;
-    state.x.h[sectionId][paramInfoId].childId = childId;
+    setToDefault(state, sectionId, paramInfoId);
+    state.x[sectionId][paramInfoId].childId = childId;
   }),
 };
 

@@ -25,7 +25,7 @@ const sectionInfos = {
 
   setIdsOverview: action((state, payload) => {
     const { sectionId, newStateFn } = payload;
-    const currState = defaultState(state.idsOverview[sectionId], []);
+    const currState = defaultState(state.idsOverview[sectionId], () => []);
     state.idsOverview[sectionId] = newStateFn(currState);
   }),
 

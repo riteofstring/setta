@@ -2,13 +2,11 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
+import { SectionInfo } from "../classes/mutableInfo";
+import { SectionType } from "../classes/sectionType";
 import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
 import { curryAction, defaultState } from "./utils";
-
-function getInfoH(x) {
-  return x.x.h;
-}
 
 function getInfo(x) {
   return x.x;
@@ -26,6 +24,7 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
   const parentSectionType = useGetSectionType(sectionId);
 
   const createInfo = ({ name, id, uiType, uiTypeConfig }) => {
+    console.log("createInfo parentSectionInfo", parentSectionInfo);
     const infoFactoryOutput = createSectionInfo(
       name,
       allObjCollections,
@@ -48,13 +47,18 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
 }
 
 export function useGetSectionInfo(sectionId) {
-  return useStoreState((x) => getInfo(x.sectionInfos)[sectionId]);
+  return defaultState(
+    useStoreState((x) => getInfo(x.sectionInfos)[sectionId]),
+    () => new SectionInfo({ id: undefined })
+  );
 }
 
 export function useGetSectionType(sectionId) {
-  const sectionInfo = useStoreState((x) => getInfo(x.sectionInfos)[sectionId]);
-  const sectionTypeId = sectionInfo?.sectionTypeId;
-  return useStoreState((x) => getInfoH(x.sectionTypes)[sectionTypeId]);
+  const sectionTypeId = useGetSectionInfo(sectionId).sectionTypeId;
+  return defaultState(
+    useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
+    () => new SectionType({ id: undefined })
+  );
 }
 
 export function useGetXInfos(collectionName, allCollectionName, sectionId) {
@@ -86,10 +90,10 @@ export function useParamInfoState(stateName, setStateFn, key) {
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { sectionId }
     );
-    const x = useStoreState((x) => getInfoH(x.paramInfos)[sectionId]);
+    const x = useStoreState((x) => getInfo(x.paramInfos)[sectionId]);
     return (paramInfoId) => {
       const setX_ = curryAction(setX, { paramInfoId }, key);
-      const x_ = x?.[paramInfoId][stateName];
+      const x_ = x?.[paramInfoId]?.[stateName];
       return [x_, setX_];
     };
   };
@@ -115,18 +119,17 @@ export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
-    const output = useStoreState((x) => getInfoH(x.uiTypes)[uiTypeId]);
-    return output;
+    return defaultState(
+      useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
+      () => new UIType({ id: undefined })
+    );
   };
 }
 
 export function useUITypeConfig(uiType) {
-  const uiTypeConfigId = useStoreState(
-    (x) => getInfoH(x.uiTypes)[uiType.id].configId
-  );
   const uiTypeConfig = defaultState(
-    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiTypeConfigId]),
-    {}
+    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiType.configId]),
+    () => {}
   );
   const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
   const setUITypeConfig = ({ configName, value }) => {

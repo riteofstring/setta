@@ -10,7 +10,7 @@ export function useIdsOverview(id) {
   );
   const idsOverview = defaultState(
     useStoreState((x) => x.sectionInfos.idsOverview[id]),
-    []
+    () => []
   );
   return [idsOverview, setIdsOverview];
 }

@@ -17,7 +17,7 @@ export class SectionInfo {
   initName(name, parentSectionInfo) {
     if (name) {
       this.name = name;
-    } else {
+    } else if (parentSectionInfo) {
       this.name = parentSectionInfo.name;
     }
   }
