@@ -128,27 +128,17 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-export function useConfig(typeName, stateName) {
-  return (type) => {
-    const configId = useStoreState((x) => x[typeName][stateName][type.id]);
-    const config = defaultState(
-      useStoreState((x) => x.uiTypeConfigs.config[configId]),
-      {}
-    );
-    const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
-    const setUITypeConfig = ({ configName, value }) => {
-      x({ configId, configName, value });
-    };
-    return [config, setUITypeConfig];
-  };
-}
-
 export function useUITypeConfig(uiType) {
-  return useConfig("uiTypes", "configId")(uiType);
-}
-
-export function useSectionTypeConfig(sectionType) {
-  return useConfig("sectionTypes", "configId")(sectionType);
+  const uiTypeConfigId = useStoreState((x) => x.uiTypes.configId[uiType.id]);
+  const uiTypeConfig = defaultState(
+    useStoreState((x) => x.uiTypeConfigs.config[uiTypeConfigId]),
+    {}
+  );
+  const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
+  const setUITypeConfig = ({ configName, value }) => {
+    x({ configId: uiTypeConfigId, configName, value });
+  };
+  return [uiTypeConfig, setUITypeConfig];
 }
 
 export function useInitializeUIType(sectionId) {

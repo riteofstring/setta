@@ -27,10 +27,3 @@ export class UIType {
     this.isNested = requiresNestedSection(this.name);
   }
 }
-
-export class SectionType {
-  constructor({ id, name }) {
-    this.id = id;
-    this.name = name;
-  }
-}
