@@ -4,16 +4,16 @@ import auth from "../models/auth";
 import cliSocket from "../models/cliSocket";
 import factoriesInfo from "../models/factoriesInfo";
 import funcsInfo from "../models/funcsInfo";
+import paramInfos from "../models/info/paramInfos";
+import sectionInfos from "../models/info/sectionInfos";
+import uiTypeConfigs from "../models/info/uiTypeConfigs";
+import uiTypes from "../models/info/uiTypes";
 import mapInteraction from "../models/mapInteraction";
 import master from "../models/master";
 import panes from "../models/panes";
-import paramInfos from "../models/paramInfos";
-import sectionInfos from "../models/sectionInfos";
 import sectionPositions from "../models/sectionPositions";
 import sections from "../models/sections";
 import uiInfo from "../models/uiInfo";
-import uiTypeConfigs from "../models/uiTypeConfigs";
-import uiTypes from "../models/uiTypes";
 import yamlEntry from "../models/yamlEntry";
 
 const store = createStore({

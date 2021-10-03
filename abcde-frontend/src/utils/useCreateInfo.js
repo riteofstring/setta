@@ -131,7 +131,7 @@ export function useUITypeConfig(uiType) {
     (x) => getInfoH(x.uiTypes)[uiType.id].configId
   );
   const uiTypeConfig = defaultState(
-    useStoreState((x) => x.uiTypeConfigs.config[uiTypeConfigId]),
+    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiTypeConfigId]),
     {}
   );
   const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);

@@ -1,16 +1,16 @@
 import { action } from "easy-peasy";
 
 const uiTypeConfigs = {
-  config: {},
+  x: {},
 
   setConfig: action((state, payload) => {
     const { configId, config } = payload;
-    state.config[configId] = config;
+    state.x[configId] = config;
   }),
 
   setOneConfig: action((state, payload) => {
     const { configId, configName, value } = payload;
-    state.config[configId][configName] = value;
+    state.x[configId][configName] = value;
   }),
 };
 

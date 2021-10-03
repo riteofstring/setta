@@ -1,7 +1,7 @@
 import { action } from "easy-peasy";
 
-import { MutableParamInfo } from "../classes/mutableInfo";
-import { SimpleHistory } from "../classes/simpleHistory";
+import { MutableParamInfo } from "../../classes/mutableInfo";
+import { SimpleHistory } from "../../classes/simpleHistory";
 
 const paramInfos = {
   x: new SimpleHistory(2, (id) => new MutableParamInfo({ id })),

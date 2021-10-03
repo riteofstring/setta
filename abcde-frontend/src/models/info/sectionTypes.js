@@ -1,7 +1,7 @@
 import { action } from "easy-peasy";
 
-import { SectionType } from "../classes/uiType";
-import { createDefaultNestedDict } from "../utils/utils";
+import { SectionType } from "../../classes/uiType";
+import { createDefaultNestedDict } from "../../utils/utils";
 
 const sectionTypes = {
   sectionType: createDefaultNestedDict(1, (id) => new SectionType({ id })),
