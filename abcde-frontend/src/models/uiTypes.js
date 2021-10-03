@@ -1,19 +1,28 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 
 import { SimpleHistory } from "../classes/simpleHistory";
 import { UIType } from "../classes/uiType";
+import { createDefaultNestedDict, setDefault } from "../utils/utils";
+
+function defaultSetter(state, payload) {
+  const { uiTypeId } = payload;
+  return setDefault(state.x, [uiTypeId], (id) => {
+    return { id };
+  });
+}
 
 const uiTypes = {
-  x: new SimpleHistory(1, () => new UIType({})),
+  x: {},
 
-  setUIType: action((state, payload) => {
-    const { uiTypeId, uiType } = payload;
-    state.x.h[uiTypeId] = uiType;
+  setName: action((state, payload) => {
+    const { name } = payload;
+    defaultSetter(state, payload).name = name;
+    console.log("setName", debug(state.x));
   }),
 
   setConfigId: action((state, payload) => {
-    const { uiTypeId, configId } = payload;
-    state.x.h[uiTypeId].configId = configId;
+    const { configId } = payload;
+    defaultSetter(state, payload).configId = configId;
   }),
 };
 

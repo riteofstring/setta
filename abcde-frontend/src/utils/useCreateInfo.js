@@ -91,7 +91,7 @@ export function useParamInfoState(stateName, setStateFn, key) {
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { sectionId }
     );
-    const x = useStoreState((x) => x.paramInfos.x.h[sectionId]);
+    const x = useStoreState((x) => x.paramInfos.x[sectionId]);
     return (paramInfoId) => {
       const setX_ = curryAction(setX, { paramInfoId }, key);
       const x_ = x?.[paramInfoId][stateName];
@@ -120,13 +120,15 @@ export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
-    const output = useStoreState((x) => x.uiTypes.x.h[uiTypeId]);
+    const output = useStoreState((x) => x.uiTypes.x[uiTypeId]);
     return output;
   };
 }
 
 export function useUITypeConfig(uiType) {
-  const uiTypeConfigId = useStoreState((x) => x.uiTypes.x.h[uiType.id].configId);
+  const uiTypeConfigId = useStoreState(
+    (x) => x.uiTypes.x[uiType.id].configId
+  );
   const uiTypeConfig = defaultState(
     useStoreState((x) => x.uiTypeConfigs.config[uiTypeConfigId]),
     {}
@@ -140,22 +142,19 @@ export function useUITypeConfig(uiType) {
 
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setName = useStoreActions((x) => x.uiTypes.setName);
   const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     if (!uiTypeId) {
-      const newUIType = new UIType({
-        id: createNewId(),
-        name: paramInfo.uiTypeName,
-      });
-      setUITypeId(newUIType.id);
-      setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
+      const newId = createNewId();
+      setUITypeId(newId);
+      setName({ uiTypeId: newId, name: paramInfo.uiTypeName });
 
       const configId = createNewId();
       const config = Object.assign({}, paramInfo.uiTypeConfig);
-      setConfigId({ uiTypeId: newUIType.id, configId: configId });
+      setConfigId({ uiTypeId: newId, configId: configId });
       setConfig({ configId, config });
     }
   };

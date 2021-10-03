@@ -1,3 +1,5 @@
+import { immerable } from "immer";
+
 export const UITYPES = [
   "TEXT",
   "SLIDER",
@@ -22,6 +24,7 @@ function requiresKeyInput(uiTypeName) {
 
 export class UIType {
   constructor({ id, name, configId }) {
+    this[immerable] = true;
     this.id = id;
     this.name = name;
     this.isNested = requiresNestedSection(this.name);
