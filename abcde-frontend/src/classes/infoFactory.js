@@ -26,18 +26,20 @@ export function createSectionInfo(
     parentSectionType,
     paramUIType,
     paramUITypeConfig,
-    uiSpecs,
+    topLevelSpecs: uiSpecs.get(name),
     parentIsSection,
   });
+
+  const sectionTypeId = sectionType.id;
 
   const info = new SectionInfo({
     id,
     name,
-    sectionTypeId: sectionType.id,
+    sectionTypeId,
     parentSectionInfo,
   });
 
-  return { info, id };
+  return { info, id, sectionType, sectionTypeId };
 }
 
 export const createAllInfo = (available) => {

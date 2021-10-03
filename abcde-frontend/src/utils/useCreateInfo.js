@@ -21,6 +21,7 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
     (x) => x.master.allParamCollections
   );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
+  const setSectionType = useStoreActions((x) => x.sectionTypes.setSectionType);
   const parentSectionInfo = useGetSectionInfo(sectionId);
   const parentSectionType = useGetSectionType(sectionId);
 
@@ -37,8 +38,9 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
       uiSpecs,
       parentIsSection
     );
-    const { info } = infoFactoryOutput;
+    const { info, sectionTypeId, sectionType } = infoFactoryOutput;
     setSectionInfo({ sectionId: id, sectionInfo: info });
+    setSectionType({ sectionTypeId, sectionType });
     return id;
   };
 
@@ -50,9 +52,8 @@ export function useGetSectionInfo(sectionId) {
 }
 
 export function useGetSectionType(sectionId) {
-  const sectionTypeId = useStoreState(
-    (x) => getInfo(x.sectionInfos)[sectionId]
-  );
+  const sectionInfo = useStoreState((x) => getInfo(x.sectionInfos)[sectionId]);
+  const sectionTypeId = sectionInfo?.sectionTypeId;
   return useStoreState((x) => getInfoH(x.sectionTypes)[sectionTypeId]);
 }
 

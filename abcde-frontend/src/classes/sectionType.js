@@ -20,12 +20,17 @@ export class SectionType {
     parentSectionType,
     paramUIType,
     paramUITypeConfig,
-    uiSpecs,
+    topLevelSpecs,
     parentIsSection,
   }) {
     this.id = id;
     this.initName(name, parentSectionType, paramUIType);
-    this.initSpecs(paramUITypeConfig, uiSpecs, parentIsSection);
+    this.initSpecs(
+      paramUITypeConfig,
+      topLevelSpecs,
+      parentSectionType,
+      parentIsSection
+    );
     this.initIds(allObjCollections, allParamCollections);
     this.hasObjects = "objects" in this.specs;
   }
@@ -63,14 +68,20 @@ export class SectionType {
     this.name = SECTION;
   }
 
-  initSpecs(paramUITypeConfig, uiSpecs, parentIsSection) {
+  initSpecs(
+    paramUITypeConfig,
+    topLevelSpecs,
+    parentSectionType,
+    parentIsSection
+  ) {
     this.specs = paramUITypeConfig;
+
     if (parentIsSection) {
       if (nullOrUndefined(this.specs)) {
-        this.specs = parentSectionInfo.specs;
+        this.specs = Object.assign({}, parentSectionType.specs);
       }
-    } else if (uiSpecs) {
-      this.specs = uiSpecs.get(this.name);
+    } else if (topLevelSpecs) {
+      this.specs = topLevelSpecs;
     }
     this.specs = convertSpecsToDict(this.specs);
   }
