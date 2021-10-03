@@ -27,15 +27,15 @@ export function useCreateSectionInfo() {
     (x) => x.sectionInfos.setParamCollectionIds
   );
 
-  const createInfo = (name, specs) => {
+  const createInfo = (name, specs, id) => {
     const infoFactoryOutput = createSectionInfo(
       name,
       specs,
       allObjCollections,
-      allParamCollections
+      allParamCollections,
+      id
     );
-    const { info, id, objCollectionIds, paramCollectionIds } =
-      infoFactoryOutput;
+    const { info, objCollectionIds, paramCollectionIds } = infoFactoryOutput;
 
     setSectionInfo({ sectionId: id, sectionInfo: info });
     setObjCollectionIds({ sectionId: id, objCollectionIds });
@@ -48,19 +48,12 @@ export function useCreateSectionInfo() {
 }
 
 export function useGetSectionInfo(sectionId) {
-  const sectionInfoId = useStoreState(
-    (x) => x.sections.sectionInfoId[sectionId]
-  );
-  const sectionInfo = useStoreState(
-    (x) => getInfo(x.sectionInfos)[sectionInfoId]
-  );
-
-  return sectionInfo;
+  return useStoreState((x) => getInfo(x.sectionInfos)[sectionId]);
 }
 
-export function useGetXInfos(collectionName, allCollectionName, sectionInfoId) {
+export function useGetXInfos(collectionName, allCollectionName, sectionId) {
   const collectionIds = useStoreState(
-    (x) => getInfo(x.sectionInfos)[sectionInfoId][collectionName]
+    (x) => getInfo(x.sectionInfos)[sectionId][collectionName]
   );
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const collections = collectionIds.map((x) => allCollections.children[x]);
@@ -68,21 +61,17 @@ export function useGetXInfos(collectionName, allCollectionName, sectionInfoId) {
   return Object.values(output);
 }
 
-export function useGetObjInfos(sectionInfoId) {
-  return useGetXInfos("objCollectionIds", "allObjCollections", sectionInfoId);
+export function useGetObjInfos(sectionId) {
+  return useGetXInfos("objCollectionIds", "allObjCollections", sectionId);
 }
 
-export function useGetParamCollections(sectionInfoId) {
-  return useGetXInfos(
-    "paramCollectionIds",
-    "allParamCollections",
-    sectionInfoId
-  );
+export function useGetParamCollections(sectionId) {
+  return useGetXInfos("paramCollectionIds", "allParamCollections", sectionId);
 }
 
-export function useGetAllParamInfos(sectionInfoId, objInfo) {
+export function useGetAllParamInfos(sectionId, objInfo) {
   const objParamInfos = objInfo.children ? Object.values(objInfo.children) : [];
-  const paramCollections = useGetParamCollections(sectionInfoId);
+  const paramCollections = useGetParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
 }
 

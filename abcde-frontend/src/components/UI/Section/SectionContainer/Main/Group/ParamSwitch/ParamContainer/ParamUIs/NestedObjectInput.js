@@ -102,7 +102,7 @@ export default function NestedObjectInput({
   const existingChildId = useStoreState(
     (x) => x.paramInfos.childId[parentParamInfoId]
   );
-  const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const addChild = useAddChild(sectionId);
 
   useEffect(() => {

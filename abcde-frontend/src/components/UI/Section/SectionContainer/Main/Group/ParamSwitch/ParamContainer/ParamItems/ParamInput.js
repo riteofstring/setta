@@ -11,7 +11,7 @@ export default function ParamInput(props) {
 
   const [enteredValue, setEnteredValue] = enteredValueFn(paramInfoId);
   const childId = childIdFn(paramInfoId)[0];
-  const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const [value, setValue] = useState("");
 
   const onChange = (v) => {

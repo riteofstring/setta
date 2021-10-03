@@ -1,20 +1,19 @@
 import { action } from "easy-peasy";
 
+import { SimpleHistory } from "../../classes/simpleHistory";
 import { SectionType } from "../../classes/uiType";
-import { createDefaultNestedDict } from "../../utils/utils";
 
 const sectionTypes = {
-  sectionType: createDefaultNestedDict(1, (id) => new SectionType({ id })),
-  configId: {},
+  x: new SimpleHistory(1, (id) => new SectionType({ id })),
 
   setSectionType: action((state, payload) => {
     const { sectionTypeId, sectionType } = payload;
-    state.sectionType[sectionTypeId] = sectionType;
+    state.x.h[sectionTypeId] = sectionType;
   }),
 
   setConfigId: action((state, payload) => {
     const { sectionTypeId, configId } = payload;
-    state.configId[sectionTypeId] = configId;
+    state.x.h[sectionTypeId].configId = configId;
   }),
 };
 

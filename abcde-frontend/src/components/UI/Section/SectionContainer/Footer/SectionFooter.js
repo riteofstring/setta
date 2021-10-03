@@ -10,7 +10,6 @@ import ViewNestedButton from "./ViewNestedButton/ViewNestedButton";
 
 export default function SectionFooter({
   sectionId,
-  sectionInfoId,
   objInfo,
   isListRoot,
   hasNested,
@@ -23,7 +22,7 @@ export default function SectionFooter({
 
   return (
     <>
-      {/* <MenuContext.Provider value={{ sectionId, sectionInfoId, objInfoId }}> */}
+      {/* <MenuContext.Provider value={{ sectionId, objInfoId }}> */}
       <Grid w="100%" py="0.5rem" alignItems="center">
         <ViewNestedButton
           isListRoot={isListRoot}
@@ -36,7 +35,6 @@ export default function SectionFooter({
       </Grid>
       <GearModal
         sectionId={sectionId}
-        sectionInfoId={sectionInfoId}
         objInfo={objInfo}
         name={selectedMenuItem}
         isOpen={isOpen}

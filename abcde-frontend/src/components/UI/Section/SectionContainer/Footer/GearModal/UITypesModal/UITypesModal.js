@@ -7,14 +7,8 @@ import {
 } from "../../../../../../../utils/useCreateInfo";
 import Item from "./Item";
 
-export default function UITypesModal({
-  isOpen,
-  onClose,
-  sectionId,
-  sectionInfoId,
-  objInfo,
-}) {
-  const paramInfos = useGetAllParamInfos(sectionInfoId, objInfo);
+export default function UITypesModal({ isOpen, onClose, sectionId, objInfo }) {
+  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const getUITypeFn = useGetParamUIType(sectionId);
 
   return (

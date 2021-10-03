@@ -9,9 +9,9 @@ import {
 } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
-export default function GroupContainer({ sectionId, sectionInfoId, objInfo }) {
+export default function GroupContainer({ sectionId, objInfo }) {
   console.log("GroupContainer", objInfo);
-  const paramInfos = useGetAllParamInfos(sectionInfoId, objInfo);
+  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const enteredValueFn = useParamEnteredValue(sectionId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);

@@ -13,17 +13,16 @@ import { insertIntoArrayOrXpend } from "../../../../utils/utils";
 export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
 
-  const type = useStoreState((x) => x.sections.type[sectionId]);
+  const type = useStoreState((x) => x.sectionInfos.type[sectionId]);
   const sectionInfo = useGetSectionInfo(sectionId);
-  const sectionInfoId = useStoreState(
-    (x) => x.sections.sectionInfoId[sectionId]
-  );
 
-  const setSectionInfoId = useStoreActions((x) => x.sections.setSectionInfoId);
+  const setSectionInfoId = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoId
+  );
   const setIdsOverview = useIdsOverview(sectionId)[1];
-  const setType = useStoreActions((x) => x.sections.setType);
+  const setType = useStoreActions((x) => x.sectionInfos.setType);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const setIsRendered = useStoreActions((x) => x.sections.setIsRendered);
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const createInfo = useCreateSectionInfo();
 
   function addChild({
@@ -40,7 +39,6 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
       newIds.push(newId);
       if (type === LIST_ROOT) {
         // parent is list root, so use parent section info
-        setSectionInfoId({ sectionId: newId, sectionInfoId });
         setType({ sectionId: newId, type: LIST });
       } else {
         if (!childVariableName) {
@@ -57,8 +55,7 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         } else {
           config = uiSpecs.get(childVariableName);
         }
-        const newInfoId = createInfo(childVariableName, config);
-        setSectionInfoId({ sectionId: newId, sectionInfoId: newInfoId });
+        createInfo(childVariableName, config, newId);
       }
     }
 
@@ -89,7 +86,7 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
 }
 
 export function useDeleteChild(sectionId) {
-  const deleteSections = useStoreActions((x) => x.sections.deleteSections);
+  const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
 
   function deleteChild({ startId = null, numChildren = 1 }) {

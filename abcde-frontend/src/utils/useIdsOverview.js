@@ -4,12 +4,12 @@ import { curryAction, defaultState } from "./utils";
 
 export function useIdsOverview(id) {
   const setIdsOverview = curryAction(
-    useStoreActions((x) => x.sections.setIdsOverview),
+    useStoreActions((x) => x.sectionInfos.setIdsOverview),
     { sectionId: id },
     "newStateFn"
   );
   const idsOverview = defaultState(
-    useStoreState((x) => x.sections.idsOverview[id]),
+    useStoreState((x) => x.sectionInfos.idsOverview[id]),
     []
   );
   return [idsOverview, setIdsOverview];

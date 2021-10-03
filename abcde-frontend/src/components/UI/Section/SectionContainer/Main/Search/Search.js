@@ -8,11 +8,11 @@ import { useGetObjInfos } from "../../../../../../utils/useCreateInfo";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 
 export default function SectionSearch({
-  sectionInfoId,
+  sectionId,
   onSelectedItemChange,
   initialSelection,
 }) {
-  const objInfos = useGetObjInfos(sectionInfoId);
+  const objInfos = useGetObjInfos(sectionId);
   const [selection, setSelection] = useState("");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);

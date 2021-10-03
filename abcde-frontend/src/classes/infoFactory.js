@@ -1,4 +1,3 @@
-import { createNewId } from "../utils/sectionIds";
 import {
   AllModuleInfo,
   AllObjCollectionInfo,
@@ -14,9 +13,9 @@ export function createSectionInfo(
   name,
   specs,
   allObjCollections,
-  allParamCollections
+  allParamCollections,
+  id
 ) {
-  const id = createNewId();
   const info = new SectionInfo({ id, name, specs });
   const objCollectionIds = getCollectionIds(
     info.specs.objects,

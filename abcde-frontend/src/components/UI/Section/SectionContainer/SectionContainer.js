@@ -28,7 +28,7 @@ function SectionContainer({
   isCollapsed,
   dragListeners,
 }) {
-  const isRendered = useStoreState((x) => x.sections.isRendered[sectionId]);
+  const isRendered = useStoreState((x) => x.sectionInfos.isRendered[sectionId]);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
@@ -98,8 +98,7 @@ function SectionContainerCore({
   dragListeners,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
-  const sectionInfoId = sectionInfo.id;
-  const sectionType = useStoreState((x) => x.sections.type[sectionId]);
+  const sectionType = useStoreState((x) => x.sectionInfos.type[sectionId]);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
   const showSearch = sectionInfo.hasObjects;
@@ -141,20 +140,15 @@ function SectionContainerCore({
           <Stack>
             {showSearch && (
               <SectionSearch
-                sectionInfoId={sectionInfoId}
+                sectionId={sectionId}
                 initialSelection={selectedItem}
                 onSelectedItemChange={onSelectedItemChange}
               />
             )}
             {tempBoolDesc && <SectionDescription />}
-            <GroupContainer
-              sectionId={sectionId}
-              sectionInfoId={sectionInfoId}
-              objInfo={selectedItem}
-            />
+            <GroupContainer sectionId={sectionId} objInfo={selectedItem} />
             <SectionFooter
               sectionId={sectionId}
-              sectionInfoId={sectionInfoId}
               objInfo={selectedItem}
               isListRoot={isListRoot}
               hasNested={hasNested}

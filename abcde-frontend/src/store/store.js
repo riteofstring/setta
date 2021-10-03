@@ -12,7 +12,6 @@ import mapInteraction from "../models/mapInteraction";
 import master from "../models/master";
 import panes from "../models/panes";
 import sectionPositions from "../models/sectionPositions";
-import sections from "../models/sections";
 import uiInfo from "../models/uiInfo";
 import yamlEntry from "../models/yamlEntry";
 
@@ -27,7 +26,6 @@ const store = createStore({
   mapInteraction: mapInteraction,
   cliSocket: cliSocket,
   sectionPositions: sectionPositions,
-  sections: sections,
   sectionInfos: sectionInfos,
   paramInfos: paramInfos,
   uiTypes: uiTypes,

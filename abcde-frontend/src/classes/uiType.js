@@ -28,3 +28,11 @@ export class UIType {
     this.configId = configId;
   }
 }
+
+export class SectionType {
+  constructor({ id, name, configId }) {
+    this.id = id;
+    this.name = name;
+    this.configId = configId;
+  }
+}

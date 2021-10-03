@@ -24,7 +24,6 @@ export default function GearModal(props) {
           isOpen={props.isOpen}
           onClose={props.onClose}
           sectionId={props.sectionId}
-          sectionInfoId={props.sectionInfoId}
           objInfo={props.objInfo}
         />
       );

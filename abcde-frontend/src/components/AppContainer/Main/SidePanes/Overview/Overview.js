@@ -15,8 +15,8 @@ export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const pageMinMaxList = useStoreState((x) => x.master.pageMinMaxList);
-  const idsOverview = useStoreState((x) => x.sections.idsOverview);
-  const idNames = useStoreState((x) => x.sections.idNames);
+  const idsOverview = useStoreState((x) => x.sectionInfos.idsOverview);
+  const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useEffect(() => {
     console.log("Overview useEffect");
