@@ -2,8 +2,6 @@ import { action } from "easy-peasy";
 
 const sectionInfos = {
   sectionInfo: {},
-  objCollectionIds: {},
-  paramCollectionIds: {},
 
   setSectionInfo: action((state, payload) => {
     const { sectionId, sectionInfo } = payload;
@@ -12,12 +10,12 @@ const sectionInfos = {
 
   setObjCollectionIds: action((state, payload) => {
     const { sectionId, objCollectionIds } = payload;
-    state.objCollectionIds[sectionId] = objCollectionIds;
+    state.sectionInfo[sectionId].objCollectionIds = objCollectionIds;
   }),
 
   setParamCollectionIds: action((state, payload) => {
     const { sectionId, paramCollectionIds } = payload;
-    state.paramCollectionIds[sectionId] = paramCollectionIds;
+    state.sectionInfo[sectionId].paramCollectionIds = paramCollectionIds;
   }),
 };
 
