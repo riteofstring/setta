@@ -6,6 +6,14 @@ import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
 import { curryAction, defaultState } from "./utils";
 
+function getInfoH(x) {
+  return x.x.h;
+}
+
+function getInfo(x) {
+  return x.x;
+}
+
 export function useCreateSectionInfo() {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
   const allParamCollections = useStoreState(
@@ -44,7 +52,7 @@ export function useGetSectionInfo(sectionId) {
     (x) => x.sections.sectionInfoId[sectionId]
   );
   const sectionInfo = useStoreState(
-    (x) => x.sectionInfos.sectionInfo[sectionInfoId]
+    (x) => getInfo(x.sectionInfos)[sectionInfoId]
   );
 
   return sectionInfo;
@@ -52,7 +60,7 @@ export function useGetSectionInfo(sectionId) {
 
 export function useGetXInfos(collectionName, allCollectionName, sectionInfoId) {
   const collectionIds = useStoreState(
-    (x) => x.sectionInfos.sectionInfo[sectionInfoId][collectionName]
+    (x) => getInfo(x.sectionInfos)[sectionInfoId][collectionName]
   );
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const collections = collectionIds.map((x) => allCollections.children[x]);
@@ -84,7 +92,7 @@ export function useParamInfoState(stateName, setStateFn, key) {
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { sectionId }
     );
-    const x = useStoreState((x) => x.paramInfos.x.h[sectionId]);
+    const x = useStoreState((x) => getInfoH(x.paramInfos)[sectionId]);
     return (paramInfoId) => {
       const setX_ = curryAction(setX, { paramInfoId }, key);
       const x_ = x?.[paramInfoId][stateName];
@@ -113,14 +121,14 @@ export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
-    const output = useStoreState((x) => x.uiTypes.x.h[uiTypeId]);
+    const output = useStoreState((x) => getInfoH(x.uiTypes)[uiTypeId]);
     return output;
   };
 }
 
 export function useUITypeConfig(uiType) {
   const uiTypeConfigId = useStoreState(
-    (x) => x.uiTypes.x.h[uiType.id].configId
+    (x) => getInfoH(x.uiTypes)[uiType.id].configId
   );
   const uiTypeConfig = defaultState(
     useStoreState((x) => x.uiTypeConfigs.config[uiTypeConfigId]),

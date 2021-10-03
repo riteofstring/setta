@@ -1,21 +1,21 @@
 import { action } from "easy-peasy";
 
 const sectionInfos = {
-  sectionInfo: {},
+  x: {},
 
   setSectionInfo: action((state, payload) => {
     const { sectionId, sectionInfo } = payload;
-    state.sectionInfo[sectionId] = sectionInfo;
+    state.x[sectionId] = sectionInfo;
   }),
 
   setObjCollectionIds: action((state, payload) => {
     const { sectionId, objCollectionIds } = payload;
-    state.sectionInfo[sectionId].objCollectionIds = objCollectionIds;
+    state.x[sectionId].objCollectionIds = objCollectionIds;
   }),
 
   setParamCollectionIds: action((state, payload) => {
     const { sectionId, paramCollectionIds } = payload;
-    state.sectionInfo[sectionId].paramCollectionIds = paramCollectionIds;
+    state.x[sectionId].paramCollectionIds = paramCollectionIds;
   }),
 };
 
