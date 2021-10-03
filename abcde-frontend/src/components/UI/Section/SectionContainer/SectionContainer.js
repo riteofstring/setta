@@ -4,7 +4,10 @@ import { useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 
 import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
-import { useGetSectionInfo } from "../../../../utils/useCreateInfo";
+import {
+  useGetSectionInfo,
+  useGetSectionType,
+} from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
@@ -98,12 +101,12 @@ function SectionContainerCore({
   dragListeners,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
-  const sectionType = useStoreState((x) => x.sectionInfos.type[sectionId]);
+  const sectionType = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
   const showSearch = sectionInfo.hasObjects;
-  const isList = sectionType === LIST;
-  const isListRoot = sectionType === LIST_ROOT;
+  const isList = sectionType.name === LIST;
+  const isListRoot = sectionType.name === LIST_ROOT;
 
   function onSelectedItemChange(inputSelectedItem) {
     if (inputSelectedItem) {

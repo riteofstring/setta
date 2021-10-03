@@ -108,7 +108,7 @@ export default function NestedObjectInput({
   useEffect(() => {
     if (!existingChildId) {
       addChild({
-        childVariableName: paramName,
+        name: paramName,
         uiType,
         uiTypeConfig,
         parentParamInfoId,

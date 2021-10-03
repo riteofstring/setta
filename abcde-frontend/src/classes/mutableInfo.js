@@ -1,5 +1,3 @@
-import { convertSpecsToDict } from "./immutableInfo";
-
 export class MutableParamInfo {
   constructor({ id, uiTypeId, enteredValue, childId }) {
     this.id = id;
@@ -10,18 +8,17 @@ export class MutableParamInfo {
 }
 
 export class SectionInfo {
-  constructor({
-    id,
-    name,
-    specs,
-    objCollectionIds = {},
-    paramCollectionIds = {},
-  }) {
+  constructor({ id, name, sectionTypeId, parentSectionInfo }) {
     this.id = id;
-    this.name = name;
-    this.specs = convertSpecsToDict(specs);
-    this.hasObjects = "objects" in this.specs;
-    this.objCollectionIds = objCollectionIds;
-    this.paramCollectionIds = paramCollectionIds;
+    this.sectionTypeId = sectionTypeId;
+    this.initName(name, parentSectionInfo);
+  }
+
+  initName(name, parentSectionInfo) {
+    if (name) {
+      this.name = name;
+    } else {
+      this.name = parentSectionInfo.name;
+    }
   }
 }

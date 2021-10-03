@@ -1,32 +1,19 @@
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
-import { LIST, LIST_ROOT } from "../../../../utils/constants";
 import { createNewId } from "../../../../utils/sectionIds";
-import {
-  useCreateSectionInfo,
-  useGetSectionInfo,
-} from "../../../../utils/useCreateInfo";
+import { useCreateSectionInfo } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { insertIntoArrayOrXpend } from "../../../../utils/utils";
 
 export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
-  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
-
-  const type = useStoreState((x) => x.sectionInfos.type[sectionId]);
-  const sectionInfo = useGetSectionInfo(sectionId);
-
-  const setSectionInfoId = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoId
-  );
   const setIdsOverview = useIdsOverview(sectionId)[1];
-  const setType = useStoreActions((x) => x.sectionInfos.setType);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
   const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
-  const createInfo = useCreateSectionInfo();
+  const createInfo = useCreateSectionInfo(sectionId, parentIsSection);
 
   function addChild({
-    childVariableName = null,
+    name = null,
     uiType = null,
     uiTypeConfig = null,
     startId = null,
@@ -35,28 +22,9 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   }) {
     let newIds = [];
     for (let i = 0; i < numChildren; i++) {
-      const newId = createNewId();
-      newIds.push(newId);
-      if (type === LIST_ROOT) {
-        // parent is list root, so use parent section info
-        setType({ sectionId: newId, type: LIST });
-      } else {
-        if (!childVariableName) {
-          childVariableName = sectionInfo.name;
-        }
-        let config = uiTypeConfig;
-        if (parentIsSection) {
-          if (config === null) {
-            config = sectionInfo.specs;
-          }
-          if (uiType.isListRoot) {
-            setType({ sectionId: newId, type: LIST_ROOT });
-          }
-        } else {
-          config = uiSpecs.get(childVariableName);
-        }
-        createInfo(childVariableName, config, newId);
-      }
+      const id = createNewId();
+      newIds.push(id);
+      createInfo({ name, id, uiType, uiTypeConfig });
     }
 
     setIdsOverview((x) => {

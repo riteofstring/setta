@@ -14,33 +14,31 @@ function getInfo(x) {
   return x.x;
 }
 
-export function useCreateSectionInfo() {
+export function useCreateSectionInfo(sectionId, parentIsSection) {
+  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
   const allParamCollections = useStoreState(
     (x) => x.master.allParamCollections
   );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setObjCollectionIds = useStoreActions(
-    (x) => x.sectionInfos.setObjCollectionIds
-  );
-  const setParamCollectionIds = useStoreActions(
-    (x) => x.sectionInfos.setParamCollectionIds
-  );
+  const parentSectionInfo = useGetSectionInfo(sectionId);
+  const parentSectionType = useGetSectionType(sectionId);
 
-  const createInfo = (name, specs, id) => {
+  const createInfo = ({ name, id, uiType, uiTypeConfig }) => {
     const infoFactoryOutput = createSectionInfo(
       name,
-      specs,
       allObjCollections,
       allParamCollections,
-      id
+      id,
+      parentSectionInfo,
+      parentSectionType,
+      uiType,
+      uiTypeConfig,
+      uiSpecs,
+      parentIsSection
     );
-    const { info, objCollectionIds, paramCollectionIds } = infoFactoryOutput;
-
+    const { info } = infoFactoryOutput;
     setSectionInfo({ sectionId: id, sectionInfo: info });
-    setObjCollectionIds({ sectionId: id, objCollectionIds });
-    setParamCollectionIds({ sectionId: id, paramCollectionIds });
-
     return id;
   };
 
@@ -51,10 +49,16 @@ export function useGetSectionInfo(sectionId) {
   return useStoreState((x) => getInfo(x.sectionInfos)[sectionId]);
 }
 
-export function useGetXInfos(collectionName, allCollectionName, sectionId) {
-  const collectionIds = useStoreState(
-    (x) => getInfo(x.sectionInfos)[sectionId][collectionName]
+export function useGetSectionType(sectionId) {
+  const sectionTypeId = useStoreState(
+    (x) => getInfo(x.sectionInfos)[sectionId]
   );
+  return useStoreState((x) => getInfoH(x.sectionTypes)[sectionTypeId]);
+}
+
+export function useGetXInfos(collectionName, allCollectionName, sectionId) {
+  const sectionType = useGetSectionType(sectionId);
+  const collectionIds = sectionType[collectionName];
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const collections = collectionIds.map((x) => allCollections.children[x]);
   const output = _.merge({}, ...collections.map((x) => x.children));

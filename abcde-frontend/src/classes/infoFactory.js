@@ -1,31 +1,43 @@
+import { createNewId } from "../utils/sectionIds";
 import {
   AllModuleInfo,
   AllObjCollectionInfo,
   AllParamCollectionInfo,
 } from "./immutableInfo";
 import { SectionInfo } from "./mutableInfo";
-
-function getCollectionIds(specs, allCollections) {
-  return specs ? specs.map((x) => allCollections.nameToId[x]) : [];
-}
+import { SectionType } from "./sectionType";
 
 export function createSectionInfo(
   name,
-  specs,
   allObjCollections,
   allParamCollections,
-  id
+  id,
+  parentSectionInfo,
+  parentSectionType,
+  paramUIType,
+  paramUITypeConfig,
+  uiSpecs,
+  parentIsSection
 ) {
-  const info = new SectionInfo({ id, name, specs });
-  const objCollectionIds = getCollectionIds(
-    info.specs.objects,
-    allObjCollections
-  );
-  const paramCollectionIds = getCollectionIds(
-    info.specs.parameters,
-    allParamCollections
-  );
-  return { info, id, objCollectionIds, paramCollectionIds };
+  const sectionType = new SectionType({
+    id: createNewId(),
+    allObjCollections,
+    allParamCollections,
+    parentSectionType,
+    paramUIType,
+    paramUITypeConfig,
+    uiSpecs,
+    parentIsSection,
+  });
+
+  const info = new SectionInfo({
+    id,
+    name,
+    sectionTypeId: sectionType.id,
+    parentSectionInfo,
+  });
+
+  return { info, id };
 }
 
 export const createAllInfo = (available) => {

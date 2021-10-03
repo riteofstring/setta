@@ -1,4 +1,4 @@
-import { jsonCombiner } from "../utils/utils";
+import { jsonCombiner, nullOrUndefined } from "../utils/utils";
 
 const { createNewId } = require("../utils/sectionIds");
 
@@ -43,6 +43,8 @@ const createNameToId = (children) => {
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
     return { objects: specs };
+  } else if (nullOrUndefined(specs)) {
+    return {};
   }
   return specs;
 };

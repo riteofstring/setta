@@ -6,7 +6,6 @@ import { defaultState } from "../../utils/utils";
 const sectionInfos = {
   x: {},
   idsOverview: {},
-  type: {},
   isRendered: {},
 
   setSectionInfo: action((state, payload) => {
@@ -30,11 +29,6 @@ const sectionInfos = {
     state.idsOverview[sectionId] = newStateFn(currState);
   }),
 
-  setType: action((state, payload) => {
-    const { sectionId, type } = payload;
-    state.type[sectionId] = type;
-  }),
-
   setIsRendered: action((state, payload) => {
     state.isRendered = payload(state.isRendered);
   }),
@@ -43,7 +37,7 @@ const sectionInfos = {
     const { sectionIds } = payload;
     state.x = _.omit(state.x, sectionIds);
     state.idsOverview = _.omit(state.idsOverview, sectionIds);
-    state.type = _.omit(state.type, sectionIds);
+    state.isRendered = _.omit(state.isRendered, sectionIds);
   }),
 
   idNames: computed((state) => {
