@@ -21,9 +21,10 @@ function requiresKeyInput(uiTypeName) {
 }
 
 export class UIType {
-  constructor({ id, name }) {
+  constructor({ id, name, configId }) {
     this.id = id;
     this.name = name;
     this.isNested = requiresNestedSection(this.name);
+    this.configId = configId;
   }
 }
