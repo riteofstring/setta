@@ -1,12 +1,13 @@
 // import RunContainer from "./RunContainer/RunContainer";
 // import TheTerminal from "./RunContainer/Terminal/TheTerminal";
 import { Flex, Grid } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import React, { useLayoutEffect } from "react";
 
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 import { websocketAuth } from "../../dbRequests/authentication.js";
 import { resetState } from "../../store/store";
+import { useIsEqual } from "../../utils/useCreateInfo.js";
 import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {
@@ -16,7 +17,7 @@ const UiPage = () => {
 
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
 
-  const token = useStoreState((state) => state.auth.token);
+  const token = useIsEqual((state) => state.auth.token);
 
   const actionWebsocketTokenRetrievalSuccess = useStoreActions(
     (actions) => actions.auth.websocketTokenRetrievalSuccess

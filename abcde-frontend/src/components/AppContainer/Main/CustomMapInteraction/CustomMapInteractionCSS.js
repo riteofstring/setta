@@ -1,10 +1,11 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
 import { useState, useEffect } from "react";
 import { MapInteractionCSS } from "react-map-interaction";
 
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
 import useKeyPress from "../../../../utils/use-key-press";
+import { useIsEqual } from "../../../../utils/useCreateInfo";
 import CustomScrollDiv from "./CustomScrollDiv";
 
 export default function CustomMapInteractionCSS(props) {
@@ -16,11 +17,11 @@ export default function CustomMapInteractionCSS(props) {
     (actions) => actions.mapInteraction.setGoToCoordinates
   );
 
-  const goToCoordinates = useStoreState(
+  const goToCoordinates = useIsEqual(
     (state) => state.mapInteraction.goToCoordinates
   );
 
-  const overviewCssWidth = useStoreState(
+  const overviewCssWidth = useIsEqual(
     (state) => state.panes.trueWidth["overview"]
   );
   const panZoomState = useKeyPress("Control");

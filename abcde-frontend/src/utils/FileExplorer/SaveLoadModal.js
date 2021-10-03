@@ -1,8 +1,9 @@
 import { HStack, Button } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useState, useEffect } from "react";
 
 import ModalContainer from "../ModalContainer/ModalContainer";
+import { useIsEqual } from "../useCreateInfo";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
@@ -28,7 +29,7 @@ export default function SaveLoadModal(props) {
 
   const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
-  const token = useStoreState((state) => state.auth.token);
+  const token = useIsEqual((state) => state.auth.token);
 
   const _setSelectedFolder = (value) => {
     if (value !== undefined) {

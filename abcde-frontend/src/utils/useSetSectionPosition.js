@@ -1,5 +1,6 @@
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useEffect, useRef } from "react";
+import { useIsEqual } from "./useCreateInfo";
 
 export function useSetSectionPosition(sectionId) {
   const refForPosition = useRef(null);
@@ -16,7 +17,7 @@ export function useSetSectionPosition(sectionId) {
     (action) => action.sectionPositions.setPositionUpdateRequested
   );
 
-  const positionUpdateRequested = useStoreState(
+  const positionUpdateRequested = useIsEqual(
     (state) => state.sectionPositions.positionUpdateRequested[sectionId]
   );
 

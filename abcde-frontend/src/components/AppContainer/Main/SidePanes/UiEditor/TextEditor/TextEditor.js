@@ -1,15 +1,16 @@
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import React, { useRef, useState, useEffect } from "react";
 import { IoIosRocket } from "react-icons/io";
 
 import { resetState } from "../../../../../../store/store";
+import { useIsEqual } from "../../../../../../utils/useCreateInfo";
 
 export default function TextEditor({ idx }) {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
-  const enteredText = useStoreState(
+  const enteredText = useIsEqual(
     (state) => state.yamlEntry.enteredText[idx]
   );
   const setEnteredText = useStoreActions(
@@ -24,10 +25,10 @@ export default function TextEditor({ idx }) {
   const setFuncs = useStoreActions((actions) => actions.funcsInfo.setFuncs);
   const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
   const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
-  const token = useStoreState((state) => state.auth.token);
-  const uiInfoFromCLI = useStoreState((state) => state.cliSocket.uiInfo);
-  const factoriesFromCLI = useStoreState((state) => state.cliSocket.factories);
-  const funcsFromCLI = useStoreState((state) => state.cliSocket.funcs);
+  const token = useIsEqual((state) => state.auth.token);
+  const uiInfoFromCLI = useIsEqual((state) => state.cliSocket.uiInfo);
+  const factoriesFromCLI = useIsEqual((state) => state.cliSocket.factories);
+  const funcsFromCLI = useIsEqual((state) => state.cliSocket.funcs);
 
   const handleEditorDidMount = (_valueGetter) => {
     setIsEditorReady(true);

@@ -1,5 +1,6 @@
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 
+import { useIsEqual } from "./useCreateInfo";
 import { curryAction, defaultState } from "./utils";
 
 export function useIdsOverview(id) {
@@ -9,7 +10,7 @@ export function useIdsOverview(id) {
     "newStateFn"
   );
   const idsOverview = defaultState(
-    useStoreState((x) => x.sectionInfos.idsOverview[id]),
+    useIsEqual((x) => x.sectionInfos.idsOverview[id]),
     () => []
   );
   return [idsOverview, setIdsOverview];

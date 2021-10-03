@@ -1,14 +1,14 @@
 import { Stack } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
 import React from "react";
 
 import { PANEID } from "../../../utils/constants";
+import { useIsEqual } from "../../../utils/useCreateInfo";
 import { useSetSectionPosition } from "../../../utils/useSetSectionPosition";
 import SingleSectionsPane from "./SingleSectionsPane";
 
 function SectionsPane() {
-  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
-  const spaceBetweenPages = useStoreState(
+  const pageMinMaxList = useIsEqual((state) => state.master.pageMinMaxList);
+  const spaceBetweenPages = useIsEqual(
     (state) => state.master.spaceBetweenPages
   );
 

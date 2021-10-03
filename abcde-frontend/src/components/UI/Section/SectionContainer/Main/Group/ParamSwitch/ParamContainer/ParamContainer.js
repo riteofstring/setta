@@ -22,7 +22,7 @@ export default function ParamContainer(props) {
     initUITypeFn(paramInfo);
   }, [paramInfo.id]);
 
-  // const paramUITypeConfig = useStoreState((state) =>
+  // const paramUITypeConfig = useIsEqual((state) =>
   //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
   // );
 

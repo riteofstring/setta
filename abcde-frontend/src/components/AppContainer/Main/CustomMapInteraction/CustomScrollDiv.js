@@ -1,6 +1,6 @@
-import { useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useIsEqual } from "../../../../utils/useCreateInfo";
 
 import "./onHoverStyle.css";
 
@@ -14,8 +14,8 @@ export default function CustomScrollDiv({
   children,
   isVertical,
 }) {
-  const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
-  const paneTrueWidths = useStoreState((state) => state.panes.trueWidth);
+  const mapHovering = useIsEqual((state) => state.mapInteraction.hovering);
+  const paneTrueWidths = useIsEqual((state) => state.panes.trueWidth);
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);
   const [scrollBoxHeight, setScrollBoxHeight] = useState(SCROLL_BOX_MIN_HEIGHT);
@@ -179,9 +179,9 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
 }
 
 function VerticalScrollDiv({ children }) {
-  const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
-  const trueWidth = useStoreState((state) => state.panes.trueWidth["uiEditor"]);
-  const draggingPane = useStoreState(
+  const vis = useIsEqual((state) => state.panes.vis["uiEditor"]);
+  const trueWidth = useIsEqual((state) => state.panes.trueWidth["uiEditor"]);
+  const draggingPane = useIsEqual(
     (state) => state.panes.isDragging["uiEditor"]
   );
 
@@ -206,13 +206,13 @@ function VerticalScrollDiv({ children }) {
 }
 
 function HorizontalScrollDiv({ children }) {
-  const overviewTrueWidth = useStoreState(
+  const overviewTrueWidth = useIsEqual(
     (state) => state.panes.trueWidth["overview"]
   );
-  const uiEditorTrueWidth = useStoreState(
+  const uiEditorTrueWidth = useIsEqual(
     (state) => state.panes.trueWidth["uiEditor"]
   );
-  const anyPanesDragging = useStoreState((state) =>
+  const anyPanesDragging = useIsEqual((state) =>
     Object.values(state.panes.isDragging).includes(true)
   );
 

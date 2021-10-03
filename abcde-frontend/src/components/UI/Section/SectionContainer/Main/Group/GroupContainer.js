@@ -1,5 +1,5 @@
 import { Stack, FormControl } from "@chakra-ui/react";
-
+import React from "react"
 import {
   useGetAllParamInfos,
   useParamChildId,
@@ -9,7 +9,7 @@ import {
 } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
-export default function GroupContainer({ sectionId, objInfo }) {
+function GroupContainer({ sectionId, objInfo }) {
   console.log("GroupContainer", objInfo);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const enteredValueFn = useParamEnteredValue(sectionId);
@@ -17,14 +17,14 @@ export default function GroupContainer({ sectionId, objInfo }) {
   const getUITypeFn = useGetParamUIType(sectionId);
   const initUITypeFn = useInitializeUIType(sectionId);
 
-  // const kwargNames = useStoreState(
+  // const kwargNames = useIsEqual(
   //   (state) => Object.keys(state.master.sections.getKwargs(sectionId)),
   //   arraysAreEqual
   // );
 
   // const [enteredKwargNames, setEnteredKwargNames] = useState(kwargNames);
   // const [numKwargs, setNumKwargs] = useState(kwargNames.length);
-  // const paramNames = useStoreState(
+  // const paramNames = useIsEqual(
   //   (state) => Object.keys(state.master.sections.getParameters(sectionId)),
   //   arraysAreEqual
   // );
@@ -105,3 +105,5 @@ export default function GroupContainer({ sectionId, objInfo }) {
     </Stack>
   );
 }
+
+export default React.memo(GroupContainer);

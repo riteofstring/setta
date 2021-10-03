@@ -1,9 +1,10 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Text, HStack } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useEffect } from "react";
 
 import { PANEID } from "../../../../../../../utils/constants";
+import { useIsEqual } from "../../../../../../../utils/useCreateInfo";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
   const setGoToCoordinates = useStoreActions(
@@ -17,11 +18,11 @@ export default function SectionItem({ sectionId, sectionHeading, isList }) {
     (action) => action.sectionPositions.setPositionUpdateRequested
   );
 
-  const sectionPositionUpdated = useStoreState(
+  const sectionPositionUpdated = useIsEqual(
     (actions) => actions.sectionPositions.positionUpdated[sectionId]
   );
 
-  const panePositionUpdated = useStoreState(
+  const panePositionUpdated = useIsEqual(
     (actions) => actions.sectionPositions.positionUpdated[PANEID]
   );
 

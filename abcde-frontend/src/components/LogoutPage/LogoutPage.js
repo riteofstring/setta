@@ -1,13 +1,14 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import React, { useEffect } from "react";
 import { useHistory } from "react-router-dom";
 
 import { logout } from "../../dbRequests/authentication.js";
 import { resetEntireState } from "../../store/store";
+import { useIsEqual } from "../../utils/useCreateInfo.js";
 
 const LogoutPage = () => {
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
-  const authToken = useStoreState((state) => state.auth.token);
+  const authToken = useIsEqual((state) => state.auth.token);
   resetEntireState();
   logout({ actionLoginFail, authToken });
   let history = useHistory();

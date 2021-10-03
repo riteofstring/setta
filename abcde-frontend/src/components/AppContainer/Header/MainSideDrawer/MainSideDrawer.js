@@ -1,9 +1,10 @@
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { VStack, Button } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useHistory } from "react-router-dom";
 
 import DrawerContainer from "../../../../utils/DrawerContainer/DrawerContainer";
+import { useIsEqual } from "../../../../utils/useCreateInfo";
 
 export default function HeaderContainer() {
   return (
@@ -27,7 +28,7 @@ function Body() {
   let history = useHistory();
 
   const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
-  const token = useStoreState((state) => state.auth.token);
+  const token = useIsEqual((state) => state.auth.token);
 
   const goToLogout = () => {
     saveDraftUI({ token }).then((res) => history.push("/logout"));

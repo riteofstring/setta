@@ -1,9 +1,10 @@
 import { IconButton, Box, GridItem } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { motion } from "framer-motion";
 import { Resizable } from "re-resizable";
 import { useState, useEffect } from "react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
+import { useIsEqual } from "../../../../utils/useCreateInfo";
 
 import useWindowSize from "../../../../utils/useWindowSize";
 import { clamp } from "../../../../utils/utils";
@@ -13,7 +14,7 @@ const Pane = motion(GridItem);
 export default function PaneContainer(props) {
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
-  const vis = useStoreState((state) => state.panes.vis[paneName]);
+  const vis = useIsEqual((state) => state.panes.vis[paneName]);
   const setVis = useStoreActions((actions) => actions.panes.setVis);
   const setTrueWidth = useStoreActions((actions) => actions.panes.setTrueWidth);
   function uiToggle() {
@@ -50,7 +51,7 @@ export default function PaneContainer(props) {
     }
   }, [vis, size.winWidth]);
 
-  const width = useStoreState((state) => state.panes.width[paneName]);
+  const width = useIsEqual((state) => state.panes.width[paneName]);
   const setWidth = useStoreActions((actions) => actions.panes.setWidth);
   const [height, setHeight] = useState("100%");
 
