@@ -124,7 +124,7 @@ export default function CustomScrollDiv({
       document.removeEventListener("mouseup", handleDocumentMouseUp);
       document.removeEventListener("mouseleave", handleDocumentMouseUp);
     };
-  }, [handleDocumentMouseMove, handleDocumentMouseUp]);
+  }, [isDragging]);
 
   const scrollHostUseEffectCondition = () => {
     if (isVertical) {
