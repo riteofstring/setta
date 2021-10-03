@@ -126,7 +126,9 @@ export function useGetParamUIType(sectionId) {
 }
 
 export function useUITypeConfig(uiType) {
-  const uiTypeConfigId = useStoreState((x) => x.uiTypes.x.h[uiType.id].configId);
+  const uiTypeConfigId = useStoreState(
+    (x) => x.uiTypes.x.h[uiType.id].configId
+  );
   const uiTypeConfig = defaultState(
     useStoreState((x) => x.uiTypeConfigs.config[uiTypeConfigId]),
     {}

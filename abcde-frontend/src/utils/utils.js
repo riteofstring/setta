@@ -17,18 +17,20 @@ export function allDefined(...x) {
 export function defaultDict(defaultValueFn) {
   const handler = {
     get: (obj, prop) => {
-      if (!(prop in obj)) obj[prop] = defaultValueFn();
+      if (!(prop in obj)) obj[prop] = defaultValueFn(prop);
       return obj[prop];
     },
   };
   return new Proxy({}, handler);
 }
 
-export function createDefaultNestedDict(levels, finalType) {
+export function createDefaultNestedDict(levels, finalType, prop) {
   if (levels === 0) {
-    return finalType();
+    return finalType(prop);
   }
-  return defaultDict(() => createDefaultNestedDict(levels - 1, finalType));
+  return defaultDict((prop) =>
+    createDefaultNestedDict(levels - 1, finalType, prop)
+  );
 }
 
 // https://stackoverflow.com/a/38181008

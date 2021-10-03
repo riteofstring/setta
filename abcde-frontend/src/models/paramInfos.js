@@ -4,7 +4,7 @@ import { MutableParamInfo } from "../classes/mutableInfo";
 import { SimpleHistory } from "../classes/simpleHistory";
 
 const paramInfos = {
-  x: new SimpleHistory(2, () => new MutableParamInfo({})),
+  x: new SimpleHistory(2, (id) => new MutableParamInfo({ id })),
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;

@@ -4,7 +4,7 @@ import { SimpleHistory } from "../classes/simpleHistory";
 import { UIType } from "../classes/uiType";
 
 const uiTypes = {
-  x: new SimpleHistory(1, () => new UIType({})),
+  x: new SimpleHistory(1, (id) => new UIType({ id })),
 
   setUIType: action((state, payload) => {
     const { uiTypeId, uiType } = payload;
