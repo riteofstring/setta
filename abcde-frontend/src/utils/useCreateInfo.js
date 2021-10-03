@@ -2,8 +2,6 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
-import { SectionInfo } from "../classes/mutableInfo";
-import { SectionType } from "../classes/sectionType";
 import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
 import { curryAction, defaultState } from "./utils";
@@ -49,7 +47,7 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
 export function useGetSectionInfo(sectionId) {
   return defaultState(
     useStoreState((x) => getInfo(x.sectionInfos)[sectionId]),
-    () => new SectionInfo({ id: undefined })
+    () => ({})
   );
 }
 
@@ -57,7 +55,7 @@ export function useGetSectionType(sectionId) {
   const sectionTypeId = useGetSectionInfo(sectionId).sectionTypeId;
   return defaultState(
     useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
-    () => new SectionType({ id: undefined })
+    () => ({})
   );
 }
 
@@ -121,7 +119,7 @@ export function useGetParamUIType(sectionId) {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
     return defaultState(
       useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
-      () => new UIType({ id: undefined })
+      () => ({})
     );
   };
 }

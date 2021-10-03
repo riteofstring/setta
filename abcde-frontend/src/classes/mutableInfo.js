@@ -1,4 +1,7 @@
+import { immerable } from "immer";
+
 export class MutableParamInfo {
+  [immerable] = true;
   constructor({ id, uiTypeId, enteredValue, childId }) {
     this.id = id;
     this.uiTypeId = uiTypeId;
@@ -8,6 +11,7 @@ export class MutableParamInfo {
 }
 
 export class SectionInfo {
+  [immerable] = true;
   constructor({ id, name, sectionTypeId, parentSectionInfo }) {
     this.id = id;
     this.sectionTypeId = sectionTypeId;

@@ -1,3 +1,5 @@
+import { immerable } from "immer";
+
 import {
   LIST,
   LIST_NESTED_OBJECT,
@@ -12,6 +14,7 @@ function getCollectionIds(specs, allCollections) {
 }
 
 export class SectionType {
+  [immerable] = true;
   constructor({
     id,
     name,

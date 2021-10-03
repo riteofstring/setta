@@ -1,3 +1,5 @@
+import { immerable } from "immer";
+
 export const UITYPES = [
   "TEXT",
   "SLIDER",
@@ -21,6 +23,7 @@ function requiresKeyInput(uiTypeName) {
 }
 
 export class UIType {
+  [immerable] = true;
   constructor({ id, name, configId }) {
     this.id = id;
     this.name = name;
