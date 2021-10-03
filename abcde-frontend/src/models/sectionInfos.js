@@ -4,6 +4,7 @@ const sectionInfos = {
   sectionInfo: {},
   objCollectionIds: {},
   paramCollectionIds: {},
+  sectionTypeId: {},
 
   setSectionInfo: action((state, payload) => {
     state.sectionInfo = payload(state.sectionInfo);
@@ -15,6 +16,11 @@ const sectionInfos = {
 
   setParamCollectionIds: action((state, payload) => {
     state.paramCollectionIds = payload(state.paramCollectionIds);
+  }),
+
+  setSectionTypeId: action((state, payload) => {
+    const { sectionInfoId, sectionTypeId } = payload;
+    state.sectionTypeId[sectionInfoId] = sectionTypeId;
   }),
 };
 

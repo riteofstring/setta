@@ -4,6 +4,7 @@ import {
   AllObjCollectionInfo,
   AllParamCollectionInfo,
   createInfo,
+  convertSpecsToDict,
 } from "./jsonParser";
 
 function getCollectionIds(specs, allCollections) {
@@ -17,12 +18,10 @@ export function createSectionInfo(
   allParamCollections
 ) {
   const { info, id } = createInfo(SectionInfo)(name, specs);
-  const objCollectionIds = getCollectionIds(
-    info.specs.objects,
-    allObjCollections
-  );
+  const config = convertSpecsToDict(specs);
+  const objCollectionIds = getCollectionIds(config.objects, allObjCollections);
   const paramCollectionIds = getCollectionIds(
-    info.specs.parameters,
+    config.parameters,
     allParamCollections
   );
   return { info, id, objCollectionIds, paramCollectionIds };

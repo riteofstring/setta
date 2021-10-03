@@ -122,10 +122,8 @@ export class AllParamCollectionInfo {
 }
 
 export class SectionInfo {
-  constructor(id, name, specs) {
+  constructor(id, name) {
     this.id = id;
     this.name = name;
-    this.specs = convertSpecsToDict(specs);
-    this.hasObjects = "objects" in this.specs;
   }
 }

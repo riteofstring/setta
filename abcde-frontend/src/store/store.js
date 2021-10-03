@@ -10,6 +10,7 @@ import panes from "../models/panes";
 import paramInfos from "../models/paramInfos";
 import sectionInfos from "../models/sectionInfos";
 import sectionPositions from "../models/sectionPositions";
+import sectionTypes from "../models/sectionTypes";
 import sections from "../models/sections";
 import uiInfo from "../models/uiInfo";
 import uiTypeConfigs from "../models/uiTypeConfigs";
@@ -29,6 +30,7 @@ const store = createStore({
   sectionPositions: sectionPositions,
   sections: sections,
   sectionInfos: sectionInfos,
+  sectionTypes: sectionTypes,
   paramInfos: paramInfos,
   uiTypes: uiTypes,
   uiTypeConfigs: uiTypeConfigs,
