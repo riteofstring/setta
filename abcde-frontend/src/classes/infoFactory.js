@@ -1,10 +1,10 @@
+import { createNewId } from "../utils/sectionIds";
 import {
-  SectionInfo,
   AllModuleInfo,
   AllObjCollectionInfo,
   AllParamCollectionInfo,
-  createInfo,
 } from "./jsonParser";
+import { SectionInfo } from "./mutableInfo";
 
 function getCollectionIds(specs, allCollections) {
   return specs ? specs.map((x) => allCollections.nameToId[x]) : [];
@@ -16,7 +16,8 @@ export function createSectionInfo(
   allObjCollections,
   allParamCollections
 ) {
-  const { info, id } = createInfo(SectionInfo)(name, specs);
+  const id = createNewId();
+  const info = new SectionInfo({ id, name, specs });
   const objCollectionIds = getCollectionIds(
     info.specs.objects,
     allObjCollections

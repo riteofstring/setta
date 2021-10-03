@@ -6,15 +6,18 @@ const sectionInfos = {
   paramCollectionIds: {},
 
   setSectionInfo: action((state, payload) => {
-    state.sectionInfo = payload(state.sectionInfo);
+    const { sectionId, sectionInfo } = payload;
+    state.sectionInfo[sectionId] = sectionInfo;
   }),
 
   setObjCollectionIds: action((state, payload) => {
-    state.objCollectionIds = payload(state.objCollectionIds);
+    const { sectionId, objCollectionIds } = payload;
+    state.objCollectionIds[sectionId] = objCollectionIds;
   }),
 
   setParamCollectionIds: action((state, payload) => {
-    state.paramCollectionIds = payload(state.paramCollectionIds);
+    const { sectionId, paramCollectionIds } = payload;
+    state.paramCollectionIds[sectionId] = paramCollectionIds;
   }),
 };
 

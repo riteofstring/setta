@@ -29,15 +29,9 @@ export function useCreateSectionInfo() {
     const { info, id, objCollectionIds, paramCollectionIds } =
       infoFactoryOutput;
 
-    setSectionInfo((x) => {
-      return { ...x, [id]: info };
-    });
-    setObjCollectionIds((x) => {
-      return { ...x, [id]: objCollectionIds };
-    });
-    setParamCollectionIds((x) => {
-      return { ...x, [id]: paramCollectionIds };
-    });
+    setSectionInfo({ sectionId: id, sectionInfo: info });
+    setObjCollectionIds({ sectionId: id, objCollectionIds });
+    setParamCollectionIds({ sectionId: id, paramCollectionIds });
 
     return id;
   };
