@@ -291,13 +291,3 @@ export function useDeleteChild(sectionId) {
   }
   return deleteChild;
 }
-
-export function funcFlipChildrenAreCollapsed(
-  childrenAreCollapsed,
-  setChildrenAreCollapsed
-) {
-  function flipChildrenAreCollapsed() {
-    setChildrenAreCollapsed(!childrenAreCollapsed);
-  }
-  return flipChildrenAreCollapsed;
-}

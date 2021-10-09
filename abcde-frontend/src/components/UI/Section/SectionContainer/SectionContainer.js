@@ -8,7 +8,6 @@ import {
   useGetSectionType,
   useAddChild,
   useDeleteChild,
-  funcFlipChildrenAreCollapsed,
 } from "../../../../hooks/useCreateInfo";
 import { useIdsOverview } from "../../../../hooks/useIdsOverview";
 import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
@@ -42,10 +41,9 @@ function SectionContainer({
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
 
-  const flipChildrenAreCollapsed = funcFlipChildrenAreCollapsed(
-    childrenAreCollapsed,
-    setChildrenAreCollapsed
-  );
+  function flipChildrenAreCollapsed() {
+    setChildrenAreCollapsed(!childrenAreCollapsed);
+  }
 
   return isRendered ? (
     <Stack>
