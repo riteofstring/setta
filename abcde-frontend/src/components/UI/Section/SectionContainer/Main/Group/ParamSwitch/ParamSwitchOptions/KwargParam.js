@@ -16,10 +16,6 @@ export default function KwargParam(props) {
     deleteKwarg(kwargInfo.id);
   };
 
-  function getParamNameInput() {
-    return <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />;
-  }
-
   return (
     <HStack>
       <IconButton
@@ -29,7 +25,9 @@ export default function KwargParam(props) {
         borderRadius="full"
         onClick={onClick}
       />
-      <ParamContainer {...props}>{getParamNameInput()}</ParamContainer>
+      <ParamContainer {...props}>
+        <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />
+      </ParamContainer>
     </HStack>
   );
 }

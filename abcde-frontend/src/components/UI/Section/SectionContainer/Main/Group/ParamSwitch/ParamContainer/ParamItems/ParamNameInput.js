@@ -6,7 +6,6 @@ export default function ParamNameInput({ value, onBlur }) {
 
   useEffect(() => {
     setLiveValue(value ? value : "");
-    console.log("value changed", value);
   }, [value]);
 
   return (
