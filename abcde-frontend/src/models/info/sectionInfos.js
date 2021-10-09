@@ -12,14 +12,9 @@ const sectionInfos = {
     state.x = payload(state.x);
   }),
 
-  setObjCollectionIds: action((state, payload) => {
-    const { sectionId, objCollectionIds } = payload;
-    state.x[sectionId].objCollectionIds = objCollectionIds;
-  }),
-
-  setParamCollectionIds: action((state, payload) => {
-    const { sectionId, paramCollectionIds } = payload;
-    state.x[sectionId].paramCollectionIds = paramCollectionIds;
+  setSectionInfoAttr: action((state, payload) => {
+    const { sectionId, attr, value } = payload;
+    state.x[sectionId][attr] = value;
   }),
 
   setIdsOverview: action((state, payload) => {

@@ -1,6 +1,6 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useState } from "react";
 
 import {
@@ -106,11 +106,18 @@ function SectionContainerCore({
   const showSearch = sectionType.hasObjects;
   const isList = isListLike(sectionType.name);
   const isListRoot = isRoot(sectionType.name);
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
+  );
 
   function onSelectedItemChange(inputSelectedItem) {
     if (inputSelectedItem) {
       setSelectedItem(inputSelectedItem);
     }
+  }
+
+  function onTitleInputChange(value) {
+    setSectionInfoAttr({ sectionId, attr: "name", value });
   }
 
   // // temp_
@@ -136,6 +143,7 @@ function SectionContainerCore({
           deleteChild={deleteChild}
           parentControls={parentControls}
           hasNested={hasNested}
+          onTitleInputChange={onTitleInputChange}
           requiresKeyInput={requiresKeyInput(sectionType.name)}
         />
         {!isListRoot && (
