@@ -19,7 +19,7 @@ const sectionTypes = {
     } = payload;
     const currSectionType = state.x[sectionTypeId];
     const { id } = currSectionType;
-    const childTypeId = currSectionType.childType?.id;
+    const childTypeId = currSectionType.childType.id;
     const newSectionType = new SectionType({
       id,
       allObjCollections,
@@ -29,10 +29,8 @@ const sectionTypes = {
       parentIsSection: true,
     });
     state.x[sectionTypeId] = newSectionType;
-    if (childTypeId && newSectionType.childType) {
-      newSectionType.childType.id = childTypeId;
-      state.x[childTypeId] = newSectionType.childType;
-    }
+    newSectionType.childType.id = childTypeId;
+    state.x[childTypeId] = newSectionType.childType;
   }),
 
   reinitSectionType: thunk((actions, payload, helpers) => {

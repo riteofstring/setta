@@ -93,7 +93,7 @@ export class SectionType {
     paramUIType,
     paramUITypeConfig
   ) {
-    this.childType = null;
+    this.childType = {};
     const childName = rootTypeToChildType[this.name];
     if (childName) {
       this.childType = new SectionType({
