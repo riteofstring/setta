@@ -2,8 +2,8 @@ import { Heading, Stack } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 
-import { useAddChild } from "../../../utils/useCreateInfo";
-import { useIdsOverview } from "../../../utils/useIdsOverview";
+import { useAddChild } from "../../../hooks/useCreateInfo";
+import { useIdsOverview } from "../../../hooks/useIdsOverview";
 import SectionContainer from "./SectionContainer/SectionContainer";
 
 function SingleSectionsPane({ minIdx, maxIdx, groupId }) {

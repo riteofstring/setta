@@ -5,7 +5,7 @@ import { Resizable } from "re-resizable";
 import { useState, useEffect } from "react";
 import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 
-import useWindowSize from "../../../../utils/useWindowSize";
+import useWindowSize from "../../../../hooks/useWindowSize";
 import { clamp } from "../../../../utils/utils";
 
 const Pane = motion(GridItem);

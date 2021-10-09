@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { MapInteractionCSS } from "react-map-interaction";
 
 import graphPaperBg from "../../../../assets/images/graph-paper.svg";
-import useKeyPress from "../../../../utils/use-key-press";
+import useKeyPress from "../../../../hooks/useKeyPress";
 import CustomScrollDiv from "./CustomScrollDiv";
 
 export default function CustomMapInteractionCSS(props) {

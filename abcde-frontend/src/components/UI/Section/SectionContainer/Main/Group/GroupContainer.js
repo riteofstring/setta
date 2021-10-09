@@ -16,7 +16,7 @@ import {
   useAddKwarg,
   useGetKwargInfos,
   useDeleteKwarg,
-} from "../../../../../../utils/useCreateInfo";
+} from "../../../../../../hooks/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfo }) {

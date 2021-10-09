@@ -1,8 +1,8 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 
-import { compatibleName } from "./constants";
+import { compatibleName } from "../utils/constants";
+import { curryAction, defaultState } from "../utils/utils";
 import { useGetSectionType } from "./useCreateInfo";
-import { curryAction, defaultState } from "./utils";
 
 export function useIdsOverview(id) {
   const sectionTypeName = compatibleName(useGetSectionType(id).name);

@@ -4,7 +4,7 @@ import { useCombobox } from "downshift";
 import _ from "lodash";
 import React, { useState } from "react";
 
-import { useGetObjInfos } from "../../../../../../utils/useCreateInfo";
+import { useGetObjInfos } from "../../../../../../hooks/useCreateInfo";
 import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
 
 export default function SectionSearch({

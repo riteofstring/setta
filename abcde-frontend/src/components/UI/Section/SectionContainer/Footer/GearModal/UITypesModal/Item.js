@@ -13,12 +13,12 @@ import {
 import { useStoreActions } from "easy-peasy";
 
 import { UIType } from "../../../../../../../classes/uiType";
+import { useUITypeConfig } from "../../../../../../../hooks/useCreateInfo";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
 import {
   prettyToUITypes,
   uiTypesToPretty,
 } from "../../../../../../../utils/constants";
-import { useUITypeConfig } from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ paramInfo, getUITypeFn }) {

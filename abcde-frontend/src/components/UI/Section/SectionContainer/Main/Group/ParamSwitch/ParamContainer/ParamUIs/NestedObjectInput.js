@@ -2,11 +2,11 @@ import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
-import { includesArray } from "../../../../../../../../../utils/commonFunctions";
 import {
   useGetSectionInfo,
   useAddChild,
-} from "../../../../../../../../../utils/useCreateInfo";
+} from "../../../../../../../../../hooks/useCreateInfo";
+import { includesArray } from "../../../../../../../../../utils/commonFunctions";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
 
 function valueAndLabel(x, type) {

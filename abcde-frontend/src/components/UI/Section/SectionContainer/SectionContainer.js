@@ -4,20 +4,20 @@ import { useStoreActions } from "easy-peasy";
 import React, { useState } from "react";
 
 import {
-  isListLike,
-  isRoot,
-  requiresKeyInput,
-  SECTIONWIDTH,
-} from "../../../../utils/constants";
-import {
   useGetSectionInfo,
   useGetSectionType,
   useAddChild,
   useDeleteChild,
   funcFlipChildrenAreCollapsed,
-} from "../../../../utils/useCreateInfo";
-import { useIdsOverview } from "../../../../utils/useIdsOverview";
-import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
+} from "../../../../hooks/useCreateInfo";
+import { useIdsOverview } from "../../../../hooks/useIdsOverview";
+import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
+import {
+  isListLike,
+  isRoot,
+  requiresKeyInput,
+  SECTIONWIDTH,
+} from "../../../../utils/constants";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";

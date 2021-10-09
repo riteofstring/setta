@@ -4,9 +4,13 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
-import { createNewId } from "./sectionIds";
+import { createNewId } from "../utils/sectionIds";
+import {
+  curryAction,
+  defaultState,
+  insertIntoArrayOrXpend,
+} from "../utils/utils";
 import { useIdsOverview } from "./useIdsOverview";
-import { curryAction, defaultState, insertIntoArrayOrXpend } from "./utils";
 
 function getInfo(x) {
   return x.x;
