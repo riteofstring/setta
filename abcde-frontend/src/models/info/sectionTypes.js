@@ -4,8 +4,7 @@ const sectionTypes = {
   x: {},
 
   setSectionType: action((state, payload) => {
-    const { sectionTypeId, sectionType } = payload;
-    state.x[sectionTypeId] = sectionType;
+    state.x = payload(state.x);
   }),
 };
 

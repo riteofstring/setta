@@ -21,24 +21,28 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
   const parentSectionInfo = useGetSectionInfo(sectionId);
   const parentSectionType = useGetSectionType(sectionId);
 
-  const createInfo = ({ name, id, uiType, uiTypeConfig }) => {
-    console.log("createInfo parentSectionInfo", parentSectionInfo);
-    const infoFactoryOutput = createSectionInfo(
-      name,
-      allObjCollections,
-      allParamCollections,
-      id,
-      parentSectionInfo,
-      parentSectionType,
-      uiType,
-      uiTypeConfig,
-      uiSpecs,
-      parentIsSection
-    );
-    const { info, sectionTypeId, sectionType } = infoFactoryOutput;
-    setSectionInfo({ sectionId: id, sectionInfo: info });
-    setSectionType({ sectionTypeId, sectionType });
-    return id;
+  const createInfo = ({ name, uiType, uiTypeConfig, numChildren }) => {
+    const newInfos = {};
+    const newSectionTypes = {};
+    for (let i = 0; i < numChildren; i++) {
+      const infoFactoryOutput = createSectionInfo(
+        name,
+        allObjCollections,
+        allParamCollections,
+        parentSectionInfo,
+        parentSectionType,
+        uiType,
+        uiTypeConfig,
+        uiSpecs,
+        parentIsSection
+      );
+      const { info, sectionType } = infoFactoryOutput;
+      newInfos[info.id] = info;
+      newSectionTypes[sectionType.id] = sectionType;
+    }
+    setSectionInfo((x) => ({ ...x, ...newInfos }));
+    setSectionType((x) => ({ ...x, ...newSectionTypes }));
+    return Object.keys(newInfos);
   };
 
   return createInfo;

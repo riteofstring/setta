@@ -1,7 +1,6 @@
 import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
-import { createNewId } from "../../../../utils/sectionIds";
 import { useCreateSectionInfo } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { insertIntoArrayOrXpend } from "../../../../utils/utils";
@@ -20,12 +19,7 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
     numChildren = 1,
     parentParamInfoId = null,
   }) {
-    let newIds = [];
-    for (let i = 0; i < numChildren; i++) {
-      const id = createNewId();
-      newIds.push(id);
-      createInfo({ name, id, uiType, uiTypeConfig });
-    }
+    const newIds = createInfo({ name, uiType, uiTypeConfig, numChildren });
 
     setIdsOverview((x) => {
       let insertIdx = null;

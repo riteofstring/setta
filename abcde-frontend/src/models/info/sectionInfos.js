@@ -9,8 +9,7 @@ const sectionInfos = {
   isRendered: {},
 
   setSectionInfo: action((state, payload) => {
-    const { sectionId, sectionInfo } = payload;
-    state.x[sectionId] = sectionInfo;
+    state.x = payload(state.x);
   }),
 
   setObjCollectionIds: action((state, payload) => {

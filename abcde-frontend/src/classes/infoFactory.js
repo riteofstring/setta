@@ -11,7 +11,6 @@ export function createSectionInfo(
   name,
   allObjCollections,
   allParamCollections,
-  id,
   parentSectionInfo,
   parentSectionType,
   paramUIType,
@@ -30,16 +29,14 @@ export function createSectionInfo(
     parentIsSection,
   });
 
-  const sectionTypeId = sectionType.id;
-
   const info = new SectionInfo({
-    id,
+    id: createNewId(),
     name,
-    sectionTypeId,
+    sectionTypeId: sectionType.id,
     parentSectionInfo,
   });
 
-  return { info, id, sectionType, sectionTypeId };
+  return { info, sectionType };
 }
 
 export const createAllInfo = (available) => {
