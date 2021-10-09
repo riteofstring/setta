@@ -6,6 +6,7 @@ import {
   LIST_ROOT,
   SECTION,
 } from "../utils/constants";
+import { createNewId } from "../utils/sectionIds";
 import { nullOrUndefined } from "../utils/utils";
 import { convertSpecsToDict } from "./immutableInfo";
 
@@ -36,6 +37,12 @@ export class SectionType {
     );
     this.initIds(allObjCollections, allParamCollections);
     this.hasObjects = "objects" in this.specs;
+    this.initChildType(
+      allObjCollections,
+      allParamCollections,
+      paramUIType,
+      paramUITypeConfig
+    );
   }
 
   initIds(allObjCollections, allParamCollections) {
@@ -87,5 +94,26 @@ export class SectionType {
       this.specs = topLevelSpecs;
     }
     this.specs = convertSpecsToDict(this.specs);
+  }
+
+  initChildType(
+    allObjCollections,
+    allParamCollections,
+    paramUIType,
+    paramUITypeConfig
+  ) {
+    this.childType = null;
+    if (this.name === LIST_ROOT) {
+      this.childType = new SectionType({
+        id: createNewId(),
+        name: LIST,
+        allObjCollections,
+        allParamCollections,
+        parentSectionType: this,
+        paramUIType,
+        paramUITypeConfig,
+        parentIsSection: true,
+      });
+    }
   }
 }

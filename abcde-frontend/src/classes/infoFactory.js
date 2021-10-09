@@ -1,3 +1,4 @@
+import { LIST_ROOT } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   AllModuleInfo,
@@ -18,16 +19,21 @@ export function createSectionInfo(
   uiSpecs,
   parentIsSection
 ) {
-  const sectionType = new SectionType({
-    id: createNewId(),
-    allObjCollections,
-    allParamCollections,
-    parentSectionType,
-    paramUIType,
-    paramUITypeConfig,
-    topLevelSpecs: uiSpecs.get(name),
-    parentIsSection,
-  });
+  let sectionType = null;
+  if (parentSectionType?.name === LIST_ROOT) {
+    sectionType = parentSectionType.childType;
+  } else {
+    sectionType = new SectionType({
+      id: createNewId(),
+      allObjCollections,
+      allParamCollections,
+      parentSectionType,
+      paramUIType,
+      paramUITypeConfig,
+      topLevelSpecs: uiSpecs.get(name),
+      parentIsSection,
+    });
+  }
 
   const info = new SectionInfo({
     id: createNewId(),
