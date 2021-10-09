@@ -22,10 +22,17 @@ export class MutableObjInfo {
 
 export class SectionInfo {
   [immerable] = true;
-  constructor({ id, name, sectionTypeId, parentSectionInfo }) {
+  constructor({
+    id,
+    name,
+    sectionTypeId,
+    parentSectionInfo,
+    isRendered = true,
+  }) {
     this.id = id;
     this.sectionTypeId = sectionTypeId;
     this.initName(name, parentSectionInfo);
+    this.isRendered = isRendered;
   }
 
   initName(name, parentSectionInfo) {

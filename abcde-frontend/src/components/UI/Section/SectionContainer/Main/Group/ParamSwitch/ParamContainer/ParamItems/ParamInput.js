@@ -28,9 +28,7 @@ export default function ParamInput(props) {
   }, [enteredValue]);
 
   useEffect(() => {
-    setIsRendered((x) => {
-      return { ...x, [childId]: false };
-    });
+    setIsRendered({ sectionId: childId, isRendered: false });
   }, [childId]);
 
   return (

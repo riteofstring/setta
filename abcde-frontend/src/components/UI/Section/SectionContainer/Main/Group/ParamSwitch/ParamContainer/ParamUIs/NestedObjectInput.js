@@ -123,9 +123,7 @@ export default function NestedObjectInput({
         uiType,
         uiTypeConfig,
       });
-      setIsRendered((x) => {
-        return { ...x, [existingChildId]: true };
-      });
+      setIsRendered({ sectionId: existingChildId, isRendered: true });
     }
   }, [uiType, uiTypeConfig]);
 

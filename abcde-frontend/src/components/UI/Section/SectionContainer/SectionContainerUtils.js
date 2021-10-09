@@ -8,7 +8,6 @@ import { insertIntoArrayOrXpend } from "../../../../utils/utils";
 export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
   const setIdsOverview = useIdsOverview(sectionId)[1];
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const createInfo = useCreateSectionInfo(sectionId, parentIsSection);
 
   function addChild({
@@ -27,12 +26,6 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
         insertIdx = x.indexOf(startId) + 1;
       }
       return insertIntoArrayOrXpend(x, insertIdx, prepend, ...newIds);
-    });
-
-    setIsRendered((x) => {
-      const trueArray = new Array(newIds.length).fill(true);
-      const newIsRendered = _.zipObject(newIds, trueArray);
-      return { ...x, ...newIsRendered };
     });
 
     if (parentParamInfoId) {

@@ -35,7 +35,7 @@ function SectionContainer({
   parentControls,
   dragListeners,
 }) {
-  const isRendered = useStoreState((x) => x.sectionInfos.isRendered[sectionId]);
+  const isRendered = useGetSectionInfo(sectionId).isRendered;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [selectedItem, setSelectedItem] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);

@@ -18,7 +18,6 @@ function setDefaultIdsOverview(state, sectionId, sectionTypeName) {
 const sectionInfos = {
   x: {},
   idsOverview: {},
-  isRendered: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -36,14 +35,16 @@ const sectionInfos = {
   }),
 
   setIsRendered: action((state, payload) => {
-    state.isRendered = payload(state.isRendered);
+    const { sectionId, isRendered } = payload;
+    if (sectionId) {
+      state.x[sectionId].isRendered = isRendered;
+    }
   }),
 
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     state.x = _.omit(state.x, sectionIds);
     state.idsOverview = _.omit(state.idsOverview, sectionIds);
-    state.isRendered = _.omit(state.isRendered, sectionIds);
   }),
 
   idNames: computed((state) => {
