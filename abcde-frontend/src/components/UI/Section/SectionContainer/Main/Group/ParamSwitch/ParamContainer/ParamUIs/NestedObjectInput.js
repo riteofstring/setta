@@ -3,6 +3,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
+import { useGetSectionInfo } from "../../../../../../../../../utils/useCreateInfo";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
 import { useAddChild } from "../../../../../SectionContainerUtils";
 
@@ -99,10 +100,14 @@ export default function NestedObjectInput({
   parentParamInfoId,
   childIdFn,
 }) {
-  console.log("NestedObjectInput", uiTypeConfig);
+  console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const addChild = useAddChild(sectionId);
+  const childSectionTypeId = useGetSectionInfo(existingChildId).sectionTypeId;
+  const reinitSectionType = useStoreActions(
+    (x) => x.sectionTypes.reinitSectionType
+  );
 
   useEffect(() => {
     if (!existingChildId) {
@@ -113,49 +118,16 @@ export default function NestedObjectInput({
         parentParamInfoId,
       });
     } else {
+      reinitSectionType({
+        sectionTypeId: childSectionTypeId,
+        uiType,
+        uiTypeConfig,
+      });
       setIsRendered((x) => {
         return { ...x, [existingChildId]: true };
       });
     }
-  }, [uiTypeConfig]);
-
-  // const addChildren = useStoreActions((actions) => actions.master.addChildren);
-  // const childId = useStoreState(
-  //   (state) =>
-  //     state.master.sections.getChildrenIdsPerParam(sectionId, paramName)?.[0]
-  // );
-  // const setSectionModules = useStoreActions(
-  //   (actions) => actions.master.setSectionModules
-  // );
-  // const setChildrenIdsPerParam = useStoreActions(
-  //   (actions) => actions.master.setChildrenIdsPerParam
-  // );
-
-  // useEffect(() => {
-  //   if (!childId) {
-  //     const newIds = addChildren({
-  //       parentId: sectionId,
-  //       paramName,
-  //       uiType,
-  //     });
-  //     setChildrenIdsPerParam({
-  //       sectionId,
-  //       paramName,
-  //       childrenIds: newIds,
-  //     });
-  //   }
-  // }, [childId]);
-
-  // useEffect(() => {
-  //   if (childId) {
-  //     setSectionModules({
-  //       sectionId: childId,
-  //       parentId: sectionId,
-  //       paramName: paramName,
-  //       specs: paramUITypeConfig,
-  //     });
-  //   }
-  // }, [paramUITypeConfig]);
+  }, [uiType, uiTypeConfig]);
 
   return null;
 }

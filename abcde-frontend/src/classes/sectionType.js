@@ -28,7 +28,7 @@ export class SectionType {
     parentIsSection,
   }) {
     this.id = id;
-    this.initName(name, parentSectionType, paramUIType);
+    this.initName(name, paramUIType);
     this.initSpecs(
       paramUITypeConfig,
       topLevelSpecs,
@@ -36,7 +36,6 @@ export class SectionType {
       parentIsSection
     );
     this.initIds(allObjCollections, allParamCollections);
-    this.hasObjects = "objects" in this.specs;
     this.initChildType(
       allObjCollections,
       allParamCollections,
@@ -62,13 +61,9 @@ export class SectionType {
     }
   }
 
-  initName(name, parentSectionType, paramUIType) {
+  initName(name, paramUIType) {
     if (name) {
       this.name = name;
-      return;
-    }
-    if (parentSectionType?.name === LIST_ROOT) {
-      this.name = LIST;
       return;
     }
     if (paramUIType?.name === LIST_NESTED_OBJECT) {
@@ -94,6 +89,7 @@ export class SectionType {
       this.specs = topLevelSpecs;
     }
     this.specs = convertSpecsToDict(this.specs);
+    this.hasObjects = this.specs.objects?.length > 0;
   }
 
   initChildType(

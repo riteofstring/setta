@@ -10,6 +10,13 @@ function getInfo(x) {
   return x.x;
 }
 
+function getAttr(x, attr = null) {
+  if (attr === null) {
+    return x;
+  }
+  return x[attr];
+}
+
 export function useCreateSectionInfo(sectionId, parentIsSection) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -129,8 +136,9 @@ export function useGetParamUIType(sectionId) {
 }
 
 export function useUITypeConfig(uiType) {
+  const uiTypeConfigId = uiType.configId;
   const uiTypeConfig = defaultState(
-    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiType.configId]),
+    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiTypeConfigId]),
     () => {}
   );
   const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
