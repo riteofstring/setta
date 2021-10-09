@@ -1,5 +1,7 @@
 import { immerable } from "immer";
 
+import { ParameterInfo } from "./immutableInfo";
+
 export class MutableParamInfo {
   [immerable] = true;
   constructor({ id, uiTypeId, enteredValue, childId }) {
@@ -33,4 +35,8 @@ export class SectionInfo {
       this.name = parentSectionInfo.name;
     }
   }
+}
+
+export class KwargInfo extends ParameterInfo {
+  [immerable] = true;
 }

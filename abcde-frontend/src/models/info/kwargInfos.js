@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 
 const kwargInfos = {
   x: {},
@@ -6,12 +6,16 @@ const kwargInfos = {
   setKwargInfo: action((state, payload) => {
     const { kwargInfoId, kwargInfo } = payload;
     state.x[kwargInfoId] = kwargInfo;
-    console.log("setKwargInfo", debug(state.x));
   }),
 
   setName: action((state, payload) => {
     const { kwargInfoId, name } = payload;
     state.x[kwargInfoId].name = name;
+  }),
+
+  deleteKwargInfo: action((state, payload) => {
+    const { ids } = payload;
+    state.x = _.omit(state.x, ids);
   }),
 };
 

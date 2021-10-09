@@ -22,12 +22,6 @@ export default function ParamContainer(props) {
     initUITypeFn(paramInfo);
   }, [paramInfo.id]);
 
-  // const paramUITypeConfig = useStoreState((state) =>
-  //   state.master.sections.getParamUITypeConfig(sectionId, paramName)
-  // );
-
-  // console.log("ParamContainer uiType.isNested", paramInfo, uiType.isNested());
-
   return !uiType.isNested ? (
     <>
       <FormControl as="fieldset">

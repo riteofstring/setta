@@ -15,6 +15,7 @@ import {
   useInitializeUIType,
   useAddKwarg,
   useGetKwargInfos,
+  useDeleteKwarg,
 } from "../../../../../../utils/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
@@ -27,8 +28,9 @@ export default function GroupContainer({ sectionId, objInfo }) {
   const getUITypeFn = useGetParamUIType(sectionId);
   const initUITypeFn = useInitializeUIType(sectionId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
+  const deleteKwarg = useDeleteKwarg(sectionId, objInfo);
 
-  function getParamSwitch(infos, isKwargs = false) {
+  function getParamSwitch(infos, isKwarg = false) {
     return (
       infos.length > 0 && (
         <FormControl id="groupone">
@@ -41,6 +43,8 @@ export default function GroupContainer({ sectionId, objInfo }) {
               childIdFn={childIdFn}
               getUITypeFn={getUITypeFn}
               initUITypeFn={initUITypeFn}
+              deleteKwarg={deleteKwarg}
+              isKwarg={isKwarg}
             />
           ))}
         </FormControl>
@@ -65,7 +69,7 @@ export default function GroupContainer({ sectionId, objInfo }) {
         />
       </HStack>
 
-      {getParamSwitch(kwargInfos)}
+      {getParamSwitch(kwargInfos, true)}
     </Stack>
   );
 }

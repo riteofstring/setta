@@ -1,4 +1,4 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 
 import { MutableObjInfo } from "../../classes/mutableInfo";
 import { setToDefault } from "./utils";
@@ -19,7 +19,6 @@ const objInfos = {
     const { sectionId, objInfoId, newStateFn } = payload;
     const currState = setDefaultInfo(state, sectionId, objInfoId);
     currState.kwargIds = newStateFn(currState.kwargIds);
-    console.log("setKwargIds", debug(state.x));
   }),
 };
 

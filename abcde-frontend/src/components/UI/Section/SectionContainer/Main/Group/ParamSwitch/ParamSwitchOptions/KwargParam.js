@@ -6,49 +6,18 @@ import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 
 export default function KwargParam(props) {
-  const {
-    sectionId,
-    stateIsUpToDate,
-    enteredKwargName,
-    setEnteredKwargName,
-    onClickDelete,
-    paramAndKwargNames,
-  } = props;
-
-  const addKwarg = useStoreActions((actions) => actions.master.addKwarg);
-  const deleteKwarg = useStoreActions((actions) => actions.master.deleteKwarg);
-  const replaceKwarg = useStoreActions(
-    (actions) => actions.master.replaceKwarg
-  );
-
-  const onSubmit = (v) => {
-    if (enteredKwargName) {
-      replaceKwarg({ sectionId, oldKwarg: enteredKwargName, newKwarg: v });
-    } else if (v) {
-      addKwarg({ sectionId, kwargName: v });
-    }
-    setEnteredKwargName(v);
-  };
-
-  const deleteFromState = () => {
-    if (enteredKwargName) {
-      deleteKwarg({ sectionId, kwargName: enteredKwargName });
-    }
+  const { paramInfo: kwargInfo, deleteKwarg } = props;
+  const setName = useStoreActions((x) => x.kwargInfos.setName);
+  const onBlur = (v) => {
+    setName({ kwargInfoId: kwargInfo.id, name: v });
   };
 
   const onClick = () => {
-    deleteFromState();
-    onClickDelete();
+    deleteKwarg(kwargInfo.id);
   };
 
   function getParamNameInput() {
-    return (
-      <ParamNameInput
-        value={enteredKwargName}
-        onSubmit={onSubmit}
-        takenNames={paramAndKwargNames}
-      />
-    );
+    return <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />;
   }
 
   return (
@@ -60,13 +29,7 @@ export default function KwargParam(props) {
         borderRadius="full"
         onClick={onClick}
       />
-      {stateIsUpToDate && enteredKwargName ? (
-        <ParamContainer sectionId={sectionId} paramName={enteredKwargName}>
-          {getParamNameInput()}
-        </ParamContainer>
-      ) : (
-        getParamNameInput()
-      )}
+      <ParamContainer {...props}>{getParamNameInput()}</ParamContainer>
     </HStack>
   );
 }

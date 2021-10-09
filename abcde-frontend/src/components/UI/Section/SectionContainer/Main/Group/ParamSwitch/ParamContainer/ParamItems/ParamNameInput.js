@@ -1,30 +1,21 @@
-import { Editable, EditablePreview, EditableInput } from "@chakra-ui/react";
+import { Input } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
 
-export default function ParamNameInput({ value, onSubmit, takenNames }) {
+export default function ParamNameInput({ value, onBlur }) {
   const [liveValue, setLiveValue] = useState(value);
 
   useEffect(() => {
     setLiveValue(value ? value : "");
+    console.log("value changed", value);
   }, [value]);
 
-  const onSubmitWrapper = (v) => {
-    if (!takenNames.includes(v)) {
-      onSubmit(v);
-    } else {
-      setLiveValue("");
-    }
-  };
-
   return (
-    <Editable
-      placeholder="enter keyword"
+    <Input
+      placeholder="Please Enter Key"
       value={liveValue}
-      onChange={setLiveValue}
-      onSubmit={onSubmitWrapper}
-    >
-      <EditablePreview />
-      <EditableInput />
-    </Editable>
+      width="50%"
+      onChange={(v) => setLiveValue(v.target.value)}
+      onBlur={(v) => onBlur(v.target.value)}
+    />
   );
 }

@@ -1,8 +1,8 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
-import { ParameterInfo } from "../classes/immutableInfo";
 import { createSectionInfo } from "../classes/infoFactory";
+import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
 import { curryAction, defaultState } from "./utils";
@@ -188,15 +188,28 @@ export function useInitializeUIType(sectionId) {
 }
 
 export function useAddKwarg(sectionId, objInfo) {
-  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
+  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   return () => {
-    const kwargInfo = new ParameterInfo(createNewId(), "", {});
+    const kwargInfo = new KwargInfo(createNewId(), "", {});
     setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
     setKwargIds({
       sectionId,
       objInfoId: objInfo.id,
       newStateFn: (x) => [...x, kwargInfo.id],
     });
+  };
+}
+
+export function useDeleteKwarg(sectionId, objInfo) {
+  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
+  const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
+  return (id) => {
+    setKwargIds({
+      sectionId,
+      objInfoId: objInfo.id,
+      newStateFn: (x) => x.filter((y) => y !== id),
+    });
+    deleteKwargInfo([id]);
   };
 }
