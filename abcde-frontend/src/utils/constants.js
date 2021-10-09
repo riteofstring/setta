@@ -23,3 +23,19 @@ export function isRoot(sectionTypeName) {
 export function isListLike(sectionTypeName) {
   return [LIST, DICT].includes(sectionTypeName);
 }
+
+export const prettyToUITypes = Object.freeze(
+  new Map(
+    Object.entries({
+      Text: "TEXT",
+      Slider: "SLIDER",
+      Object: "NESTED_OBJECT",
+      "List of Objects": "LIST_NESTED_OBJECT",
+      "Dict of Objects": "DICT_NESTED_OBJECT",
+    })
+  )
+);
+
+export const uiTypesToPretty = new Map(
+  Array.from(prettyToUITypes, (a) => a.reverse())
+);

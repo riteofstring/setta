@@ -12,8 +12,12 @@ import {
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 
-import { UIType, UITYPES } from "../../../../../../../classes/uiType";
+import { UIType } from "../../../../../../../classes/uiType";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
+import {
+  prettyToUITypes,
+  uiTypesToPretty,
+} from "../../../../../../../utils/constants";
 import { useUITypeConfig } from "../../../../../../../utils/useCreateInfo";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
@@ -30,7 +34,11 @@ export default function Item({ paramInfo, getUITypeFn }) {
     const { id, configId } = uiType;
     setUIType({
       uiTypeId: id,
-      uiType: new UIType({ id, name: e.target.value, configId }),
+      uiType: new UIType({
+        id,
+        name: prettyToUITypes.get(e.target.value),
+        configId,
+      }),
     });
   };
 
@@ -59,9 +67,9 @@ export default function Item({ paramInfo, getUITypeFn }) {
                 <Select
                   placeholder="Select UI Type"
                   onChange={onSelect}
-                  defaultValue={uiType.name}
+                  defaultValue={uiTypesToPretty.get(uiType.name)}
                 >
-                  {UITYPES.map((e, idx) => (
+                  {[...prettyToUITypes.keys()].map((e, idx) => (
                     <option value={e} key={`${e}-${idx}`}>
                       {e}
                     </option>
