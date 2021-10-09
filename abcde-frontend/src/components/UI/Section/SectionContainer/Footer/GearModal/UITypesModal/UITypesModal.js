@@ -2,13 +2,13 @@ import { Box, Text, VStack } from "@chakra-ui/react";
 
 import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
 import {
-  useGetAllParamInfos,
+  useGetAllParamAndKwargInfos,
   useGetParamUIType,
 } from "../../../../../../../utils/useCreateInfo";
 import Item from "./Item";
 
 export default function UITypesModal({ isOpen, onClose, sectionId, objInfo }) {
-  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
+  const paramInfos = useGetAllParamAndKwargInfos(sectionId, objInfo);
   const getUITypeFn = useGetParamUIType(sectionId);
 
   return (

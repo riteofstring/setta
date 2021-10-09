@@ -109,6 +109,13 @@ export function useGetAllParamInfos(sectionId, objInfo) {
   return [...objParamInfos, ...paramCollections];
 }
 
+export function useGetAllParamAndKwargInfos(sectionId, objInfo) {
+  return [
+    ...useGetAllParamInfos(sectionId, objInfo),
+    ...useGetKwargInfos(sectionId, objInfo),
+  ];
+}
+
 export function useParamInfoState(stateName, setStateFn, key) {
   return (sectionId) => {
     const setX = curryAction(
