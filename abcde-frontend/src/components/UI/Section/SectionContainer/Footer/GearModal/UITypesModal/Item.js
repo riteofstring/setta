@@ -26,7 +26,7 @@ export default function Item({ paramInfo, getUITypeFn }) {
   const [uiTypeConfig, setUITypeConfig] = useUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
-  console.log("Item", uiTypeConfig);
+  console.log("Item", uiTypeConfig, uiType.name);
 
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
 

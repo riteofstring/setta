@@ -4,6 +4,7 @@ export const SECTIONWIDTH = 650;
 export const PANEID = -1;
 export const DEFAULT_ENTERED_TEXT = "// write your code here";
 
+export const UNKNOWN = "UNKNOWN";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const LIST = "LIST";
@@ -40,8 +41,9 @@ export const prettyToUITypes = Object.freeze(
   )
 );
 
-export const uiTypesToPretty = new Map(
-  Array.from(prettyToUITypes, (a) => a.reverse())
-);
+export const uiTypesToPretty = new Map([
+  [UNKNOWN, "Text"],
+  ...Array.from(prettyToUITypes, (a) => a.reverse()),
+]);
 
 export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
