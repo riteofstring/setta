@@ -1,6 +1,7 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
+import { ParameterInfo } from "../classes/immutableInfo";
 import { createSectionInfo } from "../classes/infoFactory";
 import { UIType } from "../classes/uiType";
 import { createNewId } from "./sectionIds";
@@ -87,6 +88,21 @@ export function useGetParamCollections(sectionId) {
   return useGetXInfos("paramCollectionIds", "allParamCollections", sectionId);
 }
 
+export function useGetKwargIds(sectionId, objInfo) {
+  return defaultState(
+    useStoreState(
+      (x) => getInfo(x.objInfos)[sectionId]?.[objInfo.id]?.kwargIds
+    ),
+    () => []
+  );
+}
+
+export function useGetKwargInfos(sectionId, objInfo) {
+  const kwargIds = useGetKwargIds(sectionId, objInfo);
+  const kwargInfoState = useStoreState((x) => getInfo(x.kwargInfos));
+  return kwargIds.map((x) => kwargInfoState[x]);
+}
+
 export function useGetAllParamInfos(sectionId, objInfo) {
   const objParamInfos = objInfo.children ? Object.values(objInfo.children) : [];
   const paramCollections = useGetParamCollections(sectionId);
@@ -168,5 +184,19 @@ export function useInitializeUIType(sectionId) {
       setConfigId({ uiTypeId: newUIType.id, configId: configId });
       setConfig({ configId, config });
     }
+  };
+}
+
+export function useAddKwarg(sectionId, objInfo) {
+  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
+  const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
+  return () => {
+    const kwargInfo = new ParameterInfo(createNewId(), "", {});
+    setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
+    setKwargIds({
+      sectionId,
+      objInfoId: objInfo.id,
+      newStateFn: (x) => [...x, kwargInfo.id],
+    });
   };
 }

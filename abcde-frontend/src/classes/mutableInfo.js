@@ -10,6 +10,14 @@ export class MutableParamInfo {
   }
 }
 
+export class MutableObjInfo {
+  [immerable] = true;
+  constructor({ id, kwargIds = [] }) {
+    this.id = id;
+    this.kwargIds = kwargIds;
+  }
+}
+
 export class SectionInfo {
   [immerable] = true;
   constructor({ id, name, sectionTypeId, parentSectionInfo }) {
