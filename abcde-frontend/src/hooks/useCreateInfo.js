@@ -229,7 +229,9 @@ export function useDeleteKwarg(sectionId, objInfo) {
     });
     deleteKwargInfo({ ids: [id] });
     deleteParamInfo({ ids: [id] });
-    deleteChild({ startId: childId });
+    if (childId) {
+      deleteChild({ startId: childId });
+    }
   };
 }
 
