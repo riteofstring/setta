@@ -29,6 +29,11 @@ const paramInfos = {
     const { sectionId, paramInfoId, childId } = payload;
     setDefaultInfo(state, sectionId, paramInfoId).childId = childId;
   }),
+
+  deleteParamInfo: action((state, payload) => {
+    const { ids } = payload;
+    state.x = _.omit(state.x, ids);
+  }),
 };
 
 export default paramInfos;

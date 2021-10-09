@@ -13,7 +13,7 @@ export default function KwargParam(props) {
   };
 
   const onClick = () => {
-    deleteKwarg(kwargInfo.id);
+    deleteKwarg(kwargInfo);
   };
 
   return (

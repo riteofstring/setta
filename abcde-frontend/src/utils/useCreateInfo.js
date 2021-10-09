@@ -209,14 +209,21 @@ export function useAddKwarg(sectionId, objInfo) {
 }
 
 export function useDeleteKwarg(sectionId, objInfo) {
+  const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
-  return (id) => {
+  const deleteParamInfo = useStoreActions((x) => x.paramInfos.deleteParamInfo);
+  const childIdFn = useParamChildId(sectionId);
+  return (kwargInfo) => {
+    const { id } = kwargInfo;
+    const childId = childIdFn(id)[0];
     setKwargIds({
       sectionId,
       objInfoId: objInfo.id,
       newStateFn: (x) => x.filter((y) => y !== id),
     });
-    deleteKwargInfo([id]);
+    deleteKwargInfo({ ids: [id] });
+    deleteParamInfo({ ids: [id] });
+    deleteSections({ sectionIds: [childId] });
   };
 }
