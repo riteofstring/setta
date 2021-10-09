@@ -3,9 +3,11 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
-import { useGetSectionInfo } from "../../../../../../../../../utils/useCreateInfo";
+import {
+  useGetSectionInfo,
+  useAddChild,
+} from "../../../../../../../../../utils/useCreateInfo";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
-import { useAddChild } from "../../../../../SectionContainerUtils";
 
 function valueAndLabel(x, type) {
   return { value: [x, type], label: x };

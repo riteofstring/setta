@@ -1,6 +1,6 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import React, { useState } from "react";
 
 import {
@@ -12,6 +12,9 @@ import {
 import {
   useGetSectionInfo,
   useGetSectionType,
+  useAddChild,
+  useDeleteChild,
+  funcFlipChildrenAreCollapsed,
 } from "../../../../utils/useCreateInfo";
 import { useIdsOverview } from "../../../../utils/useIdsOverview";
 import { useSetSectionPosition } from "../../../../utils/useSetSectionPosition";
@@ -21,11 +24,6 @@ import { SectionHeader } from "./Header/SectionHeader";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
-import {
-  useAddChild,
-  funcFlipChildrenAreCollapsed,
-  useDeleteChild,
-} from "./SectionContainerUtils";
 
 function SectionContainer({
   sectionId,
