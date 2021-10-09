@@ -2018,7 +2018,7 @@
               "defaultVal": "_empty",
               "type": "_empty",
               "specs": { "objects": ["transforms"] },
-              "uiType": "LIST_NESTED_OBJECT"
+              "uiType": "LIST_ROOT"
             }
           }
         }

@@ -1,14 +1,6 @@
 import { immerable } from "immer";
 
-import {
-  LIST,
-  DICT,
-  LIST_NESTED_OBJECT,
-  DICT_NESTED_OBJECT,
-  LIST_ROOT,
-  DICT_ROOT,
-  SECTION,
-} from "../utils/constants";
+import { SECTION, rootTypeToChildType } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { nullOrUndefined } from "../utils/utils";
 import { convertSpecsToDict } from "./immutableInfo";
@@ -69,12 +61,8 @@ export class SectionType {
       this.name = name;
       return;
     }
-    if (paramUIType?.name === LIST_NESTED_OBJECT) {
-      this.name = LIST_ROOT;
-      return;
-    }
-    if (paramUIType?.name === DICT_NESTED_OBJECT) {
-      this.name = DICT_ROOT;
+    if (paramUIType?.name) {
+      this.name = paramUIType.name;
       return;
     }
     this.name = SECTION;
@@ -106,12 +94,7 @@ export class SectionType {
     paramUITypeConfig
   ) {
     this.childType = null;
-    let childName = null;
-    if (this.name === LIST_ROOT) {
-      childName = LIST;
-    } else if (this.name === DICT_ROOT) {
-      childName = DICT;
-    }
+    const childName = rootTypeToChildType[this.name];
     if (childName) {
       this.childType = new SectionType({
         id: createNewId(),

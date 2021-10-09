@@ -1,3 +1,9 @@
+import {
+  DICT_ROOT,
+  LIST_ROOT,
+  SECTION,
+  SLIDER,
+} from "../../../../../../../../../utils/constants";
 import { NestedObjectInputConfig } from "./NestedObjectInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import TextInput, { TextInputConfig } from "./TextInput";
@@ -7,13 +13,13 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
   switch (name) {
     default:
       return <TextInputConfig savedConfig={savedConfig} onChange={onChange} />;
-    case "SLIDER":
+    case SLIDER:
       return (
         <SliderInputConfig savedConfig={savedConfig} onChange={onChange} />
       );
-    case "NESTED_OBJECT":
-    case "LIST_NESTED_OBJECT":
-    case "DICT_NESTED_OBJECT":
+    case SECTION:
+    case LIST_ROOT:
+    case DICT_ROOT:
       return (
         <NestedObjectInputConfig
           name={name}
@@ -28,7 +34,7 @@ export default function ParamUI({ name, childProps }) {
   switch (name) {
     default:
       return <TextInput {...childProps} />;
-    case "SLIDER":
+    case SLIDER:
       return <SliderInput {...childProps} />;
   }
 }

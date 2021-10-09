@@ -1,10 +1,6 @@
 import { immerable } from "immer";
 
-function requiresNestedSection(uiTypeName) {
-  return ["NESTED_OBJECT", "LIST_NESTED_OBJECT", "DICT_NESTED_OBJECT"].includes(
-    uiTypeName
-  );
-}
+import { requiresNestedSection } from "../utils/constants";
 
 export class UIType {
   [immerable] = true;
