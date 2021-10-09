@@ -1,7 +1,19 @@
 import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
+import { compatibleName } from "../../utils/constants";
 import { defaultState } from "../../utils/utils";
+import { setToDefault } from "./utils";
+
+function setDefaultIdsOverview(state, sectionId, sectionTypeName) {
+  return setToDefault(
+    state,
+    sectionId,
+    sectionTypeName,
+    () => [],
+    "idsOverview"
+  );
+}
 
 const sectionInfos = {
   x: {},
@@ -18,9 +30,9 @@ const sectionInfos = {
   }),
 
   setIdsOverview: action((state, payload) => {
-    const { sectionId, newStateFn } = payload;
-    const currState = defaultState(state.idsOverview[sectionId], () => []);
-    state.idsOverview[sectionId] = newStateFn(currState);
+    const { sectionId, sectionTypeName, newStateFn } = payload;
+    const currState = setDefaultIdsOverview(state, sectionId, sectionTypeName);
+    state.idsOverview[sectionId][sectionTypeName] = newStateFn(currState);
   }),
 
   setIsRendered: action((state, payload) => {
@@ -41,6 +53,24 @@ const sectionInfos = {
     }
     return names;
   }),
+
+  allIdsOverview: computed(
+    [
+      (state) => state.idsOverview,
+      (state) => state.x,
+      (state, storeState) => storeState.sectionTypes.x,
+    ],
+    (idsOverview, sectionInfos, sectionTypes) => {
+      const output = {};
+      for (let k of Object.keys(idsOverview)) {
+        const typeName = compatibleName(
+          sectionTypes[sectionInfos[k]?.sectionTypeId]?.name
+        );
+        output[k] = defaultState(idsOverview[k]?.[typeName], () => []);
+      }
+      return output;
+    }
+  ),
 };
 
 export default sectionInfos;

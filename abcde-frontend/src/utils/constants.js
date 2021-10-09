@@ -53,6 +53,12 @@ export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
 export const compatibleChildren = [new Set([LIST_ROOT, DICT_ROOT])];
 
 export function childrenAreCompatible(types) {
-  console.log("compatibleChildren", compatibleChildren, types);
   return compatibleChildren.filter((x) => _.isEqual(x, types)).length > 0;
+}
+
+export function compatibleName(type) {
+  return {
+    [LIST_ROOT]: LIST_ROOT + DICT_ROOT,
+    [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
+  }[type];
 }

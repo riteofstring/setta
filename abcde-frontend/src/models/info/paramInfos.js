@@ -1,16 +1,15 @@
 import { action } from "easy-peasy";
 
 import { MutableParamInfo } from "../../classes/mutableInfo";
+import { setToDefault } from "./utils";
 
-function setToDefault(state, sectionId, paramInfoId) {
-  if (!(sectionId in state.x)) {
-    state.x[sectionId] = {};
-  }
-  if (!(paramInfoId in state.x[sectionId])) {
-    state.x[sectionId][paramInfoId] = new MutableParamInfo({
-      id: paramInfoId,
-    });
-  }
+function setDefaultInfo(state, sectionId, paramInfoId) {
+  return setToDefault(
+    state,
+    sectionId,
+    paramInfoId,
+    () => new MutableParamInfo({ id: paramInfoId })
+  );
 }
 
 const paramInfos = {
@@ -18,20 +17,17 @@ const paramInfos = {
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;
-    setToDefault(state, sectionId, paramInfoId);
-    state.x[sectionId][paramInfoId].uiTypeId = uiTypeId;
+    setDefaultInfo(state, sectionId, paramInfoId).uiTypeId = uiTypeId;
   }),
 
   setEnteredValue: action((state, payload) => {
     const { sectionId, paramInfoId, value } = payload;
-    setToDefault(state, sectionId, paramInfoId);
-    state.x[sectionId][paramInfoId].enteredValue = value;
+    setDefaultInfo(state, sectionId, paramInfoId).enteredValue = value;
   }),
 
   setChildId: action((state, payload) => {
     const { sectionId, paramInfoId, childId } = payload;
-    setToDefault(state, sectionId, paramInfoId);
-    state.x[sectionId][paramInfoId].childId = childId;
+    setDefaultInfo(state, sectionId, paramInfoId).childId = childId;
   }),
 };
 
