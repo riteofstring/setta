@@ -3,7 +3,12 @@ import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import React, { useState } from "react";
 
-import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
+import {
+  isListLike,
+  isRoot,
+  requiresKeyInput,
+  SECTIONWIDTH,
+} from "../../../../utils/constants";
 import {
   useGetSectionInfo,
   useGetSectionType,
@@ -99,8 +104,8 @@ function SectionContainerCore({
   const refForPosition = useSetSectionPosition(sectionId);
   const variableName = sectionInfo.name;
   const showSearch = sectionType.hasObjects;
-  const isList = sectionType.name === LIST;
-  const isListRoot = sectionType.name === LIST_ROOT;
+  const isList = isListLike(sectionType.name);
+  const isListRoot = isRoot(sectionType.name);
 
   function onSelectedItemChange(inputSelectedItem) {
     if (inputSelectedItem) {
@@ -131,7 +136,7 @@ function SectionContainerCore({
           deleteChild={deleteChild}
           parentControls={parentControls}
           hasNested={hasNested}
-          // requiresKeyInput={requiresKeyInput}
+          requiresKeyInput={requiresKeyInput(sectionType.name)}
         />
         {!isListRoot && (
           <Stack>

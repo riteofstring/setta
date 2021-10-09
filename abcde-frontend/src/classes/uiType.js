@@ -8,18 +8,10 @@ export const UITYPES = [
   "DICT_NESTED_OBJECT",
 ];
 
-export function requiresNestedSection(uiTypeName) {
+function requiresNestedSection(uiTypeName) {
   return ["NESTED_OBJECT", "LIST_NESTED_OBJECT", "DICT_NESTED_OBJECT"].includes(
     uiTypeName
   );
-}
-
-function isList(uiTypeName) {
-  return ["LIST_NESTED_OBJECT", "DICT_NESTED_OBJECT"].includes(uiTypeName);
-}
-
-function requiresKeyInput(uiTypeName) {
-  return ["DICT_NESTED_OBJECT"].includes(uiTypeName);
 }
 
 export class UIType {

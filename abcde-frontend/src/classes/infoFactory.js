@@ -1,4 +1,4 @@
-import { LIST_ROOT } from "../utils/constants";
+import { isRoot } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   AllModuleInfo,
@@ -20,7 +20,7 @@ export function createSectionInfo(
   parentIsSection
 ) {
   let sectionType = null;
-  if (parentSectionType?.name === LIST_ROOT) {
+  if (isRoot(parentSectionType?.name)) {
     sectionType = parentSectionType.childType;
   } else {
     sectionType = new SectionType({
