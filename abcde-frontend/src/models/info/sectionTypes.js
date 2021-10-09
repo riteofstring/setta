@@ -9,11 +9,6 @@ const sectionTypes = {
     state.x = payload(state.x);
   }),
 
-  setSectionTypeName: action((state, payload) => {
-    const { sectionTypeId, uiType } = payload;
-    state.x[sectionTypeId].initName(null, uiType);
-  }),
-
   _reinitSectionType: action((state, payload) => {
     const {
       sectionTypeId,
