@@ -3,7 +3,10 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
-import { useGetSectionInfo } from "../../../../../../../../../utils/useCreateInfo";
+import {
+  useDeleteIncompatibleChildren,
+  useGetSectionInfo,
+} from "../../../../../../../../../utils/useCreateInfo";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
 import { useAddChild } from "../../../../../SectionContainerUtils";
 
@@ -108,6 +111,10 @@ export default function NestedObjectInput({
   const reinitSectionType = useStoreActions(
     (x) => x.sectionTypes.reinitSectionType
   );
+  const deleteGrandChildren = useDeleteIncompatibleChildren(
+    existingChildId,
+    childSectionTypeId
+  );
 
   useEffect(() => {
     if (!existingChildId) {
@@ -118,6 +125,7 @@ export default function NestedObjectInput({
         parentParamInfoId,
       });
     } else {
+      deleteGrandChildren(uiType);
       reinitSectionType({
         sectionTypeId: childSectionTypeId,
         uiType,

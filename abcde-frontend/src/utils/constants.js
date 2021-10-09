@@ -1,3 +1,5 @@
+import _ from "lodash";
+
 export const NO_AUTH = process.env.REACT_APP_NO_AUTH;
 export const BACKEND = "http://localhost:8000/";
 export const SECTIONWIDTH = 650;
@@ -47,3 +49,10 @@ export const uiTypesToPretty = new Map([
 ]);
 
 export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
+
+export const compatibleChildren = [new Set([LIST_ROOT, DICT_ROOT])];
+
+export function childrenAreCompatible(types) {
+  console.log("compatibleChildren", compatibleChildren, types);
+  return compatibleChildren.filter((x) => _.isEqual(x, types)).length > 0;
+}

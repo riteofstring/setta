@@ -3,7 +3,9 @@ import _ from "lodash";
 
 import { createSectionInfo } from "../classes/infoFactory";
 import { UIType } from "../classes/uiType";
+import { childrenAreCompatible } from "./constants";
 import { createNewId } from "./sectionIds";
+import { useIdsOverview } from "./useIdsOverview";
 import { curryAction, defaultState } from "./utils";
 
 function getInfo(x) {
@@ -167,6 +169,19 @@ export function useInitializeUIType(sectionId) {
       const config = Object.assign({}, paramInfo.uiTypeConfig);
       setConfigId({ uiTypeId: newUIType.id, configId: configId });
       setConfig({ configId, config });
+    }
+  };
+}
+
+export function useDeleteIncompatibleChildren(sectionId, sectionTypeId) {
+  const setIdsOverview = useIdsOverview(sectionId)[1];
+  const sectionType = useStoreState(
+    (x) => getInfo(x.sectionTypes)[sectionTypeId]
+  );
+  return (uiType) => {
+    const types = new Set([sectionType.name, uiType.name]);
+    if (!childrenAreCompatible(types)) {
+      setIdsOverview((x) => []);
     }
   };
 }
