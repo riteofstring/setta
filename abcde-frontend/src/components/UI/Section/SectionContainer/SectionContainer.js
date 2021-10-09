@@ -1,7 +1,7 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import { LIST, LIST_ROOT, SECTIONWIDTH } from "../../../../utils/constants";
 import {
@@ -28,7 +28,6 @@ function SectionContainer({
   nextId,
   depth,
   parentControls,
-  isCollapsed,
   dragListeners,
 }) {
   const isRendered = useStoreState((x) => x.sectionInfos.isRendered[sectionId]);
@@ -44,10 +43,6 @@ function SectionContainer({
     childrenAreCollapsed,
     setChildrenAreCollapsed
   );
-
-  useEffect(() => {
-    setChildrenAreCollapsed(isCollapsed);
-  }, [isCollapsed]);
 
   return isRendered ? (
     <Stack>
@@ -75,7 +70,6 @@ function SectionContainer({
             sectionId={sectionId}
             parentControls={{ addChild, deleteChild }}
             depth={depth}
-            isCollapsed={childrenAreCollapsed}
             setChildren={setIdsOverview}
           />
         )}

@@ -8,7 +8,6 @@ export default function ManyNestedSections({
   sectionId,
   parentControls,
   depth,
-  isCollapsed,
   setChildren,
 }) {
   //   const isList = Object.values(childSectionInfo)[0].isList;
@@ -25,7 +24,6 @@ export default function ManyNestedSections({
         idx,
         key: `Nested-Sec-${e}`,
         depth: depth + 1,
-        isCollapsed,
       })
     );
   };
