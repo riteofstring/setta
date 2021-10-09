@@ -28,8 +28,8 @@ const sectionTypes = {
       paramUITypeConfig: uiTypeConfig,
       parentIsSection: true,
     });
-    state.x[sectionTypeId] = newSectionType;
     newSectionType.childType.id = childTypeId;
+    state.x[sectionTypeId] = newSectionType;
     state.x[childTypeId] = newSectionType.childType;
   }),
 
