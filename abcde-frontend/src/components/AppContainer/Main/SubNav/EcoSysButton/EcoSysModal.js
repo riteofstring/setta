@@ -117,10 +117,9 @@ function EcoSearch() {
 function EcoSearchInput() {
   return (
     <InputGroup>
-      <InputLeftElement
-        pointerEvents="none"
-        children={<SearchIcon color="gray.300" />}
-      />
+      <InputLeftElement pointerEvents="none">
+        <SearchIcon color="gray.300" />
+      </InputLeftElement>
       <Input placeholder="Search" />
     </InputGroup>
   );

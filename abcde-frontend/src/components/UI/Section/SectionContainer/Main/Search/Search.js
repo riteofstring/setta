@@ -5,7 +5,12 @@ import _ from "lodash";
 import React, { useState } from "react";
 
 import { useGetObjInfos } from "../../../../../../hooks/useCreateInfo";
-import { ComboboxInput, ComboboxList, ComboboxItem } from "./Combobox";
+import {
+  ComboboxInput,
+  ComboboxList,
+  ComboboxItem,
+  stateReducer,
+} from "./Combobox";
 
 export default function SectionSearch({
   sectionId,
@@ -34,11 +39,13 @@ export default function SectionSearch({
   };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
-    const sid = selectedItem.id;
-    if (!_.isEqual(sid, selection)) {
-      setSelection(sid);
+    if (selectedItem) {
+      const sid = selectedItem.id;
+      if (!_.isEqual(sid, selection)) {
+        setSelection(sid);
+      }
+      onSelectedItemChange(sid);
     }
-    onSelectedItemChange(sid);
   };
 
   const {
@@ -51,6 +58,7 @@ export default function SectionSearch({
     highlightedIndex,
     getItemProps,
   } = useCombobox({
+    stateReducer,
     selection,
     items: inputItems,
     itemToString,

@@ -1,14 +1,14 @@
 import { SearchIcon } from "@chakra-ui/icons";
 import { InputLeftElement, Input, List, ListItem } from "@chakra-ui/react";
+import { useCombobox } from "downshift";
 import React from "react";
 
 export const ComboboxInput = React.forwardRef(({ ...props }, ref) => {
   return (
     <>
-      <InputLeftElement
-        pointerEvents="none"
-        children={<SearchIcon color="gray.300" />}
-      />
+      <InputLeftElement pointerEvents="none">
+        <SearchIcon color="gray.300" />
+      </InputLeftElement>
       <Input
         w="100%"
         pl="2.5rem"
@@ -46,3 +46,28 @@ export const ComboboxItem = React.forwardRef(
     );
   }
 );
+
+function resetToPreviousVal(state, changes) {
+  const sname = state.selectedItem?.name;
+  const newInputValue = sname ? sname : state.inputValue;
+  return {
+    ...changes,
+    selectedItem: state.selectedItem,
+    inputValue: newInputValue,
+  };
+}
+
+export function stateReducer(state, actionAndChanges) {
+  const { type, changes } = actionAndChanges;
+  switch (type) {
+    case useCombobox.stateChangeTypes.InputKeyDownEscape:
+      return resetToPreviousVal(state, changes);
+    case useCombobox.stateChangeTypes.InputBlur:
+      if (state.highlightedIndex !== -1) {
+        return changes;
+      }
+      return resetToPreviousVal(state, changes);
+    default:
+      return changes; // otherwise business as usual.
+  }
+}
