@@ -1,18 +1,26 @@
 import { Stack } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
-import React from "react";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import React, { useEffect } from "react";
 
+import { SectionInfo } from "../../../classes/immutableInfo";
 import { useSetSectionPosition } from "../../../hooks/useSetSectionPosition";
 import { PANEID } from "../../../utils/constants";
 import SingleSectionsPane from "./SingleSectionsPane";
 
 function SectionsPane() {
-  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
-  const spaceBetweenPages = useStoreState(
-    (state) => state.master.spaceBetweenPages
-  );
-
+  const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
+  const pageMinMaxList = useStoreState((x) => x.master.pageMinMaxList);
+  const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
   const refForPosition = useSetSectionPosition(PANEID);
+
+  useEffect(() => {
+    const newInfos = pageMinMaxList.map(
+      (e, idx) => new SectionInfo({ id: idx })
+    );
+    const newIds = newInfos.map((x) => x.id);
+    const newObjs = _.zipObject(newIds, newInfos);
+    setSectionInfo((x) => ({ ...x, ...newObjs }));
+  }, []);
 
   console.log("pageMinMaxList", pageMinMaxList);
 

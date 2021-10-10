@@ -22,10 +22,12 @@ export const getOverviewListing = (pageMinMaxList, idsOverview, idNames) => {
   let outputList = [];
   for (let groupId = 0; groupId < pageMinMaxList.length; groupId++) {
     outputList.push([]);
-    for (let sectionId of idsOverview[groupId]) {
-      outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, idsOverview, idNames, 0)
-      );
+    if (groupId in idsOverview){
+      for (let sectionId of idsOverview[groupId]) {
+        outputList[outputList.length - 1].push(
+          ...getOverviewListingHelper(sectionId, idsOverview, idNames, 0)
+        );
+      }
     }
   }
   return outputList;

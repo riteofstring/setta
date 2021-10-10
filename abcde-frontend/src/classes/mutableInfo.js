@@ -1,6 +1,7 @@
 import { immerable } from "immer";
 
 import { ParameterInfo } from "./immutableInfo";
+import { defaultState } from "../utils/utils";
 
 export class MutableParamInfo {
   [immerable] = true;
@@ -28,11 +29,13 @@ export class SectionInfo {
     sectionTypeId,
     parentSectionInfo,
     isRendered = true,
+    idsOverview = {},
   }) {
     this.id = id;
     this.sectionTypeId = sectionTypeId;
     this.initName(name, parentSectionInfo);
     this.isRendered = isRendered;
+    this.idsOverview = idsOverview;
   }
 
   initName(name, parentSectionInfo) {
@@ -41,6 +44,10 @@ export class SectionInfo {
     } else if (parentSectionInfo) {
       this.name = parentSectionInfo.name;
     }
+  }
+
+  getIdsOverview(sectionTypeName) {
+    return defaultState(this.idsOverview[sectionTypeName], () => []);
   }
 }
 
