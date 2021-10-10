@@ -1,16 +1,15 @@
-import { action, thunk, debug } from "easy-peasy";
+import { action, thunk, debug, computed } from "easy-peasy";
+import _ from "lodash";
 
 import { createAllInfo } from "../classes/infoFactory";
 import Data from "../data/simpleTrainTest.json";
 import { parseUI } from "../graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "../hooks/useCreateInfo";
-import { getPageMinMaxList } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,
   spaceBetweenPages: 500,
-  pageMinMaxList: [],
-  groups: [],
+  rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),
   allModuleInfo: null,
@@ -37,11 +36,6 @@ const master = {
     console.log("allModuleInfo", debug(state.allModuleInfo));
     console.log("allObjCollections", debug(state.allObjCollections));
     console.log("allParamCollections", debug(state.allParamCollections));
-
-    state.pageMinMaxList = getPageMinMaxList(
-      state.uiSpecs.size,
-      state.sectionsPerPage
-    );
   }),
 
   setEntireState: thunk((action, payload, helpers) => {
@@ -56,7 +50,7 @@ const master = {
       // action._loadSections(payload);
     }
     const newIds = action.initSections();
-    action.initGroups({ newIds });
+    action.initRootSectionIds({ newIds });
   }),
 
   initSections: thunk((action, payload, helpers) => {
@@ -67,36 +61,31 @@ const master = {
       helpers.getStoreActions().sectionTypes.setSectionType;
 
     const uiSpecs = state.uiSpecs;
-    const numGroups = Math.ceil(uiSpecs.size / state.sectionsPerPage);
     const newIds = [];
 
-    for (let g = 0; g < numGroups; g++) {
-      const { minIdx, maxIdx } = state.pageMinMaxList[g];
-      newIds[g] = [];
-      for (
-        let idx = minIdx;
-        idx < Math.min(maxIdx, state.uiSpecs.size);
-        idx++
-      ) {
-        const newId = createSectionInfoFn({
-          name: [...uiSpecs.keys()][idx],
-          numChildren: 1,
-          allObjCollections: state.allObjCollections,
-          allParamCollections: state.allParamCollections,
-          uiSpecs,
-          parentIsSection: false,
-          setSectionInfo,
-          setSectionType,
-        });
-        newIds[g].push(newId[0]);
-      }
+    for (let idx = 0; idx < uiSpecs.size; idx++) {
+      const newId = createSectionInfoFn({
+        name: [...uiSpecs.keys()][idx],
+        numChildren: 1,
+        allObjCollections: state.allObjCollections,
+        allParamCollections: state.allParamCollections,
+        uiSpecs,
+        parentIsSection: false,
+        setSectionInfo,
+        setSectionType,
+      });
+      newIds.push(newId[0]);
     }
     return newIds;
   }),
 
-  initGroups: action((state, payload) => {
+  initRootSectionIds: action((state, payload) => {
     const { newIds } = payload;
-    state.groups = newIds;
+    state.rootSectionIds = newIds;
+  }),
+
+  groups: computed((state) => {
+    return _.chunk(state.rootSectionIds, state.sectionsPerPage);
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

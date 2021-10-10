@@ -14,7 +14,6 @@ function SingleSectionsPane({ groupId, sectionIds }) {
           <SectionContainer
             sectionId={e}
             parentId={null}
-            // nextId={idx + 1}
             key={`${e}-${idx}`}
             depth={0}
           />

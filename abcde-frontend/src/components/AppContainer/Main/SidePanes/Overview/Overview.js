@@ -13,7 +13,6 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const pageMinMaxList = useStoreState((x) => x.master.pageMinMaxList);
   const idsOverview = useStoreState((x) => x.sectionInfos.allIdsOverview);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
