@@ -2,7 +2,6 @@ import { Heading } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 
-import { getOverviewListing } from "../../../../../utils/sectionIds";
 import PaneContainer from "../PaneContainer";
 import SectionList from "./SectionList/SectionList";
 
@@ -19,11 +18,11 @@ export default function Overview() {
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useEffect(() => {
-    console.log("Overview useEffect");
-    console.log("idsOverview", idsOverview);
-    setListOfSectionIdsAndNames(
-      getOverviewListing(pageMinMaxList, idsOverview, idNames)
-    );
+    // console.log("Overview useEffect");
+    // console.log("idsOverview", idsOverview);
+    // setListOfSectionIdsAndNames(
+    //   getOverviewListing(pageMinMaxList, idsOverview, idNames)
+    // );
   }, [idsOverview, idNames]);
 
   return (

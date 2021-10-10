@@ -7,14 +7,12 @@ import { PANEID } from "../../../utils/constants";
 import SingleSectionsPane from "./SingleSectionsPane";
 
 function SectionsPane() {
-  const pageMinMaxList = useStoreState((state) => state.master.pageMinMaxList);
-  const spaceBetweenPages = useStoreState(
-    (state) => state.master.spaceBetweenPages
-  );
+  const groups = useStoreState((x) => x.master.groups);
+  const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
 
   const refForPosition = useSetSectionPosition(PANEID);
 
-  console.log("pageMinMaxList", pageMinMaxList);
+  console.log("groups", groups);
 
   return (
     <>
@@ -23,11 +21,10 @@ function SectionsPane() {
         spacing={`${spaceBetweenPages}px`}
         ref={refForPosition}
       >
-        {pageMinMaxList.map((e, idx) => (
+        {groups.map((e, idx) => (
           <SingleSectionsPane
-            minIdx={e.minIdx}
-            maxIdx={e.maxIdx}
             groupId={idx}
+            sectionIds={e}
             key={`SingleSectionsPane-${idx}`}
           />
         ))}

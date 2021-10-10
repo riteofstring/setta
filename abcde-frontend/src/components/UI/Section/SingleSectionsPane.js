@@ -1,30 +1,16 @@
 import { Heading, Stack } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
-import React, { useEffect } from "react";
+import React from "react";
 
-import { useAddChild } from "../../../hooks/useCreateInfo";
-import { useIdsOverview } from "../../../hooks/useIdsOverview";
 import SectionContainer from "./SectionContainer/SectionContainer";
 
-function SingleSectionsPane({ minIdx, maxIdx, groupId }) {
-  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
-  const idsOverview = useIdsOverview(groupId)[0];
-  const addChild = useAddChild(groupId, false, false);
-
-  useEffect(() => {
-    for (let idx = minIdx; idx < Math.min(maxIdx, uiSpecs.size); idx++) {
-      const variableName = [...uiSpecs.keys()][idx];
-      addChild({ name: variableName });
-    }
-  }, []);
-
+function SingleSectionsPane({ groupId, sectionIds }) {
   return (
     <>
       <Stack>
         <Heading size="md" color="gray.300">
           Group {groupId}
         </Heading>
-        {idsOverview.map((e, idx) => (
+        {sectionIds.map((e, idx) => (
           <SectionContainer
             sectionId={e}
             parentId={null}

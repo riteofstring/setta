@@ -23,6 +23,43 @@ function getAttr(x, attr = null) {
   return x[attr];
 }
 
+export function createSectionInfoFn({
+  name,
+  uiType,
+  uiTypeConfig,
+  numChildren,
+  allObjCollections,
+  allParamCollections,
+  parentSectionInfo,
+  parentSectionType,
+  uiSpecs,
+  parentIsSection,
+  setSectionInfo,
+  setSectionType,
+}) {
+  const newInfos = {};
+  const newSectionTypes = {};
+  for (let i = 0; i < numChildren; i++) {
+    const infoFactoryOutput = createSectionInfo(
+      name,
+      allObjCollections,
+      allParamCollections,
+      parentSectionInfo,
+      parentSectionType,
+      uiType,
+      uiTypeConfig,
+      uiSpecs,
+      parentIsSection
+    );
+    const { info, sectionType } = infoFactoryOutput;
+    newInfos[info.id] = info;
+    newSectionTypes[sectionType.id] = sectionType;
+  }
+  setSectionInfo((x) => ({ ...x, ...newInfos }));
+  setSectionType((x) => ({ ...x, ...newSectionTypes }));
+  return Object.keys(newInfos);
+}
+
 export function useCreateSectionInfo(sectionId, parentIsSection) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -35,27 +72,20 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
   const parentSectionType = useGetSectionType(sectionId);
 
   const createInfo = ({ name, uiType, uiTypeConfig, numChildren }) => {
-    const newInfos = {};
-    const newSectionTypes = {};
-    for (let i = 0; i < numChildren; i++) {
-      const infoFactoryOutput = createSectionInfo(
-        name,
-        allObjCollections,
-        allParamCollections,
-        parentSectionInfo,
-        parentSectionType,
-        uiType,
-        uiTypeConfig,
-        uiSpecs,
-        parentIsSection
-      );
-      const { info, sectionType } = infoFactoryOutput;
-      newInfos[info.id] = info;
-      newSectionTypes[sectionType.id] = sectionType;
-    }
-    setSectionInfo((x) => ({ ...x, ...newInfos }));
-    setSectionType((x) => ({ ...x, ...newSectionTypes }));
-    return Object.keys(newInfos);
+    return createSectionInfoFn({
+      name,
+      uiType,
+      uiTypeConfig,
+      numChildren,
+      allObjCollections,
+      allParamCollections,
+      parentSectionInfo,
+      parentSectionType,
+      uiSpecs,
+      parentIsSection,
+      setSectionInfo,
+      setSectionType,
+    });
   };
 
   return createInfo;

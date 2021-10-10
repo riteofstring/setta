@@ -3,12 +3,14 @@ import { action, thunk, debug } from "easy-peasy";
 import { createAllInfo } from "../classes/infoFactory";
 import Data from "../data/simpleTrainTest.json";
 import { parseUI } from "../graphql/parsers/uiParsers";
+import { createSectionInfoFn } from "../hooks/useCreateInfo";
 import { getPageMinMaxList } from "../utils/sectionIds";
 
 const master = {
   sectionsPerPage: 5,
   spaceBetweenPages: 500,
   pageMinMaxList: [],
+  groups: [],
   available: {},
   uiSpecs: new Map(),
   allModuleInfo: null,
@@ -36,19 +38,6 @@ const master = {
     console.log("allObjCollections", debug(state.allObjCollections));
     console.log("allParamCollections", debug(state.allParamCollections));
 
-    // for (let key of Object.keys(payload.UI)) {
-    //   const currSectionInfo = payload.UI[key];
-    //   const newSection = new Section(
-    //     key,
-    //     new SectionInfo(key, currSectionInfo, state.sections.available),
-    //     0
-    //   );
-    //   state.sections.addSection(newSection, currSectionInfo.id);
-    //   parseEnteredValues(state.sections, currSectionInfo);
-    //   parseUITypes(state.sections, currSectionInfo);
-    //   parseSelected(state.sections, currSectionInfo);
-    //   parseChildren(state.sections, currSectionInfo);
-    // }
     state.pageMinMaxList = getPageMinMaxList(
       state.uiSpecs.size,
       state.sectionsPerPage
@@ -66,73 +55,49 @@ const master = {
     } else {
       // action._loadSections(payload);
     }
+    const newIds = action.initSections();
+    action.initGroups({ newIds });
   }),
 
-  // // Show/Collapse button
-  // setChildrenAreCollapsed: action((state, payload) => {
-  //   state.sections.setChildrenAreCollapsed(payload);
-  // }),
+  initSections: thunk((action, payload, helpers) => {
+    const state = helpers.getState();
+    const setSectionInfo =
+      helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setSectionType =
+      helpers.getStoreActions().sectionTypes.setSectionType;
 
-  // // stores what fields to show
-  // setSelected: action((state, payload) => {
-  //   state.sections.setSelected(payload);
-  // }),
+    const uiSpecs = state.uiSpecs;
+    const numGroups = Math.ceil(uiSpecs.size / state.sectionsPerPage);
+    const newIds = [];
 
-  // setChildrenIds: action((state, payload) => {
-  //   state.sections.setChildrenIds(payload);
-  // }),
+    for (let g = 0; g < numGroups; g++) {
+      const { minIdx, maxIdx } = state.pageMinMaxList[g];
+      newIds[g] = [];
+      for (
+        let idx = minIdx;
+        idx < Math.min(maxIdx, state.uiSpecs.size);
+        idx++
+      ) {
+        const newId = createSectionInfoFn({
+          name: [...uiSpecs.keys()][idx],
+          numChildren: 1,
+          allObjCollections: state.allObjCollections,
+          allParamCollections: state.allParamCollections,
+          uiSpecs,
+          parentIsSection: false,
+          setSectionInfo,
+          setSectionType,
+        });
+        newIds[g].push(newId[0]);
+      }
+    }
+    return newIds;
+  }),
 
-  // setEnteredValue: action((state, payload) => {
-  //   state.sections.setEnteredValue(payload);
-  // }),
-
-  // setParamUIType: action((state, payload) => {
-  //   state.sections.setParamUIType(payload);
-  // }),
-
-  // setUIType: action((state, payload) => {
-  //   state.sections.setUIType(payload);
-  // }),
-
-  // setChildrenIdsPerParam: action((state, payload) => {
-  //   state.sections.setChildrenIdsPerParam(payload);
-  // }),
-
-  // setParamUITypeConfig: action((state, payload) => {
-  //   state.sections.setParamUITypeConfig(payload);
-  // }),
-
-  // setSectionModules: action((state, payload) => {
-  //   state.sections.setSectionModules(payload);
-  // }),
-
-  // setName: action((state, payload) => {
-  //   state.sections.setName(payload);
-  // }),
-
-  // addChildren: thunk((action, payload, helpers) => {
-  //   return helpers.getState().sections.createAndAddChildren(payload);
-  // }),
-
-  // deleteSections: action((state, payload) => {
-  //   state.sections.deleteSections(payload);
-  // }),
-
-  // deleteChildren: action((state, payload) => {
-  //   state.sections.deleteChildren(payload);
-  // }),
-
-  // addKwarg: action((state, payload) => {
-  //   state.sections.addKwarg(payload);
-  // }),
-
-  // deleteKwarg: action((state, payload) => {
-  //   state.sections.deleteKwarg(payload);
-  // }),
-
-  // replaceKwarg: action((state, payload) => {
-  //   state.sections.replaceKwarg(payload);
-  // }),
+  initGroups: action((state, payload) => {
+    const { newIds } = payload;
+    state.groups = newIds;
+  }),
 
   // exportSelected: thunk((action, payload, helpers) => {
   //   return createExportableObject(helpers.getState().sections);
