@@ -1,15 +1,26 @@
-import { action, computed, debug } from "easy-peasy";
+import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
 import { compatibleName } from "../../utils/constants";
-import {defaultState} from "../../utils/utils"
+import { defaultState } from "../../utils/utils";
+import { setToDefault } from "./utils";
+
+function setDefaultIdsOverview(state, sectionId, sectionTypeName) {
+  return setToDefault(
+    state,
+    sectionId,
+    sectionTypeName,
+    () => [],
+    "idsOverview"
+  );
+}
 
 const sectionInfos = {
   x: {},
+  idsOverview: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
-    console.log("setSectionInfo", debug(state.x))
   }),
 
   setSectionInfoAttr: action((state, payload) => {
@@ -19,13 +30,8 @@ const sectionInfos = {
 
   setIdsOverview: action((state, payload) => {
     const { sectionId, sectionTypeName, newStateFn } = payload;
-    const currState = defaultState(
-      state.x[sectionId]?.getIdsOverview(sectionTypeName),
-      () => []
-    );
-    console.log("setIdsOverview", sectionId, debug(state.x))
-    state.x[sectionId].idsOverview[sectionTypeName] = newStateFn(currState);
-    // console.log("setIdsOverview", sectionId, debug(state.x))
+    const currState = setDefaultIdsOverview(state, sectionId, sectionTypeName);
+    state.idsOverview[sectionId][sectionTypeName] = newStateFn(currState);
   }),
 
   setIsRendered: action((state, payload) => {
@@ -38,6 +44,7 @@ const sectionInfos = {
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     state.x = _.omit(state.x, sectionIds);
+    state.idsOverview = _.omit(state.idsOverview, sectionIds);
   }),
 
   idNames: computed((state) => {
@@ -49,17 +56,18 @@ const sectionInfos = {
   }),
 
   allIdsOverview: computed(
-    [(state) => state.x, (state, storeState) => storeState.sectionTypes.x],
-    (sectionInfos, sectionTypes) => {
+    [
+      (state) => state.idsOverview,
+      (state) => state.x,
+      (state, storeState) => storeState.sectionTypes.x,
+    ],
+    (idsOverview, sectionInfos, sectionTypes) => {
       const output = {};
-      for (let k of Object.keys(sectionInfos)) {
+      for (let k of Object.keys(idsOverview)) {
         const typeName = compatibleName(
           sectionTypes[sectionInfos[k]?.sectionTypeId]?.name
         );
-        output[k] = defaultState(
-          sectionInfos[k]?.getIdsOverview(typeName),
-          () => []
-        );
+        output[k] = defaultState(idsOverview[k]?.[typeName], () => []);
       }
       return output;
     }

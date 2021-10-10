@@ -11,8 +11,6 @@ function SingleSectionsPane({ minIdx, maxIdx, groupId }) {
   const idsOverview = useIdsOverview(groupId)[0];
   const addChild = useAddChild(groupId, false, false);
 
-  console.log("SingleSectionsPane idsOverview", idsOverview)
-
   useEffect(() => {
     for (let idx = minIdx; idx < Math.min(maxIdx, uiSpecs.size); idx++) {
       const variableName = [...uiSpecs.keys()][idx];
