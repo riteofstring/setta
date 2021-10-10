@@ -290,15 +290,10 @@ export function useDeleteKwarg(sectionId, objInfo) {
   };
 }
 
-export function useAddChild(
-  sectionId,
-  parentIsSection = true,
-  prepend = true,
-  startId = null
-) {
+export function useAddChild(sectionId, startId = null) {
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const createInfo = useCreateSectionInfo(sectionId, parentIsSection);
+  const createInfo = useCreateSectionInfo(sectionId, true);
 
   function addChild({
     name = null,
@@ -314,7 +309,7 @@ export function useAddChild(
       if (startId !== null) {
         insertIdx = x.indexOf(startId) + 1;
       }
-      return insertIntoArrayOrXpend(x, insertIdx, prepend, ...newIds);
+      return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
     });
 
     if (parentParamInfoId) {

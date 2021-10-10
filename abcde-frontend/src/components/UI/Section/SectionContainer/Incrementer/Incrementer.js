@@ -17,7 +17,7 @@ export default function Incrementer({
   deleteChild,
   hasNested,
 }) {
-  const addSibling = useAddChild(parentId, true, true, sectionId);
+  const addSibling = useAddChild(parentId, sectionId);
   const deleteSibling = useDeleteChild(parentId, nextId);
   const deleteSelf = useDeleteChild(parentId, sectionId);
 
