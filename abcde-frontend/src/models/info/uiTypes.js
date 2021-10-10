@@ -12,6 +12,11 @@ const uiTypes = {
     const { uiTypeId, configId } = payload;
     state.x[uiTypeId].configId = configId;
   }),
+
+  setName: action((state, payload) => {
+    const { uiTypeId, name } = payload;
+    state.x[uiTypeId].name = name;
+  }),
 };
 
 export default uiTypes;

@@ -7,7 +7,10 @@ export class UIType {
   constructor({ id, name, configId }) {
     this.id = id;
     this.name = name;
-    this.isNested = requiresNestedSection(this.name);
     this.configId = configId;
+  }
+
+  get isNested() {
+    return requiresNestedSection(this.name);
   }
 }

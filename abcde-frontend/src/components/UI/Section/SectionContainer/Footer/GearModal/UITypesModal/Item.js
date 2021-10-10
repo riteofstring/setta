@@ -12,7 +12,6 @@ import {
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 
-import { UIType } from "../../../../../../../classes/uiType";
 import { useUITypeConfig } from "../../../../../../../hooks/useCreateInfo";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
 import {
@@ -28,18 +27,10 @@ export default function Item({ paramInfo, getUITypeFn }) {
 
   console.log("Item", uiTypeConfig, uiType.name);
 
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setName = useStoreActions((x) => x.uiTypes.setName);
 
   const onSelect = (e) => {
-    const { id, configId } = uiType;
-    setUIType({
-      uiTypeId: id,
-      uiType: new UIType({
-        id,
-        name: prettyToUITypes.get(e.target.value),
-        configId,
-      }),
-    });
+    setName({ uiTypeId: uiType.id, name: prettyToUITypes.get(e.target.value) });
   };
 
   const onChange = (configName, value) => {
