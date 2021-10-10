@@ -12,14 +12,15 @@ export default function ParamContainer(props) {
     enteredValueFn,
     childIdFn,
     getUITypeFn,
-    initUITypeFn,
+    getInitUITypeFn,
   } = props;
   const uiType = getUITypeFn(paramInfo);
+  const initUITypeFn = getInitUITypeFn(paramInfo);
   console.log("ParamContainer");
   const uiTypeConfig = useUITypeConfig(uiType)[0];
 
   useEffect(() => {
-    initUITypeFn(paramInfo);
+    initUITypeFn();
   }, [paramInfo.id]);
 
   return !uiType.isNested ? (

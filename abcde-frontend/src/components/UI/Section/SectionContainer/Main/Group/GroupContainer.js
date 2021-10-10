@@ -28,7 +28,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
   const enteredValueFn = useParamEnteredValue(sectionId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
-  const initUITypeFn = useInitializeUIType(sectionId);
+  const getInitUITypeFn = useInitializeUIType(sectionId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
   const deleteKwarg = useDeleteKwarg(sectionId, objInfo);
 
@@ -44,7 +44,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
               enteredValueFn={enteredValueFn}
               childIdFn={childIdFn}
               getUITypeFn={getUITypeFn}
-              initUITypeFn={initUITypeFn}
+              getInitUITypeFn={getInitUITypeFn}
               deleteKwarg={deleteKwarg}
               isKwarg={isKwarg}
             />
