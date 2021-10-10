@@ -272,16 +272,18 @@ export function useDeleteKwarg(sectionId, objInfo) {
   return (kwargInfo) => {
     const { id } = kwargInfo;
     const childId = childIdFn(id)[0];
-    setKwargIds({
-      sectionId,
-      objInfoId: objInfo.id,
-      newStateFn: (x) => x.filter((y) => y !== id),
-    });
-    deleteKwargInfo({ ids: [id] });
-    deleteParamInfo({ ids: [id] });
-    if (childId) {
-      deleteChild({ startId: childId });
-    }
+    return () => {
+      setKwargIds({
+        sectionId,
+        objInfoId: objInfo.id,
+        newStateFn: (x) => x.filter((y) => y !== id),
+      });
+      deleteKwargInfo({ ids: [id] });
+      deleteParamInfo({ ids: [id] });
+      if (childId) {
+        deleteChild({ startId: childId });
+      }
+    };
   };
 }
 

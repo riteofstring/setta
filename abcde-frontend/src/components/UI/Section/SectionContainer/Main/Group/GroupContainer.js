@@ -21,7 +21,7 @@ import {
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfoId }) {
-  console.log("GroupContainer", objInfoId);
+  console.log("GroupContainer", sectionId, objInfoId);
   const objInfo = useGetObjInfos(sectionId, objInfoId);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
@@ -30,7 +30,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
   const getUITypeFn = useGetParamUIType(sectionId);
   const getInitUITypeFn = useInitializeUIType(sectionId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
-  const deleteKwarg = useDeleteKwarg(sectionId, objInfo);
+  const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
 
   function getParamSwitch(infos, isKwarg = false) {
     return (
@@ -45,7 +45,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
               childIdFn={childIdFn}
               getUITypeFn={getUITypeFn}
               getInitUITypeFn={getInitUITypeFn}
-              deleteKwarg={deleteKwarg}
+              getDeleteKwargFn={getDeleteKwargFn}
               isKwarg={isKwarg}
             />
           ))}

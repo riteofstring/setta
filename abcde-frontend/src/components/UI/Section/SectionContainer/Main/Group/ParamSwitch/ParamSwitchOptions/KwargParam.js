@@ -6,14 +6,15 @@ import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 
 export default function KwargParam(props) {
-  const { paramInfo: kwargInfo, deleteKwarg } = props;
+  const { paramInfo: kwargInfo, getDeleteKwargFn } = props;
   const setName = useStoreActions((x) => x.kwargInfos.setName);
   const onBlur = (v) => {
     setName({ kwargInfoId: kwargInfo.id, name: v });
   };
+  const deleteKwarg = getDeleteKwargFn(kwargInfo);
 
   const onClick = () => {
-    deleteKwarg(kwargInfo);
+    deleteKwarg();
   };
 
   return (
