@@ -1,6 +1,5 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
-import { useCallback } from "react";
 
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
@@ -11,7 +10,7 @@ import {
   defaultState,
   insertIntoArrayOrXpend,
 } from "../utils/utils";
-import { useIdsOverview } from "./useIdsOverview";
+import { useSetIdsOverview } from "./useIdsOverview";
 
 function getInfo(x) {
   return x.x;
@@ -291,7 +290,7 @@ export function useDeleteKwarg(sectionId, objInfo) {
 }
 
 export function useAddChild(sectionId, startId = null) {
-  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
+  const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
   const createInfo = useCreateSectionInfo(sectionId, true);
 
@@ -321,27 +320,28 @@ export function useAddChild(sectionId, startId = null) {
     }
   }
 
-  return useCallback(addChild, [JSON.stringify(idsOverview)]);
+  return addChild;
 }
 
 export function useDeleteChild(sectionId, startId = null) {
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
-  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
+  const setIdsOverview = useSetIdsOverview(sectionId);
 
   function deleteChild({ numChildren = 1 }) {
-    if (idsOverview.length === 0) {
-      return;
-    }
-    let startIdx = 0;
-    if (startId !== null) {
-      startIdx = idsOverview.indexOf(startId);
-    }
-    const endIdx = startIdx + numChildren;
-    const newChildren = idsOverview.filter(
-      (e, idx) => !(idx >= startIdx && idx < endIdx)
-    );
-    setIdsOverview((x) => newChildren);
-    deleteSections({ sectionIds: _.difference(idsOverview, newChildren) });
+    let deletedChildren = null;
+    setIdsOverview((x) => {
+      if (x.length === 0) {
+        return x;
+      }
+      let startIdx = 0;
+      if (startId !== null) {
+        startIdx = x.indexOf(startId);
+      }
+      const endIdx = startIdx + numChildren;
+      deletedChildren = x.filter((e, idx) => idx >= startIdx && idx < endIdx);
+      return _.difference(x, deletedChildren);
+    });
+    deleteSections({ sectionIds: deletedChildren });
   }
-  return useCallback(deleteChild, [JSON.stringify(idsOverview)]);
+  return deleteChild;
 }
