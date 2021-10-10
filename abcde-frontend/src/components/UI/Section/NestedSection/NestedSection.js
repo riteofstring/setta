@@ -30,7 +30,6 @@ function _NestedSection({
   parentId,
   sectionId,
   nextId,
-  parentControls,
   idx,
   depth,
   stackProps,
@@ -50,7 +49,6 @@ function _NestedSection({
           parentId={parentId}
           nextId={nextId}
           depth={depth}
-          parentControls={parentControls}
           dragListeners={dragListeners}
         />
       </Grid>

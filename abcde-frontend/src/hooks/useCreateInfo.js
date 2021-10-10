@@ -1,5 +1,6 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
+import { useCallback } from "react";
 
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
@@ -70,6 +71,8 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
   const setSectionType = useStoreActions((x) => x.sectionTypes.setSectionType);
   const parentSectionInfo = useGetSectionInfo(sectionId);
   const parentSectionType = useGetSectionType(sectionId);
+
+  console.log("useCreateSectionInfo");
 
   const createInfo = ({ name, uiType, uiTypeConfig, numChildren }) => {
     return createSectionInfoFn({
@@ -287,8 +290,13 @@ export function useDeleteKwarg(sectionId, objInfo) {
   };
 }
 
-export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
-  const setIdsOverview = useIdsOverview(sectionId)[1];
+export function useAddChild(
+  sectionId,
+  parentIsSection = true,
+  prepend = true,
+  startId = null
+) {
+  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
   const createInfo = useCreateSectionInfo(sectionId, parentIsSection);
 
@@ -296,7 +304,6 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
     name = null,
     uiType = null,
     uiTypeConfig = null,
-    startId = null,
     numChildren = 1,
     parentParamInfoId = null,
   }) {
@@ -319,14 +326,14 @@ export function useAddChild(sectionId, parentIsSection = true, prepend = true) {
     }
   }
 
-  return addChild;
+  return useCallback(addChild, [JSON.stringify(idsOverview)]);
 }
 
-export function useDeleteChild(sectionId) {
+export function useDeleteChild(sectionId, startId = null) {
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
 
-  function deleteChild({ startId = null, numChildren = 1 }) {
+  function deleteChild({ numChildren = 1 }) {
     if (idsOverview.length === 0) {
       return;
     }
@@ -341,5 +348,5 @@ export function useDeleteChild(sectionId) {
     setIdsOverview((x) => newChildren);
     deleteSections({ sectionIds: _.difference(idsOverview, newChildren) });
   }
-  return deleteChild;
+  return useCallback(deleteChild, [JSON.stringify(idsOverview)]);
 }

@@ -5,16 +5,24 @@ import { curryAction, defaultState } from "../utils/utils";
 import { useGetSectionType } from "./useCreateInfo";
 
 export function useIdsOverview(id) {
-  const sectionTypeName = compatibleName(useGetSectionType(id).name);
+  const idsOverview = useGetIdsOverview(id);
+  const setIdsOverview = useSetIdsOverview(id);
+  return [idsOverview, setIdsOverview];
+}
 
-  const setIdsOverview = curryAction(
+export function useSetIdsOverview(id) {
+  const sectionTypeName = compatibleName(useGetSectionType(id).name);
+  return curryAction(
     useStoreActions((x) => x.sectionInfos.setIdsOverview),
     { sectionId: id, sectionTypeName },
     "newStateFn"
   );
-  const idsOverview = defaultState(
-    useStoreState((x) => x.sectionInfos.idsOverview[id])?.[sectionTypeName],
+}
+
+export function useGetIdsOverview(id) {
+  const sectionTypeName = compatibleName(useGetSectionType(id).name);
+  return defaultState(
+    useStoreState((x) => x.sectionInfos.idsOverview[id]?.[sectionTypeName]),
     () => []
   );
-  return [idsOverview, setIdsOverview];
 }

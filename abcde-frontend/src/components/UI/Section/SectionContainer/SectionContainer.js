@@ -1,7 +1,7 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 
 import {
   useGetSectionInfo,
@@ -29,7 +29,6 @@ function SectionContainer({
   parentId,
   nextId,
   depth,
-  parentControls,
   dragListeners,
 }) {
   const isRendered = useGetSectionInfo(sectionId).isRendered;
@@ -37,12 +36,14 @@ function SectionContainer({
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
+  console.log("SectionContainer idsOverview", idsOverview);
+
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
 
-  function flipChildrenAreCollapsed() {
+  const flipChildrenAreCollapsed = useCallback(() => {
     setChildrenAreCollapsed(!childrenAreCollapsed);
-  }
+  }, [childrenAreCollapsed]);
 
   return isRendered ? (
     <Stack>
@@ -52,7 +53,6 @@ function SectionContainer({
         nextId={nextId}
         addChild={addChild}
         deleteChild={deleteChild}
-        parentControls={parentControls}
         hasNested={hasNested}
         childrenAreCollapsed={childrenAreCollapsed}
         flipChildrenAreCollapsed={flipChildrenAreCollapsed}
@@ -66,7 +66,6 @@ function SectionContainer({
           <ManyNestedSections
             childIds={idsOverview}
             sectionId={sectionId}
-            parentControls={{ addChild, deleteChild }}
             depth={depth}
             setChildren={setIdsOverview}
           />
@@ -78,13 +77,12 @@ function SectionContainer({
   );
 }
 
-function SectionContainerCore({
+function _SectionContainerCore({
   sectionId,
   parentId,
   nextId,
   addChild,
   deleteChild,
-  parentControls,
   hasNested,
   childrenAreCollapsed,
   flipChildrenAreCollapsed,
@@ -109,6 +107,8 @@ function SectionContainerCore({
     setSectionInfoAttr({ sectionId, attr: "name", value });
   }
 
+  console.log("SectionContainerCore");
+
   // // temp_
   const tempBoolDesc = false;
   return (
@@ -130,7 +130,6 @@ function SectionContainerCore({
           isListRoot={isListRoot}
           addChild={addChild}
           deleteChild={deleteChild}
-          parentControls={parentControls}
           hasNested={hasNested}
           onTitleInputChange={onTitleInputChange}
           requiresKeyInput={requiresKeyInput(sectionType.name)}
@@ -177,4 +176,22 @@ function DragHandle({ dragListeners }) {
   );
 }
 
-export default React.memo(SectionContainer);
+const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
+  const attrs = [
+    "addChild",
+    "deleteChild",
+    "childrenAreCollapsed",
+    "nextId",
+    "hasNested",
+  ];
+  for (let k of attrs) {
+    if (!_.isEqual(prev[k], next[k])) {
+      return false;
+    }
+  }
+  return true;
+});
+
+export default React.memo(SectionContainer, (prev, next) => {
+  return prev.nextId === next.nextId;
+});

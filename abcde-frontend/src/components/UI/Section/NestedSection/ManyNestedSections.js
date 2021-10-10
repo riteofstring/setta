@@ -6,7 +6,6 @@ import { NestedSection, SortableNestedSection } from "./NestedSection";
 export default function ManyNestedSections({
   childIds,
   sectionId,
-  parentControls,
   depth,
   setChildren,
 }) {
@@ -20,7 +19,6 @@ export default function ManyNestedSections({
         parentId: sectionId,
         sectionId: e,
         nextId: childIds[idx + 1],
-        parentControls,
         idx,
         key: `Nested-Sec-${e}`,
         depth: depth + 1,

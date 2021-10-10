@@ -21,7 +21,7 @@ import {
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfoId }) {
-  console.log("GroupContainer", sectionId, objInfoId);
+  console.log("GroupContainer");
   const objInfo = useGetObjInfos(sectionId, objInfoId);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
