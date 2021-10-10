@@ -57,21 +57,45 @@ const sectionInfos = {
 
   allIdsOverview: computed(
     [
+      (state) => state.hasNested,
       (state) => state.idsOverview,
       (state) => state.x,
       (state, storeState) => storeState.sectionTypes.x,
     ],
-    (idsOverview, sectionInfos, sectionTypes) => {
-      const output = {};
-      for (let k of Object.keys(idsOverview)) {
-        const typeName = compatibleName(
-          sectionTypes[sectionInfos[k]?.sectionTypeId]?.name
-        );
-        output[k] = defaultState(idsOverview[k]?.[typeName], () => []);
-      }
-      return output;
+    (hasNested, ...otherArgs) => {
+      return computedFromIdsOverview(
+        (idsOverview, sectionInfos, sectionTypes, typeName, k) =>
+          hasNested[k] ? idsOverview[k][typeName] : []
+      )(...otherArgs);
     }
+  ),
+
+  hasNested: computed(
+    [
+      (state) => state.idsOverview,
+      (state) => state.x,
+      (state, storeState) => storeState.sectionTypes.x,
+    ],
+    computedFromIdsOverview(
+      (idsOverview, sectionInfos, sectionTypes, typeName, k) =>
+        defaultState(idsOverview[k]?.[typeName], () => [])
+          .map((x) => sectionInfos[x].isRendered)
+          .some((x) => x)
+    )
   ),
 };
 
 export default sectionInfos;
+
+function computedFromIdsOverview(fn) {
+  return (idsOverview, sectionInfos, sectionTypes) => {
+    const output = {};
+    for (let k of Object.keys(idsOverview)) {
+      const typeName = compatibleName(
+        sectionTypes[sectionInfos[k]?.sectionTypeId]?.name
+      );
+      output[k] = fn(idsOverview, sectionInfos, sectionTypes, typeName, k);
+    }
+    return output;
+  };
+}
