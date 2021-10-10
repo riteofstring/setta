@@ -2,6 +2,7 @@ import { Heading } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 
+import { getOverviewListing } from "../../../../../utils/sectionIds";
 import PaneContainer from "../PaneContainer";
 import SectionList from "./SectionList/SectionList";
 
@@ -13,16 +14,17 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
+  const groups = useStoreState((x) => x.master.groups);
   const idsOverview = useStoreState((x) => x.sectionInfos.allIdsOverview);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useEffect(() => {
-    // console.log("Overview useEffect");
-    // console.log("idsOverview", idsOverview);
-    // setListOfSectionIdsAndNames(
-    //   getOverviewListing(pageMinMaxList, idsOverview, idNames)
-    // );
-  }, [idsOverview, idNames]);
+    console.log("Overview useEffect");
+    console.log("idsOverview", idsOverview, groups);
+    setListOfSectionIdsAndNames(
+      getOverviewListing(groups, idsOverview, idNames)
+    );
+  }, [groups, idsOverview, idNames]);
 
   return (
     <PaneContainer paneProps={paneProps}>

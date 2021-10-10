@@ -6,23 +6,11 @@ export const createNewId = () => {
   return uuidv4();
 };
 
-export const getPageMinMaxList = (rootSectionCount, sectionsPerPage) => {
-  const numPages = Math.ceil(rootSectionCount / sectionsPerPage);
-  let output = [];
-  for (let x = 0; x < numPages; x++) {
-    output.push({
-      minIdx: x * sectionsPerPage,
-      maxIdx: (x + 1) * sectionsPerPage,
-    });
-  }
-  return output;
-};
-
-export const getOverviewListing = (pageMinMaxList, idsOverview, idNames) => {
+export const getOverviewListing = (groups, idsOverview, idNames) => {
   let outputList = [];
-  for (let groupId = 0; groupId < pageMinMaxList.length; groupId++) {
+  for (let group of groups) {
     outputList.push([]);
-    for (let sectionId of idsOverview[groupId]) {
+    for (let sectionId of group) {
       outputList[outputList.length - 1].push(
         ...getOverviewListingHelper(sectionId, idsOverview, idNames, 0)
       );
