@@ -7,6 +7,7 @@ export const DEFAULT_ENTERED_TEXT = "// write your code here";
 export const UNKNOWN = "UNKNOWN";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
+export const SWITCH = "SWITCH";
 export const LIST = "LIST";
 export const DICT = "DICT";
 export const LIST_ROOT = "LIST_ROOT";
@@ -34,6 +35,7 @@ export const prettyToUITypes = Object.freeze(
     Object.entries({
       Text: TEXT,
       Slider: SLIDER,
+      Switch: SWITCH,
       Object: SECTION,
       "List of Objects": LIST_ROOT,
       "Dict of Objects": DICT_ROOT,
