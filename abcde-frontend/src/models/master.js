@@ -7,7 +7,7 @@ import { parseUI } from "../graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "../hooks/useCreateInfo";
 
 const master = {
-  sectionsPerPage: 5,
+  sectionsPerGroup: 5,
   spaceBetweenPages: 500,
   rootSectionIds: [],
   available: {},
@@ -85,7 +85,11 @@ const master = {
   }),
 
   groups: computed((state) => {
-    return _.chunk(state.rootSectionIds, state.sectionsPerPage);
+    return _.chunk(state.rootSectionIds, state.sectionsPerGroup);
+  }),
+
+  setSectionsPerGroup: action((state, payload) => {
+    state.sectionsPerGroup = payload;
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {
