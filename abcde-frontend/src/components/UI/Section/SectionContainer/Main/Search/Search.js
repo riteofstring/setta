@@ -13,7 +13,7 @@ export default function SectionSearch({
   initialSelection,
 }) {
   const objInfos = useGetObjInfos(sectionId);
-  const [selection, setSelection] = useState("");
+  const [selection, setSelection] = useState(initialSelection);
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
 
@@ -22,7 +22,10 @@ export default function SectionSearch({
   };
 
   const getSearchItems = () => {
-    return objInfos;
+    return objInfos.map((x) => ({
+      id: x.id,
+      name: x.name,
+    }));
   };
 
   const onClick = () => {
@@ -31,11 +34,11 @@ export default function SectionSearch({
   };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
-    console.log("localOnSelectedItemChange", selectedItem);
-    if (!_.isEqual(selectedItem, selection)) {
-      setSelection(selectedItem);
+    const sid = selectedItem.id;
+    if (!_.isEqual(sid, selection)) {
+      setSelection(sid);
     }
-    onSelectedItemChange(selectedItem);
+    onSelectedItemChange(sid);
   };
 
   const {

@@ -16,11 +16,13 @@ import {
   useAddKwarg,
   useGetKwargInfos,
   useDeleteKwarg,
+  useGetObjInfos,
 } from "../../../../../../hooks/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
-export default function GroupContainer({ sectionId, objInfo }) {
-  console.log("GroupContainer", objInfo);
+export default function GroupContainer({ sectionId, objInfoId }) {
+  console.log("GroupContainer", objInfoId);
+  const objInfo = useGetObjInfos(sectionId, objInfoId);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
   const enteredValueFn = useParamEnteredValue(sectionId);

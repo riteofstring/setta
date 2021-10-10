@@ -28,11 +28,13 @@ export class SectionInfo {
     sectionTypeId,
     parentSectionInfo,
     isRendered = true,
+    selectedItem = null,
   }) {
     this.id = id;
     this.sectionTypeId = sectionTypeId;
     this.initName(name, parentSectionInfo);
     this.isRendered = isRendered;
+    this.selectedItem = selectedItem;
   }
 
   initName(name, parentSectionInfo) {

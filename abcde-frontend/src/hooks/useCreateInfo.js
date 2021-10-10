@@ -106,21 +106,39 @@ export function useGetSectionType(sectionId) {
   );
 }
 
-export function useGetXInfos(collectionName, allCollectionName, sectionId) {
+export function useGetXInfos(
+  collectionName,
+  allCollectionName,
+  sectionId,
+  infoId = null
+) {
   const sectionType = useGetSectionType(sectionId);
   const collectionIds = sectionType[collectionName];
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const collections = collectionIds.map((x) => allCollections.children[x]);
   const output = _.merge({}, ...collections.map((x) => x.children));
+  if (infoId) {
+    return output[infoId];
+  }
   return Object.values(output);
 }
 
-export function useGetObjInfos(sectionId) {
-  return useGetXInfos("objCollectionIds", "allObjCollections", sectionId);
+export function useGetObjInfos(sectionId, infoId = null) {
+  return useGetXInfos(
+    "objCollectionIds",
+    "allObjCollections",
+    sectionId,
+    infoId
+  );
 }
 
-export function useGetParamCollections(sectionId) {
-  return useGetXInfos("paramCollectionIds", "allParamCollections", sectionId);
+export function useGetParamCollections(sectionId, infoId = null) {
+  return useGetXInfos(
+    "paramCollectionIds",
+    "allParamCollections",
+    sectionId,
+    infoId
+  );
 }
 
 export function useGetKwargIds(sectionId, objInfo) {

@@ -34,7 +34,6 @@ function SectionContainer({
 }) {
   const isRendered = useGetSectionInfo(sectionId).isRendered;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
-  const [selectedItem, setSelectedItem] = useState({});
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
@@ -57,8 +56,6 @@ function SectionContainer({
         hasNested={hasNested}
         childrenAreCollapsed={childrenAreCollapsed}
         flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-        selectedItem={selectedItem}
-        setSelectedItem={setSelectedItem}
         dragListeners={dragListeners}
       />
       <Box
@@ -91,14 +88,12 @@ function SectionContainerCore({
   hasNested,
   childrenAreCollapsed,
   flipChildrenAreCollapsed,
-  selectedItem,
-  setSelectedItem,
   dragListeners,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
   const sectionType = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
-  const variableName = sectionInfo.name;
+  const { name: variableName, selectedItem } = sectionInfo;
   const showSearch = sectionType.hasObjects;
   const isList = isListLike(sectionType.name);
   const isListRoot = isRoot(sectionType.name);
@@ -106,10 +101,8 @@ function SectionContainerCore({
     (x) => x.sectionInfos.setSectionInfoAttr
   );
 
-  function onSelectedItemChange(inputSelectedItem) {
-    if (inputSelectedItem) {
-      setSelectedItem(inputSelectedItem);
-    }
+  function onSelectedItemChange(value) {
+    setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
   }
 
   function onTitleInputChange(value) {
@@ -152,10 +145,10 @@ function SectionContainerCore({
               />
             )}
             {tempBoolDesc && <SectionDescription />}
-            <GroupContainer sectionId={sectionId} objInfo={selectedItem} />
+            <GroupContainer sectionId={sectionId} objInfoId={selectedItem} />
             <SectionFooter
               sectionId={sectionId}
-              objInfo={selectedItem}
+              objInfoId={selectedItem}
               isListRoot={isListRoot}
               hasNested={hasNested}
               childrenAreCollapsed={childrenAreCollapsed}
