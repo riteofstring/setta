@@ -73,7 +73,8 @@ export class ModuleInfo {
   constructor(id, name, jsonInput) {
     this.id = id;
     this.name = name;
-    this.children = getInfos(jsonInput, createInfo(ObjInfo));
+    this.version = jsonInput.version;
+    this.children = getInfos(jsonInput.objs, createInfo(ObjInfo));
     this.nameToId = createNameToId(this.children);
   }
 }
@@ -93,7 +94,7 @@ export class ObjCollectionInfo {
     this.children = {};
     for (let m of Object.keys(modulesInCollection)) {
       const allObjs = allModuleInfo.children[allModuleInfo.nameToId[m]];
-      const objsInCollection = modulesInCollection[m];
+      const objsInCollection = modulesInCollection[m].objs;
       for (let o of Object.keys(objsInCollection)) {
         const objId = allObjs.nameToId[o];
         this.children[objId] = allObjs.children[objId];
@@ -123,14 +124,5 @@ export class AllParamCollectionInfo {
       createInfo(ParamCollectionInfo)
     );
     this.nameToId = createNameToId(this.children);
-  }
-}
-
-export class SectionInfo {
-  constructor(id, name, specs) {
-    this.id = id;
-    this.name = name;
-    this.specs = convertSpecsToDict(specs);
-    this.hasObjects = "objects" in this.specs;
   }
 }
