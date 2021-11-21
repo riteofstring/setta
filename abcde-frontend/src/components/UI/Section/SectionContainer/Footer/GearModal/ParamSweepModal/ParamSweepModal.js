@@ -12,6 +12,7 @@ export default function ParamSweepModal(props) {
       header={<Header />}
       body={<Body />}
       footer={<Footer />}
+      tabTitle={}
     />
   );
 }
