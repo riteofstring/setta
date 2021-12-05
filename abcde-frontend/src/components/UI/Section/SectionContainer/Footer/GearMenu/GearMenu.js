@@ -1,6 +1,7 @@
 import { SettingsIcon } from "@chakra-ui/icons";
 import {
   GridItem,
+  Button,
   IconButton,
   Menu,
   MenuButton,
@@ -27,7 +28,18 @@ export default function GearMenu({ setSelectedMenuItem, onOpen }) {
       rowEnd="2"
       position="relative"
     >
-      <Menu>
+      <IconButton
+        icon={<SettingsIcon />}
+        aria-label="Options"
+        size="sm"
+        color="gray.500"
+        variant="ghost"
+        onClick={() => setOpen("PARAM_SWEEP")}
+      >
+        Settings
+      </IconButton>
+
+      {/* <Menu>
         <MenuButton
           as={IconButton}
           aria-label="Options"
@@ -46,7 +58,7 @@ export default function GearMenu({ setSelectedMenuItem, onOpen }) {
           <MenuItem onClick={() => setOpen("LOAD")}>Load Section</MenuItem>
           <MenuItem onClick={() => setOpen("SAVE")}>Save Section</MenuItem>
         </MenuList>
-      </Menu>
+      </Menu> */}
     </GridItem>
   );
 }

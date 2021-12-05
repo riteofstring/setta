@@ -1,7 +1,6 @@
 import { action, thunk } from "easy-peasy";
 
 import { SectionType } from "../../classes/sectionType";
-import { exportState } from "./utils";
 
 const sectionTypes = {
   x: {},
@@ -44,10 +43,6 @@ const sectionTypes = {
       ...payload,
     });
   }),
-
-  export() {
-    return exportState(this);
-  },
 };
 
 export default sectionTypes;
