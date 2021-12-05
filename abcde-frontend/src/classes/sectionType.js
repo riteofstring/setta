@@ -1,14 +1,16 @@
+import { immerable } from "immer";
+
 import { SECTION, rootTypeToChildType } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { nullOrUndefined } from "../utils/utils";
 import { convertSpecsToDict } from "./immutableInfo";
-import { MutableInfo } from "./mutableInfo";
 
 function getCollectionIds(specs, allCollections) {
   return specs ? specs.map((x) => allCollections.nameToId[x]) : [];
 }
 
-export class SectionType extends MutableInfo {
+export class SectionType {
+  [immerable] = true;
   constructor({
     id,
     name,
@@ -20,7 +22,6 @@ export class SectionType extends MutableInfo {
     topLevelSpecs,
     parentIsSection,
   }) {
-    super();
     this.id = id;
     this.initName(name, paramUIType);
     this.initSpecs(
@@ -36,13 +37,6 @@ export class SectionType extends MutableInfo {
       paramUIType,
       paramUITypeConfig
     );
-    this.exportable = [
-      "id",
-      "name",
-      "objCollectionIds",
-      "paramCollectionIds",
-      "specs",
-    ];
   }
 
   initIds(allObjCollections, allParamCollections) {
