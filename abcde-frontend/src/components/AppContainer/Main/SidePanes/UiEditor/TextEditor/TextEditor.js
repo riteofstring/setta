@@ -72,6 +72,7 @@ export default function TextEditor({ idx }) {
         automaticLayout={true}
         className={styles.container}
         wrapperClassName={styles.wrapper}
+        height={"calc(100% - 2.5rem)"}
       />
     </>
   );
