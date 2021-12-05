@@ -6,6 +6,9 @@ import {
   saveUI as saveUIBackend,
 } from "../dbRequests/ui";
 
+import { exportAllStates } from "./info/utils";
+import { allDefined } from "../utils/utils";
+
 const uiInfo = {
   currUIName: null,
   currUIFolder: null,
@@ -60,7 +63,8 @@ const uiInfo = {
 
   saveUI: thunk((action, payload, helpers) => {
     const { token, name, folder } = payload;
-    const ui = helpers.getStoreActions().master.exportSaveableInfo();
+    const globalState = helpers.getStoreState();
+    const ui = exportAllStates(globalState)
     return saveUIBackend({
       token,
       name,
@@ -71,32 +75,18 @@ const uiInfo = {
 
   saveDraftUI: thunk((action, payload, helpers) => {
     const { token } = payload;
-    const globalState = helpers.getStoreState();
-    const sectionInfos = globalState.sectionInfos.export();
-    const objInfos = globalState.objInfos.export();
-    const paramInfos = globalState.paramInfos.export();
-    const kwargInfos = globalState.kwargInfos.export();
-    const sectionTypes = globalState.sectionTypes.export();
-    const uiTypes = globalState.uiTypes.export();
-    const uiTypeConfigs = globalState.uiTypeConfigs.export();
+    const state = helpers.getState()
+    let name = state.currUIName;
+    let folder = state.currUIFolder;
+    if (!allDefined(name, folder)) {
+      name = "testDraft";
+      folder = "drafts";
+    }
+    return action.saveUI({ token, name, folder });
 
-    console.log("sectionInfos", sectionInfos);
-    console.log("objInfos", objInfos);
-    console.log("paramInfos", paramInfos);
-    console.log("kwargInfos", kwargInfos);
-    console.log("sectionTypes", sectionTypes);
-    console.log("uiTypes", uiTypes);
-    console.log("uiTypeConfigs", uiTypeConfigs);
 
     // TEMPORARY
-    return new Promise((resolve, reject) => resolve("temporary promise"));
-    // let name = state.currUIName;
-    // let folder = state.currUIFolder;
-    // if (!allDefined(name, folder)) {
-    //   name = "testDraft";
-    //   folder = "drafts";
-    // }
-    // action.saveUI({ token, name, folder });
+    // return new Promise((resolve, reject) => resolve("temporary promise"));
   }),
 };
 
