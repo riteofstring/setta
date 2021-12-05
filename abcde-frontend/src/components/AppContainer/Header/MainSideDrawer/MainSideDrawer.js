@@ -30,7 +30,8 @@ function Body() {
   const token = useStoreState((state) => state.auth.token);
 
   const goToLogout = () => {
-    saveDraftUI({ token }).then((res) => history.push("/logout"));
+    // saveDraftUI({ token }).then((res) => history.push("/logout"));
+    history.push("/logout")
   };
   return (
     <VStack align="stretch">
