@@ -131,12 +131,12 @@ def save_object_collection(entity, available_objects):
             ObjectCollection, {"name": object_collection_name, "owner": owner}
         )
         all_collections.append(object_collection)
-        for module_name, module_info in object_collection_info["ModuleInfo"].items():
+        for module_name, module_info in object_collection_info.items():
             package, _ = generic_create(
                 Package, {"name": get_package_name(module_name), "owner": owner}
             )
             module, _ = generic_create(Module, {"name": module_name, "parent": package})
-            for object_name, object_info in module_info.items():
+            for object_name, object_info in module_info["objs"].items():
                 obj, _ = generic_create(Object, {"name": object_name, "parent": module})
                 object_to_object_collection = generic_create(
                     ObjectToObjectCollection,
@@ -156,14 +156,14 @@ def save_parameter_collection(entity, available_parameters):
             ParameterCollection, {"name": param_collection_name, "owner": owner}
         )
         all_collections.append(param_collection)
-        for param_name, param_info in param_collection_info["ParameterInfo"].items():
+        for param_name, param_info in param_collection_info.items():
             save_parameter(owner, param_name, param_info, param_collection, False)
 
     save_collection_rel(entity, all_collections, "parameters")
 
 
 def save_section_selected_object(owner, section, section_info):
-    selected_object = section_info.get("selected", None)
+    selected_object = section_info["selectedItem"]
     if selected_object:
         module_name = selected_object["module"]
         package = Package.objects.get(owner=owner, name=get_package_name(module_name))
@@ -280,15 +280,16 @@ def save_section_all_entered_values(owner, section, section_info):
     save_section_ui_types(owner, section, param_ui_type_names)
 
 
-def save_section(owner, sid, section_info):
+def save_section(owner, section_info):
+    sid = section_info["id"]
     variable_name = section_info["name"]
     section, _ = generic_create(
         Section, {"name": sid, "variable_name": variable_name, "owner": owner}
     )
     save_section_selected_object(owner, section, section_info)
-    save_entity_collection_rels(owner, section, section_info["available"])
-    save_section_all_entered_values(owner, section, section_info)
-    return section
+    # save_entity_collection_rels(owner, section, section_info["available"])
+    # save_section_all_entered_values(owner, section, section_info)
+    # return section
 
 
 def get_children(sections, section_info):
@@ -308,15 +309,15 @@ def save_children(owner, section, sections_to_save, section_info, all_sections, 
 
 def save_sections(owner, sections_to_save, all_sections, depth=0):
     all_root_sections = []
-    position = 0
-    for sid, section_info in sections_to_save.items():
-        if section_info["depth"] == depth:
-            section = save_section(owner, sid, section_info)
-            all_root_sections.append((position, section))
-            save_children(
-                owner, section, sections_to_save, section_info, all_sections, depth
-            )
-        position += 1
+    # position = 0
+    for section_info in sections_to_save:
+        # if section_info["depth"] == depth:
+        section = save_section(owner, section_info)
+        # all_root_sections.append((position, section))
+            # save_children(
+            #     owner, section, sections_to_save, section_info, all_sections, depth
+            # )
+        # position += 1
     return all_root_sections
 
 
@@ -359,7 +360,7 @@ def save_ui(request):
     save_object_collection(ui, ui_info["available"]["objects"])
     save_parameter_collection(ui, ui_info["available"]["parameters"])
 
-    sections = ui_info["sections"]
+    sections = ui_info["sectionInfos"]
     list_of_root_sections = save_sections(owner, sections, sections)
-    save_section_to_ui_info(ui, list_of_root_sections)
-    print("successs")
+    # save_section_to_ui_info(ui, list_of_root_sections)
+    # print("successs")
