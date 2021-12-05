@@ -5,7 +5,6 @@ import {
   loadUI as loadUIBackend,
   saveUI as saveUIBackend,
 } from "../dbRequests/ui";
-import { allDefined } from "../utils/utils";
 
 const uiInfo = {
   currUIName: null,
@@ -72,14 +71,32 @@ const uiInfo = {
 
   saveDraftUI: thunk((action, payload, helpers) => {
     const { token } = payload;
-    const state = helpers.getState();
-    let name = state.currUIName;
-    let folder = state.currUIFolder;
-    if (!allDefined(name, folder)) {
-      name = "testDraft";
-      folder = "drafts";
-    }
-    action.saveUI({ token, name, folder });
+    const globalState = helpers.getStoreState();
+    const sectionInfos = globalState.sectionInfos.export();
+    const objInfos = globalState.objInfos.export();
+    const paramInfos = globalState.paramInfos.export();
+    const kwargInfos = globalState.kwargInfos.export();
+    const sectionTypes = globalState.sectionTypes.export();
+    const uiTypes = globalState.uiTypes.export();
+    const uiTypeConfigs = globalState.uiTypeConfigs.export();
+
+    console.log("sectionInfos", sectionInfos);
+    console.log("objInfos", objInfos);
+    console.log("paramInfos", paramInfos);
+    console.log("kwargInfos", kwargInfos);
+    console.log("sectionTypes", sectionTypes);
+    console.log("uiTypes", uiTypes);
+    console.log("uiTypeConfigs", uiTypeConfigs);
+
+    // TEMPORARY
+    return new Promise((resolve, reject) => resolve("temporary promise"));
+    // let name = state.currUIName;
+    // let folder = state.currUIFolder;
+    // if (!allDefined(name, folder)) {
+    //   name = "testDraft";
+    //   folder = "drafts";
+    // }
+    // action.saveUI({ token, name, folder });
   }),
 };
 

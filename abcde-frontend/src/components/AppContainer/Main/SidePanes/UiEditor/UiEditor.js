@@ -81,45 +81,28 @@ export default function UiEditor() {
 
   return (
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
-      <Tabs h="inherit" display="flex" flexDir="column">
-        <TabList>
-          <Tab>UI Config</Tab>
-          <Tab>Parameter Settings</Tab>
-          <Tab>Save</Tab>
-          <Tab>Load</Tab>
-          <Tab>Edit YAML</Tab>
-        </TabList>
-        <TabPanels flexGrow="1" display="grid" place-items="center">
-          <TabPanel bg="white">UI Config</TabPanel>
-          <TabPanel>Parameter Settings</TabPanel>
-          <TabPanel>Save</TabPanel>
-          <TabPanel>Load</TabPanel>
-          <TabPanel display="grid" place-items="center" h="inherit">
-            <Tabs
-              variant="unstyled"
-              maxH="100%"
-              h="inherit"
-              id="lkjlkj"
-              display="flex"
-              flexDir="column"
-              index={currTabIdx}
-              onChange={(index) => setCurrTabIdx(index)}
-            >
-              <Heading as="h1" size="md" color="gray.500" align="stretch">
-                Edit YAML
-              </Heading>
-              <UiEditorPages tabNumArray={tabNumArray} />
-              <TabsContainer
-                tabNumArray={tabNumArray}
-                currTabIdx={currTabIdx}
-                onAddClick={onAddClick}
-                onRemoveClick={onRemoveClick}
-                onGoToNext={onGoToNext}
-                onGoToPrev={onGoToPrev}
-              />
-            </Tabs>
-          </TabPanel>
-        </TabPanels>
+      <Tabs
+        variant="unstyled"
+        maxH="inherit"
+        h="inherit"
+        display="flex"
+        sx={{ flexDirection: "column" }}
+        id="lkjlkj"
+        index={currTabIdx}
+        onChange={(index) => setCurrTabIdx(index)}
+      >
+        <Heading as="h1" size="md" color="gray.500" align="stretch">
+          Edit YAML
+        </Heading>
+        <UiEditorPages tabNumArray={tabNumArray} />
+        <TabsContainer
+          tabNumArray={tabNumArray}
+          currTabIdx={currTabIdx}
+          onAddClick={onAddClick}
+          onRemoveClick={onRemoveClick}
+          onGoToNext={onGoToNext}
+          onGoToPrev={onGoToPrev}
+        />
       </Tabs>
     </PaneContainer>
   );
@@ -153,12 +136,7 @@ function TabsContainer({
   }
 
   return (
-    <TabList
-      display="flex"
-      alignItems="center"
-      overflow="hidden"
-      maxWidth="inherit"
-    >
+    <TabList display="flex" alignItems="center">
       {tabNumArray.map((e) => (
         <HStack spacing="1px" key={`uitab-${e}`}>
           <Tab
@@ -176,18 +154,17 @@ function TabsContainer({
             _active={{ color: "white", bg: "gray.700" }}
           >
             {e}
-            <IconButton
-              icon={closeIconCondition(e) && <SmallCloseIcon />}
-              borderRadius="full"
-              variant="ghost"
-              size="xs"
-              ml="0.75rem"
-              marginright="0.125rem"
-              onClick={() => onRemoveClickWrapper(e)}
-              onMouseOver={() => onTabMouseOver(e)}
-              onMouseLeave={() => onTabMouseLeave(e)}
-            />
           </Tab>
+          <IconButton
+            icon={closeIconCondition(e) && <SmallCloseIcon />}
+            borderRadius="full"
+            variant="ghost"
+            size="xs"
+            marginright="0.125rem"
+            onClick={() => onRemoveClickWrapper(e)}
+            onMouseOver={() => onTabMouseOver(e)}
+            onMouseLeave={() => onTabMouseLeave(e)}
+          />
         </HStack>
       ))}
 
@@ -224,7 +201,11 @@ function TabsContainer({
 function UiEditorPages({ tabNumArray }) {
   return (
     <TabPanels
-      flexGrow="1"
+      maxH="inherit"
+      display="grid"
+      w="100%"
+      maxH="100%"
+      h="100%"
       sx={{
         gridTemplateRows: "1fr",
         gridTemplateColumns: "1fr",
@@ -235,9 +216,9 @@ function UiEditorPages({ tabNumArray }) {
         <TabPanel
           p="0"
           m="0"
-          // maxH="inherit"
-          // width="100%"
-          // h="100%"
+          maxH="inherit"
+          width="100%"
+          h="100%"
           sx={{
             gridRow: "span 1",
             gridColumn: "span 1",
