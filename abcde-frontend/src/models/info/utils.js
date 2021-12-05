@@ -31,6 +31,8 @@ export function exportAllStates(state) {
     sectionTypes: state.sectionTypes.export(),
     uiTypes: state.uiTypes.export(),
     uiTypeConfigs: state.uiTypeConfigs.export(),
-    available: state.master.available,
+    allModuleInfo: state.master.allModuleInfo,
+    allObjCollections: state.master.allObjCollections,
+    allParamCollections: state.master.allParamCollections,
   };
 }
