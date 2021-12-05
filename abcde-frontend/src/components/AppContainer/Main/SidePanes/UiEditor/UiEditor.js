@@ -81,7 +81,7 @@ export default function UiEditor() {
 
   return (
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
-      <Tabs h="inherit" display="flex" flexDir="column">
+      <Tabs h="inherit" display="flex" flexDir="column" className="topTab">
         <TabList>
           <Tab>UI Config</Tab>
           <Tab>Parameter Settings</Tab>
@@ -89,25 +89,25 @@ export default function UiEditor() {
           <Tab>Load</Tab>
           <Tab>Edit YAML</Tab>
         </TabList>
-        <TabPanels flexGrow="1" display="grid" place-items="center">
+        <TabPanels
+          flexGrow="1"
+          display="grid"
+          place-items="center"
+          id="tabPanelOne"
+        >
           <TabPanel bg="white">UI Config</TabPanel>
           <TabPanel>Parameter Settings</TabPanel>
           <TabPanel>Save</TabPanel>
           <TabPanel>Load</TabPanel>
-          <TabPanel display="grid" place-items="center" h="inherit">
+          <TabPanel display="grid" place-items="center">
             <Tabs
               variant="unstyled"
-              maxH="100%"
-              h="inherit"
-              id="lkjlkj"
+              className="lkjlkj"
               display="flex"
               flexDir="column"
               index={currTabIdx}
               onChange={(index) => setCurrTabIdx(index)}
             >
-              <Heading as="h1" size="md" color="gray.500" align="stretch">
-                Edit YAML
-              </Heading>
               <UiEditorPages tabNumArray={tabNumArray} />
               <TabsContainer
                 tabNumArray={tabNumArray}
@@ -153,12 +153,7 @@ function TabsContainer({
   }
 
   return (
-    <TabList
-      display="flex"
-      alignItems="center"
-      overflow="hidden"
-      maxWidth="inherit"
-    >
+    <TabList display="flex" alignItems="center" overflow="hidden">
       {tabNumArray.map((e) => (
         <HStack spacing="1px" key={`uitab-${e}`}>
           <Tab
@@ -225,9 +220,10 @@ function UiEditorPages({ tabNumArray }) {
   return (
     <TabPanels
       flexGrow="1"
+      display="flex"
+      flexDir="column"
+      className="tabPanelUIContainer"
       sx={{
-        gridTemplateRows: "1fr",
-        gridTemplateColumns: "1fr",
         overflowY: "auto",
       }}
     >
@@ -235,12 +231,11 @@ function UiEditorPages({ tabNumArray }) {
         <TabPanel
           p="0"
           m="0"
-          // maxH="inherit"
-          // width="100%"
-          // h="100%"
+          flexGrow="1"
+          display="grid"
+          flexDir="column"
+          className="tabPanelMapped"
           sx={{
-            gridRow: "span 1",
-            gridColumn: "span 1",
             overflowY: "hidden",
           }}
           key={`uitabpanel-${e}`}
