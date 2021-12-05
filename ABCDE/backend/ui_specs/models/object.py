@@ -9,6 +9,7 @@ tables = table_factory(
     "Object",
     ["name", "parent"],
     base_parent=Module,
+    base_has_uuid=True,
     base_has_name=True,
     additional_rel=[ObjectCollection],
 )

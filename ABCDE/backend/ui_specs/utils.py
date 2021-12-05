@@ -107,12 +107,13 @@ def save_collection_rel(entity, list_of_collections, collection_type):
         generic_create(rel_table, {"entity": entity, "parent": c})
 
 
-def save_parameter(owner, param_name, param_info, parent, parent_is_obj):
+def save_parameter(owner, param_id, param_info, parent, parent_is_obj):
     datatype, _ = generic_create(Datatype, {"name": param_info["type"]})
-    ui_type, _ = generic_create(UIType, {"name": param_info["uiType"]})
+    ui_type, _ = generic_create(UIType, {"name": param_info["uiTypeName"]})
     parent_col = "parent_object" if parent_is_obj else "parent_collection"
     kwargs = {
-        "name": param_name,
+        "name": param_info["name"],
+        "uuid": param_id,
         "default_val": param_info["defaultVal"],
         "type": datatype,
         "ui_type": ui_type,
@@ -123,29 +124,45 @@ def save_parameter(owner, param_name, param_info, parent, parent_is_obj):
         save_entity_collection_rels(owner, param, param_info["specs"])
 
 
-def save_object_collection(entity, available_objects):
+def save_object_collection(entity, all_obj_collections):
     owner = entity.owner
+    data = all_obj_collections["children"]
     all_collections = []
-    for object_collection_name, object_collection_info in available_objects.items():
-        object_collection, _ = generic_create(
-            ObjectCollection, {"name": object_collection_name, "owner": owner}
+    for obj_col_id, obj_col_info in data.items():
+        obj_col_name = obj_col_info["name"]
+        obj_col, _ = generic_create(
+            ObjectCollection, {"name": obj_col_name, "uuid": obj_col_id, "owner": owner}
         )
-        all_collections.append(object_collection)
-        for module_name, module_info in object_collection_info.items():
-            package, _ = generic_create(
-                Package, {"name": get_package_name(module_name), "owner": owner}
+        all_collections.append(obj_col)
+        for obj_id in obj_col_info["children"].keys():
+            obj = Object.objects.get(uuid=obj_id)
+            object_to_object_collection = generic_create(
+                ObjectToObjectCollection,
+                {"entity": obj, "parent": obj_col},
             )
-            module, _ = generic_create(Module, {"name": module_name, "parent": package})
-            for object_name, object_info in module_info["objs"].items():
-                obj, _ = generic_create(Object, {"name": object_name, "parent": module})
-                object_to_object_collection = generic_create(
-                    ObjectToObjectCollection,
-                    {"entity": obj, "parent": object_collection},
-                )
-                for param_name, param_info in object_info.items():
-                    save_parameter(owner, param_name, param_info, obj, True)
-
     save_collection_rel(entity, all_collections, "objects")
+
+
+def save_all_module_info(entity, all_module_info):
+    owner = entity.owner
+    data = all_module_info["children"]
+    for module_id, module_info in data.items():
+        module_name = module_info["name"]
+        version = module_info["version"]
+        package, _ = generic_create(
+            Package,
+            {"name": get_package_name(module_name), "owner": owner, "version": version},
+        )
+        module, _ = generic_create(
+            Module, {"name": module_name, "uuid": module_id, "parent": package}
+        )
+        for object_id, object_info in module_info["children"].items():
+            object_name = object_info["name"]
+            obj, _ = generic_create(
+                Object, {"name": object_name, "uuid": object_id, "parent": module}
+            )
+            for param_id, param_info in object_info["children"].items():
+                save_parameter(owner, param_id, param_info, obj, True)
 
 
 def save_parameter_collection(entity, available_parameters):
@@ -165,11 +182,7 @@ def save_parameter_collection(entity, available_parameters):
 def save_section_selected_object(owner, section, section_info):
     selected_object = section_info["selectedItem"]
     if selected_object:
-        module_name = selected_object["module"]
-        package = Package.objects.get(owner=owner, name=get_package_name(module_name))
-        module = Module.objects.get(name=module_name, parent=package)
-        obj_name = selected_object["obj"]
-        obj = Object.objects.get(name=obj_name, parent=module)
+        obj = Object.objects.get(uuid=selected_object)
         section.selected_object = obj
     else:
         section.selected_object = None
@@ -281,11 +294,9 @@ def save_section_all_entered_values(owner, section, section_info):
 
 
 def save_section(owner, section_info):
-    sid = section_info["id"]
-    variable_name = section_info["name"]
-    section, _ = generic_create(
-        Section, {"name": sid, "variable_name": variable_name, "owner": owner}
-    )
+    uuid = section_info["id"]
+    name = section_info["name"]
+    section, _ = generic_create(Section, {"uuid": uuid, "name": name, "owner": owner})
     save_section_selected_object(owner, section, section_info)
     # save_entity_collection_rels(owner, section, section_info["available"])
     # save_section_all_entered_values(owner, section, section_info)
@@ -314,9 +325,9 @@ def save_sections(owner, sections_to_save, all_sections, depth=0):
         # if section_info["depth"] == depth:
         section = save_section(owner, section_info)
         # all_root_sections.append((position, section))
-            # save_children(
-            #     owner, section, sections_to_save, section_info, all_sections, depth
-            # )
+        # save_children(
+        #     owner, section, sections_to_save, section_info, all_sections, depth
+        # )
         # position += 1
     return all_root_sections
 
@@ -357,10 +368,12 @@ def save_ui(request):
     ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
     generic_create(UIToFolder, {"entity": ui, "parent": folder})
 
-    save_object_collection(ui, ui_info["available"]["objects"])
-    save_parameter_collection(ui, ui_info["available"]["parameters"])
+    save_all_module_info(ui, ui_info["allModuleInfo"])
 
-    sections = ui_info["sectionInfos"]
-    list_of_root_sections = save_sections(owner, sections, sections)
+    save_object_collection(ui, ui_info["allObjCollections"])
+    # save_parameter_collection(ui, ui_info["available"]["parameters"])
+
+    # sections = ui_info["sectionInfos"]
+    # list_of_root_sections = save_sections(owner, sections, sections)
     # save_section_to_ui_info(ui, list_of_root_sections)
     # print("successs")

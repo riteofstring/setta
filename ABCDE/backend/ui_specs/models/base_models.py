@@ -6,6 +6,7 @@ def get_base_model(
     name,
     constraint_fields,
     parent_table=None,
+    has_uuid=False,
     has_name=False,
     has_owner=False,
     has_value=False,
@@ -14,6 +15,9 @@ def get_base_model(
 ):
     constraint_name = f"{name}_unique"
     attrs = {}
+    if has_uuid:
+        attrs["uuid"] = models.TextField()
+
     if has_name:
         attrs["name"] = models.TextField()
 

@@ -6,6 +6,7 @@ thismodule = sys.modules[__name__]
 tables = table_factory(
     "ParameterValueCollection",
     ["name", "owner"],
+    base_has_uuid=True,
     base_has_name=True,
     base_has_owner=True,
     forkable=True,

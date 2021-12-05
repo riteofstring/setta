@@ -8,6 +8,7 @@ tables = table_factory(
     "Module",
     ["name", "parent"],
     base_parent=Package,
+    base_has_uuid=True,
     base_has_name=True,
 )
 for k, v in tables.items():
