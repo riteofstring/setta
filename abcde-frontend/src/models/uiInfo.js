@@ -73,13 +73,16 @@ const uiInfo = {
   saveDraftUI: thunk((action, payload, helpers) => {
     const { token } = payload;
     const state = helpers.getState();
-    let name = state.currUIName;
-    let folder = state.currUIFolder;
-    if (!allDefined(name, folder)) {
-      name = "testDraft";
-      folder = "drafts";
-    }
-    action.saveUI({ token, name, folder });
+
+    // TEMPORARY
+    return new Promise((resolve, reject)=>resolve("temporary promise"))
+    // let name = state.currUIName;
+    // let folder = state.currUIFolder;
+    // if (!allDefined(name, folder)) {
+    //   name = "testDraft";
+    //   folder = "drafts";
+    // }
+    // action.saveUI({ token, name, folder });
   }),
 };
 
