@@ -1,7 +1,5 @@
 import { action } from "easy-peasy";
 
-import { exportState } from "./utils";
-
 const kwargInfos = {
   x: {},
 
@@ -19,10 +17,6 @@ const kwargInfos = {
     const { ids } = payload;
     state.x = _.omit(state.x, ids);
   }),
-
-  export() {
-    return exportState(this);
-  },
 };
 
 export default kwargInfos;

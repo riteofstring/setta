@@ -1,7 +1,7 @@
 import { action } from "easy-peasy";
 
 import { MutableObjInfo } from "../../classes/mutableInfo";
-import { setToDefault, exportNestedState } from "./utils";
+import { setToDefault } from "./utils";
 
 function setDefaultInfo(state, sectionId, objInfoId) {
   return setToDefault(
@@ -20,10 +20,6 @@ const objInfos = {
     const currState = setDefaultInfo(state, sectionId, objInfoId);
     currState.kwargIds = newStateFn(currState.kwargIds);
   }),
-
-  export() {
-    return exportNestedState(this);
-  },
 };
 
 export default objInfos;

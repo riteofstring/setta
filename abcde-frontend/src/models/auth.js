@@ -1,24 +1,22 @@
 import { action } from "easy-peasy";
 
+import { NO_AUTH } from "../utils/constants";
+
 const auth = {
   token: localStorage.getItem("token"),
   websocketToken: localStorage.getItem("websocketToken"),
-  isAuthenticated: false,
+  isAuthenticated: NO_AUTH,
   user: null,
-  isNewSession: true,
 
   loginSuccess: action((state, payload) => {
     localStorage.setItem("token", payload.token);
     state.token = payload.token;
     state.user = payload.user;
     state.isAuthenticated = true;
-    state.isNewSession = true;
   }),
 
   loginFail: action((state, payload) => {
-    console.log("loginFail");
     localStorage.clear();
-    sessionStorage.clear();
     state.token = null;
     state.websocketToken = null;
     state.isAuthenticated = false;
@@ -40,7 +38,6 @@ const auth = {
     console.log("verified existing token", payload);
     state.isAuthenticated = true;
     state.user = payload.user;
-    state.isNewSession = false;
   }),
 };
 
