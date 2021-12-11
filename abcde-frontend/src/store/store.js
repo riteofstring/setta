@@ -1,4 +1,4 @@
-import { createStore, action } from "easy-peasy";
+import { createStore, action, persist } from "easy-peasy";
 
 import auth from "../models/auth";
 import cliSocket from "../models/cliSocket";
@@ -18,35 +18,41 @@ import sectionPositions from "../models/sectionPositions";
 import uiInfo from "../models/uiInfo";
 import yamlEntry from "../models/yamlEntry";
 
-const store = createStore({
-  master: master,
-  yamlEntry: yamlEntry,
-  auth: auth,
-  uiInfo: uiInfo,
-  factoriesInfo: factoriesInfo,
-  funcsInfo: funcsInfo,
-  panes: panes,
-  mapInteraction: mapInteraction,
-  cliSocket: cliSocket,
-  sectionPositions: sectionPositions,
-  sectionInfos: sectionInfos,
-  sectionTypes: sectionTypes,
-  objInfos: objInfos,
-  paramInfos: paramInfos,
-  kwargInfos: kwargInfos,
-  uiTypes: uiTypes,
-  uiTypeConfigs: uiTypeConfigs,
-  setState: action((state, payload) => payload),
-  setSubState: action((state, payload) => {
-    const { name, value } = payload;
-    state[name] = value;
-  }),
-});
+const store = createStore(
+  persist(
+    {
+      master: master,
+      yamlEntry: yamlEntry,
+      auth: auth,
+      uiInfo: uiInfo,
+      factoriesInfo: factoriesInfo,
+      funcsInfo: funcsInfo,
+      panes: panes,
+      mapInteraction: mapInteraction,
+      cliSocket: cliSocket,
+      sectionPositions: sectionPositions,
+      sectionInfos: sectionInfos,
+      sectionTypes: sectionTypes,
+      objInfos: objInfos,
+      paramInfos: paramInfos,
+      kwargInfos: kwargInfos,
+      uiTypes: uiTypes,
+      uiTypeConfigs: uiTypeConfigs,
+      setState: action((state, payload) => payload),
+      setSubState: action((state, payload) => {
+        const { name, value } = payload;
+        state[name] = value;
+      }),
+    },
+    { deny: ["auth", "setState", "setSubState"], mergeStrategy: "mergeDeep" }
+  )
+);
 
 const initialState = store.getState();
 
 export const resetEntireState = () => {
   store.dispatch.setState(initialState);
+  store.persist.clear();
 };
 
 export const resetState = (name) => {
