@@ -44,7 +44,10 @@ const store = createStore(
         state[name] = value;
       }),
     },
-    { deny: ["auth", "setState", "setSubState"], mergeStrategy: "mergeDeep" }
+    {
+      deny: ["auth", "setState", "setSubState"],
+      storage: "localStorage",
+    }
   )
 );
 
