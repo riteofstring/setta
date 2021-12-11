@@ -1,4 +1,3 @@
-import { requiresNestedSection } from "../utils/constants";
 import { MutableInfo } from "./mutableInfo";
 
 export class UIType extends MutableInfo {
@@ -8,9 +7,5 @@ export class UIType extends MutableInfo {
     this.name = name;
     this.configId = configId;
     this.exportable = ["id", "name", "configId"];
-  }
-
-  get isNested() {
-    return requiresNestedSection(this.name);
   }
 }
