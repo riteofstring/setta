@@ -357,7 +357,7 @@ def save_ui(request):
     save_collections(ui, ui_info["allObjCollections"], "objects")
     save_collections(ui, ui_info["allParamCollections"], "parameters")
 
-    # sections = ui_info["sectionInfos"]
-    # list_of_root_sections = save_sections(owner, sections, sections)
+    sections = ui_info["sectionInfos"]
+    list_of_root_sections = save_sections(owner, sections, sections)
     # save_section_to_ui_info(ui, list_of_root_sections)
     # print("successs")
