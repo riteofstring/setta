@@ -20,7 +20,7 @@ const master = {
   // Load DATA
   _loadSections: action((state, payload) => {
     console.log("master payload", payload);
-    state.available = {
+    const available = {
       objects: payload.OBJECTS,
       parameters: payload.PARAMETERS,
     };
@@ -29,9 +29,8 @@ const master = {
       allModuleInfo: state.allModuleInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
-    } = createAllInfo(state.available));
+    } = createAllInfo(available));
 
-    console.log("available", debug(state.available));
     console.log("uiSpecs", debug(state.uiSpecs));
     console.log("allModuleInfo", debug(state.allModuleInfo));
     console.log("allObjCollections", debug(state.allObjCollections));

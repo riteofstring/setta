@@ -3,7 +3,7 @@ import _ from "lodash";
 
 import { compatibleName } from "../../utils/constants";
 import { defaultState } from "../../utils/utils";
-import { setToDefault } from "./utils";
+import { setToDefault, exportState } from "./utils";
 
 function setDefaultIdsOverview(state, sectionId, sectionTypeName) {
   return setToDefault(
@@ -83,6 +83,10 @@ const sectionInfos = {
           .some((x) => x)
     )
   ),
+
+  export() {
+    return exportState(this);
+  },
 };
 
 export default sectionInfos;

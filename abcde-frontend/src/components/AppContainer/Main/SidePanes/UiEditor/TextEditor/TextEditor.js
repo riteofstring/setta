@@ -5,7 +5,6 @@ import React, { useRef, useState, useEffect } from "react";
 import { IoIosRocket } from "react-icons/io";
 
 import { resetState } from "../../../../../../store/store";
-import styles from "./TextEditor.module.css";
 
 export default function TextEditor({ idx }) {
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -60,7 +59,6 @@ export default function TextEditor({ idx }) {
         onClick={handleCreateUI}
         disabled={!isEditorReady}
         variant="solid"
-        mb="1rem"
       >
         Create UI
       </Button>
@@ -70,8 +68,6 @@ export default function TextEditor({ idx }) {
         onMount={handleEditorDidMount}
         onChange={onChange}
         automaticLayout={true}
-        className={styles.container}
-        wrapperClassName={styles.wrapper}
         height={"calc(100% - 2.5rem)"}
       />
     </>

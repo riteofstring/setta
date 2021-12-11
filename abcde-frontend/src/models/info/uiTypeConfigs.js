@@ -12,6 +12,10 @@ const uiTypeConfigs = {
     const { configId, configName, value } = payload;
     state.x[configId][configName] = value;
   }),
+
+  export() {
+    return this.x;
+  },
 };
 
 export default uiTypeConfigs;
