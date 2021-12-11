@@ -139,9 +139,7 @@ def save_all_module_info(entity, all_module_info):
 
 def save_collections(entity, collections, col_type):
     owner = entity.owner
-    col_table = {"objects": ObjectCollection, "parameters": ParameterCollection}[
-        col_type
-    ]
+    col_table = get_collection_table(col_type)
     data = collections["children"]
     all_collections = []
     for col_id, col_info in data.items():
@@ -354,8 +352,8 @@ def save_ui(request):
     ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
     generic_create(UIToFolder, {"entity": ui, "parent": folder})
 
+    # record "immutable" info
     save_all_module_info(ui, ui_info["allModuleInfo"])
-
     save_collections(ui, ui_info["allObjCollections"], "objects")
     save_collections(ui, ui_info["allParamCollections"], "parameters")
 
