@@ -2,7 +2,7 @@ import { immerable } from "immer";
 
 import { ParameterInfo } from "./immutableInfo";
 
-function exportInfo(cls) {
+export function exportInfo(cls) {
   const output = {};
   for (let k of cls.exportable) {
     output[k] = cls[k];
@@ -12,9 +12,6 @@ function exportInfo(cls) {
 
 export class MutableInfo {
   [immerable] = true;
-  export() {
-    return exportInfo(this);
-  }
 }
 
 export class MutableParamInfo extends MutableInfo {
@@ -37,6 +34,14 @@ export class MutableObjInfo extends MutableInfo {
   }
 }
 
+function initName(name, parentSectionInfo) {
+  if (name) {
+    return name;
+  } else if (parentSectionInfo) {
+    return parentSectionInfo.name;
+  }
+}
+
 export class SectionInfo extends MutableInfo {
   constructor({
     id,
@@ -49,7 +54,7 @@ export class SectionInfo extends MutableInfo {
     super();
     this.id = id;
     this.sectionTypeId = sectionTypeId;
-    this.initName(name, parentSectionInfo);
+    this.name = initName(name, parentSectionInfo);
     this.isRendered = isRendered;
     this.selectedItem = selectedItem;
     this.exportable = [
@@ -61,20 +66,9 @@ export class SectionInfo extends MutableInfo {
       "selectedItem",
     ];
   }
-
-  initName(name, parentSectionInfo) {
-    if (name) {
-      this.name = name;
-    } else if (parentSectionInfo) {
-      this.name = parentSectionInfo.name;
-    }
-  }
 }
 
 export class KwargInfo extends ParameterInfo {
   [immerable] = true;
   exportable = ["id", "name"];
-  export() {
-    return exportInfo(this);
-  }
 }
