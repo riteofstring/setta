@@ -1,18 +1,10 @@
 import sys
 
-from django.db.models import (
-    CASCADE,
-    SET_NULL,
-    CheckConstraint,
-    ForeignKey,
-    Q,
-    TextField,
-)
+from django.db.models import CASCADE, CheckConstraint, ForeignKey, Q, TextField
 
 from .object import Object
 from .parameter_collection import ParameterCollection
 from .table_factory import table_factory
-from .ui_type import UIType
 
 constraints = [
     CheckConstraint(

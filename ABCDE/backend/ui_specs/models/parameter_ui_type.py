@@ -1,6 +1,6 @@
 import sys
 
-from django.db.models import CASCADE, BooleanField, ForeignKey
+from django.db.models import CASCADE, ForeignKey
 
 from .parameter import Parameter
 from .parameter_ui_type_collection import ParameterUITypeCollection

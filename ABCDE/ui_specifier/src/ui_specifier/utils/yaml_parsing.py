@@ -1,12 +1,8 @@
 import ast
-import copy
 import importlib
-import string
-from collections import defaultdict
 
 import yaml
 
-from .common_functions import get_the_only_key, get_the_only_value, merge_dicts
 from .constants import KWARGS_KEYWORD, REF_KEYWORD, SEPARATOR
 
 

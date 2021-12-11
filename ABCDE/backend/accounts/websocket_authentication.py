@@ -1,7 +1,6 @@
 from backend_utils.utils import query_string_parser
 from channels.auth import AuthMiddlewareStack
 from channels.db import database_sync_to_async
-from django.db import close_old_connections
 from knox.auth import TokenAuthentication
 
 

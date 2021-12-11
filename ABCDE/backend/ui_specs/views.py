@@ -1,6 +1,5 @@
 # Create your views here.
 import rest_framework
-from django.shortcuts import render
 from graphene_django.views import GraphQLView
 from rest_framework.decorators import (
     api_view,

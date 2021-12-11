@@ -1,6 +1,6 @@
 import sys
 
-from django.db.models import SET_NULL, ForeignKey, TextField
+from django.db.models import SET_NULL, ForeignKey
 
 from .object import Object
 from .object_collection import ObjectCollection
