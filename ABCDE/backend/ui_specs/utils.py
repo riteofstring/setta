@@ -3,7 +3,6 @@ import json
 from . import models
 from .models import (
     UI,
-    Datatype,
     Folder,
     Module,
     Object,
@@ -12,8 +11,6 @@ from .models import (
     Package,
     Parameter,
     ParameterCollection,
-    ParameterToObjectCollection,
-    ParameterToParameterCollection,
     ParameterUIType,
     ParameterUITypeCollection,
     ParameterValue,
@@ -22,7 +19,6 @@ from .models import (
     SectionPositions,
     SectionToObjectCollection,
     SectionToParameterCollection,
-    SectionToUI,
     UIToFolder,
     UIToObjectCollection,
     UIToParameterCollection,
@@ -108,39 +104,17 @@ def save_collection_rel(entity, list_of_collections, collection_type):
 
 
 def save_parameter(owner, param_id, param_info, parent, parent_is_obj):
-    datatype, _ = generic_create(Datatype, {"name": param_info["type"]})
-    ui_type, _ = generic_create(UIType, {"name": param_info["uiTypeName"]})
     parent_col = "parent_object" if parent_is_obj else "parent_collection"
     kwargs = {
         "name": param_info["name"],
         "uuid": param_id,
         "default_val": param_info["defaultVal"],
-        "type": datatype,
-        "ui_type": ui_type,
+        "type": param_info["type"],
         parent_col: parent,
     }
     param, _ = generic_create(Parameter, kwargs)
     if "specs" in param_info:
         save_entity_collection_rels(owner, param, param_info["specs"])
-
-
-def save_object_collection(entity, all_obj_collections):
-    owner = entity.owner
-    data = all_obj_collections["children"]
-    all_collections = []
-    for obj_col_id, obj_col_info in data.items():
-        obj_col_name = obj_col_info["name"]
-        obj_col, _ = generic_create(
-            ObjectCollection, {"name": obj_col_name, "uuid": obj_col_id, "owner": owner}
-        )
-        all_collections.append(obj_col)
-        for obj_id in obj_col_info["children"].keys():
-            obj = Object.objects.get(uuid=obj_id)
-            object_to_object_collection = generic_create(
-                ObjectToObjectCollection,
-                {"entity": obj, "parent": obj_col},
-            )
-    save_collection_rel(entity, all_collections, "objects")
 
 
 def save_all_module_info(entity, all_module_info):
@@ -165,16 +139,39 @@ def save_all_module_info(entity, all_module_info):
                 save_parameter(owner, param_id, param_info, obj, True)
 
 
-def save_parameter_collection(entity, available_parameters):
+def save_object_collection(entity, all_obj_collections):
     owner = entity.owner
+    data = all_obj_collections["children"]
     all_collections = []
-    for param_collection_name, param_collection_info in available_parameters.items():
-        param_collection, _ = generic_create(
-            ParameterCollection, {"name": param_collection_name, "owner": owner}
+    for obj_col_id, obj_col_info in data.items():
+        obj_col_name = obj_col_info["name"]
+        obj_col, _ = generic_create(
+            ObjectCollection, {"name": obj_col_name, "uuid": obj_col_id, "owner": owner}
         )
-        all_collections.append(param_collection)
-        for param_name, param_info in param_collection_info.items():
-            save_parameter(owner, param_name, param_info, param_collection, False)
+        all_collections.append(obj_col)
+        for obj_id in obj_col_info["children"].keys():
+            obj = Object.objects.get(uuid=obj_id)
+            object_to_object_collection = generic_create(
+                ObjectToObjectCollection,
+                {"entity": obj, "parent": obj_col},
+            )
+    save_collection_rel(entity, all_collections, "objects")
+
+
+def save_parameter_collection(entity, all_param_collections):
+    owner = entity.owner
+    data = all_param_collections["children"]
+    all_collections = []
+    print("data", data)
+    for param_col_id, param_col_info in data.items():
+        param_col_name = param_col_info["name"]
+        param_col, _ = generic_create(
+            ParameterCollection,
+            {"name": param_col_name, "uuid": param_col_id, "owner": owner},
+        )
+        all_collections.append(param_col)
+        for param_id, param_info in param_col_info["children"].items():
+            save_parameter(owner, param_id, param_info, param_col, False)
 
     save_collection_rel(entity, all_collections, "parameters")
 
@@ -371,7 +368,7 @@ def save_ui(request):
     save_all_module_info(ui, ui_info["allModuleInfo"])
 
     save_object_collection(ui, ui_info["allObjCollections"])
-    # save_parameter_collection(ui, ui_info["available"]["parameters"])
+    save_parameter_collection(ui, ui_info["allParamCollections"])
 
     # sections = ui_info["sectionInfos"]
     # list_of_root_sections = save_sections(owner, sections, sections)

@@ -9,9 +9,7 @@ from django.db.models import (
     TextField,
 )
 
-from .datatype import Datatype
 from .object import Object
-from .object_collection import ObjectCollection
 from .parameter_collection import ParameterCollection
 from .table_factory import table_factory
 from .ui_type import UIType
@@ -36,11 +34,9 @@ tables = table_factory(
             ParameterCollection, on_delete=CASCADE, null=True
         ),
         "default_val": TextField(null=True),
-        "type": ForeignKey(Datatype, on_delete=SET_NULL, null=True),
-        "ui_type": ForeignKey(UIType, on_delete=SET_NULL, null=True),
+        "type": TextField(null=True),
     },
     base_additional_constraints=constraints,
-    additional_rel=[ObjectCollection, ParameterCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)

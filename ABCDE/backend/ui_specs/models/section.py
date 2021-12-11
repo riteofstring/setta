@@ -30,7 +30,7 @@ tables = table_factory(
     forkable=True,
     saveable=True,
     taggable=True,
-    additional_rel=[UI, ObjectCollection, ParameterCollection],
+    additional_rel=[ObjectCollection, ParameterCollection],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)
