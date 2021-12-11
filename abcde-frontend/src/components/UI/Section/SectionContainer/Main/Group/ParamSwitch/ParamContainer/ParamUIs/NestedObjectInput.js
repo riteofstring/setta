@@ -33,9 +33,12 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
 }
 
 export function NestedObjectInputConfig({ name, onChange, savedConfig }) {
-  const available = useStoreState((x) => x.master.available);
-  const availableObjects = Object.keys(available.objects);
-  const availableParameters = Object.keys(available.parameters);
+  const availableObjects = useStoreState((x) =>
+    Object.keys(x.master.allObjCollections.nameToId)
+  );
+  const availableParameters = useStoreState((x) =>
+    Object.keys(x.master.allParamCollections.nameToId)
+  );
 
   const pickerObjects = availableObjects.map((x) =>
     valueAndLabel(x, "objects")

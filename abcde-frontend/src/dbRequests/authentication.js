@@ -1,6 +1,6 @@
 import axios from "axios";
 
-import { BACKEND } from "../utils/constants";
+import { BACKEND, NO_AUTH } from "../utils/constants";
 
 export const verifyToken = ({
   authToken,
@@ -15,8 +15,13 @@ export const verifyToken = ({
       return true;
     })
     .catch((err) => {
-      actionLoginFail(null);
-      return false;
+      if (NO_AUTH) {
+        actionStayLoggedIn({ user: "user" });
+        return true;
+      } else {
+        actionLoginFail(null);
+        return false;
+      }
     });
 };
 
@@ -35,8 +40,13 @@ export const login = ({
       return true;
     })
     .catch((err) => {
-      actionLoginFail(null);
-      return false;
+      if (NO_AUTH) {
+        actionLoginSuccess({ user: "user", token: "12345" });
+        return true;
+      } else {
+        actionLoginFail(null);
+        return false;
+      }
     });
 };
 
@@ -60,6 +70,10 @@ export const websocketAuth = ({
 
 // LOGIN USER
 export const logout = ({ actionLoginFail, authToken }) => {
+  if (NO_AUTH) {
+    actionLoginFail(null);
+    return;
+  }
   axios
     .post(BACKEND + "api/auth/logout", null, tokenConfig(authToken))
     .then((res) => {

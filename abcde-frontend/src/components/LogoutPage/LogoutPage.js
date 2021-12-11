@@ -1,3 +1,4 @@
+import { Text } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 import { useHistory } from "react-router-dom";
@@ -5,18 +6,17 @@ import { useHistory } from "react-router-dom";
 import { logout } from "../../dbRequests/authentication.js";
 import { resetEntireState } from "../../store/store";
 
-const LogoutPage = () => {
+export default function LogoutPage() {
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
   const authToken = useStoreState((state) => state.auth.token);
-  resetEntireState();
-  logout({ actionLoginFail, authToken });
   let history = useHistory();
 
   useEffect(() => {
+    console.log("LogoutPage useEffect");
     history.push("/");
+    logout({ actionLoginFail, authToken });
+    resetEntireState();
   }, []);
 
-  return null;
-};
-
-export default React.memo(LogoutPage);
+  return <Text>Logging out...</Text>;
+}

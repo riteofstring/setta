@@ -1,7 +1,7 @@
 import { action } from "easy-peasy";
 
 import { MutableParamInfo } from "../../classes/mutableInfo";
-import { setToDefault } from "./utils";
+import { setToDefault, exportNestedState } from "./utils";
 
 function setDefaultInfo(state, sectionId, paramInfoId) {
   return setToDefault(
@@ -34,6 +34,10 @@ const paramInfos = {
     const { ids } = payload;
     state.x = _.omit(state.x, ids);
   }),
+
+  export() {
+    return exportNestedState(this);
+  },
 };
 
 export default paramInfos;

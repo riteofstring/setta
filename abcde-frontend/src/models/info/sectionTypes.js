@@ -1,6 +1,7 @@
 import { action, thunk } from "easy-peasy";
 
 import { SectionType } from "../../classes/sectionType";
+import { exportState } from "./utils";
 
 const sectionTypes = {
   x: {},
@@ -28,9 +29,11 @@ const sectionTypes = {
       paramUITypeConfig: uiTypeConfig,
       parentIsSection: true,
     });
-    newSectionType.childType.id = childTypeId;
     state.x[sectionTypeId] = newSectionType;
-    state.x[childTypeId] = newSectionType.childType;
+    if (childTypeId) {
+      newSectionType.childType.id = childTypeId;
+      state.x[childTypeId] = newSectionType.childType;
+    }
   }),
 
   reinitSectionType: thunk((actions, payload, helpers) => {
@@ -43,6 +46,10 @@ const sectionTypes = {
       ...payload,
     });
   }),
+
+  export() {
+    return exportState(this);
+  },
 };
 
 export default sectionTypes;
