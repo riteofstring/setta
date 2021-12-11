@@ -48,7 +48,9 @@ def get_base_model(
     return type(name, (models.Model,), attrs)
 
 
-def get_base_relationship_model(name, table, parent_table=None, single_parent=False):
+def get_base_relationship_model(
+    name, table, parent_table=None, single_parent=False, child_table=None
+):
     constraint_name = f"{name}_unique"
     parent_table = table if parent_table is None else parent_table
     fields = ["entity"]
@@ -65,5 +67,12 @@ def get_base_relationship_model(name, table, parent_table=None, single_parent=Fa
     attrs["parent"] = models.ForeignKey(
         parent_table, on_delete=models.CASCADE, related_name=f"{name}_parent"
     )
+    if child_table is not None:
+        attrs["child"] = models.ForeignKey(
+            child_table,
+            on_delete=models.SET_NULL,
+            related_name=f"{name}_child",
+            null=True,
+        )
 
     return type(name, (models.Model,), attrs)

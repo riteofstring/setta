@@ -55,12 +55,17 @@ def table_factory(
 
     if additional_rel is not None:
         for ar in additional_rel:
-            rel_name = f"{base_name}To{ar.__name__}"
+            if isinstance(ar, tuple):
+                parent_table, child_table = ar
+            else:
+                parent_table, child_table = ar, None
+            rel_name = f"{base_name}To{parent_table.__name__}"
             output[rel_name] = get_base_relationship_model(
                 rel_name,
                 base_obj,
                 single_parent=False,
-                parent_table=ar,
+                parent_table=parent_table,
+                child_table=child_table,
             )
 
     return output

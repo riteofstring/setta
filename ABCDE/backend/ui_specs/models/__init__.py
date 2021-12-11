@@ -33,11 +33,16 @@ from .section import (
     Section,
     SectionFork,
     SectionToFolder,
-    SectionToObjectCollection,
-    SectionToParameterCollection,
+    SectionToSectionTypeConfig,
     SectionToTag,
 )
-from .section_positions import SectionPositions
+from .section_position import SectionPosition
+from .section_type import SectionType
+from .section_type_config import (
+    SectionTypeConfig,
+    SectionTypeConfigToObjectCollection,
+    SectionTypeConfigToParameterCollection,
+)
 from .ui import (
     UI,
     UIFork,

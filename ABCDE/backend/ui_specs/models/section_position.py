@@ -8,7 +8,7 @@ from .ui import UI
 
 thismodule = sys.modules[__name__]
 tables = table_factory(
-    "SectionPositions",
+    "SectionPosition",
     ["ui", "section"],
     base_additional_tables={
         "ui": ForeignKey(UI, on_delete=CASCADE),

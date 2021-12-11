@@ -14,9 +14,7 @@ from .models import (
     ParameterValue,
     ParameterValueCollection,
     Section,
-    SectionPositions,
-    SectionToObjectCollection,
-    SectionToParameterCollection,
+    SectionPosition,
     UIToFolder,
     UIToObjectCollection,
     UIToParameterCollection,
@@ -323,10 +321,10 @@ def save_sections_to_ui_rel(ui, list_of_sections):
 
 
 def save_section_positions(ui, list_of_sections):
-    delete_old_sections(SectionPositions, ui, "ui", "section", list_of_sections)
+    delete_old_sections(SectionPosition, ui, "ui", "section", list_of_sections)
     for position, section in list_of_sections:
         try_get_then_create(
-            SectionPositions,
+            SectionPosition,
             {"ui": ui, "section": section},
             {"ui": ui, "section": section, "position": position},
             {"position": position},

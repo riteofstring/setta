@@ -17,9 +17,7 @@ from .models import (
     ParameterValue,
     ParameterValueCollection,
     Section,
-    SectionPositions,
-    SectionToObjectCollection,
-    SectionToParameterCollection,
+    SectionPosition,
     UIToFolder,
     UIToObjectCollection,
     UIToParameterCollection,
@@ -152,9 +150,9 @@ from .models import (
 #         )
 
 
-# class SectionPositionsGQL(DjangoObjectType):
+# class SectionPositionGQL(DjangoObjectType):
 #     class Meta:
-#         model = SectionPositions
+#         model = SectionPosition
 #         fields = (
 #             "section",
 #             "position",
@@ -216,7 +214,7 @@ from .models import (
 #         fields = ("name",)
 
 #     sections = graphene.List(SectionGQL)
-#     section_positions = graphene.List(SectionPositionsGQL)
+#     section_positions = graphene.List(SectionPositionGQL)
 #     available_objects = graphene.List(ObjectCollectionGQL)
 #     available_parameters = graphene.List(ParameterCollectionGQL)
 
@@ -224,7 +222,7 @@ from .models import (
 #         return get_sections(self)
 
 #     def resolve_section_positions(self, info):
-#         return SectionPositions.objects.filter(ui=self, section__in=get_sections(self))
+#         return SectionPosition.objects.filter(ui=self, section__in=get_sections(self))
 
 #     def resolve_available_objects(self, info):
 #         return ObjectCollection.objects.filter(
