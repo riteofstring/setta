@@ -1,3 +1,5 @@
+import { exportInfo } from "../../classes/mutableInfo";
+
 export function setToDefault(state, firstId, secondId, newValueFn, attr = "x") {
   if (!(firstId in state[attr])) {
     state[attr][firstId] = {};
@@ -9,13 +11,13 @@ export function setToDefault(state, firstId, secondId, newValueFn, attr = "x") {
 }
 
 export function exportState(state) {
-  return _.map(state.x, (x) => x.export());
+  return _.map(state.x, (x) => exportInfo(x));
 }
 
 export function exportNestedState(state) {
   return _.map(state.x, (y, sectionId) =>
     _.map(y, (z) => {
-      const output = z.export();
+      const output = exportInfo(z);
       output.sectionId = sectionId;
       return output;
     })
