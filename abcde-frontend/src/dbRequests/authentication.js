@@ -8,6 +8,10 @@ export const verifyToken = ({
   actionLoginFail,
 }) => {
   console.log("trying to verify existing token", authToken);
+  if (NO_AUTH) {
+    actionStayLoggedIn({ user: "user" });
+    return true;
+  }
   return axios
     .post(BACKEND + "api/auth/verifyToken", null, tokenConfig(authToken))
     .then((res) => {
@@ -15,13 +19,8 @@ export const verifyToken = ({
       return true;
     })
     .catch((err) => {
-      if (NO_AUTH) {
-        actionStayLoggedIn({ user: "user" });
-        return true;
-      } else {
-        actionLoginFail(null);
-        return false;
-      }
+      actionLoginFail(null);
+      return false;
     });
 };
 
@@ -32,6 +31,11 @@ export const login = ({
   actionLoginSuccess,
   actionLoginFail,
 }) => {
+  if (NO_AUTH) {
+    actionLoginSuccess({ user: "user", token: "12345" });
+    return true;
+  }
+
   const body = JSON.stringify({ username, password });
   return axios
     .post(BACKEND + "api/auth/login", body, tokenConfig(null))
@@ -40,13 +44,8 @@ export const login = ({
       return true;
     })
     .catch((err) => {
-      if (NO_AUTH) {
-        actionLoginSuccess({ user: "user", token: "12345" });
-        return true;
-      } else {
-        actionLoginFail(null);
-        return false;
-      }
+      actionLoginFail(null);
+      return false;
     });
 };
 
