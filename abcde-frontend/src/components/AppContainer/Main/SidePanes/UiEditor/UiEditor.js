@@ -9,7 +9,7 @@ import PaneContainer from "../PaneContainer";
 import TabsContainer from "./TabsContainer";
 import TextEditor from "./TextEditor/TextEditor";
 import UIConfig from "./UIConfig";
-import UIEditorPages from "./UiEditorPages";
+import UiEditorPages from "./UiEditorPages";
 
 const paneProps = {
   right: true,
@@ -68,49 +68,60 @@ export default function UiEditor() {
     setCurrTabIdx(mod(currTabIdx - 1, numTabs));
   }
 
+  const [dimensions, setDimensions] = useState({});
+
   return (
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
       <Tabs h="inherit" display="flex" flexDir="column" className="topTab">
         <TabList>
           <Tab>UI Config</Tab>
-          <Tab>Parameter Settings</Tab>
-          <Tab>Save</Tab>
-          <Tab>Load</Tab>
+          <Tab>Parameter Sweeps</Tab>
           <Tab>Edit YAML</Tab>
         </TabList>
-        <TabPanels
-          flexGrow="1"
-          display="grid"
-          place-items="center"
-          id="tabPanelOne"
+        <Measure
+          client
+          onResize={(contentRect) => setDimensions(contentRect.client)}
         >
-          <TabPanel bg="white">
-            <UIConfig />
-          </TabPanel>
-          <TabPanel>Parameter Settings</TabPanel>
-          <TabPanel>Save</TabPanel>
-          <TabPanel>Load</TabPanel>
-          <TabPanel display="grid" place-items="center">
-            <Tabs
-              variant="unstyled"
-              className="lkjlkj"
-              display="flex"
-              flexDir="column"
-              index={currTabIdx}
-              onChange={(index) => setCurrTabIdx(index)}
+          {({ measureRef }) => (
+            <TabPanels
+              flexGrow="1"
+              display="grid"
+              place-items="center"
+              id="tabPanelOne"
+              h="inherit"
+              overflowY="auto"
+              ref={measureRef}
             >
-              {/* <UiEditorPages tabNumArray={tabNumArray} /> */}
-              <TabsContainer
-                tabNumArray={tabNumArray}
-                currTabIdx={currTabIdx}
-                onAddClick={onAddClick}
-                onRemoveClick={onRemoveClick}
-                onGoToNext={onGoToNext}
-                onGoToPrev={onGoToPrev}
-              />
-            </Tabs>
-          </TabPanel>
-        </TabPanels>
+              <TabPanel bg="white">
+                <UIConfig />
+              </TabPanel>
+              <TabPanel>Parameter Sweeps</TabPanel>
+              <TabPanel display="grid" place-items="center">
+                <Tabs
+                  variant="unstyled"
+                  className="lkjlkj"
+                  display="flex"
+                  flexDir="column"
+                  index={currTabIdx}
+                  onChange={(index) => setCurrTabIdx(index)}
+                >
+                  <UiEditorPages
+                    tabNumArray={tabNumArray}
+                    dimensions={dimensions}
+                  />
+                  <TabsContainer
+                    tabNumArray={tabNumArray}
+                    currTabIdx={currTabIdx}
+                    onAddClick={onAddClick}
+                    onRemoveClick={onRemoveClick}
+                    onGoToNext={onGoToNext}
+                    onGoToPrev={onGoToPrev}
+                  />
+                </Tabs>
+              </TabPanel>
+            </TabPanels>
+          )}
+        </Measure>
       </Tabs>
     </PaneContainer>
   );

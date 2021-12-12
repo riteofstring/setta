@@ -52,7 +52,6 @@ export default function TextEditor({ idx, dimensions }) {
   const onChange = (newValue, e) => {
     setEnteredText({ idx, text: newValue });
   };
-
   return (
     <>
       <Button
@@ -70,10 +69,10 @@ export default function TextEditor({ idx, dimensions }) {
         onMount={handleEditorDidMount}
         onChange={onChange}
         options={{ automaticLayout: true }}
-        className={styles.container}
+        // className={styles.container}
         wrapperClassName={styles.wrapper}
-        height={dimensions.height}
-        width={dimensions.width}
+        height={`calc(${dimensions.height}px - 8rem)`}
+        width={`calc(${dimensions.width}px - 2rem)`}
       />
     </>
   );
