@@ -36,6 +36,7 @@ function Body() {
     } else {
       // testing for now, so don't logout
       saveDraftUI({ token }).then((res) => null);
+      // history.push("/logout")
     }
   };
   return (

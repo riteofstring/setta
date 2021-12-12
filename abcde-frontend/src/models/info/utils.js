@@ -26,7 +26,7 @@ export function exportNestedState(state) {
 
 export function exportAllStates(state) {
   return {
-    sectionInfos: state.sectionInfos.export(),
+    ...state.sectionInfos.export(),
     objInfos: state.objInfos.export(),
     paramInfos: state.paramInfos.export(),
     kwargInfos: state.kwargInfos.export(),

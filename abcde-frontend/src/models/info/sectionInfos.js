@@ -85,7 +85,7 @@ const sectionInfos = {
   ),
 
   export() {
-    return exportState(this);
+    return { sectionInfos: exportState(this), idsOverview: this.idsOverview };
   },
 };
 
