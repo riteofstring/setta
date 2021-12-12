@@ -15,6 +15,10 @@ from .models import (
     ParameterValueCollection,
     Section,
     SectionPosition,
+    SectionType,
+    SectionTypeConfig,
+    SectionTypeConfigToObjectCollection,
+    SectionTypeConfigToParameterCollection,
     UIToFolder,
     UIToObjectCollection,
     UIToParameterCollection,
@@ -275,6 +279,37 @@ def save_section_all_entered_values(owner, section, section_info):
     save_section_ui_types(owner, section, param_ui_type_names)
 
 
+def save_section_type(section_type):
+    section_type, _ = generic_create(SectionType, {"name": section_type["name"]})
+    return section_type
+
+
+def save_section_type_config_to_collection(owner, section_type_config, stc, col_type):
+    key = {"objects": "objCollectionIds", "parameters": "paramCollectionIds"}[col_type]
+    col_table = get_collection_table(col_type)
+    to_col_table = get_collection_table(col_type, "SectionTypeConfig")
+    for x in section_type_config[key]:
+        col = col_table.objects.get(uuid=x)
+        generic_create(to_col_table, {"entity": stc, "parent": col})
+
+
+def save_section_type_config(owner, section_type_config):
+    section_type = save_section_type({"name": section_type_config["name"]})
+    uuid = section_type_config["id"]
+    stc, _ = generic_create(
+        SectionTypeConfig, {"uuid": uuid, "owner": owner, "section_type": section_type}
+    )
+    save_section_type_config_to_collection(owner, section_type_config, stc, "objects")
+    save_section_type_config_to_collection(
+        owner, section_type_config, stc, "parameters"
+    )
+
+
+def save_section_type_configs(owner, section_type_configs):
+    for x in section_type_configs:
+        save_section_type_config(owner, x)
+
+
 def save_section(owner, section_info):
     uuid = section_info["id"]
     name = section_info["name"]
@@ -355,6 +390,7 @@ def save_ui(request):
     save_collections(ui, ui_info["allObjCollections"], "objects")
     save_collections(ui, ui_info["allParamCollections"], "parameters")
 
+    save_section_type_configs(owner, ui_info["sectionTypes"])
     sections = ui_info["sectionInfos"]
     list_of_root_sections = save_sections(owner, sections, sections)
     # save_section_to_ui_info(ui, list_of_root_sections)
