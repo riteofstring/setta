@@ -7,7 +7,7 @@ import { IoIosRocket } from "react-icons/io";
 import { resetState } from "../../../../../../store/store";
 import styles from "./TextEditor.module.css";
 
-export default function TextEditor({ idx }) {
+export default function TextEditor({ idx, dimensions }) {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
   const enteredText = useStoreState(
@@ -69,10 +69,11 @@ export default function TextEditor({ idx }) {
         value={enteredText}
         onMount={handleEditorDidMount}
         onChange={onChange}
-        automaticLayout={true}
+        options={{ automaticLayout: true }}
         className={styles.container}
         wrapperClassName={styles.wrapper}
-        height={"calc(100% - 2.5rem)"}
+        height={dimensions.height}
+        width={dimensions.width}
       />
     </>
   );
