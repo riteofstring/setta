@@ -1,5 +1,5 @@
 import UIConfigFunc from "./UIConfig";
 
-export default function () {
-  return <UIConfigFunc />;
+export default function (props) {
+  return <UIConfigFunc {...props} />;
 }
