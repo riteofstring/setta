@@ -165,13 +165,11 @@ def save_collections(entity, collections, col_type):
     save_collection_rel(entity, all_collections, col_type)
 
 
-def save_section_selected_object(owner, section, section_info):
-    selected_object = section_info["selectedItem"]
-    if selected_object:
-        obj = Object.objects.get(uuid=selected_object)
-        section.selected_object = obj
-    else:
-        section.selected_object = None
+def update_section(owner, section, attr, rel_table, uuid_of_rel):
+    rel = None
+    if uuid_of_rel:
+        rel = rel_table.objects.get(uuid=uuid_of_rel)
+    setattr(section, attr, rel)
     section.save()
 
 
@@ -314,7 +312,17 @@ def save_section(owner, section_info):
     uuid = section_info["id"]
     name = section_info["name"]
     section, _ = generic_create(Section, {"uuid": uuid, "name": name, "owner": owner})
-    save_section_selected_object(owner, section, section_info)
+    update_section(
+        owner, section, "selected_object", Object, section_info["selectedItem"]
+    )
+    update_section(
+        owner,
+        section,
+        "curr_section_type_config",
+        SectionTypeConfig,
+        section_info["sectionTypeId"],
+    )
+    # save_section_selected_object(owner, section, section_info)
     # save_entity_collection_rels(owner, section, section_info["available"])
     # save_section_all_entered_values(owner, section, section_info)
     # return section
