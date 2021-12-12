@@ -33,7 +33,7 @@ from .section import (
     Section,
     SectionFork,
     SectionToFolder,
-    SectionToSectionTypeConfig,
+    SectionToSectionType,
     SectionToTag,
 )
 from .section_position import SectionPosition

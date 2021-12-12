@@ -318,7 +318,7 @@ def save_section(owner, section_info):
     update_section(
         owner,
         section,
-        "curr_section_type_config",
+        "section_type_config",
         SectionTypeConfig,
         section_info["sectionTypeId"],
     )

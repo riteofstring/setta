@@ -5,6 +5,7 @@ from django.db.models import SET_NULL, ForeignKey
 from .object import Object
 from .parameter_ui_type_collection import ParameterUITypeCollection
 from .parameter_value_collection import ParameterValueCollection
+from .section_type import SectionType
 from .section_type_config import SectionTypeConfig
 from .table_factory import table_factory
 from .ui import UI
@@ -24,14 +25,14 @@ tables = table_factory(
         "ui_types": ForeignKey(
             ParameterUITypeCollection, on_delete=SET_NULL, null=True
         ),
-        "curr_section_type_config": ForeignKey(
+        "section_type_config": ForeignKey(
             SectionTypeConfig, on_delete=SET_NULL, null=True
         ),
     },
     forkable=True,
     saveable=True,
     taggable=True,
-    additional_rel=[(SectionTypeConfig, UI)],
+    additional_rel=[(SectionType, UI)],
 )
 for k, v in tables.items():
     setattr(thismodule, k, v)
