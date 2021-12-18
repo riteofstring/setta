@@ -1,9 +1,13 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
+import { isRoot } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
-import { useGetCurrObjParamKwargInfos } from "./useCreateInfo";
+import {
+  useGetCurrObjParamKwargInfos,
+  useGetSectionType,
+} from "./useCreateInfo";
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
@@ -43,8 +47,10 @@ export function useGetIdsOverview(sectionId) {
     () => []
   );
   const currChildrenId = useGetCurrChildrenIds(sectionId);
-  console.log("useGetCurrChildrenIds allChildrenId", allChildrenId);
-  console.log("useGetCurrChildrenIds currChildrenId", currChildrenId);
+  const sectionTypeName = useGetSectionType(sectionId).name;
+  if (isRoot(sectionTypeName)) {
+    return allChildrenId;
+  }
   return _.intersection(allChildrenId, currChildrenId);
 }
 
