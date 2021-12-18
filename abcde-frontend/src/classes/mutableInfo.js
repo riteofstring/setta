@@ -15,13 +15,12 @@ export class MutableInfo {
 }
 
 export class MutableParamInfo extends MutableInfo {
-  constructor({ id, uiTypeId, enteredValue, childId }) {
+  constructor({ id, uiTypeId, enteredValue }) {
     super();
     this.id = id;
     this.uiTypeId = uiTypeId;
     this.enteredValue = enteredValue;
-    this.childId = childId;
-    this.exportable = ["id", "uiTypeId", "enteredValue", "childId"];
+    this.exportable = ["id", "uiTypeId", "enteredValue"];
   }
 }
 

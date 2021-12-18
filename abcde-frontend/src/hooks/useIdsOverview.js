@@ -1,9 +1,9 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
+import _ from "lodash";
 
-import { compatibleName } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
-import { useGetSectionType } from "./useCreateInfo";
+import { useGetCurrObjParamKwargInfos } from "./useCreateInfo";
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
@@ -38,15 +38,27 @@ export function useSetIdsOverview(sectionId) {
 
 export function useGetIdsOverview(sectionId) {
   const childrenInfoId = useGetChildrenInfoId(sectionId);
-  const childrenId = useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId])
-  return defaultState(
-    childrenId,
+  const allChildrenId = defaultState(
+    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
     () => []
   );
+  const currChildrenId = useGetCurrChildrenIds(sectionId);
+  console.log("useGetCurrChildrenIds allChildrenId", allChildrenId);
+  console.log("useGetCurrChildrenIds currChildrenId", currChildrenId);
+  return _.intersection(allChildrenId, currChildrenId);
 }
 
 export function useGetChildrenInfoId(sectionId) {
-  return useStoreState(
-    (x) => x.sectionInfos.idsOverview[sectionId]
+  return useStoreState((x) => x.sectionInfos.idsOverview[sectionId]);
+}
+
+export function useGetCurrChildrenIds(sectionId) {
+  const childIds = defaultState(
+    useStoreState((x) => x.paramInfos.childIds[sectionId]),
+    () => ({})
   );
+  const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
+  const paramChildIds = _.map(paramInfos, (x) => childIds[x.id]);
+  const kwargChildIds = _.map(kwargInfos, (x) => childIds[x.id]);
+  return [...paramChildIds, ...kwargChildIds];
 }

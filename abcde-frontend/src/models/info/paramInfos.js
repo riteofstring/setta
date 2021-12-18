@@ -1,4 +1,5 @@
 import { action } from "easy-peasy";
+import _ from "lodash";
 
 import { MutableParamInfo } from "../../classes/mutableInfo";
 import { setToDefault, exportNestedState } from "./utils";
@@ -12,8 +13,16 @@ function setDefaultInfo(state, sectionId, paramInfoId) {
   );
 }
 
+function setDefaultChildId(state, sectionId) {
+  if (!(sectionId in state.childIds)) {
+    state.childIds[sectionId] = {};
+  }
+  return state.childIds[sectionId];
+}
+
 const paramInfos = {
   x: {},
+  childIds: {},
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;
@@ -27,7 +36,7 @@ const paramInfos = {
 
   setChildId: action((state, payload) => {
     const { sectionId, paramInfoId, childId } = payload;
-    setDefaultInfo(state, sectionId, paramInfoId).childId = childId;
+    setDefaultChildId(state, sectionId)[paramInfoId] = childId;
   }),
 
   deleteParamInfo: action((state, payload) => {

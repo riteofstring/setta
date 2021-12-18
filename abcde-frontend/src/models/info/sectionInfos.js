@@ -1,7 +1,6 @@
-import { action, computed, debug } from "easy-peasy";
+import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
-import { compatibleName } from "../../utils/constants";
 import { defaultState } from "../../utils/utils";
 import { exportState } from "./utils";
 

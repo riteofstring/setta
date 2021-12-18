@@ -8,23 +8,22 @@ import {
 } from "@chakra-ui/react";
 
 import {
-  useGetAllParamInfos,
+  useGetObjParamKwargInfos,
   useParamChildId,
   useGetParamUIType,
   useParamEnteredValue,
   useInitializeUIType,
   useAddKwarg,
-  useGetKwargInfos,
   useDeleteKwarg,
-  useGetObjInfos,
 } from "../../../../../../hooks/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfoId }) {
   console.log("GroupContainer");
-  const objInfo = useGetObjInfos(sectionId, objInfoId);
-  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
-  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
+  const { objInfo, paramInfos, kwargInfos } = useGetObjParamKwargInfos(
+    sectionId,
+    objInfoId
+  );
   const enteredValueFn = useParamEnteredValue(sectionId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);

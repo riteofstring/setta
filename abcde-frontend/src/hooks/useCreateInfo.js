@@ -108,6 +108,18 @@ export function useGetSectionType(sectionId) {
   );
 }
 
+export function useGetCurrObjParamKwargInfos(sectionId) {
+  const { selectedItem } = useGetSectionInfo(sectionId);
+  return useGetObjParamKwargInfos(sectionId, selectedItem);
+}
+
+export function useGetObjParamKwargInfos(sectionId, objInfoId) {
+  const objInfo = useGetObjInfos(sectionId, objInfoId);
+  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
+  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
+  return { objInfo, paramInfos, kwargInfos };
+}
+
 export function useGetXInfos(
   collectionName,
   allCollectionName,
@@ -173,15 +185,24 @@ export function useGetAllParamAndKwargInfos(sectionId, objInfo) {
   ];
 }
 
-export function useParamInfoState(sectionId, stateName, setStateFn, key) {
+export function useParamInfoState(
+  sectionId,
+  stateName,
+  setStateFn,
+  key,
+  customGet
+) {
+  let getFn = (x, paramInfoId) =>
+    getInfo(x)[sectionId]?.[paramInfoId]?.[stateName];
+  if (customGet) {
+    getFn = customGet;
+  }
   return (paramInfoId) => {
     const setX = curryAction(
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { sectionId }
     );
-    const x = useStoreState(
-      (x) => getInfo(x.paramInfos)[sectionId]?.[paramInfoId]?.[stateName]
-    );
+    const x = useStoreState((x) => getFn(x.paramInfos, paramInfoId));
     const setX_ = curryAction(setX, { paramInfoId }, key);
     return [x, setX_];
   };
@@ -197,7 +218,13 @@ export function useParamEnteredValue(sectionId) {
 }
 
 export function useParamChildId(sectionId) {
-  return useParamInfoState(sectionId, "childId", "setChildId", "childId");
+  return useParamInfoState(
+    sectionId,
+    "childId",
+    "setChildId",
+    "childId",
+    (x, paramInfoId) => x.childIds[sectionId]?.[paramInfoId]
+  );
 }
 
 export function useParamUITypeId(sectionId) {
