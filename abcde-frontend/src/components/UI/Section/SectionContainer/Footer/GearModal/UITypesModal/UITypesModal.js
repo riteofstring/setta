@@ -16,7 +16,7 @@ export default function UITypesModal({
 }) {
   const objInfo = useGetObjInfos(sectionId, objInfoId);
   const paramInfos = useGetAllParamAndKwargInfos(sectionId, objInfo);
-  const getUITypeFn = useGetParamUIType(sectionId);
+  const getUITypeFn = useGetParamUIType(sectionId, objInfoId);
 
   return (
     <ModalContainer

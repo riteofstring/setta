@@ -24,10 +24,10 @@ export default function GroupContainer({ sectionId, objInfoId }) {
     sectionId,
     objInfoId
   );
-  const enteredValueFn = useParamEnteredValue(sectionId);
-  const childIdFn = useParamChildId(sectionId);
-  const getUITypeFn = useGetParamUIType(sectionId);
-  const getInitUITypeFn = useInitializeUIType(sectionId);
+  const enteredValueFn = useParamEnteredValue(sectionId, objInfoId);
+  const childIdFn = useParamChildId(sectionId, objInfoId);
+  const getUITypeFn = useGetParamUIType(sectionId, objInfoId);
+  const getInitUITypeFn = useInitializeUIType(sectionId, objInfoId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
   const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
 

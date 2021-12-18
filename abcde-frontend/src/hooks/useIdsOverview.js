@@ -7,6 +7,7 @@ import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
 import {
   useGetCurrObjParamKwargInfos,
+  useGetSectionInfo,
   useGetSectionType,
 } from "./useCreateInfo";
 
@@ -60,19 +61,23 @@ export function useGetChildrenInfoId(sectionId) {
 }
 
 export function useGetCurrChildrenIds(sectionId) {
-  const childIds = defaultState(
-    useStoreState((x) => x.paramInfos.childIds[sectionId]),
+  const { selectedItem } = useGetSectionInfo(sectionId);
+  console.log("useGetCurrChildrenIds sectionId", sectionId);
+  const paramInfoIdsToChildIds = defaultState(
+    useStoreState((x) => x.paramInfos.childIds[sectionId]?.[selectedItem]),
     () => ({})
   );
+  // console.log("useGetCurrChildrenIds childIds", paramInfoIdsToChildIds);
   const uiTypeIds = defaultState(
-    useStoreState((x) => x.paramInfos.uiTypeIds[sectionId]),
+    useStoreState((x) => x.paramInfos.uiTypeIds[sectionId]?.[selectedItem]),
     () => ({})
   );
-  const uiTypes = useStoreState((x) => x.uiTypes.x);
-  const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = childIdHelper(paramInfos, childIds, uiTypeIds, uiTypes);
-  const kwargChildIds = childIdHelper(kwargInfos, childIds, uiTypeIds, uiTypes);
-  return [...paramChildIds, ...kwargChildIds];
+  // const uiTypes = useStoreState((x) => x.uiTypes.x);
+  // const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
+  // const paramChildIds = childIdHelper(paramInfos, childIds, uiTypeIds, uiTypes);
+  // const kwargChildIds = childIdHelper(kwargInfos, childIds, uiTypeIds, uiTypes);
+  // return [...paramChildIds, ...kwargChildIds];
+  return [];
 }
 
 function childIdHelper(infos, allChildIds, allUITypeIds, allUITypes) {
