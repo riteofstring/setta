@@ -22,36 +22,31 @@ export function useSetChildrenInfo(childrenInfoId) {
 export function useSetIdsOverview(sectionId) {
   let childrenInfoId = useGetChildrenInfoId(sectionId);
   let needsNewId = !childrenInfoId;
-  const sectionTypeName = useGetSectionTypeName(sectionId);
   if (needsNewId) {
     childrenInfoId = createNewId();
   }
   const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
-  const setUIInfo = useSetChildrenInfo(childrenInfoId);
+  const setChildrenInfo = useSetChildrenInfo(childrenInfoId);
 
   return (newStateFn) => {
     if (needsNewId) {
-      setIdsOverview({ sectionId, sectionTypeName, childrenInfoId });
+      setIdsOverview({ sectionId, childrenInfoId });
     }
-    return setUIInfo(newStateFn);
+    return setChildrenInfo(newStateFn);
   };
 }
 
 export function useGetIdsOverview(sectionId) {
   const childrenInfoId = useGetChildrenInfoId(sectionId);
+  const childrenId = useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId])
   return defaultState(
-    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
+    childrenId,
     () => []
   );
 }
 
 export function useGetChildrenInfoId(sectionId) {
-  const sectionTypeName = useGetSectionTypeName(sectionId);
   return useStoreState(
-    (x) => x.sectionInfos.idsOverview[sectionId]?.[sectionTypeName]
+    (x) => x.sectionInfos.idsOverview[sectionId]
   );
-}
-
-export function useGetSectionTypeName(sectionId) {
-  return compatibleName(useGetSectionType(sectionId).name);
 }

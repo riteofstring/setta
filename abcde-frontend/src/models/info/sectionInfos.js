@@ -1,16 +1,9 @@
-import { action, computed } from "easy-peasy";
+import { action, computed, debug } from "easy-peasy";
 import _ from "lodash";
 
 import { compatibleName } from "../../utils/constants";
 import { defaultState } from "../../utils/utils";
 import { exportState } from "./utils";
-
-function setDefaultIdsOverview(state, sectionId) {
-  if (!(sectionId in state.idsOverview)) {
-    state.idsOverview[sectionId] = {};
-  }
-  return state.idsOverview[sectionId];
-}
 
 function setDefaultChildrenInfo(state, childrenInfoId) {
   if (!(childrenInfoId in state.childrenInfo)) {
@@ -34,9 +27,8 @@ const sectionInfos = {
   }),
 
   setIdsOverview: action((state, payload) => {
-    const { sectionId, sectionTypeName, childrenInfoId } = payload;
-    const currState = setDefaultIdsOverview(state, sectionId);
-    currState[sectionTypeName] = childrenInfoId;
+    const { sectionId, childrenInfoId } = payload;
+    state.idsOverview[sectionId] = childrenInfoId;
   }),
 
   setChildrenInfo: action((state, payload) => {
@@ -71,7 +63,6 @@ const sectionInfos = {
       (state) => state.childrenInfo,
       (state) => state.idsOverview,
       (state) => state.x,
-      (state, storeState) => storeState.sectionTypes.x,
     ],
     computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
   ),
@@ -81,7 +72,6 @@ const sectionInfos = {
       (state) => state.childrenInfo,
       (state) => state.idsOverview,
       (state) => state.x,
-      (state, storeState) => storeState.sectionTypes.x,
     ],
     computedFromIdsOverview((sectionInfos, childrenIds) =>
       childrenIds.map((x) => sectionInfos[x].isRendered).some((x) => x)
@@ -100,13 +90,10 @@ const sectionInfos = {
 export default sectionInfos;
 
 function computedFromIdsOverview(fn) {
-  return (childrenInfo, idsOverview, sectionInfos, sectionTypes) => {
+  return (childrenInfo, idsOverview, sectionInfos) => {
     const output = {};
     for (let k of Object.keys(idsOverview)) {
-      const typeName = compatibleName(
-        sectionTypes[sectionInfos[k]?.sectionTypeId]?.name
-      );
-      const childrenInfoId = idsOverview[k]?.[typeName];
+      const childrenInfoId = idsOverview[k]
       const childrenIds = defaultState(childrenInfo[childrenInfoId], () => []);
       output[k] = fn(sectionInfos, childrenIds);
     }
