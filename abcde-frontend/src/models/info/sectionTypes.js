@@ -1,5 +1,4 @@
 import { action, thunk } from "easy-peasy";
-import _ from "lodash";
 
 import { SectionType } from "../../classes/sectionType";
 import { exportState } from "./utils";
@@ -41,13 +40,9 @@ const sectionTypes = {
   }),
 
   reinitSectionType: thunk((actions, payload, helpers) => {
-    const { sectionTypeId } = payload;
-    const globalState = helpers.getStoreState();
-    const allObjCollections = globalState.master.allObjCollections;
-    const allParamCollections = globalState.master.allParamCollections;
-    const sections = globalState.sectionInfos.x;
-    setSelectedItemsToNull(sections, sectionTypeId, allObjCollections)
-
+    const allObjCollections = helpers.getStoreState().master.allObjCollections;
+    const allParamCollections =
+      helpers.getStoreState().master.allParamCollections;
     actions._reinitSectionType({
       allObjCollections,
       allParamCollections,
@@ -61,28 +56,3 @@ const sectionTypes = {
 };
 
 export default sectionTypes;
-
-
-
-function setSelectedItemsToNull(sections, sectionTypeId, allObjCollections) {
-  for (let section of _.values(sections)) {
-    let doneSearch = false;
-    if (
-      section.selectedItem &&
-      section.sectionTypeId === sectionTypeId &&
-      !doneSearch
-    ) {
-      for (let colInfo of _.values(allObjCollections.children)) {
-        if (!doneSearch && section.selectedItem in colInfo.children) {
-          section.selectedItem = null;
-          doneSearch = true;
-        }
-      }
-    }
-  }
-}
-
-
-
-// For childrenInfo, structure can be:
-// sectionId: {sectionTypeName: {collectionIds: {selectedItem: [childrenInfo]}}}
