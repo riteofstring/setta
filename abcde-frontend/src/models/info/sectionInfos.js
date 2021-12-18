@@ -89,7 +89,11 @@ const sectionInfos = {
   ),
 
   export() {
-    return { sectionInfos: exportState(this), idsOverview: this.idsOverview };
+    return {
+      sectionInfos: exportState(this),
+      idsOverview: this.idsOverview,
+      childrenInfo: this.childrenInfo,
+    };
   },
 };
 
