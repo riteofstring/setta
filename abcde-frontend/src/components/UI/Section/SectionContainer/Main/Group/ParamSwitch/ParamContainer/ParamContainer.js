@@ -44,7 +44,6 @@ export default function ParamContainer(props) {
             uiTypeConfig={uiTypeConfig}
             isDisabled={!paramInfo.name}
             enteredValueFn={enteredValueFn}
-            childIdFn={childIdFn}
           />
         </HStack>
       </FormControl>

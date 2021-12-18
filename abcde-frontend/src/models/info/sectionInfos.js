@@ -36,13 +36,6 @@ const sectionInfos = {
     state.childrenInfo[childrenInfoId] = newStateFn(currState);
   }),
 
-  setIsRendered: action((state, payload) => {
-    const { sectionId, isRendered } = payload;
-    if (sectionId) {
-      state.x[sectionId].isRendered = isRendered;
-    }
-  }),
-
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     state.x = _.omit(state.x, sectionIds);
@@ -69,7 +62,7 @@ const sectionInfos = {
       (state) => state.x,
     ],
     computedFromIdsOverview((sectionInfos, childrenIds) =>
-      childrenIds.map((x) => sectionInfos[x].isRendered).some((x) => x)
+      childrenIds.map((x) => true).some((x) => x)
     )
   ),
 

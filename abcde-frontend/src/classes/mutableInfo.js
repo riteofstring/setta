@@ -47,23 +47,14 @@ export class SectionInfo extends MutableInfo {
     name,
     sectionTypeId,
     parentSectionInfo,
-    isRendered = true,
     selectedItem = null,
   }) {
     super();
     this.id = id;
     this.sectionTypeId = sectionTypeId;
     this.name = initName(name, parentSectionInfo);
-    this.isRendered = isRendered;
     this.selectedItem = selectedItem;
-    this.exportable = [
-      "id",
-      "name",
-      "sectionTypeId",
-      "name",
-      "isRendered",
-      "selectedItem",
-    ];
+    this.exportable = ["id", "name", "sectionTypeId", "name", "selectedItem"];
   }
 }
 
