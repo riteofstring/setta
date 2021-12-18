@@ -31,8 +31,11 @@ const sectionTypes = {
     });
     state.x[sectionTypeId] = newSectionType;
     if (childTypeId) {
-      newSectionType.childType.id = childTypeId;
-      state.x[childTypeId] = newSectionType.childType;
+      const childType = newSectionType.childType;
+      childType.id = childTypeId;
+      if (childType instanceof SectionType) {
+        state.x[childTypeId] = childType;
+      }
     }
   }),
 
