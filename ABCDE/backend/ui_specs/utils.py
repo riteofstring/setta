@@ -117,8 +117,7 @@ def save_parameter(owner, param_id, param_info, parent, parent_is_obj):
         save_entity_collection_rels(owner, param, param_info["specs"])
 
 
-def save_all_module_info(entity, all_module_info):
-    owner = entity.owner
+def save_all_module_info(owner, all_module_info):
     data = all_module_info["children"]
     for module_id, module_info in data.items():
         module_name = module_info["name"]
@@ -139,8 +138,7 @@ def save_all_module_info(entity, all_module_info):
                 save_parameter(owner, param_id, param_info, obj, True)
 
 
-def save_collections(entity, collections, col_type):
-    owner = entity.owner
+def save_collections(owner, collections, col_type):
     col_table = get_collection_table(col_type)
     data = collections["children"]
     all_collections = []
@@ -162,7 +160,7 @@ def save_collections(entity, collections, col_type):
             else:
                 raise ValueError
 
-    save_collection_rel(entity, all_collections, col_type)
+    # save_collection_rel(owner, all_collections, col_type)
 
 
 def update_section(owner, section, attr, rel_table, uuid_of_rel):
@@ -328,6 +326,16 @@ def save_section(owner, section_info):
     # return section
 
 
+def save_children_info(owner, children_info):
+    for ui_id, children_ids in children_info.items():
+        ui, _ = generic_create(UI, {"uuid": ui_id, "owner": owner})
+        for i, child_id in enumerate(children_ids):
+            section = Section.objects.get(uuid=child_id)
+            generic_create(
+                SectionPosition, {"section": section, "ui": ui, "position": i}
+            )
+
+
 def get_children(sections, section_info):
     return {str(sid): sections[str(sid)] for sid in section_info["childrenIds"]}
 
@@ -343,18 +351,9 @@ def save_children(owner, section, sections_to_save, section_info, all_sections, 
         save_section_to_ui_info(ui, list_of_child_sections)
 
 
-def save_sections(owner, sections_to_save, all_sections, depth=0):
-    all_root_sections = []
-    # position = 0
-    for section_info in sections_to_save:
-        # if section_info["depth"] == depth:
-        section = save_section(owner, section_info)
-        # all_root_sections.append((position, section))
-        # save_children(
-        #     owner, section, sections_to_save, section_info, all_sections, depth
-        # )
-        # position += 1
-    return all_root_sections
+def save_sections(owner, sections):
+    for section_info in sections:
+        save_section(owner, section_info)
 
 
 def save_sections_to_ui_rel(ui, list_of_sections):
@@ -389,17 +388,17 @@ def save_ui(request):
 
     folder, _ = generic_create(Folder, {"name": folder_name, "owner": owner})
 
-    ui_name = ui_info["name"]
-    ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
-    generic_create(UIToFolder, {"entity": ui, "parent": folder})
+    # ui_name = ui_info["name"]
+    # ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
+    # generic_create(UIToFolder, {"entity": ui, "parent": folder})
 
     # record "immutable" info
-    save_all_module_info(ui, ui_info["allModuleInfo"])
-    save_collections(ui, ui_info["allObjCollections"], "objects")
-    save_collections(ui, ui_info["allParamCollections"], "parameters")
+    save_all_module_info(owner, ui_info["allModuleInfo"])
+    save_collections(owner, ui_info["allObjCollections"], "objects")
+    save_collections(owner, ui_info["allParamCollections"], "parameters")
 
     save_section_type_configs(owner, ui_info["sectionTypes"])
-    sections = ui_info["sectionInfos"]
-    list_of_root_sections = save_sections(owner, sections, sections)
+    save_sections(owner, ui_info["sectionInfos"])
+    save_children_info(owner, ui_info["childrenInfo"])
     # save_section_to_ui_info(ui, list_of_root_sections)
     # print("successs")
