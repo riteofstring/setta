@@ -159,7 +159,9 @@ export function useGetKwargInfos(sectionId, objInfo) {
 }
 
 export function useGetAllParamInfos(sectionId, objInfo) {
-  const objParamInfos = objInfo.children ? Object.values(objInfo.children) : [];
+  const objParamInfos = objInfo?.children
+    ? Object.values(objInfo.children)
+    : [];
   const paramCollections = useGetParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
 }
