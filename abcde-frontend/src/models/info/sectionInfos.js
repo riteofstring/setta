@@ -51,11 +51,7 @@ const sectionInfos = {
   }),
 
   idNames: computed((state) => {
-    const names = {};
-    for (let k of Object.keys(state.x)) {
-      names[k] = state.x[k].name;
-    }
-    return names;
+    return _.mapValues(state.x, (v) => v.name);
   }),
 
   allIdsOverview: computed(
@@ -93,7 +89,7 @@ function computedFromIdsOverview(fn) {
   return (childrenInfo, idsOverview, sectionInfos) => {
     const output = {};
     for (let k of Object.keys(idsOverview)) {
-      const childrenInfoId = idsOverview[k]
+      const childrenInfoId = idsOverview[k];
       const childrenIds = defaultState(childrenInfo[childrenInfoId], () => []);
       output[k] = fn(sectionInfos, childrenIds);
     }
