@@ -1,47 +1,42 @@
 import { action } from "easy-peasy";
 import _ from "lodash";
 
-import { MutableParamInfo } from "../../classes/mutableInfo";
-import { setToDefault, exportNestedState } from "./utils";
+import { exportNestedState } from "./utils";
 
-function setDefaultInfo(state, sectionId, paramInfoId) {
-  return setToDefault(
-    state,
-    sectionId,
-    paramInfoId,
-    () => new MutableParamInfo({ id: paramInfoId })
-  );
-}
-
-function setDefaultChildId(state, sectionId) {
-  if (!(sectionId in state.childIds)) {
-    state.childIds[sectionId] = {};
+function setDefaultXId(state, sectionId, key) {
+  if (!(sectionId in state[key])) {
+    state[key][sectionId] = {};
   }
-  return state.childIds[sectionId];
+  return state[key][sectionId];
 }
 
 const paramInfos = {
-  x: {},
+  enteredValues: {},
   childIds: {},
+  uiTypeIds: {},
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;
-    setDefaultInfo(state, sectionId, paramInfoId).uiTypeId = uiTypeId;
+    setDefaultXId(state, sectionId, "uiTypeIds")[paramInfoId] = uiTypeId;
   }),
 
   setEnteredValue: action((state, payload) => {
     const { sectionId, paramInfoId, value } = payload;
-    setDefaultInfo(state, sectionId, paramInfoId).enteredValue = value;
+    setDefaultXId(state, sectionId, "enteredValues")[paramInfoId] = value;
   }),
 
   setChildId: action((state, payload) => {
     const { sectionId, paramInfoId, childId } = payload;
-    setDefaultChildId(state, sectionId)[paramInfoId] = childId;
+    setDefaultXId(state, sectionId, "childIds")[paramInfoId] = childId;
   }),
 
   deleteParamInfo: action((state, payload) => {
-    const { ids } = payload;
-    state.x = _.omit(state.x, ids);
+    // const { sectionId, ids } = payload;
+    // state.x = _.omit(state.x[sectionId], ids);
+    const { sectionId, ids } = payload;
+    for (let stateName of ["enteredValues", "childIds", "uiTypeIds"]) {
+      state[stateName][sectionId] = _.omit(state[stateName][sectionId], ids);
+    }
   }),
 
   export() {

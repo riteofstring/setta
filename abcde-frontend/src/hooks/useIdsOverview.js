@@ -2,6 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { isRoot } from "../utils/constants";
+import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
 import {
@@ -63,8 +64,20 @@ export function useGetCurrChildrenIds(sectionId) {
     useStoreState((x) => x.paramInfos.childIds[sectionId]),
     () => ({})
   );
+  const uiTypeIds = defaultState(
+    useStoreState((x) => x.paramInfos.uiTypeIds[sectionId]),
+    () => ({})
+  );
+  const uiTypes = useStoreState((x) => x.uiTypes.x);
   const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = _.map(paramInfos, (x) => childIds[x.id]);
-  const kwargChildIds = _.map(kwargInfos, (x) => childIds[x.id]);
+  const paramChildIds = childIdHelper(paramInfos, childIds, uiTypeIds, uiTypes);
+  const kwargChildIds = childIdHelper(kwargInfos, childIds, uiTypeIds, uiTypes);
   return [...paramChildIds, ...kwargChildIds];
+}
+
+function childIdHelper(infos, allChildIds, allUITypeIds, allUITypes) {
+  const hasNested = infos.filter((x) =>
+    requiresNestedSection(allUITypes[allUITypeIds[x.id]]?.name)
+  );
+  return _.map(hasNested, (x) => allChildIds[x.id]);
 }
