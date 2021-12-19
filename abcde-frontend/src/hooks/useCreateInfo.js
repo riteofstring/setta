@@ -4,7 +4,6 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
-import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   curryAction,
@@ -156,12 +155,19 @@ export function useGetParamCollections(sectionId, infoId = null) {
   );
 }
 
-export function useGetKwargInfos(sectionId, objInfo) {
-  const kwargInfos = defaultState(
-    useStoreState((x) => getInfo(x.kwargInfos)[sectionId]?.[objInfo.id]),
-    () => ({})
+export function useGetKwargIds(sectionId, objInfo) {
+  return defaultState(
+    useStoreState(
+      (x) => getInfo(x.objInfos)[sectionId]?.[objInfo.id]?.kwargIds
+    ),
+    () => []
   );
-  return _.values(kwargInfos);
+}
+
+export function useGetKwargInfos(sectionId, objInfo) {
+  const kwargIds = useGetKwargIds(sectionId, objInfo);
+  const kwargInfoState = useStoreState((x) => getInfo(x.kwargInfos));
+  return kwargIds.map((x) => kwargInfoState[x]);
 }
 
 export function useGetAllParamInfos(sectionId, objInfo) {
@@ -179,58 +185,39 @@ export function useGetAllParamAndKwargInfos(sectionId, objInfo) {
   ];
 }
 
-export function useParamInfoState(
-  sectionId,
-  objInfoId,
-  stateName,
-  setStateFn,
-  key
-) {
+export function useParamInfoState(sectionId, stateName, setStateFn, key) {
   return (paramInfoId) => {
     const setX = curryAction(
       useStoreActions((x) => x.paramInfos[setStateFn]),
-      { sectionId, objInfoId }
+      { sectionId }
     );
     const x = useStoreState(
-      (x) => x.paramInfos[stateName][sectionId]?.[objInfoId]?.[paramInfoId]
+      (x) => x.paramInfos[stateName][sectionId]?.[paramInfoId]
     );
     const setX_ = curryAction(setX, { paramInfoId }, key);
     return [x, setX_];
   };
 }
 
-export function useParamEnteredValue(sectionId, objInfoId) {
+export function useParamEnteredValue(sectionId) {
   return useParamInfoState(
     sectionId,
-    objInfoId,
     "enteredValues",
     "setEnteredValue",
     "value"
   );
 }
 
-export function useParamChildId(sectionId, objInfoId) {
-  return useParamInfoState(
-    sectionId,
-    objInfoId,
-    "childIds",
-    "setChildId",
-    "childId"
-  );
+export function useParamChildId(sectionId) {
+  return useParamInfoState(sectionId, "childIds", "setChildId", "childId");
 }
 
-export function useParamUITypeId(sectionId, objInfoId) {
-  return useParamInfoState(
-    sectionId,
-    objInfoId,
-    "uiTypeIds",
-    "setUITypeId",
-    "uiTypeId"
-  );
+export function useParamUITypeId(sectionId) {
+  return useParamInfoState(sectionId, "uiTypeIds", "setUITypeId", "uiTypeId");
 }
 
-export function useGetParamUIType(sectionId, objInfoId) {
-  const uiTypeIdFn = useParamUITypeId(sectionId, objInfoId);
+export function useGetParamUIType(sectionId) {
+  const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfo) => {
     const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
     return defaultState(
@@ -253,42 +240,13 @@ export function useUITypeConfig(uiType) {
   return [uiTypeConfig, setUITypeConfig];
 }
 
-export function useSetUITypeAndSetIsRendered(sectionId, objInfoId, uiTypeFn) {
-  const setIsChildRendered = useStoreActions(
-    (x) => x.sectionInfos.setIsChildRendered
-  );
-  const paramChildIdFn = useParamChildId(sectionId, objInfoId);
-  return (paramInfoId) => {
-    const childId = paramChildIdFn(paramInfoId)[0];
-    return (uiTypeProps) => {
-      const name = uiTypeProps.name
-        ? uiTypeProps.name
-        : uiTypeProps.uiType.name;
-      const isRendered = requiresNestedSection(name);
-      uiTypeFn(uiTypeProps);
-      setIsChildRendered({ sectionId, childId, isRendered });
-    };
-  };
-}
-
-export function useSetUITypeName(sectionId, objInfoId) {
-  const setName = useStoreActions((x) => x.uiTypes.setName);
-  return useSetUITypeAndSetIsRendered(sectionId, objInfoId, setName);
-}
-
-export function useSetUIType(sectionId, objInfoId) {
+export function useInitializeUIType(sectionId) {
+  const uiTypeFn = useParamUITypeId(sectionId);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  return useSetUITypeAndSetIsRendered(sectionId, objInfoId, setUIType);
-}
-
-export function useInitializeUIType(sectionId, objInfoId) {
-  const uiTypeFn = useParamUITypeId(sectionId, objInfoId);
-  const setUIType = useSetUIType(sectionId, objInfoId);
   const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
-    const setUITypeAndSetIsRendered = setUIType(paramInfo.id);
     return () => {
       if (!uiTypeId) {
         const newUIType = new UIType({
@@ -296,10 +254,7 @@ export function useInitializeUIType(sectionId, objInfoId) {
           name: paramInfo.uiTypeName,
         });
         setUITypeId(newUIType.id);
-        setUITypeAndSetIsRendered({
-          uiTypeId: newUIType.id,
-          uiType: newUIType,
-        });
+        setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
 
         const configId = createNewId();
         const config = Object.assign({}, paramInfo.uiTypeConfig);
@@ -310,42 +265,37 @@ export function useInitializeUIType(sectionId, objInfoId) {
   };
 }
 
-export function useSetKwargName(sectionId, objInfoId) {
-  const setName = useStoreActions((x) => x.kwargInfos.setName);
-  return (kwargInfoId, name) => {
-    setName({
-      sectionId,
-      objInfoId,
-      kwargInfoId,
-      name,
-    });
-  };
-}
-
-export function useAddKwarg(sectionId, objInfoId) {
+export function useAddKwarg(sectionId, objInfo) {
   const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
+  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   return () => {
     const kwargInfo = new KwargInfo(createNewId(), "", {});
-    setKwargInfo({
+    setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
+    setKwargIds({
       sectionId,
-      objInfoId,
-      kwargInfoId: kwargInfo.id,
-      kwargInfo,
+      objInfoId: objInfo.id,
+      newStateFn: (x) => [...x, kwargInfo.id],
     });
   };
 }
 
-export function useDeleteKwarg(sectionId, objInfoId) {
+export function useDeleteKwarg(sectionId, objInfo) {
   const deleteChild = useDeleteChild(sectionId);
+  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
   const deleteParamInfo = useStoreActions((x) => x.paramInfos.deleteParamInfo);
-  const childIdFn = useParamChildId(sectionId, objInfoId);
+  const childIdFn = useParamChildId(sectionId);
   return (kwargInfo) => {
     const { id } = kwargInfo;
     const childId = childIdFn(id)[0];
     return () => {
+      setKwargIds({
+        sectionId,
+        objInfoId: objInfo.id,
+        newStateFn: (x) => x.filter((y) => y !== id),
+      });
       deleteKwargInfo({ ids: [id] });
-      deleteParamInfo({ sectionId, objInfoId, ids: [id] });
+      deleteParamInfo({ sectionId, ids: [id] });
       if (childId) {
         deleteChild({ startId: childId });
       }
@@ -354,12 +304,8 @@ export function useDeleteKwarg(sectionId, objInfoId) {
 }
 
 export function useAddChild(sectionId, startId = null) {
-  const { selectedItem } = useGetSectionInfo(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const setIsChildRendered = useStoreActions(
-    (x) => x.sectionInfos.setIsChildRendered
-  );
   const createInfo = useCreateSectionInfo(sectionId, true);
 
   function addChild({
@@ -379,18 +325,9 @@ export function useAddChild(sectionId, startId = null) {
       return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
     });
 
-    setIsChildRendered({
-      sectionId,
-      newStateFn: (x) => ({
-        ...x,
-        ..._.zipObject(newIds, _.times(newIds.length, _.constant(true))),
-      }),
-    });
-
     if (parentParamInfoId) {
       setChildId({
         sectionId,
-        objInfoId: selectedItem,
         paramInfoId: parentParamInfoId,
         childId: newIds[0],
       });

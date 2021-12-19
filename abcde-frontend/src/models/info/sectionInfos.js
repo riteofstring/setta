@@ -1,21 +1,20 @@
-import { action, computed, debug } from "easy-peasy";
+import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
 import { defaultState } from "../../utils/utils";
 import { exportState } from "./utils";
 
-function setDefault(state, id, attr, val) {
-  if (!(id in state[attr])) {
-    state[attr][id] = val;
+function setDefaultChildrenInfo(state, childrenInfoId) {
+  if (!(childrenInfoId in state.childrenInfo)) {
+    state.childrenInfo[childrenInfoId] = [];
   }
-  return state[attr][id];
+  return state.childrenInfo[childrenInfoId];
 }
 
 const sectionInfos = {
   x: {},
   idsOverview: {},
   childrenInfo: {},
-  isChildRendered: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -33,18 +32,8 @@ const sectionInfos = {
 
   setChildrenInfo: action((state, payload) => {
     const { childrenInfoId, newStateFn } = payload;
-    const currState = setDefault(state, childrenInfoId, "childrenInfo", []);
+    const currState = setDefaultChildrenInfo(state, childrenInfoId);
     state.childrenInfo[childrenInfoId] = newStateFn(currState);
-  }),
-
-  setIsChildRendered: action((state, payload) => {
-    const { sectionId, childId, isRendered, newStateFn } = payload;
-    const currState = setDefault(state, sectionId, "isChildRendered", {});
-    if (newStateFn) {
-      state.isChildRendered[sectionId] = newStateFn(currState);
-    } else {
-      currState[childId] = isRendered;
-    }
   }),
 
   deleteSections: action((state, payload) => {
@@ -59,11 +48,22 @@ const sectionInfos = {
 
   allIdsOverview: computed(
     [
-      (state) => state.idsOverview,
       (state) => state.childrenInfo,
-      (state) => state.isChildRendered,
+      (state) => state.idsOverview,
+      (state) => state.x,
     ],
-    computedFromIdsOverview()
+    computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
+  ),
+
+  hasNested: computed(
+    [
+      (state) => state.childrenInfo,
+      (state) => state.idsOverview,
+      (state) => state.x,
+    ],
+    computedFromIdsOverview((sectionInfos, childrenIds) =>
+      childrenIds.map((x) => true).some((x) => x)
+    )
   ),
 
   export() {
@@ -77,13 +77,13 @@ const sectionInfos = {
 
 export default sectionInfos;
 
-function computedFromIdsOverview() {
-  return (idsOverview, childrenInfo, isChildRendered) => {
+function computedFromIdsOverview(fn) {
+  return (childrenInfo, idsOverview, sectionInfos) => {
     const output = {};
     for (let k of Object.keys(idsOverview)) {
       const childrenInfoId = idsOverview[k];
       const childrenIds = defaultState(childrenInfo[childrenInfoId], () => []);
-      output[k] = childrenIds.filter((x) => isChildRendered[k][x]);
+      output[k] = fn(sectionInfos, childrenIds);
     }
     return output;
   };

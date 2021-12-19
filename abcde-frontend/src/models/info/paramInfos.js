@@ -1,10 +1,13 @@
 import { action } from "easy-peasy";
 import _ from "lodash";
 
-import { setToDefault, exportNestedState } from "./utils";
+import { exportNestedState } from "./utils";
 
-function setDefaultInfo(state, sectionId, objInfoId, attr) {
-  return setToDefault(state, sectionId, objInfoId, () => ({}), attr);
+function setDefaultXId(state, sectionId, key) {
+  if (!(sectionId in state[key])) {
+    state[key][sectionId] = {};
+  }
+  return state[key][sectionId];
 }
 
 const paramInfos = {
@@ -13,32 +16,26 @@ const paramInfos = {
   uiTypeIds: {},
 
   setUITypeId: action((state, payload) => {
-    const { sectionId, objInfoId, paramInfoId, uiTypeId } = payload;
-    setDefaultInfo(state, sectionId, objInfoId, "uiTypeIds")[paramInfoId] =
-      uiTypeId;
+    const { sectionId, paramInfoId, uiTypeId } = payload;
+    setDefaultXId(state, sectionId, "uiTypeIds")[paramInfoId] = uiTypeId;
   }),
 
   setEnteredValue: action((state, payload) => {
-    const { sectionId, objInfoId, paramInfoId, value } = payload;
-    setDefaultInfo(state, sectionId, objInfoId, "enteredValues")[paramInfoId] =
-      value;
+    const { sectionId, paramInfoId, value } = payload;
+    setDefaultXId(state, sectionId, "enteredValues")[paramInfoId] = value;
   }),
 
   setChildId: action((state, payload) => {
-    const { sectionId, objInfoId, paramInfoId, childId } = payload;
-    setDefaultInfo(state, sectionId, objInfoId, "childIds")[paramInfoId] =
-      childId;
+    const { sectionId, paramInfoId, childId } = payload;
+    setDefaultXId(state, sectionId, "childIds")[paramInfoId] = childId;
   }),
 
   deleteParamInfo: action((state, payload) => {
     // const { sectionId, ids } = payload;
     // state.x = _.omit(state.x[sectionId], ids);
-    const { sectionId, objInfoId, ids } = payload;
+    const { sectionId, ids } = payload;
     for (let stateName of ["enteredValues", "childIds", "uiTypeIds"]) {
-      state[stateName][sectionId][objInfoId] = _.omit(
-        state[stateName][sectionId][objInfoId],
-        ids
-      );
+      state[stateName][sectionId] = _.omit(state[stateName][sectionId], ids);
     }
   }),
 

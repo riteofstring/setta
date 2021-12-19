@@ -1,24 +1,18 @@
-import { action, debug } from "easy-peasy";
+import { action } from "easy-peasy";
 
-import { setToDefault, exportState } from "./utils";
-
-function setDefaultInfo(state, sectionId, objInfoId, attr) {
-  return setToDefault(state, sectionId, objInfoId, () => ({}), attr);
-}
+import { exportState } from "./utils";
 
 const kwargInfos = {
   x: {},
 
   setKwargInfo: action((state, payload) => {
-    const { sectionId, objInfoId, kwargInfoId, kwargInfo } = payload;
-    setDefaultInfo(state, sectionId, objInfoId, "x")[kwargInfoId] = kwargInfo;
-    console.log("kwargInfos setKwargInfo", debug(state.x));
+    const { kwargInfoId, kwargInfo } = payload;
+    state.x[kwargInfoId] = kwargInfo;
   }),
 
   setName: action((state, payload) => {
-    const { sectionId, objInfoId, kwargInfoId, name } = payload;
-    console.log("kwargInfos setName", kwargInfoId, debug(state.x));
-    setDefaultInfo(state, sectionId, objInfoId, "x")[kwargInfoId].name = name;
+    const { kwargInfoId, name } = payload;
+    state.x[kwargInfoId].name = name;
   }),
 
   deleteKwargInfo: action((state, payload) => {
