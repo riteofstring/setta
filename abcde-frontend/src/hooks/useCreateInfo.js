@@ -390,8 +390,7 @@ export function useDeleteKwarg(sectionId, objInfo) {
         newStateFn: (x) => x.filter((y) => y !== id),
       });
       deleteKwargInfo({ ids: [id] });
-      deleteParamInfo({ collectionId: paramCollectionId, ids: [id] });
-      deleteParamUITypeInfo({ collectionId: uiTypeCollectionId, ids: [id] });
+      deleteParamInfo({ paramCollectionId, uiTypeCollectionId, ids: [id] });
       if (childId) {
         deleteChild({ startId: childId });
       }
