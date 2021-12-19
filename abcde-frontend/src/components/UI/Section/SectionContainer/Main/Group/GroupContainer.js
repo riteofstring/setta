@@ -15,12 +15,13 @@ import {
   useInitializeUIType,
   useAddKwarg,
   useDeleteKwarg,
+  useSetKwargName,
 } from "../../../../../../hooks/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfoId }) {
   console.log("GroupContainer");
-  const { objInfo, paramInfos, kwargInfos } = useGetObjParamKwargInfos(
+  const { paramInfos, kwargInfos } = useGetObjParamKwargInfos(
     sectionId,
     objInfoId
   );
@@ -28,8 +29,9 @@ export default function GroupContainer({ sectionId, objInfoId }) {
   const childIdFn = useParamChildId(sectionId, objInfoId);
   const getUITypeFn = useGetParamUIType(sectionId, objInfoId);
   const getInitUITypeFn = useInitializeUIType(sectionId, objInfoId);
-  const addKwarg = useAddKwarg(sectionId, objInfo);
-  const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
+  const addKwarg = useAddKwarg(sectionId, objInfoId);
+  const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfoId);
+  const setKwargNameFn = useSetKwargName(sectionId, objInfoId);
 
   function getParamSwitch(infos, isKwarg = false) {
     return (
@@ -45,6 +47,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
               getUITypeFn={getUITypeFn}
               getInitUITypeFn={getInitUITypeFn}
               getDeleteKwargFn={getDeleteKwargFn}
+              setKwargNameFn={setKwargNameFn}
               isKwarg={isKwarg}
             />
           ))}

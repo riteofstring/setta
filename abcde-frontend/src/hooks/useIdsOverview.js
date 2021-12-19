@@ -5,11 +5,7 @@ import { isRoot } from "../utils/constants";
 import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
-import {
-  useGetCurrObjParamKwargInfos,
-  useGetSectionInfo,
-  useGetSectionType,
-} from "./useCreateInfo";
+import { useGetSectionInfo, useGetSectionType } from "./useCreateInfo";
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);

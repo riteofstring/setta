@@ -23,14 +23,14 @@ export class MutableInfo {
 //   }
 // }
 
-export class MutableObjInfo extends MutableInfo {
-  constructor({ id, kwargIds = [] }) {
-    super();
-    this.id = id;
-    this.kwargIds = kwargIds;
-    this.exportable = ["id", "kwargIds"];
-  }
-}
+// export class MutableObjInfo extends MutableInfo {
+//   constructor({ id, kwargIds = [] }) {
+//     super();
+//     this.id = id;
+//     this.kwargIds = kwargIds;
+//     this.exportable = ["id", "kwargIds"];
+//   }
+// }
 
 function initName(name, parentSectionInfo) {
   if (name) {

@@ -155,19 +155,12 @@ export function useGetParamCollections(sectionId, infoId = null) {
   );
 }
 
-export function useGetKwargIds(sectionId, objInfo) {
-  return defaultState(
-    useStoreState(
-      (x) => getInfo(x.objInfos)[sectionId]?.[objInfo.id]?.kwargIds
-    ),
-    () => []
-  );
-}
-
 export function useGetKwargInfos(sectionId, objInfo) {
-  const kwargIds = useGetKwargIds(sectionId, objInfo);
-  const kwargInfoState = useStoreState((x) => getInfo(x.kwargInfos));
-  return kwargIds.map((x) => kwargInfoState[x]);
+  const kwargInfos = defaultState(
+    useStoreState((x) => getInfo(x.kwargInfos)[sectionId]?.[objInfo.id]),
+    () => ({})
+  );
+  return _.values(kwargInfos);
 }
 
 export function useGetAllParamInfos(sectionId, objInfo) {
@@ -284,36 +277,40 @@ export function useInitializeUIType(sectionId, objInfoId) {
   };
 }
 
-export function useAddKwarg(sectionId, objInfo) {
-  const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
-  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
-  return () => {
-    const kwargInfo = new KwargInfo(createNewId(), "", {});
-    setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
-    setKwargIds({
+export function useSetKwargName(sectionId, objInfoId) {
+  const setName = useStoreActions((x) => x.kwargInfos.setName);
+  return (kwargInfoId, name) => {
+    setName({
       sectionId,
-      objInfoId: objInfo.id,
-      newStateFn: (x) => [...x, kwargInfo.id],
+      objInfoId,
+      kwargInfoId,
+      name,
     });
   };
 }
 
-export function useDeleteKwarg(sectionId, objInfo) {
+export function useAddKwarg(sectionId, objInfoId) {
+  const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
+  return () => {
+    const kwargInfo = new KwargInfo(createNewId(), "", {});
+    setKwargInfo({
+      sectionId,
+      objInfoId,
+      kwargInfoId: kwargInfo.id,
+      kwargInfo,
+    });
+  };
+}
+
+export function useDeleteKwarg(sectionId, objInfoId) {
   const deleteChild = useDeleteChild(sectionId);
-  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
   const deleteParamInfo = useStoreActions((x) => x.paramInfos.deleteParamInfo);
-  const objInfoId = objInfo.id;
   const childIdFn = useParamChildId(sectionId, objInfoId);
   return (kwargInfo) => {
     const { id } = kwargInfo;
     const childId = childIdFn(id)[0];
     return () => {
-      setKwargIds({
-        sectionId,
-        objInfoId,
-        newStateFn: (x) => x.filter((y) => y !== id),
-      });
       deleteKwargInfo({ ids: [id] });
       deleteParamInfo({ sectionId, objInfoId, ids: [id] });
       if (childId) {
