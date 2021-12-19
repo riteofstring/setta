@@ -4,7 +4,6 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
-import { isRoot, requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   curryAction,
@@ -107,6 +106,11 @@ export function useGetSectionType(sectionId) {
     useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
     () => ({})
   );
+}
+
+export function useGetCurrObjParamKwargInfos(sectionId) {
+  const { selectedItem } = useGetSectionInfo(sectionId);
+  return useGetObjParamKwargInfos(sectionId, selectedItem);
 }
 
 export function useGetObjParamKwargInfos(sectionId, objInfoId) {
@@ -239,45 +243,13 @@ export function useUITypeConfig(uiType) {
   return [uiTypeConfig, setUITypeConfig];
 }
 
-export function useSetUITypeAndSetIsRendered(sectionId, uiTypeFn) {
-  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
-  const paramChildIdFn = useParamChildId(sectionId);
-  return (paramInfoId) => {
-    const childId = paramChildIdFn(paramInfoId)[0];
-    return (uiTypeProps) => {
-      uiTypeFn(uiTypeProps);
-      if (childId) {
-        const name = uiTypeProps.name
-          ? uiTypeProps.name
-          : uiTypeProps.uiType.name;
-        const isRendered = requiresNestedSection(name);
-        setIsRendered({
-          sectionId: childId,
-          value: isRendered,
-        });
-      }
-    };
-  };
-}
-
-export function useSetUITypeName(sectionId) {
-  const setName = useStoreActions((x) => x.uiTypes.setName);
-  return useSetUITypeAndSetIsRendered(sectionId, setName);
-}
-
-export function useSetUIType(sectionId) {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  return useSetUITypeAndSetIsRendered(sectionId, setUIType);
-}
-
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
-  const setUIType = useSetUIType(sectionId);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
-    const setUITypeAndSetIsRendered = setUIType(paramInfo.id);
     return () => {
       if (!uiTypeId) {
         const newUIType = new UIType({
@@ -285,10 +257,7 @@ export function useInitializeUIType(sectionId) {
           name: paramInfo.uiTypeName,
         });
         setUITypeId(newUIType.id);
-        setUITypeAndSetIsRendered({
-          uiTypeId: newUIType.id,
-          uiType: newUIType,
-        });
+        setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
 
         const configId = createNewId();
         const config = Object.assign({}, paramInfo.uiTypeConfig);
@@ -392,50 +361,4 @@ export function useDeleteChild(sectionId, startId = null) {
     deleteSections({ sectionIds: deletedChildren });
   }
   return deleteChild;
-}
-
-export function useSelectedItemChanged(sectionId, objInfoId) {
-  const { paramInfos, kwargInfos } = useGetObjParamKwargInfos(
-    sectionId,
-    objInfoId
-  );
-  const paramChildIds = childIdHelper(sectionId, paramInfos);
-  const kwargChildIds = childIdHelper(sectionId, kwargInfos);
-  const activeChildIds = [...paramChildIds, ...kwargChildIds];
-  const childrenInfoId = useStoreState(
-    (x) => x.sectionInfos.idsOverview[sectionId]
-  );
-  const allChildIds = defaultState(
-    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
-    () => []
-  );
-  const sectionTypeName = useGetSectionType(sectionId).name;
-  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
-  return () => {
-    const inactiveChildIds = isRoot(sectionTypeName)
-      ? []
-      : _.difference(allChildIds, activeChildIds);
-
-    const listOfSectionIds = [...activeChildIds, ...inactiveChildIds];
-    const trueArray = _.times(activeChildIds.length, _.constant(true));
-    const falseArray = _.times(inactiveChildIds.length, _.constant(false));
-    const isRendered = [...trueArray, ...falseArray];
-    setIsRendered({
-      listOfSectionIds,
-      listOfValues: isRendered,
-    });
-  };
-}
-
-function childIdHelper(sectionId, infos) {
-  return defaultState(
-    useStoreState(
-      (x) =>
-        infos
-          .map((y) => x.paramInfos.childIds[sectionId]?.[y.id])
-          .filter((y) => y),
-      _.isEqual
-    ),
-    () => ({})
-  );
 }

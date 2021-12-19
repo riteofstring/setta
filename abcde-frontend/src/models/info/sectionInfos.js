@@ -11,16 +11,6 @@ function setDefaultChildrenInfo(state, childrenInfoId) {
   return state.childrenInfo[childrenInfoId];
 }
 
-function setIsRenderedRecursively(state, id, value) {
-  state.x[id].isRendered = value;
-  const childIds = state.childrenInfo[state.idsOverview[id]];
-  if (childIds) {
-    for (let k of childIds) {
-      setIsRenderedRecursively(state, k, value);
-    }
-  }
-}
-
 const sectionInfos = {
   x: {},
   idsOverview: {},
@@ -33,17 +23,6 @@ const sectionInfos = {
   setSectionInfoAttr: action((state, payload) => {
     const { sectionId, attr, value } = payload;
     state.x[sectionId][attr] = value;
-  }),
-
-  setIsRendered: action((state, payload) => {
-    const { sectionId, value, listOfSectionIds, listOfValues } = payload;
-    if (listOfSectionIds) {
-      listOfSectionIds.forEach((e, i) =>
-        setIsRenderedRecursively(state, e, listOfValues[i])
-      );
-    } else {
-      setIsRenderedRecursively(state, sectionId, value);
-    }
   }),
 
   setIdsOverview: action((state, payload) => {
@@ -73,9 +52,7 @@ const sectionInfos = {
       (state) => state.idsOverview,
       (state) => state.x,
     ],
-    computedFromIdsOverview((sectionInfos, childrenIds) =>
-      childrenIds.filter((x) => sectionInfos[x].isRendered)
-    )
+    computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
   ),
 
   export() {
