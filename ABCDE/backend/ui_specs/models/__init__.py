@@ -29,13 +29,7 @@ from .parameter_value_collection import (
     ParameterValueCollectionToFolder,
     ParameterValueCollectionToTag,
 )
-from .section import (
-    Section,
-    SectionFork,
-    SectionToFolder,
-    SectionToSectionType,
-    SectionToTag,
-)
+from .section import Section, SectionFork, SectionToFolder, SectionToTag
 from .section_position import SectionPosition
 from .section_type import SectionType
 from .section_type_config import (

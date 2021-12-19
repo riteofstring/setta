@@ -163,7 +163,7 @@ def save_collections(owner, collections, col_type):
     # save_collection_rel(owner, all_collections, col_type)
 
 
-def update_section(owner, section, attr, rel_table, uuid_of_rel):
+def update_section(section, attr, rel_table, uuid_of_rel):
     rel = None
     if uuid_of_rel:
         rel = rel_table.objects.get(uuid=uuid_of_rel)
@@ -310,20 +310,13 @@ def save_section(owner, section_info):
     uuid = section_info["id"]
     name = section_info["name"]
     section, _ = generic_create(Section, {"uuid": uuid, "name": name, "owner": owner})
+    update_section(section, "selected_object", Object, section_info["selectedItem"])
     update_section(
-        owner, section, "selected_object", Object, section_info["selectedItem"]
-    )
-    update_section(
-        owner,
         section,
         "section_type_config",
         SectionTypeConfig,
         section_info["sectionTypeId"],
     )
-    # save_section_selected_object(owner, section, section_info)
-    # save_entity_collection_rels(owner, section, section_info["available"])
-    # save_section_all_entered_values(owner, section, section_info)
-    # return section
 
 
 def save_children_info(owner, children_info):
@@ -334,6 +327,12 @@ def save_children_info(owner, children_info):
             generic_create(
                 SectionPosition, {"section": section, "ui": ui, "position": i}
             )
+
+
+def save_section_children(idsOverview):
+    for section_id, children_info_id in idsOverview.items():
+        section = Section.objects.get(uuid=section_id)
+        update_section(section, "children", UI, children_info_id)
 
 
 def get_children(sections, section_info):
@@ -388,10 +387,6 @@ def save_ui(request):
 
     folder, _ = generic_create(Folder, {"name": folder_name, "owner": owner})
 
-    # ui_name = ui_info["name"]
-    # ui, _ = generic_create(UI, {"name": ui_name, "owner": owner})
-    # generic_create(UIToFolder, {"entity": ui, "parent": folder})
-
     # record "immutable" info
     save_all_module_info(owner, ui_info["allModuleInfo"])
     save_collections(owner, ui_info["allObjCollections"], "objects")
@@ -400,5 +395,6 @@ def save_ui(request):
     save_section_type_configs(owner, ui_info["sectionTypes"])
     save_sections(owner, ui_info["sectionInfos"])
     save_children_info(owner, ui_info["childrenInfo"])
+    save_section_children(ui_info["idsOverview"])
     # save_section_to_ui_info(ui, list_of_root_sections)
     # print("successs")
