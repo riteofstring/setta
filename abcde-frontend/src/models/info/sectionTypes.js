@@ -20,7 +20,8 @@ const sectionTypes = {
     } = payload;
     const currSectionType = state.x[sectionTypeId];
     const { id, uiTypeCollectionId } = currSectionType;
-    const { childTypeId, childUITypeCollectionId } = currSectionType.childType;
+    const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
+      currSectionType.childType;
     const newSectionType = new SectionType({
       id,
       allObjCollections,

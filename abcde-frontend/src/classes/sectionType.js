@@ -105,6 +105,7 @@ export class SectionType extends MutableInfo {
       allParamCollections,
       this.specs
     );
+    this.uiTypeCollectionId = uiTypeCollectionId;
     this.childType = initChildType(
       allObjCollections,
       allParamCollections,
@@ -112,7 +113,6 @@ export class SectionType extends MutableInfo {
       paramUITypeConfig,
       this
     );
-    this.uiTypeCollectionId = uiTypeCollectionId;
     this.exportable = [
       "id",
       "name",
