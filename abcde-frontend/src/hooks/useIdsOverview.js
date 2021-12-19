@@ -1,14 +1,8 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
-import { isRoot } from "../utils/constants";
-import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
-import {
-  useGetCurrObjParamKwargInfos,
-  useGetSectionType,
-} from "./useCreateInfo";
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);

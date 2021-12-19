@@ -18,7 +18,9 @@ export default function SectionSearch({
   initialSelection,
 }) {
   const objInfos = useGetObjInfos(sectionId);
-  const [selection, setSelection] = useState(initialSelection);
+  //to avoid uncontrolled --> controlled warning
+  const init = _.find(objInfos, { id: initialSelection });
+  const [selection, setSelection] = useState(init ? init : "");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
 
@@ -26,23 +28,16 @@ export default function SectionSearch({
     return x ? x.name : "";
   };
 
-  const getSearchItems = () => {
-    return objInfos.map((x) => ({
-      id: x.id,
-      name: x.name,
-    }));
-  };
-
   const onClick = () => {
-    setItems(getSearchItems());
-    setInputItems(getSearchItems());
+    setItems(objInfos);
+    setInputItems(objInfos);
   };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
     if (selectedItem) {
       const sid = selectedItem.id;
-      if (!_.isEqual(sid, selection)) {
-        setSelection(sid);
+      if (sid !== selection?.id) {
+        setSelection(selectedItem);
       }
       onSelectedItemChange(sid);
     }
@@ -59,7 +54,7 @@ export default function SectionSearch({
     getItemProps,
   } = useCombobox({
     stateReducer,
-    selection,
+    selectedItem: selection,
     items: inputItems,
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,

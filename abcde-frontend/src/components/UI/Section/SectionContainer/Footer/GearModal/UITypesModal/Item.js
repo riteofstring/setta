@@ -10,7 +10,6 @@ import {
   AccordionPanel,
   AccordionIcon,
 } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
 
 import { useUITypeConfig } from "../../../../../../../hooks/useCreateInfo";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
