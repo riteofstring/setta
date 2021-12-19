@@ -230,39 +230,29 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-export function useUITypeConfig(uiType) {
-  const uiTypeConfigId = uiType.configId;
-  const uiTypeConfig = defaultState(
-    useStoreState((x) => getInfo(x.uiTypeConfigs)[uiTypeConfigId]),
-    () => ({})
-  );
-  const x = useStoreActions((x) => x.uiTypeConfigs.setOneConfig);
+export function useSetUITypeConfig(uiType) {
+  const x = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUITypeConfig = ({ configName, value }) => {
-    x({ configId: uiTypeConfigId, configName, value });
+    x({ uiTypeId: uiType.id, configName, value });
   };
-  return [uiTypeConfig, setUITypeConfig];
+  return setUITypeConfig;
 }
 
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
-  const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     return () => {
       if (!uiTypeId) {
+        const config = Object.assign({}, paramInfo.uiTypeConfig);
         const newUIType = new UIType({
           id: createNewId(),
           name: paramInfo.uiTypeName,
+          config: config,
         });
         setUITypeId(newUIType.id);
         setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
-
-        const configId = createNewId();
-        const config = Object.assign({}, paramInfo.uiTypeConfig);
-        setConfigId({ uiTypeId: newUIType.id, configId: configId });
-        setConfig({ configId, config });
       }
     };
   };

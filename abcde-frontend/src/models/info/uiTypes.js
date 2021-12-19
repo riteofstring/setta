@@ -10,14 +10,14 @@ const uiTypes = {
     state.x[uiTypeId] = uiType;
   }),
 
-  setConfigId: action((state, payload) => {
-    const { uiTypeId, configId } = payload;
-    state.x[uiTypeId].configId = configId;
-  }),
-
   setName: action((state, payload) => {
     const { uiTypeId, name } = payload;
     state.x[uiTypeId].name = name;
+  }),
+
+  setOneConfig: action((state, payload) => {
+    const { uiTypeId, configName, value } = payload;
+    state.x[uiTypeId].config[configName] = value;
   }),
 
   export() {

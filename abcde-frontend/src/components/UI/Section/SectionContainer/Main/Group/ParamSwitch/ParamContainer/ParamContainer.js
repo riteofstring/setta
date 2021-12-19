@@ -1,7 +1,6 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
 import { useEffect } from "react";
 
-import { useUITypeConfig } from "../../../../../../../../hooks/useCreateInfo";
 import { requiresNestedSection } from "../../../../../../../../utils/constants";
 import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
@@ -18,7 +17,7 @@ export default function ParamContainer(props) {
   const uiType = getUITypeFn(paramInfo);
   const initUITypeFn = getInitUITypeFn(paramInfo);
   console.log("ParamContainer");
-  const uiTypeConfig = useUITypeConfig(uiType)[0];
+  const uiTypeConfig = uiType.config;
 
   useEffect(() => {
     initUITypeFn();

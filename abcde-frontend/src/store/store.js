@@ -9,7 +9,6 @@ import objInfos from "../models/info/objInfos";
 import paramInfos from "../models/info/paramInfos";
 import sectionInfos from "../models/info/sectionInfos";
 import sectionTypes from "../models/info/sectionTypes";
-import uiTypeConfigs from "../models/info/uiTypeConfigs";
 import uiTypes from "../models/info/uiTypes";
 import mapInteraction from "../models/mapInteraction";
 import master from "../models/master";
@@ -37,7 +36,6 @@ const store = createStore(
       paramInfos: paramInfos,
       kwargInfos: kwargInfos,
       uiTypes: uiTypes,
-      uiTypeConfigs: uiTypeConfigs,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;
