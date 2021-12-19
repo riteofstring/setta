@@ -16,16 +16,16 @@ export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const groups = useStoreState((x) => x.master.groups);
-  const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
+  const idsOverview = useStoreState((x) => x.sectionInfos.allIdsOverview);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useEffect(() => {
     console.log("Overview useEffect");
-    console.log("currChildren", currChildren, groups);
+    console.log("idsOverview", idsOverview, groups);
     setListOfSectionIdsAndNames(
-      getOverviewListing(groups, currChildren, idNames)
+      getOverviewListing(groups, idsOverview, idNames)
     );
-  }, [groups, currChildren, idNames]);
+  }, [groups, idsOverview, idNames]);
 
   return (
     <PaneContainer paneProps={paneProps}>

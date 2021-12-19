@@ -107,6 +107,7 @@ export default function NestedObjectInput({
 }) {
   console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const addChild = useAddChild(sectionId);
   const childSectionTypeId = useGetSectionInfo(existingChildId).sectionTypeId;
   const reinitSectionType = useStoreActions(
@@ -127,6 +128,7 @@ export default function NestedObjectInput({
         uiType,
         uiTypeConfig,
       });
+      setIsRendered({ sectionId: existingChildId, isRendered: true });
     }
   }, [uiType, uiTypeConfig]);
 

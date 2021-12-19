@@ -5,8 +5,9 @@ import React, { useRef, useState, useEffect } from "react";
 import { IoIosRocket } from "react-icons/io";
 
 import { resetState } from "../../../../../../store/store";
+import styles from "./TextEditor.module.css";
 
-export default function TextEditor({ idx }) {
+export default function TextEditor({ idx, dimensions }) {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const valueGetter = useRef();
   const enteredText = useStoreState(
@@ -51,7 +52,6 @@ export default function TextEditor({ idx }) {
   const onChange = (newValue, e) => {
     setEnteredText({ idx, text: newValue });
   };
-
   return (
     <>
       <Button
@@ -59,6 +59,7 @@ export default function TextEditor({ idx }) {
         onClick={handleCreateUI}
         disabled={!isEditorReady}
         variant="solid"
+        mb="1rem"
       >
         Create UI
       </Button>
@@ -67,8 +68,11 @@ export default function TextEditor({ idx }) {
         value={enteredText}
         onMount={handleEditorDidMount}
         onChange={onChange}
-        automaticLayout={true}
-        height={"calc(100% - 2.5rem)"}
+        options={{ automaticLayout: true }}
+        // className={styles.container}
+        wrapperClassName={styles.wrapper}
+        height={`calc(${dimensions.height}px - 8rem)`}
+        width={`calc(${dimensions.width}px - 2rem)`}
       />
     </>
   );

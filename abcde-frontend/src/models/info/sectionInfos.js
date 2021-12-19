@@ -1,20 +1,23 @@
 import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
-import { exportState } from "./utils";
+import { compatibleName } from "../../utils/constants";
+import { defaultState } from "../../utils/utils";
+import { setToDefault, exportState } from "./utils";
 
-function setDefaultChildrenInfo(state, childrenInfoId) {
-  if (!(childrenInfoId in state.childrenInfo)) {
-    state.childrenInfo[childrenInfoId] = [];
-  }
-  return state.childrenInfo[childrenInfoId];
+function setDefaultIdsOverview(state, sectionId, sectionTypeName) {
+  return setToDefault(
+    state,
+    sectionId,
+    sectionTypeName,
+    () => [],
+    "idsOverview"
+  );
 }
 
 const sectionInfos = {
   x: {},
   idsOverview: {},
-  childrenInfo: {},
-  currChildren: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -26,19 +29,16 @@ const sectionInfos = {
   }),
 
   setIdsOverview: action((state, payload) => {
-    const { sectionId, childrenInfoId } = payload;
-    state.idsOverview[sectionId] = childrenInfoId;
+    const { sectionId, sectionTypeName, newStateFn } = payload;
+    const currState = setDefaultIdsOverview(state, sectionId, sectionTypeName);
+    state.idsOverview[sectionId][sectionTypeName] = newStateFn(currState);
   }),
 
-  setChildrenInfo: action((state, payload) => {
-    const { childrenInfoId, newStateFn } = payload;
-    const currState = setDefaultChildrenInfo(state, childrenInfoId);
-    state.childrenInfo[childrenInfoId] = newStateFn(currState);
-  }),
-
-  setCurrChildren: action((state, payload) => {
-    const { sectionId, currChildren } = payload;
-    state.currChildren[sectionId] = currChildren;
+  setIsRendered: action((state, payload) => {
+    const { sectionId, isRendered } = payload;
+    if (sectionId) {
+      state.x[sectionId].isRendered = isRendered;
+    }
   }),
 
   deleteSections: action((state, payload) => {
@@ -48,16 +48,58 @@ const sectionInfos = {
   }),
 
   idNames: computed((state) => {
-    return _.mapValues(state.x, (v) => v.name);
+    const names = {};
+    for (let k of Object.keys(state.x)) {
+      names[k] = state.x[k].name;
+    }
+    return names;
   }),
 
+  allIdsOverview: computed(
+    [
+      (state) => state.hasNested,
+      (state) => state.idsOverview,
+      (state) => state.x,
+      (state, storeState) => storeState.sectionTypes.x,
+    ],
+    (hasNested, ...otherArgs) => {
+      return computedFromIdsOverview(
+        (idsOverview, sectionInfos, sectionTypes, typeName, k) =>
+          hasNested[k] ? idsOverview[k][typeName] : []
+      )(...otherArgs);
+    }
+  ),
+
+  hasNested: computed(
+    [
+      (state) => state.idsOverview,
+      (state) => state.x,
+      (state, storeState) => storeState.sectionTypes.x,
+    ],
+    computedFromIdsOverview(
+      (idsOverview, sectionInfos, sectionTypes, typeName, k) =>
+        defaultState(idsOverview[k]?.[typeName], () => [])
+          .map((x) => sectionInfos[x].isRendered)
+          .some((x) => x)
+    )
+  ),
+
   export() {
-    return {
-      sectionInfos: exportState(this),
-      idsOverview: this.idsOverview,
-      childrenInfo: this.childrenInfo,
-    };
+    return exportState(this);
   },
 };
 
 export default sectionInfos;
+
+function computedFromIdsOverview(fn) {
+  return (idsOverview, sectionInfos, sectionTypes) => {
+    const output = {};
+    for (let k of Object.keys(idsOverview)) {
+      const typeName = compatibleName(
+        sectionTypes[sectionInfos[k]?.sectionTypeId]?.name
+      );
+      output[k] = fn(idsOverview, sectionInfos, sectionTypes, typeName, k);
+    }
+    return output;
+  };
+}
