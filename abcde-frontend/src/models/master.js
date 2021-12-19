@@ -5,6 +5,7 @@ import { createAllInfo } from "../classes/infoFactory";
 import Data from "../data/simpleTrainTest.json";
 import { parseUI } from "../graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "../hooks/useCreateInfo";
+import { createNewId } from "../utils/sectionIds";
 
 const master = {
   sectionsPerGroup: 5,
@@ -56,6 +57,8 @@ const master = {
     const state = helpers.getState();
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setChildrenInfo =
+      helpers.getStoreActions().sectionInfos.setChildrenInfo;
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
@@ -75,6 +78,13 @@ const master = {
       });
       newIds.push(newId[0]);
     }
+
+    //the root "UI"
+    setChildrenInfo({
+      childrenInfoId: createNewId(),
+      newStateFn: () => newIds,
+    });
+
     return newIds;
   }),
 

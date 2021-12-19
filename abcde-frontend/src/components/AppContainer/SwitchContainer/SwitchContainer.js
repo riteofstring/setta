@@ -5,7 +5,6 @@ import LoginPage from "../../LoginPage/LoginPage";
 // import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
-import StartPage from "../../StartPage";
 import HeaderContainer from "../Header/Header";
 import MainContainer from "../Main/MainContainer";
 
@@ -23,10 +22,6 @@ const SwitchContainer = ({ isAuthenticated }) => {
           </PrivateRoute> */}
           <PrivateRoute exact path="/logout" isAuthenticated={isAuthenticated}>
             <LogoutPage />
-          </PrivateRoute>
-          <PrivateRoute exact path="/start" isAuthenticated={isAuthenticated}>
-            <HeaderContainer />
-            <StartPage />
           </PrivateRoute>
         </Switch>
       );

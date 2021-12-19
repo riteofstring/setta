@@ -8,29 +8,31 @@ import {
 } from "@chakra-ui/react";
 
 import {
-  useGetAllParamInfos,
+  useGetObjParamKwargInfos,
   useParamChildId,
   useGetParamUIType,
+  useInitializeEnteredValue,
   useParamEnteredValue,
   useInitializeUIType,
   useAddKwarg,
-  useGetKwargInfos,
   useDeleteKwarg,
-  useGetObjInfos,
 } from "../../../../../../hooks/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfoId }) {
   console.log("GroupContainer");
-  const objInfo = useGetObjInfos(sectionId, objInfoId);
-  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
-  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
-  const enteredValueFn = useParamEnteredValue(sectionId);
+  const { objInfo, paramInfos, kwargInfos } = useGetObjParamKwargInfos(
+    sectionId,
+    objInfoId
+  );
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
+  const enteredValueFn = useParamEnteredValue(sectionId);
   const getInitUITypeFn = useInitializeUIType(sectionId);
+  const getInitEnteredValueFn = useInitializeEnteredValue(sectionId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
   const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
+  const kwargsCondition = objInfoId || paramInfos.length > 0;
 
   function getParamSwitch(infos, isKwarg = false) {
     return (
@@ -41,10 +43,11 @@ export default function GroupContainer({ sectionId, objInfoId }) {
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               paramInfo={e}
-              enteredValueFn={enteredValueFn}
               childIdFn={childIdFn}
               getUITypeFn={getUITypeFn}
+              enteredValueFn={enteredValueFn}
               getInitUITypeFn={getInitUITypeFn}
+              getInitEnteredValueFn={getInitEnteredValueFn}
               getDeleteKwargFn={getDeleteKwargFn}
               isKwarg={isKwarg}
             />
@@ -54,24 +57,29 @@ export default function GroupContainer({ sectionId, objInfoId }) {
     );
   }
 
+  function kwargsControls() {
+    return (
+      <Stack>
+        <HStack pt="1rem">
+          <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
+            {"KWARGS"}
+          </Heading>
+          <IconButton
+            icon={<AddIcon w={2} />}
+            size="xs"
+            variant="outline"
+            borderRadius="full"
+            onClick={addKwarg}
+          />
+        </HStack>
+        {getParamSwitch(kwargInfos, true)}
+      </Stack>
+    );
+  }
+
   return (
     <Stack>
-      {getParamSwitch(paramInfos)}
-
-      <HStack pt="1rem">
-        <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
-          {"KWARGS"}
-        </Heading>
-        <IconButton
-          icon={<AddIcon w={2} />}
-          size="xs"
-          variant="outline"
-          borderRadius="full"
-          onClick={addKwarg}
-        />
-      </HStack>
-
-      {getParamSwitch(kwargInfos, true)}
+      {getParamSwitch(paramInfos)} {kwargsCondition && kwargsControls()}
     </Stack>
   );
 }

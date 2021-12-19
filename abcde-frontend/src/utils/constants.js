@@ -52,7 +52,15 @@ export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
 
 export function compatibleName(type) {
   return {
+    [SECTION]: SECTION,
     [LIST_ROOT]: LIST_ROOT + DICT_ROOT,
     [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
   }[type];
+}
+
+export function getDefaultUIType(type) {
+  if (type === UNKNOWN) {
+    return TEXT;
+  }
+  return type;
 }
