@@ -72,6 +72,7 @@ function initChildType(
       paramUIType,
       paramUITypeConfig,
       parentIsSection: parentCls,
+      uiTypeCollectionId: createNewId(),
     });
   }
   return childType;
@@ -88,6 +89,7 @@ export class SectionType extends MutableInfo {
     paramUITypeConfig,
     topLevelSpecs,
     parentIsSection,
+    uiTypeCollectionId,
   }) {
     super();
     this.id = id;
@@ -110,6 +112,7 @@ export class SectionType extends MutableInfo {
       paramUITypeConfig,
       this
     );
+    this.uiTypeCollectionId = uiTypeCollectionId;
     this.exportable = [
       "id",
       "name",

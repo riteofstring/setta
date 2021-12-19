@@ -8,7 +8,8 @@ import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
 import {
   useGetCurrObjParamKwargInfos,
-  useGetManyParams,
+  useGetManyParamsWithParamCollectionId,
+  useGetManyParamsWithUITypeCollectionId,
   useGetSectionType,
 } from "./useCreateInfo";
 
@@ -76,7 +77,11 @@ export function useGetCurrChildrenIds(sectionId) {
 }
 
 function useChildIdHelper(infos, sectionId) {
-  const uiTypeIds = useGetManyParams(sectionId, infos, "uiTypeId");
+  const uiTypeIds = useGetManyParamsWithUITypeCollectionId(
+    sectionId,
+    infos,
+    "uiTypeId"
+  );
   const hasNested = useStoreState(
     (x) =>
       infos.filter((y, i) =>
@@ -84,5 +89,5 @@ function useChildIdHelper(infos, sectionId) {
       ),
     _.isEqual
   );
-  return useGetManyParams(sectionId, hasNested, "childId");
+  return useGetManyParamsWithParamCollectionId(sectionId, hasNested, "childId");
 }
