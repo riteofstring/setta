@@ -8,6 +8,7 @@ import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
 import {
   useGetCurrObjParamKwargInfos,
+  useGetManyParams,
   useGetSectionType,
 } from "./useCreateInfo";
 
@@ -68,28 +69,20 @@ export function useGetChildrenInfoId(sectionId) {
 
 export function useGetCurrChildrenIds(sectionId) {
   console.log("useGetCurrChildrenIds", sectionId);
-  const childIds = defaultState(
-    useStoreState((x) => x.paramInfos.childIds[sectionId]),
-    () => ({})
-  );
-  const uiTypeIds = defaultState(
-    useStoreState((x) => x.paramInfos.uiTypeIds[sectionId]),
-    () => ({})
-  );
-
   const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = useChildIdHelper(paramInfos, childIds, uiTypeIds);
-  const kwargChildIds = useChildIdHelper(kwargInfos, childIds, uiTypeIds);
+  const paramChildIds = useChildIdHelper(paramInfos, sectionId);
+  const kwargChildIds = useChildIdHelper(kwargInfos, sectionId);
   return [...paramChildIds, ...kwargChildIds];
 }
 
-function useChildIdHelper(infos, allChildIds, allUITypeIds) {
+function useChildIdHelper(infos, sectionId) {
+  const uiTypeIds = useGetManyParams(sectionId, infos, "uiTypeId");
   const hasNested = useStoreState(
     (x) =>
-      infos.filter((y) =>
-        requiresNestedSection(x.uiTypes.x[allUITypeIds[y.id]]?.name)
+      infos.filter((y, i) =>
+        requiresNestedSection(x.uiTypes.x[uiTypeIds[i]]?.name)
       ),
     _.isEqual
   );
-  return hasNested.map((x) => allChildIds[x.id]);
+  return useGetManyParams(sectionId, hasNested, "childId");
 }

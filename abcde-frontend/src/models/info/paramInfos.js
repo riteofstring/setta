@@ -1,43 +1,39 @@
 import { action } from "easy-peasy";
-import _ from "lodash";
 
-import { exportNestedState } from "./utils";
+import { MutableParamInfo } from "../../classes/mutableInfo";
+import { setToDefault, exportNestedState } from "./utils";
 
-function setDefaultXId(state, sectionId, key) {
-  if (!(sectionId in state[key])) {
-    state[key][sectionId] = {};
-  }
-  return state[key][sectionId];
+function setDefaultInfo(state, sectionId, paramInfoId) {
+  return setToDefault(
+    state,
+    sectionId,
+    paramInfoId,
+    () => new MutableParamInfo({ id: paramInfoId })
+  );
 }
 
 const paramInfos = {
-  enteredValueIds: {},
-  childIds: {},
-  uiTypeIds: {},
+  x: {},
 
   setUITypeId: action((state, payload) => {
     const { sectionId, paramInfoId, uiTypeId } = payload;
-    setDefaultXId(state, sectionId, "uiTypeIds")[paramInfoId] = uiTypeId;
+    setDefaultInfo(state, sectionId, paramInfoId).uiTypeId = uiTypeId;
   }),
 
   setEnteredValueId: action((state, payload) => {
     const { sectionId, paramInfoId, enteredValueId } = payload;
-    setDefaultXId(state, sectionId, "enteredValueIds")[paramInfoId] =
+    setDefaultInfo(state, sectionId, paramInfoId).enteredValueId =
       enteredValueId;
   }),
 
   setChildId: action((state, payload) => {
     const { sectionId, paramInfoId, childId } = payload;
-    setDefaultXId(state, sectionId, "childIds")[paramInfoId] = childId;
+    setDefaultInfo(state, sectionId, paramInfoId).childId = childId;
   }),
 
   deleteParamInfo: action((state, payload) => {
-    // const { sectionId, ids } = payload;
-    // state.x = _.omit(state.x[sectionId], ids);
     const { sectionId, ids } = payload;
-    for (let stateName of ["enteredValues", "childIds", "uiTypeIds"]) {
-      state[stateName][sectionId] = _.omit(state[stateName][sectionId], ids);
-    }
+    state.x[sectionId] = _.omit(state.x[sectionId], ids);
   }),
 
   export() {

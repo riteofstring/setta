@@ -14,14 +14,16 @@ export class MutableInfo {
   [immerable] = true;
 }
 
-// export class MutableParamInfo extends MutableInfo {
-//   constructor({ id, uiTypeId, enteredValue }) {
-//     super();
-//     this.id = id;
-//     this.enteredValue = enteredValue;
-//     this.exportable = ["id", "enteredValue"];
-//   }
-// }
+export class MutableParamInfo extends MutableInfo {
+  constructor({ id, uiTypeId, enteredValueId, childId }) {
+    super();
+    this.id = id;
+    this.uiTypeId = uiTypeId;
+    this.enteredValueId = enteredValueId;
+    this.childId = childId;
+    this.exportable = ["id", "uiTypeId", "enteredValueId", "childId"];
+  }
+}
 
 export class MutableObjInfo extends MutableInfo {
   constructor({ id, kwargIds = [] }) {

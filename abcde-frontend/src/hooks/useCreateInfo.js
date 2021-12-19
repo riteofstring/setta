@@ -195,7 +195,7 @@ export function useParamInfoState(sectionId, stateName, setStateFn, key) {
       { sectionId }
     );
     const x = useStoreState(
-      (x) => x.paramInfos[stateName][sectionId]?.[paramInfoId]
+      (x) => getInfo(x.paramInfos)[sectionId]?.[paramInfoId]?.[stateName]
     );
     const setX_ = curryAction(setX, { paramInfoId }, key);
     return [x, setX_];
@@ -205,18 +205,25 @@ export function useParamInfoState(sectionId, stateName, setStateFn, key) {
 export function useParamEnteredValueId(sectionId) {
   return useParamInfoState(
     sectionId,
-    "enteredValueIds",
+    "enteredValueId",
     "setEnteredValueId",
     "enteredValueId"
   );
 }
 
 export function useParamChildId(sectionId) {
-  return useParamInfoState(sectionId, "childIds", "setChildId", "childId");
+  return useParamInfoState(sectionId, "childId", "setChildId", "childId");
 }
 
 export function useParamUITypeId(sectionId) {
-  return useParamInfoState(sectionId, "uiTypeIds", "setUITypeId", "uiTypeId");
+  return useParamInfoState(sectionId, "uiTypeId", "setUITypeId", "uiTypeId");
+}
+
+export function useGetManyParams(sectionId, paramInfos, key) {
+  return useStoreState(
+    (x) => paramInfos.map((y) => x.paramInfos.x[sectionId]?.[y.id]?.[key]),
+    _.isEqual
+  );
 }
 
 export function useInitializeEnteredValue(sectionId) {
