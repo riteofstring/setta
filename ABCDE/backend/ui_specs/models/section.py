@@ -18,7 +18,7 @@ tables = table_factory(
     base_has_owner=True,
     base_additional_tables={
         "selected_object": ForeignKey(Object, on_delete=SET_NULL, null=True),
-        "entered_values": ForeignKey(
+        "parameter_value_collection": ForeignKey(
             ParameterValueCollection, on_delete=SET_NULL, null=True
         ),
         "ui_types": ForeignKey(

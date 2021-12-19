@@ -1,7 +1,7 @@
 from . import models
 from .models import (
     UI,
-    EnteredValues,
+    EnteredValue,
     Folder,
     Module,
     Object,
@@ -153,12 +153,15 @@ def save_collections(owner, collections, col_type):
     # save_collection_rel(owner, all_collections, col_type)
 
 
-def update_section(section, attr, rel_table, uuid_of_rel):
-    rel = None
-    if uuid_of_rel:
-        rel = rel_table.objects.get(uuid=uuid_of_rel)
-    setattr(section, attr, rel)
-    section.save()
+def update_section(section, attr, rel_table, uuid_of_rel, skip_if_not_found=False):
+    if not uuid_of_rel:
+        return
+    rel = try_get(rel_table, {"uuid": uuid_of_rel})
+    if rel:
+        setattr(section, attr, rel)
+        section.save()
+    elif not skip_if_not_found:
+        raise ValueError
 
 
 def save_entity_collection_rels(owner, entity, available_dict):
@@ -206,6 +209,7 @@ def save_section_type_configs(owner, section_type_configs):
 
 
 def save_section(owner, section_info):
+    print(section_info)
     uuid = section_info["id"]
     name = section_info["name"]
     section, _ = generic_create(Section, {"uuid": uuid, "name": name, "owner": owner})
@@ -215,6 +219,13 @@ def save_section(owner, section_info):
         "section_type_config",
         SectionTypeConfig,
         section_info["sectionTypeId"],
+    )
+    update_section(
+        section,
+        "entered_values",
+        ParameterValueCollection,
+        section_info["paramCollectionId"],
+        skip_if_not_found=True,
     )
 
 
@@ -241,7 +252,7 @@ def save_sections(owner, sections):
 
 def save_entered_values(owner, entered_values):
     for uuid, value in entered_values.items():
-        ev, _ = generic_create(EnteredValues, {"uuid": uuid, "owner": owner})
+        ev, _ = generic_create(EnteredValue, {"uuid": uuid, "owner": owner})
         ev.value = value
         ev.save()
 
@@ -261,6 +272,20 @@ def save_ui_type_configs(owner, configs):
         save_ui_type_config(owner, config)
 
 
+def save_param_value_collections(owner, param_infos):
+    for uuid, x in param_infos.items():
+        col, _ = generic_create(
+            ParameterValueCollection, {"uuid": uuid, "owner": owner}
+        )
+        for param_id, info in x.items():
+            ev = EnteredValue.objects.get(uuid=info["enteredValueId"])
+            param = Parameter.objects.get(uuid=info["id"])
+            generic_create(
+                ParameterValue,
+                {"collection": col, "entered_value": ev, "parent": param},
+            )
+
+
 def save_ui(request):
     owner = request.user
     data = request.data
@@ -277,12 +302,14 @@ def save_ui(request):
     save_collections(owner, ui_info["allParamCollections"], "parameters")
 
     save_section_type_configs(owner, ui_info["sectionTypes"])
+    save_entered_values(owner, ui_info["enteredValues"])
+    save_ui_type_configs(owner, ui_info["uiTypes"])
+    save_param_value_collections(owner, ui_info["paramInfos"])
+
     save_sections(owner, ui_info["sectionInfos"])
     save_children_info(owner, ui_info["childrenInfo"])
     save_section_children(ui_info["idsOverview"])
-    save_entered_values(owner, ui_info["enteredValues"])
-    save_ui_type_configs(owner, ui_info["uiTypes"])
 
-    print(ui_info["uiTypes"])
+    print(ui_info["paramInfos"])
 
     print("success")

@@ -5,7 +5,7 @@ from .table_factory import table_factory
 thismodule = sys.modules[__name__]
 tables = table_factory(
     "ParameterValueCollection",
-    ["name", "owner"],
+    ["uuid", "owner"],
     base_has_uuid=True,
     base_has_name=True,
     base_has_owner=True,

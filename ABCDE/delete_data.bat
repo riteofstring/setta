@@ -4,4 +4,7 @@ SET PGPASSWORD=SETTA_HISTORY_REDACTED&&"C:\Program Files\PostgreSQL\13\bin\psql"
  -c "TRUNCATE ui_specs_parametercollection CASCADE"^
  -c "TRUNCATE ui_specs_objectcollection CASCADE"^
  -c "TRUNCATE ui_specs_section CASCADE"^
- -c "TRUNCATE ui_specs_sectiontype CASCADE"
+ -c "TRUNCATE ui_specs_sectiontype CASCADE"^
+ -c "TRUNCATE ui_specs_uitype CASCADE"^
+ -c "TRUNCATE ui_specs_enteredvalues CASCADE"^
+ -c "TRUNCATE ui_specs_parametervaluecollection CASCADE"
