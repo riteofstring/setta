@@ -121,15 +121,7 @@ export function useGetObjParamKwargInfos(sectionId, objInfoId) {
   return { objInfo, paramInfos, kwargInfos };
 }
 
-export function useGetXInfos(
-  collectionName,
-  allCollectionName,
-  sectionId,
-  infoId = null
-) {
-  const sectionType = useGetSectionType(sectionId);
-  const collectionIds = sectionType[collectionName];
-  const allCollections = useStoreState((x) => x.master[allCollectionName]);
+export function getXInfos(collectionIds, allCollections, infoId = null) {
   const collections = collectionIds.map((x) => allCollections.children[x]);
   const output = _.merge({}, ...collections.map((x) => x.children));
   if (infoId) {
@@ -138,8 +130,20 @@ export function useGetXInfos(
   return Object.values(output);
 }
 
+export function useGetXInfosFromSection(
+  collectionName,
+  allCollectionName,
+  sectionId,
+  infoId = null
+) {
+  const sectionType = useGetSectionType(sectionId);
+  const collectionIds = sectionType[collectionName];
+  const allCollections = useStoreState((x) => x.master[allCollectionName]);
+  return getXInfos(collectionIds, allCollections, infoId);
+}
+
 export function useGetObjInfos(sectionId, infoId = null) {
-  return useGetXInfos(
+  return useGetXInfosFromSection(
     "objCollectionIds",
     "allObjCollections",
     sectionId,
@@ -148,7 +152,7 @@ export function useGetObjInfos(sectionId, infoId = null) {
 }
 
 export function useGetParamCollections(sectionId, infoId = null) {
-  return useGetXInfos(
+  return useGetXInfosFromSection(
     "paramCollectionIds",
     "allParamCollections",
     sectionId,
@@ -227,6 +231,7 @@ export function useParamWithUITypeCollectionId(
   key
 ) {
   const { uiTypeCollectionId } = useGetSectionType(sectionId);
+  console.log("useInitializeUIType uiTypeCollectionId", uiTypeCollectionId);
   return useParamInfoState(uiTypeCollectionId, stateName, setStateFn, key, "y");
 }
 
@@ -336,20 +341,25 @@ export function useSetUITypeConfig(uiType) {
   return setUITypeConfig;
 }
 
+export function getNewUIType(paramInfo) {
+  const config = Object.assign({}, paramInfo.uiTypeConfig);
+  const name = getDefaultUIType(paramInfo.uiTypeName);
+  return new UIType({
+    id: createNewId(),
+    name,
+    config: config,
+  });
+}
+
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     return () => {
+      console.log("useInitializeUIType", sectionId, paramInfo.id, uiTypeId);
       if (!uiTypeId) {
-        const config = Object.assign({}, paramInfo.uiTypeConfig);
-        const name = getDefaultUIType(paramInfo.uiTypeName);
-        const newUIType = new UIType({
-          id: createNewId(),
-          name,
-          config: config,
-        });
+        const newUIType = getNewUIType(paramInfo);
         setUITypeId(newUIType.id);
         setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
       }
@@ -455,4 +465,41 @@ export function useDeleteChild(sectionId) {
     deleteSections({ sectionIds: deletedChildren });
   }
   return deleteChild;
+}
+
+export function useReinitSectionType(sectionId) {
+  const reinitSectionType = useStoreActions(
+    (x) => x.sectionTypes.reinitSectionType
+  );
+  const allParamCollections = useStoreState(
+    (x) => x.master["allParamCollections"]
+  );
+  const { id: sectionTypeId, uiTypeCollectionId } =
+    useGetSectionType(sectionId);
+  const existingUITypeIds = defaultState(
+    useStoreState((x) => x.paramInfos.y[uiTypeCollectionId]),
+    () => ({})
+  );
+  const setManyUITypeIds = useStoreActions(
+    (x) => x.paramInfos.setManyUITypeIds
+  );
+  const setManyUITypes = useStoreActions((x) => x.uiTypes.setManyUITypes);
+
+  return (props) => {
+    const { paramCollectionIds } = reinitSectionType({
+      sectionTypeId,
+      ...props,
+    });
+    const paramInfos = getXInfos(paramCollectionIds, allParamCollections);
+    const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x.id]);
+    const newUITypes = needsNewUIType.map((x) => getNewUIType(x));
+    const paramInfoIds = needsNewUIType.map((x) => x.id);
+    const newUITypeIds = newUITypes.map((x) => x.id);
+    setManyUITypeIds({
+      collectionId: uiTypeCollectionId,
+      paramInfoIds,
+      uiTypeIds: newUITypeIds,
+    });
+    setManyUITypes({ uiTypes: newUITypes });
+  };
 }

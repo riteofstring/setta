@@ -1,10 +1,10 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import {
-  useGetSectionInfo,
   useAddChild,
+  useReinitSectionType,
 } from "../../../../../../../../../hooks/useCreateInfo";
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
@@ -108,10 +108,7 @@ export default function NestedObjectInput({
   console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useAddChild(sectionId);
-  const childSectionTypeId = useGetSectionInfo(existingChildId).sectionTypeId;
-  const reinitSectionType = useStoreActions(
-    (x) => x.sectionTypes.reinitSectionType
-  );
+  const reinitSectionType = useReinitSectionType(existingChildId);
 
   useEffect(() => {
     if (!existingChildId) {
@@ -123,7 +120,6 @@ export default function NestedObjectInput({
       });
     } else {
       reinitSectionType({
-        sectionTypeId: childSectionTypeId,
         uiType,
         uiTypeConfig,
       });
