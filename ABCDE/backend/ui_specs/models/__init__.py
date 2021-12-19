@@ -47,3 +47,4 @@ from .ui import (
     UIToTag,
 )
 from .ui_type import UIType
+from .ui_type_config import UITypeConfig

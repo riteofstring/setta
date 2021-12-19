@@ -24,6 +24,7 @@ from .models import (
     UIToObjectCollection,
     UIToParameterCollection,
     UIType,
+    UITypeConfig,
 )
 
 
@@ -245,6 +246,21 @@ def save_entered_values(owner, entered_values):
         ev.save()
 
 
+def save_ui_type_config(owner, config):
+    ui_type, _ = generic_create(UIType, {"name": config["name"]})
+    ui_type_config, _ = generic_create(
+        UITypeConfig, {"uuid": config["id"], "owner": owner}
+    )
+    ui_type_config.ui_type = ui_type
+    ui_type_config.config = config["config"]
+    ui_type_config.save()
+
+
+def save_ui_type_configs(owner, configs):
+    for config in configs:
+        save_ui_type_config(owner, config)
+
+
 def save_ui(request):
     owner = request.user
     data = request.data
@@ -265,7 +281,8 @@ def save_ui(request):
     save_children_info(owner, ui_info["childrenInfo"])
     save_section_children(ui_info["idsOverview"])
     save_entered_values(owner, ui_info["enteredValues"])
+    save_ui_type_configs(owner, ui_info["uiTypes"])
 
-    print(ui_info["enteredValues"])
+    print(ui_info["uiTypes"])
 
     print("success")
