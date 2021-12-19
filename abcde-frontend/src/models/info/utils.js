@@ -32,6 +32,7 @@ export function exportAllStates(state) {
     kwargInfos: state.kwargInfos.export(),
     sectionTypes: state.sectionTypes.export(),
     uiTypes: state.uiTypes.export(),
+    enteredValues: state.enteredValues.export(),
     allModuleInfo: state.master.allModuleInfo,
     allObjCollections: state.master.allObjCollections,
     allParamCollections: state.master.allParamCollections,

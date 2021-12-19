@@ -4,6 +4,7 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
+import { getDefaultUIType } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   curryAction,
@@ -287,9 +288,10 @@ export function useInitializeUIType(sectionId) {
     return () => {
       if (!uiTypeId) {
         const config = Object.assign({}, paramInfo.uiTypeConfig);
+        const name = getDefaultUIType(paramInfo.uiTypeName);
         const newUIType = new UIType({
           id: createNewId(),
-          name: paramInfo.uiTypeName,
+          name,
           config: config,
         });
         setUITypeId(newUIType.id);

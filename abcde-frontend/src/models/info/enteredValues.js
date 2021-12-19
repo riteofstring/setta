@@ -7,6 +7,10 @@ const enteredValues = {
     const { enteredValueId, value } = payload;
     state.x[enteredValueId] = value;
   }),
+
+  export() {
+    return this.x;
+  },
 };
 
 export default enteredValues;

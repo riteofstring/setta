@@ -57,3 +57,10 @@ export function compatibleName(type) {
     [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
   }[type];
 }
+
+export function getDefaultUIType(type) {
+  if (type === UNKNOWN) {
+    return TEXT;
+  }
+  return type;
+}
