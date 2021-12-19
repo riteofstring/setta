@@ -153,15 +153,12 @@ def save_collections(owner, collections, col_type):
     # save_collection_rel(owner, all_collections, col_type)
 
 
-def update_section(section, attr, rel_table, uuid_of_rel, skip_if_not_found=False):
-    if not uuid_of_rel:
-        return
-    rel = try_get(rel_table, {"uuid": uuid_of_rel})
-    if rel:
-        setattr(section, attr, rel)
-        section.save()
-    elif not skip_if_not_found:
-        raise ValueError
+def update_section(section, attr, rel_table, uuid_of_rel):
+    rel = None
+    if uuid_of_rel:
+        rel = rel_table.objects.get(uuid=uuid_of_rel)
+    setattr(section, attr, rel)
+    section.save()
 
 
 def save_entity_collection_rels(owner, entity, available_dict):
@@ -213,19 +210,18 @@ def save_section(owner, section_info):
     uuid = section_info["id"]
     name = section_info["name"]
     section, _ = generic_create(Section, {"uuid": uuid, "name": name, "owner": owner})
+    col, _ = generic_create(
+        ParameterValueCollection,
+        {"uuid": section_info["paramCollectionId"], "owner": owner},
+    )
+    section.parameter_value_collection = col
+    section.save()
     update_section(section, "selected_object", Object, section_info["selectedItem"])
     update_section(
         section,
         "section_type_config",
         SectionTypeConfig,
         section_info["sectionTypeId"],
-    )
-    update_section(
-        section,
-        "entered_values",
-        ParameterValueCollection,
-        section_info["paramCollectionId"],
-        skip_if_not_found=True,
     )
 
 
