@@ -109,6 +109,17 @@ export function useGetSectionType(sectionId) {
   );
 }
 
+export function useGetManySectionTypeNames(sectionIds) {
+  const sectionTypeIds = useStoreState(
+    (x) => sectionIds.map((y) => getInfo(x.sectionInfos)[y]?.sectionTypeId),
+    _.isEqual
+  );
+  return useStoreState(
+    (x) => sectionTypeIds.map((y) => getInfo(x.sectionTypes)[y]?.name),
+    _.isEqual
+  );
+}
+
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   return useGetObjParamKwargInfos(sectionId, selectedItem);
@@ -490,6 +501,9 @@ export function useReinitSectionType(sectionId) {
       sectionTypeId,
       ...props,
     });
+    // The following code is to address the problem that arises
+    // when multiple sections get populated with a paramCollection.
+    // Without this, they will end up making unused uiTypes.
     const paramInfos = getXInfos(paramCollectionIds, allParamCollections);
     const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x.id]);
     const newUITypes = needsNewUIType.map((x) => getNewUIType(x));
