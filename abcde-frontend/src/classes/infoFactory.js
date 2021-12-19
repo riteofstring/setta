@@ -40,6 +40,8 @@ export function createSectionInfo(
     name,
     sectionTypeId: sectionType.id,
     parentSectionInfo,
+    paramCollectionId: createNewId(),
+    kwargCollectionId: createNewId(),
   });
 
   return { info, sectionType };

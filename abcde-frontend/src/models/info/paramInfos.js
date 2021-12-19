@@ -3,10 +3,10 @@ import { action } from "easy-peasy";
 import { MutableParamInfo } from "../../classes/mutableInfo";
 import { setToDefault, exportNestedState } from "./utils";
 
-function setDefaultInfo(state, sectionId, paramInfoId) {
+function setDefaultInfo(state, collectionId, paramInfoId) {
   return setToDefault(
     state,
-    sectionId,
+    collectionId,
     paramInfoId,
     () => new MutableParamInfo({ id: paramInfoId })
   );
@@ -16,24 +16,24 @@ const paramInfos = {
   x: {},
 
   setUITypeId: action((state, payload) => {
-    const { sectionId, paramInfoId, uiTypeId } = payload;
-    setDefaultInfo(state, sectionId, paramInfoId).uiTypeId = uiTypeId;
+    const { collectionId, paramInfoId, uiTypeId } = payload;
+    setDefaultInfo(state, collectionId, paramInfoId).uiTypeId = uiTypeId;
   }),
 
   setEnteredValueId: action((state, payload) => {
-    const { sectionId, paramInfoId, enteredValueId } = payload;
-    setDefaultInfo(state, sectionId, paramInfoId).enteredValueId =
+    const { collectionId, paramInfoId, enteredValueId } = payload;
+    setDefaultInfo(state, collectionId, paramInfoId).enteredValueId =
       enteredValueId;
   }),
 
   setChildId: action((state, payload) => {
-    const { sectionId, paramInfoId, childId } = payload;
-    setDefaultInfo(state, sectionId, paramInfoId).childId = childId;
+    const { collectionId, paramInfoId, childId } = payload;
+    setDefaultInfo(state, collectionId, paramInfoId).childId = childId;
   }),
 
   deleteParamInfo: action((state, payload) => {
-    const { sectionId, ids } = payload;
-    state.x[sectionId] = _.omit(state.x[sectionId], ids);
+    const { collectionId, ids } = payload;
+    state.x[collectionId] = _.omit(state.x[collectionId], ids);
   }),
 
   export() {
