@@ -166,8 +166,11 @@ export function useGetKwargIds(sectionId, objInfo) {
 
 export function useGetKwargInfos(sectionId, objInfo) {
   const kwargIds = useGetKwargIds(sectionId, objInfo);
-  const kwargInfoState = useStoreState((x) => getInfo(x.kwargInfos));
-  return kwargIds.map((x) => kwargInfoState[x]);
+  const kwargInfoState = useStoreState(
+    (x) => kwargIds.map((y) => getInfo(x.kwargInfos)[y]),
+    _.isEqual
+  );
+  return kwargInfoState;
 }
 
 export function useGetAllParamInfos(sectionId, objInfo) {

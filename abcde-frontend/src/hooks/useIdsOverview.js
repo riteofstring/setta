@@ -60,6 +60,7 @@ export function useGetChildrenInfoId(sectionId) {
 }
 
 export function useGetCurrChildrenIds(sectionId) {
+  console.log("useGetCurrChildrenIds", sectionId);
   const childIds = defaultState(
     useStoreState((x) => x.paramInfos.childIds[sectionId]),
     () => ({})
@@ -68,16 +69,20 @@ export function useGetCurrChildrenIds(sectionId) {
     useStoreState((x) => x.paramInfos.uiTypeIds[sectionId]),
     () => ({})
   );
-  const uiTypes = useStoreState((x) => x.uiTypes.x);
+
   const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = childIdHelper(paramInfos, childIds, uiTypeIds, uiTypes);
-  const kwargChildIds = childIdHelper(kwargInfos, childIds, uiTypeIds, uiTypes);
+  const paramChildIds = useChildIdHelper(paramInfos, childIds, uiTypeIds);
+  const kwargChildIds = useChildIdHelper(kwargInfos, childIds, uiTypeIds);
   return [...paramChildIds, ...kwargChildIds];
 }
 
-function childIdHelper(infos, allChildIds, allUITypeIds, allUITypes) {
-  const hasNested = infos.filter((x) =>
-    requiresNestedSection(allUITypes[allUITypeIds[x.id]]?.name)
+function useChildIdHelper(infos, allChildIds, allUITypeIds) {
+  const hasNested = useStoreState(
+    (x) =>
+      infos.filter((y) =>
+        requiresNestedSection(x.uiTypes.x[allUITypeIds[y.id]]?.name)
+      ),
+    _.isEqual
   );
-  return _.map(hasNested, (x) => allChildIds[x.id]);
+  return hasNested.map((x) => allChildIds[x.id]);
 }
