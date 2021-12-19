@@ -55,17 +55,6 @@ const sectionInfos = {
     computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
   ),
 
-  hasNested: computed(
-    [
-      (state) => state.childrenInfo,
-      (state) => state.idsOverview,
-      (state) => state.x,
-    ],
-    computedFromIdsOverview((sectionInfos, childrenIds) =>
-      childrenIds.map((x) => true).some((x) => x)
-    )
-  ),
-
   export() {
     return {
       sectionInfos: exportState(this),
