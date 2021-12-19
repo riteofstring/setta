@@ -4,6 +4,7 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
+import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   curryAction,
@@ -243,13 +244,48 @@ export function useUITypeConfig(uiType) {
   return [uiTypeConfig, setUITypeConfig];
 }
 
+export function useSetUITypeAndSetIsRendered(sectionId, uiTypeFn) {
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
+  );
+  const paramChildIdFn = useParamChildId(sectionId);
+  return (paramInfoId) => {
+    const childId = paramChildIdFn(paramInfoId)[0];
+    return (uiTypeProps) => {
+      uiTypeFn(uiTypeProps);
+      if (childId) {
+        const name = uiTypeProps.name
+          ? uiTypeProps.name
+          : uiTypeProps.uiType.name;
+        const isRendered = requiresNestedSection(name);
+        setSectionInfoAttr({
+          sectionId: childId,
+          attr: "isRendered",
+          value: isRendered,
+        });
+      }
+    };
+  };
+}
+
+export function useSetUITypeName(sectionId) {
+  const setName = useStoreActions((x) => x.uiTypes.setName);
+  return useSetUITypeAndSetIsRendered(sectionId, setName);
+}
+
+export function useSetUIType(sectionId) {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  return useSetUITypeAndSetIsRendered(sectionId, setUIType);
+}
+
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setUIType = useSetUIType(sectionId);
   const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
+    const setUITypeAndSetIsRendered = setUIType(paramInfo.id);
     return () => {
       if (!uiTypeId) {
         const newUIType = new UIType({
@@ -257,7 +293,10 @@ export function useInitializeUIType(sectionId) {
           name: paramInfo.uiTypeName,
         });
         setUITypeId(newUIType.id);
-        setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
+        setUITypeAndSetIsRendered({
+          uiTypeId: newUIType.id,
+          uiType: newUIType,
+        });
 
         const configId = createNewId();
         const config = Object.assign({}, paramInfo.uiTypeConfig);
