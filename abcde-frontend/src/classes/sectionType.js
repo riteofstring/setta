@@ -1,4 +1,4 @@
-import { SECTION, rootTypeToChildType, isRoot } from "../utils/constants";
+import { SECTION, rootTypeToChildType } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { nullOrUndefined } from "../utils/utils";
 import { convertSpecsToDict } from "./immutableInfo";
@@ -63,9 +63,6 @@ function initChildType(
   let childType = {};
   const childName = rootTypeToChildType[parentCls.name];
   if (childName) {
-    const parentIsRoot = isRoot(parentCls.name);
-    const uiColId = parentIsRoot ? parentCls.uiTypeCollectionId : createNewId();
-
     childType = new SectionType({
       id: createNewId(),
       name: childName,
@@ -75,7 +72,7 @@ function initChildType(
       paramUIType,
       paramUITypeConfig,
       parentIsSection: parentCls,
-      uiTypeCollectionId: uiColId,
+      uiTypeCollectionId: createNewId(),
     });
   }
   return childType;

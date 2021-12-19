@@ -51,7 +51,6 @@ const sectionTypes = {
       allParamCollections,
       ...payload,
     });
-    return helpers.getState().x[payload.sectionTypeId];
   }),
 
   export() {
