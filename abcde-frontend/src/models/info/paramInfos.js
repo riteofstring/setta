@@ -11,7 +11,7 @@ function setDefaultXId(state, sectionId, key) {
 }
 
 const paramInfos = {
-  enteredValues: {},
+  enteredValueIds: {},
   childIds: {},
   uiTypeIds: {},
 
@@ -20,9 +20,10 @@ const paramInfos = {
     setDefaultXId(state, sectionId, "uiTypeIds")[paramInfoId] = uiTypeId;
   }),
 
-  setEnteredValue: action((state, payload) => {
-    const { sectionId, paramInfoId, value } = payload;
-    setDefaultXId(state, sectionId, "enteredValues")[paramInfoId] = value;
+  setEnteredValueId: action((state, payload) => {
+    const { sectionId, paramInfoId, enteredValueId } = payload;
+    setDefaultXId(state, sectionId, "enteredValueIds")[paramInfoId] =
+      enteredValueId;
   }),
 
   setChildId: action((state, payload) => {

@@ -9,18 +9,21 @@ export default function ParamContainer(props) {
   const {
     sectionId,
     paramInfo,
-    enteredValueFn,
     childIdFn,
     getUITypeFn,
+    enteredValueFn,
     getInitUITypeFn,
+    getInitEnteredValueFn,
   } = props;
   const uiType = getUITypeFn(paramInfo);
   const initUITypeFn = getInitUITypeFn(paramInfo);
+  const initEnteredValueFn = getInitEnteredValueFn(paramInfo);
   console.log("ParamContainer");
   const uiTypeConfig = uiType.config;
 
   useEffect(() => {
     initUITypeFn();
+    initEnteredValueFn();
   }, [paramInfo.id]);
 
   return !requiresNestedSection(uiType.name) ? (
@@ -41,8 +44,8 @@ export default function ParamContainer(props) {
             paramInfo={paramInfo}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
-            isDisabled={!paramInfo.name}
             enteredValueFn={enteredValueFn}
+            isDisabled={!paramInfo.name}
           />
         </HStack>
       </FormControl>

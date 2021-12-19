@@ -11,6 +11,7 @@ import {
   useGetObjParamKwargInfos,
   useParamChildId,
   useGetParamUIType,
+  useInitializeEnteredValue,
   useParamEnteredValue,
   useInitializeUIType,
   useAddKwarg,
@@ -24,10 +25,11 @@ export default function GroupContainer({ sectionId, objInfoId }) {
     sectionId,
     objInfoId
   );
-  const enteredValueFn = useParamEnteredValue(sectionId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
+  const enteredValueFn = useParamEnteredValue(sectionId);
   const getInitUITypeFn = useInitializeUIType(sectionId);
+  const getInitEnteredValueFn = useInitializeEnteredValue(sectionId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
   const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
   const kwargsCondition = objInfoId || paramInfos.length > 0;
@@ -41,10 +43,11 @@ export default function GroupContainer({ sectionId, objInfoId }) {
               key={`${e.name}-${idx}`}
               sectionId={sectionId}
               paramInfo={e}
-              enteredValueFn={enteredValueFn}
               childIdFn={childIdFn}
               getUITypeFn={getUITypeFn}
+              enteredValueFn={enteredValueFn}
               getInitUITypeFn={getInitUITypeFn}
+              getInitEnteredValueFn={getInitEnteredValueFn}
               getDeleteKwargFn={getDeleteKwargFn}
               isKwarg={isKwarg}
             />

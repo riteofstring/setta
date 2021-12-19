@@ -5,10 +5,9 @@ import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
   const { paramInfo, uiType, enteredValueFn } = props;
-  const paramInfoId = paramInfo.id;
   const { defaultVal } = paramInfo;
 
-  const [enteredValue, setEnteredValue] = enteredValueFn(paramInfoId);
+  const [enteredValue, setEnteredValue] = enteredValueFn(paramInfo);
   const [value, setValue] = useState("");
 
   const onChange = (v) => {

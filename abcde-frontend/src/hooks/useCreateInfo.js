@@ -202,12 +202,12 @@ export function useParamInfoState(sectionId, stateName, setStateFn, key) {
   };
 }
 
-export function useParamEnteredValue(sectionId) {
+export function useParamEnteredValueId(sectionId) {
   return useParamInfoState(
     sectionId,
-    "enteredValues",
-    "setEnteredValue",
-    "value"
+    "enteredValueIds",
+    "setEnteredValueId",
+    "enteredValueId"
   );
 }
 
@@ -217,6 +217,40 @@ export function useParamChildId(sectionId) {
 
 export function useParamUITypeId(sectionId) {
   return useParamInfoState(sectionId, "uiTypeIds", "setUITypeId", "uiTypeId");
+}
+
+export function useInitializeEnteredValue(sectionId) {
+  const enteredValueIdFn = useParamEnteredValueId(sectionId);
+  const setEnteredValue = useStoreActions(
+    (x) => x.enteredValues.setEnteredValue
+  );
+  return (paramInfo) => {
+    const [enteredValueId, setEnteredValueId] = enteredValueIdFn(paramInfo.id);
+    return () => {
+      if (!enteredValueId) {
+        const newId = createNewId();
+        setEnteredValueId(newId);
+        setEnteredValue({ enteredValueId: newId, value: "" });
+      }
+    };
+  };
+}
+
+export function useParamEnteredValue(sectionId) {
+  const enteredValueIdFn = useParamEnteredValueId(sectionId);
+  return (paramInfo) => {
+    const enteredValueId = enteredValueIdFn(paramInfo.id)[0];
+    const enteredValue = defaultState(
+      useStoreState((x) => getInfo(x.enteredValues)[enteredValueId]),
+      () => ""
+    );
+    const setEnteredValue = curryAction(
+      useStoreActions((x) => x.enteredValues.setEnteredValue),
+      { enteredValueId },
+      "value"
+    );
+    return [enteredValue, setEnteredValue];
+  };
 }
 
 export function useGetParamUIType(sectionId) {
