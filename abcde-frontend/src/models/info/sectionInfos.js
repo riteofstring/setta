@@ -73,7 +73,9 @@ const sectionInfos = {
       (state) => state.idsOverview,
       (state) => state.x,
     ],
-    computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
+    computedFromIdsOverview((sectionInfos, childrenIds) =>
+      childrenIds.filter((x) => sectionInfos[x].isRendered)
+    )
   ),
 
   export() {
