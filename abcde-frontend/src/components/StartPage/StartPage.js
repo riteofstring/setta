@@ -1,7 +1,7 @@
 import React from "react";
 
-const StartPage = () => {
+function StartPage() {
   return <></>;
-};
+}
 
 export default React.memo(StartPage);
