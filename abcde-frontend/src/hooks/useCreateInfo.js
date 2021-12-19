@@ -4,7 +4,7 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
-import { requiresNestedSection } from "../utils/constants";
+import { isRoot, requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   curryAction,
@@ -107,11 +107,6 @@ export function useGetSectionType(sectionId) {
     useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
     () => ({})
   );
-}
-
-export function useGetCurrObjParamKwargInfos(sectionId) {
-  const { selectedItem } = useGetSectionInfo(sectionId);
-  return useGetObjParamKwargInfos(sectionId, selectedItem);
 }
 
 export function useGetObjParamKwargInfos(sectionId, objInfoId) {
@@ -245,9 +240,7 @@ export function useUITypeConfig(uiType) {
 }
 
 export function useSetUITypeAndSetIsRendered(sectionId, uiTypeFn) {
-  const setSectionInfoAttr = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttr
-  );
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const paramChildIdFn = useParamChildId(sectionId);
   return (paramInfoId) => {
     const childId = paramChildIdFn(paramInfoId)[0];
@@ -258,9 +251,8 @@ export function useSetUITypeAndSetIsRendered(sectionId, uiTypeFn) {
           ? uiTypeProps.name
           : uiTypeProps.uiType.name;
         const isRendered = requiresNestedSection(name);
-        setSectionInfoAttr({
+        setIsRendered({
           sectionId: childId,
-          attr: "isRendered",
           value: isRendered,
         });
       }
@@ -400,4 +392,50 @@ export function useDeleteChild(sectionId, startId = null) {
     deleteSections({ sectionIds: deletedChildren });
   }
   return deleteChild;
+}
+
+export function useSelectedItemChanged(sectionId, objInfoId) {
+  const { paramInfos, kwargInfos } = useGetObjParamKwargInfos(
+    sectionId,
+    objInfoId
+  );
+  const paramChildIds = childIdHelper(sectionId, paramInfos);
+  const kwargChildIds = childIdHelper(sectionId, kwargInfos);
+  const activeChildIds = [...paramChildIds, ...kwargChildIds];
+  const childrenInfoId = useStoreState(
+    (x) => x.sectionInfos.idsOverview[sectionId]
+  );
+  const allChildIds = defaultState(
+    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
+    () => []
+  );
+  const sectionTypeName = useGetSectionType(sectionId).name;
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
+  return () => {
+    const inactiveChildIds = isRoot(sectionTypeName)
+      ? []
+      : _.difference(allChildIds, activeChildIds);
+
+    const listOfSectionIds = [...activeChildIds, ...inactiveChildIds];
+    const trueArray = _.times(activeChildIds.length, _.constant(true));
+    const falseArray = _.times(inactiveChildIds.length, _.constant(false));
+    const isRendered = [...trueArray, ...falseArray];
+    setIsRendered({
+      listOfSectionIds,
+      listOfValues: isRendered,
+    });
+  };
+}
+
+function childIdHelper(sectionId, infos) {
+  return defaultState(
+    useStoreState(
+      (x) =>
+        infos
+          .map((y) => x.paramInfos.childIds[sectionId]?.[y.id])
+          .filter((y) => y),
+      _.isEqual
+    ),
+    () => ({})
+  );
 }

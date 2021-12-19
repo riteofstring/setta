@@ -1,13 +1,14 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 import {
   useGetSectionInfo,
   useGetSectionType,
   useAddChild,
   useDeleteChild,
+  useSelectedItemChanged,
 } from "../../../../hooks/useCreateInfo";
 import { useIdsOverview } from "../../../../hooks/useIdsOverview";
 import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
@@ -95,6 +96,7 @@ function _SectionContainerCore({
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
+  const selectedItemChangedFn = useSelectedItemChanged(sectionId, selectedItem);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -103,6 +105,10 @@ function _SectionContainerCore({
   function onTitleInputChange(value) {
     setSectionInfoAttr({ sectionId, attr: "name", value });
   }
+
+  useEffect(() => {
+    selectedItemChangedFn();
+  }, [selectedItem]);
 
   console.log("SectionContainerCore");
 
