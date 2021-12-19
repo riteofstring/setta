@@ -253,26 +253,25 @@ export function useUITypeConfig(uiType) {
   return [uiTypeConfig, setUITypeConfig];
 }
 
-export function useSetUITypeName(sectionId, objInfoId) {
-  const setName = useStoreActions((x) => x.uiTypes.setName);
+export function useSetUITypeAndSetIsNested(sectionId, objInfoId, uiTypeFn) {
   const setIsNested = useStoreActions((x) => x.paramInfos.setIsNested);
-  return (paramInfo, uiTypeId, name) => {
+  return (paramInfo, uiTypeProps) => {
     const paramInfoId = paramInfo.id;
+    const name = uiTypeProps.name ? uiTypeProps.name : uiTypeProps.uiType.name;
     const isNested = requiresNestedSection(name);
-    setName({ uiTypeId, name });
+    uiTypeFn(uiTypeProps);
     setIsNested({ sectionId, objInfoId, paramInfoId, isNested });
   };
 }
 
+export function useSetUITypeName(sectionId, objInfoId) {
+  const setName = useStoreActions((x) => x.uiTypes.setName);
+  return useSetUITypeAndSetIsNested(sectionId, objInfoId, setName);
+}
+
 export function useSetUIType(sectionId, objInfoId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setIsNested = useStoreActions((x) => x.paramInfos.setIsNested);
-  return (paramInfo, uiTypeId, uiType) => {
-    const paramInfoId = paramInfo.id;
-    const isNested = requiresNestedSection(uiType.name);
-    setUIType({ uiTypeId, uiType });
-    setIsNested({ sectionId, objInfoId, paramInfoId, isNested });
-  };
+  return useSetUITypeAndSetIsNested(sectionId, objInfoId, setUIType);
 }
 
 export function useInitializeUIType(sectionId, objInfoId) {
@@ -289,7 +288,7 @@ export function useInitializeUIType(sectionId, objInfoId) {
           name: paramInfo.uiTypeName,
         });
         setUITypeId(newUIType.id);
-        setUIType(paramInfo, newUIType.id, newUIType);
+        setUIType(paramInfo, { uiTypeId: newUIType.id, uiType: newUIType });
 
         const configId = createNewId();
         const config = Object.assign({}, paramInfo.uiTypeConfig);

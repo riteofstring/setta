@@ -27,7 +27,10 @@ export default function Item({ paramInfo, getUITypeFn, setNameFn }) {
   console.log("Item", uiTypeConfig, uiType.name);
 
   const onSelect = (e) => {
-    setNameFn(paramInfo, uiType.id, prettyToUITypes.get(e.target.value));
+    setNameFn(paramInfo, {
+      uiTypeId: uiType.id,
+      name: prettyToUITypes.get(e.target.value),
+    });
   };
 
   const onChange = (configName, value) => {
