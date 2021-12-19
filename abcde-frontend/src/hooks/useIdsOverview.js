@@ -2,10 +2,13 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { isRoot } from "../utils/constants";
-import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { curryAction, defaultState } from "../utils/utils";
-import { useGetSectionInfo, useGetSectionType } from "./useCreateInfo";
+import {
+  useGetSectionInfo,
+  useGetSectionType,
+  useGetCurrObjParamKwargInfos,
+} from "./useCreateInfo";
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
@@ -59,26 +62,21 @@ export function useGetChildrenInfoId(sectionId) {
 export function useGetCurrChildrenIds(sectionId) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   console.log("useGetCurrChildrenIds sectionId", sectionId);
-  const paramInfoIdsToChildIds = defaultState(
+  const toChildIds = defaultState(
     useStoreState((x) => x.paramInfos.childIds[sectionId]?.[selectedItem]),
     () => ({})
   );
-  // console.log("useGetCurrChildrenIds childIds", paramInfoIdsToChildIds);
-  const uiTypeIds = defaultState(
-    useStoreState((x) => x.paramInfos.uiTypeIds[sectionId]?.[selectedItem]),
+  const isNested = defaultState(
+    useStoreState((x) => x.paramInfos.isNested[sectionId]?.[selectedItem]),
     () => ({})
   );
-  // const uiTypes = useStoreState((x) => x.uiTypes.x);
-  // const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  // const paramChildIds = childIdHelper(paramInfos, childIds, uiTypeIds, uiTypes);
-  // const kwargChildIds = childIdHelper(kwargInfos, childIds, uiTypeIds, uiTypes);
-  // return [...paramChildIds, ...kwargChildIds];
-  return [];
+  const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
+  const paramChildIds = childIdHelper(paramInfos, toChildIds, isNested);
+  const kwargChildIds = childIdHelper(kwargInfos, toChildIds, isNested);
+  return [...paramChildIds, ...kwargChildIds];
 }
 
-function childIdHelper(infos, allChildIds, allUITypeIds, allUITypes) {
-  const hasNested = infos.filter((x) =>
-    requiresNestedSection(allUITypes[allUITypeIds[x.id]]?.name)
-  );
-  return _.map(hasNested, (x) => allChildIds[x.id]);
+function childIdHelper(infos, toChildIds, isNested) {
+  const hasNested = infos.filter((x) => isNested[x.id]);
+  return _.map(hasNested, (x) => toChildIds[x.id]);
 }

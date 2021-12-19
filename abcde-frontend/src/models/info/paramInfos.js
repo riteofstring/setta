@@ -11,6 +11,7 @@ const paramInfos = {
   enteredValues: {},
   childIds: {},
   uiTypeIds: {},
+  isNested: {},
 
   setUITypeId: action((state, payload) => {
     const { sectionId, objInfoId, paramInfoId, uiTypeId } = payload;
@@ -28,6 +29,12 @@ const paramInfos = {
     const { sectionId, objInfoId, paramInfoId, childId } = payload;
     setDefaultInfo(state, sectionId, objInfoId, "childIds")[paramInfoId] =
       childId;
+  }),
+
+  setIsNested: action((state, payload) => {
+    const { sectionId, objInfoId, paramInfoId, isNested } = payload;
+    setDefaultInfo(state, sectionId, objInfoId, "isNested")[paramInfoId] =
+      isNested;
   }),
 
   deleteParamInfo: action((state, payload) => {

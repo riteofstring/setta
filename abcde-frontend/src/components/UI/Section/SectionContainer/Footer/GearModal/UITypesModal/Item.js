@@ -10,7 +10,6 @@ import {
   AccordionPanel,
   AccordionIcon,
 } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
 
 import { useUITypeConfig } from "../../../../../../../hooks/useCreateInfo";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
@@ -20,17 +19,15 @@ import {
 } from "../../../../../../../utils/constants";
 import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
-export default function Item({ paramInfo, getUITypeFn }) {
+export default function Item({ paramInfo, getUITypeFn, setNameFn }) {
   const uiType = getUITypeFn(paramInfo);
   const [uiTypeConfig, setUITypeConfig] = useUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
   console.log("Item", uiTypeConfig, uiType.name);
 
-  const setName = useStoreActions((x) => x.uiTypes.setName);
-
   const onSelect = (e) => {
-    setName({ uiTypeId: uiType.id, name: prettyToUITypes.get(e.target.value) });
+    setNameFn(paramInfo, uiType.id, prettyToUITypes.get(e.target.value));
   };
 
   const onChange = (configName, value) => {

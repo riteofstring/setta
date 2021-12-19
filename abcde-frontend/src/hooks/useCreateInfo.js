@@ -4,6 +4,7 @@ import _ from "lodash";
 import { createSectionInfo } from "../classes/infoFactory";
 import { KwargInfo } from "../classes/mutableInfo";
 import { UIType } from "../classes/uiType";
+import { requiresNestedSection } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import {
   curryAction,
@@ -252,9 +253,31 @@ export function useUITypeConfig(uiType) {
   return [uiTypeConfig, setUITypeConfig];
 }
 
+export function useSetUITypeName(sectionId, objInfoId) {
+  const setName = useStoreActions((x) => x.uiTypes.setName);
+  const setIsNested = useStoreActions((x) => x.paramInfos.setIsNested);
+  return (paramInfo, uiTypeId, name) => {
+    const paramInfoId = paramInfo.id;
+    const isNested = requiresNestedSection(name);
+    setName({ uiTypeId, name });
+    setIsNested({ sectionId, objInfoId, paramInfoId, isNested });
+  };
+}
+
+export function useSetUIType(sectionId, objInfoId) {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setIsNested = useStoreActions((x) => x.paramInfos.setIsNested);
+  return (paramInfo, uiTypeId, uiType) => {
+    const paramInfoId = paramInfo.id;
+    const isNested = requiresNestedSection(uiType.name);
+    setUIType({ uiTypeId, uiType });
+    setIsNested({ sectionId, objInfoId, paramInfoId, isNested });
+  };
+}
+
 export function useInitializeUIType(sectionId, objInfoId) {
   const uiTypeFn = useParamUITypeId(sectionId, objInfoId);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setUIType = useSetUIType(sectionId, objInfoId);
   const setConfigId = useStoreActions((x) => x.uiTypes.setConfigId);
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
@@ -266,7 +289,7 @@ export function useInitializeUIType(sectionId, objInfoId) {
           name: paramInfo.uiTypeName,
         });
         setUITypeId(newUIType.id);
-        setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
+        setUIType(paramInfo, newUIType.id, newUIType);
 
         const configId = createNewId();
         const config = Object.assign({}, paramInfo.uiTypeConfig);
