@@ -1,4 +1,5 @@
 import { action } from "easy-peasy";
+import _ from "lodash";
 
 import {
   MutableParamInfo,
@@ -34,6 +35,13 @@ const paramInfos = {
     const { collectionId, paramInfoId, uiTypeId } = payload;
     setMutableParamUITypeInfo(state, collectionId, paramInfoId).uiTypeId =
       uiTypeId;
+  }),
+
+  setManyUITypeIds: action((state, payload) => {
+    const { collectionId, paramInfoIds, uiTypeIds } = payload;
+    for (let z of _.zip(paramInfoIds, uiTypeIds)) {
+      setMutableParamUITypeInfo(state, collectionId, z[0]).uiTypeId = z[1];
+    }
   }),
 
   setEnteredValueId: action((state, payload) => {

@@ -474,14 +474,16 @@ export function useReinitSectionType(sectionId) {
   const allParamCollections = useStoreState(
     (x) => x.master["allParamCollections"]
   );
-
   const { id: sectionTypeId, uiTypeCollectionId } =
     useGetSectionType(sectionId);
-
   const existingUITypeIds = defaultState(
     useStoreState((x) => x.paramInfos.y[uiTypeCollectionId]),
     () => ({})
   );
+  const setManyUITypeIds = useStoreActions(
+    (x) => x.paramInfos.setManyUITypeIds
+  );
+  const setManyUITypes = useStoreActions((x) => x.uiTypes.setManyUITypes);
 
   return (props) => {
     const { paramCollectionIds } = reinitSectionType({
@@ -489,8 +491,15 @@ export function useReinitSectionType(sectionId) {
       ...props,
     });
     const paramInfos = getXInfos(paramCollectionIds, allParamCollections);
-    const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x]);
+    const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x.id]);
     const newUITypes = needsNewUIType.map((x) => getNewUIType(x));
-    console.log("newUITypes", newUITypes);
+    const paramInfoIds = needsNewUIType.map((x) => x.id);
+    const newUITypeIds = newUITypes.map((x) => x.id);
+    setManyUITypeIds({
+      collectionId: uiTypeCollectionId,
+      paramInfoIds,
+      uiTypeIds: newUITypeIds,
+    });
+    setManyUITypes({ uiTypes: newUITypes });
   };
 }
