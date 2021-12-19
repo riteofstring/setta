@@ -1,5 +1,6 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
+import { useEffect } from "react";
 
 import { isRoot } from "../utils/constants";
 import { requiresNestedSection } from "../utils/constants";
@@ -13,6 +14,12 @@ import {
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
+  const setCurrChildren = useStoreActions(
+    (x) => x.sectionInfos.setCurrChildren
+  );
+  useEffect(() => {
+    setCurrChildren({ sectionId, currChildren: idsOverview });
+  }, [idsOverview]);
   return [idsOverview, setIdsOverview];
 }
 

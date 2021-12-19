@@ -1,7 +1,6 @@
 import { action, computed } from "easy-peasy";
 import _ from "lodash";
 
-import { defaultState } from "../../utils/utils";
 import { exportState } from "./utils";
 
 function setDefaultChildrenInfo(state, childrenInfoId) {
@@ -15,6 +14,7 @@ const sectionInfos = {
   x: {},
   idsOverview: {},
   childrenInfo: {},
+  currChildren: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -36,6 +36,11 @@ const sectionInfos = {
     state.childrenInfo[childrenInfoId] = newStateFn(currState);
   }),
 
+  setCurrChildren: action((state, payload) => {
+    const { sectionId, currChildren } = payload;
+    state.currChildren[sectionId] = currChildren;
+  }),
+
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     state.x = _.omit(state.x, sectionIds);
@@ -45,15 +50,6 @@ const sectionInfos = {
   idNames: computed((state) => {
     return _.mapValues(state.x, (v) => v.name);
   }),
-
-  allIdsOverview: computed(
-    [
-      (state) => state.childrenInfo,
-      (state) => state.idsOverview,
-      (state) => state.x,
-    ],
-    computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
-  ),
 
   export() {
     return {
@@ -65,15 +61,3 @@ const sectionInfos = {
 };
 
 export default sectionInfos;
-
-function computedFromIdsOverview(fn) {
-  return (childrenInfo, idsOverview, sectionInfos) => {
-    const output = {};
-    for (let k of Object.keys(idsOverview)) {
-      const childrenInfoId = idsOverview[k];
-      const childrenIds = defaultState(childrenInfo[childrenInfoId], () => []);
-      output[k] = fn(sectionInfos, childrenIds);
-    }
-    return output;
-  };
-}
