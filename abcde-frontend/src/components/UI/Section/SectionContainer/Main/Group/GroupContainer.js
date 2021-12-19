@@ -32,6 +32,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
   const addKwarg = useAddKwarg(sectionId, objInfoId);
   const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfoId);
   const setKwargNameFn = useSetKwargName(sectionId, objInfoId);
+  const kwargsCondition = objInfoId || paramInfos.length > 0;
 
   function getParamSwitch(infos, isKwarg = false) {
     return (
@@ -56,24 +57,29 @@ export default function GroupContainer({ sectionId, objInfoId }) {
     );
   }
 
+  function kwargsControls() {
+    return (
+      <Stack>
+        <HStack pt="1rem">
+          <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
+            {"KWARGS"}
+          </Heading>
+          <IconButton
+            icon={<AddIcon w={2} />}
+            size="xs"
+            variant="outline"
+            borderRadius="full"
+            onClick={addKwarg}
+          />
+        </HStack>
+        {getParamSwitch(kwargInfos, true)}
+      </Stack>
+    );
+  }
+
   return (
     <Stack>
-      {getParamSwitch(paramInfos)}
-
-      <HStack pt="1rem">
-        <Heading as="h3" color="gray.600" size="sm" fontWeight="normal">
-          {"KWARGS"}
-        </Heading>
-        <IconButton
-          icon={<AddIcon w={2} />}
-          size="xs"
-          variant="outline"
-          borderRadius="full"
-          onClick={addKwarg}
-        />
-      </HStack>
-
-      {getParamSwitch(kwargInfos, true)}
+      {getParamSwitch(paramInfos)} {kwargsCondition && kwargsControls()}
     </Stack>
   );
 }
