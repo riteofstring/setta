@@ -398,7 +398,7 @@ export function useDeleteKwarg(sectionId, objInfo) {
   };
 }
 
-export function useAddChild(sectionId, startId = null) {
+export function useAddChild(sectionId) {
   const { paramCollectionId: collectionId } = useGetSectionInfo(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
@@ -410,6 +410,7 @@ export function useAddChild(sectionId, startId = null) {
     uiTypeConfig = null,
     numChildren = 1,
     parentParamInfoId = null,
+    startId = null,
   }) {
     const newIds = createInfo({ name, uiType, uiTypeConfig, numChildren });
 
@@ -433,11 +434,11 @@ export function useAddChild(sectionId, startId = null) {
   return addChild;
 }
 
-export function useDeleteChild(sectionId, startId = null) {
+export function useDeleteChild(sectionId) {
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
   const setIdsOverview = useSetIdsOverview(sectionId);
 
-  function deleteChild({ numChildren = 1 }) {
+  function deleteChild({ numChildren = 1, startId = null }) {
     let deletedChildren = null;
     setIdsOverview((x) => {
       if (x.length === 0) {
