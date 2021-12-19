@@ -40,10 +40,9 @@ const sectionInfos = {
   setIsChildRendered: action((state, payload) => {
     const { sectionId, childId, isRendered, newStateFn } = payload;
     const currState = setDefault(state, sectionId, "isChildRendered", {});
-    if (newStateFn){
-      state.isChildRendered[sectionId] = newStateFn(currState)
-    }
-    else{
+    if (newStateFn) {
+      state.isChildRendered[sectionId] = newStateFn(currState);
+    } else {
       currState[childId] = isRendered;
     }
   }),
@@ -60,11 +59,11 @@ const sectionInfos = {
 
   allIdsOverview: computed(
     [
-      (state) => state.childrenInfo,
       (state) => state.idsOverview,
-      (state) => state.x,
+      (state) => state.childrenInfo,
+      (state) => state.isChildRendered,
     ],
-    computedFromIdsOverview((sectionInfos, childrenIds) => childrenIds)
+    computedFromIdsOverview()
   ),
 
   export() {
@@ -78,13 +77,13 @@ const sectionInfos = {
 
 export default sectionInfos;
 
-function computedFromIdsOverview(fn) {
-  return (childrenInfo, idsOverview, sectionInfos) => {
+function computedFromIdsOverview() {
+  return (idsOverview, childrenInfo, isChildRendered) => {
     const output = {};
     for (let k of Object.keys(idsOverview)) {
       const childrenInfoId = idsOverview[k];
       const childrenIds = defaultState(childrenInfo[childrenInfoId], () => []);
-      output[k] = fn(sectionInfos, childrenIds);
+      output[k] = childrenIds.filter((x) => isChildRendered[k][x]);
     }
     return output;
   };
