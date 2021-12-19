@@ -21,13 +21,14 @@ import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/Pa
 
 export default function Item({ paramInfo, getUITypeFn, setNameFn }) {
   const uiType = getUITypeFn(paramInfo);
+  const setName = setNameFn(paramInfo.id);
   const [uiTypeConfig, setUITypeConfig] = useUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
   console.log("Item", uiTypeConfig, uiType.name);
 
   const onSelect = (e) => {
-    setNameFn(paramInfo, {
+    setName({
       uiTypeId: uiType.id,
       name: prettyToUITypes.get(e.target.value),
     });

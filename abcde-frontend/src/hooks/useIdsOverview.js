@@ -66,17 +66,17 @@ export function useGetCurrChildrenIds(sectionId) {
     useStoreState((x) => x.paramInfos.childIds[sectionId]?.[selectedItem]),
     () => ({})
   );
-  const isNested = defaultState(
-    useStoreState((x) => x.paramInfos.isNested[sectionId]?.[selectedItem]),
+  const isChildRendered = defaultState(
+    useStoreState((x) => x.sectionInfos.isChildRendered[sectionId]),
     () => ({})
   );
   const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = childIdHelper(paramInfos, toChildIds, isNested);
-  const kwargChildIds = childIdHelper(kwargInfos, toChildIds, isNested);
+  const paramChildIds = childIdHelper(paramInfos, toChildIds, isChildRendered);
+  const kwargChildIds = childIdHelper(kwargInfos, toChildIds, isChildRendered);
   return [...paramChildIds, ...kwargChildIds];
 }
 
-function childIdHelper(infos, toChildIds, isNested) {
-  const hasNested = infos.filter((x) => isNested[x.id]);
-  return _.map(hasNested, (x) => toChildIds[x.id]);
+function childIdHelper(infos, toChildIds, isChildRendered) {
+  const childIds = infos.map((x) => toChildIds[x.id]);
+  return childIds.filter((x) => isChildRendered[x]);
 }

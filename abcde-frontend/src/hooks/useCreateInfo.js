@@ -253,25 +253,32 @@ export function useUITypeConfig(uiType) {
   return [uiTypeConfig, setUITypeConfig];
 }
 
-export function useSetUITypeAndSetIsNested(sectionId, objInfoId, uiTypeFn) {
-  const setIsNested = useStoreActions((x) => x.paramInfos.setIsNested);
-  return (paramInfo, uiTypeProps) => {
-    const paramInfoId = paramInfo.id;
-    const name = uiTypeProps.name ? uiTypeProps.name : uiTypeProps.uiType.name;
-    const isNested = requiresNestedSection(name);
-    uiTypeFn(uiTypeProps);
-    setIsNested({ sectionId, objInfoId, paramInfoId, isNested });
+export function useSetUITypeAndSetIsRendered(sectionId, objInfoId, uiTypeFn) {
+  const setIsChildRendered = useStoreActions(
+    (x) => x.sectionInfos.setIsChildRendered
+  );
+  const paramChildIdFn = useParamChildId(sectionId, objInfoId);
+  return (paramInfoId) => {
+    const childId = paramChildIdFn(paramInfoId)[0];
+    return (uiTypeProps) => {
+      const name = uiTypeProps.name
+        ? uiTypeProps.name
+        : uiTypeProps.uiType.name;
+      const isRendered = requiresNestedSection(name);
+      uiTypeFn(uiTypeProps);
+      setIsChildRendered({ sectionId, childId, isRendered });
+    };
   };
 }
 
 export function useSetUITypeName(sectionId, objInfoId) {
   const setName = useStoreActions((x) => x.uiTypes.setName);
-  return useSetUITypeAndSetIsNested(sectionId, objInfoId, setName);
+  return useSetUITypeAndSetIsRendered(sectionId, objInfoId, setName);
 }
 
 export function useSetUIType(sectionId, objInfoId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  return useSetUITypeAndSetIsNested(sectionId, objInfoId, setUIType);
+  return useSetUITypeAndSetIsRendered(sectionId, objInfoId, setUIType);
 }
 
 export function useInitializeUIType(sectionId, objInfoId) {
@@ -281,6 +288,7 @@ export function useInitializeUIType(sectionId, objInfoId) {
   const setConfig = useStoreActions((x) => x.uiTypeConfigs.setConfig);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
+    const setUITypeAndSetIsRendered = setUIType(paramInfo.id);
     return () => {
       if (!uiTypeId) {
         const newUIType = new UIType({
@@ -288,7 +296,10 @@ export function useInitializeUIType(sectionId, objInfoId) {
           name: paramInfo.uiTypeName,
         });
         setUITypeId(newUIType.id);
-        setUIType(paramInfo, { uiTypeId: newUIType.id, uiType: newUIType });
+        setUITypeAndSetIsRendered({
+          uiTypeId: newUIType.id,
+          uiType: newUIType,
+        });
 
         const configId = createNewId();
         const config = Object.assign({}, paramInfo.uiTypeConfig);
@@ -346,6 +357,9 @@ export function useAddChild(sectionId, startId = null) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
+  const setIsChildRendered = useStoreActions(
+    (x) => x.sectionInfos.setIsChildRendered
+  );
   const createInfo = useCreateSectionInfo(sectionId, true);
 
   function addChild({
@@ -363,6 +377,14 @@ export function useAddChild(sectionId, startId = null) {
         insertIdx = x.indexOf(startId) + 1;
       }
       return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
+    });
+
+    setIsChildRendered({
+      sectionId,
+      newStateFn: (x) => ({
+        ...x,
+        ..._.zipObject(newIds, _.times(newIds.length, _.constant(true))),
+      }),
     });
 
     if (parentParamInfoId) {

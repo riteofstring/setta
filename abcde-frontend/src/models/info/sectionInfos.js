@@ -1,20 +1,21 @@
-import { action, computed } from "easy-peasy";
+import { action, computed, debug } from "easy-peasy";
 import _ from "lodash";
 
 import { defaultState } from "../../utils/utils";
 import { exportState } from "./utils";
 
-function setDefaultChildrenInfo(state, childrenInfoId) {
-  if (!(childrenInfoId in state.childrenInfo)) {
-    state.childrenInfo[childrenInfoId] = [];
+function setDefault(state, id, attr, val) {
+  if (!(id in state[attr])) {
+    state[attr][id] = val;
   }
-  return state.childrenInfo[childrenInfoId];
+  return state[attr][id];
 }
 
 const sectionInfos = {
   x: {},
   idsOverview: {},
   childrenInfo: {},
+  isChildRendered: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -32,8 +33,19 @@ const sectionInfos = {
 
   setChildrenInfo: action((state, payload) => {
     const { childrenInfoId, newStateFn } = payload;
-    const currState = setDefaultChildrenInfo(state, childrenInfoId);
+    const currState = setDefault(state, childrenInfoId, "childrenInfo", []);
     state.childrenInfo[childrenInfoId] = newStateFn(currState);
+  }),
+
+  setIsChildRendered: action((state, payload) => {
+    const { sectionId, childId, isRendered, newStateFn } = payload;
+    const currState = setDefault(state, sectionId, "isChildRendered", {});
+    if (newStateFn){
+      state.isChildRendered[sectionId] = newStateFn(currState)
+    }
+    else{
+      currState[childId] = isRendered;
+    }
   }),
 
   deleteSections: action((state, payload) => {
