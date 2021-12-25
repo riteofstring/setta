@@ -36,6 +36,14 @@ const sectionInfos = {
     state.childrenInfo[childrenInfoId] = newStateFn(currState);
   }),
 
+  swapIdsBetweenGroups: action((state, payload) => {
+    const { group1, group2, sectionId1, sectionId2 } = payload;
+    const idx1 = state.childrenInfo[group1].indexOf(sectionId1);
+    const idx2 = state.childrenInfo[group2].indexOf(sectionId2);
+    state.childrenInfo[group1][idx1] = sectionId2;
+    state.childrenInfo[group2][idx2] = sectionId1;
+  }),
+
   setCurrChildren: action((state, payload) => {
     const { sectionId, currChildren } = payload;
     state.currChildren[sectionId] = currChildren;

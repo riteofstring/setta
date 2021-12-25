@@ -9,7 +9,7 @@ import { createNewId } from "../utils/sectionIds";
 
 const master = {
   sectionsPerGroup: 5,
-  spaceBetweenPages: 500,
+  spaceBetweenPages: 50,
   rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),
