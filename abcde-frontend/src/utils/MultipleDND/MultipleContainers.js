@@ -1,5 +1,3 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal, unstable_batchedUpdates } from "react-dom";
 import {
   closestCenter,
   rectIntersection,
@@ -24,6 +22,8 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal, unstable_batchedUpdates } from "react-dom";
 
 import { Container } from "./Container";
 import { Item } from "./Item";
@@ -116,7 +116,6 @@ export function MultipleContainers({
   vertical = false,
   scrollable,
 }) {
-  
   const [activeId, setActiveId] = useState(null);
   const lastOverId = useRef(null);
   const recentlyMovedToNewContainer = useRef(false);
@@ -237,7 +236,7 @@ export function MultipleContainers({
         setClonedItems(items);
       }}
       onDragOver={({ active, over }) => {
-        console.log("onDragOver")
+        console.log("onDragOver");
         const overId = over?.id;
 
         if (!overId || overId === TRASH_ID || active.id in items) {
@@ -435,7 +434,7 @@ export function MultipleContainers({
         <DragOverlay adjustScale={adjustScale} dropAnimation={dropAnimation}>
           {activeId
             ? containers.includes(activeId)
-              ? renderContainerDragOverlay(activeId)
+              ? null
               : renderSortableItemDragOverlay(activeId)
             : null}
         </DragOverlay>,
@@ -466,40 +465,6 @@ export function MultipleContainers({
         renderItem={renderItem}
         dragOverlay
       />
-    );
-  }
-
-  function renderContainerDragOverlay(containerId) {
-    return (
-      <Container
-        label={`Column ${containerId}`}
-        columns={columns}
-        style={{
-          height: "100%",
-        }}
-        shadow
-        unstyled={false}
-      >
-        {items[containerId].map((item, index) => (
-          <Item
-            key={item}
-            value={item}
-            handle={handle}
-            style={getItemStyles({
-              containerId,
-              overIndex: -1,
-              index: getIndex(item),
-              value: item,
-              isDragging: false,
-              isSorting: false,
-              isDragOverlay: false,
-            })}
-            color={getColor(item)}
-            wrapperStyle={wrapperStyle({ index })}
-            renderItem={renderItem}
-          />
-        ))}
-      </Container>
     );
   }
 
