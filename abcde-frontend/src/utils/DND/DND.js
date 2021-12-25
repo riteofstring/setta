@@ -1,4 +1,4 @@
-import { DndContext, useDraggable, useDroppable } from "@dnd-kit/core";
+import { DndContext, useDraggable } from "@dnd-kit/core";
 import React, { useState } from "react";
 
 const defaultCoordinates = {
@@ -7,7 +7,6 @@ const defaultCoordinates = {
 };
 
 export function DND(props) {
-  const [isDropped, setIsDropped] = useState(false);
   const [{ translate }, setTranslate] = useState({
     initialTranslate: defaultCoordinates,
     translate: defaultCoordinates,
@@ -15,9 +14,7 @@ export function DND(props) {
   const [initialWindowScroll, setInitialWindowScroll] =
     useState(defaultCoordinates);
 
-  console.log("translate", translate);
-
-  const styles = {
+  const style = {
     transform: `translate(${translate?.x ?? 0}px, ${translate?.y ?? 0}px)`,
   };
 
@@ -55,47 +52,18 @@ export function DND(props) {
         setInitialWindowScroll(defaultCoordinates);
       }}
     >
-      <Draggable>
-        <div style={styles}>{props.children}</div>
-      </Draggable>
+      <Draggable style={style}>{props.children}</Draggable>
     </DndContext>
   );
-
-  function handleDragEnd(event) {
-    if (event.over && event.over.id === "droppable") {
-      setIsDropped(true);
-    }
-  }
 }
 
 function Draggable(props) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+  const { attributes, listeners, setNodeRef } = useDraggable({
     id: "draggable",
   });
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
-
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div ref={setNodeRef} style={props.style} {...listeners} {...attributes}>
       {props.children}
     </div>
   );
 }
-
-// function Droppable(props) {
-//   const { isOver, setNodeRef } = useDroppable({
-//     id: "droppable",
-//   });
-//   const style = {
-//     color: isOver ? "green" : undefined,
-//   };
-
-//   return (
-//     <div ref={setNodeRef} style={style}>
-//       {props.children}
-//     </div>
-//   );
-// }
