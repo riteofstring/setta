@@ -6,7 +6,6 @@ import {
   Button,
   Stack,
   Spacer,
-  Accordion,
   AccordionItem,
   AccordionButton,
   AccordionPanel,

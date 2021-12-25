@@ -7,7 +7,6 @@ import Measure from "react-measure";
 import { rangeArray, mod } from "../../../../../utils/utils";
 import PaneContainer from "../PaneContainer";
 import TabsContainer from "./TabsContainer";
-import TextEditor from "./TextEditor/TextEditor";
 import UIConfig from "./UIConfig";
 import UiEditorPages from "./UiEditorPages";
 
