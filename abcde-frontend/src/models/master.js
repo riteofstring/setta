@@ -16,6 +16,7 @@ const master = {
   allModuleInfo: null,
   allObjCollections: null,
   allParamCollections: null,
+  activeSection: null,
 
   // actions
   // Load DATA
@@ -93,12 +94,20 @@ const master = {
     state.rootSectionIds = newIds;
   }),
 
-  groups: computed((state) => {
-    return _.chunk(state.rootSectionIds, state.sectionsPerGroup);
-  }),
+  groups: computed(
+    [(state) => state.rootSectionIds, (state) => state.sectionsPerGroup],
+    (rootSectionIds, sectionsPerGroup) => {
+      return _.chunk(rootSectionIds, sectionsPerGroup);
+    }
+  ),
 
   setSectionsPerGroup: action((state, payload) => {
     state.sectionsPerGroup = payload;
+  }),
+
+  setActiveSection: action((state, payload) => {
+    state.activeSection = payload;
+    console.log("setActiveSection", payload);
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

@@ -47,8 +47,8 @@ const sectionInfos = {
     state.idsOverview = _.omit(state.idsOverview, sectionIds);
   }),
 
-  idNames: computed((state) => {
-    return _.mapValues(state.x, (v) => v.name);
+  idNames: computed([(state) => state.x], (x) => {
+    return _.mapValues(x, (v) => v.name);
   }),
 
   export() {

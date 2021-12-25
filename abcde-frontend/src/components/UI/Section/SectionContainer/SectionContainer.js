@@ -95,6 +95,7 @@ function _SectionContainerCore({
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
+  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -115,6 +116,7 @@ function _SectionContainerCore({
       bg="gray.50"
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
+      onClick={() => setActiveSection(sectionId)}
     >
       {isList && <DragHandle dragListeners={dragListeners} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
