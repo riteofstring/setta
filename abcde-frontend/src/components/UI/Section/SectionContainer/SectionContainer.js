@@ -47,7 +47,7 @@ function SectionContainer({
   }, [childrenAreCollapsed]);
 
   return (
-    <div>
+    <DND>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -72,7 +72,7 @@ function SectionContainer({
           />
         )}
       </Box>
-    </div>
+    </DND>
   );
 }
 
@@ -112,54 +112,52 @@ function _SectionContainerCore({
   // // temp_
   const tempBoolDesc = false;
   return (
-    <DND>
-      <HStack
-        ref={refForPosition}
-        direction="column"
-        bg="gray.50"
-        borderRadius="md"
-        w={`${SECTIONWIDTH}px`}
-        onClick={() => setActiveSection(sectionId)}
-      >
-        {isList && <DragHandle dragListeners={dragListeners} />}
-        <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
-          <SectionHeader
-            sectionId={sectionId}
-            variableName={variableName}
-            parentId={parentId}
-            nextId={nextId}
-            isList={isList}
-            isListRoot={isListRoot}
-            addChild={addChild}
-            deleteChild={deleteChild}
-            hasNested={hasNested}
-            onTitleInputChange={onTitleInputChange}
-            requiresKeyInput={requiresKeyInput(sectionType.name)}
-          />
-          {!isListRoot && (
-            <Stack>
-              {showSearch && (
-                <SectionSearch
-                  sectionId={sectionId}
-                  initialSelection={selectedItem}
-                  onSelectedItemChange={onSelectedItemChange}
-                />
-              )}
-              {tempBoolDesc && <SectionDescription />}
-              <GroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-              <SectionFooter
+    <HStack
+      ref={refForPosition}
+      direction="column"
+      bg="gray.50"
+      borderRadius="md"
+      w={`${SECTIONWIDTH}px`}
+      onClick={() => setActiveSection(sectionId)}
+    >
+      {isList && <DragHandle dragListeners={dragListeners} />}
+      <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
+        <SectionHeader
+          sectionId={sectionId}
+          variableName={variableName}
+          parentId={parentId}
+          nextId={nextId}
+          isList={isList}
+          isListRoot={isListRoot}
+          addChild={addChild}
+          deleteChild={deleteChild}
+          hasNested={hasNested}
+          onTitleInputChange={onTitleInputChange}
+          requiresKeyInput={requiresKeyInput(sectionType.name)}
+        />
+        {!isListRoot && (
+          <Stack>
+            {showSearch && (
+              <SectionSearch
                 sectionId={sectionId}
-                objInfoId={selectedItem}
-                isListRoot={isListRoot}
-                hasNested={hasNested}
-                childrenAreCollapsed={childrenAreCollapsed}
-                flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+                initialSelection={selectedItem}
+                onSelectedItemChange={onSelectedItemChange}
               />
-            </Stack>
-          )}
-        </Stack>
-      </HStack>
-    </DND>
+            )}
+            {tempBoolDesc && <SectionDescription />}
+            <GroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+            <SectionFooter
+              sectionId={sectionId}
+              objInfoId={selectedItem}
+              isListRoot={isListRoot}
+              hasNested={hasNested}
+              childrenAreCollapsed={childrenAreCollapsed}
+              flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+            />
+          </Stack>
+        )}
+      </Stack>
+    </HStack>
   );
 }
 
