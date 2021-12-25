@@ -2,7 +2,6 @@ import {
   Heading,
   Input,
   VStack,
-  HStack,
   Button,
   Stack,
   Spacer,
@@ -11,16 +10,24 @@ import {
   AccordionPanel,
   AccordionIcon,
   Box,
+  Select,
+  FormControl,
 } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 
 import {
   useGetAllParamAndKwargInfos,
   useGetObjInfos,
   useGetParamUIType,
   useGetSectionInfo,
+  useSetUITypeConfig,
 } from "../../../../../../hooks/useCreateInfo";
 import ReduceMotionAccordian from "../../../../../../utils/ReduceMotionAccordian";
+import {
+  prettyToUITypes,
+  uiTypesToPretty,
+} from "../../../../../../utils/constants";
+import { ParamUIConfig } from "../../../../../UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
@@ -36,32 +43,66 @@ export default function UIConfigFunc() {
       {paramInfos &&
         paramInfos.length > 0 &&
         paramInfos.map((e, idx) => (
-          <UIElement uiName={e.name} key={`${e.name}-${idx}`} />
+          <UIElement
+            paramInfo={e}
+            getUITypeFn={getUITypeFn}
+            key={`${e.name}-${idx}`}
+          />
         ))}
     </VStack>
   );
 }
 
-function UIElement({ uiName = "UI Element" }) {
+function UIElement({ paramInfo, getUITypeFn }) {
+  const uiType = getUITypeFn(paramInfo);
+  const uiTypeConfig = uiType.config;
+  const setUITypeConfig = useSetUITypeConfig(uiType);
+  const paramName = paramInfo.name;
+
+  console.log("Item", uiTypeConfig, uiType.name);
+
+  const setName = useStoreActions((x) => x.uiTypes.setName);
+
+  const onSelect = (e) => {
+    setName({ uiTypeId: uiType.id, name: prettyToUITypes.get(e.target.value) });
+  };
+
+  const onChange = (configName, value) => {
+    console.log("onChange", configName, value);
+    setUITypeConfig({ configName, value });
+  };
+
   return (
     <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
       <AccordionItem isOpen={true}>
         <Heading as="h2" size="md">
           <AccordionButton>
             <Box flex="1" textAlign="left">
-              {uiName}
+              {paramName}
             </Box>
             <AccordionIcon />
           </AccordionButton>
         </Heading>
         <AccordionPanel pb={4}>
           <Input placeholder="UI Preset Search" />
-          <Input placeholder="UI Type Search" />
-          <HStack>
-            <Input variant="flushed" placeholder="Min" />
-            <Input variant="flushed" placeholder="Max" />
-            <Input variant="flushed" placeholder="Step" />
-          </HStack>
+          <FormControl id="placeholder">
+            <Select
+              placeholder="Select UI Type"
+              onChange={onSelect}
+              value={uiTypesToPretty.get(uiType.name)}
+            >
+              {[...prettyToUITypes.keys()].map((e, idx) => (
+                <option value={e} key={`${e}-${idx}`}>
+                  {e}
+                </option>
+              ))}
+            </Select>
+          </FormControl>
+          <ParamUIConfig
+            name={uiType.name}
+            savedConfig={uiTypeConfig}
+            onChange={onChange}
+          />
           <SaveLoadButtons />
         </AccordionPanel>
       </AccordionItem>
