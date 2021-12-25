@@ -1,7 +1,6 @@
 import { action, thunk } from "easy-peasy";
 
 import { SectionType } from "../../classes/sectionType";
-import { exportState } from "./utils";
 
 const sectionTypes = {
   x: {},
@@ -19,9 +18,8 @@ const sectionTypes = {
       allParamCollections,
     } = payload;
     const currSectionType = state.x[sectionTypeId];
-    const { id, uiTypeCollectionId } = currSectionType;
-    const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
-      currSectionType.childType;
+    const { id } = currSectionType;
+    const childTypeId = currSectionType.childType.id;
     const newSectionType = new SectionType({
       id,
       allObjCollections,
@@ -29,17 +27,10 @@ const sectionTypes = {
       paramUIType: uiType,
       paramUITypeConfig: uiTypeConfig,
       parentIsSection: true,
-      uiTypeCollectionId,
     });
+    newSectionType.childType.id = childTypeId;
     state.x[sectionTypeId] = newSectionType;
-    if (childTypeId) {
-      const childType = newSectionType.childType;
-      childType.id = childTypeId;
-      childType.uiTypeCollectionId = childUITypeCollectionId;
-      if (childType instanceof SectionType) {
-        state.x[childTypeId] = childType;
-      }
-    }
+    state.x[childTypeId] = newSectionType.childType;
   }),
 
   reinitSectionType: thunk((actions, payload, helpers) => {
@@ -51,12 +42,7 @@ const sectionTypes = {
       allParamCollections,
       ...payload,
     });
-    return helpers.getState().x[payload.sectionTypeId];
   }),
-
-  export() {
-    return exportState(this);
-  },
 };
 
 export default sectionTypes;

@@ -1,10 +1,10 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { useStoreState } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
 
 import {
+  useGetSectionInfo,
   useAddChild,
-  useReinitSectionType,
 } from "../../../../../../../../../hooks/useCreateInfo";
 import { includesArray } from "../../../../../../../../../utils/commonFunctions";
 import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
@@ -33,12 +33,9 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
 }
 
 export function NestedObjectInputConfig({ name, onChange, savedConfig }) {
-  const availableObjects = useStoreState((x) =>
-    Object.keys(x.master.allObjCollections.nameToId)
-  );
-  const availableParameters = useStoreState((x) =>
-    Object.keys(x.master.allParamCollections.nameToId)
-  );
+  const available = useStoreState((x) => x.master.available);
+  const availableObjects = Object.keys(available.objects);
+  const availableParameters = Object.keys(available.parameters);
 
   const pickerObjects = availableObjects.map((x) =>
     valueAndLabel(x, "objects")
@@ -107,8 +104,12 @@ export default function NestedObjectInput({
 }) {
   console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const addChild = useAddChild(sectionId);
-  const reinitSectionType = useReinitSectionType(existingChildId);
+  const childSectionTypeId = useGetSectionInfo(existingChildId).sectionTypeId;
+  const reinitSectionType = useStoreActions(
+    (x) => x.sectionTypes.reinitSectionType
+  );
 
   useEffect(() => {
     if (!existingChildId) {
@@ -120,9 +121,11 @@ export default function NestedObjectInput({
       });
     } else {
       reinitSectionType({
+        sectionTypeId: childSectionTypeId,
         uiType,
         uiTypeConfig,
       });
+      setIsRendered({ sectionId: existingChildId, isRendered: true });
     }
   }, [uiType, uiTypeConfig]);
 

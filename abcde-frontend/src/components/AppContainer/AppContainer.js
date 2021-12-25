@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { Link, BrowserRouter } from "react-router-dom";
 
 import { verifyToken } from "../../dbRequests/authentication";
+import { NO_AUTH } from "../../utils/constants";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 // import HeaderContainer from "./Header/Header";
@@ -15,14 +16,16 @@ const AppContainer = () => {
   const loginFail = useStoreActions((action) => action.auth.loginFail);
   const stayLoggedIn = useStoreActions((action) => action.auth.stayLoggedIn);
 
-  console.log("AppContainer isAuthenticated", isAuthenticated);
+  console.log("isAuthenticated", isAuthenticated);
 
   useEffect(() => {
-    verifyToken({
-      authToken: token,
-      actionStayLoggedIn: stayLoggedIn,
-      actionLoginFail: loginFail,
-    });
+    if (!NO_AUTH) {
+      verifyToken({
+        authToken: token,
+        actionStayLoggedIn: stayLoggedIn,
+        actionLoginFail: loginFail,
+      });
+    }
   }, []);
 
   const notAuthLinks = () => {

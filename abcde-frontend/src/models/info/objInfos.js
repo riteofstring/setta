@@ -3,10 +3,10 @@ import { action } from "easy-peasy";
 import { MutableObjInfo } from "../../classes/mutableInfo";
 import { setToDefault } from "./utils";
 
-function setDefaultInfo(state, collectionId, objInfoId) {
+function setDefaultInfo(state, sectionId, objInfoId) {
   return setToDefault(
     state,
-    collectionId,
+    sectionId,
     objInfoId,
     () => new MutableObjInfo({ id: objInfoId })
   );
@@ -16,14 +16,10 @@ const objInfos = {
   x: {},
 
   setKwargIds: action((state, payload) => {
-    const { collectionId, objInfoId, newStateFn } = payload;
-    const currState = setDefaultInfo(state, collectionId, objInfoId);
+    const { sectionId, objInfoId, newStateFn } = payload;
+    const currState = setDefaultInfo(state, sectionId, objInfoId);
     currState.kwargIds = newStateFn(currState.kwargIds);
   }),
-
-  export() {
-    return this.x;
-  },
 };
 
 export default objInfos;
