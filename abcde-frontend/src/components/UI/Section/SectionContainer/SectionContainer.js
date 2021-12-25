@@ -1,5 +1,6 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
+import { DndContext } from "@dnd-kit/core";
 import { useStoreActions } from "easy-peasy";
 import React, { useState, useCallback } from "react";
 
@@ -11,6 +12,7 @@ import {
 } from "../../../../hooks/useCreateInfo";
 import { useIdsOverview } from "../../../../hooks/useIdsOverview";
 import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
+import { DND } from "../../../../utils/DND/DND";
 import {
   isListLike,
   isRoot,
@@ -45,7 +47,7 @@ function SectionContainer({
   }, [childrenAreCollapsed]);
 
   return (
-    <Stack>
+    <div>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -70,7 +72,7 @@ function SectionContainer({
           />
         )}
       </Box>
-    </Stack>
+    </div>
   );
 }
 
@@ -110,52 +112,54 @@ function _SectionContainerCore({
   // // temp_
   const tempBoolDesc = false;
   return (
-    <HStack
-      ref={refForPosition}
-      direction="column"
-      bg="gray.50"
-      borderRadius="md"
-      w={`${SECTIONWIDTH}px`}
-      onClick={() => setActiveSection(sectionId)}
-    >
-      {isList && <DragHandle dragListeners={dragListeners} />}
-      <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
-        <SectionHeader
-          sectionId={sectionId}
-          variableName={variableName}
-          parentId={parentId}
-          nextId={nextId}
-          isList={isList}
-          isListRoot={isListRoot}
-          addChild={addChild}
-          deleteChild={deleteChild}
-          hasNested={hasNested}
-          onTitleInputChange={onTitleInputChange}
-          requiresKeyInput={requiresKeyInput(sectionType.name)}
-        />
-        {!isListRoot && (
-          <Stack>
-            {showSearch && (
-              <SectionSearch
+    <DND>
+      <HStack
+        ref={refForPosition}
+        direction="column"
+        bg="gray.50"
+        borderRadius="md"
+        w={`${SECTIONWIDTH}px`}
+        onClick={() => setActiveSection(sectionId)}
+      >
+        {isList && <DragHandle dragListeners={dragListeners} />}
+        <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
+          <SectionHeader
+            sectionId={sectionId}
+            variableName={variableName}
+            parentId={parentId}
+            nextId={nextId}
+            isList={isList}
+            isListRoot={isListRoot}
+            addChild={addChild}
+            deleteChild={deleteChild}
+            hasNested={hasNested}
+            onTitleInputChange={onTitleInputChange}
+            requiresKeyInput={requiresKeyInput(sectionType.name)}
+          />
+          {!isListRoot && (
+            <Stack>
+              {showSearch && (
+                <SectionSearch
+                  sectionId={sectionId}
+                  initialSelection={selectedItem}
+                  onSelectedItemChange={onSelectedItemChange}
+                />
+              )}
+              {tempBoolDesc && <SectionDescription />}
+              <GroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+              <SectionFooter
                 sectionId={sectionId}
-                initialSelection={selectedItem}
-                onSelectedItemChange={onSelectedItemChange}
+                objInfoId={selectedItem}
+                isListRoot={isListRoot}
+                hasNested={hasNested}
+                childrenAreCollapsed={childrenAreCollapsed}
+                flipChildrenAreCollapsed={flipChildrenAreCollapsed}
               />
-            )}
-            {tempBoolDesc && <SectionDescription />}
-            <GroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-            <SectionFooter
-              sectionId={sectionId}
-              objInfoId={selectedItem}
-              isListRoot={isListRoot}
-              hasNested={hasNested}
-              childrenAreCollapsed={childrenAreCollapsed}
-              flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-            />
-          </Stack>
-        )}
-      </Stack>
-    </HStack>
+            </Stack>
+          )}
+        </Stack>
+      </HStack>
+    </DND>
   );
 }
 
