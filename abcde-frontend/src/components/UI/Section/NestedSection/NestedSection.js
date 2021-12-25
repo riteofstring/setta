@@ -30,7 +30,6 @@ function _NestedSection({
   parentId,
   sectionId,
   nextId,
-  idx,
   depth,
   stackProps,
   dragListeners,
