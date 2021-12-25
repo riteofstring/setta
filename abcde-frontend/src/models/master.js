@@ -1,4 +1,4 @@
-import { action, thunk, debug, computed } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 import _ from "lodash";
 
 import { createAllInfo } from "../classes/infoFactory";
