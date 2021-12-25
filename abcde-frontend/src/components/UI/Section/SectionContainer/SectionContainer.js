@@ -26,6 +26,14 @@ import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
+function MaybeWithDND(props) {
+  return props.parentId ? (
+    <div>{props.children}</div>
+  ) : (
+    <DND>{props.children}</DND>
+  );
+}
+
 function SectionContainer({
   sectionId,
   parentId,
@@ -47,7 +55,7 @@ function SectionContainer({
   }, [childrenAreCollapsed]);
 
   return (
-    <DND>
+    <MaybeWithDND parentId={parentId}>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -72,7 +80,7 @@ function SectionContainer({
           />
         )}
       </Box>
-    </DND>
+    </MaybeWithDND>
   );
 }
 
