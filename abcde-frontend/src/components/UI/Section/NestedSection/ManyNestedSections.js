@@ -1,7 +1,7 @@
 import React from "react";
 
 import { DNDSortable } from "../../../../utils/DNDSortable/DNDSortable";
-import { SortableNestedSection } from "./NestedSection";
+import { NestedSection } from "./NestedSection";
 
 export default function ManyNestedSections({
   childIds,
@@ -12,7 +12,7 @@ export default function ManyNestedSections({
   return (
     <DNDSortable items={childIds} setItems={setChildren}>
       {childIds.map((e, idx) => (
-        <SortableNestedSection
+        <NestedSection
           parentId={sectionId}
           sectionId={e}
           nextId={childIds[idx + 1]}

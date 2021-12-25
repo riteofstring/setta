@@ -118,7 +118,7 @@ function _SectionContainerCore({
       w={`${SECTIONWIDTH}px`}
       onClick={() => setActiveSection(sectionId)}
     >
-      <DragHandle dragListeners={dragListeners}/>
+      <DragHandle dragListeners={dragListeners} />
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
