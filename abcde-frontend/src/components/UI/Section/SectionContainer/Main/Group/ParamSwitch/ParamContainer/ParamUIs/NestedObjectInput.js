@@ -1,6 +1,6 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreState } from "easy-peasy";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   useAddChild,
@@ -32,7 +32,7 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
   );
 }
 
-function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
+export function NestedObjectInputConfig({ name, onChange, savedConfig }) {
   const availableObjects = useStoreState((x) =>
     Object.keys(x.master.allObjCollections.nameToId)
   );
@@ -82,7 +82,7 @@ function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
 
   useEffect(() => {
     setSelectedItems(getInitialSelectedItem());
-  }, [name, savedConfig]);
+  }, [name]);
 
   return (
     <CUIAutoComplete
@@ -96,8 +96,6 @@ function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
     />
   );
 }
-
-export const NestedObjectInputConfig = React.memo(_NestedObjectInputConfig);
 
 export default function NestedObjectInput({
   sectionId,
