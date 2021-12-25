@@ -6,7 +6,7 @@ import SectionContainer from "./SectionContainer/SectionContainer";
 function SingleSectionsPane({ groupId, sectionIds }) {
   return (
     <>
-      <div>
+      <Stack>
         <Heading size="md" color="gray.300">
           Group {groupId}
         </Heading>
@@ -18,7 +18,7 @@ function SingleSectionsPane({ groupId, sectionIds }) {
             depth={0}
           />
         ))}
-      </div>
+      </Stack>
     </>
   );
 }

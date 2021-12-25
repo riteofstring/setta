@@ -1,6 +1,5 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import { DndContext } from "@dnd-kit/core";
 import { useStoreActions } from "easy-peasy";
 import React, { useState, useCallback } from "react";
 
@@ -12,7 +11,6 @@ import {
 } from "../../../../hooks/useCreateInfo";
 import { useIdsOverview } from "../../../../hooks/useIdsOverview";
 import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
-import { DND } from "../../../../utils/DND/DND";
 import {
   isListLike,
   isRoot,
@@ -25,14 +23,6 @@ import { SectionHeader } from "./Header/SectionHeader";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
-
-function MaybeWithDND(props) {
-  return props.parentId ? (
-    <div>{props.children}</div>
-  ) : (
-    <DND>{props.children}</DND>
-  );
-}
 
 function SectionContainer({
   sectionId,
@@ -55,7 +45,7 @@ function SectionContainer({
   }, [childrenAreCollapsed]);
 
   return (
-    <MaybeWithDND parentId={parentId}>
+    <Stack>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}
@@ -80,7 +70,7 @@ function SectionContainer({
           />
         )}
       </Box>
-    </MaybeWithDND>
+    </Stack>
   );
 }
 

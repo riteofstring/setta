@@ -16,7 +16,11 @@ function SectionsPane() {
 
   return (
     <>
-      <div>
+      <Stack
+        direction="row"
+        spacing={`${spaceBetweenPages}px`}
+        ref={refForPosition}
+      >
         {groups.map((e, idx) => (
           <SingleSectionsPane
             groupId={idx}
@@ -24,7 +28,7 @@ function SectionsPane() {
             key={`SingleSectionsPane-${idx}`}
           />
         ))}
-      </div>
+      </Stack>
     </>
   );
 }

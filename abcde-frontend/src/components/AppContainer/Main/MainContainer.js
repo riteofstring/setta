@@ -23,9 +23,9 @@ export default function MainContainer() {
     >
       <SubNav />
 
-      {/* <Overview /> */}
+      <Overview />
 
-      {/* <UiEditor /> */}
+      <UiEditor />
 
       <GridItem
         colStart="1"
@@ -37,7 +37,7 @@ export default function MainContainer() {
         h="100%"
       >
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
-          {/* <CustomMapInteractionCSS
+          <CustomMapInteractionCSS
             // showControls={true}
             maxScale={2}
             minScale={0.1}
@@ -55,13 +55,13 @@ export default function MainContainer() {
               "chakra-editable",
             ]}
             excludedFromScrollingClassNames={["SectionSearch"]}
-          > */}
+          >
             <Box padding="2.5rem" h="100%">
               <CustomGrid setContentSize={setContentSize}>
                 <UIPage />
               </CustomGrid>
             </Box>
-          {/* </CustomMapInteractionCSS> */}
+          </CustomMapInteractionCSS>
         </Box>
       </GridItem>
     </Grid>
