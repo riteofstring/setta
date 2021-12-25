@@ -8,6 +8,9 @@ from .models import (
     ObjectCollection,
     ObjectToObjectCollection,
     Package,
+    PackageToModule,
+    PackageToObject,
+    PackageToParameter,
     Parameter,
     ParameterCollection,
     ParameterUIType,
@@ -105,6 +108,7 @@ def save_parameter(owner, param_id, param_info, parent, parent_is_obj):
     param, _ = generic_create(Parameter, kwargs)
     if "specs" in param_info:
         save_entity_collection_rels(owner, param, param_info["specs"])
+    return param
 
 
 def save_all_module_info(owner, all_module_info):
@@ -116,16 +120,17 @@ def save_all_module_info(owner, all_module_info):
             Package,
             {"name": get_package_name(module_name), "owner": owner, "version": version},
         )
-        module, _ = generic_create(
-            Module, {"name": module_name, "uuid": module_id, "parent": package}
-        )
+        module, _ = generic_create(Module, {"name": module_name, "uuid": module_id})
+        generic_create(PackageToModule, {"entity": package, "parent": module})
         for object_id, object_info in module_info["children"].items():
             object_name = object_info["name"]
             obj, _ = generic_create(
                 Object, {"name": object_name, "uuid": object_id, "parent": module}
             )
+            generic_create(PackageToObject, {"entity": package, "parent": obj})
             for param_id, param_info in object_info["children"].items():
-                save_parameter(owner, param_id, param_info, obj, True)
+                param = save_parameter(owner, param_id, param_info, obj, True)
+                generic_create(PackageToParameter, {"entity": package, "parent": param})
 
 
 def save_collections(owner, collections, col_type):
@@ -275,7 +280,13 @@ def save_ui_type_configs(owner, configs):
 
 
 def save_param_x_collections(
-    owner, param_infos, col_table, target_table, rel_table, rel_frontend_key, rel_table_key
+    owner,
+    param_infos,
+    col_table,
+    target_table,
+    rel_table,
+    rel_frontend_key,
+    rel_table_key,
 ):
     for uuid, x in param_infos.items():
         col, _ = generic_create(col_table, {"uuid": uuid, "owner": owner})
@@ -311,7 +322,7 @@ def save_ui(request):
         ParameterValue,
         EnteredValue,
         "enteredValueId",
-        "entered_value"
+        "entered_value",
     )
     save_param_x_collections(
         owner,
@@ -320,7 +331,7 @@ def save_ui(request):
         ParameterUIType,
         UITypeConfig,
         "uiTypeId",
-        "ui_type_config"
+        "ui_type_config",
     )
 
     save_section_type_configs(owner, ui_info["sectionTypes"])

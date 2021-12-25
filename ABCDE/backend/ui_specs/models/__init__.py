@@ -8,7 +8,7 @@ from .object_collection import (
     ObjectCollectionToFolder,
     ObjectCollectionToTag,
 )
-from .package import Package
+from .package import Package, PackageToModule, PackageToObject, PackageToParameter
 from .parameter import Parameter
 from .parameter_collection import (
     ParameterCollection,
