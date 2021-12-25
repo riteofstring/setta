@@ -7,11 +7,17 @@ import { Handle } from "./Handle";
 import styles from "./Item.module.css";
 import { Remove } from "./Remove";
 
-function getSectionContainer(value, dragOverlay, dragging) {
-  return (dragOverlay || dragging) ? (
-    <DummySection key={value}/>
+function getSectionContainer(value, dragOverlay, dragging, listeners) {
+  return dragOverlay || dragging ? (
+    <DummySection key={value} />
   ) : (
-    <SectionContainer sectionId={value} parentId={null} key={value} depth={0} />
+    <SectionContainer
+      sectionId={value}
+      parentId={null}
+      key={value}
+      depth={0}
+      dragListeners={listeners}
+    />
   );
 }
 
@@ -101,11 +107,11 @@ export const Item = React.memo(
             )}
             style={style}
             data-cypress="draggable-item"
-            {...(!handle ? listeners : undefined)}
+            // {...(!handle ? listeners : undefined)}
             {...props}
             tabIndex={!handle ? 0 : undefined}
           >
-            {getSectionContainer(value, dragOverlay, dragging)}
+            {getSectionContainer(value, dragOverlay, dragging, listeners)}
             <span className={styles.Actions}>
               {onRemove ? (
                 <Remove className={styles.Remove} onClick={onRemove} />
