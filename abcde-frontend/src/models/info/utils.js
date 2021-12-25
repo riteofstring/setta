@@ -14,16 +14,6 @@ export function exportState(state) {
   return _.map(state.x, (x) => exportInfo(x));
 }
 
-export function exportNestedState(state) {
-  return _.map(state.x, (y, sectionId) =>
-    _.map(y, (z) => {
-      const output = exportInfo(z);
-      output.sectionId = sectionId;
-      return output;
-    })
-  );
-}
-
 export function exportAllStates(state) {
   return {
     ...state.sectionInfos.export(),

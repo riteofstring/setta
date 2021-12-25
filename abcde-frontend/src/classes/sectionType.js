@@ -122,6 +122,7 @@ export class SectionType extends MutableInfo {
       "objCollectionIds",
       "paramCollectionIds",
       "specs",
+      "uiTypeCollectionId",
     ];
   }
 }

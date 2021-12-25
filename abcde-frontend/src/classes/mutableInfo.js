@@ -67,7 +67,15 @@ export class SectionInfo extends MutableInfo {
     this.selectedItem = selectedItem;
     this.paramCollectionId = paramCollectionId;
     this.kwargCollectionId = kwargCollectionId;
-    this.exportable = ["id", "name", "sectionTypeId", "name", "selectedItem"];
+    this.exportable = [
+      "id",
+      "name",
+      "sectionTypeId",
+      "name",
+      "selectedItem",
+      "paramCollectionId",
+      "kwargCollectionId",
+    ];
   }
 }
 

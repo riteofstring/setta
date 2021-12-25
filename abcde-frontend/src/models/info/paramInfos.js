@@ -5,7 +5,7 @@ import {
   MutableParamInfo,
   MutableParamUITypeInfo,
 } from "../../classes/mutableInfo";
-import { setToDefault, exportNestedState } from "./utils";
+import { setToDefault } from "./utils";
 
 function setMutableParamInfo(state, collectionId, paramInfoId) {
   return setToDefault(
@@ -62,7 +62,7 @@ const paramInfos = {
   }),
 
   export() {
-    return exportNestedState(this);
+    return { paramCollections: this.x, uiTypeCollections: this.y };
   },
 };
 
