@@ -17,6 +17,7 @@ const master = {
   allObjCollections: null,
   allParamCollections: null,
   activeSection: null,
+  groupIds: [],
 
   // actions
   // Load DATA
@@ -51,15 +52,14 @@ const master = {
       // action._loadSections(payload);
     }
     const newIds = action.initSections();
-    action.initRootSectionIds({ newIds });
+    action.initRootSectionIds(newIds);
+    action.initGroups(newIds);
   }),
 
   initSections: thunk((action, payload, helpers) => {
     const state = helpers.getState();
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
-    const setChildrenInfo =
-      helpers.getStoreActions().sectionInfos.setChildrenInfo;
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
@@ -79,27 +79,26 @@ const master = {
       });
       newIds.push(newId[0]);
     }
-
-    //the root "UI"
-    setChildrenInfo({
-      childrenInfoId: createNewId(),
-      newStateFn: () => newIds,
-    });
-
     return newIds;
   }),
 
   initRootSectionIds: action((state, payload) => {
-    const { newIds } = payload;
-    state.rootSectionIds = newIds;
+    state.rootSectionIds = payload;
   }),
 
-  groups: computed(
-    [(state) => state.rootSectionIds, (state) => state.sectionsPerGroup],
-    (rootSectionIds, sectionsPerGroup) => {
-      return _.chunk(rootSectionIds, sectionsPerGroup);
+  initGroups: thunk((action, payload, helpers) => {
+    const setChildrenInfo =
+      helpers.getStoreActions().sectionInfos.setChildrenInfo;
+    const grouped = _.chunk(payload, helpers.getState().sectionsPerGroup);
+    for (let g of grouped) {
+      const childrenInfoId = createNewId();
+      helpers.getState().groupIds.push(childrenInfoId);
+      setChildrenInfo({
+        childrenInfoId,
+        newStateFn: () => g,
+      });
     }
-  ),
+  }),
 
   setSectionsPerGroup: action((state, payload) => {
     state.sectionsPerGroup = payload;

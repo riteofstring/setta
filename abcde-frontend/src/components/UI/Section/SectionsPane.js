@@ -2,14 +2,14 @@ import { Stack } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import React from "react";
 
+import { useSectionGroups } from "../../../hooks/useCreateInfo";
 import { useSetSectionPosition } from "../../../hooks/useSetSectionPosition";
 import { PANEID } from "../../../utils/constants";
 import SingleSectionsPane from "./SingleSectionsPane";
 
 function SectionsPane() {
-  const groups = useStoreState((x) => x.master.groups);
+  const groups = useSectionGroups(true); // array of [groupId, group]
   const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
-
   const refForPosition = useSetSectionPosition(PANEID);
 
   console.log("groups", groups);
@@ -23,8 +23,9 @@ function SectionsPane() {
       >
         {groups.map((e, idx) => (
           <SingleSectionsPane
-            groupId={idx}
-            sectionIds={e}
+            groupId={e[0]}
+            sectionIds={e[1]}
+            idx={idx}
             key={`SingleSectionsPane-${idx}`}
           />
         ))}

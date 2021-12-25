@@ -519,3 +519,15 @@ export function useReinitSectionType(sectionId) {
     setManyUITypes({ uiTypes: newUITypes });
   };
 }
+
+export function useSectionGroups(returnAsPairs = false) {
+  const groupIds = useStoreState((x) => x.master.groupIds);
+  const groups = useStoreState(
+    (x) => _.compact(groupIds.map((y) => x.sectionInfos.childrenInfo[y])),
+    _.isEqual
+  );
+  if (returnAsPairs) {
+    return _.zip(groupIds, groups);
+  }
+  return groups;
+}
