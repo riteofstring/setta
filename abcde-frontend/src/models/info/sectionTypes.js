@@ -1,6 +1,7 @@
 import { action, thunk } from "easy-peasy";
 
 import { SectionType } from "../../classes/sectionType";
+import { nullOrUndefined } from "../../utils/utils";
 import { exportState } from "./utils";
 
 const sectionTypes = {
@@ -17,19 +18,22 @@ const sectionTypes = {
       uiTypeConfig,
       allObjCollections,
       allParamCollections,
+      topLevelSpecs,
     } = payload;
     const currSectionType = state.x[sectionTypeId];
     const { id, uiTypeCollectionId } = currSectionType;
     const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
       currSectionType.childType;
+    const parentIsSection = nullOrUndefined(topLevelSpecs);
     const newSectionType = new SectionType({
       id,
       allObjCollections,
       allParamCollections,
       paramUIType: uiType,
       paramUITypeConfig: uiTypeConfig,
-      parentIsSection: true,
+      parentIsSection,
       uiTypeCollectionId,
+      topLevelSpecs,
     });
     state.x[sectionTypeId] = newSectionType;
     if (childTypeId) {
