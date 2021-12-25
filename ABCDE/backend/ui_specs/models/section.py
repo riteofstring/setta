@@ -3,7 +3,6 @@ import sys
 from django.db.models import SET_NULL, ForeignKey
 
 from .object import Object
-from .parameter_ui_type_collection import ParameterUITypeCollection
 from .parameter_value_collection import ParameterValueCollection
 from .section_type_config import SectionTypeConfig
 from .table_factory import table_factory
@@ -20,9 +19,6 @@ tables = table_factory(
         "selected_object": ForeignKey(Object, on_delete=SET_NULL, null=True),
         "parameter_value_collection": ForeignKey(
             ParameterValueCollection, on_delete=SET_NULL, null=True
-        ),
-        "ui_types": ForeignKey(
-            ParameterUITypeCollection, on_delete=SET_NULL, null=True
         ),
         "section_type_config": ForeignKey(
             SectionTypeConfig, on_delete=SET_NULL, null=True

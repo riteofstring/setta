@@ -194,6 +194,13 @@ def save_section_type_config(owner, section_type_config):
     stc, _ = generic_create(
         SectionTypeConfig, {"uuid": uuid, "owner": owner, "section_type": section_type}
     )
+    col, _ = generic_create(
+        ParameterUITypeCollection,
+        {"uuid": section_type_config["uiTypeCollectionId"], "owner": owner},
+    )
+    stc.parameter_ui_type_collection = col
+    stc.save()
+
     save_section_type_config_to_collection(owner, section_type_config, stc, "objects")
     save_section_type_config_to_collection(
         owner, section_type_config, stc, "parameters"
@@ -206,7 +213,6 @@ def save_section_type_configs(owner, section_type_configs):
 
 
 def save_section(owner, section_info):
-    print(section_info)
     uuid = section_info["id"]
     name = section_info["name"]
     section, _ = generic_create(Section, {"uuid": uuid, "name": name, "owner": owner})
@@ -268,17 +274,17 @@ def save_ui_type_configs(owner, configs):
         save_ui_type_config(owner, config)
 
 
-def save_param_value_collections(owner, param_infos):
+def save_param_x_collections(
+    owner, param_infos, col_table, target_table, rel_table, rel_frontend_key, rel_table_key
+):
     for uuid, x in param_infos.items():
-        col, _ = generic_create(
-            ParameterValueCollection, {"uuid": uuid, "owner": owner}
-        )
+        col, _ = generic_create(col_table, {"uuid": uuid, "owner": owner})
         for param_id, info in x.items():
-            ev = EnteredValue.objects.get(uuid=info["enteredValueId"])
+            ev = rel_table.objects.get(uuid=info[rel_frontend_key])
             param = Parameter.objects.get(uuid=info["id"])
             generic_create(
-                ParameterValue,
-                {"collection": col, "entered_value": ev, "parent": param},
+                target_table,
+                {"collection": col, rel_table_key: ev, "parent": param},
             )
 
 
@@ -296,16 +302,30 @@ def save_ui(request):
     save_all_module_info(owner, ui_info["allModuleInfo"])
     save_collections(owner, ui_info["allObjCollections"], "objects")
     save_collections(owner, ui_info["allParamCollections"], "parameters")
-
-    save_section_type_configs(owner, ui_info["sectionTypes"])
     save_entered_values(owner, ui_info["enteredValues"])
     save_ui_type_configs(owner, ui_info["uiTypes"])
-    save_param_value_collections(owner, ui_info["paramInfos"])
+    save_param_x_collections(
+        owner,
+        ui_info["paramInfos"]["paramCollections"],
+        ParameterValueCollection,
+        ParameterValue,
+        EnteredValue,
+        "enteredValueId",
+        "entered_value"
+    )
+    save_param_x_collections(
+        owner,
+        ui_info["paramInfos"]["uiTypeCollections"],
+        ParameterUITypeCollection,
+        ParameterUIType,
+        UITypeConfig,
+        "uiTypeId",
+        "ui_type_config"
+    )
 
+    save_section_type_configs(owner, ui_info["sectionTypes"])
     save_sections(owner, ui_info["sectionInfos"])
     save_children_info(owner, ui_info["childrenInfo"])
     save_section_children(ui_info["idsOverview"])
-
-    print(ui_info["paramInfos"])
 
     print("success")
