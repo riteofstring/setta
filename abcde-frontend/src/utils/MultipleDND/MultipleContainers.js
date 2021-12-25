@@ -237,6 +237,7 @@ export function MultipleContainers({
         setClonedItems(items);
       }}
       onDragOver={({ active, over }) => {
+        console.log("onDragOver")
         const overId = over?.id;
 
         if (!overId || overId === TRASH_ID || active.id in items) {

@@ -1,19 +1,17 @@
 import classNames from "classnames";
 import React, { useEffect } from "react";
 
+import { DummySection } from "../../components/UI/Section/SectionContainer/DummySection";
 import SectionContainer from "../../components/UI/Section/SectionContainer/SectionContainer";
 import { Handle } from "./Handle";
 import styles from "./Item.module.css";
 import { Remove } from "./Remove";
 
-function getSectionContainer(value, idx) {
-  return (
-    <SectionContainer
-      sectionId={value}
-      parentId={null}
-      key={`${value}-${idx}`}
-      depth={0}
-    />
+function getSectionContainer(value, dragOverlay, dragging) {
+  return (dragOverlay || dragging) ? (
+    <DummySection key={value}/>
+  ) : (
+    <SectionContainer sectionId={value} parentId={null} key={value} depth={0} />
   );
 }
 
@@ -107,7 +105,7 @@ export const Item = React.memo(
             {...props}
             tabIndex={!handle ? 0 : undefined}
           >
-            {getSectionContainer(value, index)}
+            {getSectionContainer(value, dragOverlay, dragging)}
             <span className={styles.Actions}>
               {onRemove ? (
                 <Remove className={styles.Remove} onClick={onRemove} />
