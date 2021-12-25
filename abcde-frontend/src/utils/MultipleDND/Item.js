@@ -1,10 +1,21 @@
-import React, { useEffect } from "react";
 import classNames from "classnames";
+import React, { useEffect } from "react";
 
+import SectionContainer from "../../components/UI/Section/SectionContainer/SectionContainer";
 import { Handle } from "./Handle";
+import styles from "./Item.module.css";
 import { Remove } from "./Remove";
 
-import styles from "./Item.module.css";
+function getSectionContainer(value, idx) {
+  return (
+    <SectionContainer
+      sectionId={value}
+      parentId={null}
+      key={`${value}-${idx}`}
+      depth={0}
+    />
+  );
+}
 
 export const Item = React.memo(
   React.forwardRef(
@@ -96,7 +107,7 @@ export const Item = React.memo(
             {...props}
             tabIndex={!handle ? 0 : undefined}
           >
-            {value}
+            {getSectionContainer(value, index)}
             <span className={styles.Actions}>
               {onRemove ? (
                 <Remove className={styles.Remove} onClick={onRemove} />

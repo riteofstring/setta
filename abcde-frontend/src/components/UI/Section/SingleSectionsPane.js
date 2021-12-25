@@ -5,29 +5,23 @@ import {
 } from "@dnd-kit/sortable";
 import React from "react";
 
-import { SortableSectionContainer } from "./SectionContainer/SortableSectionContainer";
+import SectionContainer from "./SectionContainer/SectionContainer";
 
-function SingleSectionsPane({ groupId, sectionIds, idx }) {
+function SingleSectionsPane({ sectionIds, idx }) {
   return (
     <>
       <Stack>
         <Heading size="md" color="gray.300">
           Group {idx}
         </Heading>
-        <SortableContext
-          items={sectionIds}
-          strategy={verticalListSortingStrategy}
-          id={groupId}
-        >
-          {sectionIds.map((e, idx) => (
-            <SortableSectionContainer
-              sectionId={e}
-              parentId={null}
-              key={`${e}-${idx}`}
-              depth={0}
-            />
-          ))}
-        </SortableContext>
+        {sectionIds.map((e, idx) => (
+          <SectionContainer
+            sectionId={e}
+            parentId={null}
+            key={`${e}-${idx}`}
+            depth={0}
+          />
+        ))}
       </Stack>
     </>
   );

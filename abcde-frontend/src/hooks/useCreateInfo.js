@@ -520,14 +520,14 @@ export function useReinitSectionType(sectionId) {
   };
 }
 
-export function useSectionGroups(returnAsPairs = false) {
+export function useSectionGroups(returnAsMapping = false) {
   const groupIds = useStoreState((x) => x.master.groupIds);
   const groups = useStoreState(
     (x) => _.compact(groupIds.map((y) => x.sectionInfos.childrenInfo[y])),
     _.isEqual
   );
-  if (returnAsPairs) {
-    return _.zip(groupIds, groups);
+  if (returnAsMapping) {
+    return _.zipObject(groupIds, groups);
   }
   return groups;
 }
