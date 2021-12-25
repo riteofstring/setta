@@ -1,12 +1,13 @@
 import { Stack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import React from "react";
+import React, {useState} from "react";
 
 import { useSectionGroups } from "../../../hooks/useCreateInfo";
 import { useSetSectionPosition } from "../../../hooks/useSetSectionPosition";
-import { DNDSortableWithoutSortableContext } from "../../../utils/DNDSortable/DNDSortable";
+import {MultipleContainers} from "../../../utils/MultipleDND/MultipleContainers"
 import { PANEID } from "../../../utils/constants";
 import SingleSectionsPane from "./SingleSectionsPane";
+import { createRange } from "../../../utils/MultipleDND/createRange";
 
 function SectionsPane() {
   const groups = useSectionGroups(true); // array of [groupId, group]
@@ -17,29 +18,23 @@ function SectionsPane() {
     (x) => x.sectionInfos.moveIdBetweenGroups
   );
 
-  console.log("groups", groups);
+  const [items, setItems] = useState({
+    A: createRange(3, (index) => `A${index + 1}`),
+    B: createRange(4, (index) => `B${index + 1}`),
+    C: createRange(2, (index) => `C${index + 1}`),
+    D: createRange(5, (index) => `D${index + 1}`),
+  });
+
+  const [containers, setContainers] = useState(Object.keys(items));
 
   return (
     <>
-      <Stack
-        direction="row"
-        spacing={`${spaceBetweenPages}px`}
-        ref={refForPosition}
-      >
-        <DNDSortableWithoutSortableContext
-          setItems={setChildren}
-          moveIdBetweenGroups={moveIdBetweenGroups}
-        >
-          {groups.map((e, idx) => (
-            <SingleSectionsPane
-              groupId={e[0]}
-              sectionIds={e[1]}
-              idx={idx}
-              key={`SingleSectionsPane-${idx}`}
-            />
-          ))}
-        </DNDSortableWithoutSortableContext>
-      </Stack>
+    <MultipleContainers
+      items={items}
+      setItems={setItems}
+      containers={containers}
+      setContainers={setContainers}
+    />
     </>
   );
 }

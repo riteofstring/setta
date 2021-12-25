@@ -37,47 +37,47 @@ export function DNDSortable({ items, setItems, ...props }) {
   );
 }
 
-export function DNDSortableWithoutSortableContext({
-  setItems,
-  moveIdBetweenGroups,
-  ...props
-}) {
-  const sensors = useDNDSensors();
-  function handleDragEnd(event) {
-    const { active, over } = event;
-    const activeGroupId = active?.data?.current?.sortable?.containerId;
-    const overGroupId = over?.data?.current?.sortable?.containerId;
-    console.log("activeGroupId, overGroupId", active, over);
+// export function DNDSortableWithoutSortableContext({
+//   setItems,
+//   moveIdBetweenGroups,
+//   ...props
+// }) {
+//   const sensors = useDNDSensors();
+//   function handleDragEnd(event) {
+//     const { active, over } = event;
+//     const activeGroupId = active?.data?.current?.sortable?.containerId;
+//     const overGroupId = over?.data?.current?.sortable?.containerId;
+//     console.log("activeGroupId, overGroupId", active, over);
 
-    if (active.id !== over.id) {
-      if (activeGroupId === overGroupId) {
-        setItems({
-          childrenInfoId: activeGroupId,
-          newStateFn: (items) => {
-            const oldIndex = items.indexOf(active.id);
-            const newIndex = items.indexOf(over.id);
+//     if (active.id !== over.id) {
+//       if (activeGroupId === overGroupId) {
+//         setItems({
+//           childrenInfoId: activeGroupId,
+//           newStateFn: (items) => {
+//             const oldIndex = items.indexOf(active.id);
+//             const newIndex = items.indexOf(over.id);
 
-            return arrayMove(items, oldIndex, newIndex);
-          },
-        });
-      } else {
-        moveIdBetweenGroups({
-          group1: activeGroupId,
-          group2: overGroupId,
-          sectionId1: active.id,
-          sectionId2: over.id,
-        });
-      }
-    }
-  }
+//             return arrayMove(items, oldIndex, newIndex);
+//           },
+//         });
+//       } else {
+//         moveIdBetweenGroups({
+//           group1: activeGroupId,
+//           group2: overGroupId,
+//           sectionId1: active.id,
+//           sectionId2: over.id,
+//         });
+//       }
+//     }
+//   }
 
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={rectIntersection}
-      onDragEnd={handleDragEnd}
-    >
-      {props.children}
-    </DndContext>
-  );
-}
+//   return (
+//     <DndContext
+//       sensors={sensors}
+//       collisionDetection={rectIntersection}
+//       onDragEnd={handleDragEnd}
+//     >
+//       {props.children}
+//     </DndContext>
+//   );
+// }
