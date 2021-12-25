@@ -1,5 +1,7 @@
 import { action } from "easy-peasy";
 
+import { exportState } from "./utils";
+
 const uiTypes = {
   x: {},
 
@@ -8,15 +10,26 @@ const uiTypes = {
     state.x[uiTypeId] = uiType;
   }),
 
-  setConfigId: action((state, payload) => {
-    const { uiTypeId, configId } = payload;
-    state.x[uiTypeId].configId = configId;
+  setManyUITypes: action((state, payload) => {
+    const { uiTypes } = payload;
+    for (let u of uiTypes) {
+      state.x[u.id] = u;
+    }
   }),
 
   setName: action((state, payload) => {
     const { uiTypeId, name } = payload;
     state.x[uiTypeId].name = name;
   }),
+
+  setOneConfig: action((state, payload) => {
+    const { uiTypeId, configName, value } = payload;
+    state.x[uiTypeId].config[configName] = value;
+  }),
+
+  export() {
+    return exportState(this);
+  },
 };
 
 export default uiTypes;

@@ -1,16 +1,11 @@
-import { immerable } from "immer";
+import { MutableInfo } from "./mutableInfo";
 
-import { requiresNestedSection } from "../utils/constants";
-
-export class UIType {
-  [immerable] = true;
-  constructor({ id, name, configId }) {
+export class UIType extends MutableInfo {
+  constructor({ id, name, config }) {
+    super();
     this.id = id;
     this.name = name;
-    this.configId = configId;
-  }
-
-  get isNested() {
-    return requiresNestedSection(this.name);
+    this.config = config;
+    this.exportable = ["id", "name", "config"];
   }
 }

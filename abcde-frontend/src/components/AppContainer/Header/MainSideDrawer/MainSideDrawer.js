@@ -30,12 +30,20 @@ function Body() {
   const token = useStoreState((state) => state.auth.token);
 
   const goToLogout = () => {
-    saveDraftUI({ token }).then((res) => history.push("/logout"));
+    history.push("/logout");
   };
+
+  const saveDraft = () => {
+    saveDraftUI({ token }).then((res) => null);
+  };
+
   return (
     <VStack align="stretch">
       <Button>Profile</Button>
       <Button>Settings</Button>
+      <Button variant="outline" onClick={saveDraft}>
+        Save Draft
+      </Button>
       <Button variant="outline" onClick={goToLogout}>
         Logout
       </Button>

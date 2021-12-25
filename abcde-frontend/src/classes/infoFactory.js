@@ -32,6 +32,7 @@ export function createSectionInfo(
       paramUITypeConfig,
       topLevelSpecs: uiSpecs.get(name),
       parentIsSection,
+      uiTypeCollectionId: createNewId(),
     });
   }
 
@@ -40,6 +41,8 @@ export function createSectionInfo(
     name,
     sectionTypeId: sectionType.id,
     parentSectionInfo,
+    paramCollectionId: createNewId(),
+    kwargCollectionId: createNewId(),
   });
 
   return { info, sectionType };

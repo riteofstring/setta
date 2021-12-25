@@ -1,7 +1,6 @@
 import React from "react";
 import { Route, Switch, Redirect } from "react-router-dom";
 
-import { NO_AUTH } from "../../../utils/constants";
 import LoginPage from "../../LoginPage/LoginPage";
 // import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
@@ -11,14 +10,7 @@ import MainContainer from "../Main/MainContainer";
 
 const SwitchContainer = ({ isAuthenticated }) => {
   const getRoute = () => {
-    if (NO_AUTH) {
-      return (
-        <Route exact path="/">
-          <HeaderContainer />
-          <MainContainer />
-        </Route>
-      );
-    } else if (isAuthenticated) {
+    if (isAuthenticated) {
       return (
         <Switch>
           <PrivateRoute exact path="/" isAuthenticated={isAuthenticated}>

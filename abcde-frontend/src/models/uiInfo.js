@@ -6,6 +6,7 @@ import {
   saveUI as saveUIBackend,
 } from "../dbRequests/ui";
 import { allDefined } from "../utils/utils";
+import { exportAllStates } from "./info/utils";
 
 const uiInfo = {
   currUIName: null,
@@ -61,7 +62,8 @@ const uiInfo = {
 
   saveUI: thunk((action, payload, helpers) => {
     const { token, name, folder } = payload;
-    const ui = helpers.getStoreActions().master.exportSaveableInfo();
+    const globalState = helpers.getStoreState();
+    const ui = exportAllStates(globalState);
     return saveUIBackend({
       token,
       name,
@@ -79,7 +81,10 @@ const uiInfo = {
       name = "testDraft";
       folder = "drafts";
     }
-    action.saveUI({ token, name, folder });
+    return action.saveUI({ token, name, folder });
+
+    // TEMPORARY
+    // return new Promise((resolve, reject) => resolve("temporary promise"));
   }),
 };
 

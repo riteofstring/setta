@@ -1,16 +1,87 @@
-import { immerable } from "immer";
-
-import { SECTION, rootTypeToChildType } from "../utils/constants";
+import { SECTION, rootTypeToChildType, isRoot } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { nullOrUndefined } from "../utils/utils";
 import { convertSpecsToDict } from "./immutableInfo";
+import { MutableInfo } from "./mutableInfo";
 
 function getCollectionIds(specs, allCollections) {
   return specs ? specs.map((x) => allCollections.nameToId[x]) : [];
 }
 
-export class SectionType {
-  [immerable] = true;
+function initName(name, paramUIType) {
+  if (name) {
+    return name;
+  }
+  if (paramUIType?.name) {
+    return paramUIType.name;
+  }
+  return SECTION;
+}
+
+function initSpecs(
+  paramUITypeConfig,
+  topLevelSpecs,
+  parentSectionType,
+  parentIsSection
+) {
+  let specs = paramUITypeConfig;
+
+  if (parentIsSection) {
+    if (nullOrUndefined(specs)) {
+      specs = Object.assign({}, parentSectionType.specs);
+    }
+  } else if (topLevelSpecs) {
+    specs = topLevelSpecs;
+  }
+  specs = convertSpecsToDict(specs);
+  const hasObjects = specs.objects?.length > 0;
+  return [specs, hasObjects];
+}
+
+function initIds(allObjCollections, allParamCollections, specs) {
+  let objCollectionIds = [];
+  let paramCollectionIds = [];
+  if (allObjCollections) {
+    objCollectionIds = getCollectionIds(specs.objects, allObjCollections);
+  }
+  if (allParamCollections) {
+    paramCollectionIds = getCollectionIds(
+      specs.parameters,
+      allParamCollections
+    );
+  }
+  return [objCollectionIds, paramCollectionIds];
+}
+
+function initChildType(
+  allObjCollections,
+  allParamCollections,
+  paramUIType,
+  paramUITypeConfig,
+  parentCls
+) {
+  let childType = {};
+  const childName = rootTypeToChildType[parentCls.name];
+  if (childName) {
+    const parentIsRoot = isRoot(parentCls.name);
+    const uiColId = parentIsRoot ? parentCls.uiTypeCollectionId : createNewId();
+
+    childType = new SectionType({
+      id: createNewId(),
+      name: childName,
+      allObjCollections,
+      allParamCollections,
+      parentSectionType: parentCls,
+      paramUIType,
+      paramUITypeConfig,
+      parentIsSection: parentCls,
+      uiTypeCollectionId: uiColId,
+    });
+  }
+  return childType;
+}
+
+export class SectionType extends MutableInfo {
   constructor({
     id,
     name,
@@ -21,91 +92,37 @@ export class SectionType {
     paramUITypeConfig,
     topLevelSpecs,
     parentIsSection,
+    uiTypeCollectionId,
   }) {
+    super();
     this.id = id;
-    this.initName(name, paramUIType);
-    this.initSpecs(
+    this.name = initName(name, paramUIType);
+    [this.specs, this.hasObjects] = initSpecs(
       paramUITypeConfig,
       topLevelSpecs,
       parentSectionType,
       parentIsSection
     );
-    this.initIds(allObjCollections, allParamCollections);
-    this.initChildType(
+    [this.objCollectionIds, this.paramCollectionIds] = initIds(
+      allObjCollections,
+      allParamCollections,
+      this.specs
+    );
+    this.uiTypeCollectionId = uiTypeCollectionId;
+    this.childType = initChildType(
       allObjCollections,
       allParamCollections,
       paramUIType,
-      paramUITypeConfig
+      paramUITypeConfig,
+      this
     );
-  }
-
-  initIds(allObjCollections, allParamCollections) {
-    this.objCollectionIds = [];
-    this.paramCollectionIds = [];
-    if (allObjCollections) {
-      this.objCollectionIds = getCollectionIds(
-        this.specs.objects,
-        allObjCollections
-      );
-    }
-    if (allParamCollections) {
-      this.paramCollectionIds = getCollectionIds(
-        this.specs.parameters,
-        allParamCollections
-      );
-    }
-  }
-
-  initName(name, paramUIType) {
-    if (name) {
-      this.name = name;
-      return;
-    }
-    if (paramUIType?.name) {
-      this.name = paramUIType.name;
-      return;
-    }
-    this.name = SECTION;
-  }
-
-  initSpecs(
-    paramUITypeConfig,
-    topLevelSpecs,
-    parentSectionType,
-    parentIsSection
-  ) {
-    this.specs = paramUITypeConfig;
-
-    if (parentIsSection) {
-      if (nullOrUndefined(this.specs)) {
-        this.specs = Object.assign({}, parentSectionType.specs);
-      }
-    } else if (topLevelSpecs) {
-      this.specs = topLevelSpecs;
-    }
-    this.specs = convertSpecsToDict(this.specs);
-    this.hasObjects = this.specs.objects?.length > 0;
-  }
-
-  initChildType(
-    allObjCollections,
-    allParamCollections,
-    paramUIType,
-    paramUITypeConfig
-  ) {
-    this.childType = {};
-    const childName = rootTypeToChildType[this.name];
-    if (childName) {
-      this.childType = new SectionType({
-        id: createNewId(),
-        name: childName,
-        allObjCollections,
-        allParamCollections,
-        parentSectionType: this,
-        paramUIType,
-        paramUITypeConfig,
-        parentIsSection: true,
-      });
-    }
+    this.exportable = [
+      "id",
+      "name",
+      "objCollectionIds",
+      "paramCollectionIds",
+      "specs",
+      "uiTypeCollectionId",
+    ];
   }
 }

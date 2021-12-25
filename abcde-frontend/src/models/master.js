@@ -5,6 +5,7 @@ import { createAllInfo } from "../classes/infoFactory";
 import Data from "../data/simpleTrainTest.json";
 import { parseUI } from "../graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "../hooks/useCreateInfo";
+import { createNewId } from "../utils/sectionIds";
 
 const master = {
   sectionsPerGroup: 5,
@@ -20,7 +21,7 @@ const master = {
   // Load DATA
   _loadSections: action((state, payload) => {
     console.log("master payload", payload);
-    state.available = {
+    const available = {
       objects: payload.OBJECTS,
       parameters: payload.PARAMETERS,
     };
@@ -29,9 +30,8 @@ const master = {
       allModuleInfo: state.allModuleInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
-    } = createAllInfo(state.available));
+    } = createAllInfo(available));
 
-    console.log("available", debug(state.available));
     console.log("uiSpecs", debug(state.uiSpecs));
     console.log("allModuleInfo", debug(state.allModuleInfo));
     console.log("allObjCollections", debug(state.allObjCollections));
@@ -57,6 +57,8 @@ const master = {
     const state = helpers.getState();
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setChildrenInfo =
+      helpers.getStoreActions().sectionInfos.setChildrenInfo;
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
@@ -76,6 +78,13 @@ const master = {
       });
       newIds.push(newId[0]);
     }
+
+    //the root "UI"
+    setChildrenInfo({
+      childrenInfoId: createNewId(),
+      newStateFn: () => newIds,
+    });
+
     return newIds;
   }),
 
