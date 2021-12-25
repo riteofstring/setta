@@ -1,4 +1,4 @@
-import { DndContext, closestCenter } from "@dnd-kit/core";
+import { DndContext, closestCenter, rectIntersection } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   arrayMove,
@@ -39,15 +39,15 @@ export function DNDSortable({ items, setItems, ...props }) {
 
 export function DNDSortableWithoutSortableContext({
   setItems,
-  swapIdsBetweenGroups,
+  moveIdBetweenGroups,
   ...props
 }) {
   const sensors = useDNDSensors();
   function handleDragEnd(event) {
     const { active, over } = event;
-    const activeGroupId = active.data.current.sortable.containerId;
-    const overGroupId = over.data.current.sortable.containerId;
-    console.log("activeGroupId, overGroupId", activeGroupId, overGroupId);
+    const activeGroupId = active?.data?.current?.sortable?.containerId;
+    const overGroupId = over?.data?.current?.sortable?.containerId;
+    console.log("activeGroupId, overGroupId", active, over);
 
     if (active.id !== over.id) {
       if (activeGroupId === overGroupId) {
@@ -61,7 +61,7 @@ export function DNDSortableWithoutSortableContext({
           },
         });
       } else {
-        swapIdsBetweenGroups({
+        moveIdBetweenGroups({
           group1: activeGroupId,
           group2: overGroupId,
           sectionId1: active.id,
@@ -74,7 +74,7 @@ export function DNDSortableWithoutSortableContext({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={rectIntersection}
       onDragEnd={handleDragEnd}
     >
       {props.children}

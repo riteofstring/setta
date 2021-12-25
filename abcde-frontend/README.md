@@ -1,6 +1,7 @@
 # Adding react-map-interaction
-1. Go to react-map-interaction folder (outside of abcde-frontend), and then do ```yarn link```
-2. Go back to abcde-frontend and do ```yarn link react-map-interaction```.
+
+1. Go to react-map-interaction folder (outside of abcde-frontend), and then do `yarn link`
+2. Go back to abcde-frontend and do `yarn link react-map-interaction`.
 
 # Getting Started with Create React App
 

@@ -13,8 +13,8 @@ function SectionsPane() {
   const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
   const refForPosition = useSetSectionPosition(PANEID);
   const setChildren = useStoreActions((x) => x.sectionInfos.setChildrenInfo);
-  const swapIdsBetweenGroups = useStoreActions(
-    (x) => x.sectionInfos.swapIdsBetweenGroups
+  const moveIdBetweenGroups = useStoreActions(
+    (x) => x.sectionInfos.moveIdBetweenGroups
   );
 
   console.log("groups", groups);
@@ -28,7 +28,7 @@ function SectionsPane() {
       >
         <DNDSortableWithoutSortableContext
           setItems={setChildren}
-          swapIdsBetweenGroups={swapIdsBetweenGroups}
+          moveIdBetweenGroups={moveIdBetweenGroups}
         >
           {groups.map((e, idx) => (
             <SingleSectionsPane
