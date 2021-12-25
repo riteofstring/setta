@@ -51,6 +51,7 @@ export default function MainContainer() {
             excludedFromDraggingClassNames={[
               "EditableTextarea",
               "chakra-stack DragHandle",
+              "chakra-icon DragHandleIcon",
               "chakra-slider",
               "chakra-editable",
             ]}

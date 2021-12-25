@@ -170,7 +170,7 @@ function DragHandle({ dragListeners }) {
       className="DragHandle"
       {...dragListeners}
     >
-      <DragHandleIcon size="sm" color="gray.300" />
+      <DragHandleIcon size="sm" color="gray.300" className="DragHandleIcon"/>
     </HStack>
   );
 }
