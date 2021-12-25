@@ -107,7 +107,6 @@ const master = {
 
   setActiveSection: action((state, payload) => {
     state.activeSection = payload;
-    console.log("setActiveSection", payload);
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

@@ -147,10 +147,13 @@ export function useGetXInfosFromSection(
   sectionId,
   infoId = null
 ) {
-  const sectionType = useGetSectionType(sectionId);
-  const collectionIds = sectionType[collectionName];
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
-  return getXInfos(collectionIds, allCollections, infoId);
+  const sectionType = useGetSectionType(sectionId);
+  if (sectionId) {
+    const collectionIds = sectionType[collectionName];
+    return getXInfos(collectionIds, allCollections, infoId);
+  }
+  return [];
 }
 
 export function useGetObjInfos(sectionId, infoId = null) {
@@ -242,7 +245,6 @@ export function useParamWithUITypeCollectionId(
   key
 ) {
   const { uiTypeCollectionId } = useGetSectionType(sectionId);
-  console.log("useInitializeUIType uiTypeCollectionId", uiTypeCollectionId);
   return useParamInfoState(uiTypeCollectionId, stateName, setStateFn, key, "y");
 }
 
