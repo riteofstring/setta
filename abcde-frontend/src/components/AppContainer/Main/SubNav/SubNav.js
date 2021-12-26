@@ -6,6 +6,7 @@ import {
   Center,
   Divider,
 } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { useLocation, Link } from "react-router-dom";
 
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
@@ -15,20 +16,31 @@ import RunButton from "./RunButton/RunButton";
 import SelectMachine from "./SelectMachine/SelectMachine";
 
 export default function SubNav() {
-  const location = useLocation();
-  // console.log("location: ", location.pathname);
   return (
-    // <GridItem colStart="1" colEnd="end" rowStart="1" rowEnd="2">
     <Flex>
       <HStack spacing={2}>
         <Divider orientation="vertical" pr=".5rem" />
-
-        {location.pathname === "/" && <UiEditorSubNav />}
-        {location.pathname === "/start" && <StartPageSubNav />}
+        <NavSwitch />
       </HStack>
     </Flex>
-    // </GridItem>
   );
+}
+
+function NavSwitch() {
+  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
+  const location = useLocation();
+
+  if (isAuthenticated) {
+    switch (location.pathname) {
+      case "/":
+        return <UiEditorSubNav />;
+      case "/start":
+        return <StartPageSubNav />;
+      case "/logout":
+        return <LoggedOutNav />;
+    }
+  }
+  return <></>;
 }
 
 function UiEditorSubNav() {

@@ -34,7 +34,7 @@ export default function UIConfigFunc() {
 function UIElement({ uiName = "UI Element" }) {
   return (
     <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
-      <AccordionItem isOpen={true}>
+      <AccordionItem>
         <Heading as="h2" size="md">
           <AccordionButton>
             <Box flex="1" textAlign="left">

@@ -1,3 +1,4 @@
+import { useStoreState } from "easy-peasy";
 import React from "react";
 import { Route, Switch, Redirect } from "react-router-dom";
 
@@ -8,7 +9,8 @@ import SignUpPage from "../../SignUpPage/SignUpPage";
 import StartPage from "../../StartPage";
 import MainContainer from "../Main/MainContainer";
 
-const SwitchContainer = ({ isAuthenticated }) => {
+const SwitchContainer = () => {
+  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
   const getRoute = () => {
     if (isAuthenticated) {
       return (

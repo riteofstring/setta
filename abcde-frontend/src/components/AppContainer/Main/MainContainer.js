@@ -1,4 +1,4 @@
-import { Grid, GridItem, Box } from "@chakra-ui/react";
+import { GridItem, Box } from "@chakra-ui/react";
 import { useState } from "react";
 import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
