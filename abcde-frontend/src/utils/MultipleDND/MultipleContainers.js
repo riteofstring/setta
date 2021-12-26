@@ -116,6 +116,7 @@ export function MultipleContainers({
   vertical = false,
   scrollable,
 }) {
+  const [anyDragging, setAnyDragging] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const lastOverId = useRef(null);
   const recentlyMovedToNewContainer = useRef(false);
@@ -214,6 +215,7 @@ export function MultipleContainers({
 
     setActiveId(null);
     setClonedItems(null);
+    setAnyDragging(false);
   };
 
   useEffect(() => {
@@ -234,9 +236,9 @@ export function MultipleContainers({
       onDragStart={({ active }) => {
         setActiveId(active.id);
         setClonedItems(items);
+        setAnyDragging(true);
       }}
       onDragOver={({ active, over }) => {
-        console.log("onDragOver");
         const overId = over?.id;
 
         if (!overId || overId === TRASH_ID || active.id in items) {
@@ -364,6 +366,7 @@ export function MultipleContainers({
         }
 
         setActiveId(null);
+        setAnyDragging(false);
       }}
       cancelDrop={cancelDrop}
       onDragCancel={onDragCancel}
@@ -401,6 +404,7 @@ export function MultipleContainers({
                 {items[containerId].map((value, index) => {
                   return (
                     <SortableItem
+                      anyDragging={anyDragging}
                       disabled={isSortingContainer}
                       key={value}
                       id={value}
@@ -449,6 +453,7 @@ export function MultipleContainers({
   function renderSortableItemDragOverlay(id) {
     return (
       <Item
+        anyDragging={anyDragging}
         value={id}
         handle={handle}
         style={getItemStyles({
@@ -538,6 +543,7 @@ function Trash({ id }) {
 }
 
 function SortableItem({
+  anyDragging,
   disabled,
   id,
   index,
@@ -565,6 +571,7 @@ function SortableItem({
 
   return (
     <Item
+      anyDragging={anyDragging}
       ref={disabled ? undefined : setNodeRef}
       value={id}
       dragging={isDragging}

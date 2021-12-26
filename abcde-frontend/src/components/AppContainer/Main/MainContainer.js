@@ -2,8 +2,6 @@ import { Grid, GridItem, Box } from "@chakra-ui/react";
 import { useState } from "react";
 
 import UIPage from "../../UI/UiPage";
-import CustomGrid from "./CustomMapInteraction/CustomGrid";
-import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
 import Overview from "./SidePanes/Overview/Overview";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import SubNav from "./SubNav/SubNav";
@@ -57,11 +55,11 @@ export default function MainContainer() {
             ]}
             excludedFromScrollingClassNames={["SectionSearch"]}
           > */}
-            <Box padding="2.5rem" h="100%">
-              <CustomGrid setContentSize={setContentSize}>
-                <UIPage />
-              </CustomGrid>
-            </Box>
+          <Box padding="2.5rem" h="100%">
+            {/* <CustomGrid setContentSize={setContentSize}> */}
+            <UIPage />
+            {/* </CustomGrid> */}
+          </Box>
           {/* </CustomMapInteractionCSS> */}
         </Box>
       </GridItem>

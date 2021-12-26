@@ -111,7 +111,7 @@ $focused-outline-color: #4c9ffe;
   }
 
   &.color:before {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     transform: translateY(-50%);

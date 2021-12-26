@@ -1,8 +1,4 @@
 import { Heading, Stack } from "@chakra-ui/react";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import React from "react";
 
 import SectionContainer from "./SectionContainer/SectionContainer";

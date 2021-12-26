@@ -1,4 +1,4 @@
-import { DndContext, closestCenter, rectIntersection } from "@dnd-kit/core";
+import { DndContext, closestCenter } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   arrayMove,

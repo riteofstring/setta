@@ -1,10 +1,9 @@
-import React, { forwardRef } from "react";
 import classNames from "classnames";
-
-import { Handle } from "./Handle";
-import { Remove } from "./Remove";
+import React, { forwardRef } from "react";
 
 import styles from "./Container.module.css";
+import { Handle } from "./Handle";
+import { Remove } from "./Remove";
 
 export const Container = forwardRef(
   (
