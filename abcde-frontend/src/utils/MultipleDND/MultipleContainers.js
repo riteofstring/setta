@@ -26,6 +26,7 @@ import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal, unstable_batchedUpdates } from "react-dom";
 
+import { useScaledSortable } from "../../hooks/useScaledSortable";
 import { createNewId } from "../sectionIds";
 import { nullOrUndefined, updateWithArrayMove } from "../utils";
 import { Container } from "./Container";
@@ -561,6 +562,8 @@ function SortableItem({
   });
   const mounted = useMountStatus();
   const mountedWhileDragging = isDragging && !mounted;
+
+  // console.log("transform", transform);
 
   return (
     <Item
