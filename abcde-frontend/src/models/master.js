@@ -10,7 +10,6 @@ import { createNewId } from "../utils/sectionIds";
 const master = {
   sectionsPerGroup: 5,
   spaceBetweenPages: 50,
-  rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),
   allModuleInfo: null,
@@ -18,6 +17,8 @@ const master = {
   allParamCollections: null,
   activeSection: null,
   groupIds: [],
+  groupChildren: {},
+  groupsHaveUpdated: false,
 
   // actions
   // Load DATA
@@ -52,7 +53,6 @@ const master = {
       // action._loadSections(payload);
     }
     const newIds = action.initSections();
-    action.initRootSectionIds(newIds);
     action.initGroups(newIds);
   }),
 
@@ -82,22 +82,18 @@ const master = {
     return newIds;
   }),
 
-  initRootSectionIds: action((state, payload) => {
-    state.rootSectionIds = payload;
-  }),
-
   initGroups: thunk((action, payload, helpers) => {
-    const setChildrenInfo =
-      helpers.getStoreActions().sectionInfos.setChildrenInfo;
     const grouped = _.chunk(payload, helpers.getState().sectionsPerGroup);
+    const groupIds = [];
+    const groups = {};
     for (let g of grouped) {
-      const childrenInfoId = createNewId();
-      helpers.getState().groupIds.push(childrenInfoId);
-      setChildrenInfo({
-        childrenInfoId,
-        newStateFn: () => g,
-      });
+      const groupId = createNewId();
+      groupIds.push(groupId);
+      groups[groupId] = g;
     }
+    action.setGroupIds((x) => groupIds);
+    action.setGroupChildren((x) => groups);
+    action.setGroupsHaveUpdated(true);
   }),
 
   setSectionsPerGroup: action((state, payload) => {
@@ -106,6 +102,18 @@ const master = {
 
   setActiveSection: action((state, payload) => {
     state.activeSection = payload;
+  }),
+
+  setGroupIds: action((state, payload) => {
+    state.groupIds = payload(state.groupIds);
+  }),
+
+  setGroupChildren: action((state, payload) => {
+    state.groupChildren = payload(state.groupChildren);
+  }),
+
+  setGroupsHaveUpdated: action((state, payload) => {
+    state.groupsHaveUpdated = payload;
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

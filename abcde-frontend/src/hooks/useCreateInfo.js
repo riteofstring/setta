@@ -522,12 +522,13 @@ export function useReinitSectionType(sectionId) {
 
 export function useSectionGroups(returnAsMapping = false) {
   const groupIds = useStoreState((x) => x.master.groupIds);
-  const groups = useStoreState(
-    (x) => _.compact(groupIds.map((y) => x.sectionInfos.childrenInfo[y])),
+  const setGroupIds = useStoreActions((x) => x.master.setGroupIds);
+  let groups = useStoreState(
+    (x) => _.compact(groupIds.map((y) => x.master.groupChildren[y])),
     _.isEqual
   );
   if (returnAsMapping) {
-    return _.zipObject(groupIds, groups);
+    groups = _.zipObject(groupIds, groups);
   }
-  return groups;
+  return { groupIds, setGroupIds, groups };
 }

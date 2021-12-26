@@ -1,11 +1,11 @@
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
-  arrayMove,
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
+import { updateWithArrayMove } from "../utils";
 import { useDNDSensors } from "./useDNDSensors";
 
 export function DNDSortable({ items, setItems, ...props }) {
@@ -14,12 +14,7 @@ export function DNDSortable({ items, setItems, ...props }) {
     const { active, over } = event;
 
     if (active.id !== over.id) {
-      setItems((items) => {
-        const oldIndex = items.indexOf(active.id);
-        const newIndex = items.indexOf(over.id);
-
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      setItems(updateWithArrayMove(active, over));
     }
   }
 
@@ -36,48 +31,3 @@ export function DNDSortable({ items, setItems, ...props }) {
     </DndContext>
   );
 }
-
-// export function DNDSortableWithoutSortableContext({
-//   setItems,
-//   moveIdBetweenGroups,
-//   ...props
-// }) {
-//   const sensors = useDNDSensors();
-//   function handleDragEnd(event) {
-//     const { active, over } = event;
-//     const activeGroupId = active?.data?.current?.sortable?.containerId;
-//     const overGroupId = over?.data?.current?.sortable?.containerId;
-//     console.log("activeGroupId, overGroupId", active, over);
-
-//     if (active.id !== over.id) {
-//       if (activeGroupId === overGroupId) {
-//         setItems({
-//           childrenInfoId: activeGroupId,
-//           newStateFn: (items) => {
-//             const oldIndex = items.indexOf(active.id);
-//             const newIndex = items.indexOf(over.id);
-
-//             return arrayMove(items, oldIndex, newIndex);
-//           },
-//         });
-//       } else {
-//         moveIdBetweenGroups({
-//           group1: activeGroupId,
-//           group2: overGroupId,
-//           sectionId1: active.id,
-//           sectionId2: over.id,
-//         });
-//       }
-//     }
-//   }
-
-//   return (
-//     <DndContext
-//       sensors={sensors}
-//       collisionDetection={rectIntersection}
-//       onDragEnd={handleDragEnd}
-//     >
-//       {props.children}
-//     </DndContext>
-//   );
-// }

@@ -36,13 +36,6 @@ const sectionInfos = {
     state.childrenInfo[childrenInfoId] = newStateFn(currState);
   }),
 
-  moveIdBetweenGroups: action((state, payload) => {
-    const { group1, group2, sectionId1, sectionId2 } = payload;
-    const idx2 = state.childrenInfo[group2].indexOf(sectionId2);
-    _.remove(state.childrenInfo[group1], (x) => x === sectionId1);
-    state.childrenInfo[group2].splice(idx2, 0, sectionId1);
-  }),
-
   setCurrChildren: action((state, payload) => {
     const { sectionId, currChildren } = payload;
     state.currChildren[sectionId] = currChildren;

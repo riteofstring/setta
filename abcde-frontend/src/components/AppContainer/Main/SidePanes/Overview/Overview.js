@@ -17,7 +17,7 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const groups = useSectionGroups();
+  const { groups } = useSectionGroups();
   const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 

@@ -22,9 +22,12 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal, unstable_batchedUpdates } from "react-dom";
 
+import { createNewId } from "../sectionIds";
+import { nullOrUndefined, updateWithArrayMove } from "../utils";
 import { Container } from "./Container";
 import { Item } from "./Item";
 
@@ -101,10 +104,11 @@ export function MultipleContainers({
   cancelDrop,
   columns,
   handle = false,
-  items,
-  setItems,
+  groups,
+  setGroups,
   containers,
   setContainers,
+  groupsHaveUpdated,
   containerStyle,
   getItemStyles = () => ({}),
   wrapperStyle = () => ({}),
@@ -116,11 +120,27 @@ export function MultipleContainers({
   vertical = false,
   scrollable,
 }) {
+  const [updateGroups, setUpdateGroups] = useState(false);
+  const [items, setItems] = useState(groups);
   const [anyDragging, setAnyDragging] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const lastOverId = useRef(null);
   const recentlyMovedToNewContainer = useRef(false);
   const isSortingContainer = activeId ? containers.includes(activeId) : false;
+
+  useEffect(() => {
+    if (groupsHaveUpdated) {
+      setItems(groups);
+    }
+  }, [groupsHaveUpdated]);
+
+  useEffect(() => {
+    if (updateGroups && !_.isEqual(items, groups)) {
+      setGroups((x) => items);
+    }
+    setUpdateGroups(false);
+  }, [updateGroups]);
+
   // Custom collision detection strategy optimized for multiple containers
   const collisionDetectionStrategy = useCallback(
     (args) => {
@@ -299,12 +319,7 @@ export function MultipleContainers({
       }}
       onDragEnd={({ active, over }) => {
         if (active.id in items && over?.id) {
-          setContainers((containers) => {
-            const activeIndex = containers.indexOf(active.id);
-            const overIndex = containers.indexOf(over.id);
-
-            return arrayMove(containers, activeIndex, overIndex);
-          });
+          setContainers(updateWithArrayMove(active, over));
         }
 
         const activeContainer = findContainer(active.id);
@@ -329,12 +344,12 @@ export function MultipleContainers({
             ),
           }));
           setActiveId(null);
+          setUpdateGroups(true);
           return;
         }
 
         if (overId === PLACEHOLDER_ID) {
-          const newContainerId = getNextContainerId();
-
+          const newContainerId = createNewId();
           unstable_batchedUpdates(() => {
             setContainers((containers) => [...containers, newContainerId]);
             setItems((items) => ({
@@ -345,6 +360,7 @@ export function MultipleContainers({
               [newContainerId]: [active.id],
             }));
             setActiveId(null);
+            setUpdateGroups(true);
           });
           return;
         }
@@ -369,6 +385,7 @@ export function MultipleContainers({
 
         setActiveId(null);
         setAnyDragging(false);
+        setUpdateGroups(true);
       }}
       cancelDrop={cancelDrop}
       onDragCancel={onDragCancel}
@@ -402,25 +419,27 @@ export function MultipleContainers({
               unstyled={minimal}
               onRemove={() => handleRemove(containerId)}
             >
-              <SortableContext items={items[containerId]} strategy={strategy}>
-                {items[containerId].map((value, index) => {
-                  return (
-                    <SortableItem
-                      anyDragging={anyDragging}
-                      disabled={isSortingContainer}
-                      key={value}
-                      id={value}
-                      index={index}
-                      handle={handle}
-                      style={getItemStyles}
-                      wrapperStyle={wrapperStyle}
-                      renderItem={renderItem}
-                      containerId={containerId}
-                      getIndex={getIndex}
-                    />
-                  );
-                })}
-              </SortableContext>
+              {!nullOrUndefined(items[containerId]) && (
+                <SortableContext items={items[containerId]} strategy={strategy}>
+                  {items[containerId].map((value, index) => {
+                    return (
+                      <SortableItem
+                        anyDragging={anyDragging}
+                        disabled={isSortingContainer}
+                        key={value}
+                        id={value}
+                        index={index}
+                        handle={handle}
+                        style={getItemStyles}
+                        wrapperStyle={wrapperStyle}
+                        renderItem={renderItem}
+                        containerId={containerId}
+                        getIndex={getIndex}
+                      />
+                    );
+                  })}
+                </SortableContext>
+              )}
             </DroppableContainer>
           ))}
           {minimal ? undefined : (
@@ -482,22 +501,15 @@ export function MultipleContainers({
   }
 
   function handleAddColumn() {
-    const newContainerId = getNextContainerId();
-
+    const newContainerId = createNewId();
     unstable_batchedUpdates(() => {
       setContainers((containers) => [...containers, newContainerId]);
       setItems((items) => ({
         ...items,
         [newContainerId]: [],
       }));
+      setUpdateGroups(true);
     });
-  }
-
-  function getNextContainerId() {
-    const containerIds = Object.keys(items);
-    const lastContainerId = containerIds[containerIds.length - 1];
-
-    return String.fromCharCode(lastContainerId.charCodeAt(0) + 1);
   }
 }
 
