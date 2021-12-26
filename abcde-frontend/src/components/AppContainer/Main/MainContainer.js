@@ -2,6 +2,8 @@ import { Grid, GridItem, Box } from "@chakra-ui/react";
 import { useState } from "react";
 
 import UIPage from "../../UI/UiPage";
+import CustomGrid from "./CustomMapInteraction/CustomGrid";
+import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
 import Overview from "./SidePanes/Overview/Overview";
 import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import SubNav from "./SubNav/SubNav";
@@ -35,7 +37,7 @@ export default function MainContainer() {
         h="100%"
       >
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
-          {/* <CustomMapInteractionCSS
+          <CustomMapInteractionCSS
             // showControls={true}
             maxScale={2}
             minScale={0.1}
@@ -54,13 +56,13 @@ export default function MainContainer() {
               "chakra-editable",
             ]}
             excludedFromScrollingClassNames={["SectionSearch"]}
-          > */}
-          <Box padding="2.5rem" h="100%">
-            {/* <CustomGrid setContentSize={setContentSize}> */}
-            <UIPage />
-            {/* </CustomGrid> */}
-          </Box>
-          {/* </CustomMapInteractionCSS> */}
+          >
+            <Box padding="2.5rem" h="100%">
+              <CustomGrid setContentSize={setContentSize}>
+                <UIPage />
+              </CustomGrid>
+            </Box>
+          </CustomMapInteractionCSS>
         </Box>
       </GridItem>
     </Grid>

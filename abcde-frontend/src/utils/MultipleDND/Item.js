@@ -7,7 +7,13 @@ import { Handle } from "./Handle";
 import styles from "./Item.module.css";
 import { Remove } from "./Remove";
 
-function getSectionContainer(value, dragOverlay, dragging, anyDragging, listeners) {
+function getSectionContainer(
+  value,
+  dragOverlay,
+  dragging,
+  anyDragging,
+  listeners
+) {
   return dragOverlay || dragging ? (
     <DummySection />
   ) : (
@@ -112,7 +118,13 @@ export const Item = React.memo(
             {...props}
             tabIndex={!handle ? 0 : undefined}
           >
-            {getSectionContainer(value, dragOverlay, dragging, anyDragging, listeners)}
+            {getSectionContainer(
+              value,
+              dragOverlay,
+              dragging,
+              anyDragging,
+              listeners
+            )}
             <span className={styles.Actions}>
               {onRemove ? (
                 <Remove className={styles.Remove} onClick={onRemove} />
