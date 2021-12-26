@@ -1,4 +1,3 @@
-import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import React, { useState, useCallback } from "react";
@@ -11,6 +10,7 @@ import {
 } from "../../../../hooks/useCreateInfo";
 import { useIdsOverview } from "../../../../hooks/useIdsOverview";
 import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
+import { DragHandle } from "../../../../utils/DragHandle/DragHandle";
 import {
   isListLike,
   isRoot,
@@ -159,22 +159,6 @@ function _SectionContainerCore({
           </Stack>
         )}
       </Stack>
-    </HStack>
-  );
-}
-
-function DragHandle({ dragListeners }) {
-  return (
-    <HStack
-      alignSelf="stretch"
-      borderLeftRadius="inherit"
-      cursor="move"
-      px="0.5rem"
-      bg="gray.100"
-      className="DragHandle"
-      {...dragListeners}
-    >
-      <DragHandleIcon size="sm" color="gray.300" className="DragHandleIcon" />
     </HStack>
   );
 }

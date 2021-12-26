@@ -3,7 +3,6 @@ import React, { useEffect } from "react";
 
 import { DummySection } from "../../components/UI/Section/SectionContainer/DummySection";
 import SectionContainer from "../../components/UI/Section/SectionContainer/SectionContainer";
-import { Handle } from "./Handle";
 import styles from "./Item.module.css";
 import { Remove } from "./Remove";
 
@@ -114,7 +113,6 @@ export const Item = React.memo(
             )}
             style={style}
             data-cypress="draggable-item"
-            // {...(!handle ? listeners : undefined)}
             {...props}
             tabIndex={!handle ? 0 : undefined}
           >
@@ -129,7 +127,6 @@ export const Item = React.memo(
               {onRemove ? (
                 <Remove className={styles.Remove} onClick={onRemove} />
               ) : null}
-              {handle ? <Handle {...listeners} /> : null}
             </span>
           </div>
         </li>

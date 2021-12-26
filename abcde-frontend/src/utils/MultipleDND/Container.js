@@ -1,8 +1,8 @@
 import classNames from "classnames";
 import React, { forwardRef } from "react";
 
+import { DragHandle } from "../DragHandle/DragHandle";
 import styles from "./Container.module.css";
-import { Handle } from "./Handle";
 import { Remove } from "./Remove";
 
 export const Container = forwardRef(
@@ -10,7 +10,7 @@ export const Container = forwardRef(
     {
       children,
       columns = 1,
-      handleProps,
+      handleListeners,
       horizontal,
       hover,
       onClick,
@@ -50,10 +50,8 @@ export const Container = forwardRef(
         {label ? (
           <div className={styles.Header}>
             {label}
-            <div className={styles.Actions}>
-              {onRemove ? <Remove onClick={onRemove} /> : undefined}
-              <Handle {...handleProps} />
-            </div>
+            {onRemove ? <Remove onClick={onRemove} /> : undefined}
+            <DragHandle dragListeners={handleListeners} px="5rem" />
           </div>
         ) : null}
         {placeholder ? children : <ul>{children}</ul>}

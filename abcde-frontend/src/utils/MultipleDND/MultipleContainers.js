@@ -78,10 +78,7 @@ function DroppableContainer({
         opacity: isDragging ? 0.5 : undefined,
       }}
       hover={isOverContainer}
-      handleProps={{
-        ...attributes,
-        ...listeners,
-      }}
+      handleListeners={listeners}
       columns={columns}
       {...props}
     >
