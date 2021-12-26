@@ -1,9 +1,10 @@
-import { GridItem, Box } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { useState } from "react";
 import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
 
 import UIPage from "../../UI/UiPage";
+import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
@@ -13,18 +14,8 @@ export default function MainContainer() {
   return (
     <>
       <Overview />
-
       <UiEditor />
-
-      <GridItem
-        colStart="1"
-        colEnd="2"
-        rowStart="2"
-        rowEnd="3"
-        minH="0"
-        minW="0"
-        h="100%"
-      >
+      <GridWrapper>
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
           <CustomMapInteractionCSS
             // showControls={true}
@@ -52,7 +43,7 @@ export default function MainContainer() {
             </Box>
           </CustomMapInteractionCSS>
         </Box>
-      </GridItem>
+      </GridWrapper>
     </>
   );
 }

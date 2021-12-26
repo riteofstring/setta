@@ -5,6 +5,7 @@ import { useLocation, Link } from "react-router-dom";
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
 import EnvSelectButton from "./EnvSelect/EnvSelectButton";
 import FileMenu from "./FileMenu/FileMenu";
+import HomeButton from "./HomeButton";
 import RunButton from "./RunButton/RunButton";
 import SelectMachine from "./SelectMachine/SelectMachine";
 
@@ -27,8 +28,8 @@ function NavSwitch() {
     switch (location.pathname) {
       case "/":
         return <UiEditorSubNav />;
-      case "/start":
-        return <StartPageSubNav />;
+      case "/home":
+        return <HomePageSubNav />;
       case "/logout":
         return <LoggedOutNav />;
     }
@@ -39,6 +40,7 @@ function NavSwitch() {
 function UiEditorSubNav() {
   return (
     <>
+      <HomeButton />
       <FileMenu />
       <EcoSysButton />
       {/* <UiEditButton /> */}
@@ -51,10 +53,10 @@ function UiEditorSubNav() {
   );
 }
 
-function StartPageSubNav() {
+function HomePageSubNav() {
   return (
     <>
-      <h1>test</h1>
+      <HomeButton />
     </>
   );
 }
