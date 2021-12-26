@@ -15,21 +15,13 @@ export class MutableInfo {
 }
 
 export class MutableParamInfo extends MutableInfo {
-  constructor({ id, enteredValueId, childId }) {
-    super();
-    this.id = id;
-    this.enteredValueId = enteredValueId;
-    this.childId = childId;
-    this.exportable = ["id", "enteredValueId", "childId"];
-  }
-}
-
-export class MutableParamUITypeInfo extends MutableInfo {
-  constructor({ id, uiTypeId }) {
+  constructor({ id, uiTypeId, enteredValue, childId }) {
     super();
     this.id = id;
     this.uiTypeId = uiTypeId;
-    this.exportable = ["id", "uiTypeId"];
+    this.enteredValue = enteredValue;
+    this.childId = childId;
+    this.exportable = ["id", "uiTypeId", "enteredValue", "childId"];
   }
 }
 
@@ -56,25 +48,22 @@ export class SectionInfo extends MutableInfo {
     name,
     sectionTypeId,
     parentSectionInfo,
-    paramCollectionId,
-    kwargCollectionId,
+    isRendered = true,
     selectedItem = null,
   }) {
     super();
     this.id = id;
     this.sectionTypeId = sectionTypeId;
     this.name = initName(name, parentSectionInfo);
+    this.isRendered = isRendered;
     this.selectedItem = selectedItem;
-    this.paramCollectionId = paramCollectionId;
-    this.kwargCollectionId = kwargCollectionId;
     this.exportable = [
       "id",
       "name",
       "sectionTypeId",
       "name",
+      "isRendered",
       "selectedItem",
-      "paramCollectionId",
-      "kwargCollectionId",
     ];
   }
 }

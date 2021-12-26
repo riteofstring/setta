@@ -1,24 +1,22 @@
-import { Flex, Heading, Box, Spacer } from "@chakra-ui/react";
+import { Flex, Heading, Spacer } from "@chakra-ui/react";
 
+import SubNav from "../Main/SubNav/SubNav";
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
-import TabNav from "./Tabs/TabNav";
 
 export default function HeaderContainer() {
   return (
-    <Flex width="calc(90vw)" height="2.5rem" mt="1rem" align="center">
+    <Flex width="calc(100vw - 5rem)" height="4rem" align="center">
       <Heading
-        fontSize="md"
-        fontWeight="normal"
-        letterSpacing="widest"
+        fontSize="sm"
+        fontWeight="100"
+        letterSpacing="10px"
         color="gray.900"
         mr="1rem"
       >
         ABCDE
       </Heading>
-      <Box height="100%" width="100%">
-        <TabNav />
-      </Box>
+      <SubNav />
       <Spacer />
       <ColorModeToggle />
       <MainSideDrawer />

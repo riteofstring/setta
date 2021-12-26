@@ -1,8 +1,8 @@
 import axios from "axios";
+import { allFoldersQuery, UIQuery } from "graphql/queries/uiQueries";
+import { stringifyCompleteState } from "utils/commonFunctions";
+import { BACKEND } from "utils/constants";
 
-import { allFoldersQuery, UIQuery } from "../graphql/queries/uiQueries";
-import { stringifyCompleteState } from "../utils/commonFunctions";
-import { BACKEND } from "../utils/constants";
 import { tokenConfig } from "./authentication";
 
 export const generateAndRunCode = ({

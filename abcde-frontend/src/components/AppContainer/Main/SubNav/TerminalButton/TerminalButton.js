@@ -6,7 +6,7 @@ export default function TerminalButton() {
     <Button
       variant="ghost"
       leftIcon={<Icon as={BiTerminal} />}
-      size="sm"
+      size="xs"
       mr="-px"
     >
       Terminal

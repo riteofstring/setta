@@ -1,4 +1,5 @@
 import { TabPanels, TabPanel } from "@chakra-ui/react";
+import { useState } from "react";
 
 import TextEditor from "./TextEditor/TextEditor";
 

@@ -9,7 +9,7 @@ export default function EcoSysButton() {
     <>
       <Button
         leftIcon={<Icon as={CgCommunity} />}
-        size="sm"
+        size="xs"
         mr="-px"
         onClick={onOpen}
         variant="ghost"

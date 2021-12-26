@@ -1,2 +1,2 @@
-call yarn run eslint src --fix
-call yarn prettier src --write
+call yarn run eslint . --fix
+call yarn prettier . --write

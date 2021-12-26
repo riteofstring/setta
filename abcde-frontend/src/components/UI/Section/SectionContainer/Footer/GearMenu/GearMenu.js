@@ -1,8 +1,17 @@
 import { SettingsIcon } from "@chakra-ui/icons";
-import { GridItem, IconButton } from "@chakra-ui/react";
+import {
+  GridItem,
+  Button,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
+} from "@chakra-ui/react";
 
 // import { MenuContext } from "../SectionFooter";
-// import ModalContext from "../../../../../../utils/ModalContainer/ModalContext";
+// import ModalContext from "utils/ModalContainer/ModalContext";
 // import { useContext } from "react";
 
 export default function GearMenu({ setSelectedMenuItem, onOpen }) {
