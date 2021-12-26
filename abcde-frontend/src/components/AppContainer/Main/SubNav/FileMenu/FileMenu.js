@@ -51,7 +51,7 @@ export default function FileMenu() {
   return (
     <>
       <Menu>
-        <MenuButton size="sm" variant="ghost" as={Button}>
+        <MenuButton size="xs" variant="ghost" as={Button}>
           File <ChevronDownIcon />
         </MenuButton>
         <MenuList zIndex="11">

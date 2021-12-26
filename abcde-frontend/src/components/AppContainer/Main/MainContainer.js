@@ -4,7 +4,6 @@ import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
 import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
 
 import UIPage from "../../UI/UiPage";
-import SubNav from "./SubNav/SubNav";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
@@ -12,17 +11,7 @@ export default function MainContainer() {
   const [contentSize, setContentSize] = useState({});
 
   return (
-    <Grid
-      h="100%"
-      w="100vw"
-      border="1px"
-      overflow="hidden"
-      templateRows="min-content 1fr"
-      templateColumns="1fr"
-      borderColor="gray.200"
-    >
-      <SubNav />
-
+    <>
       <Overview />
 
       <UiEditor />
@@ -64,6 +53,6 @@ export default function MainContainer() {
           </CustomMapInteractionCSS>
         </Box>
       </GridItem>
-    </Grid>
+    </>
   );
 }

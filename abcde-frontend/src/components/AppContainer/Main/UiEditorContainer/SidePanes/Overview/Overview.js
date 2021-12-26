@@ -1,9 +1,9 @@
 import { Heading } from "@chakra-ui/react";
+import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
 import { useState, useEffect } from "react";
 import { getOverviewListing } from "utils/sectionIds";
 
-import PaneContainer from "../PaneContainer";
 import SectionList from "./SectionList/SectionList";
 import SectionsPerGroup from "./SectionsPerGroup/SectionsPerGroup";
 
