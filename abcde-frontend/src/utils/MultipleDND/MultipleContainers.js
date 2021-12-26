@@ -390,11 +390,11 @@ export function MultipleContainers({
               : horizontalListSortingStrategy
           }
         >
-          {containers.map((containerId) => (
+          {containers.map((containerId, idx) => (
             <DroppableContainer
               key={containerId}
               id={containerId}
-              label={minimal ? undefined : `Column ${containerId}`}
+              label={minimal ? undefined : `Group ${idx + 1}`}
               columns={columns}
               items={items[containerId]}
               scrollable={scrollable}
