@@ -8,6 +8,7 @@ export default function ManyNestedSections({
   sectionId,
   depth,
   setChildren,
+  dummy,
 }) {
   return (
     <DNDSortable items={childIds} setItems={setChildren}>
@@ -18,6 +19,7 @@ export default function ManyNestedSections({
           nextId={childIds[idx + 1]}
           key={`Nested-Sec-${e}`}
           depth={depth + 1}
+          dummy={dummy}
         />
       ))}
     </DNDSortable>

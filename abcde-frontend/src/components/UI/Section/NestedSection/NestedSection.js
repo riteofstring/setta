@@ -5,7 +5,7 @@ import { SortableSectionContainer } from "../SectionContainer/SortableSectionCon
 
 const borderLeft = theme.colors.gray;
 
-function _NestedSection({ parentId, sectionId, nextId, depth }) {
+function _NestedSection({ parentId, sectionId, nextId, depth, dummy }) {
   return (
     <Stack
       direction="column"
@@ -19,6 +19,7 @@ function _NestedSection({ parentId, sectionId, nextId, depth }) {
           parentId={parentId}
           nextId={nextId}
           depth={depth}
+          dummy={dummy}
         />
       </Grid>
     </Stack>
