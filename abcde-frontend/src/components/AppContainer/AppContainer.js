@@ -1,7 +1,7 @@
-import { Grid, GridItem, Flex, HStack, Heading } from "@chakra-ui/react";
+import { Grid } from "@chakra-ui/react";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import React, { useEffect } from "react";
-import { Link, BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 
 import { verifyToken } from "../../dbRequests/authentication";
 import HeaderContainer from "./Header/Header";

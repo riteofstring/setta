@@ -9,6 +9,7 @@ import {
   Input,
   InputRightElement,
   Grid,
+  GridItem,
 } from "@chakra-ui/react";
 import { login } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";
@@ -49,95 +50,105 @@ const LoginPage = () => {
     });
 
   return (
-    <Flex
-      flexDirection="column"
-      width="800px"
-      minHeight="200px"
-      mt="200px"
-      justifyContent="center"
-      alignItems="center"
+    <GridItem
+      colStart="1"
+      colEnd="2"
+      rowStart="2"
+      rowEnd="3"
+      minH="0"
+      minW="0"
+      h="100%"
     >
-      <Text fontSize="4xl" mb="1rem">
-        Login
-      </Text>
-      <form onSubmit={handleSubmit}>
-        <FormControl isInvalid={errors.username}>
-          <Grid
-            gap="1rem"
-            templateColumns="[left] 0.25fr [middle] 0.75fr [right] 10vw [error]"
-            mr="-10vw"
-          >
-            {/* username */}
-            <FormLabel
-              alignSelf="center"
-              htmlFor="username"
-              gridColumn="left/middle"
+      <Flex
+        flexDirection="column"
+        width="100%"
+        minHeight="200px"
+        mt="20vh"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Text fontSize="4xl" mb="1rem">
+          Login
+        </Text>
+        <form onSubmit={handleSubmit}>
+          <FormControl isInvalid={errors.username}>
+            <Grid
+              gap="1rem"
+              templateColumns="[left] 0.25fr [middle] 0.75fr [right] 10vw [error]"
+              mr="-10vw"
             >
-              Username
-            </FormLabel>
+              {/* username */}
+              <FormLabel
+                alignSelf="center"
+                htmlFor="username"
+                gridColumn="left/middle"
+              >
+                Username
+              </FormLabel>
 
-            <Input
-              id="username"
-              name="username"
-              placeholder="username"
-              w="300px"
-              value={values.username}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              gridColumn="middle/right"
-            />
-
-            <FormErrorMessage gridColumn="right/error">
-              {touched.username && errors.username ? (
-                <Text>{errors.username}</Text>
-              ) : null}
-            </FormErrorMessage>
-
-            {/* password */}
-            <FormLabel
-              alignSelf="center"
-              htmlFor="password"
-              gridColumn="left/middle"
-            >
-              Password
-            </FormLabel>
-            <InputGroup gridColumn="middle/right">
               <Input
-                id="password"
-                name="password"
-                placeholder="password"
-                type={show ? "text" : "password"}
-                value={values.password}
+                id="username"
+                name="username"
+                placeholder="username"
+                w="300px"
+                value={values.username}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                w="300px"
+                gridColumn="middle/right"
               />
-              <InputRightElement width="4.5rem">
-                <Button h="1.75rem" size="sm" onClick={handleClick}>
-                  {show ? "Hide" : "Show"}
-                </Button>
-              </InputRightElement>
-            </InputGroup>
-            <FormErrorMessage gridColumn="right/error">
-              {touched.password && errors.password ? (
-                <Text>{errors.password}</Text>
-              ) : null}
-            </FormErrorMessage>
 
-            {/* button */}
-            <Button
-              alignSelf="flex-end"
-              mt={4}
-              colorScheme="teal"
-              type="submit"
-              gridColumn="middle/right"
-            >
-              Login
-            </Button>
-          </Grid>
-        </FormControl>
-      </form>
-    </Flex>
+              <FormErrorMessage gridColumn="right/error">
+                {touched.username && errors.username ? (
+                  <Text>{errors.username}</Text>
+                ) : null}
+              </FormErrorMessage>
+
+              {/* password */}
+              <FormLabel
+                alignSelf="center"
+                htmlFor="password"
+                gridColumn="left/middle"
+              >
+                Password
+              </FormLabel>
+              <InputGroup gridColumn="middle/right">
+                <Input
+                  id="password"
+                  name="password"
+                  placeholder="password"
+                  type={show ? "text" : "password"}
+                  value={values.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  w="300px"
+                />
+                <InputRightElement width="4.5rem">
+                  <Button h="1.75rem" size="sm" onClick={handleClick}>
+                    {show ? "Hide" : "Show"}
+                  </Button>
+                </InputRightElement>
+              </InputGroup>
+              <FormErrorMessage gridColumn="right/error">
+                {touched.password && errors.password ? (
+                  <Text>{errors.password}</Text>
+                ) : null}
+              </FormErrorMessage>
+
+              {/* button */}
+              <Button
+                alignSelf="flex-end"
+                mt={4}
+                colorScheme="teal"
+                type="submit"
+                gridColumn="middle/right"
+              >
+                Login
+              </Button>
+            </Grid>
+          </FormControl>
+        </form>
+      </Flex>
+    </GridItem>
   );
 };
 

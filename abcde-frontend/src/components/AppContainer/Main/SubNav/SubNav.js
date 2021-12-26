@@ -1,11 +1,4 @@
-import {
-  Flex,
-  HStack,
-  Spacer,
-  GridItem,
-  Center,
-  Divider,
-} from "@chakra-ui/react";
+import { Flex, HStack, Divider } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useLocation, Link } from "react-router-dom";
 
