@@ -1,11 +1,11 @@
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
+import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreActions } from "easy-peasy";
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import Measure from "react-measure";
+import { rangeArray, mod } from "utils/utils";
 
-import { rangeArray, mod } from "../../../../../utils/utils";
-import PaneContainer from "../PaneContainer";
 import TabsContainer from "./TabsContainer";
 import UIConfig from "./UIConfig";
 import UiEditorPages from "./UiEditorPages";

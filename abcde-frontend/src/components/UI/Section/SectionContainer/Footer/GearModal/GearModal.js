@@ -1,4 +1,5 @@
-import SaveLoadModal from "../../../../../../utils/FileExplorer/SaveLoadModal";
+import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
+
 import ParamSweepModal from "./ParamSweepModal/ParamSweepModal";
 import UITypesModal from "./UITypesModal/UITypesModal";
 

@@ -8,10 +8,6 @@ import {
 import { SectionInfo } from "./mutableInfo";
 import { SectionType } from "./sectionType";
 
-function emptySpecs() {
-  return { objects: [], parameters: [] };
-}
-
 export function createSectionInfo(
   name,
   allObjCollections,
@@ -34,9 +30,8 @@ export function createSectionInfo(
       parentSectionType,
       paramUIType,
       paramUITypeConfig,
-      topLevelSpecs: uiSpecs ? uiSpecs.get(name) : emptySpecs(),
+      topLevelSpecs: uiSpecs.get(name),
       parentIsSection,
-      uiTypeCollectionId: createNewId(),
     });
   }
 
@@ -45,8 +40,6 @@ export function createSectionInfo(
     name,
     sectionTypeId: sectionType.id,
     parentSectionInfo,
-    paramCollectionId: createNewId(),
-    kwargCollectionId: createNewId(),
   });
 
   return { info, sectionType };

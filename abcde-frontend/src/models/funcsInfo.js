@@ -1,6 +1,5 @@
 import { action } from "easy-peasy";
-
-import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
+import { setEntireState as setEntireStateFunc } from "utils/commonFunctions";
 
 const funcsInfo = {
   funcs: {},

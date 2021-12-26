@@ -30,7 +30,7 @@ export default function RunButton() {
   };
 
   return (
-    <ButtonGroup variant="outline" size="sm" isAttached mr=".25rem">
+    <ButtonGroup variant="outline" size="xs" isAttached mr=".25rem">
       <Button
         bg="whiteAlpha"
         leftIcon={<Icon as={RiPlayMiniFill} />}
