@@ -20,14 +20,14 @@ function SectionsPane() {
   const [containers, setContainers] = useState(Object.keys(items));
 
   return (
-    <>
+    <div ref={refForPosition}>
       <MultipleContainers
         items={items}
         setItems={setItems}
         containers={containers}
         setContainers={setContainers}
       />
-    </>
+    </div>
   );
 }
 
