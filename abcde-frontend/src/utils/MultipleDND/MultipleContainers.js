@@ -318,6 +318,7 @@ export function MultipleContainers({
         }
       }}
       onDragEnd={({ active, over }) => {
+        setAnyDragging(false);
         if (active.id in items && over?.id) {
           setContainers(updateWithArrayMove(active, over));
         }
@@ -384,7 +385,6 @@ export function MultipleContainers({
         }
 
         setActiveId(null);
-        setAnyDragging(false);
         setUpdateGroups(true);
       }}
       cancelDrop={cancelDrop}
