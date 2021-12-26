@@ -24,7 +24,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal, unstable_batchedUpdates } from "react-dom";
+import { unstable_batchedUpdates } from "react-dom";
 
 import { createNewId } from "../sectionIds";
 import { nullOrUndefined, updateWithArrayMove } from "../utils";
