@@ -8,10 +8,6 @@ import useKeyPress from "../../../../hooks/useKeyPress";
 import CustomScrollDiv from "./CustomScrollDiv";
 
 export default function CustomMapInteractionCSS(props) {
-  const setCurrScale = useStoreActions(
-    (actions) => actions.mapInteraction.setCurrScale
-  );
-
   const setHovering = useStoreActions(
     (actions) => actions.mapInteraction.setHovering
   );
@@ -163,7 +159,6 @@ export default function CustomMapInteractionCSS(props) {
       panStateX
     );
     setRelativeXWasSet(true);
-    setCurrScale(panStateScale);
   }, [panStateScale]);
 
   useEffect(() => {

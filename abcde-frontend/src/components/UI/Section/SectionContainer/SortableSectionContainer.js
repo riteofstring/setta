@@ -1,13 +1,12 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { useScaledSortable } from "../../../../hooks/useScaledSortable";
 
 import SectionContainer from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId, ...props }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useScaledSortable({ id: sectionId });
+    useSortable({ id: sectionId });
 
   const style = {
     transform: CSS.Transform.toString(transform),
