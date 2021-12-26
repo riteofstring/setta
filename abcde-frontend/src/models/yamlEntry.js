@@ -1,9 +1,8 @@
+import { createUI as createUIBackend } from "dbRequests/ui";
 import { action, thunk } from "easy-peasy";
 import { merge } from "lodash";
-
-import { createUI as createUIBackend } from "../dbRequests/ui";
-import { setEntireState as setEntireStateFunc } from "../utils/commonFunctions";
-import { DEFAULT_ENTERED_TEXT } from "../utils/constants";
+import { setEntireState as setEntireStateFunc } from "utils/commonFunctions";
+import { DEFAULT_ENTERED_TEXT } from "utils/constants";
 
 const yaml = require("js-yaml");
 

@@ -11,7 +11,7 @@ import {
 } from "@chakra-ui/react";
 
 // import { MenuContext } from "../SectionFooter";
-// import ModalContext from "../../../../../../utils/ModalContainer/ModalContext";
+// import ModalContext from "utils/ModalContainer/ModalContext";
 // import { useContext } from "react";
 
 export default function GearMenu({ setSelectedMenuItem, onOpen }) {

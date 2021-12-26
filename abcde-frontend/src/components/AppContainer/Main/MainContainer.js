@@ -1,12 +1,12 @@
 import { Grid, GridItem, Box } from "@chakra-ui/react";
 import { useState } from "react";
+import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
+import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
 
 import UIPage from "../../UI/UiPage";
-import CustomGrid from "./CustomMapInteraction/CustomGrid";
-import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
-import Overview from "./SidePanes/Overview/Overview";
-import UiEditor from "./SidePanes/UiEditor/UiEditor";
 import SubNav from "./SubNav/SubNav";
+import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
+import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState({});

@@ -12,8 +12,7 @@ import { useState } from "react";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
-
-import SaveLoadModal from "../../../../../utils/FileExplorer/SaveLoadModal";
+import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
   const [buttonText, setButtonText] = useState("");

@@ -1,14 +1,13 @@
+import { createAllInfo } from "classes/infoFactory";
+import Data from "data/simpleTrainTest.json";
 import { action, thunk, debug, computed } from "easy-peasy";
+import { parseUI } from "graphql/parsers/uiParsers";
+import { createSectionInfoFn } from "hooks/useCreateInfo";
 import _ from "lodash";
-
-import { createAllInfo } from "../classes/infoFactory";
-import Data from "../data/simpleTrainTest.json";
-import { parseUI } from "../graphql/parsers/uiParsers";
-import { createSectionInfoFn } from "../hooks/useCreateInfo";
 
 const master = {
   sectionsPerGroup: 5,
-  spaceBetweenPages: 500,
+  spaceBetweenPages: 100,
   rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),

@@ -1,6 +1,6 @@
+import { MutableParamInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
 
-import { MutableParamInfo } from "../../classes/mutableInfo";
 import { setToDefault, exportNestedState } from "./utils";
 
 function setDefaultInfo(state, sectionId, paramInfoId) {

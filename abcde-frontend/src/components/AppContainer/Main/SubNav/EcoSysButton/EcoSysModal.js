@@ -14,8 +14,7 @@ import {
   HStack,
 } from "@chakra-ui/react";
 import { useState, createContext, useContext } from "react";
-
-import ModalContainer from "../../../../../utils/ModalContainer/ModalContainer";
+import ModalContainer from "utils/ModalContainer/ModalContainer";
 
 export const EcoSysContext = createContext(null);
 

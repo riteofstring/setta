@@ -1,15 +1,11 @@
+import { createSectionInfo } from "classes/infoFactory";
+import { KwargInfo } from "classes/mutableInfo";
+import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
+import { createNewId } from "utils/sectionIds";
+import { curryAction, defaultState, insertIntoArrayOrXpend } from "utils/utils";
 
-import { createSectionInfo } from "../classes/infoFactory";
-import { KwargInfo } from "../classes/mutableInfo";
-import { UIType } from "../classes/uiType";
-import { createNewId } from "../utils/sectionIds";
-import {
-  curryAction,
-  defaultState,
-  insertIntoArrayOrXpend,
-} from "../utils/utils";
 import { useSetIdsOverview } from "./useIdsOverview";
 
 function getInfo(x) {

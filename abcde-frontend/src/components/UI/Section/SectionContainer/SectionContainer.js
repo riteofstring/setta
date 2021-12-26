@@ -1,22 +1,22 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import React, { useState, useCallback } from "react";
-
 import {
   useGetSectionInfo,
   useGetSectionType,
   useAddChild,
   useDeleteChild,
-} from "../../../../hooks/useCreateInfo";
-import { useIdsOverview } from "../../../../hooks/useIdsOverview";
-import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
+} from "hooks/useCreateInfo";
+import { useIdsOverview } from "hooks/useIdsOverview";
+import { useSetSectionPosition } from "hooks/useSetSectionPosition";
+import React, { useState, useCallback } from "react";
 import {
   isListLike,
   isRoot,
   requiresKeyInput,
   SECTIONWIDTH,
-} from "../../../../utils/constants";
+} from "utils/constants";
+
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";

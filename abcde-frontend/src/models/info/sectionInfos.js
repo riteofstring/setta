@@ -1,8 +1,8 @@
 import { action, computed } from "easy-peasy";
 import _ from "lodash";
+import { compatibleName } from "utils/constants";
+import { defaultState } from "utils/utils";
 
-import { compatibleName } from "../../utils/constants";
-import { defaultState } from "../../utils/utils";
 import { setToDefault, exportState } from "./utils";
 
 function setDefaultIdsOverview(state, sectionId, sectionTypeName) {

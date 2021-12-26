@@ -1,8 +1,8 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
+import { useUITypeConfig } from "hooks/useCreateInfo";
 import { useEffect } from "react";
+import { requiresNestedSection } from "utils/constants";
 
-import { useUITypeConfig } from "../../../../../../../../hooks/useCreateInfo";
-import { requiresNestedSection } from "../../../../../../../../utils/constants";
 import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 

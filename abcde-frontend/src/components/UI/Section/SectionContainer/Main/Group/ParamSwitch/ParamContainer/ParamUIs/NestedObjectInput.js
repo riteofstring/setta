@@ -1,13 +1,9 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { useGetSectionInfo, useAddChild } from "hooks/useCreateInfo";
 import { useEffect, useState } from "react";
-
-import {
-  useGetSectionInfo,
-  useAddChild,
-} from "../../../../../../../../../hooks/useCreateInfo";
-import { includesArray } from "../../../../../../../../../utils/commonFunctions";
-import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
+import { includesArray } from "utils/commonFunctions";
+import { flattenDictOfArrays } from "utils/utils";
 
 function valueAndLabel(x, type) {
   return { value: [x, type], label: x };

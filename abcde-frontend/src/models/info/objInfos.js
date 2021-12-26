@@ -1,6 +1,6 @@
+import { MutableObjInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
 
-import { MutableObjInfo } from "../../classes/mutableInfo";
 import { setToDefault, exportNestedState } from "./utils";
 
 function setDefaultInfo(state, sectionId, objInfoId) {

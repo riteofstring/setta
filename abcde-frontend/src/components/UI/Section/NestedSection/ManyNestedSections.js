@@ -1,6 +1,6 @@
 import React from "react";
+import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 
-import { DNDSortable } from "../../../../utils/DNDSortable/DNDSortable";
 import { NestedSection, SortableNestedSection } from "./NestedSection";
 
 export default function ManyNestedSections({
