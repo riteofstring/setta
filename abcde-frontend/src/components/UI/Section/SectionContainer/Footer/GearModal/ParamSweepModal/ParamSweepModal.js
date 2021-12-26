@@ -1,5 +1,6 @@
 import { Box } from "@chakra-ui/react";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
+
+import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
 
 export default function ParamSweepModal(props) {
   const { isOpen, onClose } = props;

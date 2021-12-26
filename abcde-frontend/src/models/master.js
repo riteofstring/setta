@@ -1,19 +1,23 @@
-import { createAllInfo } from "classes/infoFactory";
-import Data from "data/simpleTrainTest.json";
-import { action, thunk, debug, computed } from "easy-peasy";
-import { parseUI } from "graphql/parsers/uiParsers";
-import { createSectionInfoFn } from "hooks/useCreateInfo";
+import { action, thunk, debug } from "easy-peasy";
 import _ from "lodash";
+
+import { createAllInfo } from "../classes/infoFactory";
+import Data from "../data/simpleTrainTest.json";
+import { parseUI } from "../graphql/parsers/uiParsers";
+import { createSectionInfoFn } from "../hooks/useCreateInfo";
+import { createNewId } from "../utils/sectionIds";
 
 const master = {
   sectionsPerGroup: 5,
-  spaceBetweenPages: 100,
+  spaceBetweenPages: 50,
   rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),
   allModuleInfo: null,
   allObjCollections: null,
   allParamCollections: null,
+  activeSection: null,
+  groupIds: [],
 
   // actions
   // Load DATA
@@ -48,7 +52,8 @@ const master = {
       // action._loadSections(payload);
     }
     const newIds = action.initSections();
-    action.initRootSectionIds({ newIds });
+    action.initRootSectionIds(newIds);
+    action.initGroups(newIds);
   }),
 
   initSections: thunk((action, payload, helpers) => {
@@ -78,16 +83,29 @@ const master = {
   }),
 
   initRootSectionIds: action((state, payload) => {
-    const { newIds } = payload;
-    state.rootSectionIds = newIds;
+    state.rootSectionIds = payload;
   }),
 
-  groups: computed((state) => {
-    return _.chunk(state.rootSectionIds, state.sectionsPerGroup);
+  initGroups: thunk((action, payload, helpers) => {
+    const setChildrenInfo =
+      helpers.getStoreActions().sectionInfos.setChildrenInfo;
+    const grouped = _.chunk(payload, helpers.getState().sectionsPerGroup);
+    for (let g of grouped) {
+      const childrenInfoId = createNewId();
+      helpers.getState().groupIds.push(childrenInfoId);
+      setChildrenInfo({
+        childrenInfoId,
+        newStateFn: () => g,
+      });
+    }
   }),
 
   setSectionsPerGroup: action((state, payload) => {
     state.sectionsPerGroup = payload;
+  }),
+
+  setActiveSection: action((state, payload) => {
+    state.activeSection = payload;
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

@@ -9,7 +9,7 @@ export default function UiEditButton() {
     <>
       <Button
         leftIcon={<Icon as={BiCodeBlock} />}
-        size="xs"
+        size="sm"
         mr="-px"
         onClick={onOpen}
         variant="ghost"

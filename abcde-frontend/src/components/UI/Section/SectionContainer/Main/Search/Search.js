@@ -1,10 +1,10 @@
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
-import { useGetObjInfos } from "hooks/useCreateInfo";
 import _ from "lodash";
 import React, { useState } from "react";
 
+import { useGetObjInfos } from "../../../../../../hooks/useCreateInfo";
 import {
   ComboboxInput,
   ComboboxList,
@@ -18,7 +18,9 @@ export default function SectionSearch({
   initialSelection,
 }) {
   const objInfos = useGetObjInfos(sectionId);
-  const [selection, setSelection] = useState(initialSelection);
+  //to avoid uncontrolled --> controlled warning
+  const init = _.find(objInfos, { id: initialSelection });
+  const [selection, setSelection] = useState(init ? init : "");
   const [items, setItems] = useState([]);
   const [inputItems, setInputItems] = useState([]);
 
@@ -26,23 +28,16 @@ export default function SectionSearch({
     return x ? x.name : "";
   };
 
-  const getSearchItems = () => {
-    return objInfos.map((x) => ({
-      id: x.id,
-      name: x.name,
-    }));
-  };
-
   const onClick = () => {
-    setItems(getSearchItems());
-    setInputItems(getSearchItems());
+    setItems(objInfos);
+    setInputItems(objInfos);
   };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
     if (selectedItem) {
       const sid = selectedItem.id;
-      if (!_.isEqual(sid, selection)) {
-        setSelection(sid);
+      if (sid !== selection?.id) {
+        setSelection(selectedItem);
       }
       onSelectedItemChange(sid);
     }
@@ -59,7 +54,7 @@ export default function SectionSearch({
     getItemProps,
   } = useCombobox({
     stateReducer,
-    selection,
+    selectedItem: selection,
     items: inputItems,
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,
@@ -72,67 +67,63 @@ export default function SectionSearch({
     },
   });
 
-  // temp_
-  const tempBool = true;
   return (
     <>
-      {tempBool && (
-        <Flex direction="column" align="center" overflow="visible" h="2.5rem">
-          {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
+      <Flex direction="column" align="center" overflow="visible" h="2.5rem">
+        {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
       label
     </Text> */}
 
-          <InputGroup width="100%">
-            <ComboboxInput
-              {...getInputProps()}
-              bg="white"
-              placeholder="Search..."
-              onClick={onClick}
-            />
-            <IconButton
-              {...getToggleButtonProps({ onClick: onClick })}
-              aria-label={"toggle menu"}
-              variantcolor={isOpen ? "gray" : "teal"}
-              icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            />
-          </InputGroup>
+        <InputGroup width="100%">
+          <ComboboxInput
+            {...getInputProps()}
+            bg="white"
+            placeholder="Search..."
+            onClick={onClick}
+          />
+          <IconButton
+            {...getToggleButtonProps({ onClick: onClick })}
+            aria-label={"toggle menu"}
+            variantcolor={isOpen ? "gray" : "teal"}
+            icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          />
+        </InputGroup>
 
-          <Flex
-            {...getComboboxProps()}
-            direction="column"
-            flex="1 1 auto"
-            width="100%"
-            zIndex="10"
+        <Flex
+          {...getComboboxProps()}
+          direction="column"
+          flex="1 1 auto"
+          width="100%"
+          zIndex="10"
+        >
+          <ComboboxList
+            isOpen={isOpen}
+            {...getMenuProps()}
+            flex={1}
+            maxH="16rem"
+            overflowY="scroll"
+            mt={2}
+            bg="white"
+            borderRadius="0.25rem"
+            boxShadow="xl"
+            border="1px"
+            borderColor="gray.300"
+            w="inherit"
           >
-            <ComboboxList
-              isOpen={isOpen}
-              {...getMenuProps()}
-              flex={1}
-              maxH="16rem"
-              overflowY="scroll"
-              mt={2}
-              bg="white"
-              borderRadius="0.25rem"
-              boxShadow="xl"
-              border="1px"
-              borderColor="gray.300"
-              w="inherit"
-            >
-              {inputItems.map((item, index) => (
-                <ComboboxItem
-                  {...getItemProps({ item, index })}
-                  itemIndex={index}
-                  highlightedIndex={highlightedIndex}
-                  key={index}
-                  className="SectionSearch"
-                >
-                  {itemToString(item)}
-                </ComboboxItem>
-              ))}
-            </ComboboxList>
-          </Flex>
+            {inputItems.map((item, index) => (
+              <ComboboxItem
+                {...getItemProps({ item, index })}
+                itemIndex={index}
+                highlightedIndex={highlightedIndex}
+                key={index}
+                className="SectionSearch"
+              >
+                {itemToString(item)}
+              </ComboboxItem>
+            ))}
+          </ComboboxList>
         </Flex>
-      )}
+      </Flex>
     </>
   );
 }

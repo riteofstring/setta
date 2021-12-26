@@ -3,12 +3,12 @@ import React from "react";
 
 import SectionContainer from "./SectionContainer/SectionContainer";
 
-function SingleSectionsPane({ groupId, sectionIds }) {
+function SingleSectionsPane({ sectionIds, idx }) {
   return (
     <>
       <Stack>
         <Heading size="md" color="gray.300">
-          Group {groupId}
+          Group {idx}
         </Heading>
         {sectionIds.map((e, idx) => (
           <SectionContainer

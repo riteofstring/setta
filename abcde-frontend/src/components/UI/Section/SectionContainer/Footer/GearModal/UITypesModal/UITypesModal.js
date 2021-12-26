@@ -1,11 +1,11 @@
 import { Box, Text, VStack } from "@chakra-ui/react";
+
 import {
   useGetAllParamAndKwargInfos,
   useGetObjInfos,
   useGetParamUIType,
-} from "hooks/useCreateInfo";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
-
+} from "../../../../../../../hooks/useCreateInfo";
+import ModalContainer from "../../../../../../../utils/ModalContainer/ModalContainer";
 import Item from "./Item";
 
 export default function UITypesModal({

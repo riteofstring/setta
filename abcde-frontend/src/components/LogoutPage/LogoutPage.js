@@ -1,9 +1,10 @@
 import { Text } from "@chakra-ui/react";
-import { logout } from "dbRequests/authentication.js";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 import { useHistory } from "react-router-dom";
-import { resetEntireState } from "store/store";
+
+import { logout } from "../../dbRequests/authentication.js";
+import { resetEntireState } from "../../store/store";
 
 export default function LogoutPage() {
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);

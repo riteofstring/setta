@@ -19,7 +19,7 @@ export default function ExportYamlButton({ exportSelected }) {
   return (
     <>
       <Button
-        size="xs"
+        size="sm"
         mr="-px"
         onClick={convertAndOpen}
         variant="ghost"

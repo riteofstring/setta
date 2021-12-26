@@ -1,8 +1,7 @@
 import { HStack, Spacer, FormControl } from "@chakra-ui/react";
-import { useUITypeConfig } from "hooks/useCreateInfo";
 import { useEffect } from "react";
-import { requiresNestedSection } from "utils/constants";
 
+import { requiresNestedSection } from "../../../../../../../../utils/constants";
 import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
@@ -10,18 +9,21 @@ export default function ParamContainer(props) {
   const {
     sectionId,
     paramInfo,
-    enteredValueFn,
     childIdFn,
     getUITypeFn,
+    enteredValueFn,
     getInitUITypeFn,
+    getInitEnteredValueFn,
   } = props;
   const uiType = getUITypeFn(paramInfo);
   const initUITypeFn = getInitUITypeFn(paramInfo);
+  const initEnteredValueFn = getInitEnteredValueFn(paramInfo);
   console.log("ParamContainer");
-  const uiTypeConfig = useUITypeConfig(uiType)[0];
+  const uiTypeConfig = uiType.config;
 
   useEffect(() => {
     initUITypeFn();
+    initEnteredValueFn();
   }, [paramInfo.id]);
 
   return !requiresNestedSection(uiType.name) ? (
@@ -42,9 +44,8 @@ export default function ParamContainer(props) {
             paramInfo={paramInfo}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
-            isDisabled={!paramInfo.name}
             enteredValueFn={enteredValueFn}
-            childIdFn={childIdFn}
+            isDisabled={!paramInfo.name}
           />
         </HStack>
       </FormControl>

@@ -3,8 +3,8 @@ import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useRef, useState, useEffect } from "react";
 import { IoIosRocket } from "react-icons/io";
-import { resetState } from "store/store";
 
+import { resetState } from "../../../../../../store/store";
 import styles from "./TextEditor.module.css";
 
 export default function TextEditor({ idx, dimensions }) {

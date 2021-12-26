@@ -1,26 +1,15 @@
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
+import { useDNDSensors } from "./useDNDSensors";
+
 export function DNDSortable({ items, setItems, ...props }) {
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const sensors = useDNDSensors();
   function handleDragEnd(event) {
     const { active, over } = event;
 
@@ -47,3 +36,48 @@ export function DNDSortable({ items, setItems, ...props }) {
     </DndContext>
   );
 }
+
+// export function DNDSortableWithoutSortableContext({
+//   setItems,
+//   moveIdBetweenGroups,
+//   ...props
+// }) {
+//   const sensors = useDNDSensors();
+//   function handleDragEnd(event) {
+//     const { active, over } = event;
+//     const activeGroupId = active?.data?.current?.sortable?.containerId;
+//     const overGroupId = over?.data?.current?.sortable?.containerId;
+//     console.log("activeGroupId, overGroupId", active, over);
+
+//     if (active.id !== over.id) {
+//       if (activeGroupId === overGroupId) {
+//         setItems({
+//           childrenInfoId: activeGroupId,
+//           newStateFn: (items) => {
+//             const oldIndex = items.indexOf(active.id);
+//             const newIndex = items.indexOf(over.id);
+
+//             return arrayMove(items, oldIndex, newIndex);
+//           },
+//         });
+//       } else {
+//         moveIdBetweenGroups({
+//           group1: activeGroupId,
+//           group2: overGroupId,
+//           sectionId1: active.id,
+//           sectionId2: over.id,
+//         });
+//       }
+//     }
+//   }
+
+//   return (
+//     <DndContext
+//       sensors={sensors}
+//       collisionDetection={rectIntersection}
+//       onDragEnd={handleDragEnd}
+//     >
+//       {props.children}
+//     </DndContext>
+//   );
+// }
