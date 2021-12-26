@@ -123,7 +123,8 @@ export function MultipleContainers({
   const [activeId, setActiveId] = useState(null);
   const lastOverId = useRef(null);
   const recentlyMovedToNewContainer = useRef(false);
-  const isSortingContainer = activeId ? containers.includes(activeId) : false;
+  const activeIdIsGroup = containers.includes(activeId);
+  const isSortingContainer = activeId ? activeIdIsGroup : false;
 
   useEffect(() => {
     if (groupsHaveUpdated) {
@@ -452,17 +453,14 @@ export function MultipleContainers({
           )}
         </SortableContext>
       </div>
-      {createPortal(
-        <DragOverlay adjustScale={adjustScale} dropAnimation={dropAnimation}>
-          {activeId
-            ? containers.includes(activeId)
-              ? null
-              : renderSortableItemDragOverlay(activeId)
-            : null}
-        </DragOverlay>,
-        document.body
-      )}
-      {trashable && activeId && !containers.includes(activeId) ? (
+      <DragOverlay adjustScale={adjustScale} dropAnimation={null}>
+        {activeId
+          ? activeIdIsGroup
+            ? null
+            : renderSortableItemDragOverlay(activeId)
+          : null}
+      </DragOverlay>
+      {trashable && activeId && !activeIdIsGroup ? (
         <Trash id={TRASH_ID} />
       ) : null}
     </DndContext>
