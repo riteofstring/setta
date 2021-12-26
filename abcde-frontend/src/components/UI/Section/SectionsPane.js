@@ -1,7 +1,10 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React from "react";
 
-import { useSectionGroups } from "../../../hooks/useCreateInfo";
+import {
+  useGroupsHaveUpdated,
+  useSectionGroups,
+} from "../../../hooks/useCreateInfo";
 import { useSetSectionPosition } from "../../../hooks/useSetSectionPosition";
 import { MultipleContainers } from "../../../utils/MultipleDND/MultipleContainers";
 import { PANEID } from "../../../utils/constants";
@@ -11,7 +14,7 @@ function SectionsPane() {
   const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
   const refForPosition = useSetSectionPosition(PANEID);
   const setGroupChildren = useStoreActions((x) => x.master.setGroupChildren);
-  const groupsHaveUpdated = useStoreState((x) => x.master.groupsHaveUpdated);
+  const [groupsHaveUpdated, setGroupsHaveUpdated] = useGroupsHaveUpdated();
 
   return (
     <div ref={refForPosition}>
@@ -21,6 +24,7 @@ function SectionsPane() {
         containers={groupIds}
         setContainers={setGroupIds}
         groupsHaveUpdated={groupsHaveUpdated}
+        setGroupsHaveUpdated={setGroupsHaveUpdated}
       />
     </div>
   );

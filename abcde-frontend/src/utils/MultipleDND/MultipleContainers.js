@@ -70,6 +70,7 @@ function DroppableContainer({
 
   return (
     <Container
+      id={id}
       ref={disabled ? undefined : setNodeRef}
       style={{
         ...style,
@@ -106,6 +107,7 @@ export function MultipleContainers({
   containers,
   setContainers,
   groupsHaveUpdated,
+  setGroupsHaveUpdated,
   containerStyle,
   getItemStyles = () => ({}),
   wrapperStyle = () => ({}),
@@ -130,6 +132,7 @@ export function MultipleContainers({
     if (groupsHaveUpdated) {
       setItems(groups);
     }
+    setGroupsHaveUpdated(false);
   }, [groupsHaveUpdated]);
 
   useEffect(() => {

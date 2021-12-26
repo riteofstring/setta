@@ -27,6 +27,7 @@
     "lodash": "^4.17.21",
     "re-resizable": "^6.9.0",
     "react": "^17.0.1",
+    "react-contexify": "^5.0.0",
     "react-dom": "^17.0.1",
     "react-dropzone": "^11.3.1",
     "react-icons": "^4.2.0",

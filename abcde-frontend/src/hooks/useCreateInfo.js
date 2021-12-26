@@ -532,3 +532,11 @@ export function useSectionGroups(returnAsMapping = false) {
   }
   return { groupIds, setGroupIds, groups };
 }
+
+export function useGroupsHaveUpdated() {
+  const groupsHaveUpdated = useStoreState((x) => x.master.groupsHaveUpdated);
+  const setGroupsHaveUpdated = useStoreActions(
+    (x) => x.master.setGroupsHaveUpdated
+  );
+  return [groupsHaveUpdated, setGroupsHaveUpdated];
+}

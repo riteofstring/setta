@@ -57,26 +57,11 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    const state = helpers.getState();
-    const setSectionInfo =
-      helpers.getStoreActions().sectionInfos.setSectionInfo;
-    const setSectionType =
-      helpers.getStoreActions().sectionTypes.setSectionType;
-
-    const uiSpecs = state.uiSpecs;
+    const uiSpecs = helpers.getState().uiSpecs;
     const newIds = [];
 
     for (let idx = 0; idx < uiSpecs.size; idx++) {
-      const newId = createSectionInfoFn({
-        name: [...uiSpecs.keys()][idx],
-        numChildren: 1,
-        allObjCollections: state.allObjCollections,
-        allParamCollections: state.allParamCollections,
-        uiSpecs,
-        parentIsSection: false,
-        setSectionInfo,
-        setSectionType,
-      });
+      const newId = action.addSection({ uiSpecs, idx });
       newIds.push(newId[0]);
     }
     return newIds;
@@ -112,8 +97,34 @@ const master = {
     state.groupChildren = payload(state.groupChildren);
   }),
 
+  setOneGroupChildren: action((state, payload) => {
+    const { groupId, newStateFn } = payload;
+    state.groupChildren[groupId] = newStateFn(state.groupChildren[groupId]);
+  }),
+
   setGroupsHaveUpdated: action((state, payload) => {
     state.groupsHaveUpdated = payload;
+  }),
+
+  addSection: thunk((action, payload, helpers) => {
+    const { uiSpecs, idx } = payload;
+    const name = uiSpecs ? [...uiSpecs.keys()][idx] : "New Section";
+    const state = helpers.getState();
+    const setSectionInfo =
+      helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setSectionType =
+      helpers.getStoreActions().sectionTypes.setSectionType;
+
+    return createSectionInfoFn({
+      name,
+      numChildren: 1,
+      allObjCollections: state.allObjCollections,
+      allParamCollections: state.allParamCollections,
+      uiSpecs,
+      parentIsSection: false,
+      setSectionInfo,
+      setSectionType,
+    });
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {
