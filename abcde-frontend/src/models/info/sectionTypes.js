@@ -19,9 +19,8 @@ const sectionTypes = {
       allParamCollections,
     } = payload;
     const currSectionType = state.x[sectionTypeId];
-    const { id, uiTypeCollectionId } = currSectionType;
-    const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
-      currSectionType.childType;
+    const { id } = currSectionType;
+    const childTypeId = currSectionType.childType.id;
     const newSectionType = new SectionType({
       id,
       allObjCollections,
@@ -29,16 +28,11 @@ const sectionTypes = {
       paramUIType: uiType,
       paramUITypeConfig: uiTypeConfig,
       parentIsSection: true,
-      uiTypeCollectionId,
     });
     state.x[sectionTypeId] = newSectionType;
     if (childTypeId) {
-      const childType = newSectionType.childType;
-      childType.id = childTypeId;
-      childType.uiTypeCollectionId = childUITypeCollectionId;
-      if (childType instanceof SectionType) {
-        state.x[childTypeId] = childType;
-      }
+      newSectionType.childType.id = childTypeId;
+      state.x[childTypeId] = newSectionType.childType;
     }
   }),
 
@@ -51,7 +45,6 @@ const sectionTypes = {
       allParamCollections,
       ...payload,
     });
-    return helpers.getState().x[payload.sectionTypeId];
   }),
 
   export() {

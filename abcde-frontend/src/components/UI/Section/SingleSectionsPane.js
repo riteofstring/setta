@@ -1,18 +1,14 @@
 import { Heading, Stack } from "@chakra-ui/react";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import React from "react";
 
 import SectionContainer from "./SectionContainer/SectionContainer";
 
-function SingleSectionsPane({ sectionIds, idx }) {
+function SingleSectionsPane({ groupId, sectionIds }) {
   return (
     <>
       <Stack>
         <Heading size="md" color="gray.300">
-          Group {idx}
+          Group {groupId}
         </Heading>
         {sectionIds.map((e, idx) => (
           <SectionContainer

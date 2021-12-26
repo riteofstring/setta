@@ -1,6 +1,6 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useState, useCallback } from "react";
 
 import {
@@ -31,9 +31,10 @@ function SectionContainer({
   depth,
   dragListeners,
 }) {
+  const isRendered = useGetSectionInfo(sectionId).isRendered;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
-  const hasNested = idsOverview.length > 0;
+  const hasNested = useStoreState((x) => x.sectionInfos.hasNested[sectionId]);
 
   console.log("SectionContainer");
 
@@ -44,7 +45,7 @@ function SectionContainer({
     setChildrenAreCollapsed(!childrenAreCollapsed);
   }, [childrenAreCollapsed]);
 
-  return (
+  return isRendered ? (
     <Stack>
       <SectionContainerCore
         sectionId={sectionId}
@@ -71,6 +72,8 @@ function SectionContainer({
         )}
       </Box>
     </Stack>
+  ) : (
+    <></>
   );
 }
 
@@ -95,7 +98,6 @@ function _SectionContainerCore({
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -116,9 +118,8 @@ function _SectionContainerCore({
       bg="gray.50"
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
-      onClick={() => setActiveSection(sectionId)}
     >
-      <DragHandle dragListeners={dragListeners} />
+      {isList && <DragHandle dragListeners={dragListeners} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -170,7 +171,7 @@ function DragHandle({ dragListeners }) {
       className="DragHandle"
       {...dragListeners}
     >
-      <DragHandleIcon size="sm" color="gray.300" className="DragHandleIcon" />
+      <DragHandleIcon size="sm" color="gray.300" />
     </HStack>
   );
 }

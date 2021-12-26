@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 
-import { useSetUITypeConfig } from "../../../../../../../hooks/useCreateInfo";
+import { useUITypeConfig } from "../../../../../../../hooks/useCreateInfo";
 import ReduceMotionAccordian from "../../../../../../../utils/ReduceMotionAccordian";
 import {
   prettyToUITypes,
@@ -22,8 +22,7 @@ import { ParamUIConfig } from "../../../Main/Group/ParamSwitch/ParamContainer/Pa
 
 export default function Item({ paramInfo, getUITypeFn }) {
   const uiType = getUITypeFn(paramInfo);
-  const uiTypeConfig = uiType.config;
-  const setUITypeConfig = useSetUITypeConfig(uiType);
+  const [uiTypeConfig, setUITypeConfig] = useUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
   console.log("Item", uiTypeConfig, uiType.name);
