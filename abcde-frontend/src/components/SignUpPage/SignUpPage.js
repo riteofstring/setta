@@ -8,11 +8,12 @@ import {
   Input,
   Grid,
 } from "@chakra-ui/react";
-import { register } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";
 import { useFormik } from "formik";
 import React from "react";
 import * as Yup from "yup";
+
+import { register } from "../../dbRequests/authentication.js";
 
 const SignUpPage = () => {
   const actionLoginSuccess = useStoreActions(

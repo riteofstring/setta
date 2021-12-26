@@ -1,0 +1,126 @@
+import classNames from "classnames";
+import React, { useEffect } from "react";
+
+import { DummySection } from "../../components/UI/Section/SectionContainer/DummySection";
+import SectionContainer from "../../components/UI/Section/SectionContainer/SectionContainer";
+import { Handle } from "./Handle";
+import styles from "./Item.module.css";
+import { Remove } from "./Remove";
+
+function getSectionContainer(value, dragOverlay, dragging, listeners) {
+  return dragOverlay || dragging ? (
+    <DummySection key={value} />
+  ) : (
+    <SectionContainer
+      sectionId={value}
+      parentId={null}
+      key={value}
+      depth={0}
+      dragListeners={listeners}
+    />
+  );
+}
+
+export const Item = React.memo(
+  React.forwardRef(
+    (
+      {
+        color,
+        dragOverlay,
+        dragging,
+        disabled,
+        fadeIn,
+        handle,
+        height,
+        index,
+        listeners,
+        onRemove,
+        renderItem,
+        sorting,
+        style,
+        transition,
+        transform,
+        value,
+        wrapperStyle,
+        ...props
+      },
+      ref
+    ) => {
+      useEffect(() => {
+        if (!dragOverlay) {
+          return;
+        }
+
+        document.body.style.cursor = "grabbing";
+
+        return () => {
+          document.body.style.cursor = "";
+        };
+      }, [dragOverlay]);
+
+      return renderItem ? (
+        renderItem({
+          dragOverlay: Boolean(dragOverlay),
+          dragging: Boolean(dragging),
+          sorting: Boolean(sorting),
+          index,
+          fadeIn: Boolean(fadeIn),
+          listeners,
+          ref,
+          style,
+          transform,
+          transition,
+          value,
+        })
+      ) : (
+        <li
+          className={classNames(
+            styles.Wrapper,
+            fadeIn && styles.fadeIn,
+            sorting && styles.sorting,
+            dragOverlay && styles.dragOverlay
+          )}
+          style={{
+            ...wrapperStyle,
+            transition,
+            "--translate-x": transform
+              ? `${Math.round(transform.x)}px`
+              : undefined,
+            "--translate-y": transform
+              ? `${Math.round(transform.y)}px`
+              : undefined,
+            "--scale-x": transform?.scaleX ? `${transform.scaleX}` : undefined,
+            "--scale-y": transform?.scaleY ? `${transform.scaleY}` : undefined,
+            "--index": index,
+            "--color": color,
+          }}
+          ref={ref}
+        >
+          <div
+            className={classNames(
+              styles.Item,
+              dragging && styles.dragging,
+              handle && styles.withHandle,
+              dragOverlay && styles.dragOverlay,
+              disabled && styles.disabled,
+              color && styles.color
+            )}
+            style={style}
+            data-cypress="draggable-item"
+            // {...(!handle ? listeners : undefined)}
+            {...props}
+            tabIndex={!handle ? 0 : undefined}
+          >
+            {getSectionContainer(value, dragOverlay, dragging, listeners)}
+            <span className={styles.Actions}>
+              {onRemove ? (
+                <Remove className={styles.Remove} onClick={onRemove} />
+              ) : null}
+              {handle ? <Handle {...listeners} /> : null}
+            </span>
+          </div>
+        </li>
+      );
+    }
+  )
+);

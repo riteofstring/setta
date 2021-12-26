@@ -10,11 +10,12 @@ import {
   InputRightElement,
   Grid,
 } from "@chakra-ui/react";
-import { login } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";
 import { useFormik } from "formik";
 import React, { useState } from "react";
 import { useHistory } from "react-router-dom";
+
+import { login } from "../../dbRequests/authentication.js";
 
 const LoginPage = () => {
   let history = useHistory();

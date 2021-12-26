@@ -1,22 +1,22 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
+import React, { useState, useCallback } from "react";
+
 import {
   useGetSectionInfo,
   useGetSectionType,
   useAddChild,
   useDeleteChild,
-} from "hooks/useCreateInfo";
-import { useIdsOverview } from "hooks/useIdsOverview";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React, { useState, useCallback } from "react";
+} from "../../../../hooks/useCreateInfo";
+import { useIdsOverview } from "../../../../hooks/useIdsOverview";
+import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
 import {
   isListLike,
   isRoot,
   requiresKeyInput,
   SECTIONWIDTH,
-} from "utils/constants";
-
+} from "../../../../utils/constants";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";
@@ -31,10 +31,9 @@ function SectionContainer({
   depth,
   dragListeners,
 }) {
-  const isRendered = useGetSectionInfo(sectionId).isRendered;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
-  const hasNested = useStoreState((x) => x.sectionInfos.hasNested[sectionId]);
+  const hasNested = idsOverview.length > 0;
 
   console.log("SectionContainer");
 
@@ -45,7 +44,7 @@ function SectionContainer({
     setChildrenAreCollapsed(!childrenAreCollapsed);
   }, [childrenAreCollapsed]);
 
-  return isRendered ? (
+  return (
     <Stack>
       <SectionContainerCore
         sectionId={sectionId}
@@ -72,8 +71,6 @@ function SectionContainer({
         )}
       </Box>
     </Stack>
-  ) : (
-    <></>
   );
 }
 
@@ -98,6 +95,7 @@ function _SectionContainerCore({
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
+  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -118,8 +116,9 @@ function _SectionContainerCore({
       bg="gray.50"
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
+      onClick={() => setActiveSection(sectionId)}
     >
-      {isList && <DragHandle dragListeners={dragListeners} />}
+      <DragHandle dragListeners={dragListeners} />
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -171,7 +170,7 @@ function DragHandle({ dragListeners }) {
       className="DragHandle"
       {...dragListeners}
     >
-      <DragHandleIcon size="sm" color="gray.300" />
+      <DragHandleIcon size="sm" color="gray.300" className="DragHandleIcon" />
     </HStack>
   );
 }

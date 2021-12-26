@@ -1,21 +1,22 @@
 import { createStore, action, persist } from "easy-peasy";
-import auth from "models/auth";
-import cliSocket from "models/cliSocket";
-import factoriesInfo from "models/factoriesInfo";
-import funcsInfo from "models/funcsInfo";
-import kwargInfos from "models/info/kwargInfos";
-import objInfos from "models/info/objInfos";
-import paramInfos from "models/info/paramInfos";
-import sectionInfos from "models/info/sectionInfos";
-import sectionTypes from "models/info/sectionTypes";
-import uiTypeConfigs from "models/info/uiTypeConfigs";
-import uiTypes from "models/info/uiTypes";
-import mapInteraction from "models/mapInteraction";
-import master from "models/master";
-import panes from "models/panes";
-import sectionPositions from "models/sectionPositions";
-import uiInfo from "models/uiInfo";
-import yamlEntry from "models/yamlEntry";
+
+import auth from "../models/auth";
+import cliSocket from "../models/cliSocket";
+import factoriesInfo from "../models/factoriesInfo";
+import funcsInfo from "../models/funcsInfo";
+import enteredValues from "../models/info/enteredValues";
+import kwargInfos from "../models/info/kwargInfos";
+import objInfos from "../models/info/objInfos";
+import paramInfos from "../models/info/paramInfos";
+import sectionInfos from "../models/info/sectionInfos";
+import sectionTypes from "../models/info/sectionTypes";
+import uiTypes from "../models/info/uiTypes";
+import mapInteraction from "../models/mapInteraction";
+import master from "../models/master";
+import panes from "../models/panes";
+import sectionPositions from "../models/sectionPositions";
+import uiInfo from "../models/uiInfo";
+import yamlEntry from "../models/yamlEntry";
 
 const store = createStore(
   persist(
@@ -35,8 +36,8 @@ const store = createStore(
       objInfos: objInfos,
       paramInfos: paramInfos,
       kwargInfos: kwargInfos,
+      enteredValues: enteredValues,
       uiTypes: uiTypes,
-      uiTypeConfigs: uiTypeConfigs,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;
