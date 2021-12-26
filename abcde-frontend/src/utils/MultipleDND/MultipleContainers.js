@@ -236,7 +236,9 @@ export function MultipleContainers({
       onDragStart={({ active }) => {
         setActiveId(active.id);
         setClonedItems(items);
-        setAnyDragging(true);
+        if (!(active.id in items)) {
+          setAnyDragging(true);
+        }
       }}
       onDragOver={({ active, over }) => {
         const overId = over?.id;
