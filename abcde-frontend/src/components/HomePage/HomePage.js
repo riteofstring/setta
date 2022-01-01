@@ -1,6 +1,7 @@
 import { Grid, SimpleGrid, GridItem, Box } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import React from "react";
+import { Link } from "react-router-dom";
 
 function HomePage() {
   return (
@@ -20,6 +21,7 @@ function LeftColumn(props) {
       borderRightStyle="solid"
       borderRightColor="gray.100"
       borderRightWidth="1px"
+      overflowY="auto"
     >
       LEFT COLUMN
     </GridItem>
@@ -28,7 +30,7 @@ function LeftColumn(props) {
 
 function RightColumn(props) {
   return (
-    <GridItem>
+    <GridItem overflowY="auto">
       <SimpleGrid
         // columns={[1, null, null, 2, 3, "auto"]}
         // minChildWidth="10rem"
@@ -51,22 +53,25 @@ function RightColumn(props) {
 
 function DummyItem() {
   return (
-    <Grid
-      templateRows="1fr 5rem"
-      borderRadius="3xl"
-      border="1px"
-      borderColor="gray.100"
-      minHeight="15rem"
-      overflow="hidden"
-      // boxShadow="sm"
-      _hover={{
-        boxShadow: "lg",
-        borderColor: "white",
-        cursor: "pointer",
-      }}
-    >
-      <GridItem p="1rem" bg="gray.50"></GridItem>
-      <GridItem p="1rem">Description</GridItem>
-    </Grid>
+    <Link to="/">
+      <Grid
+        templateRows="1fr 5rem"
+        borderRadius="3xl"
+        border="1px"
+        borderColor="gray.100"
+        minHeight="15rem"
+        overflow="hidden"
+        // boxShadow="sm"
+        _hover={{
+          transition: "box-shadow 200ms",
+          boxShadow: "lg",
+          borderColor: "white",
+          cursor: "pointer",
+        }}
+      >
+        <GridItem p="1rem" bg="gray.50"></GridItem>
+        <GridItem p="1rem">Description</GridItem>
+      </Grid>
+    </Link>
   );
 }

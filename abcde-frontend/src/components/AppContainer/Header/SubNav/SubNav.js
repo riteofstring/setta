@@ -40,7 +40,7 @@ function NavSwitch() {
 function UiEditorSubNav() {
   return (
     <>
-      <HomeButton />
+      {/* <HomeButton /> */}
       <FileMenu />
       <EcoSysButton />
       {/* <UiEditButton /> */}
@@ -54,11 +54,7 @@ function UiEditorSubNav() {
 }
 
 function HomePageSubNav() {
-  return (
-    <>
-      <HomeButton />
-    </>
-  );
+  return <>{/* <HomeButton /> */}</>;
 }
 
 function LoggedOutNav() {

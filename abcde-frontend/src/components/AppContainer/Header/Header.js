@@ -1,9 +1,9 @@
 import { Flex, Heading, Spacer, Link } from "@chakra-ui/react";
 import { Link as RRLink } from "react-router-dom";
 
-import SubNav from "../Main/SubNav/SubNav";
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
+import SubNav from "./SubNav/SubNav";
 
 export default function HeaderContainer() {
   return (
@@ -11,7 +11,7 @@ export default function HeaderContainer() {
       <Link
         variant="ghost"
         as={RRLink}
-        to="/"
+        to="/home"
         _hover={{ textDecoration: "none" }}
       >
         <Heading
