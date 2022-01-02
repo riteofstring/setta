@@ -350,12 +350,19 @@ export function useSetUITypeConfig(uiType) {
   return setUITypeConfig;
 }
 
-export function getNewUIType(paramInfo) {
+export function useGetDefaultUITypeName(paramInfo) {
+  const { uiTypeName, type } = paramInfo;
+  const defaultUITypeName = useStoreState(
+    (x) => x.userSettings.datatypeToUIType[type]
+  );
+  return defaultUITypeName ? defaultUITypeName : getDefaultUIType(uiTypeName);
+}
+
+export function getNewUIType(paramInfo, uiTypeName) {
   const config = Object.assign({}, paramInfo.uiTypeConfig);
-  const name = getDefaultUIType(paramInfo.uiTypeName);
   return new UIType({
     id: createNewId(),
-    name,
+    name: uiTypeName,
     config: config,
   });
 }
@@ -365,10 +372,10 @@ export function useInitializeUIType(sectionId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
+    const uiTypeName = useGetDefaultUITypeName(paramInfo);
     return () => {
-      console.log("useInitializeUIType", sectionId, paramInfo.id, uiTypeId);
       if (!uiTypeId) {
-        const newUIType = getNewUIType(paramInfo);
+        const newUIType = getNewUIType(paramInfo, uiTypeName);
         setUITypeId(newUIType.id);
         setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
       }

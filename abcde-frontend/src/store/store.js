@@ -15,6 +15,7 @@ import master from "models/master";
 import panes from "models/panes";
 import sectionPositions from "models/sectionPositions";
 import uiInfo from "models/uiInfo";
+import userSettings from "models/userSettings";
 import yamlEntry from "models/yamlEntry";
 
 const store = createStore(
@@ -37,6 +38,7 @@ const store = createStore(
       kwargInfos: kwargInfos,
       enteredValues: enteredValues,
       uiTypes: uiTypes,
+      userSettings: userSettings,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;
