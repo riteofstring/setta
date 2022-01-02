@@ -97,12 +97,9 @@ class UICreator:
         else:
             as_dict = info.as_dict()
         if name in self.sections:
-            curr_section = self.sections[name]
-            if info_type not in curr_section:
-                curr_section[info_type] = {}
-            curr_section[info_type] = c_f.merge_dicts(curr_section[info_type], as_dict)
+            self.sections[name] = c_f.merge_dicts(self.sections[name], as_dict)
         else:
-            self.sections[name] = {info_type: as_dict}
+            self.sections[name] = as_dict
 
     def export(self):
         return self.sections
