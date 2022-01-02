@@ -9,6 +9,7 @@ import {
   Heading,
   HStack,
 } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { IoMdCheckmarkCircle } from "react-icons/io";
 
 export default function SectionConfigComp() {

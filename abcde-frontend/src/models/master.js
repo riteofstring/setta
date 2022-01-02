@@ -22,21 +22,21 @@ const master = {
   // Load DATA
   _loadSections: action((state, payload) => {
     console.log("master payload", payload);
-    const available = {
-      objects: payload.OBJECTS,
-      parameters: payload.PARAMETERS,
-    };
-    state.uiSpecs = new Map(Object.entries(payload.UI));
+    // const available = {
+    //   objects: payload.OBJECTS,
+    //   parameters: payload.PARAMETERS,
+    // };
+    // state.uiSpecs = new Map(Object.entries(payload.UI));
     ({
       allModuleInfo: state.allModuleInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
-    } = createAllInfo(available));
+    } = createAllInfo(payload));
 
-    console.log("uiSpecs", debug(state.uiSpecs));
-    console.log("allModuleInfo", debug(state.allModuleInfo));
-    console.log("allObjCollections", debug(state.allObjCollections));
-    console.log("allParamCollections", debug(state.allParamCollections));
+    // console.log("uiSpecs", debug(state.uiSpecs));
+    // console.log("allModuleInfo", debug(state.allModuleInfo));
+    // console.log("allObjCollections", debug(state.allObjCollections));
+    // console.log("allParamCollections", debug(state.allParamCollections));
   }),
 
   setEntireState: thunk((action, payload, helpers) => {
@@ -46,7 +46,7 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     if (true) {
-      action._loadSections(Data.ENTIRE_UI);
+      action._loadSections(Data);
     } else {
       // action._loadSections(payload);
     }

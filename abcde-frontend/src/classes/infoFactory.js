@@ -54,11 +54,12 @@ export function createSectionInfo(
 
 export const createAllInfo = (available) => {
   const allModuleInfo = Object.freeze(new AllModuleInfo(available));
-  const allObjCollections = Object.freeze(
-    new AllObjCollectionInfo(available, allModuleInfo)
-  );
-  const allParamCollections = Object.freeze(
-    new AllParamCollectionInfo(available)
-  );
-  return { allModuleInfo, allObjCollections, allParamCollections };
+  console.log("allModuleInfo", allModuleInfo)
+  // const allObjCollections = Object.freeze(
+  //   new AllObjCollectionInfo(available, allModuleInfo)
+  // );
+  // const allParamCollections = Object.freeze(
+  //   new AllParamCollectionInfo(available)
+  // );
+  // return { allModuleInfo, allObjCollections, allParamCollections };
 };

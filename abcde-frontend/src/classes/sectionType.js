@@ -4,10 +4,6 @@ import { nullOrUndefined } from "../utils/utils";
 import { convertSpecsToDict } from "./immutableInfo";
 import { MutableInfo } from "./mutableInfo";
 
-function getCollectionIds(specs, allCollections) {
-  return specs ? specs.map((x) => allCollections.nameToId[x]) : [];
-}
-
 function initName(name, paramUIType) {
   if (name) {
     return name;
@@ -42,13 +38,10 @@ function initIds(allObjCollections, allParamCollections, specs) {
   let objCollectionIds = [];
   let paramCollectionIds = [];
   if (allObjCollections) {
-    objCollectionIds = getCollectionIds(specs.objects, allObjCollections);
+    objCollectionIds = [...specs.objects]; // copy array
   }
   if (allParamCollections) {
-    paramCollectionIds = getCollectionIds(
-      specs.parameters,
-      allParamCollections
-    );
+    paramCollectionIds = [...specs.parameters];
   }
   return [objCollectionIds, paramCollectionIds];
 }

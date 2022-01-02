@@ -29,12 +29,8 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
 }
 
 function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
-  const availableObjects = useStoreState((x) =>
-    Object.keys(x.master.allObjCollections.nameToId)
-  );
-  const availableParameters = useStoreState((x) =>
-    Object.keys(x.master.allParamCollections.nameToId)
-  );
+  const availableObjects = [];
+  const availableParameters = [];
 
   const pickerObjects = availableObjects.map((x) =>
     valueAndLabel(x, "objects")

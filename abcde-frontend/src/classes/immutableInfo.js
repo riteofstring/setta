@@ -40,14 +40,6 @@ const createJson = (specs, available) => {
   return output;
 };
 
-const createNameToId = (children) => {
-  const output = {};
-  for (let c of Object.keys(children)) {
-    output[children[c].name] = c;
-  }
-  return output;
-};
-
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
     return { objects: specs };
@@ -58,9 +50,9 @@ export const convertSpecsToDict = (specs) => {
 };
 
 export class ParameterInfo {
-  constructor(id, name, jsonInput) {
-    this.id = id;
-    this.name = name;
+  constructor(jsonInput) {
+    this.id = jsonInput.id;
+    this.name = jsonInput.name;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
     this.uiTypeName = jsonInput.uiType;
@@ -69,48 +61,60 @@ export class ParameterInfo {
 }
 
 export class ObjInfo {
-  constructor(id, name, jsonInput) {
-    this.id = id;
-    this.name = name;
-    this.children = getInfos(jsonInput, createInfo(ParameterInfo));
-    this.nameToId = createNameToId(this.children);
+  constructor(jsonInput) {
+    this.id = jsonInput.id;
+    this.name = jsonInput.name;
+    this.children = _.mapValues(jsonInput.children, (x) =>
+      Object.freeze(new ParameterInfo(x))
+    );
   }
 }
 
 export class ModuleInfo {
-  constructor(id, name, jsonInput) {
-    this.id = id;
-    this.name = name;
+  constructor(jsonInput) {
+    this.id = jsonInput.id;
+    this.name = jsonInput.name;
+    this.children = _.mapValues(jsonInput.children, (x) =>
+      Object.freeze(new ObjInfo(x))
+    );
+  }
+}
+
+export class PackageInfo {
+  constructor(jsonInput) {
+    this.id = jsonInput.id;
+    this.name = jsonInput.name;
     this.version = jsonInput.version;
-    this.children = getInfos(jsonInput.objs, createInfo(ObjInfo));
-    this.nameToId = createNameToId(this.children);
+    this.children = _.mapValues(jsonInput.children, (x) =>
+      Object.freeze(new ModuleInfo(x))
+    );
   }
 }
 
 export class AllModuleInfo {
-  constructor(available) {
-    const allObjs = createJson(Object.keys(available.objects), available);
-    this.children = getInfos(allObjs, createInfo(ModuleInfo));
-    this.nameToId = createNameToId(this.children);
+  constructor(jsonInput) {
+    this.children = _.mapValues(jsonInput.children, (x) =>
+      Object.freeze(new PackageInfo(x))
+    );
   }
 }
 
 export class ObjCollectionInfo {
-  constructor(id, name, modulesInCollection, allModuleInfo) {
+  constructor(id, name, modulesInCollection) {
     this.id = id;
     this.name = name;
     this.children = {};
     const { description, contents } = modulesInCollection;
     this.description = description;
+    console.log("contents", contents);
     for (let m of Object.keys(contents)) {
-      const allObjs = allModuleInfo.children[allModuleInfo.nameToId[m]];
+      const allObjs = allModuleInfo.children[m];
       const objsInCollection = contents[m].objs;
       for (let o of Object.keys(objsInCollection)) {
         const objId = allObjs.nameToId[o];
-        this.children[objId] = allObjs.children[objId];
+        this.children[o] = allObjs.children[o];
       }
     }
-    this.nameToId = createNameToId(this.children);
   }
 }
 
@@ -121,7 +125,6 @@ export class AllObjCollectionInfo {
       availableObjs,
       createInfo(ObjCollectionInfo, allModuleInfo)
     );
-    this.nameToId = createNameToId(this.children);
   }
 }
 
@@ -139,6 +142,5 @@ export class AllParamCollectionInfo {
       available.parameters,
       createInfo(ParamCollectionInfo)
     );
-    this.nameToId = createNameToId(this.children);
   }
 }
