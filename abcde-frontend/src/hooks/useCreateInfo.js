@@ -378,7 +378,7 @@ export function useAddKwarg(sectionId, objInfo) {
   const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   return () => {
-    const kwargInfo = new KwargInfo(createNewId(), "", {});
+    const kwargInfo = new KwargInfo({ id: createNewId(), name: "" }, null);
     setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
     setKwargIds({
       collectionId: kwargCollectionId,

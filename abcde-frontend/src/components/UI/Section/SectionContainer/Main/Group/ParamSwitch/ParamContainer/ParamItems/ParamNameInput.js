@@ -2,7 +2,7 @@ import { Input } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
 
 export default function ParamNameInput({ value, onBlur }) {
-  const [liveValue, setLiveValue] = useState(value ? value : "");
+  const [liveValue, setLiveValue] = useState(value);
 
   useEffect(() => {
     setLiveValue(value ? value : "");
