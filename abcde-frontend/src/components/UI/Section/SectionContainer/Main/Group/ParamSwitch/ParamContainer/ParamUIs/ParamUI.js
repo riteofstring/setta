@@ -1,5 +1,10 @@
-import { DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH } from "utils/constants";
-
+import {
+  DICT_ROOT,
+  LIST_ROOT,
+  SECTION,
+  SLIDER,
+  SWITCH,
+} from "../../../../../../../../../utils/constants";
 import { NestedObjectInputConfig } from "./NestedObjectInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import SwitchInput, { SwitchInputConfig } from "./SwitchInput";

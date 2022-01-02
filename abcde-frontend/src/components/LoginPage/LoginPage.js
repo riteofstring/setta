@@ -9,14 +9,13 @@ import {
   Input,
   InputRightElement,
   Grid,
-  GridItem,
 } from "@chakra-ui/react";
-import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { login } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";
 import { useFormik } from "formik";
 import React, { useState } from "react";
 import { useHistory } from "react-router-dom";
+
+import { login } from "../../dbRequests/authentication.js";
 
 const LoginPage = () => {
   let history = useHistory();
@@ -51,7 +50,14 @@ const LoginPage = () => {
     });
 
   return (
-    <GridWrapper flexFormWrap={true}>
+    <Flex
+      flexDirection="column"
+      width="800px"
+      minHeight="200px"
+      mt="200px"
+      justifyContent="center"
+      alignItems="center"
+    >
       <Text fontSize="4xl" mb="1rem">
         Login
       </Text>
@@ -132,7 +138,7 @@ const LoginPage = () => {
           </Grid>
         </FormControl>
       </form>
-    </GridWrapper>
+    </Flex>
   );
 };
 

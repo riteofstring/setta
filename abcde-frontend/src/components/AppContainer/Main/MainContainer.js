@@ -1,21 +1,41 @@
-import { Box } from "@chakra-ui/react";
+import { Grid, GridItem, Box } from "@chakra-ui/react";
 import { useState } from "react";
-import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
-import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
 
 import UIPage from "../../UI/UiPage";
-import GridWrapper from "../GridWrapper/GridWrapper";
-import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
-import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
+import CustomGrid from "./CustomMapInteraction/CustomGrid";
+import CustomMapInteractionCSS from "./CustomMapInteraction/CustomMapInteractionCSS";
+import Overview from "./SidePanes/Overview/Overview";
+import UiEditor from "./SidePanes/UiEditor/UiEditor";
+import SubNav from "./SubNav/SubNav";
 
 export default function MainContainer() {
   const [contentSize, setContentSize] = useState({});
 
   return (
-    <>
+    <Grid
+      h="100%"
+      w="100vw"
+      border="1px"
+      overflow="hidden"
+      templateRows="min-content 1fr"
+      templateColumns="1fr"
+      borderColor="gray.200"
+    >
+      <SubNav />
+
       <Overview />
+
       <UiEditor />
-      <GridWrapper>
+
+      <GridItem
+        colStart="1"
+        colEnd="2"
+        rowStart="2"
+        rowEnd="3"
+        minH="0"
+        minW="0"
+        h="100%"
+      >
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
           <CustomMapInteractionCSS
             // showControls={true}
@@ -43,7 +63,7 @@ export default function MainContainer() {
             </Box>
           </CustomMapInteractionCSS>
         </Box>
-      </GridWrapper>
-    </>
+      </GridItem>
+    </Grid>
   );
 }

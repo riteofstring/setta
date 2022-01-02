@@ -1,19 +1,22 @@
-import { createAllInfo } from "classes/infoFactory";
-import Data from "data/simpleTrainTest.json";
 import { action, thunk, debug, computed } from "easy-peasy";
-import { parseUI } from "graphql/parsers/uiParsers";
-import { createSectionInfoFn } from "hooks/useCreateInfo";
 import _ from "lodash";
+
+import { createAllInfo } from "../classes/infoFactory";
+import Data from "../data/simpleTrainTest.json";
+import { parseUI } from "../graphql/parsers/uiParsers";
+import { createSectionInfoFn } from "../hooks/useCreateInfo";
+import { createNewId } from "../utils/sectionIds";
 
 const master = {
   sectionsPerGroup: 5,
-  spaceBetweenPages: 100,
+  spaceBetweenPages: 500,
   rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),
   allModuleInfo: null,
   allObjCollections: null,
   allParamCollections: null,
+  activeSection: null,
 
   // actions
   // Load DATA
@@ -55,6 +58,8 @@ const master = {
     const state = helpers.getState();
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setChildrenInfo =
+      helpers.getStoreActions().sectionInfos.setChildrenInfo;
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
@@ -74,6 +79,13 @@ const master = {
       });
       newIds.push(newId[0]);
     }
+
+    //the root "UI"
+    setChildrenInfo({
+      childrenInfoId: createNewId(),
+      newStateFn: () => newIds,
+    });
+
     return newIds;
   }),
 
@@ -82,12 +94,19 @@ const master = {
     state.rootSectionIds = newIds;
   }),
 
-  groups: computed((state) => {
-    return _.chunk(state.rootSectionIds, state.sectionsPerGroup);
-  }),
+  groups: computed(
+    [(state) => state.rootSectionIds, (state) => state.sectionsPerGroup],
+    (rootSectionIds, sectionsPerGroup) => {
+      return _.chunk(rootSectionIds, sectionsPerGroup);
+    }
+  ),
 
   setSectionsPerGroup: action((state, payload) => {
     state.sectionsPerGroup = payload;
+  }),
+
+  setActiveSection: action((state, payload) => {
+    state.activeSection = payload;
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

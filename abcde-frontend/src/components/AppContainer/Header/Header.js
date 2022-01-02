@@ -1,30 +1,24 @@
-import { Flex, Heading, Spacer, Link } from "@chakra-ui/react";
-import { Link as RRLink } from "react-router-dom";
+import { Flex, Heading, Box, Spacer } from "@chakra-ui/react";
 
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
-import SubNav from "./SubNav/SubNav";
+import TabNav from "./Tabs/TabNav";
 
 export default function HeaderContainer() {
   return (
-    <Flex width="calc(100vw - 5rem)" height="4rem" align="center">
-      <Link
-        variant="ghost"
-        as={RRLink}
-        to="/home"
-        _hover={{ textDecoration: "none" }}
+    <Flex width="calc(90vw)" height="2.5rem" mt="1rem" align="center">
+      <Heading
+        fontSize="md"
+        fontWeight="normal"
+        letterSpacing="widest"
+        color="gray.900"
+        mr="1rem"
       >
-        <Heading
-          fontSize="sm"
-          fontWeight="100"
-          letterSpacing="10px"
-          color="gray.900"
-          mr="1rem"
-        >
-          ABCDE
-        </Heading>
-      </Link>
-      <SubNav />
+        ABCDE
+      </Heading>
+      <Box height="100%" width="100%">
+        <TabNav />
+      </Box>
       <Spacer />
       <ColorModeToggle />
       <MainSideDrawer />

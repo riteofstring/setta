@@ -1,5 +1,6 @@
 import axios from "axios";
-import { BACKEND, NO_AUTH } from "utils/constants";
+
+import { BACKEND, NO_AUTH } from "../utils/constants";
 
 export const verifyToken = ({
   authToken,

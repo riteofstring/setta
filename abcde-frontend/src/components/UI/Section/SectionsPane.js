@@ -1,9 +1,9 @@
 import { Stack } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
-import { PANEID } from "utils/constants";
 
+import { useSetSectionPosition } from "../../../hooks/useSetSectionPosition";
+import { PANEID } from "../../../utils/constants";
 import SingleSectionsPane from "./SingleSectionsPane";
 
 function SectionsPane() {
