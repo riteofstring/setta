@@ -54,8 +54,6 @@ function UIElement({ paramInfo, getUITypeFn }) {
   const setUITypeConfig = useSetUITypeConfig(uiType);
   const paramName = paramInfo.name;
 
-  console.log("Item", uiTypeConfig, uiType.name);
-
   const setName = useStoreActions((x) => x.uiTypes.setName);
 
   const onSelect = (e) => {
