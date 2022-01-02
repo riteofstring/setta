@@ -1,47 +1,16 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Text, HStack } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { useEffect } from "react";
-import { PANEID } from "utils/constants";
+import {
+  useRequestSectionPositionUpdate,
+  useSetGoToCoordinates,
+} from "hooks/useGetSectionPosition";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const setGoToCoordinates = useStoreActions(
-    (actions) => actions.mapInteraction.setGoToCoordinates
-  );
-  const getCurrPositionOfSection = useStoreActions(
-    (actions) => actions.sectionPositions.getCurrPositionOfSection
-  );
-
-  const setPositionUpdateRequested = useStoreActions(
-    (action) => action.sectionPositions.setPositionUpdateRequested
-  );
-
-  const sectionPositionUpdated = useStoreState(
-    (actions) => actions.sectionPositions.positionUpdated[sectionId]
-  );
-
-  const panePositionUpdated = useStoreState(
-    (actions) => actions.sectionPositions.positionUpdated[PANEID]
-  );
-
-  const setPositionUpdated = useStoreActions(
-    (actions) => actions.sectionPositions.setPositionUpdated
-  );
-
-  useEffect(() => {
-    if (sectionPositionUpdated && panePositionUpdated) {
-      const { y, x } = getCurrPositionOfSection(sectionId);
-      setGoToCoordinates({ y: -y, x: -x });
-    }
-    setPositionUpdated({ sectionId, positionUpdated: false });
-  }, [sectionPositionUpdated]);
+  const requestPositionUpdate = useRequestSectionPositionUpdate(sectionId);
+  useSetGoToCoordinates(sectionId);
 
   const onClick = () => {
-    setPositionUpdateRequested({ sectionId, positionUpdateRequested: true });
-    setPositionUpdateRequested({
-      sectionId: PANEID,
-      positionUpdateRequested: true,
-    });
+    requestPositionUpdate();
   };
 
   return (
