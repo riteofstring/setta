@@ -120,18 +120,16 @@ export class AllObjCollectionInfo {
 }
 
 export class ParamCollectionInfo extends ObjInfo {
-  constructor(id, name, jsonInput) {
-    const { description, contents } = jsonInput;
-    super(id, name, contents);
-    this.description = description;
+  constructor(jsonInput) {
+    super(jsonInput);
+    this.description = jsonInput.description;
   }
 }
 
 export class AllParamCollectionInfo {
-  constructor(available) {
-    this.children = getInfos(
-      available.parameters,
-      createInfo(ParamCollectionInfo)
+  constructor(jsonInput) {
+    this.children = _.mapValues(jsonInput.children, (x) =>
+      Object.freeze(new ParamCollectionInfo(x))
     );
   }
 }

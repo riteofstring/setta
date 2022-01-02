@@ -2,7 +2,11 @@ import _ from "lodash";
 
 import { isRoot } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
-import { AllObjCollectionInfo, AllPackageInfo } from "./immutableInfo";
+import {
+  AllObjCollectionInfo,
+  AllPackageInfo,
+  AllParamCollectionInfo,
+} from "./immutableInfo";
 import { SectionInfo } from "./mutableInfo";
 import { SectionType } from "./sectionType";
 
@@ -61,8 +65,8 @@ export const createAllInfo = (available) => {
   const allObjCollections = Object.freeze(
     new AllObjCollectionInfo(available.objCollections, allObjs)
   );
-  // const allParamCollections = Object.freeze(
-  //   new AllParamCollectionInfo(available)
-  // );
-  // return { allModuleInfo, allObjCollections, allParamCollections };
+  const allParamCollections = Object.freeze(
+    new AllParamCollectionInfo(available.paramCollections)
+  );
+  return { allModuleInfo, allObjCollections, allParamCollections };
 };
