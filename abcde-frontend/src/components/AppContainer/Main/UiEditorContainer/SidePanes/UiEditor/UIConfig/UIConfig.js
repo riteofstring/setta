@@ -32,23 +32,28 @@ export default function UIConfigFunc() {
 
 function UIElement({ uiName = "UI Element" }) {
   return (
-    <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
+    <ReduceMotionAccordian
+      defaultIndex={[0]}
+      allowMultiple
+      borderTopColor="white"
+      borderBottomColor="gray.100"
+    >
       <AccordionItem>
-        <Heading as="h2" size="md">
-          <AccordionButton>
-            <Box flex="1" textAlign="left">
+        <AccordionButton>
+          <Box flex="1" textAlign="left">
+            <Heading as="h3" size="sm" color="gray.500">
               {uiName}
-            </Box>
-            <AccordionIcon />
-          </AccordionButton>
-        </Heading>
+            </Heading>
+          </Box>
+          <AccordionIcon />
+        </AccordionButton>
+
         <AccordionPanel pb={4}>
-          <Input placeholder="UI Preset Search" />
-          <Input placeholder="UI Type Search" />
-          <HStack>
-            <Input variant="flushed" placeholder="Min" />
-            <Input variant="flushed" placeholder="Max" />
-            <Input variant="flushed" placeholder="Step" />
+          <Input placeholder="UI Preset Search" bg="white" />
+          <HStack pt=".5rem">
+            <Input variant="flushed" placeholder="Min" size="sm" />
+            <Input variant="flushed" placeholder="Max" size="sm" />
+            <Input variant="flushed" placeholder="Step" size="sm" />
           </HStack>
           <SaveLoadButtons />
         </AccordionPanel>
@@ -59,11 +64,17 @@ function UIElement({ uiName = "UI Element" }) {
 
 function SaveLoadButtons() {
   return (
-    <Stack spacing={3} direction="row" pt="1.125rem">
+    <Stack spacing={3} direction="row" pt="1.125rem" pb="2rem">
       <Spacer />
-      <Button variant="outline">Apply To...</Button>
-      <Button variant="outline">Load</Button>
-      <Button variant="solid">Save</Button>
+      <Button variant="outline" size="sm">
+        Apply To...
+      </Button>
+      <Button variant="outline" size="sm">
+        Load
+      </Button>
+      <Button variant="solid" size="sm">
+        Save
+      </Button>
     </Stack>
   );
 }
