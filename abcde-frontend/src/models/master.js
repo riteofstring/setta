@@ -2,7 +2,7 @@ import { createAllInfo } from "classes/infoFactory";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
 import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
-import { action, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
 import _ from "lodash";
@@ -12,7 +12,7 @@ const master = {
   spaceBetweenPages: 100,
   available: {},
   uiSpecs: new Map(),
-  allModuleInfo: null,
+  allPackageInfo: null,
   allObjCollections: null,
   allParamCollections: null,
   activeSection: null,
@@ -30,15 +30,15 @@ const master = {
     // };
     // state.uiSpecs = new Map(Object.entries(payload.UI));
     ({
-      allModuleInfo: state.allModuleInfo,
+      allPackageInfo: state.allPackageInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));
 
     // console.log("uiSpecs", debug(state.uiSpecs));
-    // console.log("allModuleInfo", debug(state.allModuleInfo));
-    // console.log("allObjCollections", debug(state.allObjCollections));
-    // console.log("allParamCollections", debug(state.allParamCollections));
+    console.log("allPackageInfo", debug(state.allPackageInfo));
+    console.log("allObjCollections", debug(state.allObjCollections));
+    console.log("allParamCollections", debug(state.allParamCollections));
   }),
 
   setEntireState: thunk((action, payload, helpers) => {

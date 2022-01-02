@@ -68,5 +68,5 @@ export const createAllInfo = (available) => {
   const allParamCollections = Object.freeze(
     new AllParamCollectionInfo(available.paramCollections)
   );
-  return { allModuleInfo, allObjCollections, allParamCollections };
+  return { allPackageInfo, allObjCollections, allParamCollections };
 };

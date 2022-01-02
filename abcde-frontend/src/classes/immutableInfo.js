@@ -4,44 +4,6 @@ import { nullOrUndefined } from "../utils/utils";
 
 const { createNewId } = require("../utils/sectionIds");
 
-export function jsonCombiner(available, listOfSelection) {
-  if (listOfSelection) {
-    const listToAssign = listOfSelection.map((x) => available[x].contents);
-    return _.merge({}, ...listToAssign);
-  }
-  return {};
-}
-
-export function createInfo(infoType, ...otherArgs) {
-  return (name, jsonInput) => {
-    const id = createNewId();
-    return {
-      id,
-      info: Object.freeze(new infoType(id, name, jsonInput, ...otherArgs)),
-    };
-  };
-}
-
-export const getInfos = (jsonInput, factory_fn) => {
-  const output = {};
-  for (let key of Object.keys(jsonInput)) {
-    const { id, info } = factory_fn(key, jsonInput[key]);
-    output[id] = info;
-  }
-  return output;
-};
-
-const createJson = (specs, available) => {
-  const sp = convertSpecsToDict(specs);
-  let output = {};
-  for (let x of ["objects", "parameters"]) {
-    if (x in sp) {
-      output = { ...output, ...jsonCombiner(available[x], sp[x]) };
-    }
-  }
-  return output;
-};
-
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
     return { objects: specs };
