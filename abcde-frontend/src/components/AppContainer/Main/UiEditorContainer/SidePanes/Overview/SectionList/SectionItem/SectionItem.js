@@ -4,13 +4,14 @@ import {
   useRequestSectionPositionUpdate,
   useSetGoToCoordinates,
 } from "hooks/useGetSectionPosition";
+import { OVERVIEW } from "utils/constants";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
   const requestPositionUpdate = useRequestSectionPositionUpdate(
     sectionId,
-    "overview"
+    OVERVIEW
   );
-  useSetGoToCoordinates(sectionId, "overview");
+  useSetGoToCoordinates(sectionId, OVERVIEW);
 
   const onClick = () => {
     requestPositionUpdate();

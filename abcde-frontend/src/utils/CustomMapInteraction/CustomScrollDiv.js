@@ -1,6 +1,7 @@
 import { useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { OVERVIEW, UI_EDITOR } from "utils/constants";
 
 import "./onHoverStyle.css";
 
@@ -179,10 +180,10 @@ function CustomScrollDivMotionWrapper({ isVertical, children }) {
 }
 
 function VerticalScrollDiv({ children }) {
-  const vis = useStoreState((state) => state.panes.vis["uiEditor"]);
-  const trueWidth = useStoreState((state) => state.panes.trueWidth["uiEditor"]);
+  const vis = useStoreState((state) => state.panes.vis[UI_EDITOR]);
+  const trueWidth = useStoreState((state) => state.panes.trueWidth[UI_EDITOR]);
   const draggingPane = useStoreState(
-    (state) => state.panes.isDragging["uiEditor"]
+    (state) => state.panes.isDragging[UI_EDITOR]
   );
 
   const variants = {
@@ -207,10 +208,10 @@ function VerticalScrollDiv({ children }) {
 
 function HorizontalScrollDiv({ children }) {
   const overviewTrueWidth = useStoreState(
-    (state) => state.panes.trueWidth["overview"]
+    (state) => state.panes.trueWidth[OVERVIEW]
   );
   const uiEditorTrueWidth = useStoreState(
-    (state) => state.panes.trueWidth["uiEditor"]
+    (state) => state.panes.trueWidth[UI_EDITOR]
   );
   const anyPanesDragging = useStoreState((state) =>
     Object.values(state.panes.isDragging).includes(true)

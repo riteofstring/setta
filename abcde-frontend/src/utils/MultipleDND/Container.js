@@ -8,6 +8,7 @@ import React, { forwardRef, useEffect, useState } from "react";
 import { Menu, Item, useContextMenu } from "react-contexify";
 import "react-contexify/dist/ReactContexify.css";
 import { createPortal } from "react-dom";
+import { CONTEXT_MENU } from "utils/constants";
 import { findSortedIndex, insertIntoArrayOrXpend } from "utils/utils";
 
 import { DragHandle } from "../DragHandle/DragHandle";
@@ -90,9 +91,9 @@ function SectionGroupMenu({ groupId }) {
   );
   const requestPositionUpdate = useRequestGroupPositionUpdate(
     groupId,
-    "contextMenu"
+    CONTEXT_MENU
   );
-  const coords = useGetGroupPosition(groupId, "contextMenu", true);
+  const coords = useGetGroupPosition(groupId, CONTEXT_MENU, true);
   const [clickCoords, setClickCoords] = useState({});
 
   useEffect(() => {

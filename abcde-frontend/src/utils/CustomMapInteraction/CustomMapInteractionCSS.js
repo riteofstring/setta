@@ -4,6 +4,7 @@ import { motion, animate, useMotionValue } from "framer-motion";
 import useKeyPress from "hooks/useKeyPress";
 import { useState, useEffect } from "react";
 import { MapInteractionCSS } from "react-map-interaction";
+import { OVERVIEW } from "utils/constants";
 
 import CustomScrollDiv from "./CustomScrollDiv";
 
@@ -17,7 +18,7 @@ export default function CustomMapInteractionCSS(props) {
   );
 
   const overviewCssWidth = useStoreState(
-    (state) => state.panes.trueWidth["overview"]
+    (state) => state.panes.trueWidth[OVERVIEW]
   );
   const panZoomState = useKeyPress("Control");
   const { height: contentHeight, width: contentWidth } = props.contentSize;

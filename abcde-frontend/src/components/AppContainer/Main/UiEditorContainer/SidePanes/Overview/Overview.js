@@ -4,6 +4,7 @@ import { useStoreState } from "easy-peasy";
 import { useSectionGroups } from "hooks/useCreateInfo";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { OVERVIEW } from "utils/constants";
 import { getOverviewListing } from "utils/sectionIds";
 
 import SectionList from "./SectionList/SectionList";
@@ -11,7 +12,7 @@ import SectionsPerGroup from "./SectionsPerGroup/SectionsPerGroup";
 
 const paneProps = {
   right: false,
-  paneName: "overview",
+  paneName: OVERVIEW,
 };
 
 export default function Overview() {

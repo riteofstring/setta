@@ -4,6 +4,7 @@ import { useStoreActions } from "easy-peasy";
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import Measure from "react-measure";
+import { UI_EDITOR } from "utils/constants";
 import { rangeArray, mod } from "utils/utils";
 
 import SectionConfig from "./SectionConfig";
@@ -13,7 +14,7 @@ import UiEditorPages from "./UiEditorPages";
 
 const paneProps = {
   right: true,
-  paneName: "uiEditor",
+  paneName: UI_EDITOR,
 };
 
 export default function UiEditor() {
