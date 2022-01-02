@@ -1,6 +1,5 @@
 import {
   Heading,
-  Input,
   VStack,
   Button,
   Stack,

@@ -1,6 +1,14 @@
-import { jsonCombiner, nullOrUndefined } from "../utils/utils";
+import { nullOrUndefined } from "../utils/utils";
 
 const { createNewId } = require("../utils/sectionIds");
+
+export function jsonCombiner(available, listOfSelection) {
+  if (listOfSelection) {
+    const listToAssign = listOfSelection.map((x) => available[x].contents);
+    return _.merge({}, ...listToAssign);
+  }
+  return {};
+}
 
 export function createInfo(infoType, ...otherArgs) {
   return (name, jsonInput) => {
@@ -92,9 +100,11 @@ export class ObjCollectionInfo {
     this.id = id;
     this.name = name;
     this.children = {};
-    for (let m of Object.keys(modulesInCollection)) {
+    const { description, contents } = modulesInCollection;
+    this.description = description;
+    for (let m of Object.keys(contents)) {
       const allObjs = allModuleInfo.children[allModuleInfo.nameToId[m]];
-      const objsInCollection = modulesInCollection[m].objs;
+      const objsInCollection = contents[m].objs;
       for (let o of Object.keys(objsInCollection)) {
         const objId = allObjs.nameToId[o];
         this.children[objId] = allObjs.children[objId];
@@ -115,7 +125,13 @@ export class AllObjCollectionInfo {
   }
 }
 
-export class ParamCollectionInfo extends ObjInfo {}
+export class ParamCollectionInfo extends ObjInfo {
+  constructor(id, name, jsonInput) {
+    const { description, contents } = jsonInput;
+    super(id, name, contents);
+    this.description = description;
+  }
+}
 
 export class AllParamCollectionInfo {
   constructor(available) {

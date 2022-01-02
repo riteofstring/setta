@@ -1,5 +1,4 @@
 import { arrayMove } from "@dnd-kit/sortable";
-import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
 
 export function clamp(number, min, max) {
@@ -64,14 +63,6 @@ export function flattenDictOfArrays(x) {
     [],
     Object.keys(x).map((e) => x[e])
   );
-}
-
-export function jsonCombiner(available, listOfSelection) {
-  if (listOfSelection) {
-    const listToAssign = listOfSelection.map((x) => available[x]);
-    return _.merge({}, ...listToAssign);
-  }
-  return {};
 }
 
 export function firstValue(x) {
