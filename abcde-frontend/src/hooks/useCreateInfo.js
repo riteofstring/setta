@@ -334,8 +334,8 @@ export function useGetParamUIType(sectionId) {
 
 export function useSetUITypeConfig(uiType) {
   const x = useStoreActions((x) => x.uiTypes.setOneConfig);
-  const setUITypeConfig = ({ configName, value }) => {
-    x({ uiTypeId: uiType.id, configName, value });
+  const setUITypeConfig = ({ configName, newValueFn }) => {
+    x({ uiTypeId: uiType.id, configName, newValueFn });
   };
   return setUITypeConfig;
 }

@@ -23,8 +23,9 @@ const uiTypes = {
   }),
 
   setOneConfig: action((state, payload) => {
-    const { uiTypeId, configName, value } = payload;
-    state.x[uiTypeId].config[configName] = value;
+    const { uiTypeId, configName, newValueFn } = payload;
+    const curr = state.x[uiTypeId].config;
+    curr[configName] = newValueFn(curr[configName]);
   }),
 
   export() {

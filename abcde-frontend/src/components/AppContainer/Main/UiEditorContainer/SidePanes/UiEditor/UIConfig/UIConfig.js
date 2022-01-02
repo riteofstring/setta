@@ -62,9 +62,8 @@ function UIElement({ paramInfo, getUITypeFn }) {
     setName({ uiTypeId: uiType.id, name: prettyToUITypes.get(e.target.value) });
   };
 
-  const onChange = (configName, value) => {
-    console.log("onChange", configName, value);
-    setUITypeConfig({ configName, value });
+  const onChange = (configName, newValueFn) => {
+    setUITypeConfig({ configName, newValueFn });
   };
 
   return (
