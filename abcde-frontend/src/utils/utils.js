@@ -1,3 +1,4 @@
+import { arrayMove } from "@dnd-kit/sortable";
 import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
 
@@ -110,4 +111,12 @@ export function curryAction(action, args, key = null) {
 
 export function defaultState(state, valueFn) {
   return state === undefined ? valueFn() : state;
+}
+
+export function updateWithArrayMove(active, over) {
+  return (x) => {
+    const activeIndex = x.indexOf(active.id);
+    const overIndex = x.indexOf(over.id);
+    return arrayMove(x, activeIndex, overIndex);
+  };
 }
