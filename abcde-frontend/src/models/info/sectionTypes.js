@@ -1,7 +1,6 @@
+import { SectionType } from "classes/sectionType";
 import { action, thunk } from "easy-peasy";
-
-import { SectionType } from "../../classes/sectionType";
-import { nullOrUndefined } from "../../utils/utils";
+import { nullOrUndefined } from "utils/utils";
 import { exportState } from "./utils";
 
 const sectionTypes = {

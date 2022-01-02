@@ -1,4 +1,4 @@
-import { exportInfo } from "../../classes/mutableInfo";
+import { exportInfo } from "classes/mutableInfo";
 
 export function setToDefault(state, firstId, secondId, newValueFn, attr = "x") {
   if (!(firstId in state[attr])) {

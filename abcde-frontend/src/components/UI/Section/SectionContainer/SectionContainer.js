@@ -7,16 +7,17 @@ import {
   useGetSectionType,
   useAddChild,
   useDeleteChild,
-} from "../../../../hooks/useCreateInfo";
-import { useIdsOverview } from "../../../../hooks/useIdsOverview";
-import { useSetSectionPosition } from "../../../../hooks/useSetSectionPosition";
-import { DragHandle } from "../../../../utils/DragHandle/DragHandle";
+} from "hooks/useCreateInfo";
+import { DragHandle } from "utils/DragHandle/DragHandle";
+import { useIdsOverview } from "hooks/useIdsOverview";
+import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import {
   isListLike,
   isRoot,
   requiresKeyInput,
   SECTIONWIDTH,
-} from "../../../../utils/constants";
+} from "utils/constants";
+
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";

@@ -2,12 +2,9 @@ import { CUIAutoComplete } from "chakra-ui-autocomplete";
 import { useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 
-import {
-  useAddChild,
-  useReinitSectionType,
-} from "../../../../../../../../../hooks/useCreateInfo";
-import { includesArray } from "../../../../../../../../../utils/commonFunctions";
-import { flattenDictOfArrays } from "../../../../../../../../../utils/utils";
+import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
+import { includesArray } from "utils/commonFunctions";
+import { flattenDictOfArrays } from "utils/utils";
 
 function valueAndLabel(x, type) {
   return { value: [x, type], label: x };

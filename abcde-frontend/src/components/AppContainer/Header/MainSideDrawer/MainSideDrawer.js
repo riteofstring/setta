@@ -2,8 +2,8 @@ import { HamburgerIcon } from "@chakra-ui/icons";
 import { VStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useHistory } from "react-router-dom";
-
-import DrawerContainer from "../../../../utils/DrawerContainer/DrawerContainer";
+import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
+import { NO_AUTH } from "utils/constants";
 
 export default function HeaderContainer() {
   return (

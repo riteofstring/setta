@@ -1,20 +1,21 @@
+import { useStoreState } from "easy-peasy";
 import React from "react";
 import { Route, Switch, Redirect } from "react-router-dom";
 
+import HomePage from "../../HomePage";
 import LoginPage from "../../LoginPage/LoginPage";
 // import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
-import HeaderContainer from "../Header/Header";
 import MainContainer from "../Main/MainContainer";
 
-const SwitchContainer = ({ isAuthenticated }) => {
+const SwitchContainer = () => {
+  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
   const getRoute = () => {
     if (isAuthenticated) {
       return (
         <Switch>
           <PrivateRoute exact path="/" isAuthenticated={isAuthenticated}>
-            <HeaderContainer />
             <MainContainer />
           </PrivateRoute>
           {/* <PrivateRoute exact path="/terminal">
@@ -22,6 +23,9 @@ const SwitchContainer = ({ isAuthenticated }) => {
           </PrivateRoute> */}
           <PrivateRoute exact path="/logout" isAuthenticated={isAuthenticated}>
             <LogoutPage />
+          </PrivateRoute>
+          <PrivateRoute exact path="/home" isAuthenticated={isAuthenticated}>
+            <HomePage />
           </PrivateRoute>
         </Switch>
       );

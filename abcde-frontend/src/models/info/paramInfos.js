@@ -1,10 +1,6 @@
+import { MutableParamInfo, MutableParamUITypeInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
 import _ from "lodash";
-
-import {
-  MutableParamInfo,
-  MutableParamUITypeInfo,
-} from "../../classes/mutableInfo";
 import { setToDefault } from "./utils";
 
 function setMutableParamInfo(state, collectionId, paramInfoId) {

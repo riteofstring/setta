@@ -6,7 +6,6 @@ import {
   Stack,
   FormControl,
 } from "@chakra-ui/react";
-
 import {
   useGetObjParamKwargInfos,
   useParamChildId,
@@ -16,7 +15,7 @@ import {
   useInitializeUIType,
   useAddKwarg,
   useDeleteKwarg,
-} from "../../../../../../hooks/useCreateInfo";
+} from "hooks/useCreateInfo";
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
 export default function GroupContainer({ sectionId, objInfoId }) {

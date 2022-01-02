@@ -1,6 +1,5 @@
 import { action, computed } from "easy-peasy";
 import _ from "lodash";
-
 import { exportState } from "./utils";
 
 function setDefaultChildrenInfo(state, childrenInfoId) {

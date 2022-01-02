@@ -1,11 +1,11 @@
-import { action, thunk } from "easy-peasy";
-
 import {
   loadFolderAndUINames as loadFolderAndUINamesBackend,
   loadUI as loadUIBackend,
   saveUI as saveUIBackend,
-} from "../dbRequests/ui";
-import { allDefined } from "../utils/utils";
+} from "dbRequests/ui";
+import { action, thunk } from "easy-peasy";
+import { allDefined } from "utils/utils";
+
 import { exportAllStates } from "./info/utils";
 
 const uiInfo = {

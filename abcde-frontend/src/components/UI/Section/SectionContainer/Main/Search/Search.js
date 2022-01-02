@@ -1,10 +1,10 @@
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
+import { useGetObjInfos } from "hooks/useCreateInfo";
 import _ from "lodash";
 import React, { useState } from "react";
 
-import { useGetObjInfos } from "../../../../../../hooks/useCreateInfo";
 import {
   ComboboxInput,
   ComboboxList,
