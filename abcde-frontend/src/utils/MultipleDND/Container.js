@@ -3,6 +3,7 @@ import { useStoreActions } from "easy-peasy";
 import React, { forwardRef } from "react";
 import { Menu, Item, useContextMenu } from "react-contexify";
 import "react-contexify/dist/ReactContexify.css";
+import { createPortal } from "react-dom";
 
 import { DragHandle } from "../DragHandle/DragHandle";
 import styles from "./Container.module.css";
@@ -68,7 +69,7 @@ export const Container = forwardRef(
           ) : null}
           {placeholder ? children : <ul>{children}</ul>}
         </Component>
-        <SectionGroupMenu groupId={id} />
+        {createPortal(<SectionGroupMenu groupId={id} />, document.body)}
       </>
     );
   }
@@ -83,8 +84,7 @@ function SectionGroupMenu({ groupId }) {
     (x) => x.master.setGroupsHaveUpdated
   );
 
-  function newSectionClick({ triggerEvent }) {
-    const { clientX, clientY } = triggerEvent;
+  function newSectionClick() {
     const newIds = addSection({});
     setOneGroupChildren({
       groupId,
