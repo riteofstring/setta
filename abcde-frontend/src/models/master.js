@@ -7,7 +7,6 @@ import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 
 const master = {
-  sectionsPerGroup: 5,
   spaceBetweenPages: 100,
   available: {},
   uiSpecs: new Map(),
@@ -67,7 +66,10 @@ const master = {
   }),
 
   initGroups: thunk((action, payload, helpers) => {
-    const grouped = _.chunk(payload, helpers.getState().sectionsPerGroup);
+    const grouped = _.chunk(
+      payload,
+      helpers.getStoreState().userSettings.sectionsPerGroup
+    );
     const groupIds = [];
     const groups = {};
     for (let g of grouped) {
@@ -78,10 +80,6 @@ const master = {
     action.setGroupIds((x) => groupIds);
     action.setGroupChildren((x) => groups);
     action.setGroupsHaveUpdated(true);
-  }),
-
-  setSectionsPerGroup: action((state, payload) => {
-    state.sectionsPerGroup = payload;
   }),
 
   setActiveSection: action((state, payload) => {
