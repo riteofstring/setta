@@ -4,6 +4,7 @@ import {
   List,
   ListItem,
   ListIcon,
+  Checkbox,
   Box,
   Text,
   Heading,
@@ -14,10 +15,12 @@ import {
 import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useCreateInfo";
 import _ from "lodash";
+import { useState } from "react";
 import { IoMdCheckmarkCircle } from "react-icons/io";
 
-export default function SectionConfigComp() {
+export default function SectionConfigComp({ onChange }) {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+  // const [selected, setSelected] = useState({ objects: [], parameters: [] });
 
   return (
     <>
@@ -27,10 +30,13 @@ export default function SectionConfigComp() {
           <List spacing={3}>
             {_.values(allObjCollections?.children).map((x) => (
               <SearchItem
-                key={`SearchItem-${x.id}`}
+                id={x.id}
                 name={x.name}
                 description={x.description}
                 details={x.children}
+                onChange={onChange}
+                type="objects"
+                key={`SearchItem-${x.id}`}
               />
             ))}
           </List>
@@ -40,8 +46,14 @@ export default function SectionConfigComp() {
   );
 }
 
-function SearchItem({ name, description, details }) {
+function SearchItem({ id, name, description, details, onChange, type }) {
   const { isOpen, onToggle } = useDisclosure();
+
+  function onCheckboxChange(e) {
+    onChange(type, (x) =>
+      e.target.checked ? [...x, id] : x.filter((y) => y !== id)
+    );
+  }
 
   return (
     <ListItem
@@ -57,11 +69,11 @@ function SearchItem({ name, description, details }) {
       }}
       border="1px"
       borderColor="rgba(0, 0, 0, 0)"
-      onClick={onToggle}
     >
       <HStack align="stretch">
-        <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" />
-        <VStack align="stretch">
+        {/* <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" /> */}
+        <Checkbox onChange={onCheckboxChange} />
+        <VStack align="stretch" onClick={onToggle}>
           <Heading as="h2" size="md" color="gray.700">
             {name}
           </Heading>

@@ -1,5 +1,5 @@
-import SectionConfigComp from "./SectionConfigComp";
+import SectionConfigFunc from "./SectionConfig";
 
 export default function SectionConfig(props) {
-  return <SectionConfigComp {...props} />;
+  return <SectionConfigFunc {...props} />;
 }

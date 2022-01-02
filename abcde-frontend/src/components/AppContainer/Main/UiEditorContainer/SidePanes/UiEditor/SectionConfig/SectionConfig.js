@@ -5,6 +5,8 @@ import _ from "lodash";
 import { useState, useEffect } from "react";
 import { nullOrUndefined } from "utils/utils";
 
+import SectionConfigComp from "./SectionConfigComp";
+
 function configNotEqualToSpecs(config, specs) {
   return (
     !_.isEqual(_.sortBy(config.objects), _.sortBy(specs?.objects)) ||
@@ -16,23 +18,27 @@ export default function SectionConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const { name, specs } = useGetSectionType(sectionId);
   const specsIsDefined = !nullOrUndefined(specs);
-  const reinitSectionType = useReinitSectionType(sectionId);
-  const [config, setConfig] = useState(specsIsDefined ? specs : {});
+  // const reinitSectionType = useReinitSectionType(sectionId);
+  const [config, setConfig] = useState(
+    specsIsDefined ? specs : { objects: [], parameters: [] }
+  );
 
-  useEffect(() => {
-    if (specsIsDefined) {
-      setConfig(specs);
-    }
-  }, [specs]);
+  console.log("SectionConfigFunc", config);
 
-  useEffect(() => {
-    if (configNotEqualToSpecs(config, specs)) {
-      reinitSectionType({ topLevelSpecs: config });
-    }
-  }, [config]);
+  // useEffect(() => {
+  //   if (specsIsDefined) {
+  //     setConfig(specs);
+  //   }
+  // }, [specs]);
 
-  const onChange = (configName, value) => {
-    setConfig((x) => ({ ...x, [configName]: value }));
+  // useEffect(() => {
+  //   if (configNotEqualToSpecs(config, specs)) {
+  //     reinitSectionType({ topLevelSpecs: config });
+  //   }
+  // }, [config]);
+
+  const onChange = (configName, newValueFn) => {
+    setConfig((x) => ({ ...x, [configName]: newValueFn(x[configName]) }));
   };
-  return <ParamUIConfig name={name} savedConfig={specs} onChange={onChange} />;
+  return <SectionConfigComp savedConfig={specs} onChange={onChange} />;
 }
