@@ -1,9 +1,7 @@
 import { Heading } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
-import { useSectionGroups } from "hooks/useCreateInfo";
-import { useState } from "react";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import { useState, useEffect } from "react";
 import { getOverviewListing } from "utils/sectionIds";
 
 import SectionList from "./SectionList/SectionList";
@@ -17,17 +15,17 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const { groups } = useSectionGroups();
-  const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
+  const groups = useStoreState((x) => x.master.groups);
+  const idsOverview = useStoreState((x) => x.sectionInfos.allIdsOverview);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
-  useDeepCompareEffect(() => {
+  useEffect(() => {
     console.log("Overview useEffect");
-    console.log("currChildren", currChildren, groups);
+    console.log("idsOverview", idsOverview, groups);
     setListOfSectionIdsAndNames(
-      getOverviewListing(groups, currChildren, idNames)
+      getOverviewListing(groups, idsOverview, idNames)
     );
-  }, [groups, currChildren, idNames]);
+  }, [groups, idsOverview, idNames]);
 
   return (
     <PaneContainer paneProps={paneProps}>

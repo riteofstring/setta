@@ -1,5 +1,6 @@
+import { DragHandleIcon } from "@chakra-ui/icons";
 import { Stack, HStack, Box } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import {
   useGetSectionInfo,
   useGetSectionType,
@@ -9,7 +10,6 @@ import {
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useState, useCallback } from "react";
-import { DragHandle } from "utils/DragHandle/DragHandle";
 import {
   isListLike,
   isRoot,
@@ -30,13 +30,13 @@ function SectionContainer({
   nextId,
   depth,
   dragListeners,
-  dummy,
 }) {
+  const isRendered = useGetSectionInfo(sectionId).isRendered;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
-  const hasNested = idsOverview.length > 0;
+  const hasNested = useStoreState((x) => x.sectionInfos.hasNested[sectionId]);
 
-  console.log("SectionContainer", dummy);
+  console.log("SectionContainer");
 
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
@@ -45,7 +45,7 @@ function SectionContainer({
     setChildrenAreCollapsed(!childrenAreCollapsed);
   }, [childrenAreCollapsed]);
 
-  return (
+  return isRendered ? (
     <Stack>
       <SectionContainerCore
         sectionId={sectionId}
@@ -57,7 +57,6 @@ function SectionContainer({
         childrenAreCollapsed={childrenAreCollapsed}
         flipChildrenAreCollapsed={flipChildrenAreCollapsed}
         dragListeners={dragListeners}
-        dummy={dummy}
       />
       <Box
         flexDirection="column"
@@ -69,11 +68,12 @@ function SectionContainer({
             sectionId={sectionId}
             depth={depth}
             setChildren={setIdsOverview}
-            dummy={dummy}
           />
         )}
       </Box>
     </Stack>
+  ) : (
+    <></>
   );
 }
 
@@ -87,7 +87,6 @@ function _SectionContainerCore({
   childrenAreCollapsed,
   flipChildrenAreCollapsed,
   dragListeners,
-  dummy,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
   const sectionType = useGetSectionType(sectionId);
@@ -99,7 +98,6 @@ function _SectionContainerCore({
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -120,9 +118,8 @@ function _SectionContainerCore({
       bg="gray.50"
       borderRadius="md"
       w={`${SECTIONWIDTH}px`}
-      onClick={() => setActiveSection(sectionId)}
     >
-      <DragHandle dragListeners={dragListeners} />
+      {isList && <DragHandle dragListeners={dragListeners} />}
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
@@ -137,7 +134,7 @@ function _SectionContainerCore({
           onTitleInputChange={onTitleInputChange}
           requiresKeyInput={requiresKeyInput(sectionType.name)}
         />
-        {!dummy && !isListRoot && (
+        {!isListRoot && (
           <Stack>
             {showSearch && (
               <SectionSearch
@@ -163,6 +160,22 @@ function _SectionContainerCore({
   );
 }
 
+function DragHandle({ dragListeners }) {
+  return (
+    <HStack
+      alignSelf="stretch"
+      borderLeftRadius="inherit"
+      cursor="move"
+      px="0.5rem"
+      bg="gray.100"
+      className="DragHandle"
+      {...dragListeners}
+    >
+      <DragHandleIcon size="sm" color="gray.300" />
+    </HStack>
+  );
+}
+
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
   const attrs = [
     "addChild",
@@ -170,7 +183,6 @@ const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
     "childrenAreCollapsed",
     "nextId",
     "hasNested",
-    "dummy",
   ];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
@@ -181,5 +193,5 @@ const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
 });
 
 export default React.memo(SectionContainer, (prev, next) => {
-  return prev.nextId === next.nextId && prev.dummy == next.dummy;
+  return prev.nextId === next.nextId;
 });

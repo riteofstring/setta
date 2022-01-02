@@ -3,19 +3,18 @@ import auth from "models/auth";
 import cliSocket from "models/cliSocket";
 import factoriesInfo from "models/factoriesInfo";
 import funcsInfo from "models/funcsInfo";
-import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
 import sectionTypes from "models/info/sectionTypes";
+import uiTypeConfigs from "models/info/uiTypeConfigs";
 import uiTypes from "models/info/uiTypes";
 import mapInteraction from "models/mapInteraction";
 import master from "models/master";
 import panes from "models/panes";
 import sectionPositions from "models/sectionPositions";
 import uiInfo from "models/uiInfo";
-import userSettings from "models/userSettings";
 import yamlEntry from "models/yamlEntry";
 
 const store = createStore(
@@ -36,9 +35,8 @@ const store = createStore(
       objInfos: objInfos,
       paramInfos: paramInfos,
       kwargInfos: kwargInfos,
-      enteredValues: enteredValues,
       uiTypes: uiTypes,
-      userSettings: userSettings,
+      uiTypeConfigs: uiTypeConfigs,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

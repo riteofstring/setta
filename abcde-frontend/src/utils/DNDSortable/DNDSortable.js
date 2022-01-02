@@ -1,20 +1,36 @@
-import { DndContext, closestCenter } from "@dnd-kit/core";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
+  arrayMove,
   SortableContext,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
-import { updateWithArrayMove } from "../utils";
-import { useDNDSensors } from "./useDNDSensors";
-
 export function DNDSortable({ items, setItems, ...props }) {
-  const sensors = useDNDSensors();
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   function handleDragEnd(event) {
     const { active, over } = event;
 
     if (active.id !== over.id) {
-      setItems(updateWithArrayMove(active, over));
+      setItems((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+
+        return arrayMove(items, oldIndex, newIndex);
+      });
     }
   }
 

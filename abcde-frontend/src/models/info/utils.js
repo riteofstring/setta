@@ -14,15 +14,25 @@ export function exportState(state) {
   return _.map(state.x, (x) => exportInfo(x));
 }
 
+export function exportNestedState(state) {
+  return _.map(state.x, (y, sectionId) =>
+    _.map(y, (z) => {
+      const output = exportInfo(z);
+      output.sectionId = sectionId;
+      return output;
+    })
+  );
+}
+
 export function exportAllStates(state) {
   return {
-    ...state.sectionInfos.export(),
+    sectionInfos: state.sectionInfos.export(),
     objInfos: state.objInfos.export(),
     paramInfos: state.paramInfos.export(),
     kwargInfos: state.kwargInfos.export(),
     sectionTypes: state.sectionTypes.export(),
     uiTypes: state.uiTypes.export(),
-    enteredValues: state.enteredValues.export(),
+    uiTypeConfigs: state.uiTypeConfigs.export(),
     allModuleInfo: state.master.allModuleInfo,
     allObjCollections: state.master.allObjCollections,
     allParamCollections: state.master.allParamCollections,

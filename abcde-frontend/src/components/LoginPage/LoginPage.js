@@ -2,12 +2,14 @@ import {
   FormErrorMessage,
   FormLabel,
   FormControl,
+  Flex,
   Text,
   Button,
   InputGroup,
   Input,
   InputRightElement,
   Grid,
+  GridItem,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { login } from "dbRequests/authentication.js";

@@ -13,8 +13,8 @@ export default function CustomScrollDiv({
   scrollDim,
   children,
   isVertical,
-  mapHovering,
 }) {
+  const mapHovering = useStoreState((state) => state.mapInteraction.hovering);
   const paneTrueWidths = useStoreState((state) => state.panes.trueWidth);
   const [hovering, setHovering] = useState(false);
   const [lastScrollThumbPosition, setScrollThumbPosition] = useState(0);

@@ -1,6 +1,5 @@
 import { SectionType } from "classes/sectionType";
 import { action, thunk } from "easy-peasy";
-import { nullOrUndefined } from "utils/utils";
 
 import { exportState } from "./utils";
 
@@ -18,31 +17,22 @@ const sectionTypes = {
       uiTypeConfig,
       allObjCollections,
       allParamCollections,
-      topLevelSpecs,
     } = payload;
     const currSectionType = state.x[sectionTypeId];
-    const { id, uiTypeCollectionId } = currSectionType;
-    const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
-      currSectionType.childType;
-    const parentIsSection = nullOrUndefined(topLevelSpecs);
+    const { id } = currSectionType;
+    const childTypeId = currSectionType.childType.id;
     const newSectionType = new SectionType({
       id,
       allObjCollections,
       allParamCollections,
       paramUIType: uiType,
       paramUITypeConfig: uiTypeConfig,
-      parentIsSection,
-      uiTypeCollectionId,
-      topLevelSpecs,
+      parentIsSection: true,
     });
     state.x[sectionTypeId] = newSectionType;
     if (childTypeId) {
-      const childType = newSectionType.childType;
-      childType.id = childTypeId;
-      childType.uiTypeCollectionId = childUITypeCollectionId;
-      if (childType instanceof SectionType) {
-        state.x[childTypeId] = childType;
-      }
+      newSectionType.childType.id = childTypeId;
+      state.x[childTypeId] = newSectionType.childType;
     }
   }),
 
@@ -55,7 +45,6 @@ const sectionTypes = {
       allParamCollections,
       ...payload,
     });
-    return helpers.getState().x[payload.sectionTypeId];
   }),
 
   export() {

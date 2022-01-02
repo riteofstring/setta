@@ -1,28 +1,35 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useCreateInfo";
+import { Stack } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
-import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";
 import { PANEID } from "utils/constants";
 
+import SingleSectionsPane from "./SingleSectionsPane";
+
 function SectionsPane() {
-  const { groupIds, setGroupIds, groups } = useSectionGroups(true);
+  const groups = useStoreState((x) => x.master.groups);
   const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
+
   const refForPosition = useSetSectionPosition(PANEID);
-  const setGroupChildren = useStoreActions((x) => x.master.setGroupChildren);
-  const [groupsHaveUpdated, setGroupsHaveUpdated] = useGroupsHaveUpdated();
+
+  console.log("groups", groups);
 
   return (
-    <div ref={refForPosition}>
-      <MultipleContainers
-        groups={groups}
-        setGroups={setGroupChildren}
-        containers={groupIds}
-        setContainers={setGroupIds}
-        groupsHaveUpdated={groupsHaveUpdated}
-        setGroupsHaveUpdated={setGroupsHaveUpdated}
-      />
-    </div>
+    <>
+      <Stack
+        direction="row"
+        spacing={`${spaceBetweenPages}px`}
+        ref={refForPosition}
+      >
+        {groups.map((e, idx) => (
+          <SingleSectionsPane
+            groupId={idx}
+            sectionIds={e}
+            key={`SingleSectionsPane-${idx}`}
+          />
+        ))}
+      </Stack>
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { useStoreState } from "easy-peasy";
-import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
-import React, { useEffect, useState } from "react";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { useGetSectionInfo, useAddChild } from "hooks/useCreateInfo";
+import { useEffect, useState } from "react";
 import { includesArray } from "utils/commonFunctions";
 import { flattenDictOfArrays } from "utils/utils";
 
@@ -28,7 +28,7 @@ function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
   );
 }
 
-function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
+export function NestedObjectInputConfig({ name, onChange, savedConfig }) {
   const availableObjects = useStoreState((x) =>
     Object.keys(x.master.allObjCollections.nameToId)
   );
@@ -78,7 +78,7 @@ function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
 
   useEffect(() => {
     setSelectedItems(getInitialSelectedItem());
-  }, [name, savedConfig]);
+  }, [name]);
 
   return (
     <CUIAutoComplete
@@ -93,8 +93,6 @@ function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
   );
 }
 
-export const NestedObjectInputConfig = React.memo(_NestedObjectInputConfig);
-
 export default function NestedObjectInput({
   sectionId,
   paramName,
@@ -105,8 +103,12 @@ export default function NestedObjectInput({
 }) {
   console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
+  const setIsRendered = useStoreActions((x) => x.sectionInfos.setIsRendered);
   const addChild = useAddChild(sectionId);
-  const reinitSectionType = useReinitSectionType(existingChildId);
+  const childSectionTypeId = useGetSectionInfo(existingChildId).sectionTypeId;
+  const reinitSectionType = useStoreActions(
+    (x) => x.sectionTypes.reinitSectionType
+  );
 
   useEffect(() => {
     if (!existingChildId) {
@@ -118,9 +120,11 @@ export default function NestedObjectInput({
       });
     } else {
       reinitSectionType({
+        sectionTypeId: childSectionTypeId,
         uiType,
         uiTypeConfig,
       });
+      setIsRendered({ sectionId: existingChildId, isRendered: true });
     }
   }, [uiType, uiTypeConfig]);
 

@@ -5,6 +5,7 @@ import { useLocation, Link } from "react-router-dom";
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
 import EnvSelectButton from "./EnvSelect/EnvSelectButton";
 import FileMenu from "./FileMenu/FileMenu";
+import HomeButton from "./HomeButton";
 import RunButton from "./RunButton/RunButton";
 import SelectMachine from "./SelectMachine/SelectMachine";
 

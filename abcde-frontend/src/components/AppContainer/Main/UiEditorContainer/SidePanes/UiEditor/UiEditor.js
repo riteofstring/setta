@@ -6,7 +6,6 @@ import { useDropzone } from "react-dropzone";
 import Measure from "react-measure";
 import { rangeArray, mod } from "utils/utils";
 
-import SectionConfig from "./SectionConfig";
 import TabsContainer from "./TabsContainer";
 import UIConfig from "./UIConfig";
 import UiEditorPages from "./UiEditorPages";
@@ -74,7 +73,6 @@ export default function UiEditor() {
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
       <Tabs h="inherit" display="flex" flexDir="column" className="topTab">
         <TabList>
-          <Tab>Section Config</Tab>
           <Tab>UI Config</Tab>
           <Tab>Parameter Sweeps</Tab>
           <Tab>Edit YAML</Tab>
@@ -93,9 +91,6 @@ export default function UiEditor() {
               overflowY="auto"
               ref={measureRef}
             >
-              <TabPanel bg="white">
-                <SectionConfig />
-              </TabPanel>
               <TabPanel bg="white">
                 <UIConfig />
               </TabPanel>
