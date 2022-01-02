@@ -2615,7 +2615,7 @@
       "various_params": {
         "dataset_root": {
           "defaultVal": ".",
-          "type": "",
+          "type": "float",
           "uiType": "UNKNOWN"
         },
         "batch_size": {

@@ -1,9 +1,9 @@
 import { action } from "easy-peasy";
-import { SWITCH } from "utils/constants";
+import { SLIDER, SWITCH } from "utils/constants";
 
 const userSettings = {
   sectionsPerGroup: 5,
-  datatypeToUIType: { bool: SWITCH },
+  datatypeToUIType: { bool: SWITCH, float: SLIDER },
 
   setSectionsPerGroup: action((state, payload) => {
     state.sectionsPerGroup = payload;
