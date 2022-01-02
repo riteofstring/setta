@@ -5,19 +5,19 @@ export function useSetSectionPosition(sectionId) {
   const refForPosition = useRef(null);
 
   const setSectionPosition = useStoreActions(
-    (action) => action.sectionPositions.setSectionPosition
+    (x) => x.sectionPositions.setSectionPosition
   );
 
   const setPositionUpdated = useStoreActions(
-    (action) => action.sectionPositions.setPositionUpdated
+    (x) => x.sectionPositions.setPositionUpdated
   );
 
   const setPositionUpdateRequested = useStoreActions(
-    (action) => action.sectionPositions.setPositionUpdateRequested
+    (x) => x.sectionPositions.setPositionUpdateRequested
   );
 
   const positionUpdateRequested = useStoreState(
-    (state) => state.sectionPositions.positionUpdateRequested[sectionId]
+    (x) => x.sectionPositions.positionUpdateRequested[sectionId]
   );
 
   useEffect(() => {

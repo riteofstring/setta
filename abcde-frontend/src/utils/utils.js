@@ -120,3 +120,16 @@ export function updateWithArrayMove(active, over) {
     return arrayMove(x, activeIndex, overIndex);
   };
 }
+
+// https://stackoverflow.com/a/21822316/16941290
+export function findSortedIndex(array, value) {
+  var low = 0,
+    high = array.length;
+
+  while (low < high) {
+    var mid = (low + high) >>> 1;
+    if (array[mid] < value) low = mid + 1;
+    else high = mid;
+  }
+  return low;
+}

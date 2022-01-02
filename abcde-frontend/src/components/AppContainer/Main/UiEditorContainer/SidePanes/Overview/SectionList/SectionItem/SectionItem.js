@@ -6,8 +6,11 @@ import {
 } from "hooks/useGetSectionPosition";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const requestPositionUpdate = useRequestSectionPositionUpdate(sectionId);
-  useSetGoToCoordinates(sectionId);
+  const requestPositionUpdate = useRequestSectionPositionUpdate(
+    sectionId,
+    "overview"
+  );
+  useSetGoToCoordinates(sectionId, "overview");
 
   const onClick = () => {
     requestPositionUpdate();

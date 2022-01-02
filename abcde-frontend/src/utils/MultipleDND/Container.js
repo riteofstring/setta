@@ -1,9 +1,14 @@
 import classNames from "classnames";
 import { useStoreActions } from "easy-peasy";
-import React, { forwardRef } from "react";
+import {
+  useGetGroupPosition,
+  useRequestGroupPositionUpdate,
+} from "hooks/useGetSectionPosition";
+import React, { forwardRef, useEffect, useState } from "react";
 import { Menu, Item, useContextMenu } from "react-contexify";
 import "react-contexify/dist/ReactContexify.css";
 import { createPortal } from "react-dom";
+import { findSortedIndex, insertIntoArrayOrXpend } from "utils/utils";
 
 import { DragHandle } from "../DragHandle/DragHandle";
 import styles from "./Container.module.css";
@@ -83,14 +88,33 @@ function SectionGroupMenu({ groupId }) {
   const setGroupsHaveUpdated = useStoreActions(
     (x) => x.master.setGroupsHaveUpdated
   );
+  const requestPositionUpdate = useRequestGroupPositionUpdate(
+    groupId,
+    "contextMenu"
+  );
+  const coords = useGetGroupPosition(groupId, "contextMenu", true);
+  const [clickCoords, setClickCoords] = useState({});
 
-  function newSectionClick() {
-    const newIds = addSection({});
-    setOneGroupChildren({
-      groupId,
-      newStateFn: (x) => [...newIds, ...x],
-    });
-    setGroupsHaveUpdated(true);
+  useEffect(() => {
+    if (!_.isEmpty(coords)) {
+      const ys = coords.map((x) => x.y);
+      const insertIdx = findSortedIndex(ys, clickCoords.y);
+
+      const newIds = addSection({});
+      console.log("");
+      setOneGroupChildren({
+        groupId,
+        newStateFn: (x) =>
+          insertIntoArrayOrXpend(x, insertIdx, false, ...newIds),
+      });
+      setGroupsHaveUpdated(true);
+    }
+  }, [coords]);
+
+  function newSectionClick({ triggerEvent }) {
+    const { clientX: x, clientY: y } = triggerEvent;
+    setClickCoords({ x, y });
+    requestPositionUpdate();
   }
   return (
     <Menu id={groupId}>
