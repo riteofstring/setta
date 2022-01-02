@@ -14,9 +14,9 @@ export default function Incrementer({
   hasNested,
 }) {
   console.log("Incrementer");
-  const addSibling = useAddChild(parentId, sectionId);
-  const deleteSibling = useDeleteChild(parentId, nextId);
-  const deleteSelf = useDeleteChild(parentId, sectionId);
+  const addSibling = useAddChild(parentId);
+  const deleteSibling = useDeleteChild(parentId);
+  const deleteSelf = useDeleteChild(parentId);
 
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
@@ -26,7 +26,7 @@ export default function Incrementer({
     if (isListRoot) {
       addChild({ numChildren: numSections });
     } else {
-      addSibling({ numChildren: numSections });
+      addSibling({ numChildren: numSections, startId: sectionId });
     }
   };
 
@@ -34,12 +34,12 @@ export default function Incrementer({
     if (isListRoot) {
       deleteChild({ numChildren: numSections });
     } else {
-      deleteSibling({ numChildren: numSections });
+      deleteSibling({ numChildren: numSections, startId: nextId });
     }
   };
 
   const deleteThisSection = () => {
-    deleteSelf({});
+    deleteSelf({ startId: sectionId });
   };
 
   const numSectionsOnChange = (value) => {

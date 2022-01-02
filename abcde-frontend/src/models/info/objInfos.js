@@ -1,12 +1,12 @@
 import { MutableObjInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
 
-import { setToDefault, exportNestedState } from "./utils";
+import { setToDefault } from "./utils";
 
-function setDefaultInfo(state, sectionId, objInfoId) {
+function setDefaultInfo(state, collectionId, objInfoId) {
   return setToDefault(
     state,
-    sectionId,
+    collectionId,
     objInfoId,
     () => new MutableObjInfo({ id: objInfoId })
   );
@@ -16,13 +16,13 @@ const objInfos = {
   x: {},
 
   setKwargIds: action((state, payload) => {
-    const { sectionId, objInfoId, newStateFn } = payload;
-    const currState = setDefaultInfo(state, sectionId, objInfoId);
+    const { collectionId, objInfoId, newStateFn } = payload;
+    const currState = setDefaultInfo(state, collectionId, objInfoId);
     currState.kwargIds = newStateFn(currState.kwargIds);
   }),
 
   export() {
-    return exportNestedState(this);
+    return this.x;
   },
 };
 

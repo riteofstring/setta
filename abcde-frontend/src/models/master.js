@@ -1,19 +1,22 @@
 import { createAllInfo } from "classes/infoFactory";
 import Data from "data/simpleTrainTest.json";
-import { action, thunk, debug, computed } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
 import _ from "lodash";
+import { createNewId } from "utils/sectionIds";
 
 const master = {
-  sectionsPerGroup: 5,
   spaceBetweenPages: 100,
-  rootSectionIds: [],
   available: {},
   uiSpecs: new Map(),
   allModuleInfo: null,
   allObjCollections: null,
   allParamCollections: null,
+  activeSection: null,
+  groupIds: [],
+  groupChildren: {},
+  groupsHaveUpdated: false,
 
   // actions
   // Load DATA
@@ -48,46 +51,77 @@ const master = {
       // action._loadSections(payload);
     }
     const newIds = action.initSections();
-    action.initRootSectionIds({ newIds });
+    action.initGroups(newIds);
   }),
 
   initSections: thunk((action, payload, helpers) => {
+    const uiSpecs = helpers.getState().uiSpecs;
+    const newIds = [];
+
+    for (let idx = 0; idx < uiSpecs.size; idx++) {
+      const newId = action.addSection({ uiSpecs, idx });
+      newIds.push(newId[0]);
+    }
+    return newIds;
+  }),
+
+  initGroups: thunk((action, payload, helpers) => {
+    const grouped = _.chunk(
+      payload,
+      helpers.getStoreState().userSettings.sectionsPerGroup
+    );
+    const groupIds = [];
+    const groups = {};
+    for (let g of grouped) {
+      const groupId = createNewId();
+      groupIds.push(groupId);
+      groups[groupId] = g;
+    }
+    action.setGroupIds((x) => groupIds);
+    action.setGroupChildren((x) => groups);
+    action.setGroupsHaveUpdated(true);
+  }),
+
+  setActiveSection: action((state, payload) => {
+    state.activeSection = payload;
+  }),
+
+  setGroupIds: action((state, payload) => {
+    state.groupIds = payload(state.groupIds);
+  }),
+
+  setGroupChildren: action((state, payload) => {
+    state.groupChildren = payload(state.groupChildren);
+  }),
+
+  setOneGroupChildren: action((state, payload) => {
+    const { groupId, newStateFn } = payload;
+    state.groupChildren[groupId] = newStateFn(state.groupChildren[groupId]);
+  }),
+
+  setGroupsHaveUpdated: action((state, payload) => {
+    state.groupsHaveUpdated = payload;
+  }),
+
+  addSection: thunk((action, payload, helpers) => {
+    const { uiSpecs, idx } = payload;
+    const name = uiSpecs ? [...uiSpecs.keys()][idx] : "New Section";
     const state = helpers.getState();
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
-    const uiSpecs = state.uiSpecs;
-    const newIds = [];
-
-    for (let idx = 0; idx < uiSpecs.size; idx++) {
-      const newId = createSectionInfoFn({
-        name: [...uiSpecs.keys()][idx],
-        numChildren: 1,
-        allObjCollections: state.allObjCollections,
-        allParamCollections: state.allParamCollections,
-        uiSpecs,
-        parentIsSection: false,
-        setSectionInfo,
-        setSectionType,
-      });
-      newIds.push(newId[0]);
-    }
-    return newIds;
-  }),
-
-  initRootSectionIds: action((state, payload) => {
-    const { newIds } = payload;
-    state.rootSectionIds = newIds;
-  }),
-
-  groups: computed((state) => {
-    return _.chunk(state.rootSectionIds, state.sectionsPerGroup);
-  }),
-
-  setSectionsPerGroup: action((state, payload) => {
-    state.sectionsPerGroup = payload;
+    return createSectionInfoFn({
+      name,
+      numChildren: 1,
+      allObjCollections: state.allObjCollections,
+      allParamCollections: state.allParamCollections,
+      uiSpecs,
+      parentIsSection: false,
+      setSectionInfo,
+      setSectionType,
+    });
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

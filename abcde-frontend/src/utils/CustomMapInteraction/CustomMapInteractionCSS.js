@@ -8,10 +8,6 @@ import { MapInteractionCSS } from "react-map-interaction";
 import CustomScrollDiv from "./CustomScrollDiv";
 
 export default function CustomMapInteractionCSS(props) {
-  const setHovering = useStoreActions(
-    (actions) => actions.mapInteraction.setHovering
-  );
-
   const setGoToCoordinates = useStoreActions(
     (actions) => actions.mapInteraction.setGoToCoordinates
   );
@@ -41,6 +37,7 @@ export default function CustomMapInteractionCSS(props) {
   const [relativeX, setRelativeX] = useState(0);
   const [relativeYWasSet, setRelativeYWasSet] = useState(false);
   const [relativeXWasSet, setRelativeXWasSet] = useState(false);
+  const [hovering, setHovering] = useState(false);
 
   const _setRelative = (value, isVertical) => {
     if (isVertical) {
@@ -203,6 +200,7 @@ export default function CustomMapInteractionCSS(props) {
         setRelativePosition={_setRelativeY}
         setClientDim={setClientHeight}
         isVertical={true}
+        mapHovering={hovering}
       ></CustomScrollDiv>
       <motion.div
         onMouseOver={() => setHovering(true)}
@@ -241,6 +239,7 @@ export default function CustomMapInteractionCSS(props) {
         setRelativePosition={_setRelativeX}
         setClientDim={setClientWidth}
         isVertical={false}
+        mapHovering={hovering}
       ></CustomScrollDiv>
     </>
   );

@@ -10,17 +10,6 @@ import { clamp } from "utils/utils";
 const Pane = motion(GridItem);
 
 export default function PaneContainer(props) {
-  const {
-    boxH = "inherit",
-    boxW = "100%",
-    boxBorderRight = "1px",
-    boxBorderColor = "gray.200",
-    boxBoxShadow = "md",
-    boxDisplay = "inline-block",
-    boxPy = "2rem",
-    boxPx = "2.66rem",
-    boxBg = "gray.50",
-  } = props;
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
   const vis = useStoreState((state) => state.panes.vis[paneName]);
@@ -122,15 +111,15 @@ export default function PaneContainer(props) {
           }}
         >
           <Box
-            h={boxH}
-            w={boxW}
-            borderRight={boxBorderRight}
-            borderColor={boxBorderColor}
-            boxShadow={boxBoxShadow}
-            display={boxDisplay}
-            py={boxPy}
-            px={boxPx}
-            bg={boxBg}
+            h="inherit"
+            w="100%"
+            borderRight="1px"
+            borderColor="gray.200"
+            boxShadow="md"
+            display="inline-block"
+            py="2rem"
+            px="2.66rem"
+            bg="gray.50"
           >
             {props.children}
             <IconButton

@@ -3,9 +3,11 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import { useState } from "react";
 
 export default function SectionsPerGroup() {
-  const sectionsPerGroup = useStoreState((x) => x.master.sectionsPerGroup);
+  const sectionsPerGroup = useStoreState(
+    (x) => x.userSettings.sectionsPerGroup
+  );
   const setSectionsPerGroup = useStoreActions(
-    (x) => x.master.setSectionsPerGroup
+    (x) => x.userSettings.setSectionsPerGroup
   );
   const [value, setValue] = useState(sectionsPerGroup);
 

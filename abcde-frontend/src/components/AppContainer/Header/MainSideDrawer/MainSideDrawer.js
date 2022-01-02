@@ -3,7 +3,6 @@ import { VStack, Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useHistory } from "react-router-dom";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
-import { NO_AUTH } from "utils/constants";
 
 export default function HeaderContainer() {
   return (
@@ -30,17 +29,20 @@ function Body() {
   const token = useStoreState((state) => state.auth.token);
 
   const goToLogout = () => {
-    if (NO_AUTH) {
-      history.push("/logout");
-    } else {
-      // testing for now, so don't logout
-      saveDraftUI({ token }).then((res) => null);
-    }
+    history.push("/logout");
   };
+
+  const saveDraft = () => {
+    saveDraftUI({ token }).then((res) => null);
+  };
+
   return (
     <VStack align="stretch">
       <Button>Profile</Button>
       <Button>Settings</Button>
+      <Button variant="outline" onClick={saveDraft}>
+        Save Draft
+      </Button>
       <Button variant="outline" onClick={goToLogout}>
         Logout
       </Button>
