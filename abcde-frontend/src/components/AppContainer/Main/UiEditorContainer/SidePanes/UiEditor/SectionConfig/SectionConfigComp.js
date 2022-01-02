@@ -3,7 +3,6 @@ import {
   VStack,
   List,
   ListItem,
-  ListIcon,
   Checkbox,
   Box,
   Text,
@@ -15,12 +14,9 @@ import {
 import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useCreateInfo";
 import _ from "lodash";
-import { useState } from "react";
-import { IoMdCheckmarkCircle } from "react-icons/io";
 
-export default function SectionConfigComp({ onChange }) {
+export default function SectionConfigComp({ savedConfig, onChange }) {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
-  // const [selected, setSelected] = useState({ objects: [], parameters: [] });
 
   return (
     <>
@@ -34,6 +30,7 @@ export default function SectionConfigComp({ onChange }) {
                 name={x.name}
                 description={x.description}
                 details={x.children}
+                isChecked={savedConfig?.objects.includes(x.id)}
                 onChange={onChange}
                 type="objects"
                 key={`SearchItem-${x.id}`}
@@ -46,7 +43,15 @@ export default function SectionConfigComp({ onChange }) {
   );
 }
 
-function SearchItem({ id, name, description, details, onChange, type }) {
+function SearchItem({
+  id,
+  name,
+  description,
+  details,
+  isChecked,
+  onChange,
+  type,
+}) {
   const { isOpen, onToggle } = useDisclosure();
 
   function onCheckboxChange(e) {
@@ -72,7 +77,7 @@ function SearchItem({ id, name, description, details, onChange, type }) {
     >
       <HStack align="stretch">
         {/* <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" /> */}
-        <Checkbox onChange={onCheckboxChange} />
+        <Checkbox isChecked={isChecked} onChange={onCheckboxChange} />
         <VStack align="stretch" onClick={onToggle}>
           <Heading as="h2" size="md" color="gray.700">
             {name}
@@ -92,10 +97,10 @@ function SearchItemDetails({ isOpen, details }) {
     <Collapse in={isOpen} animateOpacity>
       <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
         {_.keys(groupedDetails).map((x) => (
-          <>
-            <Text key={`SearchItemDetails-${x}`}>{x}</Text>
+          <div key={`SearchItemDetails-${x}`}>
+            <Text>{x}</Text>
             <ObjListText objList={groupedDetails[x]} />
-          </>
+          </div>
         ))}
       </Box>
     </Collapse>

@@ -1,4 +1,3 @@
-import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreState } from "easy-peasy";
 import { useGetSectionType, useReinitSectionType } from "hooks/useCreateInfo";
 import _ from "lodash";
@@ -18,27 +17,27 @@ export default function SectionConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const { name, specs } = useGetSectionType(sectionId);
   const specsIsDefined = !nullOrUndefined(specs);
-  // const reinitSectionType = useReinitSectionType(sectionId);
+  const reinitSectionType = useReinitSectionType(sectionId);
   const [config, setConfig] = useState(
     specsIsDefined ? specs : { objects: [], parameters: [] }
   );
 
   console.log("SectionConfigFunc", config);
 
-  // useEffect(() => {
-  //   if (specsIsDefined) {
-  //     setConfig(specs);
-  //   }
-  // }, [specs]);
+  useEffect(() => {
+    if (specsIsDefined) {
+      setConfig(specs);
+    }
+  }, [specs]);
 
-  // useEffect(() => {
-  //   if (configNotEqualToSpecs(config, specs)) {
-  //     reinitSectionType({ topLevelSpecs: config });
-  //   }
-  // }, [config]);
+  useEffect(() => {
+    if (configNotEqualToSpecs(config, specs)) {
+      reinitSectionType({ topLevelSpecs: config });
+    }
+  }, [config]);
 
   const onChange = (configName, newValueFn) => {
     setConfig((x) => ({ ...x, [configName]: newValueFn(x[configName]) }));
   };
-  return <SectionConfigComp savedConfig={specs} onChange={onChange} />;
+  return <SectionConfigComp savedConfig={config} onChange={onChange} />;
 }
