@@ -14,6 +14,8 @@ const master = {
   available: {},
   uiSpecs: new Map(),
   allPackageInfo: null,
+  allModuleInfo: null,
+  allObjInfo: null,
   allObjCollections: null,
   allParamCollections: null,
   activeSection: null,
@@ -28,6 +30,8 @@ const master = {
     state.uiSpecs = new Map(Object.entries(payload.ui));
     ({
       allPackageInfo: state.allPackageInfo,
+      allModuleInfo: state.allModuleInfo,
+      allObjInfo: state.allObjInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));

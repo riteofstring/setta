@@ -73,6 +73,8 @@ function SearchItem({ name, description, details }) {
 }
 
 function SearchItemDetails({ isOpen, details }) {
+  const groupedDetails = _.groupBy(details, (x) => x.parentId);
+  console.log("groupedDetails", groupedDetails);
   return (
     <Collapse in={isOpen} animateOpacity>
       <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">

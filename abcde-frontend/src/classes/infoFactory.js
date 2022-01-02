@@ -52,17 +52,27 @@ export function createSectionInfo(
 
 export const createAllInfo = (available) => {
   const allPackageInfo = Object.freeze(new AllPackageInfo(available.packages));
-  const allObjs = {};
-  _.values(allPackageInfo.children).forEach((x) =>
-    _.values(x.children).forEach((y) =>
-      _.values(y.children).forEach((z) => (allObjs[z.id] = z))
-    )
-  );
+  const allModuleInfo = createDirectMapping(allPackageInfo.children);
+  const allObjInfo = createDirectMapping(allModuleInfo);
   const allObjCollections = Object.freeze(
-    new AllObjCollectionInfo(available.objCollections, allObjs)
+    new AllObjCollectionInfo(available.objCollections, allObjInfo)
   );
   const allParamCollections = Object.freeze(
     new AllParamCollectionInfo(available.paramCollections)
   );
-  return { allPackageInfo, allObjCollections, allParamCollections };
+  return {
+    allPackageInfo,
+    allModuleInfo,
+    allObjInfo,
+    allObjCollections,
+    allParamCollections,
+  };
 };
+
+function createDirectMapping(sourceInfo) {
+  const output = {};
+  _.values(sourceInfo).forEach((x) =>
+    _.values(x.children).forEach((y) => (output[y.id] = y))
+  );
+  return output;
+}
