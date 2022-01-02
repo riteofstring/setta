@@ -12,6 +12,7 @@ import {
   Collapse,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
+import { useGroupedObjInfos } from "hooks/useCreateInfo";
 import _ from "lodash";
 import { IoMdCheckmarkCircle } from "react-icons/io";
 
@@ -73,15 +74,26 @@ function SearchItem({ name, description, details }) {
 }
 
 function SearchItemDetails({ isOpen, details }) {
-  const groupedDetails = _.groupBy(details, (x) => x.parentId);
-  console.log("groupedDetails", groupedDetails);
+  const groupedDetails = useGroupedObjInfos(details);
+
   return (
     <Collapse in={isOpen} animateOpacity>
       <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
-        {_.values(details).map((x) => (
-          <Text key={`SearchItemDetails-${x.id}`}>{x.name}</Text>
+        {_.keys(groupedDetails).map((x) => (
+          <>
+            <Text key={`SearchItemDetails-${x}`}>{x}</Text>
+            <ObjListText objList={groupedDetails[x]} />
+          </>
         ))}
       </Box>
     </Collapse>
   );
+}
+
+function ObjListText({ objList }) {
+  return objList.map((x) => (
+    <div key={`ObjListText-${x.id}`} style={{ textIndent: "20px" }}>
+      <Text>{x.name}</Text>
+    </div>
+  ));
 }
