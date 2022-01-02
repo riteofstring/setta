@@ -1,6 +1,8 @@
 import { createAllInfo } from "classes/infoFactory";
-import Data from "data/simpleTrainTest.json";
-import { action, thunk, debug } from "easy-peasy";
+import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
+import PackagesData from "data/simpleTrainTestPackages.json";
+import ParameterCollectionsData from "data/simpleTrainTestParameterCollections.json";
+import { action, thunk } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
 import _ from "lodash";
@@ -46,7 +48,11 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     if (true) {
-      action._loadSections(Data);
+      action._loadSections({
+        packages: PackagesData,
+        objCollections: ObjCollectionsData,
+        parameterCollections: ParameterCollectionsData,
+      });
     } else {
       // action._loadSections(payload);
     }

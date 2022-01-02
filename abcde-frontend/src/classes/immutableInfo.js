@@ -1,3 +1,5 @@
+import _ from "lodash";
+
 import { nullOrUndefined } from "../utils/utils";
 
 const { createNewId } = require("../utils/sectionIds");
@@ -91,7 +93,7 @@ export class PackageInfo {
   }
 }
 
-export class AllModuleInfo {
+export class AllPackageInfo {
   constructor(jsonInput) {
     this.children = _.mapValues(jsonInput.children, (x) =>
       Object.freeze(new PackageInfo(x))
@@ -100,30 +102,19 @@ export class AllModuleInfo {
 }
 
 export class ObjCollectionInfo {
-  constructor(id, name, modulesInCollection) {
-    this.id = id;
-    this.name = name;
+  constructor(jsonInput, allObjs) {
+    this.id = jsonInput.id;
+    this.name = jsonInput.name;
+    this.description = jsonInput.description;
     this.children = {};
-    const { description, contents } = modulesInCollection;
-    this.description = description;
-    console.log("contents", contents);
-    for (let m of Object.keys(contents)) {
-      const allObjs = allModuleInfo.children[m];
-      const objsInCollection = contents[m].objs;
-      for (let o of Object.keys(objsInCollection)) {
-        const objId = allObjs.nameToId[o];
-        this.children[o] = allObjs.children[o];
-      }
-    }
+    jsonInput.children.forEach((x) => (this.children[x] = allObjs[x]));
   }
 }
 
 export class AllObjCollectionInfo {
-  constructor(available, allModuleInfo) {
-    const availableObjs = available.objects;
-    this.children = getInfos(
-      availableObjs,
-      createInfo(ObjCollectionInfo, allModuleInfo)
+  constructor(jsonInput, allObjs) {
+    this.children = _.mapValues(jsonInput.children, (x) =>
+      Object.freeze(new ObjCollectionInfo(x, allObjs))
     );
   }
 }

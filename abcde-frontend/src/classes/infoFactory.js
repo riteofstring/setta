@@ -1,10 +1,8 @@
+import _ from "lodash";
+
 import { isRoot } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
-import {
-  AllModuleInfo,
-  AllObjCollectionInfo,
-  AllParamCollectionInfo,
-} from "./immutableInfo";
+import { AllObjCollectionInfo, AllPackageInfo } from "./immutableInfo";
 import { SectionInfo } from "./mutableInfo";
 import { SectionType } from "./sectionType";
 
@@ -53,11 +51,16 @@ export function createSectionInfo(
 }
 
 export const createAllInfo = (available) => {
-  const allModuleInfo = Object.freeze(new AllModuleInfo(available));
-  console.log("allModuleInfo", allModuleInfo)
-  // const allObjCollections = Object.freeze(
-  //   new AllObjCollectionInfo(available, allModuleInfo)
-  // );
+  const allPackageInfo = Object.freeze(new AllPackageInfo(available.packages));
+  const allObjs = {};
+  _.values(allPackageInfo.children).forEach((x) =>
+    _.values(x.children).forEach((y) =>
+      _.values(y.children).forEach((z) => (allObjs[z.id] = z))
+    )
+  );
+  const allObjCollections = Object.freeze(
+    new AllObjCollectionInfo(available.objCollections, allObjs)
+  );
   // const allParamCollections = Object.freeze(
   //   new AllParamCollectionInfo(available)
   // );

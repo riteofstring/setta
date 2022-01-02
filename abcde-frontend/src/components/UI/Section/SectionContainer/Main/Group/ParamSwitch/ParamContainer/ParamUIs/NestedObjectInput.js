@@ -1,5 +1,4 @@
 import { CUIAutoComplete } from "chakra-ui-autocomplete";
-import { useStoreState } from "easy-peasy";
 import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
 import React, { useEffect, useState } from "react";
 import { includesArray } from "utils/commonFunctions";
