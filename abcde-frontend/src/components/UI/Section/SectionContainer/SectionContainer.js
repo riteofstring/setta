@@ -1,16 +1,15 @@
 import { Stack, HStack, Box } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import React, { useState, useCallback } from "react";
-
 import {
   useGetSectionInfo,
   useGetSectionType,
   useAddChild,
   useDeleteChild,
 } from "hooks/useCreateInfo";
-import { DragHandle } from "utils/DragHandle/DragHandle";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
+import React, { useState, useCallback } from "react";
+import { DragHandle } from "utils/DragHandle/DragHandle";
 import {
   isListLike,
   isRoot,

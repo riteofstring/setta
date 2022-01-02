@@ -1,4 +1,4 @@
-import { Button, Icon, useDisclosure } from "@chakra-ui/react";
+import { Button, Icon } from "@chakra-ui/react";
 import { HiOutlineHome } from "react-icons/hi";
 import { Link } from "react-router-dom";
 

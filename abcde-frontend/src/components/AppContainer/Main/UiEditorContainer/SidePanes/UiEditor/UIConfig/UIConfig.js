@@ -13,8 +13,8 @@ import {
   Select,
   FormControl,
 } from "@chakra-ui/react";
+import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreActions, useStoreState } from "easy-peasy";
-
 import {
   useGetAllParamAndKwargInfos,
   useGetObjInfos,
@@ -22,12 +22,8 @@ import {
   useGetSectionInfo,
   useSetUITypeConfig,
 } from "hooks/useCreateInfo";
-import {
-  prettyToUITypes,
-  uiTypesToPretty,
-} from "utils/constants";
-import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
+import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
 
 export default function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);

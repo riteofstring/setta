@@ -1,9 +1,9 @@
 import { createStore, action, persist } from "easy-peasy";
-import enteredValues from "models/info/enteredValues";
 import auth from "models/auth";
 import cliSocket from "models/cliSocket";
 import factoriesInfo from "models/factoriesInfo";
 import funcsInfo from "models/funcsInfo";
+import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";

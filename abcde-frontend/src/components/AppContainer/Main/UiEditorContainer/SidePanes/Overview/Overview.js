@@ -1,10 +1,9 @@
 import { Heading } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
-
+import { useSectionGroups } from "hooks/useCreateInfo";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { useSectionGroups } from "hooks/useCreateInfo";
 import { getOverviewListing } from "utils/sectionIds";
 
 import SectionList from "./SectionList/SectionList";

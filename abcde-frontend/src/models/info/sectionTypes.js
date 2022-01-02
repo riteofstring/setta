@@ -1,6 +1,7 @@
 import { SectionType } from "classes/sectionType";
 import { action, thunk } from "easy-peasy";
 import { nullOrUndefined } from "utils/utils";
+
 import { exportState } from "./utils";
 
 const sectionTypes = {

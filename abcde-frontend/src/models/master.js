@@ -1,12 +1,10 @@
-import { action, thunk, debug } from "easy-peasy";
-import _ from "lodash";
-
-import { createNewId } from "utils/sectionIds";
-
 import { createAllInfo } from "classes/infoFactory";
 import Data from "data/simpleTrainTest.json";
+import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
+import _ from "lodash";
+import { createNewId } from "utils/sectionIds";
 
 const master = {
   sectionsPerGroup: 5,

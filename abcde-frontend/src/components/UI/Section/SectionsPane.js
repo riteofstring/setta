@@ -1,14 +1,9 @@
-
 import { useStoreActions, useStoreState } from "easy-peasy";
+import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useCreateInfo";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
-import { PANEID } from "utils/constants";
-
-import {
-  useGroupsHaveUpdated,
-  useSectionGroups,
-} from "hooks/useCreateInfo";
 import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";
+import { PANEID } from "utils/constants";
 
 function SectionsPane() {
   const { groupIds, setGroupIds, groups } = useSectionGroups(true);

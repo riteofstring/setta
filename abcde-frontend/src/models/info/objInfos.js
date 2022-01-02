@@ -1,5 +1,6 @@
 import { MutableObjInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
+
 import { setToDefault } from "./utils";
 
 function setDefaultInfo(state, collectionId, objInfoId) {
