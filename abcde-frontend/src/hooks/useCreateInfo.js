@@ -25,8 +25,6 @@ export function createSectionInfoFn({
   uiType,
   uiTypeConfig,
   numChildren,
-  allObjCollections,
-  allParamCollections,
   parentSectionInfo,
   parentSectionType,
   uiSpecs,
@@ -39,8 +37,6 @@ export function createSectionInfoFn({
   for (let i = 0; i < numChildren; i++) {
     const infoFactoryOutput = createSectionInfo(
       name,
-      allObjCollections,
-      allParamCollections,
       parentSectionInfo,
       parentSectionType,
       uiType,
@@ -59,10 +55,6 @@ export function createSectionInfoFn({
 
 export function useCreateSectionInfo(sectionId, parentIsSection) {
   const uiSpecs = useStoreState((x) => x.master.uiSpecs);
-  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
-  const allParamCollections = useStoreState(
-    (x) => x.master.allParamCollections
-  );
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const setSectionType = useStoreActions((x) => x.sectionTypes.setSectionType);
   const parentSectionInfo = useGetSectionInfo(sectionId);
@@ -76,8 +68,6 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
       uiType,
       uiTypeConfig,
       numChildren,
-      allObjCollections,
-      allParamCollections,
       parentSectionInfo,
       parentSectionType,
       uiSpecs,

@@ -2,6 +2,7 @@ import { createAllInfo } from "classes/infoFactory";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
 import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
+import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
@@ -24,18 +25,14 @@ const master = {
   // Load DATA
   _loadSections: action((state, payload) => {
     console.log("master payload", payload);
-    // const available = {
-    //   objects: payload.OBJECTS,
-    //   parameters: payload.PARAMETERS,
-    // };
-    // state.uiSpecs = new Map(Object.entries(payload.UI));
+    state.uiSpecs = new Map(Object.entries(payload.ui));
     ({
       allPackageInfo: state.allPackageInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));
 
-    // console.log("uiSpecs", debug(state.uiSpecs));
+    console.log("uiSpecs", debug(state.uiSpecs));
     console.log("allPackageInfo", debug(state.allPackageInfo));
     console.log("allObjCollections", debug(state.allObjCollections));
     console.log("allParamCollections", debug(state.allParamCollections));
@@ -49,6 +46,7 @@ const master = {
   loadSections: thunk((action, payload, helpers) => {
     if (true) {
       action._loadSections({
+        ui: UIData,
         packages: PackagesData,
         objCollections: ObjCollectionsData,
         paramCollections: ParamCollectionsData,
@@ -112,7 +110,6 @@ const master = {
   addSection: thunk((action, payload, helpers) => {
     const { uiSpecs, idx } = payload;
     const name = uiSpecs ? [...uiSpecs.keys()][idx] : "New Section";
-    const state = helpers.getState();
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
     const setSectionType =
@@ -121,8 +118,6 @@ const master = {
     return createSectionInfoFn({
       name,
       numChildren: 1,
-      allObjCollections: state.allObjCollections,
-      allParamCollections: state.allParamCollections,
       uiSpecs,
       parentIsSection: false,
       setSectionInfo,

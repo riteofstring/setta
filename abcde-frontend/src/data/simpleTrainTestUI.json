@@ -1,0 +1,13 @@
+{
+  "Model": [
+    "0671b39c-8479-4831-8627-8b37f12ef635",
+    "bb751616-d554-4ec8-84c1-8760078956d3"
+  ],
+  "Optimizer": ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
+  "Transform": ["69405361-0296-4321-9361-bd5b35aa2e5e"],
+  "TrainDataset": ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
+  "ValDataset": ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
+  "OtherParameters": {
+    "parameters": ["253cd8a8-a95a-4d15-b98b-73318b3632a1"]
+  }
+}

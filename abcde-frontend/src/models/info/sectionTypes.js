@@ -12,14 +12,7 @@ const sectionTypes = {
   }),
 
   _reinitSectionType: action((state, payload) => {
-    const {
-      sectionTypeId,
-      uiType,
-      uiTypeConfig,
-      allObjCollections,
-      allParamCollections,
-      topLevelSpecs,
-    } = payload;
+    const { sectionTypeId, uiType, uiTypeConfig, topLevelSpecs } = payload;
     const currSectionType = state.x[sectionTypeId];
     const { id, uiTypeCollectionId } = currSectionType;
     const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
@@ -27,8 +20,6 @@ const sectionTypes = {
     const parentIsSection = nullOrUndefined(topLevelSpecs);
     const newSectionType = new SectionType({
       id,
-      allObjCollections,
-      allParamCollections,
       paramUIType: uiType,
       paramUITypeConfig: uiTypeConfig,
       parentIsSection,
@@ -47,14 +38,7 @@ const sectionTypes = {
   }),
 
   reinitSectionType: thunk((actions, payload, helpers) => {
-    const allObjCollections = helpers.getStoreState().master.allObjCollections;
-    const allParamCollections =
-      helpers.getStoreState().master.allParamCollections;
-    actions._reinitSectionType({
-      allObjCollections,
-      allParamCollections,
-      ...payload,
-    });
+    actions._reinitSectionType(payload);
     return helpers.getState().x[payload.sectionTypeId];
   }),
 

@@ -1,8 +1,22 @@
 import { SECTION, rootTypeToChildType, isRoot } from "../utils/constants";
 import { createNewId } from "../utils/sectionIds";
 import { nullOrUndefined } from "../utils/utils";
-import { convertSpecsToDict } from "./immutableInfo";
 import { MutableInfo } from "./mutableInfo";
+
+function convertSpecsToDict(specs) {
+  const output = { objects: [], parameters: [] };
+  if (Array.isArray(specs)) {
+    output.objects = specs;
+  } else {
+    if (specs?.objects) {
+      output.objects = specs.objects;
+    }
+    if (specs?.parameters) {
+      output.parameters = specs.parameters;
+    }
+  }
+  return output;
+}
 
 function initName(name, paramUIType) {
   if (name) {
@@ -34,25 +48,11 @@ function initSpecs(
   return [specs, hasObjects];
 }
 
-function initIds(allObjCollections, allParamCollections, specs) {
-  let objCollectionIds = [];
-  let paramCollectionIds = [];
-  if (allObjCollections) {
-    objCollectionIds = [...specs.objects]; // copy array
-  }
-  if (allParamCollections) {
-    paramCollectionIds = [...specs.parameters];
-  }
-  return [objCollectionIds, paramCollectionIds];
+function initIds(specs) {
+  return [[...specs.objects], [...specs.parameters]];
 }
 
-function initChildType(
-  allObjCollections,
-  allParamCollections,
-  paramUIType,
-  paramUITypeConfig,
-  parentCls
-) {
+function initChildType(paramUIType, paramUITypeConfig, parentCls) {
   let childType = {};
   const childName = rootTypeToChildType[parentCls.name];
   if (childName) {
@@ -62,8 +62,6 @@ function initChildType(
     childType = new SectionType({
       id: createNewId(),
       name: childName,
-      allObjCollections,
-      allParamCollections,
       parentSectionType: parentCls,
       paramUIType,
       paramUITypeConfig,
@@ -78,8 +76,6 @@ export class SectionType extends MutableInfo {
   constructor({
     id,
     name,
-    allObjCollections,
-    allParamCollections,
     parentSectionType,
     paramUIType,
     paramUITypeConfig,
@@ -96,19 +92,9 @@ export class SectionType extends MutableInfo {
       parentSectionType,
       parentIsSection
     );
-    [this.objCollectionIds, this.paramCollectionIds] = initIds(
-      allObjCollections,
-      allParamCollections,
-      this.specs
-    );
+    [this.objCollectionIds, this.paramCollectionIds] = initIds(this.specs);
     this.uiTypeCollectionId = uiTypeCollectionId;
-    this.childType = initChildType(
-      allObjCollections,
-      allParamCollections,
-      paramUIType,
-      paramUITypeConfig,
-      this
-    );
+    this.childType = initChildType(paramUIType, paramUITypeConfig, this);
     this.exportable = [
       "id",
       "name",

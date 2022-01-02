@@ -2821,7 +2821,7 @@
                   "type": "_empty",
                   "uiTypeName": "LIST_ROOT",
                   "uiTypeConfig": {
-                    "objects": ["transforms"]
+                    "objects": ["1ec242dd-688e-4f71-a0de-cc13752461ce"]
                   }
                 }
               }

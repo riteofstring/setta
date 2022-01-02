@@ -1,24 +1,13 @@
 import _ from "lodash";
 
-import { nullOrUndefined } from "../utils/utils";
-
-export const convertSpecsToDict = (specs) => {
-  if (Array.isArray(specs)) {
-    return { objects: specs };
-  } else if (nullOrUndefined(specs)) {
-    return {};
-  }
-  return specs;
-};
-
 export class ParameterInfo {
   constructor(jsonInput) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
-    this.uiTypeName = jsonInput.uiType;
-    this.uiTypeConfig = jsonInput.specs;
+    this.uiTypeName = jsonInput.uiTypeName;
+    this.uiTypeConfig = jsonInput.uiTypeConfig;
   }
 }
 

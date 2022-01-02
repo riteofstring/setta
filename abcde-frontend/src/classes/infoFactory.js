@@ -16,8 +16,6 @@ function emptySpecs() {
 
 export function createSectionInfo(
   name,
-  allObjCollections,
-  allParamCollections,
   parentSectionInfo,
   parentSectionType,
   paramUIType,
@@ -31,8 +29,6 @@ export function createSectionInfo(
   } else {
     sectionType = new SectionType({
       id: createNewId(),
-      allObjCollections,
-      allParamCollections,
       parentSectionType,
       paramUIType,
       paramUITypeConfig,
