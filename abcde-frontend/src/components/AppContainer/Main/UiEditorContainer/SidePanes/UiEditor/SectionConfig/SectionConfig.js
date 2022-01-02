@@ -1,13 +1,9 @@
+import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreState } from "easy-peasy";
+import { useGetSectionType, useReinitSectionType } from "hooks/useCreateInfo";
 import _ from "lodash";
 import { useState, useEffect } from "react";
-
-import {
-  useGetSectionType,
-  useReinitSectionType,
-} from "../../../../../../hooks/useCreateInfo";
-import { nullOrUndefined } from "../../../../../../utils/utils";
-import { ParamUIConfig } from "../../../../../UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+import { nullOrUndefined } from "utils/utils";
 
 function configNotEqualToSpecs(config, specs) {
   return (

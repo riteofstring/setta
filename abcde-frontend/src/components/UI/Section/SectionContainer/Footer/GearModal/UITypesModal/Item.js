@@ -15,7 +15,7 @@ import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
 import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
 
 import { useSetUITypeConfig } from "hooks/useCreateInfo";
-import { ParamUIConfig } from "components/AppContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 export default function Item({ paramInfo, getUITypeFn }) {
   const uiType = getUITypeFn(paramInfo);
