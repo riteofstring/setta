@@ -2,8 +2,6 @@ import _ from "lodash";
 
 import { nullOrUndefined } from "../utils/utils";
 
-const { createNewId } = require("../utils/sectionIds");
-
 export const convertSpecsToDict = (specs) => {
   if (Array.isArray(specs)) {
     return { objects: specs };
