@@ -9,19 +9,25 @@ import {
   Heading,
   HStack,
 } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { IoMdCheckmarkCircle } from "react-icons/io";
 
 export default function SectionConfigComp() {
+  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+
   return (
     <>
       <VStack align="stretch" mt=".25rem">
-        <Input placeholder="Section Search" bg="white" />
+        <Input placeholder="Section Config Search" bg="white" />
         <Box pt=".25rem">
           <List spacing={3}>
-            <SearchItem />
-            <SearchItem />
-            <SearchItem />
-            <SearchItem />
+            {_.values(allObjCollections?.children).map((x) => (
+              <SearchItem
+                key={`SearchItem-${x.id}`}
+                name={x.name}
+                description={x.description}
+              />
+            ))}
           </List>
         </Box>
       </VStack>
@@ -29,7 +35,7 @@ export default function SectionConfigComp() {
   );
 }
 
-function SearchItem(props) {
+function SearchItem({ name, description }) {
   return (
     <ListItem
       px=".75rem"
@@ -49,9 +55,9 @@ function SearchItem(props) {
         <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" />
         <VStack align="stretch">
           <Heading as="h2" size="md" color="gray.700">
-            Test Item Title
+            {name}
           </Heading>
-          <Text>Lorem ipsum dolor sit amet, consectetur adipisicing elit</Text>
+          <Text>{description}</Text>
         </VStack>
       </HStack>
     </ListItem>
