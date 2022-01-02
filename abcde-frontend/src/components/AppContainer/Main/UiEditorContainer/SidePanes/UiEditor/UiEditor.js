@@ -94,10 +94,10 @@ export default function UiEditor() {
               overflowY="auto"
               ref={measureRef}
             >
-              <TabPanel bg="white">
+              <TabPanel>
                 <SectionConfig />
               </TabPanel>
-              <TabPanel bg="white">
+              <TabPanel>
                 <UIConfig />
               </TabPanel>
               <TabPanel>Parameter Sweeps</TabPanel>
