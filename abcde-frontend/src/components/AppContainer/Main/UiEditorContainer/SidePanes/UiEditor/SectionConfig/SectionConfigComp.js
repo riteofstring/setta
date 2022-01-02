@@ -8,8 +8,11 @@ import {
   Text,
   Heading,
   HStack,
+  useDisclosure,
+  Collapse,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
+import _ from "lodash";
 import { IoMdCheckmarkCircle } from "react-icons/io";
 
 export default function SectionConfigComp() {
@@ -26,6 +29,7 @@ export default function SectionConfigComp() {
                 key={`SearchItem-${x.id}`}
                 name={x.name}
                 description={x.description}
+                details={x.children}
               />
             ))}
           </List>
@@ -35,7 +39,9 @@ export default function SectionConfigComp() {
   );
 }
 
-function SearchItem({ name, description }) {
+function SearchItem({ name, description, details }) {
+  const { isOpen, onToggle } = useDisclosure();
+
   return (
     <ListItem
       px=".75rem"
@@ -50,6 +56,7 @@ function SearchItem({ name, description }) {
       }}
       border="1px"
       borderColor="rgba(0, 0, 0, 0)"
+      onClick={onToggle}
     >
       <HStack align="stretch">
         <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" />
@@ -60,6 +67,19 @@ function SearchItem({ name, description }) {
           <Text>{description}</Text>
         </VStack>
       </HStack>
+      <SearchItemDetails isOpen={isOpen} details={details} />
     </ListItem>
+  );
+}
+
+function SearchItemDetails({ isOpen, details }) {
+  return (
+    <Collapse in={isOpen} animateOpacity>
+      <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
+        {_.values(details).map((x) => (
+          <Text key={`SearchItemDetails-${x.id}`}>{x.name}</Text>
+        ))}
+      </Box>
+    </Collapse>
   );
 }
