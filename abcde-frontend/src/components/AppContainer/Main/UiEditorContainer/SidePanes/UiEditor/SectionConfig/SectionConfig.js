@@ -10,7 +10,7 @@ export default function SectionConfigFunc() {
 
   const onChange = (configName, newValueFn) => {
     const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
-    reinitSectionType({ topLevelSpecs: newSpecs });
+    reinitSectionType({ name, topLevelSpecs: newSpecs });
   };
   return <SectionConfigComp savedConfig={specs} onChange={onChange} />;
 }

@@ -12,7 +12,8 @@ const sectionTypes = {
   }),
 
   _reinitSectionType: action((state, payload) => {
-    const { sectionTypeId, uiType, uiTypeConfig, topLevelSpecs } = payload;
+    const { name, sectionTypeId, uiType, uiTypeConfig, topLevelSpecs } =
+      payload;
     const currSectionType = state.x[sectionTypeId];
     const { id, uiTypeCollectionId } = currSectionType;
     const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
@@ -20,6 +21,7 @@ const sectionTypes = {
     const parentIsSection = nullOrUndefined(topLevelSpecs);
     const newSectionType = new SectionType({
       id,
+      name,
       paramUIType: uiType,
       paramUITypeConfig: uiTypeConfig,
       parentIsSection,
