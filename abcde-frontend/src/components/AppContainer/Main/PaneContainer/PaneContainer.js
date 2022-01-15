@@ -91,7 +91,6 @@ export default function PaneContainer(props) {
         initial={vis ? "open" : "closed"}
         zIndex={10}
         outline="none"
-        {...props.dropZoneProps}
       >
         <Resizable
           size={{ width, height }}

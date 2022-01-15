@@ -1,6 +1,6 @@
 import { TabPanels, TabPanel } from "@chakra-ui/react";
 
-import TextEditor from "./TextEditor/TextEditor";
+import TextEditor from "../TextEditor/TextEditor";
 
 export default function UiEditorPages({ tabNumArray, dimensions }) {
   return (

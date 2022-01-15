@@ -1,94 +1,10 @@
-import { CUIAutoComplete } from "chakra-ui-autocomplete";
+import { Button } from "@chakra-ui/react";
 import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
-import React, { useEffect, useState } from "react";
-import { includesArray } from "utils/commonFunctions";
-import { flattenDictOfArrays } from "utils/utils";
+import React, { useEffect } from "react";
 
-function valueAndLabel(x, type) {
-  return { value: [x, type], label: x };
+export function NestedObjectInputConfig() {
+  return <Button>Configure section</Button>;
 }
-
-function findMatchingIndex(initialPickerItems, savedConfig, j) {
-  return initialPickerItems
-    .map((e, idx) =>
-      e.value[1] === j && savedConfig[j].includes(e.value[0]) ? idx : -1
-    )
-    .filter((e) => e !== -1)
-    .map((e) => initialPickerItems[e]);
-}
-
-function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
-  const valuesOnly = initialPickerItemsObj[j].map((x) => x.value);
-  onChange(
-    j,
-    newSelectedItems
-      .filter((x) => includesArray(valuesOnly, x.value))
-      .map((x) => x.value[0])
-  );
-}
-
-function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
-  const availableObjects = [];
-  const availableParameters = [];
-
-  const pickerObjects = availableObjects.map((x) =>
-    valueAndLabel(x, "objects")
-  );
-  const pickerParameters = availableParameters.map((x) =>
-    valueAndLabel(x, "parameters")
-  );
-  const initialPickerItems = pickerObjects.concat(pickerParameters);
-  const initialPickerItemsObj = {
-    objects: pickerObjects,
-    parameters: pickerParameters,
-  };
-
-  const getInitialSelectedItem = () => {
-    if (savedConfig) {
-      let output = {};
-      for (let j of Object.keys(savedConfig)) {
-        output[j] = findMatchingIndex(initialPickerItems, savedConfig, j);
-      }
-      return flattenDictOfArrays(output);
-    }
-    return [];
-  };
-
-  const [pickerItems, setPickerItems] = useState(initialPickerItems);
-  const [selectedItems, setSelectedItems] = useState(getInitialSelectedItem());
-
-  const handleCreateItem = (item) => {
-    setPickerItems((curr) => [...curr, item]);
-    setSelectedItems((curr) => [...curr, item]);
-  };
-
-  const handleSelectedItemsChange = (newSelectedItems) => {
-    if (newSelectedItems) {
-      setSelectedItems(newSelectedItems);
-      for (let j of Object.keys(initialPickerItemsObj)) {
-        onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j);
-      }
-    }
-  };
-
-  useEffect(() => {
-    setSelectedItems(getInitialSelectedItem());
-  }, [name, savedConfig]);
-
-  return (
-    <CUIAutoComplete
-      placeholder="Module name"
-      onCreateItem={handleCreateItem}
-      items={pickerItems}
-      selectedItems={selectedItems}
-      onSelectedItemsChange={(changes) =>
-        handleSelectedItemsChange(changes.selectedItems)
-      }
-    />
-  );
-}
-
-export const NestedObjectInputConfig = React.memo(_NestedObjectInputConfig);
 
 export default function NestedObjectInput({
   sectionId,

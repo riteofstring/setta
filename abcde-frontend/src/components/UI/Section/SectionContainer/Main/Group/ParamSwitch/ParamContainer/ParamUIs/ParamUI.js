@@ -21,13 +21,7 @@ export function ParamUIConfig({ name, savedConfig, onChange }) {
     case SECTION:
     case LIST_ROOT:
     case DICT_ROOT:
-      return (
-        <NestedObjectInputConfig
-          name={name}
-          savedConfig={savedConfig}
-          onChange={onChange}
-        />
-      );
+      return <NestedObjectInputConfig />;
   }
 }
 
