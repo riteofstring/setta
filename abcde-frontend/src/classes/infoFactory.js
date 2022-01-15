@@ -15,7 +15,8 @@ export function createSectionInfo(
   sectionTypeName,
   parentSectionInfo,
   parentSectionType,
-  sectionSpecs
+  sectionSpecs,
+  paramInfoId
 ) {
   let sectionType = null;
   if (isRoot(parentSectionType?.name)) {
@@ -36,6 +37,7 @@ export function createSectionInfo(
     parentSectionInfo,
     paramCollectionId: createNewId(),
     kwargCollectionId: createNewId(),
+    paramInfoId,
   });
 
   return { info, sectionType };

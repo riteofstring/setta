@@ -4,6 +4,7 @@ import {
   useGetSectionInfo,
   useGetSectionType,
   useReinitSectionType,
+  useSetUITypeDirect,
 } from "hooks/useCreateInfo";
 
 import SectionConfigComp from "./SectionConfigComp";
@@ -19,7 +20,12 @@ export default function SectionConfigFunc() {
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const { name, specs } = useGetSectionType(sectionId);
   const reinitSectionType = useReinitSectionType(sectionId);
-  const { parentId } = useGetSectionInfo(sectionId);
+  const { parentId, paramInfoId } = useGetSectionInfo(sectionId);
+  const { uiTypeCollectionId } = useGetSectionType(parentId);
+  const [uiTypeId, setUIType] = useSetUITypeDirect(
+    uiTypeCollectionId,
+    paramInfoId
+  );
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
@@ -33,9 +39,10 @@ export default function SectionConfigFunc() {
     }
   };
 
-  const onChange = (configName, newValueFn) => {
+  const onConfigChange = (configName, newValueFn) => {
     const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
     reinitSectionType({ name, sectionSpecs: newSpecs });
+    setUIType({ uiTypeId, configName, newValueFn });
   };
 
   return (
@@ -45,7 +52,7 @@ export default function SectionConfigFunc() {
         onChange={onSectionTypeChange}
         currType={name}
       />
-      <SectionConfigComp savedConfig={specs} onChange={onChange} />
+      <SectionConfigComp savedConfig={specs} onChange={onConfigChange} />
     </>
   );
 }

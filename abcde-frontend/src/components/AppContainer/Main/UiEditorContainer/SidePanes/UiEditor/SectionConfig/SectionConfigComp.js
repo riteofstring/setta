@@ -55,9 +55,12 @@ function SearchItem({
   const { isOpen, onToggle } = useDisclosure();
 
   function onCheckboxChange(e) {
-    onChange(type, (x) =>
-      e.target.checked ? [...x, id] : x.filter((y) => y !== id)
-    );
+    onChange(type, (x) => {
+      if (x) {
+        return e.target.checked ? [...x, id] : x.filter((y) => y !== id);
+      }
+      return [id];
+    });
   }
 
   return (

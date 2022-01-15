@@ -29,6 +29,7 @@ export function createSectionInfoFn({
   sectionSpecs,
   setSectionInfo,
   setSectionType,
+  paramInfoId,
 }) {
   const newInfos = {};
   const newSectionTypes = {};
@@ -38,7 +39,8 @@ export function createSectionInfoFn({
       sectionTypeName,
       parentSectionInfo,
       parentSectionType,
-      sectionSpecs
+      sectionSpecs,
+      paramInfoId
     );
     const { info, sectionType } = infoFactoryOutput;
     newInfos[info.id] = info;
@@ -57,7 +59,13 @@ export function useCreateSectionInfo(sectionId) {
 
   console.log("useCreateSectionInfo");
 
-  const createInfo = ({ name, sectionTypeName, sectionSpecs, numChildren }) => {
+  const createInfo = ({
+    name,
+    sectionTypeName,
+    sectionSpecs,
+    numChildren,
+    paramInfoId,
+  }) => {
     return createSectionInfoFn({
       name,
       sectionTypeName,
@@ -67,6 +75,7 @@ export function useCreateSectionInfo(sectionId) {
       sectionSpecs,
       setSectionInfo,
       setSectionType,
+      paramInfoId,
     });
   };
 
@@ -426,6 +435,7 @@ export function useAddChild(sectionId) {
       sectionTypeName,
       sectionSpecs,
       numChildren,
+      paramInfoId: parentParamInfoId,
     });
 
     setIdsOverview((x) => {
@@ -540,4 +550,12 @@ export function useGroupedObjInfos(objInfos) {
     const { name: packageName, version } = allPackageInfo.children[packageId];
     return `${packageName}.${moduleName} v${version}`;
   });
+}
+
+export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
+  const uiTypeId = useStoreState(
+    (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
+  );
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  return [uiTypeId, setConfig];
 }
