@@ -10,7 +10,9 @@ export default function SectionConfigFunc() {
   const reinitSectionType = useReinitSectionType(sectionId);
 
   const onSectionTypeChange = (e) => {
-    reinitSectionType({ name: e, topLevelSpecs: specs });
+    if (e && e !== name) {
+      reinitSectionType({ name: e, topLevelSpecs: specs });
+    }
   };
 
   const onChange = (configName, newValueFn) => {
