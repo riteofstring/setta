@@ -28,9 +28,11 @@ export const prettyToSectionTypes = Object.freeze(
   )
 );
 
-export const sectionTypesToPretty = new Map(
-  Array.from(prettyToSectionTypes, (a) => a.reverse())
-);
+export const sectionTypesToPretty = new Map([
+  [LIST, "Section"],
+  [DICT, "Section"],
+  ...Array.from(prettyToSectionTypes, (a) => a.reverse()),
+]);
 
 export function requiresNestedSection(uiTypeName) {
   return SECTION_TYPE_NAMES.includes(uiTypeName);
