@@ -73,7 +73,7 @@ export default function UiEditor() {
 
   return (
     <PaneContainer paneProps={paneProps} dropZoneProps={getRootProps()}>
-      <Tabs h="inherit" display="flex" flexDir="column" className="topTab">
+      <Tabs h="inherit" display="flex" flexDir="column" className="topTab" isLazy>
         <TabList>
           <Tab>Section Config</Tab>
           <Tab>UI Config</Tab>
