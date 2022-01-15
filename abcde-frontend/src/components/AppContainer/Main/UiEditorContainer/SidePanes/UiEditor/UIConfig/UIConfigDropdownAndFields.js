@@ -1,3 +1,4 @@
+import { VStack } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { PrettyDropDown } from "utils/PrettyDropdown/prettyDropdown";
 import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
@@ -15,7 +16,7 @@ export function UIConfigDropdownAndFields({
   }
 
   return (
-    <>
+    <VStack>
       <PrettyDropDown
         placeholder="Select UI Type"
         onChange={onSelect}
@@ -30,6 +31,6 @@ export function UIConfigDropdownAndFields({
         savedConfig={savedConfig}
         onChange={onConfigChange}
       />
-    </>
+    </VStack>
   );
 }
