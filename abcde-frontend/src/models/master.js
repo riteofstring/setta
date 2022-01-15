@@ -119,11 +119,12 @@ const master = {
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
+    const sectionSpecs = uiSpecs.get(name);
+
     return createSectionInfoFn({
       name,
       numChildren: 1,
-      uiSpecs,
-      parentIsSection: false,
+      sectionSpecs,
       setSectionInfo,
       setSectionType,
     });

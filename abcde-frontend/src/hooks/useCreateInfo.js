@@ -22,13 +22,11 @@ function getAttr(x, attr = null) {
 
 export function createSectionInfoFn({
   name,
-  uiType,
-  uiTypeConfig,
+  sectionTypeName,
   numChildren,
   parentSectionInfo,
   parentSectionType,
-  uiSpecs,
-  parentIsSection,
+  sectionSpecs,
   setSectionInfo,
   setSectionType,
 }) {
@@ -37,12 +35,10 @@ export function createSectionInfoFn({
   for (let i = 0; i < numChildren; i++) {
     const infoFactoryOutput = createSectionInfo(
       name,
+      sectionTypeName,
       parentSectionInfo,
       parentSectionType,
-      uiType,
-      uiTypeConfig,
-      uiSpecs,
-      parentIsSection
+      sectionSpecs
     );
     const { info, sectionType } = infoFactoryOutput;
     newInfos[info.id] = info;
@@ -53,8 +49,7 @@ export function createSectionInfoFn({
   return Object.keys(newInfos);
 }
 
-export function useCreateSectionInfo(sectionId, parentIsSection) {
-  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
+export function useCreateSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const setSectionType = useStoreActions((x) => x.sectionTypes.setSectionType);
   const parentSectionInfo = useGetSectionInfo(sectionId);
@@ -62,16 +57,14 @@ export function useCreateSectionInfo(sectionId, parentIsSection) {
 
   console.log("useCreateSectionInfo");
 
-  const createInfo = ({ name, uiType, uiTypeConfig, numChildren }) => {
+  const createInfo = ({ name, sectionTypeName, sectionSpecs, numChildren }) => {
     return createSectionInfoFn({
       name,
-      uiType,
-      uiTypeConfig,
+      sectionTypeName,
       numChildren,
       parentSectionInfo,
       parentSectionType,
-      uiSpecs,
-      parentIsSection,
+      sectionSpecs,
       setSectionInfo,
       setSectionType,
     });
@@ -418,17 +411,22 @@ export function useAddChild(sectionId) {
   const { paramCollectionId: collectionId } = useGetSectionInfo(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const createInfo = useCreateSectionInfo(sectionId, true);
+  const createInfo = useCreateSectionInfo(sectionId);
 
   function addChild({
     name = null,
-    uiType = null,
-    uiTypeConfig = null,
+    sectionTypeName = null,
+    sectionSpecs = null,
     numChildren = 1,
     parentParamInfoId = null,
     startId = null,
   }) {
-    const newIds = createInfo({ name, uiType, uiTypeConfig, numChildren });
+    const newIds = createInfo({
+      name,
+      sectionTypeName,
+      sectionSpecs,
+      numChildren,
+    });
 
     setIdsOverview((x) => {
       let insertIdx = null;

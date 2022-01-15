@@ -10,18 +10,12 @@ import {
 import { SectionInfo } from "./mutableInfo";
 import { SectionType } from "./sectionType";
 
-function emptySpecs() {
-  return { objects: [], parameters: [] };
-}
-
 export function createSectionInfo(
   name,
+  sectionTypeName,
   parentSectionInfo,
   parentSectionType,
-  paramUIType,
-  paramUITypeConfig,
-  uiSpecs,
-  parentIsSection
+  sectionSpecs
 ) {
   let sectionType = null;
   if (isRoot(parentSectionType?.name)) {
@@ -29,11 +23,8 @@ export function createSectionInfo(
   } else {
     sectionType = new SectionType({
       id: createNewId(),
-      parentSectionType,
-      paramUIType,
-      paramUITypeConfig,
-      topLevelSpecs: uiSpecs ? uiSpecs.get(name) : emptySpecs(),
-      parentIsSection,
+      name: sectionTypeName,
+      sectionSpecs,
       uiTypeCollectionId: createNewId(),
     });
   }

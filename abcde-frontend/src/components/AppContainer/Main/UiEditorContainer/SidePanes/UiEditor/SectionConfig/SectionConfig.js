@@ -29,13 +29,13 @@ export default function SectionConfigFunc() {
 
   const onSectionTypeChange = (e) => {
     if (e && e !== name) {
-      reinitSectionType({ name: e, topLevelSpecs: specs });
+      reinitSectionType({ name: e, sectionSpecs: specs });
     }
   };
 
   const onChange = (configName, newValueFn) => {
     const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
-    reinitSectionType({ name, topLevelSpecs: newSpecs });
+    reinitSectionType({ name, sectionSpecs: newSpecs });
   };
 
   return (
