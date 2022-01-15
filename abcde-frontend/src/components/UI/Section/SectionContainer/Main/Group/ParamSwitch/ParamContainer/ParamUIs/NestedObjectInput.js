@@ -1,9 +1,20 @@
 import { Button } from "@chakra-ui/react";
+import { useStoreActions } from "easy-peasy";
 import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
 import React, { useEffect } from "react";
 
-export function NestedObjectInputConfig() {
-  return <Button>Configure section</Button>;
+export function NestedObjectInputConfig({ childIdFn, paramInfoId }) {
+  const existingChildId = childIdFn(paramInfoId)[0];
+  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+
+  const onClick = () => {
+    if (existingChildId) {
+      setActiveSection(existingChildId);
+      setTabIndex(0);
+    }
+  };
+  return <Button onClick={onClick}>Configure section</Button>;
 }
 
 export default function NestedObjectInput({
@@ -14,10 +25,11 @@ export default function NestedObjectInput({
   parentParamInfoId,
   childIdFn,
 }) {
-  console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useAddChild(sectionId);
   const reinitSectionType = useReinitSectionType(existingChildId);
+
+  console.log("NestedObjectInput", parentParamInfoId, existingChildId);
 
   useEffect(() => {
     if (!existingChildId) {

@@ -5,23 +5,19 @@ import SliderInput, { SliderInputConfig } from "./SliderInput";
 import SwitchInput, { SwitchInputConfig } from "./SwitchInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 
-export function ParamUIConfig({ name, savedConfig, onChange }) {
+export function ParamUIConfig({ name, ...props }) {
   console.log("ParamUIConfig", name);
   switch (name) {
     default:
-      return <TextInputConfig savedConfig={savedConfig} onChange={onChange} />;
+      return <TextInputConfig {...props} />;
     case SLIDER:
-      return (
-        <SliderInputConfig savedConfig={savedConfig} onChange={onChange} />
-      );
+      return <SliderInputConfig {...props} />;
     case SWITCH:
-      return (
-        <SwitchInputConfig savedConfig={savedConfig} onChange={onChange} />
-      );
+      return <SwitchInputConfig {...props} />;
     case SECTION:
     case LIST_ROOT:
     case DICT_ROOT:
-      return <NestedObjectInputConfig />;
+      return <NestedObjectInputConfig {...props} />;
   }
 }
 

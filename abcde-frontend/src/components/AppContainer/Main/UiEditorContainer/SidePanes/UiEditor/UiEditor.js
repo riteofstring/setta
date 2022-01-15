@@ -1,5 +1,6 @@
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useState } from "react";
 import Measure from "react-measure";
 import { UI_EDITOR } from "utils/constants";
@@ -14,6 +15,8 @@ const paneProps = {
 };
 
 export default function UiEditor() {
+  const tabIndex = useStoreState((x) => x.uiEditor.tabIndex);
+  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const [dimensions, setDimensions] = useState({});
 
   return (
@@ -24,6 +27,8 @@ export default function UiEditor() {
         flexDir="column"
         className="topTab"
         isLazy
+        index={tabIndex}
+        onChange={setTabIndex}
       >
         <TabList>
           <Tab>Section Config</Tab>

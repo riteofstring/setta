@@ -18,6 +18,7 @@ import {
   useGetObjInfos,
   useGetParamUIType,
   useGetSectionInfo,
+  useParamChildId,
   useSetUITypeConfig,
 } from "hooks/useCreateInfo";
 import { PrettyDropDown } from "utils/PrettyDropdown/prettyDropdown";
@@ -39,6 +40,7 @@ export default function UIConfigFunc() {
         paramInfos.length > 0 &&
         paramInfos.map((e, idx) => (
           <UIElement
+            sectionId={sectionId}
             paramInfo={e}
             getUITypeFn={getUITypeFn}
             key={`${e.name}-${idx}`}
@@ -48,7 +50,8 @@ export default function UIConfigFunc() {
   );
 }
 
-function UIElement({ paramInfo, getUITypeFn }) {
+function UIElement({ sectionId, paramInfo, getUITypeFn }) {
+  const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = uiType.config;
   const setUITypeConfig = useSetUITypeConfig(uiType);
@@ -93,6 +96,8 @@ function UIElement({ paramInfo, getUITypeFn }) {
           </FormControl>
           <ParamUIConfig
             name={uiType.name}
+            paramInfoId={paramInfo.id}
+            childIdFn={childIdFn}
             savedConfig={uiTypeConfig}
             onChange={onChange}
           />
