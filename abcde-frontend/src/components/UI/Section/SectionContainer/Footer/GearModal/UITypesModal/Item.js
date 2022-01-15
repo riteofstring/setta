@@ -13,7 +13,7 @@ import {
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreActions } from "easy-peasy";
 import { useSetUITypeConfig } from "hooks/useCreateInfo";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
+import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
 
 export default function Item({ paramInfo, getUITypeFn }) {

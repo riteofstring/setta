@@ -9,7 +9,6 @@ import {
   AccordionPanel,
   AccordionIcon,
   Box,
-  Select,
   FormControl,
 } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
@@ -21,7 +20,8 @@ import {
   useGetSectionInfo,
   useSetUITypeConfig,
 } from "hooks/useCreateInfo";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
+import { PrettyDropDown } from "utils/PrettyDropdown/prettyDropdown";
+import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
 
 export default function UIConfigFunc() {
@@ -83,17 +83,13 @@ function UIElement({ paramInfo, getUITypeFn }) {
 
         <AccordionPanel pb={4}>
           <FormControl id="placeholder">
-            <Select
+            <PrettyDropDown
               placeholder="Select UI Type"
               onChange={onSelect}
-              value={uiTypesToPretty.get(uiType.name)}
-            >
-              {[...prettyToUITypes.keys()].map((e, idx) => (
-                <option value={e} key={`${e}-${idx}`}>
-                  {e}
-                </option>
-              ))}
-            </Select>
+              prettyToX={prettyToUITypes}
+              xToPretty={uiTypesToPretty}
+              currX={uiType.name}
+            />
           </FormControl>
           <ParamUIConfig
             name={uiType.name}
