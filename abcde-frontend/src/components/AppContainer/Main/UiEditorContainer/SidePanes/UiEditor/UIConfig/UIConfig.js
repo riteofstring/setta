@@ -9,9 +9,7 @@ import {
   AccordionPanel,
   AccordionIcon,
   Box,
-  FormControl,
 } from "@chakra-ui/react";
-import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import {
   useGetAllParamAndKwargInfos,
@@ -21,9 +19,9 @@ import {
   useParamChildId,
   useSetUITypeConfig,
 } from "hooks/useCreateInfo";
-import { PrettyDropDown } from "utils/PrettyDropdown/prettyDropdown";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
-import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
+
+import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 export default function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
@@ -60,7 +58,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const setName = useStoreActions((x) => x.uiTypes.setName);
 
   const onSelect = (e) => {
-    setName({ uiTypeId: uiType.id, name: prettyToUITypes.get(e.target.value) });
+    setName({ uiTypeId: uiType.id, name: e });
   };
 
   const onChange = (configName, newValueFn) => {
@@ -85,21 +83,13 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
         </AccordionButton>
 
         <AccordionPanel pb={4}>
-          <FormControl id="placeholder">
-            <PrettyDropDown
-              placeholder="Select UI Type"
-              onChange={onSelect}
-              prettyToX={prettyToUITypes}
-              xToPretty={uiTypesToPretty}
-              currX={uiType.name}
-            />
-          </FormControl>
-          <ParamUIConfig
-            name={uiType.name}
+          <UIConfigDropdownAndFields
+            onDropdownSelect={onSelect}
+            currSelected={uiType.name}
+            onConfigChange={onChange}
             paramInfoId={paramInfo.id}
-            childIdFn={childIdFn}
             savedConfig={uiTypeConfig}
-            onChange={onChange}
+            childIdFn={childIdFn}
           />
           <SaveLoadButtons />
         </AccordionPanel>
