@@ -7,10 +7,14 @@ export function NestedObjectInputConfig({ childIdFn, paramInfoId }) {
   const existingChildId = childIdFn(paramInfoId)[0];
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const setCameFromUIConfig = useStoreActions(
+    (x) => x.uiEditor.setCameFromUIConfig
+  );
 
   const onClick = () => {
     if (existingChildId) {
       setActiveSection(existingChildId);
+      setCameFromUIConfig(true);
       setTabIndex(0);
     }
   };

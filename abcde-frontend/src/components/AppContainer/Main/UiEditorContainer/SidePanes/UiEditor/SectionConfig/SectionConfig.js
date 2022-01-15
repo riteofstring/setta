@@ -1,13 +1,31 @@
-import { useStoreState } from "easy-peasy";
-import { useGetSectionType, useReinitSectionType } from "hooks/useCreateInfo";
+import { Button } from "@chakra-ui/react";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import {
+  useGetSectionInfo,
+  useGetSectionType,
+  useReinitSectionType,
+} from "hooks/useCreateInfo";
 
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
 export default function SectionConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
+  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
+  const setCameFromUIConfig = useStoreActions(
+    (x) => x.uiEditor.setCameFromUIConfig
+  );
+  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const { name, specs } = useGetSectionType(sectionId);
   const reinitSectionType = useReinitSectionType(sectionId);
+  const { parentId } = useGetSectionInfo(sectionId);
+
+  const onGoBackClick = () => {
+    setActiveSection(parentId);
+    setCameFromUIConfig(false);
+    setTabIndex(1);
+  };
 
   const onSectionTypeChange = (e) => {
     if (e && e !== name) {
@@ -22,6 +40,7 @@ export default function SectionConfigFunc() {
 
   return (
     <>
+      {cameFromUIConfig && <Button onClick={onGoBackClick}>Go back</Button>}
       <SectionConfigTypeSelection
         onChange={onSectionTypeChange}
         currType={name}
