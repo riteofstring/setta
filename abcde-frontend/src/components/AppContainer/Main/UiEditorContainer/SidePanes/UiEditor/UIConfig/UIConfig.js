@@ -17,11 +17,7 @@ import {
   useGetAllParamAndKwargInfos,
 } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
-import {
-  useGetParamUIType,
-  useSetUIType,
-  useUITypeConfig,
-} from "hooks/useUIType";
+import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
@@ -55,7 +51,7 @@ export default function UIConfigFunc() {
 function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo.id);
-  const uiTypeConfig = useUITypeConfig(uiType.id);
+  const uiTypeConfig = uiType.config;
   const [setType, setUITypeConfig] = useSetUIType(
     sectionId,
     paramInfo.id,

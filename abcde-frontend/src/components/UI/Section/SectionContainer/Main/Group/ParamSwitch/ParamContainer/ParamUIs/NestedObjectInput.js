@@ -3,7 +3,6 @@ import { SectionConfigCore } from "components/AppContainer/Main/UiEditorContaine
 import { useStoreActions } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
 import { useReinitSectionType } from "hooks/useSectionType";
-import { useUITypeConfig } from "hooks/useUIType";
 import React, { useEffect } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
@@ -44,7 +43,7 @@ export default function NestedObjectInput({
   const addChild = useAddChild(sectionId);
   const reinitSectionType = useReinitSectionType(existingChildId);
   const sectionTypeName = uiType.type;
-  const sectionSpecs = useUITypeConfig(uiType.id);
+  const sectionSpecs = uiType.config;
 
   console.log("NestedObjectInput", uiType);
 

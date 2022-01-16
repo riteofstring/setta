@@ -8,7 +8,6 @@ import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setConfig = useStoreActions((x) => x.uiTypes.setConfig);
   const overrideUITypeIds = useStoreActions(
     (x) => x.paramInfos.overrideUITypeIds
   );
@@ -17,7 +16,7 @@ export default function UiConfigGlobal() {
     (x) => x.projectParamDefaults.setManyUITypeIds
   );
   const [currSelected, setCurrSelected] = useState(null);
-  const [savedConfig, setConfigLocal] = useState({});
+  const [savedConfig, setConfig] = useState({});
   const [params, setParams] = useState([]);
 
   function onDropdownSelect(e) {
@@ -32,6 +31,7 @@ export default function UiConfigGlobal() {
     return () => {
       const uiType = getNewUIType({
         type: currSelected,
+        config: savedConfig,
         origin: PROJECT_DEFAULT,
       });
       const toUITypeId = _.zipObject(
@@ -39,7 +39,6 @@ export default function UiConfigGlobal() {
         _.fill(Array(params.length), { uiTypeId: uiType.id })
       );
       setUIType({ uiType });
-      setConfig({ uiTypeId: uiType.id, config: savedConfig });
       setManyUITypeIds({ toUITypeId });
       overrideUITypeIds({
         toUITypeId,
@@ -53,7 +52,7 @@ export default function UiConfigGlobal() {
   }
 
   function onConfigChange(configName, newStateFn) {
-    setConfigLocal((x) => ({ ...x, [configName]: newStateFn(x[configName]) }));
+    setConfig((x) => ({ ...x, [configName]: newStateFn(x[configName]) }));
   }
 
   return (

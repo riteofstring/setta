@@ -1,4 +1,3 @@
-import { useUITypeConfig } from "hooks/useUIType";
 import { useState, useEffect } from "react";
 import { nullOrUndefined } from "utils/utils";
 
@@ -7,7 +6,6 @@ import ParamUI from "../ParamUIs/ParamUI";
 export default function ParamInput(props) {
   const { paramInfoId, defaultVal, uiType, enteredValueFn } = props;
 
-  const uiTypeConfig = useUITypeConfig(uiType.id);
   const [enteredValue, setEnteredValue] = enteredValueFn(paramInfoId);
   const [value, setValue] = useState("");
 
@@ -33,7 +31,7 @@ export default function ParamInput(props) {
         onChange,
         onChangeEnd,
         isDisabled: props.isDisabled,
-        ...uiTypeConfig,
+        ...props.uiTypeConfig,
       }}
     />
   );
