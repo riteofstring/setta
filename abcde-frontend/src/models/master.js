@@ -1,5 +1,4 @@
 import { createAllInfo } from "classes/infoFactory";
-import { UIType } from "classes/uiType";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
 import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
@@ -7,7 +6,7 @@ import ProjectDefaults from "data/simpleTrainTestProjectDefaults.json";
 import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
-import { createSectionInfoFn } from "hooks/useCreateInfo";
+import { createSectionInfoFn, getNewUIType } from "hooks/useCreateInfo";
 import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 
@@ -137,15 +136,11 @@ const master = {
     const setManyUITypeIds =
       helpers.getStoreActions().paramDefaults.setManyUITypeIds;
     const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
-    const uiTypes = _.map(
-      payload.uiTypes,
-      (x) =>
-        new UIType({
-          id: x.id,
-          name: x.name,
-          config: x.config,
-          isDefault: true,
-        })
+    const uiTypes = _.map(payload.uiTypes, (x) =>
+      getNewUIType({
+        ...x,
+        isDefault: true,
+      })
     );
     setManyUITypes({ uiTypes });
     setManyUITypeIds({ paramIdToUITypeId: payload.paramDefaults });

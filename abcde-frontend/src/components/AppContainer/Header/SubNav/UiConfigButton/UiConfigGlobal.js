@@ -1,14 +1,18 @@
-import { HStack, List, ListItem } from "@chakra-ui/react";
+import { Box, Button, HStack, List, ListItem } from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
-import { useStoreState } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { getNewUIType } from "hooks/useCreateInfo";
 import React, { useState } from "react";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+
+  const setManyUITypeIds = useStoreActions(
+    (x) => x.paramDefaults.setManyUITypeIds
+  );
   const [currSelected, setCurrSelected] = useState(null);
   const [params, setParams] = useState([]);
-
-  console.log("selected params", params);
 
   function onDropdownSelect(e) {
     setCurrSelected(e);
@@ -18,13 +22,28 @@ export default function UiConfigGlobal() {
     setParams(newStateFn);
   }
 
+  function onApply() {
+    const uiType = getNewUIType({ name: currSelected, isDefault: true });
+    const paramIdToUITypeId = _.zipObject(
+      params,
+      _.fill(Array(params.length), { uiTypeId: uiType.id })
+    );
+    setUIType({ uiType });
+    setManyUITypeIds({ paramIdToUITypeId });
+  }
+
   return (
     <HStack>
       <UIConfigDropdownAndFields
         onDropdownSelect={onDropdownSelect}
         currSelected={currSelected}
       />
-      <ParameterList onCheckboxChange={onCheckboxChange} />
+      <Box maxHeight="500px" overflowY="auto">
+        <ParameterList onCheckboxChange={onCheckboxChange} />
+      </Box>
+      <Button variant="outline" size="sm" onClick={onApply}>
+        Apply
+      </Button>
     </HStack>
   );
 }

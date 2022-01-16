@@ -388,10 +388,10 @@ export function useSettingsDefaultUITypeName(type) {
   return defaultUITypeName ? defaultUITypeName : DEFAULT_UI_TYPE_NAME;
 }
 
-export function getNewUIType(uiTypeName) {
+export function getNewUIType({ id, ...props }) {
   return new UIType({
-    id: createNewId(),
-    name: uiTypeName,
+    id: id ? id : createNewId(),
+    ...props,
   });
 }
 
@@ -417,7 +417,7 @@ export function useInitializeUIType(sectionId) {
       } else if (projectDefaultUIType) {
         setUITypeId(projectDefaultUIType.id);
       } else {
-        const newUIType = getNewUIType(settingsDefaulUITypeName);
+        const newUIType = getNewUIType({ name: settingsDefaulUITypeName });
         setUITypeId(newUIType.id);
         setUIType({ uiType: newUIType });
       }
