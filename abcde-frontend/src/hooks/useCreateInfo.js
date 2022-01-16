@@ -334,18 +334,29 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-export function useSetUITypeConfig(uiType, settingDefault = false) {
+function setUITypeAttr(uiType, settingDefault, fn, props) {
+  // The uitype comes from a project or user settings default
+  // But it's being changed from the sidepane
+  if (uiType.isDefault && !settingDefault) {
+    // setUIType({ uiType: cloneNewUIType(uiType) });
+    console.log("TRYING TO SET DEFAULT UI TYPE");
+  } else {
+    fn({ uiTypeId: uiType.id, ...props });
+  }
+}
+
+export function useSetUIType(uiType, settingDefault = false) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setName = useStoreActions((x) => x.uiTypes.setName);
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  const setUITypeConfig = ({ configName, newValueFn }) => {
-    // The uitype comes from a project or user settings default
-    // But it's being changed from the sidepane
-    if (uiType.isDefault && !settingDefault) {
-      setUIType({ uiType: cloneNewUIType(uiType) });
-    }
-    setConfig({ uiTypeId: uiType.id, configName, newValueFn });
+
+  const _setName = (props) => {
+    setUITypeAttr(uiType, settingDefault, setName, props);
   };
-  return setUITypeConfig;
+  const _setConfig = (props) => {
+    setUITypeAttr(uiType, settingDefault, setConfig, props);
+  };
+  return [_setName, _setConfig];
 }
 
 export function useProjectDefaultUIType(paramInfoId) {

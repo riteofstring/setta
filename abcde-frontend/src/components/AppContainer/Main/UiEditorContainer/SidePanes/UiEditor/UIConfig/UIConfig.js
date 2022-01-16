@@ -10,14 +10,14 @@ import {
   AccordionIcon,
   Box,
 } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import {
   useGetAllParamAndKwargInfos,
   useGetObjInfos,
   useGetParamUIType,
   useGetSectionInfo,
   useParamChildId,
-  useSetUITypeConfig,
+  useSetUIType,
 } from "hooks/useCreateInfo";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 
@@ -52,13 +52,11 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = uiType.config;
-  const setUITypeConfig = useSetUITypeConfig(uiType);
+  const [setName, setUITypeConfig] = useSetUIType(uiType);
   const paramName = paramInfo.name;
 
-  const setName = useStoreActions((x) => x.uiTypes.setName);
-
   const onSelect = (e) => {
-    setName({ uiTypeId: uiType.id, name: e });
+    setName({ name: e });
   };
 
   const onChange = (configName, newValueFn) => {

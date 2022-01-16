@@ -139,7 +139,13 @@ const master = {
     const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
     const uiTypes = _.map(
       payload.uiTypes,
-      (x) => new UIType({ id: x.id, name: x.name, config: x.config })
+      (x) =>
+        new UIType({
+          id: x.id,
+          name: x.name,
+          config: x.config,
+          isDefault: true,
+        })
     );
     setManyUITypes({ uiTypes });
     setManyUITypeIds({ paramIdToUITypeId: payload.paramDefaults });

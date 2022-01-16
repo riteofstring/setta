@@ -3,7 +3,9 @@ import { action } from "easy-peasy";
 
 function setMutableParamUITypeInfo(state, paramInfoId) {
   if (!(paramInfoId in state.x)) {
-    state.x[paramInfoId] = new MutableParamUITypeInfo({ id: paramInfoId });
+    state.x[paramInfoId] = new MutableParamUITypeInfo({
+      id: paramInfoId,
+    });
   }
   return state.x[paramInfoId];
 }
