@@ -61,16 +61,16 @@ export function useSetUIType(
 
 export function useProjectDefaultUIType(paramInfoId) {
   const uiTypeId = useStoreState(
-    (x) => x.paramDefaults.x[paramInfoId]?.uiTypeId
+    (x) => x.projectParamDefaults.x[paramInfoId]?.uiTypeId
   );
   return useStoreState((x) => x.uiTypes.x[uiTypeId]);
 }
 
-export function useSettingsDefaultUITypeName(type) {
-  const defaultUITypeName = useStoreState(
-    (x) => x.userSettings.datatypeToUIType[type]
+export function useGlobalDefaultUIType(paramType) {
+  const uiTypeId = useStoreState(
+    (x) => x.globalParamDefaults.x[paramType]?.uiTypeId
   );
-  return defaultUITypeName ? defaultUITypeName : DEFAULT_UI_TYPE_NAME;
+  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
 }
 
 export function getNewUIType({ id, ...props }) {
@@ -93,16 +93,16 @@ export function useInitializeUIType(sectionId) {
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
-    const settingsDefaulUITypeName = useSettingsDefaultUITypeName(
-      paramInfo.type
-    );
+    const globalDefaultUIType = useGlobalDefaultUIType(paramInfo.type);
     return () => {
       if (uiTypeId) {
         return;
       } else if (projectDefaultUIType) {
         setUITypeId(projectDefaultUIType.id);
+      } else if (globalDefaultUIType) {
+        setUITypeId(globalDefaultUIType.id);
       } else {
-        const newUIType = getNewUIType({ name: settingsDefaulUITypeName });
+        const newUIType = getNewUIType({ name: DEFAULT_UI_TYPE_NAME });
         setUITypeId(newUIType.id);
         setUIType({ uiType: newUIType });
       }

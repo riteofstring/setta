@@ -1,4 +1,5 @@
 import { createAllInfo } from "classes/infoFactory";
+import GlobalDefaults from "data/simpleTrainTestGlobalDefaults.json";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
 import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
@@ -60,6 +61,7 @@ const master = {
     } else {
       // action._loadSections(payload);
     }
+    action.initGlobalDefaults(GlobalDefaults);
     action.initProjectDefaults(ProjectDefaults);
     const newIds = action.initSections();
     action.initGroups(newIds);
@@ -133,18 +135,20 @@ const master = {
     });
   }),
 
-  initProjectDefaults: thunk((action, payload, helpers) => {
-    const setManyUITypeIds =
-      helpers.getStoreActions().paramDefaults.setManyUITypeIds;
-    const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
-    const uiTypes = _.map(payload.uiTypes, (x) =>
-      getNewUIType({
-        ...x,
-        isDefault: true,
-      })
+  initGlobalDefaults: thunk((action, payload, helpers) => {
+    initDefaultHelper(
+      payload,
+      helpers.getStoreActions(),
+      "globalParamDefaults"
     );
-    setManyUITypes({ uiTypes });
-    setManyUITypeIds({ paramIdToUITypeId: payload.paramDefaults });
+  }),
+
+  initProjectDefaults: thunk((action, payload, helpers) => {
+    initDefaultHelper(
+      payload,
+      helpers.getStoreActions(),
+      "projectParamDefaults"
+    );
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {
@@ -169,3 +173,16 @@ const master = {
 };
 
 export default master;
+
+function initDefaultHelper(payload, storeActions, storeName) {
+  const setManyUITypeIds = storeActions[storeName].setManyUITypeIds;
+  const setManyUITypes = storeActions.uiTypes.setManyUITypes;
+  const uiTypes = _.map(payload.uiTypes, (x) =>
+    getNewUIType({
+      ...x,
+      isDefault: true,
+    })
+  );
+  setManyUITypes({ uiTypes });
+  setManyUITypeIds({ toUITypeId: payload.paramDefaults });
+}

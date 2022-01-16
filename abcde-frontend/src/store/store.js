@@ -3,10 +3,10 @@ import auth from "models/auth";
 import cliSocket from "models/cliSocket";
 import factoriesInfo from "models/factoriesInfo";
 import funcsInfo from "models/funcsInfo";
+import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
 import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
-import paramDefaults from "models/info/paramDefaults";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
 import sectionTypes from "models/info/sectionTypes";
@@ -14,6 +14,7 @@ import uiTypes from "models/info/uiTypes";
 import mapInteraction from "models/mapInteraction";
 import master from "models/master";
 import panes from "models/panes";
+import projectParamDefaults from "models/projectDefaults/projectParamDefaults";
 import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
@@ -42,7 +43,8 @@ const store = createStore(
       uiTypes: uiTypes,
       userSettings: userSettings,
       uiEditor: uiEditor,
-      paramDefaults: paramDefaults,
+      projectParamDefaults: projectParamDefaults,
+      globalParamDefaults: globalParamDefaults,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

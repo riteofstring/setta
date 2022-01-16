@@ -9,7 +9,7 @@ export default function UiConfigGlobal() {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
 
   const setManyUITypeIds = useStoreActions(
-    (x) => x.paramDefaults.setManyUITypeIds
+    (x) => x.projectParamDefaults.setManyUITypeIds
   );
   const [currSelected, setCurrSelected] = useState(null);
   const [params, setParams] = useState([]);

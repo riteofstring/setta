@@ -86,3 +86,12 @@ export class KwargInfo extends ParameterInfo {
   [immerable] = true;
   exportable = ["id", "name"];
 }
+
+export class ParamTypeInfo extends MutableInfo {
+  constructor({ type, uiTypeId }) {
+    super();
+    this.type = type;
+    this.uiTypeId = uiTypeId;
+    this.exportable = ["type", "uiTypeId"];
+  }
+}

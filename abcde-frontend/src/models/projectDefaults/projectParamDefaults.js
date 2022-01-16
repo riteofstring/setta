@@ -10,7 +10,7 @@ function setMutableParamUITypeInfo(state, paramInfoId) {
   return state.x[paramInfoId];
 }
 
-const paramDefaults = {
+const projectParamDefaults = {
   x: {},
 
   setUITypeId: action((state, payload) => {
@@ -19,9 +19,9 @@ const paramDefaults = {
   }),
 
   setManyUITypeIds: action((state, payload) => {
-    const { paramIdToUITypeId } = payload;
+    const { toUITypeId } = payload;
     _.forEach(
-      paramIdToUITypeId,
+      toUITypeId,
       (v, k) => (setMutableParamUITypeInfo(state, k).uiTypeId = v.uiTypeId)
     );
   }),
@@ -31,4 +31,4 @@ const paramDefaults = {
   },
 };
 
-export default paramDefaults;
+export default projectParamDefaults;
