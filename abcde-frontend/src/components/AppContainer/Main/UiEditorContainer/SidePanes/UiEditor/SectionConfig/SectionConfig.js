@@ -39,7 +39,9 @@ export default function SectionConfigFunc() {
   const onConfigChange = (configName, newValueFn) => {
     const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
     reinitSectionType({ name, sectionSpecs: newSpecs });
-    setOneConfig({ uiTypeId, configName, newValueFn });
+    if (uiTypeId) {
+      setOneConfig({ uiTypeId, configName, newValueFn });
+    }
   };
 
   return (
