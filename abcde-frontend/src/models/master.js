@@ -188,13 +188,19 @@ export default master;
 
 function initDefaultHelper(payload, storeActions, storeName, origin) {
   const setManyUITypes = storeActions.uiTypes.setManyUITypes;
+  const setManyConfigs = storeActions.uiTypes.setManyConfigs;
   const uiTypes = _.map(payload.uiTypes, (x) =>
     getNewUIType({
       ...x,
       origin,
     })
   );
+  const configs = _.map(payload.uiTypes, (x) => ({
+    id: x.id,
+    config: x.config,
+  }));
   setManyUITypes({ uiTypes });
+  setManyConfigs({ configs });
 
   if (storeName) {
     const setManyUITypeIds = storeActions[storeName].setManyUITypeIds;

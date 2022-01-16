@@ -19,7 +19,6 @@ export default function ParamContainer(props) {
   const initUITypeFn = getInitUITypeFn(paramInfo);
   const initEnteredValueFn = getInitEnteredValueFn(paramInfo.id);
   console.log("ParamContainer");
-  const uiTypeConfig = uiType.config;
 
   useEffect(() => {
     initUITypeFn();
@@ -44,7 +43,6 @@ export default function ParamContainer(props) {
             paramInfoId={paramInfo.id}
             defaultVal={paramInfo.defaultVal}
             uiType={uiType}
-            uiTypeConfig={uiTypeConfig}
             enteredValueFn={enteredValueFn}
             isDisabled={!paramInfo.name}
           />

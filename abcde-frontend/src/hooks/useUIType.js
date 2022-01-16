@@ -24,6 +24,7 @@ export function useGetParamUIType(sectionId) {
 
 function useSetUITypeAttr(sectionId, paramInfoId, uiType, settingDefault) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const cloneConfig = useStoreActions((x) => x.uiTypes.cloneConfig);
   const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   return (fn, props) => {
     // The uitype comes from a project or user settings default
@@ -31,8 +32,10 @@ function useSetUITypeAttr(sectionId, paramInfoId, uiType, settingDefault) {
     let maybeNewUIType = uiType;
     if (uiType.origin !== SET_FROM_SIDEPANE && !settingDefault) {
       maybeNewUIType = cloneNewUIType(uiType);
+      const uiTypeId = maybeNewUIType.id;
       setUIType({ uiType: maybeNewUIType });
-      setUITypeId(maybeNewUIType.id);
+      setUITypeId(uiTypeId);
+      cloneConfig({ oldId: uiType.id, newId: uiTypeId });
     }
     fn({ uiTypeId: maybeNewUIType.id, ...props });
   };
@@ -92,7 +95,6 @@ export function cloneNewUIType(uiType, origin = SET_FROM_SIDEPANE) {
 
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
@@ -117,4 +119,8 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   );
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   return [uiTypeId, setOneConfig];
+}
+
+export function useUITypeConfig(uiTypeId) {
+  return useStoreState((x) => x.uiTypes.config[uiTypeId]);
 }
