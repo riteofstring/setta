@@ -16,6 +16,14 @@ const paramDefaults = {
     setMutableParamUITypeInfo(state, paramInfoId).uiTypeId = uiTypeId;
   }),
 
+  setManyUITypeIds: action((state, payload) => {
+    const { paramIdToUITypeId } = payload;
+    _.forEach(
+      paramIdToUITypeId,
+      (v, k) => (setMutableParamUITypeInfo(state, k).uiTypeId = v.uiTypeId)
+    );
+  }),
+
   export() {
     return this.x;
   },

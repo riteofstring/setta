@@ -1,7 +1,9 @@
 import { createAllInfo } from "classes/infoFactory";
+import { UIType } from "classes/uiType";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
 import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
+import ProjectDefaults from "data/simpleTrainTestProjectDefaults.json";
 import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
@@ -58,6 +60,7 @@ const master = {
     } else {
       // action._loadSections(payload);
     }
+    action.initProjectDefaults(ProjectDefaults);
     const newIds = action.initSections();
     action.initGroups(newIds);
   }),
@@ -128,6 +131,18 @@ const master = {
       setSectionInfo,
       setSectionType,
     });
+  }),
+
+  initProjectDefaults: thunk((action, payload, helpers) => {
+    const setManyUITypeIds =
+      helpers.getStoreActions().paramDefaults.setManyUITypeIds;
+    const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
+    const uiTypes = _.map(
+      payload.uiTypes,
+      (x) => new UIType({ id: x.id, name: x.name, config: x.config })
+    );
+    setManyUITypes({ uiTypes });
+    setManyUITypeIds({ paramIdToUITypeId: payload.paramDefaults });
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {
