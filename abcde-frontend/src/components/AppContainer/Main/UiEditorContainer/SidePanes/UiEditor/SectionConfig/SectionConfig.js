@@ -1,8 +1,8 @@
 import { Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useSetUITypeDirect } from "hooks/useCreateInfo";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType, useReinitSectionType } from "hooks/useSectionType";
+import { useSetUITypeDirect } from "hooks/useUIType";
 
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";

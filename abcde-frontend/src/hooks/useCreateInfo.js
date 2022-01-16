@@ -1,6 +1,5 @@
 import { createSectionInfo } from "classes/infoFactory";
-import { useStoreState, useStoreActions } from "easy-peasy";
-import _ from "lodash";
+import { useStoreActions } from "easy-peasy";
 
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
@@ -65,22 +64,4 @@ export function useCreateSectionInfo(sectionId) {
   };
 
   return createInfo;
-}
-
-export function useGroupedObjInfos(objInfos) {
-  const allPackageInfo = useStoreState((x) => x.master.allPackageInfo);
-  const allModuleInfo = useStoreState((x) => x.master.allModuleInfo);
-  return _.groupBy(objInfos, (x) => {
-    const { name: moduleName, parentId: packageId } = allModuleInfo[x.parentId];
-    const { name: packageName, version } = allPackageInfo.children[packageId];
-    return `${packageName}.${moduleName} v${version}`;
-  });
-}
-
-export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
-  const uiTypeId = useStoreState(
-    (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
-  );
-  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  return [uiTypeId, setOneConfig];
 }

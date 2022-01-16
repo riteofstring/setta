@@ -12,7 +12,7 @@ import {
   Collapse,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import { useGroupedObjInfos } from "hooks/useCreateInfo";
+import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import _ from "lodash";
 import { checkboxChangeFn } from "utils/utils";
 

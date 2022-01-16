@@ -109,3 +109,11 @@ export function useInitializeUIType(sectionId) {
     };
   };
 }
+
+export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
+  const uiTypeId = useStoreState(
+    (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
+  );
+  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  return [uiTypeId, setOneConfig];
+}
