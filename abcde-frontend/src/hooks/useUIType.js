@@ -4,7 +4,10 @@ import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 import { defaultState } from "utils/utils";
 
-import { DEFAULT_UI_TYPE_NAME } from "../utils/constants";
+import {
+  DEFAULT_DEFAULT_UI_TYPE_ID,
+  SET_FROM_SIDEPANE,
+} from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
 import { getInfo } from "./utils";
 
@@ -26,7 +29,7 @@ function useSetUITypeAttr(sectionId, paramInfoId, uiType, settingDefault) {
     // The uitype comes from a project or user settings default
     // But it's being changed from the sidepane
     let maybeNewUIType = uiType;
-    if (uiType.isDefault && !settingDefault) {
+    if (uiType.origin !== SET_FROM_SIDEPANE && !settingDefault) {
       maybeNewUIType = cloneNewUIType(uiType);
       setUIType({ uiType: maybeNewUIType });
       setUITypeId(maybeNewUIType.id);
@@ -80,10 +83,10 @@ export function getNewUIType({ id, ...props }) {
   });
 }
 
-export function cloneNewUIType(uiType, isDefault = false) {
+export function cloneNewUIType(uiType, origin = SET_FROM_SIDEPANE) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
-  newUIType.isDefault = isDefault;
+  newUIType.origin = origin;
   return newUIType;
 }
 
@@ -102,9 +105,7 @@ export function useInitializeUIType(sectionId) {
       } else if (globalDefaultUIType) {
         setUITypeId(globalDefaultUIType.id);
       } else {
-        const newUIType = getNewUIType({ name: DEFAULT_UI_TYPE_NAME });
-        setUITypeId(newUIType.id);
-        setUIType({ uiType: newUIType });
+        setUITypeId(DEFAULT_DEFAULT_UI_TYPE_ID);
       }
     };
   };

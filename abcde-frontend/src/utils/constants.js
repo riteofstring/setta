@@ -18,6 +18,13 @@ export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
 export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT];
 export const DEFAULT_UI_TYPE_NAME = TEXT;
+export const SET_FROM_SIDEPANE = 3;
+export const PROJECT_DEFAULT = 2;
+export const GLOBAL_DEFAULT = 1;
+export const DEFAULT_DEFAULT = 0;
+
+export const DEFAULT_DEFAULT_UI_TYPE_ID =
+  "3fdaeb6a-e989-4888-b844-17a76f0b0192";
 
 export const prettyToSectionTypes = Object.freeze(
   new Map(

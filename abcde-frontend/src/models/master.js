@@ -1,4 +1,5 @@
 import { createAllInfo } from "classes/infoFactory";
+import DefaultDefaults from "data/simpleTrainTestDefaultDefaults.json";
 import GlobalDefaults from "data/simpleTrainTestGlobalDefaults.json";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
@@ -9,6 +10,11 @@ import { action, thunk, debug } from "easy-peasy";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
 import { getNewUIType } from "hooks/useUIType";
 import _ from "lodash";
+import {
+  DEFAULT_DEFAULT,
+  GLOBAL_DEFAULT,
+  PROJECT_DEFAULT,
+} from "utils/constants";
 import { createNewId } from "utils/sectionIds";
 
 const master = {
@@ -55,6 +61,7 @@ const master = {
     } else {
       // action._loadSections(payload);
     }
+    action.initDefaultDefaults(DefaultDefaults);
     action.initGlobalDefaults(GlobalDefaults);
     action.initProjectDefaults(ProjectDefaults);
     const newIds = action.initSections();
@@ -129,11 +136,21 @@ const master = {
     });
   }),
 
+  initDefaultDefaults: thunk((action, payload, helpers) => {
+    initDefaultHelper(
+      payload,
+      helpers.getStoreActions(),
+      null,
+      DEFAULT_DEFAULT
+    );
+  }),
+
   initGlobalDefaults: thunk((action, payload, helpers) => {
     initDefaultHelper(
       payload,
       helpers.getStoreActions(),
-      "globalParamDefaults"
+      "globalParamDefaults",
+      GLOBAL_DEFAULT
     );
   }),
 
@@ -141,7 +158,8 @@ const master = {
     initDefaultHelper(
       payload,
       helpers.getStoreActions(),
-      "projectParamDefaults"
+      "projectParamDefaults",
+      PROJECT_DEFAULT
     );
   }),
 
@@ -168,15 +186,18 @@ const master = {
 
 export default master;
 
-function initDefaultHelper(payload, storeActions, storeName) {
-  const setManyUITypeIds = storeActions[storeName].setManyUITypeIds;
+function initDefaultHelper(payload, storeActions, storeName, origin) {
   const setManyUITypes = storeActions.uiTypes.setManyUITypes;
   const uiTypes = _.map(payload.uiTypes, (x) =>
     getNewUIType({
       ...x,
-      isDefault: true,
+      origin,
     })
   );
   setManyUITypes({ uiTypes });
-  setManyUITypeIds({ toUITypeId: payload.paramDefaults });
+
+  if (storeName) {
+    const setManyUITypeIds = storeActions[storeName].setManyUITypeIds;
+    setManyUITypeIds({ toUITypeId: payload.paramDefaults });
+  }
 }

@@ -1,5 +1,5 @@
 import { MutableParamInfo, MutableParamUITypeInfo } from "classes/mutableInfo";
-import { action } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 
 import { setToDefault } from "./utils";
@@ -38,6 +38,24 @@ const paramInfos = {
     const { collectionId, paramInfoIds, uiTypeIds } = payload;
     for (let z of _.zip(paramInfoIds, uiTypeIds)) {
       setMutableParamUITypeInfo(state, collectionId, z[0]).uiTypeId = z[1];
+    }
+  }),
+
+  overrideUITypeIds: thunk((action, payload, helpers) => {
+    const uiTypes = helpers.getStoreState().uiTypes.x;
+    action.overrideUITypeIdsHelper({ ...payload, uiTypes });
+  }),
+
+  overrideUITypeIdsHelper: action((state, payload) => {
+    const { toUITypeId, overrideLevel, uiTypes } = payload;
+    for (let v of Object.values(state.y)) {
+      for (let id of Object.keys(v)) {
+        const newUITypeId = toUITypeId[id]?.uiTypeId;
+        const currUIType = uiTypes[v[id].uiTypeId];
+        if (newUITypeId && currUIType.origin <= overrideLevel) {
+          v[id].uiTypeId = newUITypeId;
+        }
+      }
     }
   }),
 

@@ -3,10 +3,14 @@ import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditor
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { getNewUIType } from "hooks/useUIType";
 import React, { useState } from "react";
+import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const overrideUITypeIds = useStoreActions(
+    (x) => x.paramInfos.overrideUITypeIds
+  );
 
   const setManyUITypeIds = useStoreActions(
     (x) => x.projectParamDefaults.setManyUITypeIds
@@ -22,14 +26,27 @@ export default function UiConfigGlobal() {
     setParams(newStateFn);
   }
 
-  function onApply() {
-    const uiType = getNewUIType({ name: currSelected, isDefault: true });
-    const paramIdToUITypeId = _.zipObject(
-      params,
-      _.fill(Array(params.length), { uiTypeId: uiType.id })
-    );
-    setUIType({ uiType });
-    setManyUITypeIds({ paramIdToUITypeId });
+  function onSetAsProjectDefault(overrideLevel = PROJECT_DEFAULT) {
+    return () => {
+      const uiType = getNewUIType({
+        name: currSelected,
+        origin: PROJECT_DEFAULT,
+      });
+      const toUITypeId = _.zipObject(
+        params,
+        _.fill(Array(params.length), { uiTypeId: uiType.id })
+      );
+      setUIType({ uiType });
+      setManyUITypeIds({ toUITypeId });
+      overrideUITypeIds({
+        toUITypeId,
+        overrideLevel,
+      });
+    };
+  }
+
+  function onOverrideExisting() {
+    return onSetAsProjectDefault(SET_FROM_SIDEPANE);
   }
 
   return (
@@ -41,8 +58,11 @@ export default function UiConfigGlobal() {
       <Box maxHeight="500px" overflowY="auto">
         <ParameterList onCheckboxChange={onCheckboxChange} />
       </Box>
-      <Button variant="outline" size="sm" onClick={onApply}>
-        Apply
+      <Button variant="outline" size="sm" onClick={onSetAsProjectDefault()}>
+        Set as project default
+      </Button>
+      <Button variant="outline" size="sm" onClick={onOverrideExisting()}>
+        Override existing
       </Button>
     </HStack>
   );
