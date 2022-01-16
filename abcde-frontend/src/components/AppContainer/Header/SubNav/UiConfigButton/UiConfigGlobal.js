@@ -62,6 +62,7 @@ export default function UiConfigGlobal() {
         currSelected={currSelected}
         onConfigChange={onConfigChange}
         savedConfig={savedConfig}
+        origin={PROJECT_DEFAULT}
       />
       <Box maxHeight="500px" overflowY="auto">
         <ParameterList onCheckboxChange={onCheckboxChange} />

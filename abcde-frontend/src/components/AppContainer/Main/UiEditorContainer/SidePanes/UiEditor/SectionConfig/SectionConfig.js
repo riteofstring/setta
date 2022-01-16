@@ -47,11 +47,29 @@ export default function SectionConfigFunc() {
   return (
     <>
       {cameFromUIConfig && <Button onClick={onGoBackClick}>Go back</Button>}
+      <SectionConfigCore
+        onSectionTypeChange={onSectionTypeChange}
+        currType={name}
+        savedConfig={specs}
+        onConfigChange={onConfigChange}
+      />
+    </>
+  );
+}
+
+export function SectionConfigCore({
+  onSectionTypeChange,
+  currType,
+  savedConfig,
+  onConfigChange,
+}) {
+  return (
+    <>
       <SectionConfigTypeSelection
         onChange={onSectionTypeChange}
-        currType={name}
+        currType={currType}
       />
-      <SectionConfigComp savedConfig={specs} onChange={onConfigChange} />
+      <SectionConfigComp savedConfig={savedConfig} onChange={onConfigChange} />
     </>
   );
 }

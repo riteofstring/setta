@@ -10,6 +10,7 @@ export function UIConfigDropdownAndFields({
   paramInfoId,
   savedConfig,
   childIdFn,
+  origin,
 }) {
   function onSelect(e) {
     onDropdownSelect(prettyToUITypes.get(e.target.value));
@@ -30,6 +31,7 @@ export function UIConfigDropdownAndFields({
         childIdFn={childIdFn}
         savedConfig={savedConfig}
         onChange={onConfigChange}
+        origin={origin}
       />
     </VStack>
   );

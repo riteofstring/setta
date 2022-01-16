@@ -1,10 +1,20 @@
 import { Button } from "@chakra-ui/react";
+import { SectionConfigCore } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfig";
 import { useStoreActions } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
 import { useReinitSectionType } from "hooks/useSectionType";
 import React, { useEffect } from "react";
+import { SET_FROM_SIDEPANE } from "utils/constants";
 
-export function NestedObjectInputConfig({ childIdFn, paramInfoId }) {
+export function NestedObjectInputConfig({ origin, ...props }) {
+  return origin === SET_FROM_SIDEPANE ? (
+    <ButtonGoToSectionConfig {...props} />
+  ) : (
+    <SectionConfigCore />
+  );
+}
+
+export function ButtonGoToSectionConfig({ childIdFn, paramInfoId }) {
   const existingChildId = childIdFn(paramInfoId)[0];
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);

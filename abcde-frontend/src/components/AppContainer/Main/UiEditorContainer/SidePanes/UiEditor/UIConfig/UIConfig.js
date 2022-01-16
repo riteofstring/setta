@@ -19,6 +19,7 @@ import {
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
+import { SET_FROM_SIDEPANE } from "utils/constants";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -91,6 +92,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
             paramInfoId={paramInfo.id}
             savedConfig={uiTypeConfig}
             childIdFn={childIdFn}
+            origin={SET_FROM_SIDEPANE}
           />
           <SaveLoadButtons />
         </AccordionPanel>
