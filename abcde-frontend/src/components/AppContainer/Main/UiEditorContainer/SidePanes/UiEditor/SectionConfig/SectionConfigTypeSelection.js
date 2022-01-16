@@ -1,4 +1,4 @@
-import { PrettyDropDown } from "utils/PrettyDropdown/prettyDropdown";
+import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
 import { prettyToSectionTypes, sectionTypesToPretty } from "utils/constants";
 
 export default function SectionConfigTypeSelection({ onChange, currType }) {
@@ -8,7 +8,7 @@ export default function SectionConfigTypeSelection({ onChange, currType }) {
   };
 
   return (
-    <PrettyDropDown
+    <StandardDropDown
       placeholder="Select Section Type"
       onChange={localOnChange}
       prettyToX={prettyToSectionTypes}

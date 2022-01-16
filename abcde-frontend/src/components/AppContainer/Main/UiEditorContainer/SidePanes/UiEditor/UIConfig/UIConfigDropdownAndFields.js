@@ -1,7 +1,8 @@
 import { VStack } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
-import { PrettyDropDown } from "utils/PrettyDropdown/prettyDropdown";
-import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
+import { useStoreState } from "easy-peasy";
+import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
+import { uiTypesToPretty } from "utils/constants";
 
 export function UIConfigDropdownAndFields({
   onDropdownSelect,
@@ -12,18 +13,30 @@ export function UIConfigDropdownAndFields({
   childIdFn,
   origin,
 }) {
+  function createName(uiType) {
+    const x = uiTypesToPretty.get(uiType.type);
+    if (uiType.name) {
+      return `${uiType.name} (${x})`;
+    }
+    return x;
+  }
+
+  const availableUITypes = useStoreState(
+    (x) => _.mapValues(x.uiTypes.x, (v) => createName(v)),
+    _.isEqual
+  );
+
   function onSelect(e) {
-    onDropdownSelect(prettyToUITypes.get(e.target.value));
+    onDropdownSelect(e.target.value);
   }
 
   return (
     <VStack>
-      <PrettyDropDown
+      <StandardDropDown
         placeholder="Select UI Type"
         onChange={onSelect}
-        prettyToX={prettyToUITypes}
-        xToPretty={uiTypesToPretty}
-        currX={currSelected}
+        options={availableUITypes}
+        curr={currSelected}
       />
       <ParamUIConfig
         name={currSelected}
