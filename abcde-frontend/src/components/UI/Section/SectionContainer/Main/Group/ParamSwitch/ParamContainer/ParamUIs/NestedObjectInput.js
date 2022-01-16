@@ -1,6 +1,7 @@
 import { Button } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
+import { useAddChild } from "hooks/useAddDeleteChild";
+import { useReinitSectionType } from "hooks/useCreateInfo";
 import React, { useEffect } from "react";
 
 export function NestedObjectInputConfig({ childIdFn, paramInfoId }) {

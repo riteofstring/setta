@@ -13,9 +13,8 @@ import {
   useInitializeEnteredValue,
   useParamEnteredValue,
   useInitializeUIType,
-  useAddKwarg,
-  useDeleteKwarg,
 } from "hooks/useCreateInfo";
+import { useAddKwarg, useDeleteKwarg } from "hooks/useKwarg";
 
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 

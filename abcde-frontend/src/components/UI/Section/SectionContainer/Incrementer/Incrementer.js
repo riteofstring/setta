@@ -1,6 +1,6 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
-import { useAddChild, useDeleteChild } from "hooks/useCreateInfo";
+import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import React, { useState } from "react";
 import { HiX } from "react-icons/hi";
 

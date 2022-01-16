@@ -1,23 +1,14 @@
 import { createSectionInfo } from "classes/infoFactory";
-import { KwargInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
-import { curryAction, defaultState, insertIntoArrayOrXpend } from "utils/utils";
+import { curryAction, defaultState } from "utils/utils";
 
 import { DEFAULT_UI_TYPE_NAME } from "../utils/constants";
-import { useSetIdsOverview } from "./useIdsOverview";
 
 function getInfo(x) {
   return x.x;
-}
-
-function getAttr(x, attr = null) {
-  if (attr === null) {
-    return x;
-  }
-  return x[attr];
 }
 
 export function createSectionInfoFn({
@@ -423,112 +414,6 @@ export function useInitializeUIType(sectionId) {
       }
     };
   };
-}
-
-export function useAddKwarg(sectionId, objInfo) {
-  const { kwargCollectionId } = useGetSectionInfo(sectionId);
-  const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
-  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
-  return () => {
-    const kwargInfo = new KwargInfo({ id: createNewId(), name: "" }, null);
-    setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
-    setKwargIds({
-      collectionId: kwargCollectionId,
-      objInfoId: objInfo.id,
-      newStateFn: (x) => [...x, kwargInfo.id],
-    });
-  };
-}
-
-export function useDeleteKwarg(sectionId, objInfo) {
-  const { paramCollectionId, kwargCollectionId } = useGetSectionInfo(sectionId);
-  const { uiTypeCollectionId } = useGetSectionType(sectionId);
-  const deleteChild = useDeleteChild(sectionId);
-  const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
-  const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
-  const deleteParamInfo = useStoreActions((x) => x.paramInfos.deleteParamInfo);
-  const childIdFn = useParamChildId(sectionId);
-  return (kwargInfo) => {
-    const { id } = kwargInfo;
-    const childId = childIdFn(id)[0];
-    return () => {
-      setKwargIds({
-        collectionId: kwargCollectionId,
-        objInfoId: objInfo.id,
-        newStateFn: (x) => x.filter((y) => y !== id),
-      });
-      deleteKwargInfo({ ids: [id] });
-      deleteParamInfo({ paramCollectionId, uiTypeCollectionId, ids: [id] });
-      if (childId) {
-        deleteChild({ startId: childId });
-      }
-    };
-  };
-}
-
-export function useAddChild(sectionId) {
-  const { paramCollectionId: collectionId } = useGetSectionInfo(sectionId);
-  const setIdsOverview = useSetIdsOverview(sectionId);
-  const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const createInfo = useCreateSectionInfo(sectionId);
-
-  function addChild({
-    name = null,
-    sectionTypeName = null,
-    sectionSpecs = null,
-    numChildren = 1,
-    parentParamInfoId = null,
-    startId = null,
-  }) {
-    const newIds = createInfo({
-      name,
-      sectionTypeName,
-      sectionSpecs,
-      numChildren,
-      paramInfoId: parentParamInfoId,
-    });
-
-    setIdsOverview((x) => {
-      let insertIdx = null;
-      if (startId !== null) {
-        insertIdx = x.indexOf(startId) + 1;
-      }
-      return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
-    });
-
-    if (parentParamInfoId) {
-      setChildId({
-        collectionId,
-        paramInfoId: parentParamInfoId,
-        childId: newIds[0],
-      });
-    }
-  }
-
-  return addChild;
-}
-
-export function useDeleteChild(sectionId) {
-  const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
-  const setIdsOverview = useSetIdsOverview(sectionId);
-
-  function deleteChild({ numChildren = 1, startId = null }) {
-    let deletedChildren = null;
-    setIdsOverview((x) => {
-      if (x.length === 0) {
-        return x;
-      }
-      let startIdx = 0;
-      if (startId !== null) {
-        startIdx = x.indexOf(startId);
-      }
-      const endIdx = startIdx + numChildren;
-      deletedChildren = x.filter((e, idx) => idx >= startIdx && idx < endIdx);
-      return _.difference(x, deletedChildren);
-    });
-    deleteSections({ sectionIds: deletedChildren });
-  }
-  return deleteChild;
 }
 
 export function useReinitSectionType(sectionId) {
