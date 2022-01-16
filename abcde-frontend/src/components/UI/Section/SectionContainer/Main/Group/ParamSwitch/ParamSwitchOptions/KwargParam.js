@@ -11,7 +11,7 @@ export default function KwargParam(props) {
   const onBlur = (v) => {
     setName({ kwargInfoId: kwargInfo.id, name: v });
   };
-  const deleteKwarg = getDeleteKwargFn(kwargInfo);
+  const deleteKwarg = getDeleteKwargFn(kwargInfo.id);
 
   const onClick = () => {
     deleteKwarg();

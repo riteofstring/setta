@@ -1,5 +1,7 @@
+import { KwargInfo } from "classes/mutableInfo";
 import { useStoreActions } from "easy-peasy";
 import { useParamChildId } from "hooks/useParamInfo";
+import { createNewId } from "utils/sectionIds";
 
 import { useDeleteChild } from "./useAddDeleteChild";
 import { useGetSectionInfo } from "./useSectionInfo";
@@ -28,8 +30,7 @@ export function useDeleteKwarg(sectionId, objInfo) {
   const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
   const deleteParamInfo = useStoreActions((x) => x.paramInfos.deleteParamInfo);
   const childIdFn = useParamChildId(sectionId);
-  return (kwargInfo) => {
-    const { id } = kwargInfo;
+  return (id) => {
     const childId = childIdFn(id)[0];
     return () => {
       setKwargIds({
