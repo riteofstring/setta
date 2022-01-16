@@ -1,7 +1,5 @@
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
-import ParamSweepModal from "./ParamSweepModal/ParamSweepModal";
-
 const foldersAndFiles = { folder1: ["apple", "bear"] };
 
 export default function GearModal(props) {
@@ -16,8 +14,6 @@ export default function GearModal(props) {
           foldersAndFiles={foldersAndFiles}
         />
       );
-    case "PARAM_SWEEP":
-      return <ParamSweepModal isOpen={props.isOpen} onClose={props.onClose} />;
     default:
       return null;
   }
