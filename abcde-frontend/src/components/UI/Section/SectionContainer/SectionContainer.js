@@ -90,16 +90,12 @@ function _SectionContainerCore({
   dummy,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
-  const {
-    name: sectionTypeName,
-    hasObjects,
-    specs,
-  } = useGetSectionType(sectionId);
+  const sectionType = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, selectedItem } = sectionInfo;
-  const selectedItemInSpecs = specs.objects.includes(selectedItem);
-  const isList = isListLike(sectionTypeName);
-  const isListRoot = isRoot(sectionTypeName);
+  const showSearch = sectionType.hasObjects;
+  const isList = isListLike(sectionType.name);
+  const isListRoot = isRoot(sectionType.name);
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
@@ -139,11 +135,11 @@ function _SectionContainerCore({
           deleteChild={deleteChild}
           hasNested={hasNested}
           onTitleInputChange={onTitleInputChange}
-          requiresKeyInput={requiresKeyInput(sectionTypeName)}
+          requiresKeyInput={requiresKeyInput(sectionType.name)}
         />
         {!dummy && !isListRoot && (
           <Stack>
-            {hasObjects && (
+            {showSearch && (
               <SectionSearch
                 sectionId={sectionId}
                 initialSelection={selectedItem}
@@ -151,11 +147,7 @@ function _SectionContainerCore({
               />
             )}
             {tempBoolDesc && <SectionDescription />}
-            <GroupContainer
-              sectionId={sectionId}
-              objInfoId={selectedItem}
-              selectedItemInSpecs={selectedItemInSpecs}
-            />
+            <GroupContainer sectionId={sectionId} objInfoId={selectedItem} />
             <SectionFooter
               sectionId={sectionId}
               objInfoId={selectedItem}

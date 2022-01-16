@@ -124,12 +124,3 @@ export function findSortedIndex(array, value) {
   }
   return low;
 }
-
-export function checkboxChangeFn(e, id) {
-  return (x) => {
-    if (x) {
-      return e.target.checked ? [...x, id] : x.filter((y) => y !== id);
-    }
-    return [id];
-  };
-}

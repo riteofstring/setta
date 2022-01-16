@@ -6,7 +6,7 @@ import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 import { curryAction, defaultState, insertIntoArrayOrXpend } from "utils/utils";
 
-import { DEFAULT_UI_TYPE_NAME } from "../utils/constants";
+import { getDefaultUIType } from "../utils/constants";
 import { useSetIdsOverview } from "./useIdsOverview";
 
 function getInfo(x) {
@@ -22,25 +22,27 @@ function getAttr(x, attr = null) {
 
 export function createSectionInfoFn({
   name,
-  sectionTypeName,
+  uiType,
+  uiTypeConfig,
   numChildren,
   parentSectionInfo,
   parentSectionType,
-  sectionSpecs,
+  uiSpecs,
+  parentIsSection,
   setSectionInfo,
   setSectionType,
-  paramInfoId,
 }) {
   const newInfos = {};
   const newSectionTypes = {};
   for (let i = 0; i < numChildren; i++) {
     const infoFactoryOutput = createSectionInfo(
       name,
-      sectionTypeName,
       parentSectionInfo,
       parentSectionType,
-      sectionSpecs,
-      paramInfoId
+      uiType,
+      uiTypeConfig,
+      uiSpecs,
+      parentIsSection
     );
     const { info, sectionType } = infoFactoryOutput;
     newInfos[info.id] = info;
@@ -51,7 +53,8 @@ export function createSectionInfoFn({
   return Object.keys(newInfos);
 }
 
-export function useCreateSectionInfo(sectionId) {
+export function useCreateSectionInfo(sectionId, parentIsSection) {
+  const uiSpecs = useStoreState((x) => x.master.uiSpecs);
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const setSectionType = useStoreActions((x) => x.sectionTypes.setSectionType);
   const parentSectionInfo = useGetSectionInfo(sectionId);
@@ -59,23 +62,18 @@ export function useCreateSectionInfo(sectionId) {
 
   console.log("useCreateSectionInfo");
 
-  const createInfo = ({
-    name,
-    sectionTypeName,
-    sectionSpecs,
-    numChildren,
-    paramInfoId,
-  }) => {
+  const createInfo = ({ name, uiType, uiTypeConfig, numChildren }) => {
     return createSectionInfoFn({
       name,
-      sectionTypeName,
+      uiType,
+      uiTypeConfig,
       numChildren,
       parentSectionInfo,
       parentSectionType,
-      sectionSpecs,
+      uiSpecs,
+      parentIsSection,
       setSectionInfo,
       setSectionType,
-      paramInfoId,
     });
   };
 
@@ -334,72 +332,29 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-function useSetUITypeAttr(sectionId, paramInfoId, uiType, settingDefault) {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  return (fn, props) => {
-    // The uitype comes from a project or user settings default
-    // But it's being changed from the sidepane
-    let maybeNewUIType = uiType;
-    if (uiType.isDefault && !settingDefault) {
-      maybeNewUIType = cloneNewUIType(uiType);
-      setUIType({ uiType: maybeNewUIType });
-      setUITypeId(maybeNewUIType.id);
-    }
-    fn({ uiTypeId: maybeNewUIType.id, ...props });
+export function useSetUITypeConfig(uiType) {
+  const x = useStoreActions((x) => x.uiTypes.setOneConfig);
+  const setUITypeConfig = ({ configName, value }) => {
+    x({ uiTypeId: uiType.id, configName, value });
   };
+  return setUITypeConfig;
 }
 
-export function useSetUIType(
-  sectionId,
-  paramInfoId,
-  uiType,
-  settingDefault = false
-) {
-  const setUITypeAttr = useSetUITypeAttr(
-    sectionId,
-    paramInfoId,
-    uiType,
-    settingDefault
-  );
-  const setName = useStoreActions((x) => x.uiTypes.setName);
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-
-  const _setName = (props) => {
-    setUITypeAttr(setName, props);
-  };
-  const _setConfig = (props) => {
-    setUITypeAttr(setConfig, props);
-  };
-  return [_setName, _setConfig];
-}
-
-export function useProjectDefaultUIType(paramInfoId) {
-  const uiTypeId = useStoreState(
-    (x) => x.paramDefaults.x[paramInfoId]?.uiTypeId
-  );
-  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
-}
-
-export function useSettingsDefaultUITypeName(type) {
+export function useGetDefaultUITypeName(paramInfo) {
+  const { uiTypeName, type } = paramInfo;
   const defaultUITypeName = useStoreState(
     (x) => x.userSettings.datatypeToUIType[type]
   );
-  return defaultUITypeName ? defaultUITypeName : DEFAULT_UI_TYPE_NAME;
+  return defaultUITypeName ? defaultUITypeName : getDefaultUIType(uiTypeName);
 }
 
-export function getNewUIType({ id, ...props }) {
+export function getNewUIType(paramInfo, uiTypeName) {
+  const config = Object.assign({}, paramInfo.uiTypeConfig);
   return new UIType({
-    id: id ? id : createNewId(),
-    ...props,
+    id: createNewId(),
+    name: uiTypeName,
+    config: config,
   });
-}
-
-export function cloneNewUIType(uiType, isDefault = false) {
-  const newUIType = _.cloneDeep(uiType);
-  newUIType.id = createNewId();
-  newUIType.isDefault = isDefault;
-  return newUIType;
 }
 
 export function useInitializeUIType(sectionId) {
@@ -407,19 +362,12 @@ export function useInitializeUIType(sectionId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
-    const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
-    const settingsDefaulUITypeName = useSettingsDefaultUITypeName(
-      paramInfo.type
-    );
+    const uiTypeName = useGetDefaultUITypeName(paramInfo);
     return () => {
-      if (uiTypeId) {
-        return;
-      } else if (projectDefaultUIType) {
-        setUITypeId(projectDefaultUIType.id);
-      } else {
-        const newUIType = getNewUIType({ name: settingsDefaulUITypeName });
+      if (!uiTypeId) {
+        const newUIType = getNewUIType(paramInfo, uiTypeName);
         setUITypeId(newUIType.id);
-        setUIType({ uiType: newUIType });
+        setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
       }
     };
   };
@@ -430,7 +378,7 @@ export function useAddKwarg(sectionId, objInfo) {
   const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   return () => {
-    const kwargInfo = new KwargInfo({ id: createNewId(), name: "" }, null);
+    const kwargInfo = new KwargInfo(createNewId(), "", {});
     setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
     setKwargIds({
       collectionId: kwargCollectionId,
@@ -470,23 +418,17 @@ export function useAddChild(sectionId) {
   const { paramCollectionId: collectionId } = useGetSectionInfo(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const createInfo = useCreateSectionInfo(sectionId);
+  const createInfo = useCreateSectionInfo(sectionId, true);
 
   function addChild({
     name = null,
-    sectionTypeName = null,
-    sectionSpecs = null,
+    uiType = null,
+    uiTypeConfig = null,
     numChildren = 1,
     parentParamInfoId = null,
     startId = null,
   }) {
-    const newIds = createInfo({
-      name,
-      sectionTypeName,
-      sectionSpecs,
-      numChildren,
-      paramInfoId: parentParamInfoId,
-    });
+    const newIds = createInfo({ name, uiType, uiTypeConfig, numChildren });
 
     setIdsOverview((x) => {
       let insertIdx = null;
@@ -559,7 +501,7 @@ export function useReinitSectionType(sectionId) {
     // Without this, they will end up making unused uiTypes.
     const paramInfos = getXInfos(paramCollectionIds, allParamCollections);
     const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x.id]);
-    const newUITypes = needsNewUIType.map((x) => getNewUIType());
+    const newUITypes = needsNewUIType.map((x) => getNewUIType(x));
     const paramInfoIds = needsNewUIType.map((x) => x.id);
     const newUITypeIds = newUITypes.map((x) => x.id);
     setManyUITypeIds({
@@ -590,22 +532,4 @@ export function useGroupsHaveUpdated() {
     (x) => x.master.setGroupsHaveUpdated
   );
   return [groupsHaveUpdated, setGroupsHaveUpdated];
-}
-
-export function useGroupedObjInfos(objInfos) {
-  const allPackageInfo = useStoreState((x) => x.master.allPackageInfo);
-  const allModuleInfo = useStoreState((x) => x.master.allModuleInfo);
-  return _.groupBy(objInfos, (x) => {
-    const { name: moduleName, parentId: packageId } = allModuleInfo[x.parentId];
-    const { name: packageName, version } = allPackageInfo.children[packageId];
-    return `${packageName}.${moduleName} v${version}`;
-  });
-}
-
-export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
-  const uiTypeId = useStoreState(
-    (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
-  );
-  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  return [uiTypeId, setOneConfig];
 }

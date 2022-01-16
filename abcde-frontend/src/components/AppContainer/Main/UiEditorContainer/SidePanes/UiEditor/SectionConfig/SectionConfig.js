@@ -1,58 +1,38 @@
-import { Button } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import {
-  useGetSectionInfo,
-  useGetSectionType,
-  useReinitSectionType,
-  useSetUITypeDirect,
-} from "hooks/useCreateInfo";
+import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+import { useStoreState } from "easy-peasy";
+import { useGetSectionType, useReinitSectionType } from "hooks/useCreateInfo";
+import _ from "lodash";
+import { useState, useEffect } from "react";
+import { nullOrUndefined } from "utils/utils";
 
-import SectionConfigComp from "./SectionConfigComp";
-import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
+function configNotEqualToSpecs(config, specs) {
+  return (
+    !_.isEqual(_.sortBy(config.objects), _.sortBy(specs?.objects)) ||
+    !_.isEqual(_.sortBy(config.parameters), _.sortBy(specs?.parameters))
+  );
+}
 
 export default function SectionConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
-  const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
-  const setCameFromUIConfig = useStoreActions(
-    (x) => x.uiEditor.setCameFromUIConfig
-  );
-  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const { name, specs } = useGetSectionType(sectionId);
+  const specsIsDefined = !nullOrUndefined(specs);
   const reinitSectionType = useReinitSectionType(sectionId);
-  const { parentId, paramInfoId } = useGetSectionInfo(sectionId);
-  const { uiTypeCollectionId } = useGetSectionType(parentId);
-  const [uiTypeId, setOneConfig] = useSetUITypeDirect(
-    uiTypeCollectionId,
-    paramInfoId
-  );
+  const [config, setConfig] = useState(specsIsDefined ? specs : {});
 
-  const onGoBackClick = () => {
-    setActiveSection(parentId);
-    setCameFromUIConfig(false);
-    setTabIndex(1);
-  };
-
-  const onSectionTypeChange = (e) => {
-    if (e && e !== name) {
-      reinitSectionType({ name: e, sectionSpecs: specs });
+  useEffect(() => {
+    if (specsIsDefined) {
+      setConfig(specs);
     }
-  };
+  }, [specs]);
 
-  const onConfigChange = (configName, newValueFn) => {
-    const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
-    reinitSectionType({ name, sectionSpecs: newSpecs });
-    setOneConfig({ uiTypeId, configName, newValueFn });
-  };
+  useEffect(() => {
+    if (configNotEqualToSpecs(config, specs)) {
+      reinitSectionType({ topLevelSpecs: config });
+    }
+  }, [config]);
 
-  return (
-    <>
-      {cameFromUIConfig && <Button onClick={onGoBackClick}>Go back</Button>}
-      <SectionConfigTypeSelection
-        onChange={onSectionTypeChange}
-        currType={name}
-      />
-      <SectionConfigComp savedConfig={specs} onChange={onConfigChange} />
-    </>
-  );
+  const onChange = (configName, value) => {
+    setConfig((x) => ({ ...x, [configName]: value }));
+  };
+  return <ParamUIConfig name={name} savedConfig={specs} onChange={onChange} />;
 }

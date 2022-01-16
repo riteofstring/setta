@@ -1,5 +1,6 @@
 import { SectionType } from "classes/sectionType";
 import { action, thunk } from "easy-peasy";
+import { nullOrUndefined } from "utils/utils";
 
 import { exportState } from "./utils";
 
@@ -11,16 +12,19 @@ const sectionTypes = {
   }),
 
   _reinitSectionType: action((state, payload) => {
-    const { name, sectionTypeId, sectionSpecs } = payload;
+    const { sectionTypeId, uiType, uiTypeConfig, topLevelSpecs } = payload;
     const currSectionType = state.x[sectionTypeId];
     const { id, uiTypeCollectionId } = currSectionType;
     const { id: childTypeId, uiTypeCollectionId: childUITypeCollectionId } =
       currSectionType.childType;
+    const parentIsSection = nullOrUndefined(topLevelSpecs);
     const newSectionType = new SectionType({
       id,
-      name,
+      paramUIType: uiType,
+      paramUITypeConfig: uiTypeConfig,
+      parentIsSection,
       uiTypeCollectionId,
-      sectionSpecs,
+      topLevelSpecs,
     });
     state.x[sectionTypeId] = newSectionType;
     if (childTypeId) {

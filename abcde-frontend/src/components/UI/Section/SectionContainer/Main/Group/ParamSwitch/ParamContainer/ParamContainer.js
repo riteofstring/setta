@@ -55,6 +55,7 @@ export default function ParamContainer(props) {
       sectionId={sectionId}
       paramName={paramInfo.name}
       uiType={uiType}
+      uiTypeConfig={uiTypeConfig}
       parentParamInfoId={paramInfo.id}
       childIdFn={childIdFn}
     />

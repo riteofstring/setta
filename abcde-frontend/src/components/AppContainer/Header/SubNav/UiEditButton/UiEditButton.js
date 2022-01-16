@@ -1,9 +1,9 @@
 import { Button, Icon, useDisclosure } from "@chakra-ui/react";
 import { BiCodeBlock } from "react-icons/bi";
 
-import UiEditorModal from "./UiConfigModal";
+import UiEditorModal from "./UiEditorModal";
 
-export default function UiConfigButton() {
+export default function UiEditButton() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   return (
     <>
@@ -14,7 +14,7 @@ export default function UiConfigButton() {
         onClick={onOpen}
         variant="ghost"
       >
-        UI Config
+        Edit UI
       </Button>
       <UiEditorModal isOpen={isOpen} onClose={onClose} />
     </>

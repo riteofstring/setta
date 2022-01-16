@@ -2,11 +2,10 @@ import { createAllInfo } from "classes/infoFactory";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
 import PackagesData from "data/simpleTrainTestPackages.json";
 import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
-import ProjectDefaults from "data/simpleTrainTestProjectDefaults.json";
 import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
-import { createSectionInfoFn, getNewUIType } from "hooks/useCreateInfo";
+import { createSectionInfoFn } from "hooks/useCreateInfo";
 import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 
@@ -15,8 +14,6 @@ const master = {
   available: {},
   uiSpecs: new Map(),
   allPackageInfo: null,
-  allModuleInfo: null,
-  allObjInfo: null,
   allObjCollections: null,
   allParamCollections: null,
   activeSection: null,
@@ -31,8 +28,6 @@ const master = {
     state.uiSpecs = new Map(Object.entries(payload.ui));
     ({
       allPackageInfo: state.allPackageInfo,
-      allModuleInfo: state.allModuleInfo,
-      allObjInfo: state.allObjInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));
@@ -59,7 +54,6 @@ const master = {
     } else {
       // action._loadSections(payload);
     }
-    action.initProjectDefaults(ProjectDefaults);
     const newIds = action.initSections();
     action.initGroups(newIds);
   }),
@@ -121,29 +115,14 @@ const master = {
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
-    const sectionSpecs = uiSpecs.get(name);
-
     return createSectionInfoFn({
       name,
       numChildren: 1,
-      sectionSpecs,
+      uiSpecs,
+      parentIsSection: false,
       setSectionInfo,
       setSectionType,
     });
-  }),
-
-  initProjectDefaults: thunk((action, payload, helpers) => {
-    const setManyUITypeIds =
-      helpers.getStoreActions().paramDefaults.setManyUITypeIds;
-    const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
-    const uiTypes = _.map(payload.uiTypes, (x) =>
-      getNewUIType({
-        ...x,
-        isDefault: true,
-      })
-    );
-    setManyUITypes({ uiTypes });
-    setManyUITypeIds({ paramIdToUITypeId: payload.paramDefaults });
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

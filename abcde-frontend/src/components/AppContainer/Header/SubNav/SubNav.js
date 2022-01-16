@@ -7,7 +7,6 @@ import EnvSelectButton from "./EnvSelect/EnvSelectButton";
 import FileMenu from "./FileMenu/FileMenu";
 import RunButton from "./RunButton/RunButton";
 import SelectMachine from "./SelectMachine/SelectMachine";
-import UiConfigButton from "./UiConfigButton/UiConfigButton";
 
 export default function SubNav() {
   return (
@@ -43,7 +42,7 @@ function UiEditorSubNav() {
       {/* <HomeButton /> */}
       <FileMenu />
       <EcoSysButton />
-      <UiConfigButton />
+      {/* <UiEditButton /> */}
       {/* <TerminalButton /> */}
       {/* <Spacer /> */}
       <EnvSelectButton />

@@ -1,33 +1,32 @@
 import _ from "lodash";
 
 export class ParameterInfo {
-  constructor(jsonInput, parentId) {
+  constructor(jsonInput) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
-    this.parentId = parentId;
+    this.uiTypeName = jsonInput.uiTypeName;
+    this.uiTypeConfig = jsonInput.uiTypeConfig;
   }
 }
 
 export class ObjInfo {
-  constructor(jsonInput, parentId) {
+  constructor(jsonInput) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
-    this.parentId = parentId;
     this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ParameterInfo(x, this.id))
+      Object.freeze(new ParameterInfo(x))
     );
   }
 }
 
 export class ModuleInfo {
-  constructor(jsonInput, parentId) {
+  constructor(jsonInput) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
-    this.parentId = parentId;
     this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ObjInfo(x, this.id))
+      Object.freeze(new ObjInfo(x))
     );
   }
 }
@@ -38,7 +37,7 @@ export class PackageInfo {
     this.name = jsonInput.name;
     this.version = jsonInput.version;
     this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ModuleInfo(x, this.id))
+      Object.freeze(new ModuleInfo(x))
     );
   }
 }
@@ -52,19 +51,19 @@ export class AllPackageInfo {
 }
 
 export class ObjCollectionInfo {
-  constructor(jsonInput, allObjInfo) {
+  constructor(jsonInput, allObjs) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
     this.description = jsonInput.description;
     this.children = {};
-    jsonInput.children.forEach((x) => (this.children[x] = allObjInfo[x]));
+    jsonInput.children.forEach((x) => (this.children[x] = allObjs[x]));
   }
 }
 
 export class AllObjCollectionInfo {
-  constructor(jsonInput, allObjInfo) {
+  constructor(jsonInput, allObjs) {
     this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ObjCollectionInfo(x, allObjInfo))
+      Object.freeze(new ObjCollectionInfo(x, allObjs))
     );
   }
 }
