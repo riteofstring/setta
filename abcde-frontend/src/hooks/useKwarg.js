@@ -1,7 +1,7 @@
 import { useStoreActions } from "easy-peasy";
+import { useParamChildId } from "hooks/useParamInfo";
 
 import { useDeleteChild } from "./useAddDeleteChild";
-import { useParamChildId } from "./useCreateInfo";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 

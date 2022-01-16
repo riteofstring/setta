@@ -11,11 +11,8 @@ import {
   Box,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import {
-  useGetParamUIType,
-  useParamChildId,
-  useSetUIType,
-} from "hooks/useCreateInfo";
+import { useGetParamUIType, useSetUIType } from "hooks/useCreateInfo";
+import { useParamChildId } from "hooks/useParamInfo";
 import {
   useGetObjInfos,
   useGetAllParamAndKwargInfos,
