@@ -26,7 +26,7 @@ export default function ParamContainer(props) {
     initEnteredValueFn();
   }, [paramInfo.id]);
 
-  return !requiresNestedSection(uiType.name) ? (
+  return !requiresNestedSection(uiType.type) ? (
     <>
       <FormControl as="fieldset">
         <HStack

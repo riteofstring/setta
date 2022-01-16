@@ -85,7 +85,7 @@ function useChildIdHelper(infos, sectionId) {
   const hasNested = useStoreState(
     (x) =>
       infos.filter((y, i) =>
-        requiresNestedSection(x.uiTypes.x[uiTypeIds[i]]?.name)
+        requiresNestedSection(x.uiTypes.x[uiTypeIds[i]]?.type)
       ),
     _.isEqual
   );

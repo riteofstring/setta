@@ -52,7 +52,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo.id);
   const uiTypeConfig = uiType.config;
-  const [setName, setUITypeConfig] = useSetUIType(
+  const [setType, setUITypeConfig] = useSetUIType(
     sectionId,
     paramInfo.id,
     uiType
@@ -60,7 +60,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    setName({ name: e });
+    setType({ type: e });
   };
 
   const onChange = (configName, newValueFn) => {
@@ -87,7 +87,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
         <AccordionPanel pb={4}>
           <UIConfigDropdownAndFields
             onDropdownSelect={onSelect}
-            currSelected={uiType.name}
+            currSelected={uiType.type}
             onConfigChange={onChange}
             paramInfoId={paramInfo.id}
             savedConfig={uiTypeConfig}

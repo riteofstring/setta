@@ -30,7 +30,7 @@ export default function UiConfigGlobal() {
   function onSetAsProjectDefault(overrideLevel = PROJECT_DEFAULT) {
     return () => {
       const uiType = getNewUIType({
-        name: currSelected,
+        type: currSelected,
         config: savedConfig,
         origin: PROJECT_DEFAULT,
       });

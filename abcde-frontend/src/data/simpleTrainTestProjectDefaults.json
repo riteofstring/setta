@@ -7,7 +7,7 @@
   "uiTypes": {
     "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
       "id": "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
-      "name": "LIST_ROOT",
+      "type": "LIST_ROOT",
       "config": {
         "objects": ["1ec242dd-688e-4f71-a0de-cc13752461ce"]
       }

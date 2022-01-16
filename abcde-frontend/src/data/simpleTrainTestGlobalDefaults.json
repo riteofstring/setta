@@ -6,12 +6,12 @@
   "uiTypes": {
     "9520d638-b662-44d0-97a3-e1dfabeb2939": {
       "id": "9520d638-b662-44d0-97a3-e1dfabeb2939",
-      "name": "SWITCH",
+      "type": "SWITCH",
       "config": {}
     },
     "796ac83d-bb70-489d-89ed-13c73094982f": {
       "id": "796ac83d-bb70-489d-89ed-13c73094982f",
-      "name": "SLIDER",
+      "type": "SLIDER",
       "config": { "min": 10, "max": 100, "step": 10 }
     }
   }

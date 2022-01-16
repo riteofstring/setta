@@ -24,7 +24,7 @@ export default function ParamInput(props) {
 
   return (
     <ParamUI
-      name={uiType.name}
+      name={uiType.type}
       childProps={{
         value,
         defaultVal,

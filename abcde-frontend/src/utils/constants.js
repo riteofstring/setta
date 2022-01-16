@@ -42,8 +42,8 @@ export const sectionTypesToPretty = new Map([
   ...Array.from(prettyToSectionTypes, (a) => a.reverse()),
 ]);
 
-export function requiresNestedSection(uiTypeName) {
-  return SECTION_TYPE_NAMES.includes(uiTypeName);
+export function requiresNestedSection(uiTypeType) {
+  return SECTION_TYPE_NAMES.includes(uiTypeType);
 }
 
 export function requiresKeyInput(sectionTypeName) {

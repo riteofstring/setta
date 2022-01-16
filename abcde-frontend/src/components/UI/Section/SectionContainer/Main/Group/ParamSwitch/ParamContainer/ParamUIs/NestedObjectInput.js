@@ -42,7 +42,7 @@ export default function NestedObjectInput({
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useAddChild(sectionId);
   const reinitSectionType = useReinitSectionType(existingChildId);
-  const sectionTypeName = uiType.name;
+  const sectionTypeName = uiType.type;
   const sectionSpecs = uiType.config;
 
   console.log("NestedObjectInput", uiType);

@@ -17,9 +17,9 @@ const uiTypes = {
     }
   }),
 
-  setName: action((state, payload) => {
-    const { uiTypeId, name } = payload;
-    state.x[uiTypeId].name = name;
+  setType: action((state, payload) => {
+    const { uiTypeId, type } = payload;
+    state.x[uiTypeId].type = type;
   }),
 
   setOneConfig: action((state, payload) => {

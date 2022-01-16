@@ -50,16 +50,16 @@ export function useSetUIType(
     uiType,
     settingDefault
   );
-  const setName = useStoreActions((x) => x.uiTypes.setName);
+  const setType = useStoreActions((x) => x.uiTypes.setType);
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
 
-  const _setName = (props) => {
-    setUITypeAttr(setName, props);
+  const _setType = (props) => {
+    setUITypeAttr(setType, props);
   };
   const _setConfig = (props) => {
     setUITypeAttr(setConfig, props);
   };
-  return [_setName, _setConfig];
+  return [_setType, _setConfig];
 }
 
 export function useProjectDefaultUIType(paramInfoId) {
