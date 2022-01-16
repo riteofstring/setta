@@ -19,7 +19,11 @@ import {
 
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 
-export default function GroupContainer({ sectionId, objInfoId }) {
+export default function GroupContainer({
+  sectionId,
+  objInfoId,
+  selectedItemInSpecs,
+}) {
   console.log("GroupContainer");
   const { objInfo, paramInfos, kwargInfos } = useGetObjParamKwargInfos(
     sectionId,
@@ -32,7 +36,7 @@ export default function GroupContainer({ sectionId, objInfoId }) {
   const getInitEnteredValueFn = useInitializeEnteredValue(sectionId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
   const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
-  const kwargsCondition = objInfoId || paramInfos.length > 0;
+  const kwargsCondition = selectedItemInSpecs || paramInfos.length > 0;
 
   function getParamSwitch(infos, isKwarg = false) {
     return (

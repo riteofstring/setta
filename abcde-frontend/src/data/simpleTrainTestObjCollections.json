@@ -1,5 +1,21 @@
 {
   "children": {
+    "72997caf-1e5c-4130-ad0f-30d6f770067a": {
+      "id": "72997caf-1e5c-4130-ad0f-30d6f770067a",
+      "name": "Random Collection",
+      "description": "A little bit of everything",
+      "children": [
+        "a41fc545-d910-405f-9c9f-9afe66914d69",
+        "9b2f4419-9347-49be-b082-772497712d65",
+        "795f9f49-1c37-4ee6-8542-a0648b7879f8",
+        "96b752b6-9d4b-4cee-a954-256f58bdc908",
+        "46879cda-56c6-4e59-9d5a-bc5ccfc9c44d",
+        "34022ef3-4f7d-4b0d-860c-8c200b197d0b",
+        "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
+        "8b59f872-8f35-4809-8650-2a2cdc984038",
+        "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa"
+      ]
+    },
     "0671b39c-8479-4831-8627-8b37f12ef635": {
       "id": "0671b39c-8479-4831-8627-8b37f12ef635",
       "name": "Torchvision Models",

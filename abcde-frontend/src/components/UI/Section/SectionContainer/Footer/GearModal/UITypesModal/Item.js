@@ -12,14 +12,14 @@ import {
 } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreActions } from "easy-peasy";
-import { useSetUITypeConfig } from "hooks/useCreateInfo";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
+import { useSetUIType } from "hooks/useCreateInfo";
+import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
 
 export default function Item({ paramInfo, getUITypeFn }) {
   const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = uiType.config;
-  const setUITypeConfig = useSetUITypeConfig(uiType);
+  const setUITypeConfig = useSetUIType(uiType);
   const paramName = paramInfo.name;
 
   console.log("Item", uiTypeConfig, uiType.name);

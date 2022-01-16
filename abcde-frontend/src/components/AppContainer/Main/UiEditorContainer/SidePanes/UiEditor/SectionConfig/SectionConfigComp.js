@@ -3,25 +3,40 @@ import {
   VStack,
   List,
   ListItem,
-  ListIcon,
+  Checkbox,
   Box,
   Text,
   Heading,
   HStack,
+  useDisclosure,
+  Collapse,
 } from "@chakra-ui/react";
-import { IoMdCheckmarkCircle } from "react-icons/io";
+import { useStoreState } from "easy-peasy";
+import { useGroupedObjInfos } from "hooks/useCreateInfo";
+import _ from "lodash";
+import { checkboxChangeFn } from "utils/utils";
 
-export default function SectionConfigComp() {
+export default function SectionConfigComp({ savedConfig, onChange }) {
+  const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+
   return (
     <>
       <VStack align="stretch" mt=".25rem">
-        <Input placeholder="Section Search" bg="white" />
+        <Input placeholder="Section Config Search" bg="white" />
         <Box pt=".25rem">
           <List spacing={3}>
-            <SearchItem />
-            <SearchItem />
-            <SearchItem />
-            <SearchItem />
+            {_.values(allObjCollections?.children).map((x) => (
+              <SearchItem
+                id={x.id}
+                name={x.name}
+                description={x.description}
+                details={x.children}
+                isChecked={savedConfig?.objects.includes(x.id)}
+                onChange={onChange}
+                type="objects"
+                key={`SearchItem-${x.id}`}
+              />
+            ))}
           </List>
         </Box>
       </VStack>
@@ -29,7 +44,21 @@ export default function SectionConfigComp() {
   );
 }
 
-function SearchItem(props) {
+function SearchItem({
+  id,
+  name,
+  description,
+  details,
+  isChecked,
+  onChange,
+  type,
+}) {
+  const { isOpen, onToggle } = useDisclosure();
+
+  function onCheckboxChange(e) {
+    onChange(type, checkboxChangeFn(e, id));
+  }
+
   return (
     <ListItem
       px=".75rem"
@@ -46,14 +75,41 @@ function SearchItem(props) {
       borderColor="rgba(0, 0, 0, 0)"
     >
       <HStack align="stretch">
-        <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" />
-        <VStack align="stretch">
+        {/* <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" /> */}
+        <Checkbox isChecked={isChecked} onChange={onCheckboxChange} />
+        <VStack align="stretch" onClick={onToggle}>
           <Heading as="h2" size="md" color="gray.700">
-            Test Item Title
+            {name}
           </Heading>
-          <Text>Lorem ipsum dolor sit amet, consectetur adipisicing elit</Text>
+          <Text>{description}</Text>
         </VStack>
       </HStack>
+      <SearchItemDetails isOpen={isOpen} details={details} />
     </ListItem>
   );
+}
+
+function SearchItemDetails({ isOpen, details }) {
+  const groupedDetails = useGroupedObjInfos(details);
+
+  return (
+    <Collapse in={isOpen} animateOpacity>
+      <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
+        {_.keys(groupedDetails).map((x) => (
+          <div key={`SearchItemDetails-${x}`}>
+            <Text>{x}</Text>
+            <ObjListText objList={groupedDetails[x]} />
+          </div>
+        ))}
+      </Box>
+    </Collapse>
+  );
+}
+
+function ObjListText({ objList }) {
+  return objList.map((x) => (
+    <div key={`ObjListText-${x.id}`} style={{ textIndent: "20px" }}>
+      <Text>{x.name}</Text>
+    </div>
+  ));
 }

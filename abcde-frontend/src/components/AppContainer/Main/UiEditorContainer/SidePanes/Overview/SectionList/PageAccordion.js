@@ -5,7 +5,7 @@ import {
   AccordionIcon,
   Box,
 } from "@chakra-ui/react";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
+import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 
 export default function PageAccordion(props) {
   return (

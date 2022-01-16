@@ -1,123 +1,53 @@
-import { CUIAutoComplete } from "chakra-ui-autocomplete";
+import { Button } from "@chakra-ui/react";
+import { useStoreActions } from "easy-peasy";
 import { useReinitSectionType, useAddChild } from "hooks/useCreateInfo";
-import React, { useEffect, useState } from "react";
-import { includesArray } from "utils/commonFunctions";
-import { flattenDictOfArrays } from "utils/utils";
+import React, { useEffect } from "react";
 
-function valueAndLabel(x, type) {
-  return { value: [x, type], label: x };
-}
-
-function findMatchingIndex(initialPickerItems, savedConfig, j) {
-  return initialPickerItems
-    .map((e, idx) =>
-      e.value[1] === j && savedConfig[j].includes(e.value[0]) ? idx : -1
-    )
-    .filter((e) => e !== -1)
-    .map((e) => initialPickerItems[e]);
-}
-
-function onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j) {
-  const valuesOnly = initialPickerItemsObj[j].map((x) => x.value);
-  onChange(
-    j,
-    newSelectedItems
-      .filter((x) => includesArray(valuesOnly, x.value))
-      .map((x) => x.value[0])
+export function NestedObjectInputConfig({ childIdFn, paramInfoId }) {
+  const existingChildId = childIdFn(paramInfoId)[0];
+  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const setCameFromUIConfig = useStoreActions(
+    (x) => x.uiEditor.setCameFromUIConfig
   );
-}
 
-function _NestedObjectInputConfig({ name, onChange, savedConfig }) {
-  const availableObjects = [];
-  const availableParameters = [];
-
-  const pickerObjects = availableObjects.map((x) =>
-    valueAndLabel(x, "objects")
-  );
-  const pickerParameters = availableParameters.map((x) =>
-    valueAndLabel(x, "parameters")
-  );
-  const initialPickerItems = pickerObjects.concat(pickerParameters);
-  const initialPickerItemsObj = {
-    objects: pickerObjects,
-    parameters: pickerParameters,
-  };
-
-  const getInitialSelectedItem = () => {
-    if (savedConfig) {
-      let output = {};
-      for (let j of Object.keys(savedConfig)) {
-        output[j] = findMatchingIndex(initialPickerItems, savedConfig, j);
-      }
-      return flattenDictOfArrays(output);
-    }
-    return [];
-  };
-
-  const [pickerItems, setPickerItems] = useState(initialPickerItems);
-  const [selectedItems, setSelectedItems] = useState(getInitialSelectedItem());
-
-  const handleCreateItem = (item) => {
-    setPickerItems((curr) => [...curr, item]);
-    setSelectedItems((curr) => [...curr, item]);
-  };
-
-  const handleSelectedItemsChange = (newSelectedItems) => {
-    if (newSelectedItems) {
-      setSelectedItems(newSelectedItems);
-      for (let j of Object.keys(initialPickerItemsObj)) {
-        onChangeWrapper(onChange, initialPickerItemsObj, newSelectedItems, j);
-      }
+  const onClick = () => {
+    if (existingChildId) {
+      setActiveSection(existingChildId);
+      setCameFromUIConfig(true);
+      setTabIndex(0);
     }
   };
-
-  useEffect(() => {
-    setSelectedItems(getInitialSelectedItem());
-  }, [name, savedConfig]);
-
-  return (
-    <CUIAutoComplete
-      placeholder="Module name"
-      onCreateItem={handleCreateItem}
-      items={pickerItems}
-      selectedItems={selectedItems}
-      onSelectedItemsChange={(changes) =>
-        handleSelectedItemsChange(changes.selectedItems)
-      }
-    />
-  );
+  return <Button onClick={onClick}>Configure section</Button>;
 }
-
-export const NestedObjectInputConfig = React.memo(_NestedObjectInputConfig);
 
 export default function NestedObjectInput({
   sectionId,
   paramName,
   uiType,
-  uiTypeConfig,
   parentParamInfoId,
   childIdFn,
 }) {
-  console.log("NestedObjectInput", uiType, uiTypeConfig);
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useAddChild(sectionId);
   const reinitSectionType = useReinitSectionType(existingChildId);
+  const sectionTypeName = uiType.name;
+  const sectionSpecs = uiType.config;
+
+  console.log("NestedObjectInput", uiType);
 
   useEffect(() => {
     if (!existingChildId) {
       addChild({
         name: paramName,
-        uiType,
-        uiTypeConfig,
+        sectionTypeName,
+        sectionSpecs,
         parentParamInfoId,
       });
     } else {
-      reinitSectionType({
-        uiType,
-        uiTypeConfig,
-      });
+      reinitSectionType({ name: sectionTypeName, sectionSpecs });
     }
-  }, [uiType, uiTypeConfig]);
+  }, [uiType]);
 
   return null;
 }

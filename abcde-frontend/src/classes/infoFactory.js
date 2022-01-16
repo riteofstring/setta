@@ -10,18 +10,13 @@ import {
 import { SectionInfo } from "./mutableInfo";
 import { SectionType } from "./sectionType";
 
-function emptySpecs() {
-  return { objects: [], parameters: [] };
-}
-
 export function createSectionInfo(
   name,
+  sectionTypeName,
   parentSectionInfo,
   parentSectionType,
-  paramUIType,
-  paramUITypeConfig,
-  uiSpecs,
-  parentIsSection
+  sectionSpecs,
+  paramInfoId
 ) {
   let sectionType = null;
   if (isRoot(parentSectionType?.name)) {
@@ -29,11 +24,8 @@ export function createSectionInfo(
   } else {
     sectionType = new SectionType({
       id: createNewId(),
-      parentSectionType,
-      paramUIType,
-      paramUITypeConfig,
-      topLevelSpecs: uiSpecs ? uiSpecs.get(name) : emptySpecs(),
-      parentIsSection,
+      name: sectionTypeName,
+      sectionSpecs,
       uiTypeCollectionId: createNewId(),
     });
   }
@@ -45,6 +37,7 @@ export function createSectionInfo(
     parentSectionInfo,
     paramCollectionId: createNewId(),
     kwargCollectionId: createNewId(),
+    paramInfoId,
   });
 
   return { info, sectionType };
@@ -52,17 +45,27 @@ export function createSectionInfo(
 
 export const createAllInfo = (available) => {
   const allPackageInfo = Object.freeze(new AllPackageInfo(available.packages));
-  const allObjs = {};
-  _.values(allPackageInfo.children).forEach((x) =>
-    _.values(x.children).forEach((y) =>
-      _.values(y.children).forEach((z) => (allObjs[z.id] = z))
-    )
-  );
+  const allModuleInfo = createDirectMapping(allPackageInfo.children);
+  const allObjInfo = createDirectMapping(allModuleInfo);
   const allObjCollections = Object.freeze(
-    new AllObjCollectionInfo(available.objCollections, allObjs)
+    new AllObjCollectionInfo(available.objCollections, allObjInfo)
   );
   const allParamCollections = Object.freeze(
     new AllParamCollectionInfo(available.paramCollections)
   );
-  return { allPackageInfo, allObjCollections, allParamCollections };
+  return {
+    allPackageInfo,
+    allModuleInfo,
+    allObjInfo,
+    allObjCollections,
+    allParamCollections,
+  };
 };
+
+function createDirectMapping(sourceInfo) {
+  const output = {};
+  _.values(sourceInfo).forEach((x) =>
+    _.values(x.children).forEach((y) => (output[y.id] = y))
+  );
+  return output;
+}

@@ -16,9 +16,27 @@ export const DICT = "DICT";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
+export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT];
+export const DEFAULT_UI_TYPE_NAME = TEXT;
+
+export const prettyToSectionTypes = Object.freeze(
+  new Map(
+    Object.entries({
+      Section: SECTION,
+      "List of Objects": LIST_ROOT,
+      "Dict of Objects": DICT_ROOT,
+    })
+  )
+);
+
+export const sectionTypesToPretty = new Map([
+  [LIST, "Section"],
+  [DICT, "Section"],
+  ...Array.from(prettyToSectionTypes, (a) => a.reverse()),
+]);
 
 export function requiresNestedSection(uiTypeName) {
-  return [SECTION, LIST_ROOT, DICT_ROOT].includes(uiTypeName);
+  return SECTION_TYPE_NAMES.includes(uiTypeName);
 }
 
 export function requiresKeyInput(sectionTypeName) {
@@ -59,11 +77,4 @@ export function compatibleName(type) {
     [LIST_ROOT]: LIST_ROOT + DICT_ROOT,
     [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
   }[type];
-}
-
-export function getDefaultUIType(type) {
-  if (type === UNKNOWN) {
-    return TEXT;
-  }
-  return type;
 }

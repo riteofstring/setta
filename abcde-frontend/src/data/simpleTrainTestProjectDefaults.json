@@ -1,0 +1,16 @@
+{
+  "paramDefaults": {
+    "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f": {
+      "uiTypeId": "846a8370-fbfc-4d99-a249-40dbdaac4cd3"
+    }
+  },
+  "uiTypes": {
+    "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
+      "id": "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
+      "name": "LIST_ROOT",
+      "config": {
+        "objects": ["1ec242dd-688e-4f71-a0de-cc13752461ce"]
+      }
+    }
+  }
+}

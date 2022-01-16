@@ -9,20 +9,19 @@ import {
   AccordionPanel,
   AccordionIcon,
   Box,
-  Select,
-  FormControl,
 } from "@chakra-ui/react";
-import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import {
   useGetAllParamAndKwargInfos,
   useGetObjInfos,
   useGetParamUIType,
   useGetSectionInfo,
-  useSetUITypeConfig,
+  useParamChildId,
+  useSetUIType,
 } from "hooks/useCreateInfo";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian";
-import { prettyToUITypes, uiTypesToPretty } from "utils/constants";
+import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
+
+import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 export default function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
@@ -39,6 +38,7 @@ export default function UIConfigFunc() {
         paramInfos.length > 0 &&
         paramInfos.map((e, idx) => (
           <UIElement
+            sectionId={sectionId}
             paramInfo={e}
             getUITypeFn={getUITypeFn}
             key={`${e.name}-${idx}`}
@@ -48,23 +48,23 @@ export default function UIConfigFunc() {
   );
 }
 
-function UIElement({ paramInfo, getUITypeFn }) {
+function UIElement({ sectionId, paramInfo, getUITypeFn }) {
+  const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = uiType.config;
-  const setUITypeConfig = useSetUITypeConfig(uiType);
+  const [setName, setUITypeConfig] = useSetUIType(
+    sectionId,
+    paramInfo.id,
+    uiType
+  );
   const paramName = paramInfo.name;
 
-  console.log("Item", uiTypeConfig, uiType.name);
-
-  const setName = useStoreActions((x) => x.uiTypes.setName);
-
   const onSelect = (e) => {
-    setName({ uiTypeId: uiType.id, name: prettyToUITypes.get(e.target.value) });
+    setName({ name: e });
   };
 
-  const onChange = (configName, value) => {
-    console.log("onChange", configName, value);
-    setUITypeConfig({ configName, value });
+  const onChange = (configName, newValueFn) => {
+    setUITypeConfig({ configName, newValueFn });
   };
 
   return (
@@ -85,23 +85,13 @@ function UIElement({ paramInfo, getUITypeFn }) {
         </AccordionButton>
 
         <AccordionPanel pb={4}>
-          <FormControl id="placeholder">
-            <Select
-              placeholder="Select UI Type"
-              onChange={onSelect}
-              value={uiTypesToPretty.get(uiType.name)}
-            >
-              {[...prettyToUITypes.keys()].map((e, idx) => (
-                <option value={e} key={`${e}-${idx}`}>
-                  {e}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
-          <ParamUIConfig
-            name={uiType.name}
+          <UIConfigDropdownAndFields
+            onDropdownSelect={onSelect}
+            currSelected={uiType.name}
+            onConfigChange={onChange}
+            paramInfoId={paramInfo.id}
             savedConfig={uiTypeConfig}
-            onChange={onChange}
+            childIdFn={childIdFn}
           />
           <SaveLoadButtons />
         </AccordionPanel>

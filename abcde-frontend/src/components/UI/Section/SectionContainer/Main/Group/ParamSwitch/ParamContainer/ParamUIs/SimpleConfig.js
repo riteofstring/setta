@@ -5,7 +5,7 @@ export default function SimpleConfig({ options, onChange, savedConfig }) {
     <Input
       placeholder={e}
       key={`${e}-${idx}`}
-      onChange={(v) => onChange(e, v.target.value)}
+      onChange={(v) => onChange(e, () => v.target.value)}
       value={savedConfig?.[e] ? savedConfig[e] : ""}
     />
   ));

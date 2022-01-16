@@ -6,8 +6,8 @@ const uiTypes = {
   x: {},
 
   setUIType: action((state, payload) => {
-    const { uiTypeId, uiType } = payload;
-    state.x[uiTypeId] = uiType;
+    const { uiType } = payload;
+    state.x[uiType.id] = uiType;
   }),
 
   setManyUITypes: action((state, payload) => {
@@ -23,8 +23,9 @@ const uiTypes = {
   }),
 
   setOneConfig: action((state, payload) => {
-    const { uiTypeId, configName, value } = payload;
-    state.x[uiTypeId].config[configName] = value;
+    const { uiTypeId, configName, newValueFn } = payload;
+    const curr = state.x[uiTypeId].config;
+    curr[configName] = newValueFn(curr[configName]);
   }),
 
   export() {

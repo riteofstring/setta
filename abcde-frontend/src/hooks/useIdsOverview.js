@@ -1,7 +1,7 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { useEffect } from "react";
-import { isListLike, isRoot } from "utils/constants";
+import { isRoot } from "utils/constants";
 import { requiresNestedSection } from "utils/constants";
 import { createNewId } from "utils/sectionIds";
 import { curryAction, defaultState } from "utils/utils";
@@ -10,7 +10,6 @@ import {
   useGetCurrObjParamKwargInfos,
   useGetManyParamsWithParamCollectionId,
   useGetManyParamsWithUITypeCollectionId,
-  useGetManySectionTypeNames,
   useGetSectionType,
 } from "./useCreateInfo";
 
@@ -59,9 +58,8 @@ export function useGetIdsOverview(sectionId) {
   );
   const currChildrenId = useGetCurrChildrenIds(sectionId);
   const sectionTypeName = useGetSectionType(sectionId).name;
-  const childrenTypeNames = useGetManySectionTypeNames(allChildrenId);
   if (isRoot(sectionTypeName)) {
-    return allChildrenId.filter((x, i) => isListLike(childrenTypeNames[i]));
+    return allChildrenId;
   }
   return _.intersection(allChildrenId, currChildrenId);
 }
