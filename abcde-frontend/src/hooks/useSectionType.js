@@ -3,6 +3,7 @@ import { defaultState } from "utils/utils";
 
 import { getXInfos } from "./useSectionContents";
 import { useGetSectionInfo } from "./useSectionInfo";
+import { getNewUIType } from "./useUIType";
 import { getInfo } from "./utils";
 
 export function useGetSectionType(sectionId) {

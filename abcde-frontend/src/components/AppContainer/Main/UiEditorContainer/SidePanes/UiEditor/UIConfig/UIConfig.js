@@ -11,13 +11,13 @@ import {
   Box,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import { useGetParamUIType, useSetUIType } from "hooks/useCreateInfo";
 import { useParamChildId } from "hooks/useParamInfo";
 import {
   useGetObjInfos,
   useGetAllParamAndKwargInfos,
 } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";

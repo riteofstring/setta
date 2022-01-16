@@ -6,7 +6,6 @@ import {
   Stack,
   FormControl,
 } from "@chakra-ui/react";
-import { useGetParamUIType, useInitializeUIType } from "hooks/useCreateInfo";
 import {
   useInitializeEnteredValue,
   useParamEnteredValue,
@@ -14,6 +13,7 @@ import {
 import { useAddKwarg, useDeleteKwarg } from "hooks/useKwarg";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
+import { useGetParamUIType, useInitializeUIType } from "hooks/useUIType";
 
 import ParamSwitch from "./ParamSwitch/ParamSwitch";
 

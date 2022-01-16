@@ -1,7 +1,7 @@
 import { Box, Button, HStack, List, ListItem } from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { getNewUIType } from "hooks/useCreateInfo";
+import { getNewUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 import { checkboxChangeFn } from "utils/utils";
 

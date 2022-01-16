@@ -6,7 +6,8 @@ import ProjectDefaults from "data/simpleTrainTestProjectDefaults.json";
 import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
 import { parseUI } from "graphql/parsers/uiParsers";
-import { createSectionInfoFn, getNewUIType } from "hooks/useCreateInfo";
+import { createSectionInfoFn } from "hooks/useCreateInfo";
+import { getNewUIType } from "hooks/useUIType";
 import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 
