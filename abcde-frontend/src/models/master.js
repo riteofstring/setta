@@ -6,7 +6,6 @@ import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
 import ProjectDefaults from "data/simpleTrainTestProjectDefaults.json";
 import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
-import { parseUI } from "graphql/parsers/uiParsers";
 import { createSectionInfoFn } from "hooks/useCreateInfo";
 import { getNewUIType } from "hooks/useUIType";
 import _ from "lodash";
@@ -43,11 +42,6 @@ const master = {
     console.log("allPackageInfo", debug(state.allPackageInfo));
     console.log("allObjCollections", debug(state.allObjCollections));
     console.log("allParamCollections", debug(state.allParamCollections));
-  }),
-
-  setEntireState: thunk((action, payload, helpers) => {
-    console.log("payload", payload);
-    action._loadSections(parseUI(payload));
   }),
 
   loadSections: thunk((action, payload, helpers) => {

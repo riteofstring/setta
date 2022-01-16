@@ -31,7 +31,6 @@ const uiInfo = {
   loadUI: thunk(async (action, payload, helpers) => {
     console.log("loadUI", payload);
     const ui = await loadUIBackend(payload);
-    helpers.getStoreActions().master.setEntireState(ui);
     // const masterSetEntireState =
     //   helpers.getStoreActions().master.setEntireState;
     // const yamlEntrySetEntireState =

@@ -1,6 +1,5 @@
 import axios from "axios";
 import { allFoldersQuery, UIQuery } from "graphql/queries/uiQueries";
-import { stringifyCompleteState } from "utils/commonFunctions";
 import { BACKEND } from "utils/constants";
 
 import { tokenConfig } from "./authentication";
@@ -58,22 +57,5 @@ export const loadUI = ({ token, folderName, uiName }) => {
       tokenConfig(token)
     )
     .then((res) => res.data.data.fullUi)
-    .catch((err) => {});
-};
-
-export const saveDraftUI = ({ token, statesToSave }) => {
-  const body = JSON.stringify({
-    completeState: stringifyCompleteState(statesToSave),
-  });
-  return axios
-    .post(BACKEND + "api/draft_ui", body, tokenConfig(token))
-    .then((res) => res.data)
-    .catch((err) => {});
-};
-
-export const loadDraftUI = ({ token }) => {
-  return axios
-    .get(BACKEND + "api/draft_ui", tokenConfig(token))
-    .then((res) => res.data)
     .catch((err) => {});
 };
