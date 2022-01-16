@@ -13,6 +13,7 @@ export default function SwitchInput({
   return (
     // <Tooltip isDisabled={isDisabled} hasArrow label="Label Tooltip Placeholder">
     <Switch
+      isChecked={value}
       isDisabled={isDisabled}
       onChange={(e) => onChangeEnd(e.target.checked)}
     />
