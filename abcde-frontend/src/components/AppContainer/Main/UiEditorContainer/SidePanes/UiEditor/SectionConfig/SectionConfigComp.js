@@ -14,6 +14,7 @@ import {
 import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useCreateInfo";
 import _ from "lodash";
+import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ savedConfig, onChange }) {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
@@ -55,12 +56,7 @@ function SearchItem({
   const { isOpen, onToggle } = useDisclosure();
 
   function onCheckboxChange(e) {
-    onChange(type, (x) => {
-      if (x) {
-        return e.target.checked ? [...x, id] : x.filter((y) => y !== id);
-      }
-      return [id];
-    });
+    onChange(type, checkboxChangeFn(e, id));
   }
 
   return (
