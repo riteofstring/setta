@@ -1,5 +1,5 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useCreateInfo";
+import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useSectionGroups";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";

@@ -1,7 +1,7 @@
 import { Heading } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
-import { useSectionGroups } from "hooks/useCreateInfo";
+import { useSectionGroups } from "hooks/useSectionGroups";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
