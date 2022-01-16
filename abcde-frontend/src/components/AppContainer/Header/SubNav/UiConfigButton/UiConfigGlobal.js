@@ -16,6 +16,7 @@ export default function UiConfigGlobal() {
     (x) => x.projectParamDefaults.setManyUITypeIds
   );
   const [currSelected, setCurrSelected] = useState(null);
+  const [savedConfig, setConfig] = useState({});
   const [params, setParams] = useState([]);
 
   function onDropdownSelect(e) {
@@ -30,6 +31,7 @@ export default function UiConfigGlobal() {
     return () => {
       const uiType = getNewUIType({
         name: currSelected,
+        config: savedConfig,
         origin: PROJECT_DEFAULT,
       });
       const toUITypeId = _.zipObject(
@@ -49,11 +51,17 @@ export default function UiConfigGlobal() {
     return onSetAsProjectDefault(SET_FROM_SIDEPANE);
   }
 
+  function onConfigChange(configName, newStateFn) {
+    setConfig((x) => ({ ...x, [configName]: newStateFn(x[configName]) }));
+  }
+
   return (
     <HStack>
       <UIConfigDropdownAndFields
         onDropdownSelect={onDropdownSelect}
         currSelected={currSelected}
+        onConfigChange={onConfigChange}
+        savedConfig={savedConfig}
       />
       <Box maxHeight="500px" overflowY="auto">
         <ParameterList onCheckboxChange={onCheckboxChange} />
