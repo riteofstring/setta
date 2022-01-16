@@ -52,7 +52,11 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo);
   const uiTypeConfig = uiType.config;
-  const [setName, setUITypeConfig] = useSetUIType(uiType);
+  const [setName, setUITypeConfig] = useSetUIType(
+    sectionId,
+    paramInfo.id,
+    uiType
+  );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
