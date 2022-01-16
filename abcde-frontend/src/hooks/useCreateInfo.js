@@ -3,10 +3,10 @@ import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
-import { curryAction, defaultState } from "utils/utils";
+import { defaultState } from "utils/utils";
 
 import { DEFAULT_UI_TYPE_NAME } from "../utils/constants";
-import { useParamUITypeId, useParamEnteredValueId } from "./useParamInfo";
+import { useParamUITypeId } from "./useParamInfo";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 import { getInfo } from "./utils";
@@ -71,40 +71,6 @@ export function useCreateSectionInfo(sectionId) {
   };
 
   return createInfo;
-}
-
-export function useInitializeEnteredValue(sectionId) {
-  const enteredValueIdFn = useParamEnteredValueId(sectionId);
-  const setEnteredValue = useStoreActions(
-    (x) => x.enteredValues.setEnteredValue
-  );
-  return (paramInfo) => {
-    const [enteredValueId, setEnteredValueId] = enteredValueIdFn(paramInfo.id);
-    return () => {
-      if (!enteredValueId) {
-        const newId = createNewId();
-        setEnteredValueId(newId);
-        setEnteredValue({ enteredValueId: newId, value: "" });
-      }
-    };
-  };
-}
-
-export function useParamEnteredValue(sectionId) {
-  const enteredValueIdFn = useParamEnteredValueId(sectionId);
-  return (paramInfo) => {
-    const enteredValueId = enteredValueIdFn(paramInfo.id)[0];
-    const enteredValue = defaultState(
-      useStoreState((x) => getInfo(x.enteredValues)[enteredValueId]),
-      () => ""
-    );
-    const setEnteredValue = curryAction(
-      useStoreActions((x) => x.enteredValues.setEnteredValue),
-      { enteredValueId },
-      "value"
-    );
-    return [enteredValue, setEnteredValue];
-  };
 }
 
 export function useGetParamUIType(sectionId) {

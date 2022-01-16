@@ -6,12 +6,11 @@ import {
   Stack,
   FormControl,
 } from "@chakra-ui/react";
+import { useGetParamUIType, useInitializeUIType } from "hooks/useCreateInfo";
 import {
-  useGetParamUIType,
   useInitializeEnteredValue,
   useParamEnteredValue,
-  useInitializeUIType,
-} from "hooks/useCreateInfo";
+} from "hooks/useEnteredValue";
 import { useAddKwarg, useDeleteKwarg } from "hooks/useKwarg";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
