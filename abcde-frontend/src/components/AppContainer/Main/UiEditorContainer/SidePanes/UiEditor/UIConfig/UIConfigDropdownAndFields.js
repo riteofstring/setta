@@ -6,7 +6,8 @@ import { uiTypesToPretty } from "utils/constants";
 
 export function UIConfigDropdownAndFields({
   onDropdownSelect,
-  currSelected,
+  selectedId,
+  selectedType,
   onConfigChange,
   paramInfoId,
   savedConfig,
@@ -36,10 +37,10 @@ export function UIConfigDropdownAndFields({
         placeholder="Select UI Type"
         onChange={onSelect}
         options={availableUITypes}
-        curr={currSelected}
+        curr={selectedId}
       />
       <ParamUIConfig
-        name={currSelected}
+        name={selectedType}
         paramInfoId={paramInfoId}
         childIdFn={childIdFn}
         savedConfig={savedConfig}

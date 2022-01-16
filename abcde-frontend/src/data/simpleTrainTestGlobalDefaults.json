@@ -11,6 +11,7 @@
     },
     "796ac83d-bb70-489d-89ed-13c73094982f": {
       "id": "796ac83d-bb70-489d-89ed-13c73094982f",
+      "name": "Kevin's Slider",
       "type": "SLIDER",
       "config": { "min": 10, "max": 100, "step": 10 }
     }
