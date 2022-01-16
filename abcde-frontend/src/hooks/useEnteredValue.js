@@ -10,8 +10,8 @@ export function useInitializeEnteredValue(sectionId) {
   const setEnteredValue = useStoreActions(
     (x) => x.enteredValues.setEnteredValue
   );
-  return (paramInfo) => {
-    const [enteredValueId, setEnteredValueId] = enteredValueIdFn(paramInfo.id);
+  return (paramInfoId) => {
+    const [enteredValueId, setEnteredValueId] = enteredValueIdFn(paramInfoId);
     return () => {
       if (!enteredValueId) {
         const newId = createNewId();
@@ -24,8 +24,8 @@ export function useInitializeEnteredValue(sectionId) {
 
 export function useParamEnteredValue(sectionId) {
   const enteredValueIdFn = useParamEnteredValueId(sectionId);
-  return (paramInfo) => {
-    const enteredValueId = enteredValueIdFn(paramInfo.id)[0];
+  return (paramInfoId) => {
+    const enteredValueId = enteredValueIdFn(paramInfoId)[0];
     const enteredValue = defaultState(
       useStoreState((x) => getInfo(x.enteredValues)[enteredValueId]),
       () => ""

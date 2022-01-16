@@ -17,7 +17,7 @@ export default function ParamContainer(props) {
   } = props;
   const uiType = getUITypeFn(paramInfo);
   const initUITypeFn = getInitUITypeFn(paramInfo);
-  const initEnteredValueFn = getInitEnteredValueFn(paramInfo);
+  const initEnteredValueFn = getInitEnteredValueFn(paramInfo.id);
   console.log("ParamContainer");
   const uiTypeConfig = uiType.config;
 
@@ -41,7 +41,8 @@ export default function ParamContainer(props) {
           {props.children}
           <Spacer />
           <ParamInput
-            paramInfo={paramInfo}
+            paramInfoId={paramInfo.id}
+            defaultVal={paramInfo.defaultVal}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
             enteredValueFn={enteredValueFn}
