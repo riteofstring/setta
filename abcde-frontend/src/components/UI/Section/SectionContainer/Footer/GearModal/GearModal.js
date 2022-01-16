@@ -1,7 +1,6 @@
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 import ParamSweepModal from "./ParamSweepModal/ParamSweepModal";
-import UITypesModal from "./UITypesModal/UITypesModal";
 
 const foldersAndFiles = { folder1: ["apple", "bear"] };
 
@@ -19,15 +18,6 @@ export default function GearModal(props) {
       );
     case "PARAM_SWEEP":
       return <ParamSweepModal isOpen={props.isOpen} onClose={props.onClose} />;
-    case "UI_TYPES":
-      return (
-        <UITypesModal
-          isOpen={props.isOpen}
-          onClose={props.onClose}
-          sectionId={props.sectionId}
-          objInfoId={props.objInfoId}
-        />
-      );
     default:
       return null;
   }
