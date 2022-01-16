@@ -1,11 +1,9 @@
 import { useStoreActions } from "easy-peasy";
 
 import { useDeleteChild } from "./useAddDeleteChild";
-import {
-  useGetSectionInfo,
-  useGetSectionType,
-  useParamChildId,
-} from "./useCreateInfo";
+import { useParamChildId } from "./useCreateInfo";
+import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionType } from "./useSectionType";
 
 export function useAddKwarg(sectionId, objInfo) {
   const { kwargCollectionId } = useGetSectionInfo(sectionId);

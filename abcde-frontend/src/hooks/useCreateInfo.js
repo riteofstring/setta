@@ -6,10 +6,9 @@ import { createNewId } from "utils/sectionIds";
 import { curryAction, defaultState } from "utils/utils";
 
 import { DEFAULT_UI_TYPE_NAME } from "../utils/constants";
-
-function getInfo(x) {
-  return x.x;
-}
+import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionType } from "./useSectionType";
+import { getInfo } from "./utils";
 
 export function createSectionInfoFn({
   name,
@@ -71,120 +70,6 @@ export function useCreateSectionInfo(sectionId) {
   };
 
   return createInfo;
-}
-
-export function useGetSectionInfo(sectionId) {
-  return defaultState(
-    useStoreState((x) => getInfo(x.sectionInfos)[sectionId]),
-    () => ({})
-  );
-}
-
-export function useGetSectionType(sectionId) {
-  const sectionTypeId = useGetSectionInfo(sectionId).sectionTypeId;
-  return defaultState(
-    useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
-    () => ({})
-  );
-}
-
-export function useGetManySectionTypeNames(sectionIds) {
-  const sectionTypeIds = useStoreState(
-    (x) => sectionIds.map((y) => getInfo(x.sectionInfos)[y]?.sectionTypeId),
-    _.isEqual
-  );
-  return useStoreState(
-    (x) => sectionTypeIds.map((y) => getInfo(x.sectionTypes)[y]?.name),
-    _.isEqual
-  );
-}
-
-export function useGetCurrObjParamKwargInfos(sectionId) {
-  const { selectedItem } = useGetSectionInfo(sectionId);
-  return useGetObjParamKwargInfos(sectionId, selectedItem);
-}
-
-export function useGetObjParamKwargInfos(sectionId, objInfoId) {
-  const objInfo = useGetObjInfos(sectionId, objInfoId);
-  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
-  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
-  return { objInfo, paramInfos, kwargInfos };
-}
-
-export function getXInfos(collectionIds, allCollections, infoId = null) {
-  const collections = collectionIds.map((x) => allCollections.children[x]);
-  const output = _.merge({}, ...collections.map((x) => x.children));
-  if (infoId) {
-    return output[infoId];
-  }
-  return Object.values(output);
-}
-
-export function useGetXInfosFromSection(
-  collectionName,
-  allCollectionName,
-  sectionId,
-  infoId = null
-) {
-  const allCollections = useStoreState((x) => x.master[allCollectionName]);
-  const sectionType = useGetSectionType(sectionId);
-  if (sectionId) {
-    const collectionIds = sectionType[collectionName];
-    return getXInfos(collectionIds, allCollections, infoId);
-  }
-  return [];
-}
-
-export function useGetObjInfos(sectionId, infoId = null) {
-  return useGetXInfosFromSection(
-    "objCollectionIds",
-    "allObjCollections",
-    sectionId,
-    infoId
-  );
-}
-
-export function useGetParamCollections(sectionId, infoId = null) {
-  return useGetXInfosFromSection(
-    "paramCollectionIds",
-    "allParamCollections",
-    sectionId,
-    infoId
-  );
-}
-
-export function useGetKwargIds(sectionId, objInfo) {
-  const { kwargCollectionId } = useGetSectionInfo(sectionId);
-  return defaultState(
-    useStoreState(
-      (x) => getInfo(x.objInfos)[kwargCollectionId]?.[objInfo.id]?.kwargIds
-    ),
-    () => []
-  );
-}
-
-export function useGetKwargInfos(sectionId, objInfo) {
-  const kwargIds = useGetKwargIds(sectionId, objInfo);
-  const kwargInfoState = useStoreState(
-    (x) => kwargIds.map((y) => getInfo(x.kwargInfos)[y]),
-    _.isEqual
-  );
-  return kwargInfoState;
-}
-
-export function useGetAllParamInfos(sectionId, objInfo) {
-  const objParamInfos = objInfo?.children
-    ? Object.values(objInfo.children)
-    : [];
-  const paramCollections = useGetParamCollections(sectionId);
-  return [...objParamInfos, ...paramCollections];
-}
-
-export function useGetAllParamAndKwargInfos(sectionId, objInfo) {
-  return [
-    ...useGetAllParamInfos(sectionId, objInfo),
-    ...useGetKwargInfos(sectionId, objInfo),
-  ];
 }
 
 export function useParamInfoState(
@@ -413,46 +298,6 @@ export function useInitializeUIType(sectionId) {
         setUIType({ uiType: newUIType });
       }
     };
-  };
-}
-
-export function useReinitSectionType(sectionId) {
-  const reinitSectionType = useStoreActions(
-    (x) => x.sectionTypes.reinitSectionType
-  );
-  const allParamCollections = useStoreState(
-    (x) => x.master["allParamCollections"]
-  );
-  const { id: sectionTypeId, uiTypeCollectionId } =
-    useGetSectionType(sectionId);
-  const existingUITypeIds = defaultState(
-    useStoreState((x) => x.paramInfos.y[uiTypeCollectionId]),
-    () => ({})
-  );
-  const setManyUITypeIds = useStoreActions(
-    (x) => x.paramInfos.setManyUITypeIds
-  );
-  const setManyUITypes = useStoreActions((x) => x.uiTypes.setManyUITypes);
-
-  return (props) => {
-    const { paramCollectionIds } = reinitSectionType({
-      sectionTypeId,
-      ...props,
-    });
-    // The following code is to address the problem that arises
-    // when multiple sections get populated with a paramCollection.
-    // Without this, they will end up making unused uiTypes.
-    const paramInfos = getXInfos(paramCollectionIds, allParamCollections);
-    const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x.id]);
-    const newUITypes = needsNewUIType.map((x) => getNewUIType());
-    const paramInfoIds = needsNewUIType.map((x) => x.id);
-    const newUITypeIds = newUITypes.map((x) => x.id);
-    setManyUITypeIds({
-      collectionId: uiTypeCollectionId,
-      paramInfoIds,
-      uiTypeIds: newUITypeIds,
-    });
-    setManyUITypes({ uiTypes: newUITypes });
   };
 }
 

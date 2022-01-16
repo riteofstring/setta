@@ -1,4 +1,5 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
+import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useEffect } from "react";
 import { isRoot } from "utils/constants";
@@ -7,11 +8,10 @@ import { createNewId } from "utils/sectionIds";
 import { curryAction, defaultState } from "utils/utils";
 
 import {
-  useGetCurrObjParamKwargInfos,
   useGetManyParamsWithParamCollectionId,
   useGetManyParamsWithUITypeCollectionId,
-  useGetSectionType,
 } from "./useCreateInfo";
+import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
