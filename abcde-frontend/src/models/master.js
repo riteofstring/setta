@@ -122,7 +122,7 @@ const master = {
     const setSectionType =
       helpers.getStoreActions().sectionTypes.setSectionType;
 
-    const sectionSpecs = uiSpecs.get(name);
+    const sectionSpecs = uiSpecs?.get(name);
 
     return createSectionInfoFn({
       name,
