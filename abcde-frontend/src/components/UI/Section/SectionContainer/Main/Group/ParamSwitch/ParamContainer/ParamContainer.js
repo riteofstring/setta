@@ -15,7 +15,7 @@ export default function ParamContainer(props) {
     getInitUITypeFn,
     getInitEnteredValueFn,
   } = props;
-  const uiType = getUITypeFn(paramInfo);
+  const uiType = getUITypeFn(paramInfo.id);
   const initUITypeFn = getInitUITypeFn(paramInfo);
   const initEnteredValueFn = getInitEnteredValueFn(paramInfo.id);
   console.log("ParamContainer");

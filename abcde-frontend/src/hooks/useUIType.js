@@ -10,8 +10,8 @@ import { getInfo } from "./utils";
 
 export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
-  return (paramInfo) => {
-    const uiTypeId = uiTypeIdFn(paramInfo.id)[0];
+  return (paramInfoId) => {
+    const uiTypeId = uiTypeIdFn(paramInfoId)[0];
     return defaultState(
       useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
       () => ({})
