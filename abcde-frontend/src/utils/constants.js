@@ -17,6 +17,7 @@ export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
 export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT];
+export const DEFAULT_UI_TYPE_NAME = TEXT;
 
 export const prettyToSectionTypes = Object.freeze(
   new Map(
@@ -76,11 +77,4 @@ export function compatibleName(type) {
     [LIST_ROOT]: LIST_ROOT + DICT_ROOT,
     [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
   }[type];
-}
-
-export function getDefaultUIType(type) {
-  if (type === UNKNOWN) {
-    return TEXT;
-  }
-  return type;
 }

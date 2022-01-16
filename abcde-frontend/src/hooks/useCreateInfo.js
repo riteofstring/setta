@@ -6,7 +6,7 @@ import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
 import { curryAction, defaultState, insertIntoArrayOrXpend } from "utils/utils";
 
-import { getDefaultUIType } from "../utils/constants";
+import { DEFAULT_UI_TYPE_NAME } from "../utils/constants";
 import { useSetIdsOverview } from "./useIdsOverview";
 
 function getInfo(x) {
@@ -342,20 +342,24 @@ export function useSetUITypeConfig(uiType) {
   return setUITypeConfig;
 }
 
-export function useGetDefaultUITypeName(paramInfo) {
-  const { uiTypeName, type } = paramInfo;
+export function useProjectDefaultUIType(paramInfoId) {
+  const uiTypeId = useStoreState(
+    (x) => x.paramDefaults.x[paramInfoId]?.uiTypeId
+  );
+  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
+}
+
+export function useSettingsDefaultUITypeName(type) {
   const defaultUITypeName = useStoreState(
     (x) => x.userSettings.datatypeToUIType[type]
   );
-  return defaultUITypeName ? defaultUITypeName : getDefaultUIType(uiTypeName);
+  return defaultUITypeName ? defaultUITypeName : DEFAULT_UI_TYPE_NAME;
 }
 
-export function getNewUIType(paramInfo, uiTypeName) {
-  const config = Object.assign({}, paramInfo.uiTypeConfig);
+export function getNewUIType(uiTypeName) {
   return new UIType({
     id: createNewId(),
     name: uiTypeName,
-    config: config,
   });
 }
 
@@ -364,10 +368,16 @@ export function useInitializeUIType(sectionId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
-    const uiTypeName = useGetDefaultUITypeName(paramInfo);
+    const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
+    const settingsDefaulUITypeName = useSettingsDefaultUITypeName(
+      paramInfo.type
+    );
     return () => {
       if (!uiTypeId) {
-        const newUIType = getNewUIType(paramInfo, uiTypeName);
+        const newUIType = projectDefaultUIType
+          ? _.cloneDeep(projectDefaultUIType)
+          : getNewUIType(settingsDefaulUITypeName);
+
         setUITypeId(newUIType.id);
         setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
       }
@@ -509,7 +519,7 @@ export function useReinitSectionType(sectionId) {
     // Without this, they will end up making unused uiTypes.
     const paramInfos = getXInfos(paramCollectionIds, allParamCollections);
     const needsNewUIType = paramInfos.filter((x) => !existingUITypeIds[x.id]);
-    const newUITypes = needsNewUIType.map((x) => getNewUIType(x));
+    const newUITypes = needsNewUIType.map((x) => getNewUIType());
     const paramInfoIds = needsNewUIType.map((x) => x.id);
     const newUITypeIds = newUITypes.map((x) => x.id);
     setManyUITypeIds({

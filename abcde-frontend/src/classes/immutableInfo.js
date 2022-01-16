@@ -6,8 +6,6 @@ export class ParameterInfo {
     this.name = jsonInput.name;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
-    this.uiTypeName = jsonInput.uiTypeName;
-    this.uiTypeConfig = jsonInput.uiTypeConfig;
     this.parentId = parentId;
   }
 }

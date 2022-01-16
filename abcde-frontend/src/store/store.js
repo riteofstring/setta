@@ -6,6 +6,7 @@ import funcsInfo from "models/funcsInfo";
 import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
+import paramDefaults from "models/info/paramDefaults";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
 import sectionTypes from "models/info/sectionTypes";
@@ -41,6 +42,7 @@ const store = createStore(
       uiTypes: uiTypes,
       userSettings: userSettings,
       uiEditor: uiEditor,
+      paramDefaults: paramDefaults,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;
