@@ -70,3 +70,29 @@ export function useParamUITypeId(sectionId) {
     "uiTypeId"
   );
 }
+
+export function useGetManyParamsWithParamCollectionId(
+  sectionId,
+  paramInfos,
+  key
+) {
+  const { paramCollectionId } = useGetSectionInfo(sectionId);
+  return useStoreState(
+    (x) =>
+      paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]?.[key]),
+    _.isEqual
+  );
+}
+
+export function useGetManyParamsWithUITypeCollectionId(
+  sectionId,
+  paramInfos,
+  key
+) {
+  const { uiTypeCollectionId } = useGetSectionType(sectionId);
+  return useStoreState(
+    (x) =>
+      paramInfos.map((y) => x.paramInfos.y[uiTypeCollectionId]?.[y.id]?.[key]),
+    _.isEqual
+  );
+}

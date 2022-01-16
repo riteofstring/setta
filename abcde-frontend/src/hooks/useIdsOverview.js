@@ -10,7 +10,7 @@ import { curryAction, defaultState } from "utils/utils";
 import {
   useGetManyParamsWithParamCollectionId,
   useGetManyParamsWithUITypeCollectionId,
-} from "./useCreateInfo";
+} from "./useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useIdsOverview(sectionId) {
