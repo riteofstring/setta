@@ -22,7 +22,7 @@ export default function SectionConfigFunc() {
   const reinitSectionType = useReinitSectionType(sectionId);
   const { parentId, paramInfoId } = useGetSectionInfo(sectionId);
   const { uiTypeCollectionId } = useGetSectionType(parentId);
-  const [uiTypeId, setUIType] = useSetUITypeDirect(
+  const [uiTypeId, setOneConfig] = useSetUITypeDirect(
     uiTypeCollectionId,
     paramInfoId
   );
@@ -42,7 +42,7 @@ export default function SectionConfigFunc() {
   const onConfigChange = (configName, newValueFn) => {
     const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
     reinitSectionType({ name, sectionSpecs: newSpecs });
-    setUIType({ uiTypeId, configName, newValueFn });
+    setOneConfig({ uiTypeId, configName, newValueFn });
   };
 
   return (

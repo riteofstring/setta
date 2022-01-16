@@ -334,10 +334,16 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-export function useSetUITypeConfig(uiType) {
-  const x = useStoreActions((x) => x.uiTypes.setOneConfig);
+export function useSetUITypeConfig(uiType, settingDefault = false) {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUITypeConfig = ({ configName, newValueFn }) => {
-    x({ uiTypeId: uiType.id, configName, newValueFn });
+    // The uitype comes from a project or user settings default
+    // But it's being changed from the sidepane
+    if (uiType.isDefault && !settingDefault) {
+      setUIType({ uiType: cloneNewUIType(uiType) });
+    }
+    setConfig({ uiTypeId: uiType.id, configName, newValueFn });
   };
   return setUITypeConfig;
 }
@@ -363,6 +369,12 @@ export function getNewUIType(uiTypeName) {
   });
 }
 
+export function cloneNewUIType(uiType) {
+  const newUIType = _.cloneDeep(uiType);
+  newUIType.id = createNewId();
+  return newUIType;
+}
+
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
@@ -373,13 +385,14 @@ export function useInitializeUIType(sectionId) {
       paramInfo.type
     );
     return () => {
-      if (!uiTypeId) {
-        const newUIType = projectDefaultUIType
-          ? _.cloneDeep(projectDefaultUIType)
-          : getNewUIType(settingsDefaulUITypeName);
-
+      if (uiTypeId) {
+        return;
+      } else if (projectDefaultUIType) {
+        setUITypeId(projectDefaultUIType.id);
+      } else {
+        const newUIType = getNewUIType(settingsDefaulUITypeName);
         setUITypeId(newUIType.id);
-        setUIType({ uiTypeId: newUIType.id, uiType: newUIType });
+        setUIType({ uiType: newUIType });
       }
     };
   };
@@ -566,6 +579,6 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   const uiTypeId = useStoreState(
     (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
   );
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  return [uiTypeId, setConfig];
+  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  return [uiTypeId, setOneConfig];
 }

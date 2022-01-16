@@ -6,8 +6,8 @@ const uiTypes = {
   x: {},
 
   setUIType: action((state, payload) => {
-    const { uiTypeId, uiType } = payload;
-    state.x[uiTypeId] = uiType;
+    const { uiType } = payload;
+    state.x[uiType.id] = uiType;
   }),
 
   setManyUITypes: action((state, payload) => {
