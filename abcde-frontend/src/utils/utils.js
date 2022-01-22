@@ -1,6 +1,10 @@
 import { arrayMove } from "@dnd-kit/sortable";
 import { v4 as uuidv4 } from "uuid";
 
+export const createNewId = () => {
+  return uuidv4();
+};
+
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
@@ -132,4 +136,8 @@ export function checkboxChangeFn(e, id) {
     }
     return [id];
   };
+}
+
+export function maybeNewId(x) {
+  return x ? x : createNewId();
 }

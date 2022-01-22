@@ -15,7 +15,7 @@ import {
   GLOBAL_DEFAULT,
   PROJECT_DEFAULT,
 } from "utils/constants";
-import { createNewId } from "utils/sectionIds";
+import { createNewId } from "utils/utils";
 
 const master = {
   spaceBetweenPages: 100,

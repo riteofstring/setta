@@ -1,7 +1,7 @@
 import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
-import { createNewId } from "utils/sectionIds";
+import { createNewId } from "utils/utils";
 import { defaultState, nullOrUndefined } from "utils/utils";
 
 import {

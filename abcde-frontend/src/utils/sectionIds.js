@@ -1,10 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
-
 import { nullOrUndefined, firstValue } from "./utils";
-
-export const createNewId = () => {
-  return uuidv4();
-};
 
 export const getOverviewListing = (groups, idsOverview, idNames) => {
   let outputList = [];

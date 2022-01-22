@@ -34,6 +34,7 @@ export function useGetXInfosFromSection(
 ) {
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const sectionType = useGetSectionType(sectionId);
+  console.log("sectionType", sectionType, collectionName);
   if (sectionId) {
     const collectionIds = sectionType.config[collectionName];
     return getXInfos(collectionIds, allCollections, infoId);

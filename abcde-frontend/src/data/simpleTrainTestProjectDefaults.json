@@ -11,7 +11,8 @@
       "type": "LIST_ROOT",
       "isPreset": true,
       "config": {
-        "objects": ["1ec242dd-688e-4f71-a0de-cc13752461ce"]
+        "objects": ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
+        "parameters": []
       }
     }
   }

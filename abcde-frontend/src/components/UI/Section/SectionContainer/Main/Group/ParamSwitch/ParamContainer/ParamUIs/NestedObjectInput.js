@@ -35,30 +35,25 @@ export function ButtonGoToSectionConfig({ childIdFn, paramInfoId }) {
 export default function NestedObjectInput({
   sectionId,
   paramName,
-  uiType,
+  uiTypeId,
   parentParamInfoId,
   childIdFn,
 }) {
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useAddChild(sectionId);
   const reinitSectionType = useReinitSectionType(existingChildId);
-  const sectionTypeName = uiType.type;
-  const sectionSpecs = uiType.config;
-
-  console.log("NestedObjectInput", uiType);
 
   useEffect(() => {
     if (!existingChildId) {
       addChild({
         name: paramName,
-        sectionTypeName,
-        sectionSpecs,
+        uiTypeId,
         parentParamInfoId,
       });
     } else {
       reinitSectionType({ name: sectionTypeName, sectionSpecs });
     }
-  }, [uiType]);
+  }, [uiTypeId]);
 
   return null;
 }

@@ -1,7 +1,7 @@
 import { KwargInfo } from "classes/mutableInfo";
 import { useStoreActions } from "easy-peasy";
 import { useParamChildId } from "hooks/useParamInfo";
-import { createNewId } from "utils/sectionIds";
+import { createNewId } from "utils/utils";
 
 import { useDeleteChild } from "./useAddDeleteChild";
 import { useGetSectionInfo } from "./useSectionInfo";
