@@ -1,4 +1,17 @@
-import { Box, HStack, Input, List, ListItem, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  HStack,
+  Input,
+  List,
+  ListItem,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
+  VStack,
+} from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { usePresetUIType } from "hooks/useUIType";
@@ -65,10 +78,9 @@ export default function UiConfigGlobal() {
 
 function PresetConfig() {
   const [selectedId, setSelectedId] = useState(null);
-  const uiType = usePresetUIType(selectedId);
+  const [uiType, setConfig] = usePresetUIType(selectedId);
   const defaultConfig = uiType ? uiType.config : {};
   const [localConfig, setLocalConfig] = useState(defaultConfig);
-  const [presetName, setPresetName] = useState("");
 
   useDeepCompareEffect(() => {
     setLocalConfig(defaultConfig);
@@ -82,8 +94,8 @@ function PresetConfig() {
     setLocalConfig((x) => ({ ...x, [configName]: newStateFn(x[configName]) }));
   }
 
-  function onPresetNameChange(e) {
-    setPresetName(e.target.value);
+  function onSave() {
+    setConfig(localConfig);
   }
 
   return (
@@ -96,12 +108,51 @@ function PresetConfig() {
         savedConfig={localConfig}
         origin={PROJECT_DEFAULT}
       />
-      <Input
-        placeholder="Preset Name"
-        value={presetName}
-        onChange={onPresetNameChange}
-      />
+      {uiType && <SaveButton presetName={uiType?.name} onSavePreset={onSave} />}
+      {uiType && <SaveAsButton />}
     </VStack>
+  );
+}
+
+function SaveButton({ presetName, onSavePreset }) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={onSavePreset}
+      isDisabled={!presetName}
+    >
+      Save
+    </Button>
+  );
+}
+
+function SaveAsButton() {
+  const [presetName, setPresetName] = useState("");
+
+  function onPresetNameChange(e) {
+    setPresetName(e.target.value);
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <Button variant="outline" size="sm">
+          Save As
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent>
+        <PopoverArrow />
+        <PopoverBody>
+          <Input
+            placeholder="Preset Name"
+            value={presetName}
+            onChange={onPresetNameChange}
+          />
+          <SaveButton presetName={presetName} />
+        </PopoverBody>
+      </PopoverContent>
+    </Popover>
   );
 }
 

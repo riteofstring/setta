@@ -135,6 +135,10 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
 
 export function usePresetUIType(uiTypeId) {
   const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
-  // const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  return uiType;
+  const setConfig = useStoreActions((x) => x.uiTypes.setConfig);
+  const _setConfig = (newConfig) => {
+    setConfig({ uiTypeId, newStateFn: (x) => ({ ...x, ...newConfig }) });
+  };
+
+  return [uiType, _setConfig];
 }

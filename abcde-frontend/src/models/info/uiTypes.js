@@ -22,6 +22,12 @@ const uiTypes = {
     state.x[uiTypeId].type = type;
   }),
 
+  setConfig: action((state, payload) => {
+    const { uiTypeId, newStateFn } = payload;
+    const curr = state.x[uiTypeId];
+    curr.config = newStateFn(curr.config);
+  }),
+
   setOneConfig: action((state, payload) => {
     const { uiTypeId, configName, newValueFn } = payload;
     const curr = state.x[uiTypeId].config;
