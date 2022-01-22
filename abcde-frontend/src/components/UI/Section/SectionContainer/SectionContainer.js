@@ -87,14 +87,11 @@ function _SectionContainerCore({
   dummy,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
-  const {
-    name: sectionTypeName,
-    hasObjects,
-    specs,
-  } = useGetSectionType(sectionId);
+  const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, selectedItem } = sectionInfo;
-  const selectedItemInSpecs = specs.objects.includes(selectedItem);
+  const selectedItemInSpecs = config.objects.includes(selectedItem);
+  const hasObjects = config.objects.length > 0;
   const isList = isListLike(sectionTypeName);
   const isListRoot = isRoot(sectionTypeName);
   const setSectionInfoAttr = useStoreActions(
