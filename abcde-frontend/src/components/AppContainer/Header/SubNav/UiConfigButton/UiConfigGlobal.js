@@ -14,14 +14,13 @@ import {
 } from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { usePresetUIType } from "hooks/useUIType";
+import { cloneNewUIType, usePresetUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PROJECT_DEFAULT } from "utils/constants";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const overrideUITypeIds = useStoreActions(
     (x) => x.paramInfos.overrideUITypeIds
   );
@@ -77,10 +76,13 @@ export default function UiConfigGlobal() {
 }
 
 function PresetConfig() {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const [selectedId, setSelectedId] = useState(null);
   const [uiType, setConfig] = usePresetUIType(selectedId);
   const defaultConfig = uiType ? uiType.config : {};
   const [localConfig, setLocalConfig] = useState(defaultConfig);
+
+  console.log("defaultConfig", selectedId, uiType, defaultConfig);
 
   useDeepCompareEffect(() => {
     setLocalConfig(defaultConfig);
@@ -98,6 +100,18 @@ function PresetConfig() {
     setConfig(localConfig);
   }
 
+  function onSaveAs(name) {
+    const newUIType = cloneNewUIType({
+      uiType,
+      name,
+      config: localConfig,
+      origin: PROJECT_DEFAULT,
+      isPreset: true,
+    });
+    setUIType({ uiType: newUIType });
+    setSelectedId(newUIType.id);
+  }
+
   return (
     <VStack>
       <UIConfigDropdownAndFields
@@ -109,7 +123,7 @@ function PresetConfig() {
         origin={PROJECT_DEFAULT}
       />
       {uiType && <SaveButton presetName={uiType?.name} onSavePreset={onSave} />}
-      {uiType && <SaveAsButton />}
+      {uiType && <SaveAsButton onSavePreset={onSaveAs} />}
     </VStack>
   );
 }
@@ -127,11 +141,15 @@ function SaveButton({ presetName, onSavePreset }) {
   );
 }
 
-function SaveAsButton() {
+function SaveAsButton({ onSavePreset }) {
   const [presetName, setPresetName] = useState("");
 
   function onPresetNameChange(e) {
     setPresetName(e.target.value);
+  }
+
+  function localOnSavePreset() {
+    onSavePreset(presetName);
   }
 
   return (
@@ -149,7 +167,10 @@ function SaveAsButton() {
             value={presetName}
             onChange={onPresetNameChange}
           />
-          <SaveButton presetName={presetName} />
+          <SaveButton
+            presetName={presetName}
+            onSavePreset={localOnSavePreset}
+          />
         </PopoverBody>
       </PopoverContent>
     </Popover>

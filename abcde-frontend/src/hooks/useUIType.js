@@ -90,16 +90,18 @@ export function getNewUIType({ id, ...props }) {
 
 export function cloneNewUIType({
   uiType,
-  name,
+  name = "",
+  config,
   origin = SET_FROM_SIDEPANE,
   isPreset = false,
 }) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
+  newUIType.name = name;
   newUIType.origin = origin;
   newUIType.isPreset = isPreset;
-  if (!nullOrUndefined(name)) {
-    newUIType.name = name;
+  if (!nullOrUndefined(config)) {
+    newUIType.config = config;
   }
   return newUIType;
 }
