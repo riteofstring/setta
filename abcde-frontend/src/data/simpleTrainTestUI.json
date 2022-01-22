@@ -59,22 +59,34 @@
     }
   },
   "sections": {
-    "Model": {
+    "acd83563-2337-44c2-9b4d-db3641fcbc97": {
+      "id": "acd83563-2337-44c2-9b4d-db3641fcbc97",
+      "name": "Model",
       "uiTypeId": "ad41e56e-0c81-413d-8a63-ccfa59107c79"
     },
-    "Optimizer": {
+    "66adb1cc-ce9e-4885-81a6-bf3e7a66644e": {
+      "id": "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
+      "name": "Optimizer",
       "uiTypeId": "aca715a7-e487-4151-8099-5823b9f54637"
     },
-    "Transform": {
+    "306550d9-1a80-42c6-b853-512a22e4d796": {
+      "id": "306550d9-1a80-42c6-b853-512a22e4d796",
+      "name": "Transform",
       "uiTypeId": "4dfce153-7c8a-427e-bc86-31802494166d"
     },
-    "TrainDataset": {
+    "ac23d151-2df2-436f-b146-3893806ffb1d": {
+      "id": "ac23d151-2df2-436f-b146-3893806ffb1d",
+      "name": "TrainDataset",
       "uiTypeId": "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5"
     },
-    "ValDataset": {
+    "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4": {
+      "id": "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
+      "name": "ValDataset",
       "uiTypeId": "861265e9-2701-42dd-821b-d80734ec0db1"
     },
-    "OtherParameters": {
+    "3b4bd093-351f-4bec-af52-935d50953ebd": {
+      "id": "3b4bd093-351f-4bec-af52-935d50953ebd",
+      "name": "OtherParameters",
       "uiTypeId": "2b157b97-4424-4831-83a5-836c7dc17a6e"
     }
   }
