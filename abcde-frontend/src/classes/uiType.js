@@ -9,6 +9,7 @@ export class UIType extends MutableInfo {
     name = "",
     config = {},
     origin = SET_FROM_SIDEPANE,
+    isPreset = false,
   }) {
     super();
     this.id = id;
@@ -16,6 +17,7 @@ export class UIType extends MutableInfo {
     this.name = name;
     this.config = config;
     this.origin = origin;
+    this.isPreset = isPreset;
     this.exportable = ["id", "name", "config"];
   }
 }

@@ -1,6 +1,7 @@
 import { VStack } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useStoreState } from "easy-peasy";
+import _ from "lodash";
 import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
 import { uiTypesToPretty } from "utils/constants";
 
@@ -22,8 +23,12 @@ export function UIConfigDropdownAndFields({
     return x;
   }
 
+  function presetsOnly(x) {
+    return _.pickBy(x, (v) => v.isPreset);
+  }
+
   const availableUITypes = useStoreState(
-    (x) => _.mapValues(x.uiTypes.x, (v) => createName(v)),
+    (x) => _.mapValues(presetsOnly(x.uiTypes.x), (v) => createName(v)),
     _.isEqual
   );
 

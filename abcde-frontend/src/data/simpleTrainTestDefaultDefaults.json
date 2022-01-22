@@ -4,36 +4,42 @@
       "id": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
       "type": "TEXT",
       "name": "",
+      "isPreset": true,
       "config": {}
     },
     "eab8f446-17cc-4512-bab5-42bff8570f1f": {
       "id": "eab8f446-17cc-4512-bab5-42bff8570f1f",
       "type": "SLIDER",
       "name": "",
+      "isPreset": true,
       "config": {}
     },
     "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
       "id": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
       "type": "SWITCH",
       "name": "",
+      "isPreset": true,
       "config": {}
     },
     "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
       "id": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "type": "SECTION",
       "name": "",
+      "isPreset": true,
       "config": {}
     },
     "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
       "id": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
       "type": "LIST_ROOT",
       "name": "",
+      "isPreset": true,
       "config": {}
     },
     "623a9242-53e9-4b42-b695-431e9754a836": {
       "id": "623a9242-53e9-4b42-b695-431e9754a836",
       "type": "DICT_ROOT",
       "name": "",
+      "isPreset": true,
       "config": {}
     }
   }
