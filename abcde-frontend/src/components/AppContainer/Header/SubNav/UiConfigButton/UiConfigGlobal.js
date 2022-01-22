@@ -17,67 +17,79 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { cloneNewUIType, usePresetUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { PROJECT_DEFAULT } from "utils/constants";
+import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
-  const overrideUITypeIds = useStoreActions(
-    (x) => x.paramInfos.overrideUITypeIds
-  );
-
-  const setManyUITypeIds = useStoreActions(
-    (x) => x.projectParamDefaults.setManyUITypeIds
-  );
-
+  const [selectedId, setSelectedId] = useState(null);
   const [params, setParams] = useState([]);
-
   function onCheckboxChange(newStateFn) {
     setParams(newStateFn);
   }
 
-  // function onSetAsProjectDefault(overrideLevel = PROJECT_DEFAULT) {
-  //   return () => {
-  //     const uiType = getNewUIType({
-  //       type: currSelected,
-  //       config: savedConfig,
-  //       origin: PROJECT_DEFAULT,
-  //     });
-  //     const toUITypeId = _.zipObject(
-  //       params,
-  //       _.fill(Array(params.length), { uiTypeId: uiType.id })
-  //     );
-  //     setUIType({ uiType });
-  //     setManyUITypeIds({ toUITypeId });
-  //     overrideUITypeIds({
-  //       toUITypeId,
-  //       overrideLevel,
-  //     });
-  //   };
-  // }
-
-  // function onOverrideExisting() {
-  //   return onSetAsProjectDefault(SET_FROM_SIDEPANE);
-  // }
-
   return (
     <HStack>
-      <PresetConfig />
+      <PresetConfig selectedId={selectedId} setSelectedId={setSelectedId} />
       <Box maxHeight="500px" overflowY="auto">
         <ParameterList onCheckboxChange={onCheckboxChange} />
       </Box>
-      {/* <Button variant="outline" size="sm" onClick={onSetAsProjectDefault()}>
-        Set as project default
-      </Button>
-      <Button variant="outline" size="sm" onClick={onOverrideExisting()}>
-        Override existing
-      </Button> */}
+      <SetProjectDefault params={params} uiTypeId={selectedId} />
     </HStack>
   );
 }
 
-function PresetConfig() {
+function SetProjectDefault({ params, uiTypeId }) {
+  const overrideUITypeIds = useStoreActions(
+    (x) => x.paramInfos.overrideUITypeIds
+  );
+  const setManyUITypeIds = useStoreActions(
+    (x) => x.projectParamDefaults.setManyUITypeIds
+  );
+
+  function onSetAsProjectDefault(overrideLevel = PROJECT_DEFAULT) {
+    return () => {
+      const toUITypeId = _.zipObject(
+        params,
+        _.fill(Array(params.length), { uiTypeId })
+      );
+      setManyUITypeIds({ toUITypeId });
+      overrideUITypeIds({
+        toUITypeId,
+        overrideLevel,
+      });
+    };
+  }
+
+  function onOverrideExisting() {
+    return onSetAsProjectDefault(SET_FROM_SIDEPANE);
+  }
+
+  const isDisabled = params.length === 0 || !uiTypeId;
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onSetAsProjectDefault()}
+        isDisabled={isDisabled}
+      >
+        Set as project default
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onOverrideExisting()}
+        isDisabled={isDisabled}
+      >
+        Override existing
+      </Button>{" "}
+    </>
+  );
+}
+
+function PresetConfig({ selectedId, setSelectedId }) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const [selectedId, setSelectedId] = useState(null);
   const [uiType, setConfig] = usePresetUIType(selectedId);
   const defaultConfig = uiType ? uiType.config : {};
   const [localConfig, setLocalConfig] = useState(defaultConfig);

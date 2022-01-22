@@ -4,8 +4,7 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { isRoot } from "utils/constants";
 import { requiresNestedSection } from "utils/constants";
-import { createNewId } from "utils/sectionIds";
-import { curryAction, defaultState } from "utils/utils";
+import { defaultState } from "utils/utils";
 
 import {
   useGetManyParamsWithParamCollectionId,
@@ -25,33 +24,17 @@ export function useIdsOverview(sectionId) {
   return [idsOverview, setIdsOverview];
 }
 
-export function useSetChildrenInfo(childrenInfoId) {
-  return curryAction(
-    useStoreActions((x) => x.sectionInfos.setChildrenInfo),
-    { childrenInfoId },
-    "newStateFn"
-  );
-}
-
 export function useSetIdsOverview(sectionId) {
-  let childrenInfoId = useGetChildrenInfoId(sectionId);
-  let needsNewId = !childrenInfoId;
-  if (needsNewId) {
-    childrenInfoId = createNewId();
-  }
-  const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
-  const setChildrenInfo = useSetChildrenInfo(childrenInfoId);
-
+  const fn = useStoreActions((x) => x.sectionInfos.setIdsOverviewThunk);
   return (newStateFn) => {
-    if (needsNewId) {
-      setIdsOverview({ sectionId, childrenInfoId });
-    }
-    return setChildrenInfo(newStateFn);
+    return fn({ sectionId, newStateFn });
   };
 }
 
 export function useGetIdsOverview(sectionId) {
-  const childrenInfoId = useGetChildrenInfoId(sectionId);
+  const childrenInfoId = useStoreState(
+    (x) => x.sectionInfos.idsOverview[sectionId]
+  );
   const allChildrenId = defaultState(
     useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
     () => []
@@ -62,10 +45,6 @@ export function useGetIdsOverview(sectionId) {
     return allChildrenId;
   }
   return _.intersection(allChildrenId, currChildrenId);
-}
-
-export function useGetChildrenInfoId(sectionId) {
-  return useStoreState((x) => x.sectionInfos.idsOverview[sectionId]);
 }
 
 export function useGetCurrChildrenIds(sectionId) {

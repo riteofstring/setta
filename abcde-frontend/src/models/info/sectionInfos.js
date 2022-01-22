@@ -1,5 +1,6 @@
-import { action, computed } from "easy-peasy";
+import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
+import { createNewId } from "utils/sectionIds";
 
 import { exportState } from "./utils";
 
@@ -49,6 +50,16 @@ const sectionInfos = {
 
   idNames: computed([(state) => state.x], (x) => {
     return _.mapValues(x, (v) => v.name);
+  }),
+
+  setIdsOverviewThunk: thunk((actions, payload, helpers) => {
+    const { sectionId, newStateFn } = payload;
+    let childrenInfoId = helpers.getState().idsOverview[sectionId];
+    if (!childrenInfoId) {
+      childrenInfoId = createNewId();
+      actions.setIdsOverview({ sectionId, childrenInfoId });
+    }
+    actions.setChildrenInfo({ childrenInfoId, newStateFn });
   }),
 
   export() {
