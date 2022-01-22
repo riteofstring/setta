@@ -3,51 +3,45 @@ import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
 
 import { useGetSectionInfo } from "./useSectionInfo";
-import { getNewUIType } from "./useUIType";
+import { useGetSectionType } from "./useSectionType";
+import { getChildUIType } from "./useUIType";
 
-export function createSectionInfo({ sectionInfoProps, uiTypeProps }) {
-  let { uiTypeId } = sectionInfoProps;
-  let uiType = null;
+export function maybeNewUITypeId(inputUITypeId, parentUIType, setUIType) {
+  let uiTypeId = inputUITypeId;
   if (!uiTypeId) {
-    uiType = getNewUIType(uiTypeProps);
+    const uiType = getChildUIType(parentUIType);
     uiTypeId = uiType.id;
+    setUIType({ uiType });
   }
-  const sectionInfo = new SectionInfo({ ...sectionInfoProps, ...uiTypeId });
-  return { sectionInfo, uiType };
+  return uiTypeId;
 }
 
-export function createManySectionInfoOfSameType({
-  sectionInfoProps,
-  uiTypeProps,
-  numChildren,
-}) {
+export function createManySectionInfo({ sectionInfoProps, numChildren }) {
   const newInfos = {};
-  const newUITypes = {};
   for (let i = 0; i < numChildren; i++) {
-    const { sectionInfo, uiType } = createSectionInfo({
-      sectionInfoProps,
-      uiTypeProps,
-    });
+    const sectionInfo = new SectionInfo(sectionInfoProps);
     newInfos[sectionInfo.id] = sectionInfo;
-    if (uiType) {
-      newUITypes[uiType.id] = uiType;
-    }
   }
-  return [newInfos, newUITypes];
+  return newInfos;
 }
 
 export function useCreateSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setManyUITypes = useStoreActions((x) => x.uiTypes.setManyUITypes);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const parentUIType = useGetSectionType(sectionId);
   const parentSectionInfo = useGetSectionInfo(sectionId);
 
   return ({ numChildren, ...sectionInfoProps }) => {
-    const [newInfos, newUITypes] = createManySectionInfoOfSameType({
-      sectionInfoProps: { ...sectionInfoProps, parentSectionInfo },
+    const uiTypeId = maybeNewUITypeId(
+      sectionInfoProps.uiTypeId,
+      parentUIType,
+      setUIType
+    );
+    const newInfos = createManySectionInfo({
+      sectionInfoProps: { ...sectionInfoProps, parentSectionInfo, uiTypeId },
       numChildren,
     });
     setSectionInfo((x) => ({ ...x, ...newInfos }));
-    setManyUITypes({ uiTypes: _.values(newUITypes) });
     return _.keys(newInfos);
   };
 }

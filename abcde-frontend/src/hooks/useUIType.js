@@ -6,6 +6,7 @@ import { defaultState, nullOrUndefined } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
+  rootTypeToChildType,
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
@@ -133,4 +134,11 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   );
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   return [uiTypeId, setOneConfig];
+}
+
+export function getChildUIType(parentUIType) {
+  const uiType = _.cloneDeep(parentUIType);
+  uiType.id = createNewId();
+  uiType.type = rootTypeToChildType[parentUIType.type];
+  return uiType;
 }
