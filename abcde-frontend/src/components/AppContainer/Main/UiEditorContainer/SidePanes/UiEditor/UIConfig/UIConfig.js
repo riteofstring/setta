@@ -110,9 +110,6 @@ function SaveLoadButtons() {
       <Button variant="outline" size="sm">
         Apply To...
       </Button>
-      <Button variant="outline" size="sm">
-        Load
-      </Button>
       <Button variant="solid" size="sm">
         Save
       </Button>
