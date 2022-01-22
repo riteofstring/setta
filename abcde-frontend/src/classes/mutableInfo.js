@@ -54,7 +54,7 @@ export class SectionInfo extends MutableInfo {
   constructor({
     id,
     name,
-    sectionTypeId,
+    uiTypeId,
     parentSectionInfo,
     paramCollectionId,
     kwargCollectionId,
@@ -63,7 +63,7 @@ export class SectionInfo extends MutableInfo {
   }) {
     super();
     this.id = id;
-    this.sectionTypeId = sectionTypeId;
+    this.uiTypeId = uiTypeId;
     this.name = initName(name, parentSectionInfo);
     this.selectedItem = selectedItem;
     this.paramCollectionId = paramCollectionId;
@@ -73,7 +73,7 @@ export class SectionInfo extends MutableInfo {
     this.exportable = [
       "id",
       "name",
-      "sectionTypeId",
+      "uiTypeId",
       "name",
       "selectedItem",
       "paramCollectionId",

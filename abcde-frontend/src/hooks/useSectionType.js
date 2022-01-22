@@ -7,20 +7,20 @@ import { getNewUIType } from "./useUIType";
 import { getInfo } from "./utils";
 
 export function useGetSectionType(sectionId) {
-  const sectionTypeId = useGetSectionInfo(sectionId).sectionTypeId;
+  const uiTypeId = useGetSectionInfo(sectionId).uiTypeId;
   return defaultState(
-    useStoreState((x) => getInfo(x.sectionTypes)[sectionTypeId]),
+    useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
     () => ({})
   );
 }
 
 export function useGetManySectionTypeNames(sectionIds) {
-  const sectionTypeIds = useStoreState(
-    (x) => sectionIds.map((y) => getInfo(x.sectionInfos)[y]?.sectionTypeId),
+  const uiTypeIds = useStoreState(
+    (x) => sectionIds.map((y) => getInfo(x.sectionInfos)[y]?.uiTypeId),
     _.isEqual
   );
   return useStoreState(
-    (x) => sectionTypeIds.map((y) => getInfo(x.sectionTypes)[y]?.name),
+    (x) => uiTypeIds.map((y) => getInfo(x.uiTypes)[y]?.name),
     _.isEqual
   );
 }

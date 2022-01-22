@@ -1,4 +1,3 @@
-import { SectionType } from "classes/sectionType";
 import { action, thunk } from "easy-peasy";
 
 import { exportState } from "./utils";

@@ -1,64 +1,47 @@
-import { createSectionInfo } from "classes/infoFactory";
+import { SectionInfo } from "classes/mutableInfo";
 import { useStoreActions } from "easy-peasy";
+import { createNewId } from "utils/sectionIds";
 
 import { useGetSectionInfo } from "./useSectionInfo";
-import { useGetSectionType } from "./useSectionType";
 
 export function createSectionInfoFn({
   name,
-  sectionTypeName,
+  uiTypeId,
   numChildren,
   parentSectionInfo,
-  parentSectionType,
-  sectionSpecs,
   setSectionInfo,
-  setSectionType,
   paramInfoId,
 }) {
   const newInfos = {};
-  const newSectionTypes = {};
   for (let i = 0; i < numChildren; i++) {
-    const infoFactoryOutput = createSectionInfo(
+    const info = new SectionInfo({
+      id: createNewId(),
       name,
-      sectionTypeName,
+      uiTypeId,
       parentSectionInfo,
-      parentSectionType,
-      sectionSpecs,
-      paramInfoId
-    );
-    const { info, sectionType } = infoFactoryOutput;
+      paramCollectionId: createNewId(),
+      kwargCollectionId: createNewId(),
+      paramInfoId,
+    });
     newInfos[info.id] = info;
-    newSectionTypes[sectionType.id] = sectionType;
   }
   setSectionInfo((x) => ({ ...x, ...newInfos }));
-  setSectionType((x) => ({ ...x, ...newSectionTypes }));
   return Object.keys(newInfos);
 }
 
 export function useCreateSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setSectionType = useStoreActions((x) => x.sectionTypes.setSectionType);
   const parentSectionInfo = useGetSectionInfo(sectionId);
-  const parentSectionType = useGetSectionType(sectionId);
 
   console.log("useCreateSectionInfo");
 
-  const createInfo = ({
-    name,
-    sectionTypeName,
-    sectionSpecs,
-    numChildren,
-    paramInfoId,
-  }) => {
+  const createInfo = ({ name, uiTypeId, numChildren, paramInfoId }) => {
     return createSectionInfoFn({
       name,
-      sectionTypeName,
+      uiTypeId,
       numChildren,
       parentSectionInfo,
-      parentSectionType,
-      sectionSpecs,
       setSectionInfo,
-      setSectionType,
       paramInfoId,
     });
   };
