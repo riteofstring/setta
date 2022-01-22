@@ -2,7 +2,6 @@ import { Button } from "@chakra-ui/react";
 import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useStoreActions } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
-import { useReinitSectionType } from "hooks/useSectionType";
 import React, { useEffect } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
@@ -41,7 +40,6 @@ export default function NestedObjectInput({
 }) {
   const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useAddChild(sectionId);
-  const reinitSectionType = useReinitSectionType(existingChildId);
 
   useEffect(() => {
     if (!existingChildId) {
@@ -50,8 +48,6 @@ export default function NestedObjectInput({
         uiTypeId,
         parentParamInfoId,
       });
-    } else {
-      reinitSectionType({ name: sectionTypeName, sectionSpecs });
     }
   }, [uiTypeId]);
 
