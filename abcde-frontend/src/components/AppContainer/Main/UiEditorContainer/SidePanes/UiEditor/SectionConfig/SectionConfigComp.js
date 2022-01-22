@@ -31,7 +31,7 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
                 name={x.name}
                 description={x.description}
                 details={x.children}
-                isChecked={savedConfig?.objects.includes(x.id)}
+                isChecked={savedConfig?.objects?.includes(x.id)}
                 onChange={onChange}
                 type="objects"
                 key={`SearchItem-${x.id}`}

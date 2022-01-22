@@ -82,8 +82,6 @@ function PresetConfig() {
   const defaultConfig = uiType ? uiType.config : {};
   const [localConfig, setLocalConfig] = useState(defaultConfig);
 
-  console.log("defaultConfig", selectedId, uiType, defaultConfig);
-
   useDeepCompareEffect(() => {
     setLocalConfig(defaultConfig);
   }, [defaultConfig]);

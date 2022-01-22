@@ -1,5 +1,5 @@
 import { Button } from "@chakra-ui/react";
-import { SectionConfigCore } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfig";
+import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useStoreActions } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
 import { useReinitSectionType } from "hooks/useSectionType";
@@ -10,7 +10,7 @@ export function NestedObjectInputConfig({ origin, ...props }) {
   return origin === SET_FROM_SIDEPANE ? (
     <ButtonGoToSectionConfig {...props} />
   ) : (
-    <SectionConfigCore />
+    <SectionConfigComp {...props} />
   );
 }
 
