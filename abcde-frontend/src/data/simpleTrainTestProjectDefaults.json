@@ -7,7 +7,7 @@
   "uiTypes": {
     "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
       "id": "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
-      "name": "torchvision Compose",
+      "name": "torchvision transforms",
       "type": "LIST_ROOT",
       "isPreset": true,
       "config": {

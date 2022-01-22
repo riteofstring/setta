@@ -52,7 +52,12 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo.id);
   const uiTypeConfig = uiType.config;
-  const setUITypeId = useSetUIType(sectionId, paramInfo.id, uiType);
+  const [setUITypeId, setConfig] = useSetUIType(
+    sectionId,
+    paramInfo.id,
+    paramInfo.name,
+    uiType
+  );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
@@ -60,7 +65,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   };
 
   const onChange = (configName, newValueFn) => {
-    setUITypeConfig({ configName, newValueFn });
+    setConfig({ configName, newValueFn });
   };
 
   return (

@@ -2,7 +2,7 @@ import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { createNewId } from "utils/sectionIds";
-import { defaultState } from "utils/utils";
+import { defaultState, nullOrUndefined } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
@@ -22,15 +22,14 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-function useSetUITypeAttr(sectionId, paramInfoId, uiType, settingDefault) {
+function useSetUITypeAttr(paramInfoName, uiType, settingPreset, setUITypeId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   return (fn, props) => {
-    // The uitype comes from a project or user settings default
-    // But it's being changed from the sidepane
+    // If it's a preset but we're not "saving as", then
+    // copy into a non-preset ui type.
     let maybeNewUIType = uiType;
-    if (uiType.origin !== SET_FROM_SIDEPANE && !settingDefault) {
-      maybeNewUIType = cloneNewUIType(uiType);
+    if (uiType.isPreset && !settingPreset) {
+      maybeNewUIType = cloneNewUIType({ uiType, name: paramInfoName });
       setUIType({ uiType: maybeNewUIType });
       setUITypeId(maybeNewUIType.id);
     }
@@ -41,29 +40,27 @@ function useSetUITypeAttr(sectionId, paramInfoId, uiType, settingDefault) {
 export function useSetUIType(
   sectionId,
   paramInfoId,
+  paramInfoName,
   uiType,
-  settingDefault = false
+  settingPreset = false
 ) {
   const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  return (uiTypeId) => {
-    setUITypeId(uiTypeId);
-  };
-  // const setUITypeAttr = useSetUITypeAttr(
-  //   sectionId,
-  //   paramInfoId,
-  //   uiType,
-  //   settingDefault
-  // );
+  const setUITypeAttr = useSetUITypeAttr(
+    paramInfoName,
+    uiType,
+    settingPreset,
+    setUITypeId
+  );
   // const setType = useStoreActions((x) => x.uiTypes.setType);
-  // const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
 
   // const _setType = (props) => {
   //   setUITypeAttr(setType, props);
   // };
-  // const _setConfig = (props) => {
-  //   setUITypeAttr(setConfig, props);
-  // };
-  // return [_setType, _setConfig];
+  const _setConfig = (props) => {
+    setUITypeAttr(setConfig, props);
+  };
+  return [setUITypeId, _setConfig];
 }
 
 export function useProjectDefaultUIType(paramInfoId) {
@@ -87,10 +84,19 @@ export function getNewUIType({ id, ...props }) {
   });
 }
 
-export function cloneNewUIType(uiType, origin = SET_FROM_SIDEPANE) {
+export function cloneNewUIType({
+  uiType,
+  name,
+  origin = SET_FROM_SIDEPANE,
+  isPreset = false,
+}) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
   newUIType.origin = origin;
+  newUIType.isPreset = isPreset;
+  if (!nullOrUndefined(name)) {
+    newUIType.name = name;
+  }
   return newUIType;
 }
 

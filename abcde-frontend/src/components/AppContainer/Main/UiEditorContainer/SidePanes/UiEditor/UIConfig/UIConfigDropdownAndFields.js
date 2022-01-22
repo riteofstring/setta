@@ -18,13 +18,13 @@ export function UIConfigDropdownAndFields({
   function createName(uiType) {
     const x = uiTypesToPretty.get(uiType.type);
     if (uiType.name) {
-      return `${uiType.name} (${x})`;
+      return `${uiType.name} - (${x})`;
     }
     return x;
   }
 
   function presetsOnly(x) {
-    return _.pickBy(x, (v) => v.isPreset);
+    return _.pickBy(x, (v) => v.isPreset || v.id === selectedId);
   }
 
   const availableUITypes = useStoreState(
