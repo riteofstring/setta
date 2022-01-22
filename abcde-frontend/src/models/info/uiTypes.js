@@ -28,6 +28,11 @@ const uiTypes = {
     curr[configName] = newValueFn(curr[configName]);
   }),
 
+  deleteUIType: action((state, payload) => {
+    const { uiTypeId } = payload;
+    delete state.x[uiTypeId];
+  }),
+
   export() {
     return exportState(this);
   },

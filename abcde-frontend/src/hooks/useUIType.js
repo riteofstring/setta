@@ -41,26 +41,30 @@ export function useSetUIType(
   sectionId,
   paramInfoId,
   paramInfoName,
-  uiType,
+  currUIType,
   settingPreset = false
 ) {
   const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
   const setUITypeAttr = useSetUITypeAttr(
     paramInfoName,
-    uiType,
+    currUIType,
     settingPreset,
     setUITypeId
   );
-  // const setType = useStoreActions((x) => x.uiTypes.setType);
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
 
-  // const _setType = (props) => {
-  //   setUITypeAttr(setType, props);
-  // };
+  const _setUITypeId = (newId) => {
+    setUITypeId(newId);
+    if (!currUIType.isPreset) {
+      deleteUIType({ uiTypeId: currUIType.id });
+    }
+  };
+
   const _setConfig = (props) => {
     setUITypeAttr(setConfig, props);
   };
-  return [setUITypeId, _setConfig];
+  return [_setUITypeId, _setConfig];
 }
 
 export function useProjectDefaultUIType(paramInfoId) {
