@@ -132,3 +132,9 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   return [uiTypeId, setOneConfig];
 }
+
+export function usePresetUIType(uiTypeId) {
+  const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
+  // const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  return uiType;
+}

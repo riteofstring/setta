@@ -1,9 +1,10 @@
-import { Box, Button, HStack, List, ListItem } from "@chakra-ui/react";
+import { Box, HStack, Input, List, ListItem, VStack } from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { getNewUIType } from "hooks/useUIType";
+import { usePresetUIType } from "hooks/useUIType";
 import React, { useState } from "react";
-import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
+import useDeepCompareEffect from "use-deep-compare-effect";
+import { PROJECT_DEFAULT } from "utils/constants";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
@@ -15,65 +16,92 @@ export default function UiConfigGlobal() {
   const setManyUITypeIds = useStoreActions(
     (x) => x.projectParamDefaults.setManyUITypeIds
   );
-  const [currSelected, setCurrSelected] = useState(null);
-  const [savedConfig, setConfig] = useState({});
-  const [params, setParams] = useState([]);
 
-  function onDropdownSelect(e) {
-    setCurrSelected(e);
-  }
+  const [params, setParams] = useState([]);
 
   function onCheckboxChange(newStateFn) {
     setParams(newStateFn);
   }
 
-  function onSetAsProjectDefault(overrideLevel = PROJECT_DEFAULT) {
-    return () => {
-      const uiType = getNewUIType({
-        type: currSelected,
-        config: savedConfig,
-        origin: PROJECT_DEFAULT,
-      });
-      const toUITypeId = _.zipObject(
-        params,
-        _.fill(Array(params.length), { uiTypeId: uiType.id })
-      );
-      setUIType({ uiType });
-      setManyUITypeIds({ toUITypeId });
-      overrideUITypeIds({
-        toUITypeId,
-        overrideLevel,
-      });
-    };
-  }
+  // function onSetAsProjectDefault(overrideLevel = PROJECT_DEFAULT) {
+  //   return () => {
+  //     const uiType = getNewUIType({
+  //       type: currSelected,
+  //       config: savedConfig,
+  //       origin: PROJECT_DEFAULT,
+  //     });
+  //     const toUITypeId = _.zipObject(
+  //       params,
+  //       _.fill(Array(params.length), { uiTypeId: uiType.id })
+  //     );
+  //     setUIType({ uiType });
+  //     setManyUITypeIds({ toUITypeId });
+  //     overrideUITypeIds({
+  //       toUITypeId,
+  //       overrideLevel,
+  //     });
+  //   };
+  // }
 
-  function onOverrideExisting() {
-    return onSetAsProjectDefault(SET_FROM_SIDEPANE);
-  }
-
-  function onConfigChange(configName, newStateFn) {
-    setConfig((x) => ({ ...x, [configName]: newStateFn(x[configName]) }));
-  }
+  // function onOverrideExisting() {
+  //   return onSetAsProjectDefault(SET_FROM_SIDEPANE);
+  // }
 
   return (
     <HStack>
-      <UIConfigDropdownAndFields
-        onDropdownSelect={onDropdownSelect}
-        currSelected={currSelected}
-        onConfigChange={onConfigChange}
-        savedConfig={savedConfig}
-        origin={PROJECT_DEFAULT}
-      />
+      <PresetConfig />
       <Box maxHeight="500px" overflowY="auto">
         <ParameterList onCheckboxChange={onCheckboxChange} />
       </Box>
-      <Button variant="outline" size="sm" onClick={onSetAsProjectDefault()}>
+      {/* <Button variant="outline" size="sm" onClick={onSetAsProjectDefault()}>
         Set as project default
       </Button>
       <Button variant="outline" size="sm" onClick={onOverrideExisting()}>
         Override existing
-      </Button>
+      </Button> */}
     </HStack>
+  );
+}
+
+function PresetConfig() {
+  const [selectedId, setSelectedId] = useState(null);
+  const uiType = usePresetUIType(selectedId);
+  const defaultConfig = uiType ? uiType.config : {};
+  const [localConfig, setLocalConfig] = useState(defaultConfig);
+  const [presetName, setPresetName] = useState("");
+
+  useDeepCompareEffect(() => {
+    setLocalConfig(defaultConfig);
+  }, [defaultConfig]);
+
+  function onDropdownSelect(e) {
+    setSelectedId(e);
+  }
+
+  function onConfigChange(configName, newStateFn) {
+    setLocalConfig((x) => ({ ...x, [configName]: newStateFn(x[configName]) }));
+  }
+
+  function onPresetNameChange(e) {
+    setPresetName(e.target.value);
+  }
+
+  return (
+    <VStack>
+      <UIConfigDropdownAndFields
+        onDropdownSelect={onDropdownSelect}
+        selectedId={uiType?.id}
+        selectedType={uiType?.type}
+        onConfigChange={onConfigChange}
+        savedConfig={localConfig}
+        origin={PROJECT_DEFAULT}
+      />
+      <Input
+        placeholder="Preset Name"
+        value={presetName}
+        onChange={onPresetNameChange}
+      />
+    </VStack>
   );
 }
 

@@ -51,7 +51,6 @@ export default function UIConfigFunc() {
 function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const uiType = getUITypeFn(paramInfo.id);
-  const uiTypeConfig = uiType.config;
   const [setUITypeId, setConfig] = useSetUIType(
     sectionId,
     paramInfo.id,
@@ -92,7 +91,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
             selectedType={uiType.type}
             onConfigChange={onChange}
             paramInfoId={paramInfo.id}
-            savedConfig={uiTypeConfig}
+            savedConfig={uiType.config}
             childIdFn={childIdFn}
             origin={SET_FROM_SIDEPANE}
           />
