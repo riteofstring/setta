@@ -1,19 +1,25 @@
+import { onlySectionTypes } from "hooks/usePresetUIType";
 import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
-import { prettyToSectionTypes, sectionTypesToPretty } from "utils/constants";
 
-export default function SectionConfigTypeSelection({ onChange, currType }) {
-  const localOnChange = (e) => {
-    const name = prettyToSectionTypes.get(e.target.value);
-    onChange(name);
-  };
+export default function SectionConfigTypeSelection({
+  onDropdownSelect,
+  selectedId,
+}) {
+  const availableUITypes = useAvailablePresetUITypes(
+    selectedId,
+    onlySectionTypes
+  );
+
+  function onSelect(e) {
+    onDropdownSelect(e.target.value);
+  }
 
   return (
     <StandardDropDown
       placeholder="Select Section Type"
-      onChange={localOnChange}
-      prettyToX={prettyToSectionTypes}
-      xToPretty={sectionTypesToPretty}
-      currX={currType}
+      onChange={onSelect}
+      options={availableUITypes}
+      curr={selectedId}
     />
   );
 }

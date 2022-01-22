@@ -14,7 +14,8 @@ import {
 } from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { cloneNewUIType, usePresetUIType } from "hooks/useUIType";
+import { usePresetUIType } from "hooks/usePresetUIType";
+import { cloneNewUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";

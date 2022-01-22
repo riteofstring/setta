@@ -1,0 +1,46 @@
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
+
+export function usePresetUIType(uiTypeId) {
+  const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
+  const setConfig = useStoreActions((x) => x.uiTypes.setConfig);
+  const _setConfig = (newConfig) => {
+    setConfig({ uiTypeId, newStateFn: (x) => ({ ...x, ...newConfig }) });
+  };
+
+  return [uiType, _setConfig];
+}
+
+function createName(uiType) {
+  const x = uiTypesToPretty.get(uiType.type);
+  if (uiType.name) {
+    return `${uiType.name} - (${x})`;
+  }
+  return x;
+}
+
+function isPresetOrSelected(v, selectedId) {
+  return v.isPreset || v.id === selectedId;
+}
+
+function defaultFilterFn(x, selectedId) {
+  return _.pickBy(x, (v) => isPresetOrSelected(v, selectedId));
+}
+
+export function onlySectionTypes(x, selectedId) {
+  return _.pickBy(
+    x,
+    (v) =>
+      isPresetOrSelected(v, selectedId) && SECTION_TYPE_NAMES.includes(v.name)
+  );
+}
+
+export function useAvailablePresetUITypes(
+  selectedId,
+  filterFn = defaultFilterFn
+) {
+  return useStoreState(
+    (x) => _.mapValues(filterFn(x.uiTypes.x, selectedId), (v) => createName(v)),
+    _.isEqual
+  );
+}

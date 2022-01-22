@@ -66,8 +66,8 @@ export function SectionConfigCore({
   return (
     <>
       <SectionConfigTypeSelection
-        onChange={onSectionTypeChange}
-        currType={currType}
+        onDropdownSelect={onSectionTypeChange}
+        selectedId={currType}
       />
       <SectionConfigComp savedConfig={savedConfig} onChange={onConfigChange} />
     </>
