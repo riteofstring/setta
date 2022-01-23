@@ -2,7 +2,7 @@
   "uiTypes": {
     "ad41e56e-0c81-413d-8a63-ccfa59107c79": {
       "id": "ad41e56e-0c81-413d-8a63-ccfa59107c79",
-      "name": "Model - (Object)",
+      "name": "Model",
       "type": "SECTION",
       "isPreset": false,
       "config": {
@@ -16,7 +16,7 @@
     },
     "aca715a7-e487-4151-8099-5823b9f54637": {
       "id": "aca715a7-e487-4151-8099-5823b9f54637",
-      "name": "Optimizer - (Object)",
+      "name": "Optimizer",
       "type": "SECTION",
       "isPreset": false,
       "config": {
@@ -27,7 +27,7 @@
     },
     "4dfce153-7c8a-427e-bc86-31802494166d": {
       "id": "4dfce153-7c8a-427e-bc86-31802494166d",
-      "name": "Transform - (Object)",
+      "name": "Transform",
       "type": "SECTION",
       "isPreset": false,
       "config": {
@@ -38,7 +38,7 @@
     },
     "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5": {
       "id": "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5",
-      "name": "TrainDataset - (Object)",
+      "name": "TrainDataset",
       "type": "SECTION",
       "isPreset": false,
       "config": {
@@ -49,7 +49,7 @@
     },
     "861265e9-2701-42dd-821b-d80734ec0db1": {
       "id": "861265e9-2701-42dd-821b-d80734ec0db1",
-      "name": "ValDataset - (Object)",
+      "name": "ValDataset",
       "type": "SECTION",
       "isPreset": false,
       "config": {
@@ -60,7 +60,7 @@
     },
     "2b157b97-4424-4831-83a5-836c7dc17a6e": {
       "id": "2b157b97-4424-4831-83a5-836c7dc17a6e",
-      "name": "OtherParameters - (Object)",
+      "name": "OtherParameters",
       "type": "SECTION",
       "isPreset": false,
       "config": {
