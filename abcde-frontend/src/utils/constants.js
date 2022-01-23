@@ -7,7 +7,6 @@ export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 export const CONTEXT_MENU = "contextMenu";
 
-export const UNKNOWN = "UNKNOWN";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
@@ -26,22 +25,6 @@ export const DEFAULT_DEFAULT = 0;
 export const DEFAULT_DEFAULT_UI_TYPE_ID =
   "3fdaeb6a-e989-4888-b844-17a76f0b0192";
 
-export const prettyToSectionTypes = Object.freeze(
-  new Map(
-    Object.entries({
-      Section: SECTION,
-      "List of Objects": LIST_ROOT,
-      "Dict of Objects": DICT_ROOT,
-    })
-  )
-);
-
-export const sectionTypesToPretty = new Map([
-  [LIST, "Section"],
-  [DICT, "Section"],
-  ...Array.from(prettyToSectionTypes, (a) => a.reverse()),
-]);
-
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }
@@ -58,23 +41,18 @@ export function isListLike(sectionTypeName) {
   return [LIST, DICT].includes(sectionTypeName);
 }
 
-export const prettyToUITypes = Object.freeze(
+export const uiTypesToPretty = Object.freeze(
   new Map(
     Object.entries({
-      Text: TEXT,
-      Slider: SLIDER,
-      Switch: SWITCH,
-      Object: SECTION,
-      "List of Objects": LIST_ROOT,
-      "Dict of Objects": DICT_ROOT,
+      [TEXT]: "Text",
+      [SLIDER]: "Slider",
+      [SWITCH]: "Switch",
+      [SECTION]: "Object",
+      [LIST_ROOT]: "List of Objects",
+      [DICT_ROOT]: "Dict of Objects",
     })
   )
 );
-
-export const uiTypesToPretty = new Map([
-  [UNKNOWN, "Text"],
-  ...Array.from(prettyToUITypes, (a) => a.reverse()),
-]);
 
 export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
 
