@@ -6,6 +6,7 @@ import { defaultState, nullOrUndefined } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
+  isRoot,
   rootTypeToChildType,
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
@@ -142,9 +143,42 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   return [uiTypeId, setOneConfig];
 }
 
-export function getChildUIType(parentUIType) {
+export function cloneRootUIType(parentUIType) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = rootTypeToChildType[parentUIType.type];
   return uiType;
+}
+
+export function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
+  const { childUITypeId } = parentUIType.config;
+  if (childUITypeId) {
+    return childUITypeId;
+  }
+  const newUIType = cloneRootUIType(parentUIType);
+  const id = newUIType.id;
+  setOneConfig({
+    uiTypeId: parentUIType.id,
+    configName: "childUITypeId",
+    newValueFn: () => id,
+  });
+  setUIType({ uiType: newUIType });
+  return id;
+}
+
+export function useGetChildUITypeId() {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+
+  return (uiTypeId, parentUIType) => {
+    if (uiTypeId) {
+      return uiTypeId;
+    }
+    if (isRoot(parentUIType.type)) {
+      return getChildUITypeId(parentUIType, setUIType, setOneConfig);
+    }
+    const newUIType = getNewUIType();
+    setUIType({ uiType: newUIType });
+    return newUIType.id;
+  };
 }

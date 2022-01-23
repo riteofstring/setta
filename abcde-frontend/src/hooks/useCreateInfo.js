@@ -4,17 +4,7 @@ import _ from "lodash";
 
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
-import { getChildUIType } from "./useUIType";
-
-export function maybeNewUITypeId(inputUITypeId, parentUIType, setUIType) {
-  let uiTypeId = inputUITypeId;
-  if (!uiTypeId) {
-    const uiType = getChildUIType(parentUIType);
-    uiTypeId = uiType.id;
-    setUIType({ uiType });
-  }
-  return uiTypeId;
-}
+import { useGetChildUITypeId } from "./useUIType";
 
 export function createManySectionInfo({ sectionInfoProps, numChildren }) {
   const newInfos = {};
@@ -27,16 +17,12 @@ export function createManySectionInfo({ sectionInfoProps, numChildren }) {
 
 export function useCreateSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const getChildUITypeId = useGetChildUITypeId();
   const parentUIType = useGetSectionType(sectionId);
   const parentSectionInfo = useGetSectionInfo(sectionId);
 
   return ({ numChildren, ...sectionInfoProps }) => {
-    const uiTypeId = maybeNewUITypeId(
-      sectionInfoProps.uiTypeId,
-      parentUIType,
-      setUIType
-    );
+    const uiTypeId = getChildUITypeId(sectionInfoProps.uiTypeId, parentUIType);
     const newInfos = createManySectionInfo({
       sectionInfoProps: { ...sectionInfoProps, parentSectionInfo, uiTypeId },
       numChildren,
