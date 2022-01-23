@@ -49,7 +49,7 @@ export default function NestedObjectInput({
         parentParamInfoId,
       });
     }
-  }, [uiTypeId]);
+  }, []);
 
   return null;
 }
