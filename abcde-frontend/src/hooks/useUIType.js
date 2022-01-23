@@ -62,13 +62,6 @@ export function useSetSectionUIType(
 ) {
   const setParamUITypeId = useParamUITypeId(parentId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(sectionId);
-  const setUITypeConfig = useSetUITypeConfig(
-    sectionName,
-    currUIType,
-    settingPreset,
-    setSectionUITypeId
-  );
-
   const setUITypeId = useSetNewIdDeleteOld(currUIType, setSectionUITypeId);
   const _setUITypeId = (newId) => {
     setUITypeId(newId);
@@ -76,6 +69,13 @@ export function useSetSectionUIType(
       setParamUITypeId(newId);
     }
   };
+
+  const setUITypeConfig = useSetUITypeConfig(
+    sectionName,
+    currUIType,
+    settingPreset,
+    _setUITypeId
+  );
 
   return [_setUITypeId, setUITypeConfig];
 }
@@ -90,20 +90,21 @@ export function useSetParamUIType(
 ) {
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(paramInfoChildId);
-  const setUITypeConfig = useSetUITypeConfig(
-    paramInfoName,
-    currUIType,
-    settingPreset,
-    setParamUITypeId
-  );
   const setUITypeId = useSetNewIdDeleteOld(currUIType, setParamUITypeId);
-
   const _setUITypeId = (newId) => {
     setUITypeId(newId);
     if (paramInfoChildId) {
       setSectionUITypeId(newId);
     }
   };
+
+  const setUITypeConfig = useSetUITypeConfig(
+    paramInfoName,
+    currUIType,
+    settingPreset,
+    _setUITypeId
+  );
+
   return [_setUITypeId, setUITypeConfig];
 }
 
