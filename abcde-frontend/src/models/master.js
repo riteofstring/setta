@@ -1,5 +1,4 @@
 import { createAllInfo } from "classes/infoFactory";
-import { SectionInfo } from "classes/mutableInfo";
 import DefaultDefaults from "data/simpleTrainTestDefaultDefaults.json";
 import GlobalDefaults from "data/simpleTrainTestGlobalDefaults.json";
 import ObjCollectionsData from "data/simpleTrainTestObjCollections.json";
@@ -8,6 +7,7 @@ import ParamCollectionsData from "data/simpleTrainTestParamCollections.json";
 import ProjectDefaults from "data/simpleTrainTestProjectDefaults.json";
 import UIData from "data/simpleTrainTestUI.json";
 import { action, thunk, debug } from "easy-peasy";
+import { createSectionInfoFn } from "hooks/useCreateInfo";
 import { getNewUIType } from "hooks/useUIType";
 import _ from "lodash";
 import {
@@ -15,11 +15,12 @@ import {
   GLOBAL_DEFAULT,
   PROJECT_DEFAULT,
 } from "utils/constants";
-import { createNewId } from "utils/utils";
+import { createNewId } from "utils/sectionIds";
 
 const master = {
   spaceBetweenPages: 100,
   available: {},
+  uiSpecs: new Map(),
   allPackageInfo: null,
   allModuleInfo: null,
   allObjInfo: null,
@@ -34,6 +35,7 @@ const master = {
   // Load DATA
   _loadSections: action((state, payload) => {
     console.log("master payload", payload);
+    state.uiSpecs = new Map(Object.entries(payload.ui));
     ({
       allPackageInfo: state.allPackageInfo,
       allModuleInfo: state.allModuleInfo,
@@ -42,6 +44,7 @@ const master = {
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));
 
+    console.log("uiSpecs", debug(state.uiSpecs));
     console.log("allPackageInfo", debug(state.allPackageInfo));
     console.log("allObjCollections", debug(state.allObjCollections));
     console.log("allParamCollections", debug(state.allParamCollections));
@@ -50,6 +53,7 @@ const master = {
   loadSections: thunk((action, payload, helpers) => {
     if (true) {
       action._loadSections({
+        ui: UIData,
         packages: PackagesData,
         objCollections: ObjCollectionsData,
         paramCollections: ParamCollectionsData,
@@ -60,9 +64,36 @@ const master = {
     action.initDefaultDefaults(DefaultDefaults);
     action.initGlobalDefaults(GlobalDefaults);
     action.initProjectDefaults(ProjectDefaults);
-    action.initSectionUITypes(UIData.uiTypes);
-    const newIds = action.initSections(UIData.sections);
+    const newIds = action.initSections();
     action.initGroups(newIds);
+  }),
+
+  initSections: thunk((action, payload, helpers) => {
+    const uiSpecs = helpers.getState().uiSpecs;
+    const newIds = [];
+
+    for (let idx = 0; idx < uiSpecs.size; idx++) {
+      const newId = action.addSection({ uiSpecs, idx });
+      newIds.push(newId[0]);
+    }
+    return newIds;
+  }),
+
+  initGroups: thunk((action, payload, helpers) => {
+    const grouped = _.chunk(
+      payload,
+      helpers.getStoreState().userSettings.sectionsPerGroup
+    );
+    const groupIds = [];
+    const groups = {};
+    for (let g of grouped) {
+      const groupId = createNewId();
+      groupIds.push(groupId);
+      groups[groupId] = g;
+    }
+    action.setGroupIds((x) => groupIds);
+    action.setGroupChildren((x) => groups);
+    action.setGroupsHaveUpdated(true);
   }),
 
   setActiveSection: action((state, payload) => {
@@ -84,6 +115,25 @@ const master = {
 
   setGroupsHaveUpdated: action((state, payload) => {
     state.groupsHaveUpdated = payload;
+  }),
+
+  addSection: thunk((action, payload, helpers) => {
+    const { uiSpecs, idx } = payload;
+    const name = uiSpecs ? [...uiSpecs.keys()][idx] : "New Section";
+    const setSectionInfo =
+      helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setSectionType =
+      helpers.getStoreActions().sectionTypes.setSectionType;
+
+    const sectionSpecs = uiSpecs?.get(name);
+
+    return createSectionInfoFn({
+      name,
+      numChildren: 1,
+      sectionSpecs,
+      setSectionInfo,
+      setSectionType,
+    });
   }),
 
   initDefaultDefaults: thunk((action, payload, helpers) => {
@@ -111,38 +161,6 @@ const master = {
       "projectParamDefaults",
       PROJECT_DEFAULT
     );
-  }),
-
-  initSectionUITypes: thunk((action, payload, helpers) => {
-    const uiTypes = _.map(payload, (x) => getNewUIType({ ...x }));
-    const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
-    setManyUITypes({ uiTypes });
-  }),
-
-  initSections: thunk((action, payload, helpers) => {
-    const sectionInfos = _.mapValues(payload, (x) => new SectionInfo({ ...x }));
-    const setSectionInfo =
-      helpers.getStoreActions().sectionInfos.setSectionInfo;
-    setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-    const newIds = _.keys(sectionInfos);
-    return newIds;
-  }),
-
-  initGroups: thunk((action, payload, helpers) => {
-    const grouped = _.chunk(
-      payload,
-      helpers.getStoreState().userSettings.sectionsPerGroup
-    );
-    const groupIds = [];
-    const groups = {};
-    for (let g of grouped) {
-      const groupId = createNewId();
-      groupIds.push(groupId);
-      groups[groupId] = g;
-    }
-    action.setGroupIds((x) => groupIds);
-    action.setGroupChildren((x) => groups);
-    action.setGroupsHaveUpdated(true);
   }),
 
   // exportSelected: thunk((action, payload, helpers) => {

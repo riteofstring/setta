@@ -26,7 +26,7 @@ import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { unstable_batchedUpdates } from "react-dom";
 
-import { createNewId } from "../utils";
+import { createNewId } from "../sectionIds";
 import { nullOrUndefined, updateWithArrayMove } from "../utils";
 import { Container } from "./Container";
 import { Item } from "./Item";

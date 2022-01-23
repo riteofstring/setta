@@ -13,14 +13,16 @@ export function useAddChild(sectionId) {
 
   function addChild({
     name = null,
-    uiTypeId,
+    sectionTypeName = null,
+    sectionSpecs = null,
     numChildren = 1,
     parentParamInfoId = null,
     startId = null,
   }) {
     const newIds = createInfo({
       name,
-      uiTypeId,
+      sectionTypeName,
+      sectionSpecs,
       numChildren,
       paramInfoId: parentParamInfoId,
     });

@@ -1,8 +1,8 @@
 import { Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useGetSectionType } from "hooks/useSectionType";
-import { useSetUIType } from "hooks/useUIType";
+import { useGetSectionType, useReinitSectionType } from "hooks/useSectionType";
+import { useSetUITypeDirect } from "hooks/useUIType";
 
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
@@ -15,24 +15,14 @@ export default function SectionConfigFunc() {
     (x) => x.uiEditor.setCameFromUIConfig
   );
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
-
-  const {
-    name: sectionName,
-    parentId,
-    paramInfoId,
-  } = useGetSectionInfo(sectionId);
-
-  const currUIType = useGetSectionType(sectionId);
-  const currTypeId = currUIType.id;
-
-  const [setUITypeId, setUITypeConfig] = useSetUIType({
-    sectionId: parentId,
-    paramInfoId,
-    defaultName: sectionName,
-    childId: sectionId,
-    currUIType,
-    settingSectionConfig: true,
-  });
+  const { name, specs } = useGetSectionType(sectionId);
+  const reinitSectionType = useReinitSectionType(sectionId);
+  const { parentId, paramInfoId } = useGetSectionInfo(sectionId);
+  const { uiTypeCollectionId } = useGetSectionType(parentId);
+  const [uiTypeId, setOneConfig] = useSetUITypeDirect(
+    uiTypeCollectionId,
+    paramInfoId
+  );
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
@@ -41,13 +31,17 @@ export default function SectionConfigFunc() {
   };
 
   const onSectionTypeChange = (e) => {
-    if (e && e !== currTypeId) {
-      setUITypeId(e);
+    if (e && e !== name) {
+      reinitSectionType({ name: e, sectionSpecs: specs });
     }
   };
 
   const onConfigChange = (configName, newValueFn) => {
-    setUITypeConfig({ configName, newValueFn });
+    const newSpecs = { ...specs, [configName]: newValueFn(specs[configName]) };
+    reinitSectionType({ name, sectionSpecs: newSpecs });
+    if (uiTypeId) {
+      setOneConfig({ uiTypeId, configName, newValueFn });
+    }
   };
 
   return (
@@ -55,8 +49,8 @@ export default function SectionConfigFunc() {
       {cameFromUIConfig && <Button onClick={onGoBackClick}>Go back</Button>}
       <SectionConfigCore
         onSectionTypeChange={onSectionTypeChange}
-        currTypeId={currTypeId}
-        savedConfig={currUIType.config}
+        currType={name}
+        savedConfig={specs}
         onConfigChange={onConfigChange}
       />
     </>
@@ -65,7 +59,7 @@ export default function SectionConfigFunc() {
 
 export function SectionConfigCore({
   onSectionTypeChange,
-  currTypeId,
+  currType,
   savedConfig,
   onConfigChange,
 }) {
@@ -73,7 +67,7 @@ export function SectionConfigCore({
     <>
       <SectionConfigTypeSelection
         onDropdownSelect={onSectionTypeChange}
-        selectedId={currTypeId}
+        selectedId={currType}
       />
       <SectionConfigComp savedConfig={savedConfig} onChange={onConfigChange} />
     </>

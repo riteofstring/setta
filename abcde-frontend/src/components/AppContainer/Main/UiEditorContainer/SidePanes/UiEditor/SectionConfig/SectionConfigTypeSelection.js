@@ -1,7 +1,4 @@
-import {
-  onlySectionTypes,
-  useAvailablePresetUITypes,
-} from "hooks/usePresetUIType";
+import { onlySectionTypes } from "hooks/usePresetUIType";
 import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
 
 export default function SectionConfigTypeSelection({

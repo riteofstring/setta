@@ -1,5 +1,5 @@
 import { useStoreState, useStoreActions } from "easy-peasy";
-import { createNewId } from "utils/utils";
+import { createNewId } from "utils/sectionIds";
 import { curryAction, defaultState } from "utils/utils";
 
 import { useParamEnteredValueId } from "./useParamInfo";

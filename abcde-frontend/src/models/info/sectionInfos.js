@@ -1,6 +1,6 @@
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
-import { createNewId } from "utils/utils";
+import { createNewId } from "utils/sectionIds";
 
 import { exportState } from "./utils";
 

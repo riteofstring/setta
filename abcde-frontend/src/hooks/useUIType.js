@@ -1,18 +1,14 @@
 import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
-import { createNewId } from "utils/utils";
+import { createNewId } from "utils/sectionIds";
 import { defaultState, nullOrUndefined } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
-  isRoot,
-  rootTypeToChildType,
-  SECTION,
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
-import { useSetSectionUITypeId } from "./useSectionInfo";
 import { getInfo } from "./utils";
 
 export function useGetParamUIType(sectionId) {
@@ -26,69 +22,49 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-function useSetUITypeConfig(defaultName, uiType, settingPreset, setUITypeId) {
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+function useSetUITypeAttr(paramInfoName, uiType, settingPreset, setUITypeId) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  return (props) => {
+  return (fn, props) => {
     // If it's a preset but we're not "saving as", then
     // copy into a non-preset ui type.
     let maybeNewUIType = uiType;
     if (uiType.isPreset && !settingPreset) {
-      maybeNewUIType = cloneNewUIType({ uiType, name: defaultName });
+      maybeNewUIType = cloneNewUIType({ uiType, name: paramInfoName });
       setUIType({ uiType: maybeNewUIType });
       setUITypeId(maybeNewUIType.id);
     }
-    setConfig({ uiTypeId: maybeNewUIType.id, ...props });
+    fn({ uiTypeId: maybeNewUIType.id, ...props });
   };
 }
 
-function useSetNewIdDeleteOld(currUIType, setUITypeId) {
+export function useSetUIType(
+  sectionId,
+  paramInfoId,
+  paramInfoName,
+  currUIType,
+  settingPreset = false
+) {
+  const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
-  return (newId) => {
+  const setUITypeAttr = useSetUITypeAttr(
+    paramInfoName,
+    currUIType,
+    settingPreset,
+    setUITypeId
+  );
+
+  const _setUITypeId = (newId) => {
     setUITypeId(newId);
     if (!currUIType.isPreset) {
       deleteUIType({ uiTypeId: currUIType.id });
     }
   };
-}
 
-export function useSetUIType({
-  sectionId,
-  paramInfoId,
-  defaultName,
-  childId,
-  currUIType,
-  settingPreset = false,
-  settingSectionConfig,
-}) {
-  const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  const setSectionUITypeId = useSetSectionUITypeId(childId);
-  const setUITypeId = useSetNewIdDeleteOld(
-    currUIType,
-    settingSectionConfig ? setSectionUITypeId : setParamUITypeId
-  );
-
-  const setOtherId = (newId) => {
-    if (settingSectionConfig && paramInfoId) {
-      setParamUITypeId(newId);
-    } else if (!settingSectionConfig && childId) {
-      setSectionUITypeId(childId);
-    }
+  const _setConfig = (props) => {
+    setUITypeAttr(setConfig, props);
   };
-
-  const _setUITypeId = (newId) => {
-    setUITypeId(newId);
-    setOtherId(newId);
-  };
-
-  const setUITypeConfig = useSetUITypeConfig(
-    defaultName,
-    currUIType,
-    settingPreset,
-    _setUITypeId
-  );
-
-  return [_setUITypeId, setUITypeConfig];
+  return [_setUITypeId, _setConfig];
 }
 
 export function useProjectDefaultUIType(paramInfoId) {
@@ -157,46 +133,4 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   );
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   return [uiTypeId, setOneConfig];
-}
-
-export function cloneRootUIType(parentUIType) {
-  const uiType = _.cloneDeep(parentUIType);
-  uiType.id = createNewId();
-  uiType.type = SECTION;
-  uiType.config.subType = rootTypeToChildType[parentUIType.type];
-  uiType.isPreset = false;
-  return uiType;
-}
-
-export function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
-  const { childUITypeId } = parentUIType.config;
-  if (childUITypeId) {
-    return childUITypeId;
-  }
-  const newUIType = cloneRootUIType(parentUIType);
-  const id = newUIType.id;
-  setOneConfig({
-    uiTypeId: parentUIType.id,
-    configName: "childUITypeId",
-    newValueFn: () => id,
-  });
-  setUIType({ uiType: newUIType });
-  return id;
-}
-
-export function useGetChildUITypeId() {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-
-  return (uiTypeId, parentUIType) => {
-    if (uiTypeId) {
-      return uiTypeId;
-    }
-    if (isRoot(parentUIType.type)) {
-      return getChildUITypeId(parentUIType, setUIType, setOneConfig);
-    }
-    const newUIType = getNewUIType();
-    setUIType({ uiType: newUIType });
-    return newUIType.id;
-  };
 }
