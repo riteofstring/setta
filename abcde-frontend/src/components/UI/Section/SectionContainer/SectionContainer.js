@@ -133,7 +133,7 @@ function _SectionContainerCore({
           deleteChild={deleteChild}
           hasNested={hasNested}
           onTitleInputChange={onTitleInputChange}
-          requiresKeyInput={requiresKeyInput(sectionTypeName)}
+          requiresKeyInput={requiresKeyInput(config.subType)}
         />
         {!dummy && !isListRoot && (
           <Stack>
