@@ -92,7 +92,7 @@ function _SectionContainerCore({
   const { name: variableName, selectedItem } = sectionInfo;
   const selectedItemInSpecs = config.objects.includes(selectedItem);
   const hasObjects = config.objects.length > 0;
-  const isList = isListLike(sectionTypeName);
+  const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr

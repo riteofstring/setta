@@ -10,11 +10,14 @@ export const CONTEXT_MENU = "contextMenu";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
-export const LIST = "LIST";
-export const DICT = "DICT";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
+
+// section sub types
+export const LIST = "LIST";
+export const DICT = "DICT";
+
 export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT];
 export const DEFAULT_UI_TYPE_NAME = TEXT;
 export const SET_FROM_SIDEPANE = 3;

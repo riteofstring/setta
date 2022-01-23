@@ -8,6 +8,7 @@ import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
   isRoot,
   rootTypeToChildType,
+  SECTION,
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
@@ -146,7 +147,9 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
 export function cloneRootUIType(parentUIType) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
-  uiType.type = rootTypeToChildType[parentUIType.type];
+  uiType.type = SECTION;
+  uiType.config.subType = rootTypeToChildType[parentUIType.type];
+  uiType.isPreset = false;
   return uiType;
 }
 
