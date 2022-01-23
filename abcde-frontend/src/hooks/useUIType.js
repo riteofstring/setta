@@ -52,54 +52,37 @@ function useSetNewIdDeleteOld(currUIType, setUITypeId) {
   };
 }
 
-export function useSetSectionUIType(
+export function useSetUIType({
   sectionId,
-  sectionName,
-  parentId,
   paramInfoId,
+  defaultName,
+  childId,
   currUIType,
-  settingPreset = false
-) {
-  const setParamUITypeId = useParamUITypeId(parentId)(paramInfoId)[1];
-  const setSectionUITypeId = useSetSectionUITypeId(sectionId);
-  const setUITypeId = useSetNewIdDeleteOld(currUIType, setSectionUITypeId);
-  const _setUITypeId = (newId) => {
-    setUITypeId(newId);
-    if (paramInfoId) {
-      setParamUITypeId(newId);
-    }
-  };
-
-  const setUITypeConfig = useSetUITypeConfig(
-    sectionName,
+  settingPreset = false,
+  settingSectionConfig,
+}) {
+  const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
+  const setSectionUITypeId = useSetSectionUITypeId(childId);
+  const setUITypeId = useSetNewIdDeleteOld(
     currUIType,
-    settingPreset,
-    _setUITypeId
+    settingSectionConfig ? setSectionUITypeId : setParamUITypeId
   );
 
-  return [_setUITypeId, setUITypeConfig];
-}
-
-export function useSetParamUIType(
-  sectionId,
-  paramInfoId,
-  paramInfoName,
-  paramInfoChildId,
-  currUIType,
-  settingPreset = false
-) {
-  const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  const setSectionUITypeId = useSetSectionUITypeId(paramInfoChildId);
-  const setUITypeId = useSetNewIdDeleteOld(currUIType, setParamUITypeId);
-  const _setUITypeId = (newId) => {
-    setUITypeId(newId);
-    if (paramInfoChildId) {
-      setSectionUITypeId(newId);
+  const setOtherId = (newId) => {
+    if (settingSectionConfig && paramInfoId) {
+      setParamUITypeId(newId);
+    } else if (!settingSectionConfig && childId) {
+      setSectionUITypeId(childId);
     }
   };
 
+  const _setUITypeId = (newId) => {
+    setUITypeId(newId);
+    setOtherId(newId);
+  };
+
   const setUITypeConfig = useSetUITypeConfig(
-    paramInfoName,
+    defaultName,
     currUIType,
     settingPreset,
     _setUITypeId

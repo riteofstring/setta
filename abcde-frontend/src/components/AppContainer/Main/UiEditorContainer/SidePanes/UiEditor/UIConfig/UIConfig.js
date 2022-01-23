@@ -17,7 +17,7 @@ import {
   useGetAllParamAndKwargInfos,
 } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useGetParamUIType, useSetParamUIType } from "hooks/useUIType";
+import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
@@ -52,13 +52,14 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
   const paramChildId = childIdFn(paramInfo.id)[0];
   const uiType = getUITypeFn(paramInfo.id);
-  const [setUITypeId, setConfig] = useSetParamUIType(
+  const [setUITypeId, setConfig] = useSetUIType({
     sectionId,
-    paramInfo.id,
-    paramInfo.name,
-    paramChildId,
-    uiType
-  );
+    paramInfoId: paramInfo.id,
+    defaultName: paramInfo.name,
+    childId: paramChildId,
+    currUIType: uiType,
+    settingSectionConfig: false,
+  });
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {

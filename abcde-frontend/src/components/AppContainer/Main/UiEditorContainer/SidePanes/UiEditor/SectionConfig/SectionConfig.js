@@ -2,7 +2,7 @@ import { Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useSetSectionUIType } from "hooks/useUIType";
+import { useSetUIType } from "hooks/useUIType";
 
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
@@ -25,13 +25,14 @@ export default function SectionConfigFunc() {
   const currUIType = useGetSectionType(sectionId);
   const currTypeId = currUIType.id;
 
-  const [setUITypeId, setUITypeConfig] = useSetSectionUIType(
-    sectionId,
-    sectionName,
-    parentId,
+  const [setUITypeId, setUITypeConfig] = useSetUIType({
+    sectionId: parentId,
     paramInfoId,
-    currUIType
-  );
+    defaultName: sectionName,
+    childId: sectionId,
+    currUIType,
+    settingSectionConfig: true,
+  });
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
