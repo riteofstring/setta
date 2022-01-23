@@ -9,7 +9,6 @@ import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
-import sectionTypes from "models/info/sectionTypes";
 import uiTypes from "models/info/uiTypes";
 import mapInteraction from "models/mapInteraction";
 import master from "models/master";
@@ -35,7 +34,6 @@ const store = createStore(
       cliSocket: cliSocket,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,
-      sectionTypes: sectionTypes,
       objInfos: objInfos,
       paramInfos: paramInfos,
       kwargInfos: kwargInfos,

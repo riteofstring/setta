@@ -20,7 +20,6 @@ export function exportAllStates(state) {
     objInfos: state.objInfos.export(),
     paramInfos: state.paramInfos.export(),
     kwargInfos: state.kwargInfos.export(),
-    sectionTypes: state.sectionTypes.export(),
     uiTypes: state.uiTypes.export(),
     enteredValues: state.enteredValues.export(),
     allObjCollections: state.master.allObjCollections,
