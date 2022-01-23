@@ -55,7 +55,7 @@ export default function ParamContainer(props) {
     <NestedObjectInput
       sectionId={sectionId}
       paramName={paramInfo.name}
-      uiType={uiType}
+      uiTypeId={uiType.id}
       parentParamInfoId={paramInfo.id}
       childIdFn={childIdFn}
     />

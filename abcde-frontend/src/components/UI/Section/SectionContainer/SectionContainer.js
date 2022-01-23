@@ -87,15 +87,12 @@ function _SectionContainerCore({
   dummy,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
-  const {
-    name: sectionTypeName,
-    hasObjects,
-    specs,
-  } = useGetSectionType(sectionId);
+  const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
   const { name: variableName, selectedItem } = sectionInfo;
-  const selectedItemInSpecs = specs.objects.includes(selectedItem);
-  const isList = isListLike(sectionTypeName);
+  const selectedItemInSpecs = config.objects.includes(selectedItem);
+  const hasObjects = config.objects.length > 0;
+  const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
@@ -136,7 +133,7 @@ function _SectionContainerCore({
           deleteChild={deleteChild}
           hasNested={hasNested}
           onTitleInputChange={onTitleInputChange}
-          requiresKeyInput={requiresKeyInput(sectionTypeName)}
+          requiresKeyInput={requiresKeyInput(config.subType)}
         />
         {!dummy && !isListRoot && (
           <Stack>

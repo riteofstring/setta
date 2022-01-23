@@ -1,4 +1,5 @@
 import { immerable } from "immer";
+import { maybeNewId } from "utils/utils";
 
 import { ParameterInfo } from "./immutableInfo";
 
@@ -54,7 +55,7 @@ export class SectionInfo extends MutableInfo {
   constructor({
     id,
     name,
-    sectionTypeId,
+    uiTypeId,
     parentSectionInfo,
     paramCollectionId,
     kwargCollectionId,
@@ -62,18 +63,18 @@ export class SectionInfo extends MutableInfo {
     selectedItem = null,
   }) {
     super();
-    this.id = id;
-    this.sectionTypeId = sectionTypeId;
+    this.id = maybeNewId(id);
+    this.uiTypeId = uiTypeId;
     this.name = initName(name, parentSectionInfo);
     this.selectedItem = selectedItem;
-    this.paramCollectionId = paramCollectionId;
-    this.kwargCollectionId = kwargCollectionId;
+    this.paramCollectionId = maybeNewId(paramCollectionId);
+    this.kwargCollectionId = maybeNewId(kwargCollectionId);
     this.parentId = parentSectionInfo?.id;
     this.paramInfoId = paramInfoId;
     this.exportable = [
       "id",
       "name",
-      "sectionTypeId",
+      "uiTypeId",
       "name",
       "selectedItem",
       "paramCollectionId",

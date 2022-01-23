@@ -40,7 +40,7 @@ export function useGetIdsOverview(sectionId) {
     () => []
   );
   const currChildrenId = useGetCurrChildrenIds(sectionId);
-  const sectionTypeName = useGetSectionType(sectionId).name;
+  const sectionTypeName = useGetSectionType(sectionId).type;
   if (isRoot(sectionTypeName)) {
     return allChildrenId;
   }

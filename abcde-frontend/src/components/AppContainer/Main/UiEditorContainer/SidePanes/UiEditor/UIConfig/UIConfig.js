@@ -50,13 +50,16 @@ export default function UIConfigFunc() {
 
 function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
+  const paramChildId = childIdFn(paramInfo.id)[0];
   const uiType = getUITypeFn(paramInfo.id);
-  const [setUITypeId, setConfig] = useSetUIType(
+  const [setUITypeId, setConfig] = useSetUIType({
     sectionId,
-    paramInfo.id,
-    paramInfo.name,
-    uiType
-  );
+    paramInfoId: paramInfo.id,
+    defaultName: paramInfo.name,
+    childId: paramChildId,
+    currUIType: uiType,
+    settingSectionConfig: false,
+  });
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
