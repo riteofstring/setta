@@ -5,7 +5,7 @@ import { createNewId } from "utils/utils";
 
 import { useDeleteChild } from "./useAddDeleteChild";
 import { useGetSectionInfo } from "./useSectionInfo";
-import { useGetSectionType } from "./useSectionType";
+import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useAddKwarg(sectionId, objInfo) {
   const { kwargCollectionId } = useGetSectionInfo(sectionId);
@@ -24,7 +24,7 @@ export function useAddKwarg(sectionId, objInfo) {
 
 export function useDeleteKwarg(sectionId, objInfo) {
   const { paramCollectionId, kwargCollectionId } = useGetSectionInfo(sectionId);
-  const { uiTypeCollectionId } = useGetSectionType(sectionId);
+  const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   const deleteChild = useDeleteChild(sectionId);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);

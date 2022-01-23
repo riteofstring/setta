@@ -50,11 +50,13 @@ export default function UIConfigFunc() {
 
 function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
+  const paramChildId = childIdFn(paramInfo.id)[0];
   const uiType = getUITypeFn(paramInfo.id);
   const [setUITypeId, setConfig] = useSetUIType(
     sectionId,
     paramInfo.id,
     paramInfo.name,
+    paramChildId,
     uiType
   );
   const paramName = paramInfo.name;

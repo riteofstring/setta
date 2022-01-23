@@ -1,10 +1,19 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
+import _ from "lodash";
 import { defaultState } from "utils/utils";
 
 import { getXInfos } from "./useSectionContents";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { getNewUIType } from "./useUIType";
 import { getInfo } from "./utils";
+
+export function useGetSectionTypeConfig(sectionId) {
+  const sectionType = useGetSectionType(sectionId);
+  if (_.isEmpty(sectionType)) {
+    return {};
+  }
+  return sectionType.config;
+}
 
 export function useGetSectionType(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId).uiTypeId;

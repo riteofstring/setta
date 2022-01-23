@@ -2,7 +2,7 @@ import { useStoreState, useStoreActions } from "easy-peasy";
 import { curryAction } from "utils/utils";
 
 import { useGetSectionInfo } from "./useSectionInfo";
-import { useGetSectionType } from "./useSectionType";
+import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useParamInfoState(
   collectionId,
@@ -40,7 +40,7 @@ export function useParamWithUITypeCollectionId(
   setStateFn,
   key
 ) {
-  const { uiTypeCollectionId } = useGetSectionType(sectionId);
+  const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   return useParamInfoState(uiTypeCollectionId, stateName, setStateFn, key, "y");
 }
 
@@ -89,7 +89,7 @@ export function useGetManyParamsWithUITypeCollectionId(
   paramInfos,
   key
 ) {
-  const { uiTypeCollectionId } = useGetSectionType(sectionId);
+  const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   return useStoreState(
     (x) =>
       paramInfos.map((y) => x.paramInfos.y[uiTypeCollectionId]?.[y.id]?.[key]),

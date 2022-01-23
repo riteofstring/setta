@@ -10,6 +10,7 @@ import {
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
+import { useSetSectionUITypeId } from "./useSectionInfo";
 import { getInfo } from "./utils";
 
 export function useGetParamUIType(sectionId) {
@@ -42,10 +43,12 @@ export function useSetUIType(
   sectionId,
   paramInfoId,
   paramInfoName,
+  paramInfoChildId,
   currUIType,
   settingPreset = false
 ) {
   const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
+  const setSectionUITypeId = useSetSectionUITypeId(paramInfoChildId);
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
   const setUITypeAttr = useSetUITypeAttr(
@@ -59,6 +62,9 @@ export function useSetUIType(
     setUITypeId(newId);
     if (!currUIType.isPreset) {
       deleteUIType({ uiTypeId: currUIType.id });
+    }
+    if (paramInfoChildId) {
+      setSectionUITypeId(newId);
     }
   };
 
