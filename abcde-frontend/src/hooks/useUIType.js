@@ -26,22 +26,61 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
-function useSetUITypeAttr(paramInfoName, uiType, settingPreset, setUITypeId) {
+function useSetUITypeConfig(defaultName, uiType, settingPreset, setUITypeId) {
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  return (fn, props) => {
+  return (props) => {
     // If it's a preset but we're not "saving as", then
     // copy into a non-preset ui type.
     let maybeNewUIType = uiType;
     if (uiType.isPreset && !settingPreset) {
-      maybeNewUIType = cloneNewUIType({ uiType, name: paramInfoName });
+      maybeNewUIType = cloneNewUIType({ uiType, name: defaultName });
       setUIType({ uiType: maybeNewUIType });
       setUITypeId(maybeNewUIType.id);
     }
-    fn({ uiTypeId: maybeNewUIType.id, ...props });
+    setConfig({ uiTypeId: maybeNewUIType.id, ...props });
   };
 }
 
-export function useSetUIType(
+function useSetNewIdDeleteOld(currUIType, setUITypeId) {
+  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
+  return (newId) => {
+    setUITypeId(newId);
+    if (!currUIType.isPreset) {
+      deleteUIType({ uiTypeId: currUIType.id });
+    }
+  };
+}
+
+export function useSetSectionUIType(
+  sectionId,
+  sectionName,
+  parentId,
+  paramInfoId,
+  currUIType,
+  settingPreset = false
+) {
+  const setParamUITypeId = useParamUITypeId(parentId)(paramInfoId)[1];
+  const setSectionUITypeId = useSetSectionUITypeId(sectionId);
+  const setUITypeConfig = useSetUITypeConfig(
+    sectionName,
+    currUIType,
+    settingPreset,
+    setSectionUITypeId
+  );
+
+  const setUITypeId = useSetNewIdDeleteOld(currUIType, setSectionUITypeId);
+  const _setUITypeId = (newId) => {
+    setUITypeId(newId);
+    if (paramInfoId) {
+      setParamUITypeId(newId);
+    }
+  };
+
+  return [_setUITypeId, setUITypeConfig];
+}
+
+export function useSetParamUIType(
   sectionId,
   paramInfoId,
   paramInfoName,
@@ -49,31 +88,23 @@ export function useSetUIType(
   currUIType,
   settingPreset = false
 ) {
-  const setUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
+  const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(paramInfoChildId);
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
-  const setUITypeAttr = useSetUITypeAttr(
+  const setUITypeConfig = useSetUITypeConfig(
     paramInfoName,
     currUIType,
     settingPreset,
-    setUITypeId
+    setParamUITypeId
   );
+  const setUITypeId = useSetNewIdDeleteOld(currUIType, setParamUITypeId);
 
   const _setUITypeId = (newId) => {
     setUITypeId(newId);
-    if (!currUIType.isPreset) {
-      deleteUIType({ uiTypeId: currUIType.id });
-    }
     if (paramInfoChildId) {
       setSectionUITypeId(newId);
     }
   };
-
-  const _setConfig = (props) => {
-    setUITypeAttr(setConfig, props);
-  };
-  return [_setUITypeId, _setConfig];
+  return [_setUITypeId, setUITypeConfig];
 }
 
 export function useProjectDefaultUIType(paramInfoId) {

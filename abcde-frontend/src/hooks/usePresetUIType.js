@@ -31,7 +31,7 @@ export function onlySectionTypes(x, selectedId) {
   return _.pickBy(
     x,
     (v) =>
-      isPresetOrSelected(v, selectedId) && SECTION_TYPE_NAMES.includes(v.name)
+      isPresetOrSelected(v, selectedId) && SECTION_TYPE_NAMES.includes(v.type)
   );
 }
 

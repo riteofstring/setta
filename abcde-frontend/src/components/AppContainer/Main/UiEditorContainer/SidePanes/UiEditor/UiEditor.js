@@ -5,6 +5,7 @@ import { useState } from "react";
 import Measure from "react-measure";
 import { UI_EDITOR } from "utils/constants";
 
+import SectionConfig from "./SectionConfig";
 import UIConfig from "./UIConfig";
 import YamlEditor from "./YamlEditor";
 
@@ -49,9 +50,9 @@ export default function UiEditor() {
               overflowY="auto"
               ref={measureRef}
             >
-              {/* <TabPanel>
+              <TabPanel>
                 <SectionConfig />
-              </TabPanel> */}
+              </TabPanel>
               <TabPanel>
                 <UIConfig />
               </TabPanel>
