@@ -4,13 +4,7 @@ import { curryAction } from "utils/utils";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useParamInfoState(
-  collectionId,
-  stateName,
-  setStateFn,
-  key,
-  attr
-) {
+function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
   return (paramInfoId) => {
     const setX = curryAction(
       useStoreActions((x) => x.paramInfos[setStateFn]),
@@ -24,22 +18,12 @@ export function useParamInfoState(
   };
 }
 
-export function useParamWithParamCollectionId(
-  sectionId,
-  stateName,
-  setStateFn,
-  key
-) {
+function useParamWithParamCollectionId(sectionId, stateName, setStateFn, key) {
   const { paramCollectionId } = useGetSectionInfo(sectionId);
   return useParamInfoState(paramCollectionId, stateName, setStateFn, key, "x");
 }
 
-export function useParamWithUITypeCollectionId(
-  sectionId,
-  stateName,
-  setStateFn,
-  key
-) {
+function useParamWithUITypeCollectionId(sectionId, stateName, setStateFn, key) {
   const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   return useParamInfoState(uiTypeCollectionId, stateName, setStateFn, key, "y");
 }

@@ -10,7 +10,7 @@ export class ParameterInfo {
   }
 }
 
-export class ObjInfo {
+class ObjInfo {
   constructor(jsonInput, parentId) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
@@ -21,7 +21,7 @@ export class ObjInfo {
   }
 }
 
-export class ModuleInfo {
+class ModuleInfo {
   constructor(jsonInput, parentId) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
@@ -32,7 +32,7 @@ export class ModuleInfo {
   }
 }
 
-export class PackageInfo {
+class PackageInfo {
   constructor(jsonInput) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
@@ -51,7 +51,7 @@ export class AllPackageInfo {
   }
 }
 
-export class ObjCollectionInfo {
+class ObjCollectionInfo {
   constructor(jsonInput, allObjInfo) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
@@ -69,7 +69,7 @@ export class AllObjCollectionInfo {
   }
 }
 
-export class ParamCollectionInfo extends ObjInfo {
+class ParamCollectionInfo extends ObjInfo {
   constructor(jsonInput) {
     super(jsonInput);
     this.description = jsonInput.description;

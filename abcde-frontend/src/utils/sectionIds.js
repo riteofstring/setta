@@ -1,5 +1,3 @@
-import { nullOrUndefined, firstValue } from "./utils";
-
 export const getOverviewListing = (groups, idsOverview, idNames) => {
   let outputList = [];
   for (let group of groups) {
@@ -13,12 +11,7 @@ export const getOverviewListing = (groups, idsOverview, idNames) => {
   return outputList;
 };
 
-export const getOverviewListingHelper = (
-  sectionId,
-  idsOverview,
-  idNames,
-  depth
-) => {
+const getOverviewListingHelper = (sectionId, idsOverview, idNames, depth) => {
   let outputList = [];
   outputList.push({
     sectionId,
@@ -33,86 +26,4 @@ export const getOverviewListingHelper = (
     }
   }
   return outputList;
-};
-
-const getEnteredValues = (currSection) => {
-  let output = {};
-  const allEntered = currSection.enteredValues;
-  for (let k of Object.keys(allEntered)) {
-    if (!nullOrUndefined(allEntered[k])) {
-      output[k] = allEntered[k];
-    }
-  }
-  return output;
-};
-
-const pushNestedSection = (currOutput, childSectionName, paramDict, uiType) => {
-  if (uiType.requiresKeyInput) {
-    currOutput[childSectionName] = paramDict;
-    return;
-  }
-  if (!(childSectionName in currOutput)) {
-    currOutput[childSectionName] = [];
-  }
-  currOutput[childSectionName].push(paramDict);
-};
-
-const passThroughListRoot = (
-  currOutput,
-  childSectionName,
-  paramDict,
-  uiType
-) => {
-  const listRootChildren = firstValue(paramDict);
-  if (Array.isArray(listRootChildren)) {
-    currOutput[childSectionName] = listRootChildren;
-  } else if (
-    nullOrUndefined(listRootChildren) ||
-    Object.keys(listRootChildren).length === 0
-  ) {
-    currOutput[childSectionName] = uiType.isDictRoot ? {} : [];
-  } else {
-    currOutput[childSectionName] = firstValue(listRootChildren);
-  }
-};
-
-const addChildSection = (currOutput, childSection, paramDict) => {
-  const childSectionName = childSection.name;
-  const uiType = childSection.uiType;
-  if (uiType.isList) {
-    pushNestedSection(currOutput, childSectionName, paramDict, uiType);
-  } else if (uiType.isListRoot && !uiType.isDictRoot) {
-    passThroughListRoot(currOutput, childSectionName, paramDict, uiType);
-  } else {
-    currOutput[childSectionName] = paramDict;
-  }
-};
-
-const createExportableParams = ({ currSection, sections }) => {
-  const enteredValues = getEnteredValues(currSection);
-  const { moduleName, objName } = currSection.selected;
-  for (let childId of currSection.childrenIds) {
-    const childSection = sections.sections[childId];
-    const paramDict = createExportableParams({
-      currSection: childSection,
-      sections,
-    });
-    addChildSection(enteredValues, childSection, paramDict);
-  }
-  if (!nullOrUndefined(moduleName)) {
-    return { [`${moduleName}.${objName}`]: enteredValues };
-  }
-  return enteredValues;
-};
-
-export const createExportableObject = (sections) => {
-  let output = {};
-  for (let id of sections.getRootIds()) {
-    const currSection = sections.sections[id];
-    output[currSection.name] = createExportableParams({
-      currSection,
-      sections,
-    });
-  }
-  return output;
 };

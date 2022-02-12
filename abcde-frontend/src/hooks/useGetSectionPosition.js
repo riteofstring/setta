@@ -29,7 +29,7 @@ export function useRequestSectionPositionUpdate(
   };
 }
 
-export function useGetSectionPosition(sectionId, requesterName, absolute) {
+function useGetSectionPosition(sectionId, requesterName, absolute) {
   const whoRequested = useStoreState((x) => x.sectionPositions.whoRequested);
 
   const getCurrPositionOfSection = useStoreActions(

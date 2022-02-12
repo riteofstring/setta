@@ -18,6 +18,13 @@ import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ savedConfig, onChange }) {
   const allObjCollections = useStoreState((x) => x.master.allObjCollections);
+  const allParamCollections = useStoreState(
+    (x) => x.master.allParamCollections
+  );
+  const collections = {
+    objects: allObjCollections,
+    parameters: allParamCollections,
+  };
 
   return (
     <>
@@ -25,18 +32,20 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
         <Input placeholder="Section Config Search" bg="white" />
         <Box pt=".25rem">
           <List spacing={3}>
-            {_.values(allObjCollections?.children).map((x) => (
-              <SearchItem
-                id={x.id}
-                name={x.name}
-                description={x.description}
-                details={x.children}
-                isChecked={savedConfig?.objects?.includes(x.id)}
-                onChange={onChange}
-                type="objects"
-                key={`SearchItem-${x.id}`}
-              />
-            ))}
+            {_.map(collections, (col, type) =>
+              _.values(col?.children).map((x) => (
+                <SearchItem
+                  id={x.id}
+                  name={x.name}
+                  description={x.description}
+                  details={x.children}
+                  isChecked={savedConfig?.[type]?.includes(x.id)}
+                  onChange={onChange}
+                  type={type}
+                  key={`SearchItem-${x.id}`}
+                />
+              ))
+            )}
           </List>
         </Box>
       </VStack>
@@ -84,19 +93,23 @@ function SearchItem({
           <Text>{description}</Text>
         </VStack>
       </HStack>
-      <SearchItemDetails isOpen={isOpen} details={details} />
+      {type === "objects" ? (
+        <ObjCollectionDetails isOpen={isOpen} details={details} />
+      ) : (
+        <ParamCollectionDetails isOpen={isOpen} details={details} />
+      )}
     </ListItem>
   );
 }
 
-function SearchItemDetails({ isOpen, details }) {
+function ObjCollectionDetails({ isOpen, details }) {
   const groupedDetails = useGroupedObjInfos(details);
 
   return (
     <Collapse in={isOpen} animateOpacity>
       <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
         {_.keys(groupedDetails).map((x) => (
-          <div key={`SearchItemDetails-${x}`}>
+          <div key={`ObjCollectionDetails-${x}`}>
             <Text>{x}</Text>
             <ObjListText objList={groupedDetails[x]} />
           </div>
@@ -112,4 +125,16 @@ function ObjListText({ objList }) {
       <Text>{x.name}</Text>
     </div>
   ));
+}
+
+function ParamCollectionDetails({ isOpen, details }) {
+  return (
+    <Collapse in={isOpen} animateOpacity>
+      <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
+        {_.map(details, (x, id) => (
+          <Text key={`ParamCollectionDetails-${id}`}>{x.name}</Text>
+        ))}
+      </Box>
+    </Collapse>
+  );
 }

@@ -1,7 +1,7 @@
 import { useStoreActions } from "easy-peasy";
 import { insertIntoArrayOrXpend } from "utils/utils";
 
-import { useCreateSectionInfo } from "./useCreateInfo";
+import { useCreateChildSectionInfo } from "./useCreateInfo";
 import { useSetIdsOverview } from "./useIdsOverview";
 import { useGetSectionInfo } from "./useSectionInfo";
 
@@ -9,7 +9,7 @@ export function useAddChild(sectionId) {
   const { paramCollectionId: collectionId } = useGetSectionInfo(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
   const setChildId = useStoreActions((x) => x.paramInfos.setChildId);
-  const createInfo = useCreateSectionInfo(sectionId);
+  const createInfo = useCreateChildSectionInfo(sectionId);
 
   function addChild({
     name = null,

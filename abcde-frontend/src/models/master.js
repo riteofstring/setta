@@ -124,8 +124,7 @@ const master = {
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-    const newIds = _.keys(sectionInfos);
-    return newIds;
+    return _.keys(sectionInfos);
   }),
 
   initGroups: thunk((action, payload, helpers) => {
@@ -140,8 +139,8 @@ const master = {
       groupIds.push(groupId);
       groups[groupId] = g;
     }
-    action.setGroupIds((x) => groupIds);
-    action.setGroupChildren((x) => groups);
+    action.setGroupIds(() => groupIds);
+    action.setGroupChildren(() => groups);
     action.setGroupsHaveUpdated(true);
   }),
 
