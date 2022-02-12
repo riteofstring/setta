@@ -91,14 +91,14 @@ export function useSetUIType({
   return [_setUITypeId, setUITypeConfig];
 }
 
-export function useProjectDefaultUIType(paramInfoId) {
+function useProjectDefaultUIType(paramInfoId) {
   const uiTypeId = useStoreState(
     (x) => x.projectParamDefaults.x[paramInfoId]?.uiTypeId
   );
   return useStoreState((x) => x.uiTypes.x[uiTypeId]);
 }
 
-export function useGlobalDefaultUIType(paramType) {
+function useGlobalDefaultUIType(paramType) {
   const uiTypeId = useStoreState(
     (x) => x.globalParamDefaults.x[paramType]?.uiTypeId
   );
@@ -151,7 +151,7 @@ export function useInitializeUIType(sectionId) {
   };
 }
 
-export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
+function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   const uiTypeId = useStoreState(
     (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
   );
@@ -159,7 +159,7 @@ export function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
   return [uiTypeId, setOneConfig];
 }
 
-export function cloneRootUIType(parentUIType) {
+function cloneRootUIType(parentUIType) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
@@ -168,7 +168,7 @@ export function cloneRootUIType(parentUIType) {
   return uiType;
 }
 
-export function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
+function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
     return childUITypeId;

@@ -63,7 +63,7 @@ export default function SectionConfigFunc() {
   );
 }
 
-export function SectionConfigCore({
+function SectionConfigCore({
   onSectionTypeChange,
   currTypeId,
   savedConfig,
