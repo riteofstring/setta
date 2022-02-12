@@ -3,6 +3,7 @@ import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import { useGetObjInfos } from "hooks/useSectionContents";
 import _ from "lodash";
+import { matchSorter } from "match-sorter";
 import React, { useState } from "react";
 
 import {
@@ -59,11 +60,7 @@ export default function SectionSearch({
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
-      setInputItems(
-        items.filter((item) =>
-          itemToString(item).toLowerCase().startsWith(inputValue.toLowerCase())
-        )
-      );
+      setInputItems(matchSorter(items, inputValue, { keys: ["name"] }));
     },
   });
 

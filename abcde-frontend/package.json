@@ -25,6 +25,7 @@
     "framer-motion": "^4",
     "js-yaml": "^4.1.0",
     "lodash": "^4.17.21",
+    "match-sorter": "^6.3.1",
     "re-resizable": "^6.9.0",
     "react": "^17.0.1",
     "react-contexify": "^5.0.0",
