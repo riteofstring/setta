@@ -33,7 +33,7 @@ function Body() {
   };
 
   const saveDraft = () => {
-    saveDraftUI({ token }).then((res) => null);
+    saveDraftUI({ token }).then(() => null);
   };
 
   return (

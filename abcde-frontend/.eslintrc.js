@@ -19,7 +19,7 @@ module.exports = {
     "react/display-name": "off",
     "unused-imports/no-unused-imports": "warn",
     "import/no-unused-modules": [1, { unusedExports: true }],
-    "no-unused-vars": "off",
+    "no-unused-vars": "warn",
     "no-undef": "off",
     "react/jsx-uses-react": "warn",
     "react/jsx-uses-vars": "warn",

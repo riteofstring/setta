@@ -140,8 +140,8 @@ const master = {
       groupIds.push(groupId);
       groups[groupId] = g;
     }
-    action.setGroupIds((x) => groupIds);
-    action.setGroupChildren((x) => groups);
+    action.setGroupIds(() => groupIds);
+    action.setGroupChildren(() => groups);
     action.setGroupsHaveUpdated(true);
   }),
 

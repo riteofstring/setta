@@ -42,14 +42,6 @@ export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
   }
 }
 
-export function firstValue(x) {
-  const keys = Object.keys(x);
-  if (keys.length > 0) {
-    return x[keys[0]];
-  }
-  return undefined;
-}
-
 export function rangeArray(low, high) {
   return Array.from(new Array(high), (x, i) => i + low);
 }

@@ -132,7 +132,6 @@ export function cloneNewUIType({
 
 export function useInitializeUIType(sectionId) {
   const uiTypeFn = useParamUITypeId(sectionId);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (paramInfo) => {
     const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
     const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
@@ -149,14 +148,6 @@ export function useInitializeUIType(sectionId) {
       }
     };
   };
-}
-
-function useSetUITypeDirect(uiTypeCollectionId, paramInfoId) {
-  const uiTypeId = useStoreState(
-    (x) => x.paramInfos.y[uiTypeCollectionId]?.[paramInfoId]?.uiTypeId
-  );
-  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  return [uiTypeId, setOneConfig];
 }
 
 function cloneRootUIType(parentUIType) {
