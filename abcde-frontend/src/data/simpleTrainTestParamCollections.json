@@ -2,7 +2,7 @@
   "children": {
     "253cd8a8-a95a-4d15-b98b-73318b3632a1": {
       "id": "253cd8a8-a95a-4d15-b98b-73318b3632a1",
-      "name": "Various Params",
+      "name": "various_params",
       "description": "General training arguments",
       "children": {
         "30c695b3-49b4-4fc7-9dc5-1dff0cc4dc21": {

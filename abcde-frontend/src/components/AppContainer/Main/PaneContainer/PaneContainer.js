@@ -94,7 +94,7 @@ export default function PaneContainer(props) {
       >
         <Resizable
           size={{ width, height }}
-          onResizeStart={() => {
+          onResizeStart={(e, dir, ref) => {
             setIsDragging({ paneName, isDragging: true });
           }}
           onResizeStop={(e, direction, ref, d) => {

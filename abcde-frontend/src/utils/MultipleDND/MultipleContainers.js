@@ -31,6 +31,10 @@ import { nullOrUndefined, updateWithArrayMove } from "../utils";
 import { Container } from "./Container";
 import { Item } from "./Item";
 
+export default {
+  title: "Presets/Sortable/Multiple Containers",
+};
+
 const animateLayoutChanges = (args) =>
   args.isSorting || args.wasDragging ? defaultAnimateLayoutChanges(args) : true;
 
@@ -89,7 +93,7 @@ const dropAnimation = {
   dragSourceOpacity: 0.5,
 };
 
-const TRASH_ID = "void";
+export const TRASH_ID = "void";
 const PLACEHOLDER_ID = "placeholder";
 const empty = [];
 

@@ -14,7 +14,7 @@ function HomePage() {
 
 export default React.memo(HomePage);
 
-function LeftColumn() {
+function LeftColumn(props) {
   return (
     <GridItem
       p="2.5rem"
@@ -28,7 +28,7 @@ function LeftColumn() {
   );
 }
 
-function RightColumn() {
+function RightColumn(props) {
   return (
     <GridItem overflowY="auto">
       <SimpleGrid

@@ -1,8 +1,10 @@
 import { useDisclosure } from "@chakra-ui/react";
-import { useRef } from "react";
+import { createContext, useRef } from "react";
 
 import DrawerButton from "./DrawerButton";
 import DrawerPane from "./DrawerPane";
+
+export const DrawerContext = createContext(null);
 
 export default function DrawerContainer(props) {
   const { isOpen, onOpen, onClose } = useDisclosure();

@@ -1,6 +1,5 @@
 import classNames from "classnames";
 import { useStoreActions } from "easy-peasy";
-import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import {
   useGetGroupPosition,
   useRequestGroupPositionUpdate,
@@ -83,7 +82,7 @@ export const Container = forwardRef(
 );
 
 function SectionGroupMenu({ groupId }) {
-  const addSection = useCreateDefaultSectionInfo();
+  const addSection = useStoreActions((x) => x.master.addSection);
   const setOneGroupChildren = useStoreActions(
     (x) => x.master.setOneGroupChildren
   );
@@ -102,7 +101,7 @@ function SectionGroupMenu({ groupId }) {
       const ys = coords.map((x) => x.y);
       const insertIdx = findSortedIndex(ys, clickCoords.y);
 
-      const newIds = addSection();
+      const newIds = addSection({});
       console.log("");
       setOneGroupChildren({
         groupId,

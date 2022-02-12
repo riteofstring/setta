@@ -31,7 +31,7 @@ export function useSetIdsOverview(sectionId) {
   };
 }
 
-function useGetIdsOverview(sectionId) {
+export function useGetIdsOverview(sectionId) {
   const childrenInfoId = useStoreState(
     (x) => x.sectionInfos.idsOverview[sectionId]
   );
@@ -47,7 +47,7 @@ function useGetIdsOverview(sectionId) {
   return _.intersection(allChildrenId, currChildrenId);
 }
 
-function useGetCurrChildrenIds(sectionId) {
+export function useGetCurrChildrenIds(sectionId) {
   console.log("useGetCurrChildrenIds", sectionId);
   const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
   const paramChildIds = useChildIdHelper(paramInfos, sectionId);

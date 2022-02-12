@@ -49,7 +49,7 @@ export default function TextEditor({ idx, dimensions }) {
     }
   }, [uiInfoFromCLI, factoriesFromCLI, funcsFromCLI]);
 
-  const onChange = (newValue) => {
+  const onChange = (newValue, e) => {
     setEnteredText({ idx, text: newValue });
   };
   return (

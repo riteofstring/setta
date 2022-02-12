@@ -17,7 +17,7 @@ export function useGetObjParamKwargInfos(sectionId, objInfoId) {
   return { objInfo, paramInfos, kwargInfos };
 }
 
-function getXInfos(collectionIds, allCollections, infoId = null) {
+export function getXInfos(collectionIds, allCollections, infoId = null) {
   const collections = collectionIds.map((x) => allCollections.children[x]);
   const output = _.merge({}, ...collections.map((x) => x.children));
   if (infoId) {
@@ -26,7 +26,7 @@ function getXInfos(collectionIds, allCollections, infoId = null) {
   return Object.values(output);
 }
 
-function useGetXInfosFromSection(
+export function useGetXInfosFromSection(
   collectionName,
   allCollectionName,
   sectionId,
@@ -50,7 +50,7 @@ export function useGetObjInfos(sectionId, infoId = null) {
   );
 }
 
-function useGetParamCollections(sectionId, infoId = null) {
+export function useGetParamCollections(sectionId, infoId = null) {
   return useGetXInfosFromSection(
     "parameters",
     "allParamCollections",
@@ -59,7 +59,7 @@ function useGetParamCollections(sectionId, infoId = null) {
   );
 }
 
-function useGetKwargIds(sectionId, objInfo) {
+export function useGetKwargIds(sectionId, objInfo) {
   const { kwargCollectionId } = useGetSectionInfo(sectionId);
   return defaultState(
     useStoreState(
@@ -69,7 +69,7 @@ function useGetKwargIds(sectionId, objInfo) {
   );
 }
 
-function useGetKwargInfos(sectionId, objInfo) {
+export function useGetKwargInfos(sectionId, objInfo) {
   const kwargIds = useGetKwargIds(sectionId, objInfo);
   const kwargInfoState = useStoreState(
     (x) => kwargIds.map((y) => getInfo(x.kwargInfos)[y]),
@@ -78,7 +78,7 @@ function useGetKwargInfos(sectionId, objInfo) {
   return kwargInfoState;
 }
 
-function useGetAllParamInfos(sectionId, objInfo) {
+export function useGetAllParamInfos(sectionId, objInfo) {
   const objParamInfos = objInfo?.children
     ? Object.values(objInfo.children)
     : [];

@@ -15,7 +15,7 @@ const auth = {
     state.isNewSession = true;
   }),
 
-  loginFail: action((state) => {
+  loginFail: action((state, payload) => {
     console.log("loginFail");
     localStorage.clear();
     sessionStorage.clear();

@@ -22,13 +22,13 @@ const uiInfo = {
     state.loadedFolderAndUINames = newState;
   }),
 
-  loadFolderAndUINames: thunk(async (action, payload) => {
+  loadFolderAndUINames: thunk(async (action, payload, helpers) => {
     const { token } = payload;
     const uiNames = await loadFolderAndUINamesBackend({ token });
     action.setLoadedFolderAndUINames(uiNames);
   }),
 
-  loadUI: thunk(async (action, payload) => {
+  loadUI: thunk(async (action, payload, helpers) => {
     console.log("loadUI", payload);
     const ui = await loadUIBackend(payload);
     // const masterSetEntireState =
