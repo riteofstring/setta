@@ -26,6 +26,13 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
+function setChildUITypeConfig(uiType, props, setConfig) {
+  const { childUITypeId } = uiType.config;
+  if (childUITypeId) {
+    setConfig({ uiTypeId: childUITypeId, ...props });
+  }
+}
+
 function useSetUITypeConfig(defaultName, uiType, settingPreset, setUITypeId) {
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
@@ -39,6 +46,7 @@ function useSetUITypeConfig(defaultName, uiType, settingPreset, setUITypeId) {
       setUITypeId(maybeNewUIType.id);
     }
     setConfig({ uiTypeId: maybeNewUIType.id, ...props });
+    setChildUITypeConfig(maybeNewUIType, props, setConfig);
   };
 }
 
