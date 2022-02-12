@@ -72,7 +72,7 @@ export function useSetUIType({
     if (settingSectionConfig && paramInfoId) {
       setParamUITypeId(newId);
     } else if (!settingSectionConfig && childId) {
-      setSectionUITypeId(childId);
+      setSectionUITypeId(newId);
     }
   };
 
