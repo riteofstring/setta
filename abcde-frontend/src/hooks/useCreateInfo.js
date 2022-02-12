@@ -1,6 +1,7 @@
 import { SectionInfo } from "classes/mutableInfo";
 import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
+import { DEFAULT_SECTION_UI_TYPE_ID } from "utils/constants";
 
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
@@ -15,7 +16,7 @@ function createManySectionInfo({ sectionInfoProps, numChildren }) {
   return newInfos;
 }
 
-export function useCreateSectionInfo(sectionId) {
+export function useCreateChildSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const getChildUITypeId = useGetChildUITypeId();
   const parentUIType = useGetSectionType(sectionId);
@@ -29,5 +30,18 @@ export function useCreateSectionInfo(sectionId) {
     });
     setSectionInfo((x) => ({ ...x, ...newInfos }));
     return _.keys(newInfos);
+  };
+}
+
+export function useCreateDefaultSectionInfo() {
+  const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
+  return () => {
+    const sectionInfo = new SectionInfo({
+      name: "New Section",
+      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+    });
+    const id = sectionInfo.id;
+    setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));
+    return [id];
   };
 }

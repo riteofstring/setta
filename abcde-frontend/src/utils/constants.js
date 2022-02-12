@@ -28,6 +28,9 @@ export const DEFAULT_DEFAULT = 0;
 export const DEFAULT_DEFAULT_UI_TYPE_ID =
   "3fdaeb6a-e989-4888-b844-17a76f0b0192";
 
+export const DEFAULT_SECTION_UI_TYPE_ID =
+  "0191cde4-3d98-4ba0-972a-fead19b8ac73";
+
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }
