@@ -26,7 +26,7 @@ export default function SectionSearch({
   const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
-    return x ? x.name : "";
+    return x.name
   };
 
   const onClick = () => {
