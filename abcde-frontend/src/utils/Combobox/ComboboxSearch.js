@@ -2,7 +2,7 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import { matchSorter } from "match-sorter";
-import React from "react";
+import React, { useState } from "react";
 
 import {
   ComboboxInput,
@@ -12,14 +12,27 @@ import {
 } from "./Combobox";
 
 export function ComboboxSearch({
-  items,
-  inputItems,
-  selectedItem,
+  allItems,
+  initialSelection,
   itemToString,
-  setInputItems,
-  onClick,
   onSelectedItemChange,
+  matchSorterProps,
 }) {
+  const [items, setItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [selection, setSelection] = useState(
+    initialSelection ? initialSelection : ""
+  );
+
+  const onClick = () => {
+    setItems(allItems);
+    setFilteredItems(allItems);
+  };
+
+  const localOnSelectedItemChange = ({ selectedItem }) => {
+    onSelectedItemChange(selection, selectedItem, setSelection);
+  };
+
   const {
     isOpen,
     getToggleButtonProps,
@@ -31,12 +44,12 @@ export function ComboboxSearch({
     getItemProps,
   } = useCombobox({
     stateReducer,
-    selectedItem,
-    items: inputItems,
+    selectedItem: selection,
+    items: filteredItems,
     itemToString,
-    onSelectedItemChange,
+    onSelectedItemChange: localOnSelectedItemChange,
     onInputValueChange: ({ inputValue }) => {
-      setInputItems(matchSorter(items, inputValue, { keys: ["name"] }));
+      setFilteredItems(matchSorter(items, inputValue, matchSorterProps));
     },
   });
 
@@ -83,7 +96,7 @@ export function ComboboxSearch({
             borderColor="gray.300"
             w="inherit"
           >
-            {inputItems.map((item, index) => (
+            {filteredItems.map((item, index) => (
               <ComboboxItem
                 {...getItemProps({ item, index })}
                 itemIndex={index}

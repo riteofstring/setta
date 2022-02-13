@@ -1,6 +1,6 @@
 import { useGetObjInfos } from "hooks/useSectionContents";
 import _ from "lodash";
-import React, { useState } from "react";
+import React from "react";
 import { ComboboxSearch } from "utils/Combobox/ComboboxSearch";
 
 export default function SectionSearch({
@@ -11,24 +11,20 @@ export default function SectionSearch({
   const objInfos = useGetObjInfos(sectionId);
   //to avoid uncontrolled --> controlled warning
   const init = _.find(objInfos, { id: initialSelection });
-  const [selection, setSelection] = useState(init ? init : "");
-  const [items, setItems] = useState([]);
-  const [inputItems, setInputItems] = useState([]);
 
   const itemToString = (x) => {
     return x.name;
   };
 
-  const onClick = () => {
-    setItems(objInfos);
-    setInputItems(objInfos);
-  };
-
-  const localOnSelectedItemChange = ({ selectedItem }) => {
-    if (selectedItem) {
-      const sid = selectedItem.id;
-      if (sid !== selection?.id) {
-        setSelection(selectedItem);
+  const localOnSelectedItemChange = (
+    currSelectedItem,
+    newSelectedItem,
+    setSelection
+  ) => {
+    if (newSelectedItem) {
+      const sid = newSelectedItem.id;
+      if (sid !== currSelectedItem?.id) {
+        setSelection(newSelectedItem);
       }
       onSelectedItemChange(sid);
     }
@@ -36,13 +32,11 @@ export default function SectionSearch({
 
   return (
     <ComboboxSearch
-      items={items}
-      inputItems={inputItems}
-      selectedItem={selection}
+      allItems={objInfos}
+      initialSelection={init}
       itemToString={itemToString}
-      setInputItems={setInputItems}
-      onClick={onClick}
       onSelectedItemChange={localOnSelectedItemChange}
+      matchSorterProps={{ keys: ["name"] }}
     />
   );
 }
