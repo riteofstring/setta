@@ -24,7 +24,10 @@ export function ComboboxSearch({
   const [selection, setSelection] = useState(null);
 
   useDeepCompareEffect(() => {
-    if (!_.isEqual(selection, initialSelection)) {
+    if (
+      !_.isEmpty(initialSelection) &&
+      !_.isEqual(selection, initialSelection)
+    ) {
       setSelection(initialSelection);
     }
   }, [initialSelection]);
