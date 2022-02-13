@@ -11,10 +11,7 @@ export default function SectionSearch({
   const objInfos = useGetObjInfos(sectionId);
   //to avoid uncontrolled --> controlled warning
   const init = _.find(objInfos, { id: initialSelection });
-
-  const itemToString = (x) => {
-    return x.name;
-  };
+  const itemToString = (x) => x.name;
 
   const localOnSelectedItemChange = (
     currSelectedItem,

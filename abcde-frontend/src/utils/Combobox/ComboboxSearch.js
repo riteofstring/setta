@@ -21,7 +21,7 @@ export function ComboboxSearch({
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [selection, setSelection] = useState(
-    initialSelection ? initialSelection : ""
+    initialSelection ? initialSelection : {}
   );
 
   const onClick = () => {

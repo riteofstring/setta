@@ -1,7 +1,7 @@
 import { VStack } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
-import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
+import { ComboboxSearch } from "utils/Combobox/ComboboxSearch";
 
 export function UIConfigDropdownAndFields({
   onDropdownSelect,
@@ -14,18 +14,31 @@ export function UIConfigDropdownAndFields({
   origin,
 }) {
   const availableUITypes = useAvailablePresetUITypes(selectedId);
+  const init = _.find(availableUITypes, { id: selectedId });
+  const itemToString = (x) => x.name;
 
-  function onSelect(e) {
-    onDropdownSelect(e.target.value);
-  }
+  const localOnSelectedItemChange = (
+    currSelectedItem,
+    newSelectedItem,
+    setSelection
+  ) => {
+    if (newSelectedItem) {
+      const sid = newSelectedItem.id;
+      if (sid !== currSelectedItem?.id) {
+        setSelection(newSelectedItem);
+      }
+      onDropdownSelect(sid);
+    }
+  };
 
   return (
     <VStack>
-      <StandardDropDown
-        placeholder="Select UI Type"
-        onChange={onSelect}
-        options={availableUITypes}
-        curr={selectedId}
+      <ComboboxSearch
+        allItems={availableUITypes}
+        initialSelection={init}
+        itemToString={itemToString}
+        onSelectedItemChange={localOnSelectedItemChange}
+        matchSorterProps={{ keys: ["name"] }}
       />
       <ParamUIConfig
         name={selectedType}
