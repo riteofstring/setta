@@ -140,7 +140,7 @@ function _SectionContainerCore({
             {hasObjects && (
               <SectionSearch
                 sectionId={sectionId}
-                initialSelection={selectedItem}
+                initialSelectedItem={selectedItem}
                 onSelectedItemChange={onSelectedItemChange}
               />
             )}

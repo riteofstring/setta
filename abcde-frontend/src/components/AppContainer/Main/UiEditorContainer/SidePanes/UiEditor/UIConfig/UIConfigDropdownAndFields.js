@@ -15,7 +15,8 @@ export function UIConfigDropdownAndFields({
 }) {
   const availableUITypes = useAvailablePresetUITypes(selectedId);
   const init = _.find(availableUITypes, { id: selectedId });
-  const itemToString = (x) => x.name;
+  const initialSelection = init ? init : {};
+  const itemToString = (x) => (x ? x.name : "");
 
   const localOnSelectedItemChange = (
     currSelectedItem,
@@ -35,7 +36,7 @@ export function UIConfigDropdownAndFields({
     <VStack>
       <ComboboxSearch
         allItems={availableUITypes}
-        initialSelection={init}
+        initialSelection={initialSelection}
         itemToString={itemToString}
         onSelectedItemChange={localOnSelectedItemChange}
         matchSorterProps={{ keys: ["name"] }}

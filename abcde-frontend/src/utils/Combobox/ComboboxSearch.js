@@ -3,6 +3,7 @@ import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import { matchSorter } from "match-sorter";
 import React, { useState } from "react";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 import {
   ComboboxInput,
@@ -20,9 +21,13 @@ export function ComboboxSearch({
 }) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
-  const [selection, setSelection] = useState(
-    initialSelection ? initialSelection : {}
-  );
+  const [selection, setSelection] = useState(null);
+
+  useDeepCompareEffect(() => {
+    if (!_.isEqual(selection, initialSelection)) {
+      setSelection(initialSelection);
+    }
+  }, [initialSelection]);
 
   const onClick = () => {
     setItems(allItems);

@@ -6,12 +6,13 @@ import { ComboboxSearch } from "utils/Combobox/ComboboxSearch";
 export default function SectionSearch({
   sectionId,
   onSelectedItemChange,
-  initialSelection,
+  initialSelectedItem,
 }) {
   const objInfos = useGetObjInfos(sectionId);
   //to avoid uncontrolled --> controlled warning
-  const init = _.find(objInfos, { id: initialSelection });
-  const itemToString = (x) => x.name;
+  const init = _.find(objInfos, { id: initialSelectedItem });
+  const initialSelection = init ? init : {};
+  const itemToString = (x) => (x ? x.name : "");
 
   const localOnSelectedItemChange = (
     currSelectedItem,
@@ -30,7 +31,7 @@ export default function SectionSearch({
   return (
     <ComboboxSearch
       allItems={objInfos}
-      initialSelection={init}
+      initialSelection={initialSelection}
       itemToString={itemToString}
       onSelectedItemChange={localOnSelectedItemChange}
       matchSorterProps={{ keys: ["name"] }}
