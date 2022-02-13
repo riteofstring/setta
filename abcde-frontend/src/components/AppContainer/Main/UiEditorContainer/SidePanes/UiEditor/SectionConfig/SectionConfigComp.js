@@ -1,5 +1,4 @@
 import {
-  Input,
   VStack,
   List,
   ListItem,
@@ -29,7 +28,6 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
   return (
     <>
       <VStack align="stretch" mt=".25rem">
-        <Input placeholder="Section Config Search" bg="white" />
         <Box pt=".25rem">
           <List spacing={3}>
             {_.map(collections, (col, type) =>
