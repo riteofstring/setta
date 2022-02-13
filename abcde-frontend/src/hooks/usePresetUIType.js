@@ -40,11 +40,7 @@ export function useAvailablePresetUITypes(
   filterFn = defaultFilterFn
 ) {
   return useStoreState(
-    (x) =>
-      _.map(filterFn(x.uiTypes.x, selectedId), (v, k) => ({
-        id: k,
-        name: createName(v),
-      })),
+    (x) => _.mapValues(filterFn(x.uiTypes.x, selectedId), (v) => createName(v)),
     _.isEqual
   );
 }

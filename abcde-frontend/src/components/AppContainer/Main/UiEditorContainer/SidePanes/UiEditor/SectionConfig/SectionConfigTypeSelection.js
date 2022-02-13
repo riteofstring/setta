@@ -2,7 +2,7 @@ import {
   onlySectionTypes,
   useAvailablePresetUITypes,
 } from "hooks/usePresetUIType";
-import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
 
 export default function SectionConfigTypeSelection({
   onDropdownSelect,
@@ -13,11 +13,16 @@ export default function SectionConfigTypeSelection({
     onlySectionTypes
   );
 
+  function onSelect(e) {
+    onDropdownSelect(e.target.value);
+  }
+
   return (
-    <IdNameCombobox
-      allItems={availableUITypes}
-      initialSelection={selectedId}
-      onSelectedItemChange={onDropdownSelect}
+    <StandardDropDown
+      placeholder="Select Section Type"
+      onChange={onSelect}
+      options={availableUITypes}
+      curr={selectedId}
     />
   );
 }

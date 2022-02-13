@@ -1,7 +1,7 @@
 import { VStack } from "@chakra-ui/react";
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
-import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { StandardDropDown } from "utils/StandardDropdown/StandardDropdown";
 
 export function UIConfigDropdownAndFields({
   onDropdownSelect,
@@ -14,12 +14,18 @@ export function UIConfigDropdownAndFields({
   origin,
 }) {
   const availableUITypes = useAvailablePresetUITypes(selectedId);
+
+  function onSelect(e) {
+    onDropdownSelect(e.target.value);
+  }
+
   return (
     <VStack>
-      <IdNameCombobox
-        allItems={availableUITypes}
-        initialSelection={selectedId}
-        onSelectedItemChange={onDropdownSelect}
+      <StandardDropDown
+        placeholder="Select UI Type"
+        onChange={onSelect}
+        options={availableUITypes}
+        curr={selectedId}
       />
       <ParamUIConfig
         name={selectedType}
