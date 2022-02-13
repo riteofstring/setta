@@ -28,7 +28,7 @@ export function IdNameCombobox({
   return (
     <ComboboxSearch
       allItems={allItems}
-      initialSelection={init ? init : {}}
+      initialSelection={init ? init : null}
       itemToString={itemToString}
       onSelectedItemChange={localOnSelectedItemChange}
       matchSorterProps={{ keys: ["name"] }}

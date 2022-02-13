@@ -2,8 +2,7 @@ import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import { matchSorter } from "match-sorter";
-import React, { useState } from "react";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import React, { useEffect, useState } from "react";
 
 import {
   ComboboxInput,
@@ -23,11 +22,8 @@ export function ComboboxSearch({
   const [filteredItems, setFilteredItems] = useState([]);
   const [selection, setSelection] = useState(null);
 
-  useDeepCompareEffect(() => {
-    if (
-      !_.isEmpty(initialSelection) &&
-      !_.isEqual(selection, initialSelection)
-    ) {
+  useEffect(() => {
+    if (initialSelection && !_.isEqual(selection, initialSelection)) {
       setSelection(initialSelection);
     }
   }, [initialSelection]);
