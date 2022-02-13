@@ -1,6 +1,7 @@
 import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
+import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import React, { useEffect, useState } from "react";
 
@@ -29,8 +30,10 @@ export function ComboboxSearch({
   }, [initialSelection]);
 
   const onClick = () => {
-    setItems(allItems);
-    setFilteredItems(allItems);
+    if (!_.isEqual(allItems, items)) {
+      setItems(allItems);
+      setFilteredItems(allItems);
+    }
   };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
