@@ -2,7 +2,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useSectionGroups";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
-import ReactFlow, { Controls, ReactFlowProvider } from "react-flow-renderer";
+import ReactFlow, { Controls } from "react-flow-renderer";
 import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";
 import { PANEID } from "utils/constants";
 
