@@ -62,11 +62,11 @@ const UiPage = () => {
 
   return (
     <>
-      <Flex justify="flex-start" h="inherit">
-        <Grid gap={2}>
+      {/* <Flex justify="flex-start" h="inherit"> */}
+        {/* <Grid gap={2}> */}
           <SectionsPane />
-        </Grid>
-      </Flex>
+        {/* </Grid> */}
+      {/* </Flex> */}
     </>
   );
 };
