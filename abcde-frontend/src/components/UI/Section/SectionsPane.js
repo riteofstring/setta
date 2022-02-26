@@ -6,7 +6,7 @@ import ReactFlow, { Controls } from "react-flow-renderer";
 import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";
 import { PANEID } from "utils/constants";
 
-import SectionContainer from "./SectionContainer/SectionContainer";
+import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 function SectionsPane() {
   const { groupIds, setGroupIds, groups } = useSectionGroups(true);
@@ -18,16 +18,19 @@ function SectionsPane() {
   const sections = _.concat(..._.values(groups));
   const elements = sections.map((e, idx) => ({
     id: e,
-    data: {
-      label: <SectionContainer sectionId={e} parentId={null} depth={0} />,
-    },
     position: { x: 250, y: 1000 * idx },
+    type: "special",
   }));
 
   console.log("elements", elements);
 
   return (
-    <ReactFlow elements={elements} minZoom={0.1} maxZoom={10}>
+    <ReactFlow
+      elements={elements}
+      minZoom={0.1}
+      maxZoom={10}
+      nodeTypes={{ special: SectionContainerNode }}
+    >
       <Controls />
     </ReactFlow>
   );
