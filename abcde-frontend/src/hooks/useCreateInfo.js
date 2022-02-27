@@ -33,12 +33,13 @@ export function useCreateChildSectionInfo(sectionId) {
   };
 }
 
-export function useCreateDefaultSectionInfo() {
+export function useCreateDefaultSectionInfo(sectionInfoProps) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   return () => {
     const sectionInfo = new SectionInfo({
       name: "New Section",
       uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+      ...sectionInfoProps,
     });
     const id = sectionInfo.id;
     setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));

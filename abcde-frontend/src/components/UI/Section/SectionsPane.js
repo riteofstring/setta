@@ -14,7 +14,7 @@ function SectionsPane() {
 
   const elements = topLevelSectionIds.map((e, idx) => ({
     id: e,
-    position: { x: 250, y: 1000 * idx },
+    position: { x: 250, y: 300 * idx },
     type: "special",
   }));
 
