@@ -16,8 +16,8 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const topLevelSectionIds = useStoreState(
-    (x) => x.sectionInfos.topLevelSectionIds
+  const topLevelSectionPositions = useStoreState(
+    (x) => x.sectionInfos.topLevelSectionPositions
   );
   const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
@@ -25,7 +25,11 @@ export default function Overview() {
   useDeepCompareEffect(() => {
     console.log("Overview useEffect");
     setListOfSectionIdsAndNames(
-      getOverviewListing([topLevelSectionIds], currChildren, idNames)
+      getOverviewListing(
+        [_.map(topLevelSectionPositions, (x) => x.id)],
+        currChildren,
+        idNames
+      )
     );
   }, [currChildren, idNames]);
 

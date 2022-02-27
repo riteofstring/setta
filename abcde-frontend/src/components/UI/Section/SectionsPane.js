@@ -1,20 +1,17 @@
 import { useStoreState } from "easy-peasy";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ReactFlow, { Controls } from "react-flow-renderer";
-import { PANEID } from "utils/constants";
 
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
-function SectionsPane() {
-  const topLevelSectionIds = useStoreState(
-    (x) => x.sectionInfos.topLevelSectionIds
+function SectionsPane({ setReactFlowInstance }) {
+  const topLevelSectionPositions = useStoreState(
+    (x) => x.sectionInfos.topLevelSectionPositions
   );
-  const refForPosition = useSetSectionPosition(PANEID);
 
-  const elements = topLevelSectionIds.map((e, idx) => ({
-    id: e,
-    position: { x: 250, y: 300 * idx },
+  const elements = topLevelSectionPositions.map((e, idx) => ({
+    id: e.id,
+    position: e.initialPosition,
     type: "special",
   }));
 
@@ -26,6 +23,7 @@ function SectionsPane() {
       minZoom={0.1}
       maxZoom={10}
       nodeTypes={{ special: SectionContainerNode }}
+      onLoad={setReactFlowInstance}
     >
       <Controls />
     </ReactFlow>

@@ -97,10 +97,16 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    const sectionInfos = _.mapValues(
-      payload,
-      (x) => new SectionInfo({ isTopLevel: true, ...x })
-    );
+    let idx = 0;
+    const sectionInfos = _.mapValues(payload, (x) => {
+      const y = new SectionInfo({
+        isTopLevel: true,
+        initialPosition: { x: 250, y: 300 * idx },
+        ...x,
+      });
+      idx += 1;
+      return y;
+    });
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));

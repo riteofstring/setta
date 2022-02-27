@@ -52,10 +52,10 @@ const sectionInfos = {
     return _.mapValues(x, (v) => v.name);
   }),
 
-  topLevelSectionIds: computed([(state) => state.x], (x) => {
+  topLevelSectionPositions: computed([(state) => state.x], (x) => {
     return _.map(
       _.filter(x, (v) => v.isTopLevel),
-      (y) => y.id
+      (y) => ({ id: y.id, initialPosition: y.initialPosition })
     );
   }),
 
