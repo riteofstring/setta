@@ -1,6 +1,7 @@
 import { Box } from "@chakra-ui/react";
 import { useState } from "react";
 import { useContextMenu } from "react-contexify";
+import "react-contexify/dist/ReactContexify.css";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { NewSectionMenu } from "utils/ContextMenu/NewSectionMenu";
 
