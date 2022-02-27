@@ -1,44 +1,50 @@
 import { Box } from "@chakra-ui/react";
-import { useRef } from "react";
-import { useContextMenu } from "react-contexify";
-import "react-contexify/dist/ReactContexify.css";
-import { ReactFlowProvider } from "react-flow-renderer";
-import { NewSectionMenu } from "utils/ContextMenu/NewSectionMenu";
+import { useState } from "react";
+import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
+import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
 
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
-// https://reactflow.dev/examples/drag-and-drop/
 export default function MainContainer() {
-  const UIPageRef = useRef(null);
-
-  const { show } = useContextMenu({ id: "NewSectionMenu" });
-
-  function displayMenu(e) {
-    show(e);
-  }
+  const [contentSize, setContentSize] = useState({});
 
   return (
-    <ReactFlowProvider>
+    <>
       <Overview />
       <UiEditor />
       <GridWrapper>
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
-          <Box
-            padding="2.5rem"
-            h="100%"
-            onContextMenu={displayMenu}
-            ref={UIPageRef}
+          <CustomMapInteractionCSS
+            // showControls={true}
+            maxScale={2}
+            minScale={0.1}
+            scaleBase={1.5}
+            marginRatios={{ x: 1, y: 1 }}
+            contentSize={{
+              height: contentSize.height,
+              width: contentSize.width,
+            }}
+            excludedFromDraggingTagNames={["input", "textarea", "select"]}
+            excludedFromDraggingClassNames={[
+              "EditableTextarea",
+              "chakra-stack DragHandle",
+              "chakra-icon DragHandleIcon",
+              "chakra-slider",
+              "chakra-editable",
+            ]}
+            excludedFromScrollingClassNames={["SectionSearch"]}
           >
-            <UIPage />
-            <NewSectionMenu
-              divRef={UIPageRef}
-            />
-          </Box>
+            <Box padding="2.5rem" h="100%">
+              <CustomGrid setContentSize={setContentSize}>
+                <UIPage />
+              </CustomGrid>
+            </Box>
+          </CustomMapInteractionCSS>
         </Box>
       </GridWrapper>
-    </ReactFlowProvider>
+    </>
   );
 }

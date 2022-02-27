@@ -89,7 +89,7 @@ function _SectionContainerCore({
   const sectionInfo = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
-  const { name: variableName, selectedItem, isTopLevel } = sectionInfo;
+  const { name: variableName, selectedItem } = sectionInfo;
   const selectedItemInSpecs = config.objects.includes(selectedItem);
   const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
@@ -120,7 +120,7 @@ function _SectionContainerCore({
       w={`${SECTIONWIDTH}px`}
       onClick={() => setActiveSection(sectionId)}
     >
-      <DragHandle isTopLevel={isTopLevel} dragListeners={dragListeners} />
+      <DragHandle dragListeners={dragListeners} />
       <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
         <SectionHeader
           sectionId={sectionId}
