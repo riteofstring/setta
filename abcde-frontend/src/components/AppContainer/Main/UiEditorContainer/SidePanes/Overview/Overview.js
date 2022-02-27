@@ -15,26 +15,27 @@ const paneProps = {
 };
 
 export default function Overview() {
-  // const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
+  const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  // const { groups } = useSectionGroups();
-  // const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
-  // const idNames = useStoreState((x) => x.sectionInfos.idNames);
+  const topLevelSectionIds = useStoreState(
+    (x) => x.sectionInfos.topLevelSectionIds
+  );
+  const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
+  const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
-  // useDeepCompareEffect(() => {
-  //   console.log("Overview useEffect");
-  //   console.log("currChildren", currChildren, groups);
-  //   setListOfSectionIdsAndNames(
-  //     getOverviewListing(groups, currChildren, idNames)
-  //   );
-  // }, [groups, currChildren, idNames]);
+  useDeepCompareEffect(() => {
+    console.log("Overview useEffect");
+    setListOfSectionIdsAndNames(
+      getOverviewListing([topLevelSectionIds], currChildren, idNames)
+    );
+  }, [currChildren, idNames]);
 
   return (
     <PaneContainer paneProps={paneProps}>
       <Heading as="h2" size="md" color="gray.500" pb=".5rem">
         Overview
       </Heading>
-      {/* <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} /> */}
+      <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
     </PaneContainer>
   );
 }
