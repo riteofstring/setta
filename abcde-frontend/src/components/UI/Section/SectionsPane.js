@@ -1,10 +1,11 @@
-import { useStoreState } from "easy-peasy";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import React from "react";
 import ReactFlow, { Controls } from "react-flow-renderer";
 
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
-function SectionsPane({ setReactFlowInstance }) {
+function SectionsPane() {
+  const setInstance = useStoreActions((x) => x.reactFlow.setInstance);
   const topLevelSectionPositions = useStoreState(
     (x) => x.sectionInfos.topLevelSectionPositions
   );
@@ -24,7 +25,7 @@ function SectionsPane({ setReactFlowInstance }) {
       minZoom={0.1}
       maxZoom={10}
       nodeTypes={{ special: SectionContainerNode }}
-      onLoad={setReactFlowInstance}
+      onLoad={setInstance}
     >
       <Controls />
     </ReactFlow>

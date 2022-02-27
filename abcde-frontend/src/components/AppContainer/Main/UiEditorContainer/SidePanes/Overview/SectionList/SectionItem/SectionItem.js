@@ -1,23 +1,43 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Text, HStack } from "@chakra-ui/react";
+import { useStore } from "easy-peasy";
+import { motion, animate, useMotionValue } from "framer-motion";
+import { useEffect, useState } from "react";
 import {
   useStore as useReactFlowStore,
   useZoomPanHelper,
 } from "react-flow-renderer";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
+  // const reactFlowInstance = useStore((x) => x.reactFlow.instance);
+  // console.log("reactFlowInstance", reactFlowInstance)
   const reactFlowStore = useReactFlowStore();
-  const { setCenter } = useZoomPanHelper();
+  const { transform: setTransform } = useZoomPanHelper();
 
   // https://reactflow.dev/examples/use-zoom-pan-helper-hook/
   const onClick = () => {
-    const { nodes } = reactFlowStore.getState();
+    const { nodes, transform } = reactFlowStore.getState();
     const node = _.filter(nodes, { id: sectionId })[0];
     const x = node.__rf.position.x + node.__rf.width / 2;
     const y = node.__rf.position.y + node.__rf.height / 2;
-    const zoom = 1;
 
-    setCenter(x, y, zoom);
+    console.log(transform[0], x)
+
+    animate(transform[0], x, {
+      type: "spring",
+      duration: 0.2,
+      onUpdate: (v) => {
+        setTransform({ x: v, y: transform[1], zoom: 1 });
+      },
+    });
+    // animate(currY, y, {
+    //   type: "spring",
+    //   duration: 0.2,
+    //   onUpdate: (v) => {
+    //     setGoToCoords((s) => ({ y: v, ...s }));
+    //   },
+    // });
   };
 
   return (

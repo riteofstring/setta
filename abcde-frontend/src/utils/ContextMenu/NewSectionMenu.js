@@ -1,8 +1,10 @@
+import { useStoreState } from "easy-peasy";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import { Menu, Item } from "react-contexify";
 
 // https://reactflow.dev/examples/drag-and-drop/
-export function NewSectionMenu({ divRef, reactFlowInstance }) {
+export function NewSectionMenu({ divRef }) {
+  const reactFlowInstance = useStoreState((x) => x.reactFlow.instance);
   const addSection = useCreateDefaultSectionInfo();
   function newSectionClick({ triggerEvent: event }) {
     const bounds = divRef.current.getBoundingClientRect();

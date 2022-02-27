@@ -19,6 +19,7 @@ import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
 import yamlEntry from "models/yamlEntry";
+import reactFlow from "models/reactFlow"
 
 const store = createStore(
   persist(
@@ -43,6 +44,7 @@ const store = createStore(
       uiEditor: uiEditor,
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
+      reactFlow: reactFlow,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

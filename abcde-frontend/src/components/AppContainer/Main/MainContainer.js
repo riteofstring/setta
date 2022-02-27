@@ -1,5 +1,5 @@
 import { Box } from "@chakra-ui/react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useContextMenu } from "react-contexify";
 import "react-contexify/dist/ReactContexify.css";
 import { ReactFlowProvider } from "react-flow-renderer";
@@ -12,8 +12,7 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 // https://reactflow.dev/examples/drag-and-drop/
 export default function MainContainer() {
-  const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const reactFlowWrapper = useRef(null);
+  const UIPageRef = useRef(null);
 
   const { show } = useContextMenu({ id: "NewSectionMenu" });
 
@@ -31,12 +30,11 @@ export default function MainContainer() {
             padding="2.5rem"
             h="100%"
             onContextMenu={displayMenu}
-            ref={reactFlowWrapper}
+            ref={UIPageRef}
           >
-            <UIPage setReactFlowInstance={setReactFlowInstance} />
+            <UIPage />
             <NewSectionMenu
-              divRef={reactFlowWrapper}
-              reactFlowInstance={reactFlowInstance}
+              divRef={UIPageRef}
             />
           </Box>
         </Box>

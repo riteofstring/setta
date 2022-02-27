@@ -8,7 +8,7 @@ import React, { useEffect } from "react";
 // import { resetState } from "../../store/store";
 import SectionsPane from "./Section/SectionsPane";
 
-const UiPage = ({ setReactFlowInstance }) => {
+const UiPage = () => {
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
   );
@@ -63,7 +63,7 @@ const UiPage = ({ setReactFlowInstance }) => {
     <>
       {/* <Flex justify="flex-start" h="inherit"> */}
       {/* <Grid gap={2}> */}
-      <SectionsPane setReactFlowInstance={setReactFlowInstance} />
+      <SectionsPane />
       {/* </Grid> */}
       {/* </Flex> */}
     </>
