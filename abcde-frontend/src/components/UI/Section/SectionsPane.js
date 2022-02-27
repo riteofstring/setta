@@ -1,5 +1,4 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { useSectionGroups } from "hooks/useSectionGroups";
+import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ReactFlow, { Controls } from "react-flow-renderer";
@@ -8,7 +7,9 @@ import { PANEID } from "utils/constants";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 function SectionsPane() {
-  const topLevelSectionIds = useStoreState(x=>x.sectionInfos.topLevelSectionIds)
+  const topLevelSectionIds = useStoreState(
+    (x) => x.sectionInfos.topLevelSectionIds
+  );
   const refForPosition = useSetSectionPosition(PANEID);
 
   const elements = topLevelSectionIds.map((e, idx) => ({
@@ -29,7 +30,6 @@ function SectionsPane() {
       <Controls />
     </ReactFlow>
   );
-
 }
 
 export default React.memo(SectionsPane);
