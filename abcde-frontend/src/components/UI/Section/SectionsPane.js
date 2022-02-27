@@ -1,14 +1,24 @@
-import { useStoreState } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useSectionGroups";
+import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ReactFlow, { Controls } from "react-flow-renderer";
+import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";
+import { PANEID } from "utils/constants";
 
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 function SectionsPane() {
-  const sections = useStoreState((x) => _.keys(x.sectionInfos.x), _.isEqual);
+  const { groupIds, setGroupIds, groups } = useSectionGroups(true);
+  const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
+  const refForPosition = useSetSectionPosition(PANEID);
+  const setGroupChildren = useStoreActions((x) => x.master.setGroupChildren);
+  const [groupsHaveUpdated, setGroupsHaveUpdated] = useGroupsHaveUpdated();
+
+  const sections = _.concat(..._.values(groups));
   const elements = sections.map((e, idx) => ({
     id: e,
-    position: { x: 250, y: 500 * idx },
+    position: { x: 250, y: 1000 * idx },
     type: "special",
   }));
 
@@ -24,6 +34,19 @@ function SectionsPane() {
       <Controls />
     </ReactFlow>
   );
+
+  // return (
+  //   <div ref={refForPosition}>
+  //     <MultipleContainers
+  //       groups={groups}
+  //       setGroups={setGroupChildren}
+  //       containers={groupIds}
+  //       setContainers={setGroupIds}
+  //       groupsHaveUpdated={groupsHaveUpdated}
+  //       setGroupsHaveUpdated={setGroupsHaveUpdated}
+  //     />
+  //   </div>
+  // );
 }
 
 export default React.memo(SectionsPane);

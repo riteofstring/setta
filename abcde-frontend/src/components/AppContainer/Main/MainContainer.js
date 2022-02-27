@@ -1,4 +1,5 @@
 import { Box } from "@chakra-ui/react";
+import { useState } from "react";
 import { useContextMenu } from "react-contexify";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { NewSectionMenu } from "utils/ContextMenu/NewSectionMenu";
@@ -23,7 +24,7 @@ export default function MainContainer() {
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
           <Box padding="2.5rem" h="100%" onContextMenu={displayMenu}>
             <UIPage />
-            <NewSectionMenu />
+            <NewSectionMenu/>
           </Box>
         </Box>
       </GridWrapper>
