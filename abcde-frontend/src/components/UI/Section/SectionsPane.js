@@ -13,6 +13,7 @@ function SectionsPane({ setReactFlowInstance }) {
     id: e.id,
     position: e.initialPosition,
     type: "special",
+    dragHandle: ".TopLevelDragHandle",
   }));
 
   console.log("elements", elements);
