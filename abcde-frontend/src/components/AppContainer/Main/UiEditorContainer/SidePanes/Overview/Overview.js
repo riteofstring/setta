@@ -8,7 +8,6 @@ import { OVERVIEW } from "utils/constants";
 import { getOverviewListing } from "utils/sectionIds";
 
 import SectionList from "./SectionList/SectionList";
-import SectionsPerGroup from "./SectionsPerGroup/SectionsPerGroup";
 
 const paneProps = {
   right: false,
@@ -36,7 +35,6 @@ export default function Overview() {
         Overview
       </Heading>
       <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
-      <SectionsPerGroup />
     </PaneContainer>
   );
 }

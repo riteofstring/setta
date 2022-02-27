@@ -18,7 +18,6 @@ import {
 import { createNewId } from "utils/utils";
 
 const master = {
-  spaceBetweenPages: 100,
   available: {},
   allPackageInfo: null,
   allModuleInfo: null,

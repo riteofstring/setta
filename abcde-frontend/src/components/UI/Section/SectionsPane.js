@@ -10,7 +10,6 @@ import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 function SectionsPane() {
   const { groupIds, setGroupIds, groups } = useSectionGroups(true);
-  const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
   const refForPosition = useSetSectionPosition(PANEID);
   const setGroupChildren = useStoreActions((x) => x.master.setGroupChildren);
   const [groupsHaveUpdated, setGroupsHaveUpdated] = useGroupsHaveUpdated();
