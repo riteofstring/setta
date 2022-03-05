@@ -1,5 +1,4 @@
 import { useStoreActions } from "easy-peasy";
-import _ from "lodash";
 import { insertIntoArrayOrXpend } from "utils/utils";
 
 import { useCreateChildSectionInfo } from "./useCreateInfo";

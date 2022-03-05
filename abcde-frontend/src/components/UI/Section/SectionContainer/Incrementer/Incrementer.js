@@ -58,7 +58,6 @@ export default function Incrementer({
         maxW="5ch"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
-        aria-label="Number of sections"
       />
 
       <IconButton
@@ -66,21 +65,17 @@ export default function Incrementer({
         size="xs"
         onClick={() => deleteChildren(numSections)}
         isDisabled={!decrementButtonCondition()}
-        aria-label="Delete child section"
       />
 
       <IconButton
         icon={<AddIcon />}
         size="xs"
         onClick={() => addSections(numSections)}
-        aria-label="Add child section"
       />
       {!isListRoot && (
         <IconButton
           bg="whiteAlpha"
-          icon={<Icon as={HiX} />}
-          onClick={deleteThisSection}
-          aria-label="Delete self"
+          icon={<Icon as={HiX} onClick={() => deleteThisSection()} />}
         />
       )}
     </HStack>
