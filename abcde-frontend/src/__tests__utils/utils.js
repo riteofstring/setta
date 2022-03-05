@@ -10,8 +10,11 @@ export function createStore() {
   return store;
 }
 
-export function addSectionInfo(store) {
-  const uiType = addUIType(store, { type: SECTION });
+export function addSectionInfo(store, inputUIType = null) {
+  let uiType = inputUIType;
+  if (!uiType) {
+    uiType = addUIType(store, { type: SECTION });
+  }
   const si = new SectionInfo({ uiTypeId: uiType.id });
   store
     .getActions()
@@ -25,12 +28,33 @@ export function addUIType(store, props = {}) {
   return uiType;
 }
 
-export function addMutableParamUITypeInfo(store, uiTypeId) {
-  const [collectionId, paramInfoId] = [createNewId(), createNewId()];
-  store
-    .getActions()
-    .paramInfos.setUITypeId({ collectionId, paramInfoId, uiTypeId });
-  return [collectionId, paramInfoId];
+export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
+  const [uiTypeCollectionId, paramCollectionId, paramInfoId] = [
+    createNewId(),
+    createNewId(),
+    createNewId(),
+  ];
+  const actions = store.getActions().paramInfos;
+  actions.setUITypeId({
+    collectionId: uiTypeCollectionId,
+    paramInfoId,
+    uiTypeId: uiType.id,
+  });
+  let child = null;
+  if (isNested) {
+    child = addSectionInfo(store, uiType);
+    addChild(store, sectionInfo, child.id);
+    actions.setChildId({
+      collectionId: paramCollectionId,
+      paramInfoId,
+      childId: child.id,
+    });
+  }
+  const output = { uiTypeCollectionId, paramCollectionId, paramInfoId };
+  if (isNested) {
+    output.childId = child.id;
+  }
+  return output;
 }
 
 export function addChild(store, si, childId) {
