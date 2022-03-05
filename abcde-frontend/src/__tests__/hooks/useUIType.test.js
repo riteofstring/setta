@@ -14,7 +14,10 @@ import _ from "lodash";
 test("useGetParamUIType", () => {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { si, uiType, paramInfoId } = createSectionInfoWithParam(store);
+  const { si, uiType, paramInfoId } = createSectionInfoWithParam(
+    store,
+    wrapper
+  );
 
   const { result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper);
   expect(result.current).toEqual(uiType);
@@ -64,13 +67,14 @@ function testUseSetUIType(
   const wrapper = getStoreProviderWrapper(store);
   const { si, uiType, paramInfoId } = createSectionInfoWithParam(
     store,
+    wrapper,
     paramIsNested
   );
 
   let result = null;
 
   ({ result } = renderUseParamChildId(si.id, paramInfoId, wrapper));
-  const childId = result.current[0]
+  const childId = result.current[0];
 
   if (paramIsNested) {
     // child section type should be uiType
@@ -172,7 +176,7 @@ function renderUseGetSectionType(sectionId, wrapper) {
   });
 }
 
-function createSectionInfoWithParam(store, paramIsNested = false) {
+function createSectionInfoWithParam(store, wrapper, paramIsNested = false) {
   const si = addSectionInfo(store);
 
   // create a UIType for a random parameter
@@ -180,16 +184,19 @@ function createSectionInfoWithParam(store, paramIsNested = false) {
   expect(uiType.id).toBeTruthy();
   const { uiTypeCollectionId, paramInfoId } = addParamInfo(
     store,
+    wrapper,
     si,
     uiType,
     paramIsNested
   );
 
   // set the section's UIType's config's uiTypeCollectionId
-  store.getActions().uiTypes.setOneConfig({
-    uiTypeId: si.uiTypeId,
-    configName: "uiTypeCollectionId",
-    newValueFn: () => uiTypeCollectionId,
+  act(() => {
+    store.getActions().uiTypes.setOneConfig({
+      uiTypeId: si.uiTypeId,
+      configName: "uiTypeCollectionId",
+      newValueFn: () => uiTypeCollectionId,
+    });
   });
 
   return {
