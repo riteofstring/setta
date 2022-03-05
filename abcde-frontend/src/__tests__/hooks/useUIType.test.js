@@ -13,17 +13,14 @@ test("useGetParamUIType", () => {
   const wrapper = getStoreProviderWrapper(store);
   const { si, uiType, paramInfoId } = createSectionInfoWithParamUIType(store);
 
-  const { result } = renderHook(() => useGetParamUIType(si.id)(paramInfoId), {
-    wrapper,
-  });
+  const { result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper);
   expect(result.current).toEqual(uiType);
 });
 
 test("useSetUIType", () => {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { si, uiType, collectionId, paramInfoId } =
-    createSectionInfoWithParamUIType(store);
+  const { si, uiType, paramInfoId } = createSectionInfoWithParamUIType(store);
 
   const hookProps = {
     sectionId: si.id,
@@ -34,9 +31,7 @@ test("useSetUIType", () => {
     settingSectionConfig: false,
   };
 
-  let { result } = renderHook(() => useSetUIType(hookProps), {
-    wrapper,
-  });
+  let { result } = renderUseSetUIType(hookProps, wrapper);
 
   // test setting ui type id
   const newUIType = addUIType(store);
@@ -44,28 +39,34 @@ test("useSetUIType", () => {
   act(() => result.current[0](newUIType.id));
 
   // get ui type
-  ({ result } = renderHook(() => useGetParamUIType(si.id)(paramInfoId), {
-    wrapper,
-  }));
+  ({ result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper));
   expect(result.current).toEqual(newUIType);
 
   // test setting ui type config
   hookProps.currUIType = store.getState().uiTypes.x[newUIType.id];
   expect(hookProps.currUIType.config).toEqual({});
 
-  ({ result } = renderHook(() => useSetUIType(hookProps), {
-    wrapper,
-  }));
+  ({ result } = renderUseSetUIType(hookProps, wrapper));
   act(() =>
     result.current[1]({ configName: "maxValue", newValueFn: () => 634 })
   );
 
   // get ui type
-  ({ result } = renderHook(() => useGetParamUIType(si.id)(paramInfoId), {
-    wrapper,
-  }));
-  expect(result.current.config).toEqual({maxValue: 634});
+  ({ result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper));
+  expect(result.current.config).toEqual({ maxValue: 634 });
 });
+
+function renderUseSetUIType(hookProps, wrapper) {
+  return renderHook(() => useSetUIType(hookProps), {
+    wrapper,
+  });
+}
+
+function renderUseGetParamUIType(sectionId, paramInfoId, wrapper) {
+  return renderHook(() => useGetParamUIType(sectionId)(paramInfoId), {
+    wrapper,
+  });
+}
 
 function createSectionInfoWithParamUIType(store) {
   const si = addSectionInfo(store);
