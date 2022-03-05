@@ -1,16 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { addInfo, addChild } from "__tests__utils/utils";
+import { createStore } from "__tests__utils/utils";
 import Incrementer from "components/UI/Section/SectionContainer/Incrementer/Incrementer";
-import { createStore, StoreProvider } from "easy-peasy";
+import { StoreProvider } from "easy-peasy";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
-import paramInfos from "models/info/paramInfos";
-import sectionInfos from "models/info/sectionInfos";
-import uiTypes from "models/info/uiTypes";
 
 test("Incrementer: add sibling", () => {
-  const store = createStore({ sectionInfos, paramInfos, uiTypes });
+  const store = createStore();
   const si1 = addInfo(store);
   const si2 = addInfo(store);
   addChild(store, si1, si2.id);
@@ -29,7 +27,7 @@ test("Incrementer: add sibling", () => {
 });
 
 test("Incrementer: delete self", () => {
-  const store = createStore({ sectionInfos, paramInfos, uiTypes });
+  const store = createStore();
   const si1 = addInfo(store);
   const si2 = addInfo(store);
   addChild(store, si1, si2.id);
@@ -57,7 +55,7 @@ test("Incrementer: delete self", () => {
 });
 
 test("Incrementer: add child", () => {
-  const store = createStore({ sectionInfos, paramInfos, uiTypes });
+  const store = createStore();
   const si = addInfo(store);
 
   const wrapper = ({ children }) => (
@@ -78,7 +76,7 @@ test("Incrementer: add child", () => {
 });
 
 test("Incrementer: delete child", () => {
-  const store = createStore({ sectionInfos, paramInfos, uiTypes });
+  const store = createStore();
   const si1 = addInfo(store);
   const numInitialChildren = 4;
   _.range(numInitialChildren).forEach(() => {

@@ -1,33 +1,31 @@
-import { addInfo, addChild } from "__tests__utils/utils";
-import { createStore } from "easy-peasy";
-import sectionInfos from "models/info/sectionInfos";
+import { addInfo, addChild, createStore } from "__tests__utils/utils";
 
 test("setSectionInfo", () => {
-  const store = createStore({ sectionInfos });
+  const store = createStore();
   const si = addInfo(store);
   expect(store.getState().sectionInfos.x[si.id]).toBe(si);
 });
 
 test("setIdsOverviewThunk", () => {
-  const store = createStore({ sectionInfos });
+  const store = createStore();
   const si = addInfo(store);
   const childId = "123456";
   addChild(store, si, childId);
-  const childrenInfoId = store.getState().sectionInfos.idsOverview[si.id];
-  expect(store.getState().sectionInfos.childrenInfo[childrenInfoId]).toEqual([
-    childId,
-  ]);
+  const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[si.id];
+  expect(state.childrenInfo[childrenInfoId]).toEqual([childId]);
 });
 
 test("deleting a section should delete its children too", () => {
-  const store = createStore({ sectionInfos });
+  const store = createStore();
   const si1 = addInfo(store);
   const si2 = addInfo(store);
   const si3 = addInfo(store);
   addChild(store, si1, si2.id);
   store.getActions().sectionInfos.deleteSections({ sectionIds: [si1.id] });
-  expect(store.getState().sectionInfos.x).toEqual({ [si3.id]: si3 });
-  expect(store.getState().sectionInfos.idsOverview).toEqual({});
-  expect(store.getState().sectionInfos.childrenInfo).toEqual({});
-  expect(store.getState().sectionInfos.currChildren).toEqual({});
+  const state = store.getState().sectionInfos;
+  expect(state.x).toEqual({ [si3.id]: si3 });
+  expect(state.idsOverview).toEqual({});
+  expect(state.childrenInfo).toEqual({});
+  expect(state.currChildren).toEqual({});
 });

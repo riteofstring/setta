@@ -1,4 +1,10 @@
 import { SectionInfo } from "classes/mutableInfo";
+import store, { resetEntireState } from "store/store";
+
+export function createStore() {
+  resetEntireState();
+  return store;
+}
 
 export function addInfo(store) {
   const si = new SectionInfo({});
