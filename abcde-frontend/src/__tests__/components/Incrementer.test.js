@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { addInfo, addChild } from "__tests__utils/utils";
+import {
+  addInfo,
+  addChild,
+  getStoreProviderWrapper,
+} from "__tests__utils/utils";
 import { createStore } from "__tests__utils/utils";
 import Incrementer from "components/UI/Section/SectionContainer/Incrementer/Incrementer";
-import { StoreProvider } from "easy-peasy";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 
@@ -12,10 +15,7 @@ test("Incrementer: add sibling", () => {
   const si1 = addInfo(store);
   const si2 = addInfo(store);
   addChild(store, si1, si2.id);
-
-  const wrapper = ({ children }) => (
-    <StoreProvider store={store}>{children}</StoreProvider>
-  );
+  const wrapper = getStoreProviderWrapper(store);
   render(
     <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
     { wrapper }
@@ -31,10 +31,7 @@ test("Incrementer: delete self", () => {
   const si1 = addInfo(store);
   const si2 = addInfo(store);
   addChild(store, si1, si2.id);
-
-  const wrapper = ({ children }) => (
-    <StoreProvider store={store}>{children}</StoreProvider>
-  );
+  const wrapper = getStoreProviderWrapper(store);
   render(
     <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
     { wrapper }
@@ -57,10 +54,7 @@ test("Incrementer: delete self", () => {
 test("Incrementer: add child", () => {
   const store = createStore();
   const si = addInfo(store);
-
-  const wrapper = ({ children }) => (
-    <StoreProvider store={store}>{children}</StoreProvider>
-  );
+  const wrapper = getStoreProviderWrapper(store);
 
   function IncrementerParent() {
     const addChild = useAddChild(si.id);
@@ -83,10 +77,7 @@ test("Incrementer: delete child", () => {
     const si2 = addInfo(store);
     addChild(store, si1, si2.id);
   });
-
-  const wrapper = ({ children }) => (
-    <StoreProvider store={store}>{children}</StoreProvider>
-  );
+  const wrapper = getStoreProviderWrapper(store);
 
   function IncrementerParent() {
     const deleteChild = useDeleteChild(si1.id);

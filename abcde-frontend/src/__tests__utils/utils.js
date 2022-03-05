@@ -1,4 +1,5 @@
 import { SectionInfo } from "classes/mutableInfo";
+import { StoreProvider } from "easy-peasy";
 import store, { resetEntireState } from "store/store";
 
 export function createStore() {
@@ -19,4 +20,10 @@ export function addChild(store, si, childId) {
   store
     .getActions()
     .sectionInfos.setIdsOverviewThunk({ sectionId: si.id, newStateFn });
+}
+
+export function getStoreProviderWrapper(store) {
+  return ({ children }) => (
+    <StoreProvider store={store}>{children}</StoreProvider>
+  );
 }
