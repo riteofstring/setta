@@ -44,12 +44,20 @@ test("Incrementer: click add N children ", () => {
   clickAddNChildren(store, parent, 1, 5);
 });
 
-test("Incrementer: delete child", () => {
+test("Incrementer: click delete child N times", () => {
   const { store, parent } = componentSetup({
     forParent: true,
     numChildren: 4,
   });
   clickDeleteChildNTimes(store, parent, 4, 4);
+});
+
+test("Incrementer: click delete N children", () => {
+  const { store, parent } = componentSetup({
+    forParent: true,
+    numChildren: 4,
+  });
+  clickDeleteNChildren(store, parent, 4, 4);
 });
 
 function componentSetup({ forParent, numChildren }) {
@@ -131,49 +139,99 @@ function assertNChildrenAdded(store, parent, numInitialChildren, N) {
   );
 }
 
-function clickAddChildNTimes(store, parent, numInitialChildren, N) {
+function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
+  const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
+
+  // parent plus children
+  expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
+  // 1 parent so only 1 entry in idsOverview
+  expect(_.size(state.idsOverview)).toEqual(1);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren - N
+  );
+}
+
+function clickIncrementerNTimes({
+  store,
+  parent,
+  numInitialChildren,
+  N,
+  buttonName,
+  assertionFn,
+}) {
   for (let x of _.range(N)) {
     const addChildButton = screen.getByRole("button", {
-      name: "Add child section",
+      name: buttonName,
     });
     userEvent.click(addChildButton);
-    assertNChildrenAdded(store, parent, numInitialChildren, x + 1);
+    assertionFn(store, parent, numInitialChildren, x + 1);
   }
 }
 
-function clickAddNChildren(store, parent, numInitialChildren, N) {
+function enterNClickOnce({
+  store,
+  parent,
+  numInitialChildren,
+  N,
+  buttonName,
+  assertionFn,
+}) {
   const numSectionsInput = screen.getByRole("textbox", {
     name: "Number of sections",
   });
   const addChildButton = screen.getByRole("button", {
-    name: "Add child section",
+    name: buttonName,
   });
   userEvent.clear(numSectionsInput);
   userEvent.type(numSectionsInput, N.toString());
   userEvent.click(addChildButton);
-  assertNChildrenAdded(store, parent, numInitialChildren, N);
+  assertionFn(store, parent, numInitialChildren, N);
 }
 
-function clickDeleteChildNTimes(store, sectionInfo, numInitialChildren, N) {
-  for (let x of _.range(N)) {
-    const deleteChildButton = screen.getByRole("button", {
-      name: "Delete child section",
-    });
-    userEvent.click(deleteChildButton);
+function clickAddChildNTimes(store, parent, numInitialChildren, N) {
+  clickIncrementerNTimes({
+    store,
+    parent,
+    numInitialChildren,
+    N,
+    buttonName: "Add child section",
+    assertionFn: assertNChildrenAdded,
+  });
+}
 
-    const state = store.getState().sectionInfos;
-    const childrenInfoId = state.idsOverview[sectionInfo.id];
-    const numDeleted = x + 1;
+function clickAddNChildren(store, parent, numInitialChildren, N) {
+  enterNClickOnce({
+    store,
+    parent,
+    numInitialChildren,
+    N,
+    buttonName: "Add child section",
+    assertionFn: assertNChildrenAdded,
+  });
+}
 
-    // parent plus children
-    expect(_.size(state.x)).toEqual(1 + numInitialChildren - numDeleted);
-    // 1 parent so only 1 entry in idsOverview
-    expect(_.size(state.idsOverview)).toEqual(1);
-    expect(childrenInfoId).toBeTruthy();
-    expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
-      numInitialChildren - numDeleted
-    );
-  }
+function clickDeleteChildNTimes(store, parent, numInitialChildren, N) {
+  clickIncrementerNTimes({
+    store,
+    parent,
+    numInitialChildren,
+    N,
+    buttonName: "Delete child section",
+    assertionFn: assertNChildrenDeleted,
+  });
+}
+
+function clickDeleteNChildren(store, parent, numInitialChildren, N) {
+  enterNClickOnce({
+    store,
+    parent,
+    numInitialChildren,
+    N,
+    buttonName: "Delete child section",
+    assertionFn: assertNChildrenDeleted,
+  });
 }
 
 function clickDeleteSelf(store, parent, child) {
