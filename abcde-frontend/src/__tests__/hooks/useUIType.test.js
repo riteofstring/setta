@@ -19,31 +19,46 @@ test("useGetParamUIType", () => {
   expect(result.current).toEqual(uiType);
 });
 
-test("useSetUIType isPreset=true, settingPreset=true, paramIsNested=false", () => {
-  testUseSetUIType(true, true, false);
-});
+test.each(useSetUITypeTestCases())(
+  "useSetUIType: isPreset=%s, settingPreset=%s, paramIsNested=%s, settingSectionConfig=%s",
+  (isPreset, settingPreset, paramIsNested, settingSectionConfig) => {
+    testUseSetUIType(
+      isPreset,
+      settingPreset,
+      paramIsNested,
+      settingSectionConfig
+    );
+  }
+);
 
-test("useSetUIType isPreset=true, settingPreset=false, paramIsNested=false", () => {
-  testUseSetUIType(true, false, false);
-});
+function useSetUITypeTestCases() {
+  const output = [];
+  for (let isPreset of [true, false]) {
+    for (let settingPreset of [true, false]) {
+      for (let paramIsNested of [true, false]) {
+        for (let settingSectionConfig of [true, false]) {
+          if (!paramIsNested && settingSectionConfig) {
+            continue;
+          }
+          output.push([
+            isPreset,
+            settingPreset,
+            paramIsNested,
+            settingSectionConfig,
+          ]);
+        }
+      }
+    }
+  }
+  return output;
+}
 
-test("useSetUIType isPreset=false, settingPreset=false, paramIsNested=false", () => {
-  testUseSetUIType(false, true, false);
-});
-
-test("useSetUIType isPreset=true, settingPreset=true, paramIsNested=true", () => {
-  testUseSetUIType(true, true, true);
-});
-
-test("useSetUIType isPreset=true, settingPreset=false, paramIsNested=true", () => {
-  testUseSetUIType(true, false, true);
-});
-
-test("useSetUIType isPreset=false, settingPreset=false, paramIsNested=true", () => {
-  testUseSetUIType(false, true, true);
-});
-
-function testUseSetUIType(newUITypeIsPreset, settingPreset, paramIsNested) {
+function testUseSetUIType(
+  newUITypeIsPreset,
+  settingPreset,
+  paramIsNested,
+  settingSectionConfig
+) {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
   const { si, uiType, paramInfoId, childId } = createSectionInfoWithParam(
@@ -65,7 +80,7 @@ function testUseSetUIType(newUITypeIsPreset, settingPreset, paramIsNested) {
     childId,
     currUIType: uiType,
     settingPreset,
-    settingSectionConfig: false,
+    settingSectionConfig,
   };
 
   ({ result } = renderUseSetUIType(hookProps, wrapper));
