@@ -7,6 +7,7 @@ import {
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
+import _ from "lodash";
 
 test("useGetParamUIType", () => {
   const store = createStore();
@@ -79,10 +80,17 @@ function testUnNestedUIType(newUITypeIsPreset, settingPreset) {
       : {}
   );
 
+  const isPresetNotSettingPreset = newUITypeIsPreset && !settingPreset;
   // name should only be set if existing type was preset
   // and config was changed when settingPreset is false
   expect(result.current.name).toEqual(
-    newUITypeIsPreset && !settingPreset ? "SomeParam" : ""
+    isPresetNotSettingPreset ? "SomeParam" : ""
+  );
+
+  // uiType and newUIType exist, plus one more
+  // if newUIType is a preset and !settingPreset
+  expect(_.size(store.getState().uiTypes.x)).toEqual(
+    isPresetNotSettingPreset ? 3 : 2
   );
 }
 
