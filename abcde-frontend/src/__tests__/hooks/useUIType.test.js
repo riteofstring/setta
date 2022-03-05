@@ -34,31 +34,37 @@ test("useSetUIType", () => {
     settingSectionConfig: false,
   };
 
-  const { result: result1 } = renderHook(() => useSetUIType(hookProps), {
+  let { result } = renderHook(() => useSetUIType(hookProps), {
     wrapper,
   });
 
   // test setting ui type id
   const newUIType = addUIType(store);
   expect(uiType.id).not.toEqual(newUIType.id);
-  act(() => result1.current[0](newUIType.id));
+  act(() => result.current[0](newUIType.id));
 
-  const paramInfo = store.getState().paramInfos.y[collectionId][paramInfoId];
-  expect(paramInfo.uiTypeId).toEqual(newUIType.id);
+  // get ui type
+  ({ result } = renderHook(() => useGetParamUIType(si.id)(paramInfoId), {
+    wrapper,
+  }));
+  expect(result.current).toEqual(newUIType);
 
   // test setting ui type config
   hookProps.currUIType = store.getState().uiTypes.x[newUIType.id];
   expect(hookProps.currUIType.config).toEqual({});
 
-  const { result: result2 } = renderHook(() => useSetUIType(hookProps), {
+  ({ result } = renderHook(() => useSetUIType(hookProps), {
     wrapper,
-  });
+  }));
   act(() =>
-    result2.current[1]({ configName: "maxValue", newValueFn: () => 634 })
+    result.current[1]({ configName: "maxValue", newValueFn: () => 634 })
   );
-  expect(store.getState().uiTypes.x[newUIType.id].config).toEqual({
-    maxValue: 634,
-  });
+
+  // get ui type
+  ({ result } = renderHook(() => useGetParamUIType(si.id)(paramInfoId), {
+    wrapper,
+  }));
+  expect(result.current.config).toEqual({maxValue: 634});
 });
 
 function createSectionInfoWithParamUIType(store) {
