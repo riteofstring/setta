@@ -28,13 +28,14 @@ test("setIdsOverviewThunk", () => {
   expect(store.getState().childrenInfo[childrenInfoId]).toEqual([childId]);
 });
 
-test("deleteSections", () => {
+test("deleting a section should delete its children too", () => {
   const store = createStore(sectionInfos);
   const si1 = addInfo(store);
   const si2 = addInfo(store);
+  const si3 = addInfo(store);
   addChild(store, si1, si2.id);
   store.getActions().deleteSections({ sectionIds: [si1.id] });
-  expect(store.getState().x).toEqual({ [si2.id]: si2 });
+  expect(store.getState().x).toEqual({ [si3.id]: si3 });
   expect(store.getState().idsOverview).toEqual({});
   expect(store.getState().childrenInfo).toEqual({});
   expect(store.getState().currChildren).toEqual({});

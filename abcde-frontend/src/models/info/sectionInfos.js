@@ -44,12 +44,9 @@ const sectionInfos = {
 
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
-    state.x = _.omit(state.x, sectionIds);
-    const childrenInfoIds = _.filter(state.idsOverview, (v, k) =>
-      sectionIds.includes(k)
-    );
-    state.idsOverview = _.omit(state.idsOverview, sectionIds);
-    state.childrenInfo = _.omit(state.childrenInfo, childrenInfoIds);
+    for (let sid of sectionIds) {
+      deleteSectionFn(state, sid);
+    }
   }),
 
   idNames: computed([(state) => state.x], (x) => {
@@ -76,3 +73,17 @@ const sectionInfos = {
 };
 
 export default sectionInfos;
+
+function deleteSectionFn(state, sectionId) {
+  const childrenInfoId = state.idsOverview[sectionId];
+  const childIds = state.childrenInfo[childrenInfoId];
+  if (childIds) {
+    for (let child of childIds) {
+      deleteSectionFn(state, child);
+    }
+  }
+  delete state.x[sectionId];
+  delete state.idsOverview[sectionId];
+  delete state.childrenInfo[childrenInfoId];
+  delete state.currChildren[sectionId];
+}
