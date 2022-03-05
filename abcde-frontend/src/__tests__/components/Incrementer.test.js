@@ -22,23 +22,26 @@ test("Incrementer: add sibling section", () => {
     { wrapper }
   );
 
+  // nextId is not provided, so the delete button should be disabled
   const deleteChildButton = screen.getByRole("button", {
     name: "Delete child section",
   });
   expect(deleteChildButton).toBeDisabled();
 
-  const addChildButton = screen.getByRole("button", {
-    name: "Add child section",
-  });
-  userEvent.click(addChildButton);
+  for (let x of _.range(5)) {
+    const addChildButton = screen.getByRole("button", {
+      name: "Add child section",
+    });
+    userEvent.click(addChildButton);
 
-  const state = store.getState().sectionInfos;
-  const childrenInfoId = state.idsOverview[si1.id];
+    const state = store.getState().sectionInfos;
+    const childrenInfoId = state.idsOverview[si1.id];
 
-  // 3 sections
-  expect(_.size(state.x)).toEqual(3);
-  // 1 parent, 2 children, so only 1 entry in idsOverview
-  expect(_.size(state.idsOverview)).toEqual(1);
-  expect(childrenInfoId).toBeTruthy();
-  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(2);
+    // 3 sections
+    expect(_.size(state.x)).toEqual(2 + x + 1);
+    // 1 parent, 2 children, so only 1 entry in idsOverview
+    expect(_.size(state.idsOverview)).toEqual(1);
+    expect(childrenInfoId).toBeTruthy();
+    expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(1 + x + 1);
+  }
 });
