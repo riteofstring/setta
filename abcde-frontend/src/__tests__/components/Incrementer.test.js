@@ -11,97 +11,96 @@ import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 
 test("Incrementer: click add sibling N times", () => {
-  const [store, parent] = addSiblingSetup();
+  const { store, parent } = componentSetup({
+    forParent: false,
+    numChildren: 1,
+  });
   clickAddChildNTimes(store, parent, 1, 5);
 });
 
 test("Incrementer: click add N siblings", () => {
-  const [store, parent] = addSiblingSetup();
+  const { store, parent } = componentSetup({
+    forParent: false,
+    numChildren: 1,
+  });
   clickAddNChildren(store, parent, 1, 5);
 });
 
 test("Incrementer: delete self", () => {
-  const store = createStore();
-  const si1 = addSectionInfo(store);
-  const si2 = addSectionInfo(store);
-  addChild(store, si1, si2.id);
-  const wrapper = getStoreProviderWrapper(store);
-  render(
-    <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
-    { wrapper }
-  );
-  // nextId is not provided, so the delete button should be disabled
-  assertDeleteChildIsDisabled();
-  clickDeleteSelf(store, si1, si2);
+  const { store, parent, childrenInfos } = componentSetup({
+    forParent: false,
+    numChildren: 1,
+  });
+  clickDeleteSelf(store, parent, childrenInfos[0]);
 });
 
 test("Incrementer: click add child N times ", () => {
-  const [store, parent] = addChildSetup();
-  clickAddChildNTimes(store, parent, 0, 5);
+  const { store, parent } = componentSetup({ forParent: true, numChildren: 1 });
+  clickAddChildNTimes(store, parent, 1, 5);
 });
 
 test("Incrementer: click add N children ", () => {
-  const [store, parent] = addChildSetup();
-  clickAddNChildren(store, parent, 0, 5);
+  const { store, parent } = componentSetup({ forParent: true, numChildren: 1 });
+  clickAddNChildren(store, parent, 1, 5);
 });
 
 test("Incrementer: delete child", () => {
+  const { store, parent } = componentSetup({
+    forParent: true,
+    numChildren: 4,
+  });
+  clickDeleteChildNTimes(store, parent, 4, 4);
+});
+
+function componentSetup({ forParent, numChildren }) {
   const store = createStore();
-  const si1 = addSectionInfo(store);
-  const numChildren = 4;
+  const parent = addSectionInfo(store);
+  let childrenInfos = [];
   _.range(numChildren).forEach(() => {
-    const si2 = addSectionInfo(store);
-    addChild(store, si1, si2.id);
+    const child = addSectionInfo(store);
+    addChild(store, parent, child.id);
+    childrenInfos.push(child);
   });
   const wrapper = getStoreProviderWrapper(store);
 
-  function IncrementerParent() {
-    const deleteChild = useDeleteChild(si1.id);
+  // increment for one of the children
+  function IncrementerForChild() {
     return (
       <Incrementer
-        sectionId={si1.id}
+        parentId={parent.id}
+        sectionId={childrenInfos[0].id}
+        nextId={childrenInfos.length > 1 ? childrenInfos[1].id : null}
+        isListRoot={false}
+      />
+    );
+  }
+
+  // increment for one of the children
+  function IncrementerForParent() {
+    const addChild = useAddChild(parent.id);
+    const deleteChild = useDeleteChild(parent.id);
+    return (
+      <Incrementer
+        sectionId={parent.id}
         isListRoot={true}
+        addChild={addChild}
         deleteChild={deleteChild}
         hasNested={true}
       />
     );
   }
 
-  render(<IncrementerParent />, { wrapper });
-  assertDeleteChildIsEnabled();
-  clickDeleteChildNTimes(store, si1, numChildren, numChildren);
-});
+  render(forParent ? <IncrementerForParent /> : <IncrementerForChild />, {
+    wrapper,
+  });
 
-function addSiblingSetup() {
-  const store = createStore();
-  const si1 = addSectionInfo(store);
-  const si2 = addSectionInfo(store);
-  addChild(store, si1, si2.id);
-  const wrapper = getStoreProviderWrapper(store);
-  render(
-    <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
-    { wrapper }
-  );
-  // nextId is not provided, so the delete button should be disabled
-  assertDeleteChildIsDisabled();
-  return [store, si1];
-}
-
-function addChildSetup() {
-  const store = createStore();
-  const si = addSectionInfo(store);
-  const wrapper = getStoreProviderWrapper(store);
-
-  function IncrementerParent() {
-    const addChild = useAddChild(si.id);
-    return (
-      <Incrementer sectionId={si.id} isListRoot={true} addChild={addChild} />
-    );
+  if ((forParent && numChildren > 0) || (!forParent && numChildren > 1)) {
+    assertDeleteChildIsEnabled();
+  } else {
+    assertDeleteChildIsDisabled();
   }
 
-  render(<IncrementerParent />, { wrapper });
-  assertDeleteChildIsDisabled();
-  return [store, si];
+  return { store, parent, childrenInfos };
 }
 
 function assertDeleteChildIsDisabled() {
