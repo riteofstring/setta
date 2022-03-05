@@ -7,7 +7,7 @@ export function createStore() {
   return store;
 }
 
-export function addInfo(store) {
+export function addSectionInfo(store) {
   const si = new SectionInfo({});
   store
     .getActions()

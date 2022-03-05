@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
-  addInfo,
+  addSectionInfo,
   addChild,
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
@@ -12,48 +12,37 @@ import _ from "lodash";
 
 test("Incrementer: add sibling", () => {
   const store = createStore();
-  const si1 = addInfo(store);
-  const si2 = addInfo(store);
+  const si1 = addSectionInfo(store);
+  const si2 = addSectionInfo(store);
   addChild(store, si1, si2.id);
   const wrapper = getStoreProviderWrapper(store);
   render(
     <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
     { wrapper }
   );
-
   // nextId is not provided, so the delete button should be disabled
   assertDeleteChildIsDisabled();
-  clickAddChild(store, si1, 1);
+  clickAddChildNTimes(store, si1, 1, 5);
 });
 
 test("Incrementer: delete self", () => {
   const store = createStore();
-  const si1 = addInfo(store);
-  const si2 = addInfo(store);
+  const si1 = addSectionInfo(store);
+  const si2 = addSectionInfo(store);
   addChild(store, si1, si2.id);
   const wrapper = getStoreProviderWrapper(store);
   render(
     <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
     { wrapper }
   );
-
   // nextId is not provided, so the delete button should be disabled
   assertDeleteChildIsDisabled();
-  const deleteSelf = screen.getByRole("button", {
-    name: "Delete self",
-  });
-  userEvent.click(deleteSelf);
-
-  const state = store.getState().sectionInfos;
-  const childrenInfoId = state.idsOverview[si1.id];
-  expect(_.size(state.x)).toEqual(1);
-  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
-  expect(state.x[si2.id]).toBeUndefined();
+  clickDeleteSelf(store, si1, si2);
 });
 
 test("Incrementer: add child", () => {
   const store = createStore();
-  const si = addInfo(store);
+  const si = addSectionInfo(store);
   const wrapper = getStoreProviderWrapper(store);
 
   function IncrementerParent() {
@@ -64,17 +53,16 @@ test("Incrementer: add child", () => {
   }
 
   render(<IncrementerParent />, { wrapper });
-
   assertDeleteChildIsDisabled();
-  clickAddChild(store, si, 0);
+  clickAddChildNTimes(store, si, 0, 5);
 });
 
 test("Incrementer: delete child", () => {
   const store = createStore();
-  const si1 = addInfo(store);
-  const numInitialChildren = 4;
-  _.range(numInitialChildren).forEach(() => {
-    const si2 = addInfo(store);
+  const si1 = addSectionInfo(store);
+  const numChildren = 4;
+  _.range(numChildren).forEach(() => {
+    const si2 = addSectionInfo(store);
     addChild(store, si1, si2.id);
   });
   const wrapper = getStoreProviderWrapper(store);
@@ -93,7 +81,7 @@ test("Incrementer: delete child", () => {
 
   render(<IncrementerParent />, { wrapper });
   assertDeleteChildIsEnabled();
-  clickDeleteChild(store, si1, numInitialChildren);
+  clickDeleteChildNTimes(store, si1, numChildren, numChildren);
 });
 
 function assertDeleteChildIsDisabled() {
@@ -110,8 +98,8 @@ function assertDeleteChildIsEnabled() {
   expect(deleteChildButton).not.toBeDisabled();
 }
 
-function clickAddChild(store, sectionInfo, numInitialChildren) {
-  for (let x of _.range(5)) {
+function clickAddChildNTimes(store, sectionInfo, numInitialChildren, N) {
+  for (let x of _.range(N)) {
     const addChildButton = screen.getByRole("button", {
       name: "Add child section",
     });
@@ -132,8 +120,8 @@ function clickAddChild(store, sectionInfo, numInitialChildren) {
   }
 }
 
-function clickDeleteChild(store, sectionInfo, numInitialChildren) {
-  for (let x of _.range(numInitialChildren)) {
+function clickDeleteChildNTimes(store, sectionInfo, numInitialChildren, N) {
+  for (let x of _.range(N)) {
     const deleteChildButton = screen.getByRole("button", {
       name: "Delete child section",
     });
@@ -152,4 +140,17 @@ function clickDeleteChild(store, sectionInfo, numInitialChildren) {
       numInitialChildren - numDeleted
     );
   }
+}
+
+function clickDeleteSelf(store, parent, child) {
+  const deleteSelf = screen.getByRole("button", {
+    name: "Delete self",
+  });
+  userEvent.click(deleteSelf);
+
+  const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
+  expect(_.size(state.x)).toEqual(1);
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
+  expect(state.x[child.id]).toBeUndefined();
 }
