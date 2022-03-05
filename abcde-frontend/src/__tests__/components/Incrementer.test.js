@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { addInfo, addChild } from "__tests__utils/utils";
 import Incrementer from "components/UI/Section/SectionContainer/Incrementer/Incrementer";
 import { createStore, StoreProvider } from "easy-peasy";
-import { useAddChild } from "hooks/useAddDeleteChild";
+import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
@@ -25,7 +25,7 @@ test("Incrementer: add sibling", () => {
 
   // nextId is not provided, so the delete button should be disabled
   assertDeleteIsDisabled();
-  assertNumChildren(store, si1, 1);
+  clickAddChild(store, si1, 1);
 });
 
 test("Incrementer: add child", () => {
@@ -46,7 +46,37 @@ test("Incrementer: add child", () => {
   render(<IncrementerParent />, { wrapper });
 
   assertDeleteIsDisabled();
-  assertNumChildren(store, si, 0);
+  clickAddChild(store, si, 0);
+});
+
+test("Incrementer: delete child", () => {
+  const store = createStore({ sectionInfos, paramInfos, uiTypes });
+  const si1 = addInfo(store);
+  const numInitialChildren = 4;
+  _.range(numInitialChildren).forEach(() => {
+    const si2 = addInfo(store);
+    addChild(store, si1, si2.id);
+  });
+
+  const wrapper = ({ children }) => (
+    <StoreProvider store={store}>{children}</StoreProvider>
+  );
+
+  function IncrementerParent() {
+    const deleteChild = useDeleteChild(si1.id);
+    return (
+      <Incrementer
+        sectionId={si1.id}
+        isListRoot={true}
+        deleteChild={deleteChild}
+        hasNested={true}
+      />
+    );
+  }
+
+  render(<IncrementerParent />, { wrapper });
+  assertDeleteIsEnabled();
+  clickDeleteChild(store, si1, numInitialChildren);
 });
 
 function assertDeleteIsDisabled() {
@@ -56,7 +86,14 @@ function assertDeleteIsDisabled() {
   expect(deleteChildButton).toBeDisabled();
 }
 
-function assertNumChildren(store, sectionInfo, numInitialChildren) {
+function assertDeleteIsEnabled() {
+  const deleteChildButton = screen.getByRole("button", {
+    name: "Delete child section",
+  });
+  expect(deleteChildButton).not.toBeDisabled();
+}
+
+function clickAddChild(store, sectionInfo, numInitialChildren) {
   for (let x of _.range(5)) {
     const addChildButton = screen.getByRole("button", {
       name: "Add child section",
@@ -74,6 +111,28 @@ function assertNumChildren(store, sectionInfo, numInitialChildren) {
     expect(childrenInfoId).toBeTruthy();
     expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
       numInitialChildren + numAdded
+    );
+  }
+}
+
+function clickDeleteChild(store, sectionInfo, numInitialChildren) {
+  for (let x of _.range(numInitialChildren)) {
+    const deleteChildButton = screen.getByRole("button", {
+      name: "Delete child section",
+    });
+    userEvent.click(deleteChildButton);
+
+    const state = store.getState().sectionInfos;
+    const childrenInfoId = state.idsOverview[sectionInfo.id];
+    const numDeleted = x + 1;
+
+    // parent plus children
+    expect(_.size(state.x)).toEqual(1 + numInitialChildren - numDeleted);
+    // 1 parent so only 1 entry in idsOverview
+    expect(_.size(state.idsOverview)).toEqual(1);
+    expect(childrenInfoId).toBeTruthy();
+    expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+      numInitialChildren - numDeleted
     );
   }
 }
