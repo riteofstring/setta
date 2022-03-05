@@ -1,14 +1,12 @@
 import { render, screen } from "@testing-library/react";
+import { renderHook } from "@testing-library/react-hooks";
 import userEvent from "@testing-library/user-event";
-import {
-  addSectionInfo,
-  addChild,
-  getStoreProviderWrapper,
-} from "__tests__utils/utils";
+import { addSectionInfo, getStoreProviderWrapper } from "__tests__utils/utils";
 import { createStore } from "__tests__utils/utils";
 import Incrementer from "components/UI/Section/SectionContainer/Incrementer/Incrementer";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
+import { act } from "react-dom/test-utils";
 
 test("Incrementer: click add sibling N times", () => {
   const { store, parent } = componentSetup({
@@ -27,11 +25,11 @@ test("Incrementer: click add N siblings", () => {
 });
 
 test("Incrementer: delete self", () => {
-  const { store, parent, childrenInfos } = componentSetup({
+  const { store, parent, childIds } = componentSetup({
     forParent: false,
     numChildren: 1,
   });
-  clickDeleteSelf(store, parent, childrenInfos[0]);
+  clickDeleteSelf(store, parent, childIds[0]);
 });
 
 test("Incrementer: click add child N times ", () => {
@@ -62,22 +60,23 @@ test("Incrementer: click delete N children", () => {
 
 function componentSetup({ forParent, numChildren }) {
   const store = createStore();
-  const parent = addSectionInfo(store);
-  let childrenInfos = [];
-  _.range(numChildren).forEach(() => {
-    const child = addSectionInfo(store);
-    addChild(store, parent, child.id);
-    childrenInfos.push(child);
-  });
   const wrapper = getStoreProviderWrapper(store);
+  const parent = addSectionInfo(store);
+  let { result } = renderHook(() => useAddChild(parent.id), { wrapper });
+  _.range(numChildren).forEach(() => {
+    act(() => result.current({}));
+  });
+  const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
+  const childIds = state.childrenInfo[childrenInfoId];
 
   // increment for one of the children
   function IncrementerForChild() {
     return (
       <Incrementer
         parentId={parent.id}
-        sectionId={childrenInfos[0].id}
-        nextId={childrenInfos.length > 1 ? childrenInfos[1].id : null}
+        sectionId={childIds[0].id}
+        nextId={childIds.length > 1 ? childIds[1].id : null}
         isListRoot={false}
       />
     );
@@ -108,7 +107,7 @@ function componentSetup({ forParent, numChildren }) {
     assertDeleteChildIsDisabled();
   }
 
-  return { store, parent, childrenInfos };
+  return { store, parent, childIds };
 }
 
 function assertDeleteChildIsDisabled() {
@@ -234,7 +233,7 @@ function clickDeleteNChildren(store, parent, numInitialChildren, N) {
   });
 }
 
-function clickDeleteSelf(store, parent, child) {
+function clickDeleteSelf(store, parent, childId) {
   const deleteSelf = screen.getByRole("button", {
     name: "Delete self",
   });
@@ -244,5 +243,5 @@ function clickDeleteSelf(store, parent, child) {
   const childrenInfoId = state.idsOverview[parent.id];
   expect(_.size(state.x)).toEqual(1);
   expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
-  expect(state.x[child.id]).toBeUndefined();
+  expect(state.x[childId]).toBeUndefined();
 }

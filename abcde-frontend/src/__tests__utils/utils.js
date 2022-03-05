@@ -1,6 +1,9 @@
+import { act } from "@testing-library/react";
+import { renderHook } from "@testing-library/react-hooks";
 import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
+import { useAddChild } from "hooks/useAddDeleteChild";
 import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
 import { createNewId } from "utils/utils";
@@ -29,39 +32,28 @@ export function addUIType(store, props = {}) {
 }
 
 export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
-  const [uiTypeCollectionId, paramCollectionId, paramInfoId] = [
-    createNewId(),
-    createNewId(),
-    createNewId(),
-  ];
+  const [uiTypeCollectionId, paramInfoId] = [createNewId(), createNewId()];
+  const { paramCollectionId } = sectionInfo;
   const actions = store.getActions().paramInfos;
   actions.setUITypeId({
     collectionId: uiTypeCollectionId,
     paramInfoId,
     uiTypeId: uiType.id,
   });
-  let child = null;
   if (isNested) {
-    child = addSectionInfo(store, uiType);
-    addChild(store, sectionInfo, child.id);
-    actions.setChildId({
-      collectionId: paramCollectionId,
-      paramInfoId,
-      childId: child.id,
+    const wrapper = getStoreProviderWrapper(store);
+    const { result } = renderHook(() => useAddChild(sectionInfo.id), {
+      wrapper,
     });
+    act(() =>
+      result.current({
+        uiTypeId: uiType.id,
+        collectionId: paramCollectionId,
+        parentParamInfoId: paramInfoId,
+      })
+    );
   }
-  const output = { uiTypeCollectionId, paramCollectionId, paramInfoId };
-  if (isNested) {
-    output.childId = child.id;
-  }
-  return output;
-}
-
-export function addChild(store, si, childId) {
-  const newStateFn = (x) => [...x, childId];
-  store
-    .getActions()
-    .sectionInfos.setIdsOverviewThunk({ sectionId: si.id, newStateFn });
+  return { uiTypeCollectionId, paramInfoId };
 }
 
 export function getStoreProviderWrapper(store) {

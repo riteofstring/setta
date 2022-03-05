@@ -1,4 +1,7 @@
-import { addSectionInfo, addChild, createStore } from "__tests__utils/utils";
+import { renderHook } from "@testing-library/react-hooks";
+import { addSectionInfo, createStore, getStoreProviderWrapper } from "__tests__utils/utils";
+import { useAddChild } from "hooks/useAddDeleteChild";
+import { act } from "react-dom/test-utils";
 
 test("setSectionInfo", () => {
   const store = createStore();
@@ -10,7 +13,10 @@ test("setIdsOverviewThunk", () => {
   const store = createStore();
   const si = addSectionInfo(store);
   const childId = "123456";
-  addChild(store, si, childId);
+  const newStateFn = (x) => [...x, childId];
+  store
+    .getActions()
+    .sectionInfos.setIdsOverviewThunk({ sectionId: si.id, newStateFn });
   const state = store.getState().sectionInfos;
   const childrenInfoId = state.idsOverview[si.id];
   expect(state.childrenInfo[childrenInfoId]).toEqual([childId]);
@@ -18,13 +24,14 @@ test("setIdsOverviewThunk", () => {
 
 test("deleting a section should delete its children too", () => {
   const store = createStore();
+  const wrapper = getStoreProviderWrapper(store);
   const si1 = addSectionInfo(store);
   const si2 = addSectionInfo(store);
-  const si3 = addSectionInfo(store);
-  addChild(store, si1, si2.id);
+  const { result } = renderHook(() => useAddChild(si1.id), { wrapper });
+  act(() => result.current({}));
   store.getActions().sectionInfos.deleteSections({ sectionIds: [si1.id] });
   const state = store.getState().sectionInfos;
-  expect(state.x).toEqual({ [si3.id]: si3 });
+  expect(state.x).toEqual({ [si2.id]: si2 });
   expect(state.idsOverview).toEqual({});
   expect(state.childrenInfo).toEqual({});
   expect(state.currChildren).toEqual({});

@@ -6,6 +6,7 @@ import {
   createStore,
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
+import { useParamChildId } from "hooks/useParamInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import _ from "lodash";
@@ -61,12 +62,16 @@ function testUseSetUIType(
 ) {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { si, uiType, paramInfoId, childId } = createSectionInfoWithParam(
+  const { si, uiType, paramInfoId } = createSectionInfoWithParam(
     store,
     paramIsNested
   );
 
   let result = null;
+
+  ({ result } = renderUseParamChildId(si.id, paramInfoId, wrapper));
+  const childId = result.current[0]
+
   if (paramIsNested) {
     // child section type should be uiType
     ({ result } = renderUseGetSectionType(childId, wrapper));
@@ -155,6 +160,12 @@ function renderUseGetParamUIType(sectionId, paramInfoId, wrapper) {
   });
 }
 
+function renderUseParamChildId(sectionId, paramInfoId, wrapper) {
+  return renderHook(() => useParamChildId(sectionId)(paramInfoId), {
+    wrapper,
+  });
+}
+
 function renderUseGetSectionType(sectionId, wrapper) {
   return renderHook(() => useGetSectionType(sectionId), {
     wrapper,
@@ -167,8 +178,12 @@ function createSectionInfoWithParam(store, paramIsNested = false) {
   // create a UIType for a random parameter
   const uiType = addUIType(store);
   expect(uiType.id).toBeTruthy();
-  const { uiTypeCollectionId, paramCollectionId, paramInfoId, childId } =
-    addParamInfo(store, si, uiType, paramIsNested);
+  const { uiTypeCollectionId, paramInfoId } = addParamInfo(
+    store,
+    si,
+    uiType,
+    paramIsNested
+  );
 
   // set the section's UIType's config's uiTypeCollectionId
   store.getActions().uiTypes.setOneConfig({
@@ -181,8 +196,6 @@ function createSectionInfoWithParam(store, paramIsNested = false) {
     si,
     uiType,
     uiTypeCollectionId,
-    paramCollectionId,
     paramInfoId,
-    childId,
   };
 }
