@@ -45,7 +45,11 @@ const sectionInfos = {
   deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     state.x = _.omit(state.x, sectionIds);
+    const childrenInfoIds = _.filter(state.idsOverview, (v, k) =>
+      sectionIds.includes(k)
+    );
     state.idsOverview = _.omit(state.idsOverview, sectionIds);
+    state.childrenInfo = _.omit(state.childrenInfo, childrenInfoIds);
   }),
 
   idNames: computed([(state) => state.x], (x) => {
