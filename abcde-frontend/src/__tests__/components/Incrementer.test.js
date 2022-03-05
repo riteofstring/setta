@@ -8,7 +8,7 @@ import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 
-test("Incrementer", () => {
+test("Incrementer: add sibling section", () => {
   const store = createStore({ sectionInfos, paramInfos, uiTypes });
   const si1 = addInfo(store);
   const si2 = addInfo(store);
@@ -21,6 +21,12 @@ test("Incrementer", () => {
     <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
     { wrapper }
   );
+
+  const deleteChildButton = screen.getByRole("button", {
+    name: "Delete child section",
+  });
+  expect(deleteChildButton).toBeDisabled();
+
   const addChildButton = screen.getByRole("button", {
     name: "Add child section",
   });
