@@ -6,7 +6,7 @@ import _ from "lodash";
 import sectionInfos from "models/info/sectionInfos";
 
 test("useCreateDefaultSectionInfo", () => {
-  const store = createStore({ sectionInfos: sectionInfos });
+  const store = createStore({ sectionInfos });
   const wrapper = ({ children }) => (
     <StoreProvider store={store}>{children}</StoreProvider>
   );
