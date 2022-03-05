@@ -58,6 +58,7 @@ export default function Incrementer({
         maxW="5ch"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
+        aria-label="Number of sections"
       />
 
       <IconButton
