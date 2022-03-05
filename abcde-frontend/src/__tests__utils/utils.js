@@ -11,23 +11,16 @@ export function createStore() {
 }
 
 export function addSectionInfo(store) {
-  const si = new SectionInfo({});
-  const actions = store.getActions();
-  actions.sectionInfos.setSectionInfo((x) => ({ ...x, [si.id]: si }));
-
-  const uiType = addUIType(store);
-  actions.uiTypes.setType({ uiTypeId: uiType.id, type: SECTION });
-
-  actions.sectionInfos.setSectionInfoAttr({
-    sectionId: si.id,
-    attr: "uiTypeId",
-    value: uiType.id,
-  });
-  return store.getState().sectionInfos.x[si.id];
+  const uiType = addUIType(store, { type: SECTION });
+  const si = new SectionInfo({ uiTypeId: uiType.id });
+  store
+    .getActions()
+    .sectionInfos.setSectionInfo((x) => ({ ...x, [si.id]: si }));
+  return si;
 }
 
-export function addUIType(store) {
-  const uiType = new UIType({});
+export function addUIType(store, props = {}) {
+  const uiType = new UIType(props);
   store.getActions().uiTypes.setUIType({ uiType });
   return uiType;
 }
