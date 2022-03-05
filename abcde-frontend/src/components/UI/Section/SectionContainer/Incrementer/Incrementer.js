@@ -77,13 +77,9 @@ export default function Incrementer({
       {!isListRoot && (
         <IconButton
           bg="whiteAlpha"
-          icon={
-            <Icon
-              as={HiX}
-              onClick={() => deleteThisSection()}
-              aria-label="Delete this section"
-            />
-          }
+          icon={<Icon as={HiX} />}
+          onClick={deleteThisSection}
+          aria-label="Delete self"
         />
       )}
     </HStack>

@@ -24,8 +24,36 @@ test("Incrementer: add sibling", () => {
   );
 
   // nextId is not provided, so the delete button should be disabled
-  assertDeleteIsDisabled();
+  assertDeleteChildIsDisabled();
   clickAddChild(store, si1, 1);
+});
+
+test("Incrementer: delete self", () => {
+  const store = createStore({ sectionInfos, paramInfos, uiTypes });
+  const si1 = addInfo(store);
+  const si2 = addInfo(store);
+  addChild(store, si1, si2.id);
+
+  const wrapper = ({ children }) => (
+    <StoreProvider store={store}>{children}</StoreProvider>
+  );
+  render(
+    <Incrementer parentId={si1.id} sectionId={si2.id} isListRoot={false} />,
+    { wrapper }
+  );
+
+  // nextId is not provided, so the delete button should be disabled
+  assertDeleteChildIsDisabled();
+  const deleteSelf = screen.getByRole("button", {
+    name: "Delete self",
+  });
+  userEvent.click(deleteSelf);
+
+  const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[si1.id];
+  expect(_.size(state.x)).toEqual(1);
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
+  expect(state.x[si2.id]).toBeUndefined();
 });
 
 test("Incrementer: add child", () => {
@@ -45,7 +73,7 @@ test("Incrementer: add child", () => {
 
   render(<IncrementerParent />, { wrapper });
 
-  assertDeleteIsDisabled();
+  assertDeleteChildIsDisabled();
   clickAddChild(store, si, 0);
 });
 
@@ -75,18 +103,18 @@ test("Incrementer: delete child", () => {
   }
 
   render(<IncrementerParent />, { wrapper });
-  assertDeleteIsEnabled();
+  assertDeleteChildIsEnabled();
   clickDeleteChild(store, si1, numInitialChildren);
 });
 
-function assertDeleteIsDisabled() {
+function assertDeleteChildIsDisabled() {
   const deleteChildButton = screen.getByRole("button", {
     name: "Delete child section",
   });
   expect(deleteChildButton).toBeDisabled();
 }
 
-function assertDeleteIsEnabled() {
+function assertDeleteChildIsEnabled() {
   const deleteChildButton = screen.getByRole("button", {
     name: "Delete child section",
   });
