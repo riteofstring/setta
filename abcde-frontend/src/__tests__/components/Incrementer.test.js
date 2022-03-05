@@ -12,16 +12,12 @@ import _ from "lodash";
 
 test("Incrementer: click add sibling N times", () => {
   const [store, parent] = addSiblingSetup();
-  const N = 5;
-  const numInitialChildren = 1;
-  clickAddChildNTimes(store, parent, numInitialChildren, N);
+  clickAddChildNTimes(store, parent, 1, 5);
 });
 
 test("Incrementer: click add N siblings", () => {
   const [store, parent] = addSiblingSetup();
-  const N = 5;
-  const numInitialChildren = 1;
-  clickAddNChildren(store, parent, numInitialChildren, N);
+  clickAddNChildren(store, parent, 1, 5);
 });
 
 test("Incrementer: delete self", () => {
@@ -39,21 +35,14 @@ test("Incrementer: delete self", () => {
   clickDeleteSelf(store, si1, si2);
 });
 
-test("Incrementer: add child", () => {
-  const store = createStore();
-  const si = addSectionInfo(store);
-  const wrapper = getStoreProviderWrapper(store);
+test("Incrementer: click add child N times ", () => {
+  const [store, parent] = addChildSetup();
+  clickAddChildNTimes(store, parent, 0, 5);
+});
 
-  function IncrementerParent() {
-    const addChild = useAddChild(si.id);
-    return (
-      <Incrementer sectionId={si.id} isListRoot={true} addChild={addChild} />
-    );
-  }
-
-  render(<IncrementerParent />, { wrapper });
-  assertDeleteChildIsDisabled();
-  clickAddChildNTimes(store, si, 0, 5);
+test("Incrementer: click add N children ", () => {
+  const [store, parent] = addChildSetup();
+  clickAddNChildren(store, parent, 0, 5);
 });
 
 test("Incrementer: delete child", () => {
@@ -96,6 +85,23 @@ function addSiblingSetup() {
   // nextId is not provided, so the delete button should be disabled
   assertDeleteChildIsDisabled();
   return [store, si1];
+}
+
+function addChildSetup() {
+  const store = createStore();
+  const si = addSectionInfo(store);
+  const wrapper = getStoreProviderWrapper(store);
+
+  function IncrementerParent() {
+    const addChild = useAddChild(si.id);
+    return (
+      <Incrementer sectionId={si.id} isListRoot={true} addChild={addChild} />
+    );
+  }
+
+  render(<IncrementerParent />, { wrapper });
+  assertDeleteChildIsDisabled();
+  return [store, si];
 }
 
 function assertDeleteChildIsDisabled() {
