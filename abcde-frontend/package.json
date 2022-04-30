@@ -10,6 +10,8 @@
     "@dnd-kit/sortable": "^6.0.0",
     "@emotion/react": "^11",
     "@emotion/styled": "^11",
+    "@fontsource/inter": "^4.5.7",
+    "@fontsource/work-sans": "^4.5.7",
     "@monaco-editor/react": "^4.0.10",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^12.1.0",

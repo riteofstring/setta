@@ -1,5 +1,5 @@
-import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
-import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
+import "@chakra-ui/icons";
+import { InputGroup, Flex, IconButton, Box } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
@@ -66,21 +66,15 @@ export function ComboboxSearch({
         {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
         label
       </Text> */}
-
-        <InputGroup width="100%">
-          <ComboboxInput
-            {...getInputProps()}
-            bg="white"
-            placeholder="Search..."
-            onClick={onClick}
-          />
-          <IconButton
-            {...getToggleButtonProps({ onClick: onClick })}
-            aria-label={"toggle menu"}
-            variantcolor={isOpen ? "gray" : "teal"}
-            icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          />
-        </InputGroup>
+        <ComboboxInput
+          {...getInputProps()}
+          toggleButtonProps={getToggleButtonProps({ onClick: onClick })}
+          bg="white"
+          placeholder="Search..."
+          onClick={onClick}
+          isOpen={isOpen}
+          dropdown={true}
+        />
 
         <Flex
           {...getComboboxProps()}

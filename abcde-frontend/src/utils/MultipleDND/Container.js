@@ -65,7 +65,7 @@ export const Container = forwardRef(
           )}
           onClick={onClick}
           tabIndex={onClick ? 0 : undefined}
-          onContextMenu={displayMenu}
+          // onContextMenu={displayMenu}
         >
           {label ? (
             <div className={styles.Header}>

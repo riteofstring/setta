@@ -1,25 +1,50 @@
-import { SearchIcon } from "@chakra-ui/icons";
-import { InputLeftElement, Input, List, ListItem } from "@chakra-ui/react";
+import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
+import {
+  InputLeftElement,
+  InputRightElement,
+  InputGroup,
+  IconButton,
+  Input,
+  List,
+  ListItem,
+  Box,
+} from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import React from "react";
 
-export const ComboboxInput = React.forwardRef(({ ...props }, ref) => {
-  return (
-    <>
-      <InputLeftElement pointerEvents="none">
-        <SearchIcon color="gray.300" />
-      </InputLeftElement>
-      <Input
-        w="100%"
-        pl="2.5rem"
-        mr="0.5rem"
-        {...props}
-        ref={ref}
-        placeholder="Search"
-      />
-    </>
-  );
-});
+export const ComboboxInput = React.forwardRef(
+  ({ toggleButtonProps, dropdown, isOpen, ...props }, ref) => {
+    return (
+      <InputGroup width="100%" id="COMBOINPUT">
+        <InputLeftElement pointerEvents="none">
+          <SearchIcon color="gray.300" />
+        </InputLeftElement>
+        <Input
+          w="100%"
+          pl="2.5rem"
+          {...props}
+          {...toggleButtonProps}
+          ref={ref}
+          placeholder="Search"
+          border={0}
+          borderRadius="full"
+          boxShadow="sm"
+        />
+        {dropdown && (
+          <InputRightElement>
+            <IconButton
+              {...toggleButtonProps}
+              aria-label={"toggle menu"}
+              borderRadius="full"
+              bg="white"
+              icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            />
+          </InputRightElement>
+        )}
+      </InputGroup>
+    );
+  }
+);
 
 export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
   return <List display={isOpen ? null : "none"} py={2} {...props} ref={ref} />;
