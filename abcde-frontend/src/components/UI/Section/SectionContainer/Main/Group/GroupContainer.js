@@ -18,7 +18,11 @@ export default function GroupContainer({
   const kwargsCondition = selectedItemInSpecs || paramInfos.length > 0;
 
   return (
-    <Stack>
+    <Stack
+      py={kwargInfos.length > 0 && isKwarg && "1rem"}
+      w="auto"
+      mx={kwargInfos.length > 0 && isKwarg && ".75rem"}
+    >
       <GetParamSwitch
         sectionId={sectionId}
         infos={isKwarg ? kwargInfos : paramInfos}

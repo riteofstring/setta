@@ -86,6 +86,7 @@ export default function Incrementer({
         <IconButton
           bg="whiteAlpha"
           icon={<Icon as={HiX} />}
+          size="xs"
           onClick={deleteThisSection}
           aria-label="Delete self"
           borderRadius="full"

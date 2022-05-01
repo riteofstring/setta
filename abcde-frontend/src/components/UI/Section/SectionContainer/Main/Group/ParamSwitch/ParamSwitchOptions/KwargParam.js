@@ -18,13 +18,17 @@ export default function KwargParam(props) {
   };
 
   return (
-    <HStack>
+    <HStack spacing={0}>
       <IconButton
         icon={<CloseIcon w={2} />}
-        size="xs"
-        variant="outline"
+        size="sm"
+        variant="ghost"
         borderRadius="full"
         onClick={onClick}
+        color="gray.300"
+        _hover={{
+          color: "gray.800",
+        }}
       />
       <ParamContainer {...props}>
         <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />

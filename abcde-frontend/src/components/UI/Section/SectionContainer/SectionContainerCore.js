@@ -69,7 +69,6 @@ function _SectionContainerCore({
         borderColor="white"
         onClick={() => setActiveSection(sectionId)}
         boxShadow="md"
-        id="HSTACK"
         zIndex="15"
         w="100%"
       >
@@ -108,7 +107,7 @@ function _SectionContainerCore({
           )}
         </Stack>
       </HStack>
-      <VStack bg="white" borderRadius="xl">
+      <VStack bg="white" borderRadius="xl" alignItems="stretch">
         <GroupContainer
           sectionId={sectionId}
           objInfoId={selectedItem}

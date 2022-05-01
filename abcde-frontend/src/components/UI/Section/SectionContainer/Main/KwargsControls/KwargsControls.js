@@ -6,7 +6,7 @@ export default function KwargsControls({ sectionId, objInfoId, objInfo }) {
   const addKwarg = useAddKwarg(sectionId, objInfo);
   return (
     <Stack>
-      <HStack pt="1rem">
+      <HStack pt="1rem" pl=".75rem">
         <Heading as="h2" color="gray.400" size="sm" fontWeight="700">
           kwargs
         </Heading>

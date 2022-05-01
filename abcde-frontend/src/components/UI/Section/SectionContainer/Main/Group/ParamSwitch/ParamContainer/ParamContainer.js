@@ -36,7 +36,7 @@ export default function ParamContainer(props) {
           borderRadius="full"
           minH="36px"
           _hover={{
-            backgroundColor: "gray.100",
+            backgroundColor: "#cbd5e02b",
           }}
         >
           {props.children}
