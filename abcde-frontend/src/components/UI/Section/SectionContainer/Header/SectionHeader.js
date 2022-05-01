@@ -1,6 +1,7 @@
 import { Stack, Spacer } from "@chakra-ui/react";
 
 import Incrementer from "../Incrementer/Incrementer";
+import CloseButton from "./CloseButton";
 import SectionTitle from "./Title/SectionTitle";
 
 export function SectionHeader({
@@ -24,10 +25,9 @@ export function SectionHeader({
         requiresKeyInput={requiresKeyInput}
         onTitleInputChange={onTitleInputChange}
       />
-
+      <Spacer />
       {(isList || isListRoot) && (
         <>
-          <Spacer />
           <Incrementer
             sectionId={sectionId}
             parentId={parentId}
@@ -40,6 +40,7 @@ export function SectionHeader({
           />
         </>
       )}
+      <CloseButton />
     </Stack>
   );
 }

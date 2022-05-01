@@ -1,9 +1,6 @@
 import { AddIcon } from "@chakra-ui/icons";
 import { HStack, Heading, IconButton, Stack } from "@chakra-ui/react";
 import { useAddKwarg } from "hooks/useKwarg";
-import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
-
-import GetParamSwitch from "../Group/ParamSwitch/GetParamSwitch";
 
 export default function KwargsControls({ sectionId, objInfoId, objInfo }) {
   const addKwarg = useAddKwarg(sectionId, objInfo);

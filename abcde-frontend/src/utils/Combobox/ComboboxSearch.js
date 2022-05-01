@@ -1,5 +1,5 @@
 import "@chakra-ui/icons";
-import { InputGroup, Flex, IconButton, Box } from "@chakra-ui/react";
+import { Flex, Box } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";

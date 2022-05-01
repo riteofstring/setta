@@ -7,7 +7,6 @@ import {
   Input,
   List,
   ListItem,
-  Box,
 } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import React from "react";

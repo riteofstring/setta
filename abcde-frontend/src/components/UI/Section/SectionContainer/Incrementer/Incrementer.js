@@ -1,5 +1,5 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
-import { HStack, Input, Icon, IconButton } from "@chakra-ui/react";
+import { HStack, Input, Icon, IconButton, Heading } from "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import React, { useState } from "react";
 import { HiX } from "react-icons/hi";
@@ -52,13 +52,18 @@ export default function Incrementer({
 
   const [numSections, setNumSections] = useState(1);
   return (
-    <HStack maxW="320px">
+    <HStack maxW="320px" bg="gray.100" borderRadius="xl" p="0.25rem 0.5rem">
+      <Heading as="h3" fontSize=".75em" color="gray.400">
+        Children:{" "}
+      </Heading>
       <Input
-        size="sm"
+        size="xs"
         maxW="5ch"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         aria-label="Number of sections"
+        bg="white"
+        borderRadius="md"
       />
 
       <IconButton
@@ -67,6 +72,7 @@ export default function Incrementer({
         onClick={() => deleteChildren(numSections)}
         isDisabled={!decrementButtonCondition()}
         aria-label="Delete child section"
+        borderRadius="full"
       />
 
       <IconButton
@@ -74,6 +80,7 @@ export default function Incrementer({
         size="xs"
         onClick={() => addSections(numSections)}
         aria-label="Add child section"
+        borderRadius="full"
       />
       {!isListRoot && (
         <IconButton
@@ -81,6 +88,7 @@ export default function Incrementer({
           icon={<Icon as={HiX} />}
           onClick={deleteThisSection}
           aria-label="Delete self"
+          borderRadius="full"
         />
       )}
     </HStack>
