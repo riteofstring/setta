@@ -1,3 +1,4 @@
+import { Heading, HStack, Box } from "@chakra-ui/react";
 import classNames from "classnames";
 import { useStoreActions } from "easy-peasy";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
@@ -13,7 +14,7 @@ import { CONTEXT_MENU } from "utils/constants";
 import { findSortedIndex, insertIntoArrayOrXpend } from "utils/utils";
 
 import { DragHandle } from "../DragHandle/DragHandle";
-import styles from "./Container.module.css";
+// import styles from "./Container.module.css";
 import { Remove } from "./Remove";
 
 export const Container = forwardRef(
@@ -47,35 +48,49 @@ export const Container = forwardRef(
 
     return (
       <>
-        <Component
+        <Box
+          as={onClick ? "button" : "div"}
           {...props}
           ref={ref}
-          style={{
-            ...style,
-            "--columns": columns,
+          _hover={{
+            bg: "#BEC9D6",
           }}
-          className={classNames(
-            styles.Container,
-            unstyled && styles.unstyled,
-            horizontal && styles.horizontal,
-            hover && styles.hover,
-            placeholder && styles.placeholder,
-            scrollable && styles.scrollable,
-            shadow && styles.shadow
-          )}
+          py="1.5rem"
+          px="2rem"
+          borderRadius="3xl"
+          // className={classNames(
+          //   styles.Container,
+          //   unstyled && styles.unstyled,
+          //   horizontal && styles.horizontal,
+          //   hover && styles.hover,
+          //   placeholder && styles.placeholder,
+          //   scrollable && styles.scrollable,
+          //   shadow && styles.shadow
+          // )}
           onClick={onClick}
           tabIndex={onClick ? 0 : undefined}
           // onContextMenu={displayMenu}
         >
           {label ? (
-            <div className={styles.Header}>
-              {label}
+            <HStack alignItems="center" spacing="2rem">
+              <Heading as="h2" size="xl" color="gray.100">
+                {label}
+              </Heading>
+              <DragHandle
+                dragListeners={handleListeners}
+                horizontal={true}
+                px="5rem"
+                borderRadius="xl"
+                dragHandleBg="gray.400"
+                flexGrow="1"
+                h="2rem"
+                alignSelf="center"
+              />
               {onRemove ? <Remove onClick={onRemove} /> : undefined}
-              <DragHandle dragListeners={handleListeners} px="5rem" />
-            </div>
+            </HStack>
           ) : null}
           {placeholder ? children : <ul>{children}</ul>}
-        </Component>
+        </Box>
         {createPortal(<SectionGroupMenu groupId={id} />, document.body)}
       </>
     );

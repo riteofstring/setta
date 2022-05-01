@@ -71,6 +71,7 @@ function _SectionContainerCore({
         boxShadow="md"
         zIndex="15"
         w="100%"
+        overflow="hidden"
       >
         <DragHandle dragListeners={dragListeners} />
         <Stack px=".25rem" py="1rem" w="100%">

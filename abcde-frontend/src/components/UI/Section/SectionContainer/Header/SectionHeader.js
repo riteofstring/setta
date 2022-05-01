@@ -1,7 +1,7 @@
 import { Stack, Spacer } from "@chakra-ui/react";
 
 import Incrementer from "../Incrementer/Incrementer";
-import CloseButton from "./CloseButton";
+import CustomCloseButton from "./CustomCloseButton";
 import SectionTitle from "./Title/SectionTitle";
 
 export function SectionHeader({
@@ -40,7 +40,7 @@ export function SectionHeader({
           />
         </>
       )}
-      <CloseButton />
+      <CustomCloseButton />
     </Stack>
   );
 }

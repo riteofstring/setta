@@ -78,13 +78,15 @@ export function ComboboxSearch({
           textSize={textSize}
         />
 
+        {/* TODO: FIX WIDTH & ZINDEX */}
         <Flex
           {...getComboboxProps()}
           direction="column"
           flex="1 1 auto"
-          width="100%"
-          zIndex="300"
-          position="relative"
+          width="400px"
+          zIndex="10000"
+          position="absolute"
+          mt="2.5rem"
         >
           <ComboboxList
             isOpen={isOpen}
