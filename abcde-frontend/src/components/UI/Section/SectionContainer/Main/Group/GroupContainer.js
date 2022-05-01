@@ -27,7 +27,7 @@ export default function GroupContainer({
       {kwargsCondition && (
         <KwargsControls
           sectionId={sectionId}
-          // objInfoId={objInfoId}
+          objInfoId={objInfoId}
           objInfo={objInfo}
         />
       )}

@@ -176,7 +176,9 @@ function _SectionContainerCore({
           )}
         </Stack>
       </HStack>
-      <VStack bg="white" borderRadius="xl"></VStack>
+      <VStack bg="white" borderRadius="xl">
+        <Box>Test</Box>
+      </VStack>
     </VStack>
   );
 }

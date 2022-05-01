@@ -10,13 +10,12 @@ import { useGetParamUIType, useInitializeUIType } from "hooks/useUIType";
 
 import ParamSwitch from "./ParamSwitch";
 
-export default function GetParamSwitch(
+export default function GetParamSwitch({
   sectionId,
   infos,
   isKwarg = false,
-
-  objInfo
-) {
+  objInfo,
+}) {
   // const { objInfo } = useGetObjParamKwargInfos(sectionId, objInfoId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
