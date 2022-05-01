@@ -18,6 +18,7 @@ export function ComboboxSearch({
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
+  textSize,
 }) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -74,6 +75,7 @@ export function ComboboxSearch({
           onClick={onClick}
           isOpen={isOpen}
           dropdown={true}
+          textSize={textSize}
         />
 
         <Flex
@@ -81,33 +83,38 @@ export function ComboboxSearch({
           direction="column"
           flex="1 1 auto"
           width="100%"
-          zIndex="10"
+          zIndex="300"
+          position="relative"
         >
           <ComboboxList
             isOpen={isOpen}
             {...getMenuProps()}
             flex={1}
             maxH="16rem"
-            overflowY="scroll"
             mt={2}
             bg="white"
-            borderRadius="0.25rem"
+            borderRadius="3xl"
             boxShadow="xl"
             border="1px"
             borderColor="gray.300"
             w="inherit"
+            // p=".5rem"
+            display={isOpen ? "flex" : "none"}
+            alignItems="stretch"
           >
-            {filteredItems.map((item, index) => (
-              <ComboboxItem
-                {...getItemProps({ item, index })}
-                itemIndex={index}
-                highlightedIndex={highlightedIndex}
-                key={index}
-                className="SectionSearch"
-              >
-                {itemToString(item)}
-              </ComboboxItem>
-            ))}
+            <Box m={3} maxH="100%" overflowY="scroll" width="100%">
+              {filteredItems.map((item, index) => (
+                <ComboboxItem
+                  {...getItemProps({ item, index })}
+                  itemIndex={index}
+                  highlightedIndex={highlightedIndex}
+                  key={index}
+                  className="SectionSearch"
+                >
+                  {itemToString(item)}
+                </ComboboxItem>
+              ))}
+            </Box>
           </ComboboxList>
         </Flex>
       </Flex>

@@ -1,4 +1,4 @@
-import { Stack, HStack, Box } from "@chakra-ui/react";
+import { Stack, HStack, VStack, Box } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
@@ -56,6 +56,7 @@ function SectionContainer({
         dragListeners={dragListeners}
         dummy={dummy}
       />
+
       <Box
         flexDirection="column"
         display={childrenAreCollapsed ? "none" : "flex"}
@@ -112,56 +113,71 @@ function _SectionContainerCore({
   // // temp_
   const tempBoolDesc = false;
   return (
-    <HStack
-      ref={refForPosition}
-      direction="column"
-      bg="gray.50"
-      borderRadius="md"
+    <VStack
+      spacing={0}
+      alignItems="stretch"
+      boxShadow="md"
+      borderRadius="xl"
+      bg="white"
       w={`${SECTIONWIDTH}px`}
-      onClick={() => setActiveSection(sectionId)}
     >
-      <DragHandle dragListeners={dragListeners} />
-      <Stack px="1.5rem" py="1.5rem" w={`${SECTIONWIDTH}px`}>
-        <SectionHeader
-          sectionId={sectionId}
-          variableName={variableName}
-          parentId={parentId}
-          nextId={nextId}
-          isList={isList}
-          isListRoot={isListRoot}
-          addChild={addChild}
-          deleteChild={deleteChild}
-          hasNested={hasNested}
-          onTitleInputChange={onTitleInputChange}
-          requiresKeyInput={requiresKeyInput(config.subType)}
-        />
-        {!dummy && !isListRoot && (
-          <Stack>
-            {hasObjects && (
-              <SectionSearch
+      <HStack
+        ref={refForPosition}
+        direction="column"
+        bg="gray.50"
+        borderRadius="xl"
+        border="1px"
+        pr="0.5rem "
+        borderColor="white"
+        onClick={() => setActiveSection(sectionId)}
+        boxShadow="md"
+        id="HSTACK"
+        zIndex="15"
+      >
+        <DragHandle dragListeners={dragListeners} />
+        <Stack px=".25rem" py="1rem">
+          <SectionHeader
+            sectionId={sectionId}
+            variableName={variableName}
+            parentId={parentId}
+            nextId={nextId}
+            isList={isList}
+            isListRoot={isListRoot}
+            addChild={addChild}
+            deleteChild={deleteChild}
+            hasNested={hasNested}
+            onTitleInputChange={onTitleInputChange}
+            requiresKeyInput={requiresKeyInput(config.subType)}
+          />
+          {!dummy && !isListRoot && (
+            <Stack>
+              {hasObjects && (
+                <SectionSearch
+                  sectionId={sectionId}
+                  initialSelection={selectedItem}
+                  onSelectedItemChange={onSelectedItemChange}
+                />
+              )}
+              {tempBoolDesc && <SectionDescription />}
+              <GroupContainer
                 sectionId={sectionId}
-                initialSelection={selectedItem}
-                onSelectedItemChange={onSelectedItemChange}
+                objInfoId={selectedItem}
+                selectedItemInSpecs={selectedItemInSpecs}
               />
-            )}
-            {tempBoolDesc && <SectionDescription />}
-            <GroupContainer
-              sectionId={sectionId}
-              objInfoId={selectedItem}
-              selectedItemInSpecs={selectedItemInSpecs}
-            />
-            <SectionFooter
+              {/* <SectionFooter
               sectionId={sectionId}
               objInfoId={selectedItem}
               isListRoot={isListRoot}
               hasNested={hasNested}
               childrenAreCollapsed={childrenAreCollapsed}
               flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-            />
-          </Stack>
-        )}
-      </Stack>
-    </HStack>
+            /> */}
+            </Stack>
+          )}
+        </Stack>
+      </HStack>
+      <VStack bg="white" borderRadius="xl"></VStack>
+    </VStack>
   );
 }
 

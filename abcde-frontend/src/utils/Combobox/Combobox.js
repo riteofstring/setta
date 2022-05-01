@@ -13,15 +13,26 @@ import { useCombobox } from "downshift";
 import React from "react";
 
 export const ComboboxInput = React.forwardRef(
-  ({ toggleButtonProps, dropdown, isOpen, ...props }, ref) => {
+  (
+    {
+      toggleButtonProps,
+      dropdown,
+      isOpen,
+      textSize,
+      height = "40px",
+      ...props
+    },
+    ref
+  ) => {
     return (
-      <InputGroup width="100%" id="COMBOINPUT">
+      <InputGroup width="100%">
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
         <Input
           w="100%"
           pl="2.5rem"
+          h={height}
           {...props}
           {...toggleButtonProps}
           ref={ref}
@@ -29,6 +40,7 @@ export const ComboboxInput = React.forwardRef(
           border={0}
           borderRadius="full"
           boxShadow="sm"
+          size={textSize}
         />
         {dropdown && (
           <InputRightElement>
@@ -47,7 +59,7 @@ export const ComboboxInput = React.forwardRef(
 );
 
 export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
-  return <List display={isOpen ? null : "none"} py={2} {...props} ref={ref} />;
+  return <List display={isOpen ? null : "none"} {...props} ref={ref} />;
 });
 
 export const ComboboxItem = React.forwardRef(
@@ -64,7 +76,7 @@ export const ComboboxItem = React.forwardRef(
         cursor="pointer"
         {...props}
         ref={ref}
-        borderRadius="0.5rem"
+        borderRadius="2xl"
         mx="0.25rem"
         my="0.125rem"
       />

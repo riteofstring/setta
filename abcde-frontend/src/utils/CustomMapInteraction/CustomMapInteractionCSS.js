@@ -210,7 +210,8 @@ export default function CustomMapInteractionCSS(props) {
         initial={false}
         style={{
           height: "inherit",
-          backgroundImage: `url(${graphPaperBg})`,
+          backgroundColor: "#CBD5E0",
+          // backgroundImage: `url(${graphPaperBg})`,
           transform: `scale(${panStateScale})`,
           backgroundPosition: `${panStateX}px ${panStateY}px`,
         }}

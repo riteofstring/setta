@@ -16,6 +16,7 @@ export default function SwitchInput({
       isChecked={value}
       isDisabled={isDisabled}
       onChange={(e) => onChangeEnd(e.target.checked)}
+      size="sm"
     />
     // </Tooltip>
   );

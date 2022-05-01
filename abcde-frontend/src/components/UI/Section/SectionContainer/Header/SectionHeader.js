@@ -18,7 +18,7 @@ export function SectionHeader({
   hasNested,
 }) {
   return (
-    <Stack direction="row" align="center" w="100%">
+    <Stack direction="row" align="center" w="100%" pl="0.75em">
       <SectionTitle
         heading={variableName}
         requiresKeyInput={requiresKeyInput}
