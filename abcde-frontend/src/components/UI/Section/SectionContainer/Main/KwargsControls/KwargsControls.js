@@ -6,7 +6,6 @@ import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
 import GetParamSwitch from "../Group/ParamSwitch/GetParamSwitch";
 
 export default function KwargsControls({ sectionId, objInfoId, objInfo }) {
-  const { kwargInfos } = useGetObjParamKwargInfos(sectionId, objInfoId);
   const addKwarg = useAddKwarg(sectionId, objInfo);
   return (
     <Stack>
@@ -22,12 +21,6 @@ export default function KwargsControls({ sectionId, objInfoId, objInfo }) {
           onClick={addKwarg}
         />
       </HStack>
-      <GetParamSwitch
-        sectionId={sectionId}
-        infos={kwargInfos}
-        isKwarg={true}
-        objInfo={objInfo}
-      />
     </Stack>
   );
 }

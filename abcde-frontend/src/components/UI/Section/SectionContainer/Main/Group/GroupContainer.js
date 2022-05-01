@@ -8,8 +8,9 @@ export default function GroupContainer({
   sectionId,
   objInfoId,
   selectedItemInSpecs,
+  isKwarg,
 }) {
-  const { paramInfos, objInfo } = useGetObjParamKwargInfos(
+  const { paramInfos, kwargInfos, objInfo } = useGetObjParamKwargInfos(
     sectionId,
     objInfoId
   );
@@ -20,11 +21,12 @@ export default function GroupContainer({
     <Stack>
       <GetParamSwitch
         sectionId={sectionId}
-        infos={paramInfos}
+        infos={isKwarg ? kwargInfos : paramInfos}
         objInfoId={objInfoId}
         objInfo={objInfo}
+        isKwarg={isKwarg}
       />
-      {kwargsCondition && (
+      {!isKwarg && kwargsCondition && (
         <KwargsControls
           sectionId={sectionId}
           objInfoId={objInfoId}

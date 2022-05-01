@@ -15,7 +15,6 @@ import {
 } from "utils/constants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
-import SectionFooter from "./Footer/SectionFooter";
 import { SectionHeader } from "./Header/SectionHeader";
 import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
@@ -108,8 +107,6 @@ function _SectionContainerCore({
     setSectionInfoAttr({ sectionId, attr: "name", value });
   }
 
-  console.log("SectionContainerCore");
-
   // // temp_
   const tempBoolDesc = false;
   return (
@@ -133,9 +130,10 @@ function _SectionContainerCore({
         boxShadow="md"
         id="HSTACK"
         zIndex="15"
+        w="100%"
       >
         <DragHandle dragListeners={dragListeners} />
-        <Stack px=".25rem" py="1rem">
+        <Stack px=".25rem" py="1rem" w="100%">
           <SectionHeader
             sectionId={sectionId}
             variableName={variableName}
@@ -163,6 +161,7 @@ function _SectionContainerCore({
                 sectionId={sectionId}
                 objInfoId={selectedItem}
                 selectedItemInSpecs={selectedItemInSpecs}
+                isKwarg={false}
               />
               {/* <SectionFooter
               sectionId={sectionId}
@@ -177,7 +176,12 @@ function _SectionContainerCore({
         </Stack>
       </HStack>
       <VStack bg="white" borderRadius="xl">
-        <Box>Test</Box>
+        <GroupContainer
+          sectionId={sectionId}
+          objInfoId={selectedItem}
+          selectedItemInSpecs={selectedItemInSpecs}
+          isKwarg={true}
+        />
       </VStack>
     </VStack>
   );

@@ -5,7 +5,6 @@ import {
 } from "hooks/useEnteredValue";
 import { useDeleteKwarg } from "hooks/useKwarg";
 import { useParamChildId } from "hooks/useParamInfo";
-import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
 import { useGetParamUIType, useInitializeUIType } from "hooks/useUIType";
 
 import ParamSwitch from "./ParamSwitch";
@@ -16,7 +15,6 @@ export default function GetParamSwitch({
   isKwarg = false,
   objInfo,
 }) {
-  // const { objInfo } = useGetObjParamKwargInfos(sectionId, objInfoId);
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
   const enteredValueFn = useParamEnteredValue(sectionId);
