@@ -20,17 +20,20 @@ export default function ManyNestedSections({
           borderRadius="full"
           minH="100%"
           _hover={{ bg: "whiteAlpha.500", cursor: "pointer" }}
+          mb=".25rem"
         />
-        {childIds.map((e, idx) => (
-          <NestedSection
-            parentId={sectionId}
-            sectionId={e}
-            nextId={childIds[idx + 1]}
-            key={`Nested-Sec-${e}`}
-            depth={depth + 1}
-            dummy={dummy}
-          />
-        ))}
+        <VStack spacing="0">
+          {childIds.map((e, idx) => (
+            <NestedSection
+              parentId={sectionId}
+              sectionId={e}
+              nextId={childIds[idx + 1]}
+              key={`Nested-Sec-${e}`}
+              depth={depth + 1}
+              dummy={dummy}
+            />
+          ))}
+        </VStack>
       </HStack>
     </DNDSortable>
   );

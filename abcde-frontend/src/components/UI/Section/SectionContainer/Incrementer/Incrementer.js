@@ -54,7 +54,7 @@ export default function Incrementer({
   return (
     <HStack maxW="320px" bg="gray.100" borderRadius="xl" p="0.25rem 0.5rem">
       <Heading as="h3" fontSize=".75em" color="gray.400">
-        Children:{" "}
+        {isListRoot && "Children: "}
       </Heading>
       <Input
         size="xs"
@@ -82,7 +82,7 @@ export default function Incrementer({
         aria-label="Add child section"
         borderRadius="full"
       />
-      {!isListRoot && (
+      {/* {!isListRoot && (
         <IconButton
           bg="whiteAlpha"
           icon={<Icon as={HiX} />}
@@ -91,7 +91,7 @@ export default function Incrementer({
           aria-label="Delete self"
           borderRadius="full"
         />
-      )}
+      )} */}
     </HStack>
   );
 }
