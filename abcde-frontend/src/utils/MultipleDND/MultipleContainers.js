@@ -1,3 +1,4 @@
+import { Box, Heading } from "@chakra-ui/react";
 import {
   closestCenter,
   rectIntersection,
@@ -447,7 +448,11 @@ export function MultipleContainers({
               onClick={handleAddColumn}
               placeholder
             >
-              + Add column
+              <Box h="100%" display="grid" placeContent="flex-start">
+                <Heading as="h2" color="blackAlpha.500">
+                  + Add Deck
+                </Heading>
+              </Box>
             </DroppableContainer>
           )}
         </SortableContext>

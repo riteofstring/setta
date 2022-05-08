@@ -1,6 +1,9 @@
 import { extendTheme } from "@chakra-ui/react";
 
+import fonts from "./Fonts.js";
+
 export const AppTheme = extendTheme({
+  fonts,
   styles: {
     global: {
       body: {
@@ -12,10 +15,12 @@ export const AppTheme = extendTheme({
       "body::-webkit-scrollbar": {
         width: "0.5rem",
         height: "0.5rem",
+        backgroundColor: "white",
       },
       "body *::-webkit-scrollbar": {
         width: "0.5rem",
         height: "0.5rem",
+        backgroundColor: "white",
       },
       "body *": {
         scrollbarWidth: "thin",
@@ -29,7 +34,7 @@ export const AppTheme = extendTheme({
         background: "gray.50",
       },
       "body *::-webkit-scrollbar-track": {
-        background: "gray.50",
+        background: "white",
       },
       "body::-webkit-scrollbar-thumb": {
         backgroundColor: "gray.300",
