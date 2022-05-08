@@ -31,11 +31,12 @@ export default function ParamContainer(props) {
       <FormControl as="fieldset">
         <HStack
           px=".75rem"
-          pb="0.5rem"
-          pt="0.25rem"
-          borderRadius=".5rem"
+          pb="0.33rem"
+          pt="0.33rem"
+          borderRadius="full"
+          minH="36px"
           _hover={{
-            backgroundColor: "white",
+            backgroundColor: "#cbd5e02b",
           }}
         >
           {props.children}
