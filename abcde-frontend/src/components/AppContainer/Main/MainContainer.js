@@ -1,4 +1,5 @@
 import { Box } from "@chakra-ui/react";
+import { ReactFlowProvider } from "react-flow-renderer";
 
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
@@ -7,7 +8,7 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
   return (
-    <>
+    <ReactFlowProvider>
       <Overview />
       <UiEditor />
       <GridWrapper>
@@ -17,6 +18,6 @@ export default function MainContainer() {
           </Box>
         </Box>
       </GridWrapper>
-    </>
+    </ReactFlowProvider>
   );
 }
