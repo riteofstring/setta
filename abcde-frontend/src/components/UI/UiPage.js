@@ -1,5 +1,6 @@
 // import RunContainer from "./RunContainer/RunContainer";
 // import TheTerminal from "./RunContainer/Terminal/TheTerminal";
+import { Flex, Grid } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 
@@ -8,7 +9,7 @@ import React, { useEffect } from "react";
 // import { resetState } from "../../store/store";
 import SectionsPane from "./Section/SectionsPane";
 
-const UiPage = ({ setReactFlowInstance }) => {
+const UiPage = () => {
   const loadSections = useStoreActions(
     (actions) => actions.master.loadSections
   );
@@ -61,11 +62,11 @@ const UiPage = ({ setReactFlowInstance }) => {
 
   return (
     <>
-      {/* <Flex justify="flex-start" h="inherit"> */}
-      {/* <Grid gap={2}> */}
-      <SectionsPane setReactFlowInstance={setReactFlowInstance} />
-      {/* </Grid> */}
-      {/* </Flex> */}
+      <Flex justify="flex-start" h="inherit">
+        <Grid gap={2}>
+          <SectionsPane />
+        </Grid>
+      </Flex>
     </>
   );
 };

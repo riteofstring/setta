@@ -17,7 +17,6 @@ function DragHandleIcon({ horizontal = false, dragHandleBg }) {
 }
 
 export function DragHandle({
-  isTopLevel,
   horizontal,
   borderRadius = "none",
   dragListeners,
@@ -35,8 +34,8 @@ export function DragHandle({
       borderLeftRadius="inherit"
       cursor="move"
       px={px}
-      className={isTopLevel ? "TopLevelDragHandle" : "DragHandle"}
       bg={bg}
+      className="DragHandle"
       borderRadius={borderRadius}
       {...dragListeners}
       flexGrow={flexGrow}

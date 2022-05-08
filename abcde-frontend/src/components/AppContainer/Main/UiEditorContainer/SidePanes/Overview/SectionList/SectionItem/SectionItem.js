@@ -1,23 +1,20 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Text, HStack } from "@chakra-ui/react";
 import {
-  useStore as useReactFlowStore,
-  useZoomPanHelper,
-} from "react-flow-renderer";
+  useRequestSectionPositionUpdate,
+  useSetGoToCoordinates,
+} from "hooks/useGetSectionPosition";
+import { OVERVIEW } from "utils/constants";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const reactFlowStore = useReactFlowStore();
-  const { setCenter } = useZoomPanHelper();
+  const requestPositionUpdate = useRequestSectionPositionUpdate(
+    sectionId,
+    OVERVIEW
+  );
+  useSetGoToCoordinates(sectionId, OVERVIEW);
 
-  // https://reactflow.dev/examples/use-zoom-pan-helper-hook/
   const onClick = () => {
-    const { nodes } = reactFlowStore.getState();
-    const node = _.filter(nodes, { id: sectionId })[0];
-    const x = node.__rf.position.x + node.__rf.width / 2;
-    const y = node.__rf.position.y + node.__rf.height / 2;
-    const zoom = 1;
-
-    setCenter(x, y, zoom);
+    requestPositionUpdate();
   };
 
   return (

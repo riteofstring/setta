@@ -60,7 +60,6 @@ function SectionContainer({
   );
 }
 
-
 export default React.memo(SectionContainer, (prev, next) => {
   return prev.nextId === next.nextId && prev.dummy == next.dummy;
 });
