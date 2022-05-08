@@ -15,9 +15,6 @@ export default function ParamNameInput({ value, onBlur }) {
       width="50%"
       onChange={(v) => setLiveValue(v.target.value)}
       onBlur={(v) => onBlur(v.target.value)}
-      variant="flushed"
-      size="xs"
-      maxWidth="10rem"
     />
   );
 }

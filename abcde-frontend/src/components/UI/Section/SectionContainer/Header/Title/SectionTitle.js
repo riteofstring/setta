@@ -25,9 +25,9 @@ export default function SectionTitle({
       ) : (
         <Heading
           size="md"
-          fontWeight="black"
+          fontWeight="medium"
           letterSpacing="tighter"
-          color="gray.700"
+          color="gray.500"
           as="h2"
         >
           {heading}

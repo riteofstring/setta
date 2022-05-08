@@ -1,4 +1,4 @@
-/* .Container {
+.Container {
   display: flex;
   flex-direction: column;
   grid-auto-rows: max-content;
@@ -11,7 +11,7 @@
   border-radius: 5px;
   min-height: 200px;
   transition: background-color 350ms ease;
-  background-color: #bec9d6;
+  background-color: rgba(246, 246, 246, 1);
   border: 1px solid rgba(0, 0, 0, 0.05);
   font-size: 1em;
 
@@ -100,4 +100,4 @@
       opacity: 1;
     }
   }
-} */
+}

@@ -1,23 +1,28 @@
-import { Grid, VStack, theme } from "@chakra-ui/react";
+import { Grid, Stack, theme } from "@chakra-ui/react";
 import React from "react";
 
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
-const borderLeft = theme.colors.whiteAlpha;
+const borderLeft = theme.colors.gray;
 
 function _NestedSection({ parentId, sectionId, nextId, depth, dummy }) {
   return (
-    // <VStack alignItems="stretch">
-    <Grid gap={2}>
-      <SortableSectionContainer
-        sectionId={sectionId}
-        parentId={parentId}
-        nextId={nextId}
-        depth={depth}
-        dummy={dummy}
-      />
-    </Grid>
-    // </VStack>
+    <Stack
+      direction="column"
+      pl="1rem"
+      ml=".5rem"
+      boxShadow={`inset 0.25rem 0px 0px 0px ${borderLeft[50]}`}
+    >
+      <Grid gap={2}>
+        <SortableSectionContainer
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          depth={depth}
+          dummy={dummy}
+        />
+      </Grid>
+    </Stack>
   );
 }
 

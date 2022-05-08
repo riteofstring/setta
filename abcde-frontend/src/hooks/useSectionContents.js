@@ -10,7 +10,6 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
   return useGetObjParamKwargInfos(sectionId, selectedItem);
 }
 
-// TODO: SPLIT UP
 export function useGetObjParamKwargInfos(sectionId, objInfoId) {
   const objInfo = useGetObjInfos(sectionId, objInfoId);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);

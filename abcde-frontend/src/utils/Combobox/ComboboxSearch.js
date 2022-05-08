@@ -1,5 +1,5 @@
-import "@chakra-ui/icons";
-import { Flex, Box } from "@chakra-ui/react";
+import { ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
+import { InputGroup, Flex, IconButton } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
@@ -18,7 +18,6 @@ export function ComboboxSearch({
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
-  textSize,
 }) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -67,56 +66,54 @@ export function ComboboxSearch({
         {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
         label
       </Text> */}
-        <ComboboxInput
-          {...getInputProps()}
-          toggleButtonProps={getToggleButtonProps({ onClick: onClick })}
-          bg="white"
-          placeholder="Search..."
-          onClick={onClick}
-          isOpen={isOpen}
-          dropdown={true}
-          textSize={textSize}
-        />
 
-        {/* TODO: FIX WIDTH & ZINDEX */}
+        <InputGroup width="100%">
+          <ComboboxInput
+            {...getInputProps()}
+            bg="white"
+            placeholder="Search..."
+            onClick={onClick}
+          />
+          <IconButton
+            {...getToggleButtonProps({ onClick: onClick })}
+            aria-label={"toggle menu"}
+            variantcolor={isOpen ? "gray" : "teal"}
+            icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          />
+        </InputGroup>
+
         <Flex
           {...getComboboxProps()}
           direction="column"
           flex="1 1 auto"
-          width="400px"
-          zIndex="10000"
-          position="absolute"
-          mt="2.5rem"
+          width="100%"
+          zIndex="10"
         >
           <ComboboxList
             isOpen={isOpen}
             {...getMenuProps()}
             flex={1}
             maxH="16rem"
+            overflowY="scroll"
             mt={2}
             bg="white"
-            borderRadius="3xl"
+            borderRadius="0.25rem"
             boxShadow="xl"
             border="1px"
             borderColor="gray.300"
             w="inherit"
-            // p=".5rem"
-            display={isOpen ? "flex" : "none"}
-            alignItems="stretch"
           >
-            <Box m={3} maxH="100%" overflowY="scroll" width="100%">
-              {filteredItems.map((item, index) => (
-                <ComboboxItem
-                  {...getItemProps({ item, index })}
-                  itemIndex={index}
-                  highlightedIndex={highlightedIndex}
-                  key={index}
-                  className="SectionSearch"
-                >
-                  {itemToString(item)}
-                </ComboboxItem>
-              ))}
-            </Box>
+            {filteredItems.map((item, index) => (
+              <ComboboxItem
+                {...getItemProps({ item, index })}
+                itemIndex={index}
+                highlightedIndex={highlightedIndex}
+                key={index}
+                className="SectionSearch"
+              >
+                {itemToString(item)}
+              </ComboboxItem>
+            ))}
           </ComboboxList>
         </Flex>
       </Flex>
