@@ -1,6 +1,5 @@
 // import RunContainer from "./RunContainer/RunContainer";
 // import TheTerminal from "./RunContainer/Terminal/TheTerminal";
-import { Flex, Grid } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 
@@ -62,11 +61,7 @@ const UiPage = () => {
 
   return (
     <>
-      <Flex justify="flex-start" h="inherit">
-        <Grid gap={2}>
-          <SectionsPane />
-        </Grid>
-      </Flex>
+      <SectionsPane />
     </>
   );
 };
