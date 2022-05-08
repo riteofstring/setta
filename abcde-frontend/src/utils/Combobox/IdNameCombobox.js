@@ -7,7 +7,6 @@ export function IdNameCombobox({
   allItems,
   onSelectedItemChange,
   initialSelection,
-  textSize = "sm",
 }) {
   const init = _.find(allItems, { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
@@ -33,7 +32,6 @@ export function IdNameCombobox({
       itemToString={itemToString}
       onSelectedItemChange={localOnSelectedItemChange}
       matchSorterProps={{ keys: ["name"] }}
-      textSize={textSize}
     />
   );
 }

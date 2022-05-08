@@ -1,14 +1,14 @@
-import { Heading, FormLabel, Tooltip } from "@chakra-ui/react";
+import { Text, FormLabel, Tooltip } from "@chakra-ui/react";
 
 export default function ParamTextLabel(props) {
   // temp_
   const tempBool = true;
   return (
-    <FormLabel m="0">
+    <FormLabel>
       <Tooltip isDisabled={tempBool} hasArrow label="Label Tooltip Placeholder">
-        <Heading fontSize="xs" fontWeight="900" color="gray.600">
+        <Text fontSize="sm" fontWeight="semibold" color="gray.700">
           {props.paramInfo.name}
-        </Heading>
+        </Text>
       </Tooltip>
     </FormLabel>
   );

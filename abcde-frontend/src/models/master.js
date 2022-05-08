@@ -15,10 +15,8 @@ import {
   GLOBAL_DEFAULT,
   PROJECT_DEFAULT,
 } from "utils/constants";
-import { createNewId } from "utils/utils";
 
 const master = {
-  spaceBetweenPages: 100,
   available: {},
   allPackageInfo: null,
   allModuleInfo: null,
@@ -26,9 +24,6 @@ const master = {
   allObjCollections: null,
   allParamCollections: null,
   activeSection: null,
-  groupIds: [],
-  groupChildren: {},
-  groupsHaveUpdated: false,
 
   // actions
   // Load DATA
@@ -61,29 +56,11 @@ const master = {
     action.initGlobalDefaults(GlobalDefaults);
     action.initProjectDefaults(ProjectDefaults);
     action.initSectionUITypes(UIData.uiTypes);
-    const newIds = action.initSections(UIData.sections);
-    action.initGroups(newIds);
+    action.initSections(UIData.sections);
   }),
 
   setActiveSection: action((state, payload) => {
     state.activeSection = payload;
-  }),
-
-  setGroupIds: action((state, payload) => {
-    state.groupIds = payload(state.groupIds);
-  }),
-
-  setGroupChildren: action((state, payload) => {
-    state.groupChildren = payload(state.groupChildren);
-  }),
-
-  setOneGroupChildren: action((state, payload) => {
-    const { groupId, newStateFn } = payload;
-    state.groupChildren[groupId] = newStateFn(state.groupChildren[groupId]);
-  }),
-
-  setGroupsHaveUpdated: action((state, payload) => {
-    state.groupsHaveUpdated = payload;
   }),
 
   initDefaultDefaults: thunk((action, payload, helpers) => {
@@ -120,49 +97,21 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    const sectionInfos = _.mapValues(payload, (x) => new SectionInfo({ ...x }));
+    let idx = 0;
+    const sectionInfos = _.mapValues(payload, (x) => {
+      const y = new SectionInfo({
+        isTopLevel: true,
+        initialPosition: { x: 250, y: 300 * idx },
+        ...x,
+      });
+      idx += 1;
+      return y;
+    });
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));
     return _.keys(sectionInfos);
   }),
-
-  initGroups: thunk((action, payload, helpers) => {
-    const grouped = _.chunk(
-      payload,
-      helpers.getStoreState().userSettings.sectionsPerGroup
-    );
-    const groupIds = [];
-    const groups = {};
-    for (let g of grouped) {
-      const groupId = createNewId();
-      groupIds.push(groupId);
-      groups[groupId] = g;
-    }
-    action.setGroupIds(() => groupIds);
-    action.setGroupChildren(() => groups);
-    action.setGroupsHaveUpdated(true);
-  }),
-
-  // exportSelected: thunk((action, payload, helpers) => {
-  //   return createExportableObject(helpers.getState().sections);
-  // }),
-
-  // exportSaveableInfo: thunk((action, payload, helpers) => {
-  //   const state = helpers.getState();
-  //   const sections = state.sections;
-  //   return sections.exportSaveableInfo();
-  // }),
-
-  // runSelected: thunk(async (action, payload, helpers) => {
-  //   const { selected } = payload;
-  //   generateAndRunCode({
-  //     cliSocket: helpers.getStoreState().cliSocket.cliSocket,
-  //     SELECTED: selected,
-  //     FACTORIES: helpers.getStoreState().factoriesInfo.factories,
-  //     FUNCS: helpers.getStoreState().funcsInfo.funcs,
-  //   });
-  // }),
 };
 
 export default master;

@@ -194,7 +194,7 @@ export function useGetChildUITypeId() {
     if (isRoot(parentUIType.type)) {
       return getChildUITypeId(parentUIType, setUIType, setOneConfig);
     }
-    const newUIType = getNewUIType({});
+    const newUIType = getNewUIType();
     setUIType({ uiType: newUIType });
     return newUIType.id;
   };

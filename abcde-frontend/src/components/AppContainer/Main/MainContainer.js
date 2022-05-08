@@ -1,50 +1,46 @@
 import { Box } from "@chakra-ui/react";
-import { useState } from "react";
-import CustomGrid from "utils/CustomMapInteraction/CustomGrid";
-import CustomMapInteractionCSS from "utils/CustomMapInteraction/CustomMapInteractionCSS";
+import { useRef, useState } from "react";
+import { useContextMenu } from "react-contexify";
+import "react-contexify/dist/ReactContexify.css";
+import { ReactFlowProvider } from "react-flow-renderer";
+import { NewSectionMenu } from "utils/ContextMenu/NewSectionMenu";
 
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
+// https://reactflow.dev/examples/drag-and-drop/
 export default function MainContainer() {
-  const [contentSize, setContentSize] = useState({});
+  const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const reactFlowWrapper = useRef(null);
+
+  const { show } = useContextMenu({ id: "NewSectionMenu" });
+
+  function displayMenu(e) {
+    show(e);
+  }
 
   return (
-    <>
+    <ReactFlowProvider>
       <Overview />
       <UiEditor />
       <GridWrapper>
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
-          <CustomMapInteractionCSS
-            // showControls={true}
-            maxScale={2}
-            minScale={0.1}
-            scaleBase={1.5}
-            marginRatios={{ x: 1, y: 1 }}
-            contentSize={{
-              height: contentSize.height,
-              width: contentSize.width,
-            }}
-            excludedFromDraggingTagNames={["input", "textarea", "select"]}
-            excludedFromDraggingClassNames={[
-              "EditableTextarea",
-              "chakra-stack DragHandle",
-              "chakra-icon DragHandleIcon",
-              "chakra-slider",
-              "chakra-editable",
-            ]}
-            excludedFromScrollingClassNames={["SectionSearch"]}
+          <Box
+            padding="2.5rem"
+            h="100%"
+            onContextMenu={displayMenu}
+            ref={reactFlowWrapper}
           >
-            <Box padding="2.5rem" h="100%">
-              <CustomGrid setContentSize={setContentSize}>
-                <UIPage />
-              </CustomGrid>
-            </Box>
-          </CustomMapInteractionCSS>
+            <UIPage setReactFlowInstance={setReactFlowInstance} />
+            <NewSectionMenu
+              divRef={reactFlowWrapper}
+              reactFlowInstance={reactFlowInstance}
+            />
+          </Box>
         </Box>
       </GridWrapper>
-    </>
+    </ReactFlowProvider>
   );
 }

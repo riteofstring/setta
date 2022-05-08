@@ -1,3 +1,4 @@
+import graphPaperBg from "assets/images/graph-paper.svg";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion, animate, useMotionValue } from "framer-motion";
 import useKeyPress from "hooks/useKeyPress";
@@ -209,8 +210,7 @@ export default function CustomMapInteractionCSS(props) {
         initial={false}
         style={{
           height: "inherit",
-          backgroundColor: "#CBD5E0",
-          // backgroundImage: `url(${graphPaperBg})`,
+          backgroundImage: `url(${graphPaperBg})`,
           transform: `scale(${panStateScale})`,
           backgroundPosition: `${panStateX}px ${panStateY}px`,
         }}

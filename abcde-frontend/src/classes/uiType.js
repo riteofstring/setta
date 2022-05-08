@@ -1,5 +1,4 @@
 import { SET_FROM_SIDEPANE } from "utils/constants";
-import { maybeNewId } from "utils/utils";
 
 import { MutableInfo } from "./mutableInfo";
 
@@ -13,7 +12,7 @@ export class UIType extends MutableInfo {
     isPreset = false,
   }) {
     super();
-    this.id = maybeNewId(id);
+    this.id = id;
     this.type = type;
     this.name = name;
     this.config = config;
