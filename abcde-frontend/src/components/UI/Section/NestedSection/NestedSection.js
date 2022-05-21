@@ -1,4 +1,4 @@
-import { Grid, VStack, theme } from "@chakra-ui/react";
+import { Grid, theme } from "@chakra-ui/react";
 import React from "react";
 
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
