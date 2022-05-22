@@ -13,7 +13,7 @@ import { CONTEXT_MENU } from "utils/constants";
 import { findSortedIndex, insertIntoArrayOrXpend } from "utils/utils";
 
 import { DragHandle } from "../DragHandle/DragHandle";
-// import styles from "./Container.module.css";
+import styles from "./Container.module.css";
 import { Remove } from "./Remove";
 
 export const Container = forwardRef(
@@ -50,6 +50,7 @@ export const Container = forwardRef(
         <Box
           as={onClick ? "button" : "div"}
           {...props}
+          {...style}
           ref={ref}
           _hover={{
             bg: "#BEC9D6",
@@ -57,21 +58,23 @@ export const Container = forwardRef(
           py="1.5rem"
           px="2rem"
           borderRadius="3xl"
-          // className={classNames(
-          //   styles.Container,
-          //   unstyled && styles.unstyled,
-          //   horizontal && styles.horizontal,
-          //   hover && styles.hover,
-          //   placeholder && styles.placeholder,
-          //   scrollable && styles.scrollable,
-          //   shadow && styles.shadow
-          // )}
+          className={
+            classNames()
+            // styles.Container,
+            // unstyled && styles.unstyled,
+            // horizontal && styles.horizontal,
+            // hover && styles.hover,
+            // placeholder && styles.placeholder,
+            // scrollable && styles.scrollable,
+            // shadow && styles.shadow
+          }
+          sx={{ transition: "background-color 350ms ease" }}
           onClick={onClick}
           tabIndex={onClick ? 0 : undefined}
           // onContextMenu={displayMenu}
         >
           {label ? (
-            <HStack alignItems="center" spacing="2rem">
+            <HStack alignItems="center" spacing="2rem" pb="1rem">
               <Heading as="h2" size="xl" color="gray.100">
                 {label}
               </Heading>
