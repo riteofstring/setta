@@ -1,4 +1,4 @@
-import { Flex, Heading, Spacer, Link } from "@chakra-ui/react";
+import { Flex, Heading, Spacer, Link, Text } from "@chakra-ui/react";
 import { Link as RRLink } from "react-router-dom";
 
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
@@ -21,7 +21,10 @@ export default function HeaderContainer() {
           color="gray.900"
           mr="1rem"
         >
-          ABCDE
+          IO
+          <Text as="span" fontWeight="800">
+            VUU
+          </Text>
         </Heading>
       </Link>
       <SubNav />

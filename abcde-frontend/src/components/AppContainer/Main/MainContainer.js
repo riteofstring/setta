@@ -13,9 +13,9 @@ export default function MainContainer() {
       <UiEditor />
       <GridWrapper>
         <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
-          <Box padding="2.5rem" h="100%">
-            <UIPage />
-          </Box>
+          {/* <Box padding="2.5rem" h="100%"> */}
+          <UIPage />
+          {/* </Box> */}
         </Box>
       </GridWrapper>
     </ReactFlowProvider>

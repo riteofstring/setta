@@ -64,6 +64,7 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
       {...props}
       ref={ref}
       position="absolute"
+      zIndex="100000"
     />
   );
 });
