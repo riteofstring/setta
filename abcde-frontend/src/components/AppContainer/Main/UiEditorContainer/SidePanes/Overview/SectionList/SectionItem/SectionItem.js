@@ -1,20 +1,20 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Text, HStack } from "@chakra-ui/react";
-import {
-  useRequestSectionPositionUpdate,
-  useSetGoToCoordinates,
-} from "hooks/useGetSectionPosition";
-import { OVERVIEW } from "utils/constants";
+import { useReactFlow, useStoreApi } from "react-flow-renderer";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const requestPositionUpdate = useRequestSectionPositionUpdate(
-    sectionId,
-    OVERVIEW
-  );
-  useSetGoToCoordinates(sectionId, OVERVIEW);
+  const store = useStoreApi();
+  const { setCenter } = useReactFlow();
 
-  const onClick = () => {
-    requestPositionUpdate();
+  const focusNode = () => {
+    const { nodeInternals } = store.getState();
+
+    const node = nodeInternals.get(sectionId);
+    const x = node.position.x + node.width / 2;
+    const y = node.position.y + node.height / 2;
+    const zoom = 1;
+
+    setCenter(x, y, { zoom, duration: 100 });
   };
 
   return (
@@ -37,7 +37,7 @@ export default function SectionItem({ sectionId, sectionHeading, isList }) {
           bg: "gray.400",
           color: "gray.50",
         }}
-        onClick={onClick}
+        onClick={focusNode}
       >
         {sectionHeading}
       </Text>

@@ -1,28 +1,36 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGroupsHaveUpdated, useSectionGroups } from "hooks/useSectionGroups";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
+import { useStoreState } from "easy-peasy";
 import React from "react";
-import { MultipleContainers } from "utils/MultipleDND/MultipleContainers";
-import { PANEID } from "utils/constants";
+import ReactFlow, { Controls, useNodesState } from "react-flow-renderer";
 
-function SectionsPane() {
-  const { groupIds, setGroupIds, groups } = useSectionGroups(true);
-  const spaceBetweenPages = useStoreState((x) => x.master.spaceBetweenPages);
-  const refForPosition = useSetSectionPosition(PANEID);
-  const setGroupChildren = useStoreActions((x) => x.master.setGroupChildren);
-  const [groupsHaveUpdated, setGroupsHaveUpdated] = useGroupsHaveUpdated();
+import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
+
+const nodeTypes = { sectionContainerNode: SectionContainerNode };
+
+function SectionsPane({ setReactFlowInstance }) {
+  const topLevelSectionPositions = useStoreState(
+    (x) => x.sectionInfos.topLevelSectionPositions
+  );
+
+  const initialNodes = topLevelSectionPositions.map((e, idx) => ({
+    id: e.id,
+    position: e.initialPosition,
+    type: "sectionContainerNode",
+    dragHandle: ".TopLevelDragHandle",
+  }));
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
   return (
-    <div ref={refForPosition}>
-      <MultipleContainers
-        groups={groups}
-        setGroups={setGroupChildren}
-        containers={groupIds}
-        setContainers={setGroupIds}
-        groupsHaveUpdated={groupsHaveUpdated}
-        setGroupsHaveUpdated={setGroupsHaveUpdated}
-      />
-    </div>
+    <ReactFlow
+      nodes={nodes}
+      minZoom={0.1}
+      maxZoom={10}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      // onLoad={setReactFlowInstance}
+    >
+      <Controls />
+    </ReactFlow>
   );
 }
 

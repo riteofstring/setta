@@ -35,10 +35,11 @@ export function useCreateChildSectionInfo(sectionId) {
 
 export function useCreateDefaultSectionInfo() {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  return () => {
+  return (sectionInfoProps) => {
     const sectionInfo = new SectionInfo({
       name: "New Section",
       uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+      ...sectionInfoProps,
     });
     const id = sectionInfo.id;
     setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));

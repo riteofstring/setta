@@ -58,14 +58,7 @@ export const ComboboxInput = React.forwardRef(
 );
 
 export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
-  return (
-    <List
-      display={isOpen ? null : "none"}
-      {...props}
-      ref={ref}
-      position="absolute"
-    />
-  );
+  return <List display={isOpen ? null : "none"} {...props} ref={ref} />;
 });
 
 export const ComboboxItem = React.forwardRef(
