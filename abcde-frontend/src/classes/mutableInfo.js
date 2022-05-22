@@ -61,8 +61,6 @@ export class SectionInfo extends MutableInfo {
     kwargCollectionId,
     paramInfoId,
     selectedItem = null,
-    isTopLevel = false,
-    initialPosition,
   }) {
     super();
     this.id = maybeNewId(id);
@@ -73,8 +71,6 @@ export class SectionInfo extends MutableInfo {
     this.kwargCollectionId = maybeNewId(kwargCollectionId);
     this.parentId = parentSectionInfo?.id;
     this.paramInfoId = paramInfoId;
-    this.isTopLevel = isTopLevel;
-    this.initialPosition = initialPosition;
     this.exportable = [
       "id",
       "name",

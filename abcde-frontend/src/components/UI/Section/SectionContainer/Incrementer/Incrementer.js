@@ -1,7 +1,8 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
-import { HStack, Input, IconButton, Heading } from "@chakra-ui/react";
+import { HStack, Input, Icon, IconButton, Heading } from "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import React, { useState } from "react";
+import { HiX } from "react-icons/hi";
 
 export default function Incrementer({
   parentId,
