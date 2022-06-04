@@ -1,13 +1,10 @@
 import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useEffect } from "react";
-import ReactFlow, {
-  Controls,
-  useNodesState,
-  MiniMap,
-} from "react-flow-renderer";
+import ReactFlow, { useNodesState, MiniMap } from "react-flow-renderer";
 import { PANEID } from "utils/constants";
 
+import { ResponsiveControls } from "./ResponsiveControls";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
@@ -67,7 +64,7 @@ function SectionsPane({ setReactFlowInstance }) {
         }}
         nodeBorderRadius={2}
       />
-      <Controls />
+      <ResponsiveControls />
       {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
     </ReactFlow>
   );
