@@ -1,5 +1,5 @@
 import { useStoreState } from "easy-peasy";
-import React from "react";
+import React, { useEffect } from "react";
 import ReactFlow, {
   Controls,
   useNodesState,
@@ -24,6 +24,12 @@ function SectionsPane({ setReactFlowInstance }) {
   }));
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+
+  useEffect(() => {
+    if (!_.isEqual(_.map(nodes, "id"), _.map(initialNodes, "id"))) {
+      setNodes(initialNodes);
+    }
+  }, [initialNodes]);
 
   const reactFlowStyle = {
     background: "#CBD5E0",
