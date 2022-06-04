@@ -4,7 +4,6 @@ import {
   useRequestSectionPositionUpdate,
   useSetGoToCoordinates,
 } from "hooks/useGetSectionPosition";
-import { useReactFlow, useStoreApi } from "react-flow-renderer";
 import { OVERVIEW } from "utils/constants";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {

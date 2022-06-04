@@ -13,7 +13,6 @@ import { CONTEXT_MENU } from "utils/constants";
 import { findSortedIndex, insertIntoArrayOrXpend } from "utils/utils";
 
 import { DragHandle } from "../DragHandle/DragHandle";
-import styles from "./Container.module.css";
 import { Remove } from "./Remove";
 
 export const Container = forwardRef(

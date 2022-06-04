@@ -5,7 +5,6 @@ import ReactFlow, {
   Controls,
   useNodesState,
   MiniMap,
-  Background,
 } from "react-flow-renderer";
 import { PANEID } from "utils/constants";
 
