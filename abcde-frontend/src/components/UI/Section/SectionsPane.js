@@ -1,10 +1,11 @@
 import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useEffect } from "react";
-import ReactFlow, { useNodesState, MiniMap } from "react-flow-renderer";
+import ReactFlow, { useNodesState } from "react-flow-renderer";
 import { PANEID } from "utils/constants";
 
 import { ResponsiveControls } from "./ResponsiveControls";
+import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
@@ -48,22 +49,7 @@ function SectionsPane({ setReactFlowInstance }) {
       // snapGrid={[32, 32]}
       // snapToGrid={true}
     >
-      <MiniMap
-        nodeStrokeColor={(n) => {
-          if (n.style?.background) return n.style.background;
-          if (n.type === "input") return "#0041d0";
-          if (n.type === "output") return "#ff0072";
-          if (n.type === "default") return "#1a192b";
-
-          return "#7a7a7a";
-        }}
-        nodeColor={(n) => {
-          if (n.style?.background) return n.style.background;
-
-          return "#fff";
-        }}
-        nodeBorderRadius={2}
-      />
+      <ResponsiveMiniMap />
       <ResponsiveControls />
       {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
     </ReactFlow>
