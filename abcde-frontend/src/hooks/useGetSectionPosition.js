@@ -1,5 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useState } from "react";
+import { useReactFlow } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 
@@ -71,16 +72,16 @@ export function useSetGoToCoordinates(sectionId, requesterName) {
     (x) => x.sectionPositions.setWhoRequested
   );
 
-  const setGoToCoordinates = useStoreActions(
-    (x) => x.mapInteraction.setGoToCoordinates
-  );
+  const { project, setCenter } = useReactFlow();
 
   const coords = useGetSectionPosition(sectionId, requesterName);
 
   useEffect(() => {
     if (whoRequested === requesterName && !_.isEmpty(coords)) {
+      const { x, y } = coords;
       setWhoRequested(null);
-      setGoToCoordinates(coords);
+      const { x: goToX, y: goToY } = project({ x: -x, y: -y });
+      setCenter(goToX, goToY, { zoom: 1, duration: 100 });
     }
   }, [coords]);
 }

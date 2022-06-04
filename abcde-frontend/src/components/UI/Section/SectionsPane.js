@@ -1,4 +1,5 @@
 import { useStoreState } from "easy-peasy";
+import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useEffect } from "react";
 import ReactFlow, {
   Controls,
@@ -6,12 +7,14 @@ import ReactFlow, {
   MiniMap,
   Background,
 } from "react-flow-renderer";
+import { PANEID } from "utils/constants";
 
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
 function SectionsPane({ setReactFlowInstance }) {
+  const refForPosition = useSetSectionPosition(PANEID);
   const topLevelSectionPositions = useStoreState(
     (x) => x.sectionInfos.topLevelSectionPositions
   );
@@ -38,6 +41,7 @@ function SectionsPane({ setReactFlowInstance }) {
 
   return (
     <ReactFlow
+      ref={refForPosition}
       nodes={nodes}
       minZoom={0.1}
       maxZoom={10}
