@@ -3,6 +3,7 @@ import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useEffect, useState } from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
 import { ContextMenu } from "utils/ContextMenu/ContextMenu";
+import { useContextMenu } from "utils/ContextMenu/useContextMenu";
 import { PANEID } from "utils/constants";
 
 import { ResponsiveControls } from "./ResponsiveControls";
@@ -38,21 +39,8 @@ function SectionsPane() {
     height: "100%",
   };
 
-  // [isOpen, x, y]
-  const [contextMenuDetails, setContextMenuDetails] = useState({
-    isOpen: false,
-    x: 0,
-    y: 0,
-  });
-
-  function onPaneContextMenu(e) {
-    e.preventDefault();
-    setContextMenuDetails({ isOpen: true, x: e.clientX, y: e.clientY });
-  }
-
-  function closeContextMenu() {
-    setContextMenuDetails({ isOpen: false, x: 0, y: 0 });
-  }
+  const [contextMenuDetails, openContextMenu, closeContextMenu] =
+    useContextMenu();
 
   return (
     <>
@@ -66,7 +54,7 @@ function SectionsPane() {
         style={reactFlowStyle}
         // snapGrid={[32, 32]}
         // snapToGrid={true}
-        onPaneContextMenu={onPaneContextMenu}
+        onPaneContextMenu={openContextMenu}
         onPaneClick={closeContextMenu}
         onMove={closeContextMenu}
       >
