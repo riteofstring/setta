@@ -31,6 +31,7 @@ export default function ManyNestedSections({
               key={`Nested-Sec-${e}`}
               depth={depth + 1}
               dummy={dummy}
+              idxForList={idx}
             />
           ))}
         </VStack>
