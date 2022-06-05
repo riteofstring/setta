@@ -1,7 +1,8 @@
 import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React, { useEffect } from "react";
+import React from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { ContextMenu } from "utils/ContextMenu/ContextMenu";
 import { useContextMenu } from "utils/ContextMenu/useContextMenu";
 import { PANEID } from "utils/constants";
@@ -19,7 +20,7 @@ function SectionsPane() {
     (x) => x.sectionInfos.topLevelSectionPositions
   );
 
-  const initialNodes = topLevelSectionPositions.map((e, idx) => ({
+  const initialNodes = topLevelSectionPositions.map((e) => ({
     id: e.id,
     position: e.initialPosition,
     type: "sectionContainerNode",
@@ -28,7 +29,7 @@ function SectionsPane() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     if (!_.isEqual(_.map(nodes, "id"), _.map(initialNodes, "id"))) {
       setNodes(initialNodes);
     }

@@ -1,4 +1,5 @@
 import { Stack, Spacer } from "@chakra-ui/react";
+import { useDeleteChild } from "hooks/useAddDeleteChild";
 
 import Incrementer from "../Incrementer/Incrementer";
 import CustomCloseButton from "./CustomCloseButton";
@@ -18,6 +19,12 @@ export function SectionHeader({
   parentControls,
   hasNested,
 }) {
+  const deleteSelf = useDeleteChild(parentId);
+
+  const onCustomCloseButtonClick = () => {
+    deleteSelf({ startId: sectionId });
+  };
+
   return (
     <Stack direction="row" align="center" w="100%" pl="0.75em">
       <SectionTitle
@@ -40,7 +47,10 @@ export function SectionHeader({
           />
         </>
       )}
-      <CustomCloseButton />
+      <CustomCloseButton
+        onClick={onCustomCloseButtonClick}
+        aria-label="Delete self"
+      />
     </Stack>
   );
 }

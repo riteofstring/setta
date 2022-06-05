@@ -15,7 +15,6 @@ export default function Incrementer({
   console.log("Incrementer");
   const addSibling = useAddChild(parentId);
   const deleteSibling = useDeleteChild(parentId);
-  const deleteSelf = useDeleteChild(parentId);
 
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
@@ -36,11 +35,6 @@ export default function Incrementer({
       deleteSibling({ numChildren: numSections, startId: nextId });
     }
   };
-
-  const deleteThisSection = () => {
-    deleteSelf({ startId: sectionId });
-  };
-
   const numSectionsOnChange = (value) => {
     if (value && !isNaN(value)) {
       setNumSections(parseInt(value));
@@ -81,16 +75,6 @@ export default function Incrementer({
         aria-label="Add child section"
         borderRadius="full"
       />
-      {/* {!isListRoot && (
-        <IconButton
-          bg="whiteAlpha"
-          icon={<Icon as={HiX} />}
-          size="xs"
-          onClick={deleteThisSection}
-          aria-label="Delete self"
-          borderRadius="full"
-        />
-      )} */}
     </HStack>
   );
 }
