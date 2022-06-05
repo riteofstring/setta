@@ -2,11 +2,6 @@ import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useEffect } from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
-import {
-  PortalWrapper,
-  NewSectionMenu,
-  useNewSectionMenu,
-} from "utils/ContextMenus/NewSectionMenu";
 import { PANEID } from "utils/constants";
 
 import { ResponsiveControls } from "./ResponsiveControls";
@@ -16,7 +11,7 @@ import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
 function SectionsPane({ setReactFlowInstance }) {
-  const reactFlowDivRef = useSetSectionPosition(PANEID);
+  const refForPosition = useSetSectionPosition(PANEID);
   const topLevelSectionPositions = useStoreState(
     (x) => x.sectionInfos.topLevelSectionPositions
   );
@@ -41,32 +36,23 @@ function SectionsPane({ setReactFlowInstance }) {
     height: "100%",
   };
 
-  const onPaneContextMenu = useNewSectionMenu();
-
   return (
-    <>
-      <ReactFlow
-        ref={reactFlowDivRef}
-        nodes={nodes}
-        minZoom={0.1}
-        maxZoom={10}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        // onLoad={setReactFlowInstance}
-        style={reactFlowStyle}
-        // snapGrid={[32, 32]}
-        // snapToGrid={true}
-        onPaneContextMenu={onPaneContextMenu}
-      >
-        {/* <NewSectionMenu /> */}
-        <ResponsiveMiniMap />
-        <ResponsiveControls />
-        {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
-      </ReactFlow>
-      <PortalWrapper selector=".react-flow">
-        <NewSectionMenu />
-      </PortalWrapper>
-    </>
+    <ReactFlow
+      ref={refForPosition}
+      nodes={nodes}
+      minZoom={0.1}
+      maxZoom={10}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      // onLoad={setReactFlowInstance}
+      style={reactFlowStyle}
+      // snapGrid={[32, 32]}
+      // snapToGrid={true}
+    >
+      <ResponsiveMiniMap />
+      <ResponsiveControls />
+      {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
+    </ReactFlow>
   );
 }
 
