@@ -1,9 +1,21 @@
 import { Menu, MenuButton, MenuList, MenuItem, Portal } from "@chakra-ui/react";
+import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import { useRef, useEffect } from "react";
+import { useReactFlow } from "react-flow-renderer";
 
 export function ContextMenu(props) {
+  const { x, y, closeContextMenu, reactFlowRef } = props;
+  const { project } = useReactFlow();
+  const addSection = useCreateDefaultSectionInfo();
   function onClick() {
-    console.log("ContextMenu onClick");
+    // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
+    const reactFlowBounds = reactFlowRef.current.getBoundingClientRect();
+    const initialPosition = project({
+      x: x - reactFlowBounds.left,
+      y: y - reactFlowBounds.top,
+    });
+    addSection({ isTopLevel: true, initialPosition });
+    closeContextMenu();
   }
   return (
     <ContextMenuCore {...props}>

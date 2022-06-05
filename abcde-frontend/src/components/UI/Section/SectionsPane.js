@@ -13,7 +13,7 @@ import "./react-flow-css.css";
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
 function SectionsPane({ setReactFlowInstance }) {
-  const refForPosition = useSetSectionPosition(PANEID);
+  const reactFlowRef = useSetSectionPosition(PANEID);
   const topLevelSectionPositions = useStoreState(
     (x) => x.sectionInfos.topLevelSectionPositions
   );
@@ -46,9 +46,8 @@ function SectionsPane({ setReactFlowInstance }) {
   });
 
   function onPaneContextMenu(e) {
-    console.log(e);
     e.preventDefault();
-    setContextMenuDetails({ isOpen: true, x: e.pageX, y: e.pageY });
+    setContextMenuDetails({ isOpen: true, x: e.clientX, y: e.clientY });
   }
 
   function closeContextMenu() {
@@ -58,7 +57,7 @@ function SectionsPane({ setReactFlowInstance }) {
   return (
     <>
       <ReactFlow
-        ref={refForPosition}
+        ref={reactFlowRef}
         nodes={nodes}
         minZoom={0.1}
         maxZoom={10}
@@ -75,6 +74,7 @@ function SectionsPane({ setReactFlowInstance }) {
         <ContextMenu
           {...contextMenuDetails}
           closeContextMenu={closeContextMenu}
+          reactFlowRef={reactFlowRef}
         />
         <ResponsiveMiniMap />
         <ResponsiveControls />
