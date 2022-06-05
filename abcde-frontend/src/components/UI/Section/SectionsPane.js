@@ -1,6 +1,6 @@
 import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
 import { ContextMenu } from "utils/ContextMenu/ContextMenu";
 import { useContextMenu } from "utils/ContextMenu/useContextMenu";
