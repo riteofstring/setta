@@ -7,6 +7,7 @@ export const DEFAULT_ENTERED_TEXT = "// write your code here";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 export const CONTEXT_MENU = "contextMenu";
+export const INDICATOR_GOTO_PARENT = "indicator_goto_parent";
 
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";

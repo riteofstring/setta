@@ -1,21 +1,13 @@
 import { DragHandleIcon } from "@chakra-ui/icons";
 import { Text, HStack } from "@chakra-ui/react";
-import {
-  useRequestSectionPositionUpdate,
-  useSetGoToCoordinates,
-} from "hooks/useGetSectionPosition";
+import { useGoToSection } from "hooks/useGetSectionPosition";
 import { OVERVIEW } from "utils/constants";
 
 export default function SectionItem({ sectionId, sectionHeading, isList }) {
-  const requestPositionUpdate = useRequestSectionPositionUpdate(
-    sectionId,
-    OVERVIEW
-  );
-
-  useSetGoToCoordinates(sectionId, OVERVIEW);
+  const goToSection = useGoToSection(sectionId, OVERVIEW);
 
   const onClick = () => {
-    requestPositionUpdate();
+    goToSection();
   };
 
   return (

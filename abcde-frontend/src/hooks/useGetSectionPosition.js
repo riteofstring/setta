@@ -4,7 +4,18 @@ import { useReactFlow } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 
-export function useRequestSectionPositionUpdate(
+export function useGoToSection(sectionId, requesterName) {
+  const requestPositionUpdate = useRequestSectionPositionUpdate(
+    sectionId,
+    requesterName
+  );
+
+  useSetGoToCoordinates(sectionId, requesterName);
+
+  return requestPositionUpdate;
+}
+
+function useRequestSectionPositionUpdate(
   sectionId,
   requesterName,
   sectionIds = null
@@ -66,7 +77,7 @@ function useGetSectionPosition(sectionId, requesterName, absolute) {
   return coords;
 }
 
-export function useSetGoToCoordinates(sectionId, requesterName) {
+function useSetGoToCoordinates(sectionId, requesterName) {
   const whoRequested = useStoreState((x) => x.sectionPositions.whoRequested);
   const setWhoRequested = useStoreActions(
     (x) => x.sectionPositions.setWhoRequested
@@ -81,7 +92,7 @@ export function useSetGoToCoordinates(sectionId, requesterName) {
       const { x, y } = coords;
       setWhoRequested(null);
       const { x: goToX, y: goToY } = project({ x: -x, y: -y });
-      setCenter(goToX, goToY, { zoom: 1, duration: 100 });
+      setCenter(goToX, goToY, { zoom: 1, duration: 50 });
     }
   }, [coords]);
 }

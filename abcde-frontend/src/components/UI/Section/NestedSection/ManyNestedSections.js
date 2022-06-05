@@ -1,6 +1,8 @@
 import { HStack, Box, VStack } from "@chakra-ui/react";
+import { useGoToSection } from "hooks/useGetSectionPosition";
 import React from "react";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
+import { INDICATOR_GOTO_PARENT } from "utils/constants";
 
 import { NestedSection } from "./NestedSection";
 
@@ -11,6 +13,12 @@ export default function ManyNestedSections({
   setChildren,
   dummy,
 }) {
+  const goToSection = useGoToSection(sectionId, INDICATOR_GOTO_PARENT);
+
+  const onClick = () => {
+    goToSection();
+  };
+
   return (
     <DNDSortable items={childIds} setItems={setChildren}>
       <HStack alignItems="stretch">
@@ -21,6 +29,7 @@ export default function ManyNestedSections({
           minH="100%"
           _hover={{ bg: "whiteAlpha.500", cursor: "pointer" }}
           mb=".25rem"
+          onClick={onClick}
         />
         <VStack spacing="0">
           {childIds.map((e, idx) => (
