@@ -14,6 +14,20 @@ import "./react-flow-css.css";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
+function setInitialToCurrent(initialNodes, nodes) {
+  let newNodeStates = _.cloneDeep(initialNodes);
+  for (let n of newNodeStates) {
+    for (let m of nodes) {
+      if (n.id === m.id) {
+        // Use position as set by react flow, instead of initialPosition
+        n.position = m.position;
+        break;
+      }
+    }
+  }
+  return newNodeStates;
+}
+
 function SectionsPane() {
   const reactFlowRef = useSetSectionPosition(PANEID);
   const topLevelSectionPositions = useStoreState(
@@ -31,7 +45,8 @@ function SectionsPane() {
 
   useDeepCompareEffect(() => {
     if (!_.isEqual(_.map(nodes, "id"), _.map(initialNodes, "id"))) {
-      setNodes(initialNodes);
+      const newNodeStates = setInitialToCurrent(initialNodes, nodes);
+      setNodes(newNodeStates);
     }
   }, [initialNodes]);
 
