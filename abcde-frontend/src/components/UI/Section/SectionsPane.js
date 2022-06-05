@@ -12,7 +12,7 @@ import "./react-flow-css.css";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
-function SectionsPane({ setReactFlowInstance }) {
+function SectionsPane() {
   const reactFlowRef = useSetSectionPosition(PANEID);
   const topLevelSectionPositions = useStoreState(
     (x) => x.sectionInfos.topLevelSectionPositions
@@ -63,7 +63,6 @@ function SectionsPane({ setReactFlowInstance }) {
         maxZoom={10}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        // onLoad={setReactFlowInstance}
         style={reactFlowStyle}
         // snapGrid={[32, 32]}
         // snapToGrid={true}
