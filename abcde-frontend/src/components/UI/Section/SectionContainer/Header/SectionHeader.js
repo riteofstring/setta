@@ -18,7 +18,6 @@ export function SectionHeader({
   deleteChild,
   parentControls,
   hasNested,
-  idxForList
 }) {
   const deleteSelf = useDeleteChild(parentId);
 
@@ -32,8 +31,6 @@ export function SectionHeader({
         heading={variableName}
         requiresKeyInput={requiresKeyInput}
         onTitleInputChange={onTitleInputChange}
-        isList={isList}
-        idxForList={idxForList}
       />
       <Spacer />
       {(isList || isListRoot) && (

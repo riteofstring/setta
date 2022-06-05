@@ -2,17 +2,11 @@ import {
   Editable,
   EditableInput,
   EditablePreview,
-  Heading,
   Input,
 } from "@chakra-ui/react";
 import { useState } from "react";
 
-export default function SectionTitle({
-  heading,
-  onTitleInputChange,
-  isList,
-  idxForList,
-}) {
+export default function SectionTitle({ heading, onTitleInputChange }) {
   const [inputValue, setInputValue] = useState(heading);
 
   const onBlur = (v) => {
@@ -23,17 +17,7 @@ export default function SectionTitle({
     }
   };
 
-  return isList ? (
-    <Heading
-      size="md"
-      fontWeight="black"
-      letterSpacing="tighter"
-      color="gray.700"
-      as="h2"
-    >
-      {idxForList}
-    </Heading>
-  ) : (
+  return (
     <Editable
       value={inputValue}
       onChange={setInputValue}

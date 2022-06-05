@@ -26,7 +26,6 @@ function _SectionContainerCore({
   hasNested,
   dragListeners,
   dummy,
-  idxForList,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
@@ -88,7 +87,6 @@ function _SectionContainerCore({
             hasNested={hasNested}
             onTitleInputChange={onTitleInputChange}
             requiresKeyInput={requiresKeyInput(config.subType)}
-            idxForList={idxForList}
           />
           {!dummy && !isListRoot && (
             <Stack>
