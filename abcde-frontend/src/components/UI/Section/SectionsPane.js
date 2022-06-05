@@ -1,12 +1,14 @@
 import { useStoreState } from "easy-peasy";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
+import { ContextMenu } from "utils/ContextMenu/ContextMenu";
 import { PANEID } from "utils/constants";
 
 import { ResponsiveControls } from "./ResponsiveControls";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
+import "./react-flow-css.css";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
@@ -36,23 +38,49 @@ function SectionsPane({ setReactFlowInstance }) {
     height: "100%",
   };
 
+  // [isOpen, x, y]
+  const [contextMenuDetails, setContextMenuDetails] = useState({
+    isOpen: false,
+    x: 0,
+    y: 0,
+  });
+
+  function onPaneContextMenu(e) {
+    console.log(e);
+    e.preventDefault();
+    setContextMenuDetails({ isOpen: true, x: e.pageX, y: e.pageY });
+  }
+
+  function closeContextMenu() {
+    setContextMenuDetails({ isOpen: false, x: 0, y: 0 });
+  }
+
   return (
-    <ReactFlow
-      ref={refForPosition}
-      nodes={nodes}
-      minZoom={0.1}
-      maxZoom={10}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      // onLoad={setReactFlowInstance}
-      style={reactFlowStyle}
-      // snapGrid={[32, 32]}
-      // snapToGrid={true}
-    >
-      <ResponsiveMiniMap />
-      <ResponsiveControls />
-      {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
-    </ReactFlow>
+    <>
+      <ReactFlow
+        ref={refForPosition}
+        nodes={nodes}
+        minZoom={0.1}
+        maxZoom={10}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        // onLoad={setReactFlowInstance}
+        style={reactFlowStyle}
+        // snapGrid={[32, 32]}
+        // snapToGrid={true}
+        onPaneContextMenu={onPaneContextMenu}
+        onPaneClick={closeContextMenu}
+        onMove={closeContextMenu}
+      >
+        <ContextMenu
+          {...contextMenuDetails}
+          closeContextMenu={closeContextMenu}
+        />
+        <ResponsiveMiniMap />
+        <ResponsiveControls />
+        {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
+      </ReactFlow>
+    </>
   );
 }
 
