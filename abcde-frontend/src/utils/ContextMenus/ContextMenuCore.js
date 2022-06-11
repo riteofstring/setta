@@ -1,32 +1,7 @@
-import { Menu, MenuButton, MenuList, MenuItem, Portal } from "@chakra-ui/react";
-import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
+import { Menu, MenuButton, Portal } from "@chakra-ui/react";
 import { useRef, useEffect } from "react";
-import { useReactFlow } from "react-flow-renderer";
 
-export function ContextMenu(props) {
-  const { x, y, closeContextMenu, reactFlowRef } = props;
-  const { project } = useReactFlow();
-  const addSection = useCreateDefaultSectionInfo();
-  function onClick() {
-    // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-    const reactFlowBounds = reactFlowRef.current.getBoundingClientRect();
-    const initialPosition = project({
-      x: x - reactFlowBounds.left,
-      y: y - reactFlowBounds.top,
-    });
-    addSection({ isTopLevel: true, initialPosition });
-    closeContextMenu();
-  }
-  return (
-    <ContextMenuCore {...props}>
-      <MenuList>
-        <MenuItem onClick={onClick}>New Section</MenuItem>
-      </MenuList>
-    </ContextMenuCore>
-  );
-}
-
-function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
+export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
   const ref = useRef(null);
   useOutsideAlerter(ref, isOpen, closeContextMenu);
 

@@ -33,6 +33,8 @@ export const DEFAULT_DEFAULT_UI_TYPE_ID =
 export const DEFAULT_SECTION_UI_TYPE_ID =
   "0191cde4-3d98-4ba0-972a-fead19b8ac73";
 
+export const DEFAULT_DECK_UI_TYPE_ID = "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f";
+
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }

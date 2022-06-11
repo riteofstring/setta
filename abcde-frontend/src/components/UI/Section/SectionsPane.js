@@ -3,8 +3,9 @@ import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ContextMenu } from "utils/ContextMenu/ContextMenu";
-import { useContextMenu } from "utils/ContextMenu/useContextMenu";
+import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
+import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
+import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
 import { PANEID } from "utils/constants";
 
 import { ResponsiveControls } from "./ResponsiveControls";
@@ -55,8 +56,15 @@ function SectionsPane() {
     height: "100%",
   };
 
-  const [contextMenuDetails, openContextMenu, closeContextMenu] =
-    useContextMenu();
+  const [
+    paneCtxMenuDetails,
+    openPaneCtxMenu,
+    closePaneCtxMenu,
+    selectionCtxMenuDetails,
+    openSelectionCtxMenu,
+    closeSelectionCtxMenu,
+    closeCtxMenus,
+  ] = useAllContextMenus();
 
   return (
     <>
@@ -70,13 +78,19 @@ function SectionsPane() {
         style={reactFlowStyle}
         // snapGrid={[32, 32]}
         // snapToGrid={true}
-        onPaneContextMenu={openContextMenu}
-        onPaneClick={closeContextMenu}
-        onMove={closeContextMenu}
+        onPaneContextMenu={openPaneCtxMenu}
+        onSelectionContextMenu={openSelectionCtxMenu}
+        onPaneClick={closeCtxMenus}
+        onMove={closeCtxMenus}
       >
-        <ContextMenu
-          {...contextMenuDetails}
-          closeContextMenu={closeContextMenu}
+        <PaneContextMenu
+          {...paneCtxMenuDetails}
+          closeContextMenu={closePaneCtxMenu}
+          reactFlowRef={reactFlowRef}
+        />
+        <SelectionContextMenu
+          {...selectionCtxMenuDetails}
+          closeContextMenu={closeSelectionCtxMenu}
           reactFlowRef={reactFlowRef}
         />
         <ResponsiveMiniMap />
