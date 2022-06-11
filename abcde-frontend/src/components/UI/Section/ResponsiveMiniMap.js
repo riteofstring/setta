@@ -12,7 +12,12 @@ export function ResponsiveMiniMap() {
   return (
     <motion.div
       initial={false}
-      style={{ position: "absolute", zIndex: 5, bottom: "20px", right: "15px" }}
+      style={{
+        position: "absolute",
+        zIndex: 5,
+        bottom: "20px",
+        right: "15px",
+      }}
       animate={{ translateX: -uiEditorWidth }}
     >
       <MiniMap
@@ -22,14 +27,18 @@ export function ResponsiveMiniMap() {
           if (n.type === "output") return "#ff0072";
           if (n.type === "default") return "#1a192b";
 
-          return "#7a7a7a";
+          return "#e2e8f07f";
         }}
         nodeColor={(n) => {
           if (n.style?.background) return n.style.background;
 
-          return "#fff";
+          return "#A0AEC07f";
         }}
-        nodeBorderRadius={2}
+        nodeBorderRadius={5}
+        style={{
+          borderRadius: "16px",
+          overflow: "hidden",
+        }}
       />
     </motion.div>
   );

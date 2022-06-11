@@ -55,15 +55,19 @@ function _SectionContainerCore({
     <VStack
       spacing={0}
       alignItems="stretch"
-      boxShadow={isActive || isActiveSection ? "xl" : "sm"}
+      boxShadow={isActive || isActiveSection ? "2xl" : "md"}
       borderRadius="xl"
       bg="white"
       w={`${SECTIONWIDTH}px`}
-      border="2px"
-      transitionDuration=".25s"
-      borderColor={
-        isActive ? "green.300" : isActiveSection ? "blue.300" : "white"
+      outline="4px solid"
+      outlineColor={
+        isActive && !isActiveSection
+          ? "cyan.300"
+          : isActiveSection
+          ? "blue.300"
+          : "transparent"
       }
+      transitionDuration=".15s"
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
@@ -73,12 +77,12 @@ function _SectionContainerCore({
         direction="column"
         bg="gray.50"
         borderRadius="xl"
-        border="1px"
         px="0.5rem "
-        borderColor="white"
         boxShadow="md"
         zIndex="15"
         w="100%"
+        border="1px"
+        borderColor="white"
         overflow="hidden"
       >
         {/* <DragHandle isTopLevel={isTopLevel} dragListeners={dragListeners} /> */}

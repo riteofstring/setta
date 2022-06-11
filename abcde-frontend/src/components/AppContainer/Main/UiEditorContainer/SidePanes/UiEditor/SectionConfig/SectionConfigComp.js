@@ -69,17 +69,19 @@ function SearchItem({
   return (
     <ListItem
       px=".75rem"
-      py=".75rem"
-      borderRadius="2xl"
+      py=".5rem"
+      // mb="1.25rem"
+      borderRadius="md"
       cursor="pointer"
-      _hover={{
-        background: "white",
-        boxShadow: "sm",
-        borderColor: "white",
-        transition: "box-shadow 200ms, background 200ms",
-      }}
+      // _hover={{
+      //   background: "white",
+      //   boxShadow: "sm",
+      //   borderColor: "white",
+      //   transition: "box-shadow 200ms, background 200ms",
+      // }}
       border="1px"
       borderColor="rgba(0, 0, 0, 0)"
+      className="edit-list-item"
     >
       <HStack align="stretch">
         {/* <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" /> */}
@@ -91,10 +93,25 @@ function SearchItem({
           mr="0.25rem"
         />
         <VStack align="stretch" onClick={onToggle}>
-          <Heading as="h2" size="md" color="gray.500">
+          <Heading
+            as="h2"
+            fontSize="1rem"
+            color="gray.500"
+            sx={{
+              ".edit-list-item:hover": { color: "black" },
+            }}
+          >
             {name}
           </Heading>
-          <Text>{description}</Text>
+          <Text
+            fontSize="sm"
+            mt="0.33rem !important"
+            sx={{
+              ".edit-list-item:hover": { color: "black" },
+            }}
+          >
+            {description}
+          </Text>
         </VStack>
       </HStack>
       {type === "objects" ? (
