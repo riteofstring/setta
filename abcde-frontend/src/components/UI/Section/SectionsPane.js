@@ -2,7 +2,7 @@ import { useStoreState } from "easy-peasy";
 import { useDragIntoDeck } from "hooks/useAddToDeck";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
-import ReactFlow, { useNodesState } from "react-flow-renderer";
+import ReactFlow, { useNodesState, Background } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
@@ -107,7 +107,7 @@ function SectionsPane() {
         />
         <ResponsiveMiniMap />
         <ResponsiveControls />
-        {/* <Background color="#b3bfd1" size={0.75} gap={16} /> */}
+        <Background color="#b3bfd1" size={0.75} gap={16} />
       </ReactFlow>
     </>
   );

@@ -1,5 +1,5 @@
-import { Stack, HStack, VStack } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
+import { Stack, HStack, VStack, Fade } from "@chakra-ui/react";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
@@ -39,6 +39,7 @@ function _SectionContainerCore({
     (x) => x.sectionInfos.setSectionInfoAttr
   );
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const isActive = useStoreState((x) => x.master.activeSection) === sectionId;
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -54,10 +55,11 @@ function _SectionContainerCore({
     <VStack
       spacing={0}
       alignItems="stretch"
-      boxShadow="md"
+      boxShadow={isActive ? "xl" : "xs"}
       borderRadius="xl"
       bg="white"
       w={`${SECTIONWIDTH}px`}
+      transitionDuration=".05s"
     >
       <HStack
         ref={refForPosition}
