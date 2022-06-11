@@ -1,4 +1,5 @@
 import { Stack, Box } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import React, { useState, useCallback } from "react";
@@ -18,6 +19,7 @@ function SectionContainer({
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
 
+  // const isActive = useStoreState((x) => x.master.activeSection) === sectionId;
   console.log("SectionContainer", dummy);
 
   const addChild = useAddChild(sectionId);
