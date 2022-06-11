@@ -25,7 +25,6 @@ function useContextMenu({
   }
 
   function close() {
-    console.log("useContextMenu close")
     setDetails((curr) => closeFn(initialState, curr));
   }
 
