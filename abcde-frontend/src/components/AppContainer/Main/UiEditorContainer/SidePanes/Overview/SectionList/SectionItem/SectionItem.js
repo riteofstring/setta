@@ -24,12 +24,11 @@ export default function SectionItem({ sectionId, sectionHeading, isList }) {
         py={0.5}
         px={2}
         w="100%"
-        borderRadius="0.25rem"
-        color="gray.500"
+        borderRadius="0.5rem"
         _hover={{
           boxShadow: "inset 0px 0px 0px 10px gray.500",
-          bg: "gray.100",
-          // color: "gray.50",
+          bg: "gray.400",
+          color: "gray.50",
         }}
         onClick={onClick}
       >

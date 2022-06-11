@@ -23,17 +23,9 @@ export default function SectionTitle({ heading, onTitleInputChange }) {
       onChange={setInputValue}
       isPreviewFocusable={true}
       onSubmit={onBlur}
-      fontFamily="Work Sans"
-      fontWeight="bold"
     >
       <EditablePreview />
-      <Input
-        as={EditableInput}
-        paddingX="0.5rem"
-        paddingY="0"
-        marginLeft="-0.5rem"
-        height="30px"
-      />
+      <Input as={EditableInput} />
     </Editable>
   );
 }

@@ -1,4 +1,4 @@
-import { IconButton, Box, GridItem, Heading } from "@chakra-ui/react";
+import { IconButton, Box, GridItem } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import useWindowSize from "hooks/useWindowSize";
@@ -20,7 +20,6 @@ export default function PaneContainer(props) {
     boxPy = "2rem",
     boxPx = "2.66rem",
     boxBg = "gray.50",
-    paneTitle = null,
   } = props;
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
@@ -132,16 +131,6 @@ export default function PaneContainer(props) {
             px={boxPx}
             bg={boxBg}
           >
-            <Heading
-              as="h2"
-              size="md"
-              color="gray.300"
-              pb=".75rem"
-              textTransform="uppercase"
-              letterSpacing="widest"
-            >
-              {paneTitle}
-            </Heading>
             {props.children}
             <IconButton
               icon={btnDir ? <HiChevronRight /> : <HiChevronLeft />}
