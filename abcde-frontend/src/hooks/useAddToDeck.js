@@ -1,8 +1,10 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
+import { DECK } from "utils/constants";
 
 import { useMouseToReactFlowPosition } from "./useMouseToReactFlowPosition";
+import { useGetSectionType } from "./useSectionType";
 
 export function useAddToDeck() {
   const setIdsOverview = useStoreActions(
@@ -25,12 +27,25 @@ export function useAddToDeck() {
   };
 }
 
+function useDropOverNode(overNode, setOverNode) {
+  const addToDeck = useAddToDeck();
+  const overNodeIsDeck = useGetSectionType(overNode).type === DECK;
+  return (draggingNodes) => {
+    if (overNodeIsDeck) {
+      addToDeck(
+        overNode,
+        draggingNodes.map((x) => x.id)
+      );
+    }
+    setOverNode(null);
+  };
+}
+
 export function useDragIntoDeck(reactFlowRef) {
   const { getNodes } = useReactFlow();
   const getMousePosition = useMouseToReactFlowPosition(reactFlowRef);
   const [overNode, setOverNode] = useState(null);
-  const sectionInfos = useStoreState((x) => x.sectionInfos.x);
-  const addToDeck = useAddToDeck();
+  const dropOverNode = useDropOverNode(overNode, setOverNode);
 
   function draggingOverNode(e, draggingNodes) {
     const nodes = getNodes();
@@ -47,16 +62,6 @@ export function useDragIntoDeck(reactFlowRef) {
         setOverNode(n.id);
         return;
       }
-    }
-    setOverNode(null);
-  }
-
-  function dropOverNode(draggingNodes) {
-    if (overNode && sectionInfos[overNode].isDeck) {
-      addToDeck(
-        overNode,
-        draggingNodes.map((x) => x.id)
-      );
     }
     setOverNode(null);
   }

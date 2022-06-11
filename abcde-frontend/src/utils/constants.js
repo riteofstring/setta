@@ -19,6 +19,7 @@ export const SECTION = "SECTION";
 // section sub types
 export const LIST = "LIST";
 export const DICT = "DICT";
+export const DECK = "DECK";
 
 export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT];
 export const DEFAULT_UI_TYPE_NAME = TEXT;
@@ -33,7 +34,7 @@ export const DEFAULT_DEFAULT_UI_TYPE_ID =
 export const DEFAULT_SECTION_UI_TYPE_ID =
   "0191cde4-3d98-4ba0-972a-fead19b8ac73";
 
-export const DEFAULT_DECK_UI_TYPE_ID = "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f";
+export const DECK_UI_TYPE_ID = "0e050316-06ca-48f4-92c1-9845abdf85f7";
 
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
@@ -44,7 +45,7 @@ export function requiresKeyInput(sectionTypeName) {
 }
 
 export function isRoot(sectionTypeName) {
-  return [LIST_ROOT, DICT_ROOT].includes(sectionTypeName);
+  return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
 }
 
 export function isListLike(sectionTypeName) {
