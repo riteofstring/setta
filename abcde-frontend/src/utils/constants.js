@@ -12,7 +12,6 @@ export const INDICATOR_GOTO_PARENT = "indicator_goto_parent";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
-export const REF = "REF";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
@@ -20,7 +19,6 @@ export const SECTION = "SECTION";
 // section sub types
 export const LIST = "LIST";
 export const DICT = "DICT";
-export const DECK = "DECK";
 
 export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT];
 export const DEFAULT_UI_TYPE_NAME = TEXT;
@@ -35,7 +33,7 @@ export const DEFAULT_DEFAULT_UI_TYPE_ID =
 export const DEFAULT_SECTION_UI_TYPE_ID =
   "0191cde4-3d98-4ba0-972a-fead19b8ac73";
 
-export const DECK_UI_TYPE_ID = "0e050316-06ca-48f4-92c1-9845abdf85f7";
+export const DEFAULT_DECK_UI_TYPE_ID = "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f";
 
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
@@ -46,7 +44,7 @@ export function requiresKeyInput(sectionTypeName) {
 }
 
 export function isRoot(sectionTypeName) {
-  return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
+  return [LIST_ROOT, DICT_ROOT].includes(sectionTypeName);
 }
 
 export function isListLike(sectionTypeName) {
@@ -62,7 +60,6 @@ export const uiTypesToPretty = Object.freeze(
       [SECTION]: "Object",
       [LIST_ROOT]: "List of Objects",
       [DICT_ROOT]: "Dict of Objects",
-      [REF]: "Reference to Object",
     })
   )
 );

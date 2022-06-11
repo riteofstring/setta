@@ -1,4 +1,5 @@
-import { Heading } from "@chakra-ui/react";
+import { SearchIcon } from "@chakra-ui/icons";
+import { Heading, Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
 import { useState } from "react";
@@ -16,8 +17,8 @@ const paneProps = {
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
-  const topLevelSectionIds = useStoreState((x) =>
-    x.sectionInfos.topLevelSectionPositions.map((x) => x.id)
+  const topLevelSectionPositions = useStoreState(
+    (x) => x.sectionInfos.topLevelSectionPositions
   );
   const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
@@ -25,15 +26,24 @@ export default function Overview() {
   useDeepCompareEffect(() => {
     console.log("Overview useEffect");
     setListOfSectionIdsAndNames(
-      getOverviewListing([topLevelSectionIds], currChildren, idNames)
+      getOverviewListing(
+        [_.map(topLevelSectionPositions, (x) => x.id)],
+        currChildren,
+        idNames
+      )
     );
-  }, [topLevelSectionIds, currChildren, idNames]);
+  }, [currChildren, idNames]);
 
   return (
-    <PaneContainer paneProps={paneProps}>
-      <Heading as="h2" size="md" color="gray.500" pb=".5rem">
-        Overview
-      </Heading>
+    <PaneContainer paneProps={paneProps} paneTitle="Overview">
+      <InputGroup pb="1rem">
+        <InputLeftElement
+          pointerEvents="none"
+          children={<SearchIcon color="gray.300" />}
+        />
+        <Input variant="flushed" placeholder="Search" />
+      </InputGroup>
+
       <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
     </PaneContainer>
   );

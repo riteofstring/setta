@@ -1,5 +1,5 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { DECK, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
+import { SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
 
 export function usePresetUIType(uiTypeId) {
   const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
@@ -20,7 +20,7 @@ function createName(uiType) {
 }
 
 function isPresetOrSelected(v, selectedId) {
-  return (v.isPreset && v.type !== DECK) || v.id === selectedId;
+  return v.isPreset || v.id === selectedId;
 }
 
 function defaultFilterFn(x, selectedId) {
