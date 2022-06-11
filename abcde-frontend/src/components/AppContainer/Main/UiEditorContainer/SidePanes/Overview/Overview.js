@@ -1,4 +1,5 @@
-import { Heading } from "@chakra-ui/react";
+import { SearchIcon } from "@chakra-ui/icons";
+import { Heading, Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
 import { useState } from "react";
@@ -35,9 +36,24 @@ export default function Overview() {
 
   return (
     <PaneContainer paneProps={paneProps}>
-      <Heading as="h2" size="md" color="gray.500" pb=".5rem">
+      <Heading
+        as="h2"
+        size="md"
+        color="gray.300"
+        pb=".75rem"
+        textTransform="uppercase"
+        letterSpacing="widest"
+      >
         Overview
       </Heading>
+      <InputGroup pb="1rem">
+        <InputLeftElement
+          pointerEvents="none"
+          children={<SearchIcon color="gray.300" />}
+        />
+        <Input variant="flushed" placeholder="Search" />
+      </InputGroup>
+
       <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
     </PaneContainer>
   );
