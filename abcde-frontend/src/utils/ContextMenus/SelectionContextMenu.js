@@ -14,7 +14,7 @@ export function SelectionContextMenu(props) {
 
   return (
     <ContextMenuCore {...props}>
-      <MenuList>
+      <MenuList zIndex={10}>
         <MenuItem onClick={onClick}>Delete</MenuItem>
       </MenuList>
     </ContextMenuCore>
