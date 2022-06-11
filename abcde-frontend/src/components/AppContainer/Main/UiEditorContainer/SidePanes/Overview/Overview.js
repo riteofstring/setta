@@ -35,17 +35,7 @@ export default function Overview() {
   }, [currChildren, idNames]);
 
   return (
-    <PaneContainer paneProps={paneProps}>
-      <Heading
-        as="h2"
-        size="md"
-        color="gray.300"
-        pb=".75rem"
-        textTransform="uppercase"
-        letterSpacing="widest"
-      >
-        Overview
-      </Heading>
+    <PaneContainer paneProps={paneProps} paneTitle="Overview">
       <InputGroup pb="1rem">
         <InputLeftElement
           pointerEvents="none"

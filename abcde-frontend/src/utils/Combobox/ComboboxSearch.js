@@ -19,6 +19,7 @@ export function ComboboxSearch({
   onSelectedItemChange,
   matchSorterProps,
   textSize,
+  simpleSearch,
 }) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -76,6 +77,7 @@ export function ComboboxSearch({
           isOpen={isOpen}
           dropdown={true}
           textSize={textSize}
+          simpleSearch={simpleSearch}
         />
 
         {/* TODO: FIX WIDTH & ZINDEX */}

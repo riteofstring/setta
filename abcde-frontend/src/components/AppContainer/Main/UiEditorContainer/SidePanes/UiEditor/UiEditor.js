@@ -1,7 +1,18 @@
-import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
+import {
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
+  Button,
+  Box,
+  useMultiStyleConfig,
+  useTab,
+} from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useState } from "react";
+import React from "react";
 import Measure from "react-measure";
 import { UI_EDITOR } from "utils/constants";
 
@@ -20,7 +31,7 @@ export default function UiEditor() {
   const [dimensions, setDimensions] = useState({});
 
   return (
-    <PaneContainer paneProps={paneProps}>
+    <PaneContainer paneProps={paneProps} paneTitle="Edit">
       <Tabs
         h="inherit"
         display="flex"
@@ -30,11 +41,10 @@ export default function UiEditor() {
         index={tabIndex}
         onChange={setTabIndex}
       >
-        <TabList>
-          <Tab>Section Config</Tab>
-          <Tab>UI Config</Tab>
-          <Tab>Parameter Sweeps</Tab>
-          <Tab>Edit YAML</Tab>
+        <TabList borderBottom="none" pb="1.5rem">
+          <CustomTab>Card</CustomTab>
+          <CustomTab>Parameters</CustomTab>
+          <CustomTab>YAML</CustomTab>
         </TabList>
         <Measure
           client
@@ -50,13 +60,12 @@ export default function UiEditor() {
               overflowY="auto"
               ref={measureRef}
             >
-              <TabPanel>
+              <TabPanel p="0">
                 <SectionConfig />
               </TabPanel>
               <TabPanel>
                 <UIConfig />
               </TabPanel>
-              <TabPanel>Parameter Sweeps</TabPanel>
               <TabPanel display="grid" place-items="center">
                 <YamlEditor dimensions={dimensions} />
               </TabPanel>
@@ -67,3 +76,32 @@ export default function UiEditor() {
     </PaneContainer>
   );
 }
+
+const CustomTab = React.forwardRef((props, ref) => {
+  // 1. Reuse the `useTab` hook
+  const tabProps = useTab({ ...props, ref });
+  const isSelected = !!tabProps["aria-selected"];
+
+  // 2. Hook into the Tabs `size`, `variant`, props
+  const styles = useMultiStyleConfig("Tabs", tabProps);
+
+  return (
+    <Button
+      __css={styles.tab}
+      {...tabProps}
+      px="0"
+      borderBottom={isSelected ? "gray.500" : "none"}
+      borderLeft="none"
+      borderRight="none"
+      borderTop="none"
+      borderWidth="3px"
+      py="0.5rem"
+      mr="1rem"
+      fontSize="xl"
+      fontWeight={isSelected ? "800" : "300"}
+      color={isSelected ? "gray.800" : "gray.500"}
+    >
+      {tabProps.children}
+    </Button>
+  );
+});
