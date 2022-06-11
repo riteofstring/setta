@@ -1,5 +1,5 @@
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
-import { useReactFlow } from "react-flow-renderer";
+import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { DEFAULT_DECK_UI_TYPE_ID } from "utils/constants";
 
 export function useOnClickAddSection({
@@ -9,19 +9,16 @@ export function useOnClickAddSection({
   reactFlowRef,
   afterAddSection,
 }) {
-  const { project } = useReactFlow();
+  const getPosition = useMouseToReactFlowPosition(reactFlowRef);
   const addSection = useCreateDefaultSectionInfo();
 
   return (isDeck) => () => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-    const reactFlowBounds = reactFlowRef.current.getBoundingClientRect();
-    const initialPosition = project({
-      x: x - reactFlowBounds.left,
-      y: y - reactFlowBounds.top,
-    });
+    const initialPosition = getPosition(x, y);
     const sectionProps = { isTopLevel: true, initialPosition };
     if (isDeck) {
       sectionProps.uiTypeId = DEFAULT_DECK_UI_TYPE_ID;
+      sectionProps.isDeck = true;
     }
     const [newId] = addSection(sectionProps);
     if (afterAddSection) {

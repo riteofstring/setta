@@ -1,4 +1,5 @@
 import { useStoreState } from "easy-peasy";
+import { useDragIntoDeck } from "hooks/useAddToDeck";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ReactFlow, { useNodesState } from "react-flow-renderer";
@@ -66,6 +67,13 @@ function SectionsPane() {
     closeCtxMenus,
   ] = useAllContextMenus();
 
+  const [
+    onNodeDrag,
+    onNodeDragStop,
+    onSelectionDragStart,
+    onSelectionDragStop,
+  ] = useDragIntoDeck(reactFlowRef);
+
   return (
     <>
       <ReactFlow
@@ -81,7 +89,11 @@ function SectionsPane() {
         onPaneContextMenu={openPaneCtxMenu}
         onSelectionContextMenu={openSelectionCtxMenu}
         onPaneClick={closeCtxMenus}
-        onMove={closeCtxMenus}
+        onMoveStart={closeCtxMenus}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
+        onSelectionDragStart={onSelectionDragStart}
+        onSelectionDragStop={onSelectionDragStop}
       >
         <PaneContextMenu
           {...paneCtxMenuDetails}
