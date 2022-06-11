@@ -1,10 +1,9 @@
-import { Stack, HStack, VStack, Fade } from "@chakra-ui/react";
+import { Stack, HStack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React from "react";
-import { DragHandle } from "utils/DragHandle/DragHandle";
+import React, { useState } from "react";
 import {
   isListLike,
   isRoot,
@@ -39,7 +38,9 @@ function _SectionContainerCore({
     (x) => x.sectionInfos.setSectionInfoAttr
   );
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
-  const isActive = useStoreState((x) => x.master.activeSection) === sectionId;
+  const isActiveSection =
+    useStoreState((x) => x.master.activeSection) === sectionId;
+  const [isActive, setIsActive] = useState(false);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
@@ -55,11 +56,19 @@ function _SectionContainerCore({
     <VStack
       spacing={0}
       alignItems="stretch"
-      boxShadow={isActive ? "xl" : "xs"}
+      // boxShadow={isActive ? "xl" : "xs"}
+      boxShadow="sm"
       borderRadius="xl"
       bg="white"
       w={`${SECTIONWIDTH}px`}
+      border="2px"
       transitionDuration=".05s"
+      borderColor={
+        isActive ? "green.300" : isActiveSection ? "blue.300" : "white"
+      }
+      onClick={() => setActiveSection(sectionId)}
+      onMouseDown={() => !isActive && setIsActive(true)}
+      onMouseUp={() => isActive && setIsActive(false)}
     >
       <HStack
         ref={refForPosition}
@@ -69,7 +78,6 @@ function _SectionContainerCore({
         border="1px"
         px="0.5rem "
         borderColor="white"
-        onClick={() => setActiveSection(sectionId)}
         boxShadow="md"
         zIndex="15"
         w="100%"
