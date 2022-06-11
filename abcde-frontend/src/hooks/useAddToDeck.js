@@ -32,12 +32,13 @@ export function useDragIntoDeck(reactFlowRef) {
   const sectionInfos = useStoreState((x) => x.sectionInfos.x);
   const addToDeck = useAddToDeck();
 
-  function onNodeDrag(e, node) {
+  function draggingOverNode(e, draggingNodes) {
     const nodes = getNodes();
     const { x, y } = getMousePosition(e.clientX, e.clientY);
+    const draggingNodeIds = draggingNodes.map((x) => x.id);
     for (let n of nodes) {
       if (
-        n.id !== node.id &&
+        !draggingNodeIds.includes(n.id) &&
         x > n.position.x &&
         x < n.position.x + n.width &&
         y > n.position.y &&
@@ -50,20 +51,31 @@ export function useDragIntoDeck(reactFlowRef) {
     setOverNode(null);
   }
 
-  function onNodeDragStop(e, node) {
+  function dropOverNode(draggingNodes) {
     if (overNode && sectionInfos[overNode].isDeck) {
-      addToDeck(overNode, [node.id]);
+      addToDeck(
+        overNode,
+        draggingNodes.map((x) => x.id)
+      );
     }
+    setOverNode(null);
   }
 
-  function onSelectionDragStart() {}
+  function onNodeDrag(e, node) {
+    draggingOverNode(e, [node]);
+  }
 
-  function onSelectionDragStop(e, nodes) {}
+  function onNodeDragStop(e, node) {
+    dropOverNode([node]);
+  }
 
-  return [
-    onNodeDrag,
-    onNodeDragStop,
-    onSelectionDragStart,
-    onSelectionDragStop,
-  ];
+  function onSelectionDrag(e, nodes) {
+    draggingOverNode(e, nodes);
+  }
+
+  function onSelectionDragStop(e, nodes) {
+    dropOverNode(nodes);
+  }
+
+  return [onNodeDrag, onNodeDragStop, onSelectionDrag, onSelectionDragStop];
 }

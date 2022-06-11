@@ -70,7 +70,7 @@ function SectionsPane() {
   const [
     onNodeDrag,
     onNodeDragStop,
-    onSelectionDragStart,
+    onSelectionDrag,
     onSelectionDragStop,
   ] = useDragIntoDeck(reactFlowRef);
 
@@ -92,7 +92,7 @@ function SectionsPane() {
         onMoveStart={closeCtxMenus}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
-        onSelectionDragStart={onSelectionDragStart}
+        onSelectionDrag={onSelectionDrag}
         onSelectionDragStop={onSelectionDragStop}
       >
         <PaneContextMenu
