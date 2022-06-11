@@ -22,8 +22,12 @@ const sectionInfos = {
   }),
 
   setSectionInfoAttr: action((state, payload) => {
-    const { sectionId, attr, value } = payload;
-    state.x[sectionId][attr] = value;
+    const { sectionId, sectionIds, attr, value } = payload;
+    if (sectionIds) {
+      sectionIds.forEach((id) => (state.x[id][attr] = value));
+    } else {
+      state.x[sectionId][attr] = value;
+    }
   }),
 
   setIdsOverview: action((state, payload) => {
