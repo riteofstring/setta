@@ -56,13 +56,13 @@ function _SectionContainerCore({
     <VStack
       spacing={0}
       alignItems="stretch"
-      // boxShadow={isActive ? "xl" : "xs"}
-      boxShadow="sm"
+      boxShadow={isActive || isActiveSection ? "xl" : "sm"}
+      // boxShadow="sm"
       borderRadius="xl"
       bg="white"
       w={`${SECTIONWIDTH}px`}
       border="2px"
-      transitionDuration=".05s"
+      transitionDuration=".25s"
       borderColor={
         isActive ? "green.300" : isActiveSection ? "blue.300" : "white"
       }
