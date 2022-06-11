@@ -12,6 +12,7 @@ export const INDICATOR_GOTO_PARENT = "indicator_goto_parent";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
+export const REF = "REF";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
@@ -61,6 +62,7 @@ export const uiTypesToPretty = Object.freeze(
       [SECTION]: "Object",
       [LIST_ROOT]: "List of Objects",
       [DICT_ROOT]: "Dict of Objects",
+      [REF]: "Reference to Object",
     })
   )
 );

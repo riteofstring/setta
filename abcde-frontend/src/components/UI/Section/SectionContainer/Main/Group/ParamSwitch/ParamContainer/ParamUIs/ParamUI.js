@@ -1,6 +1,14 @@
-import { DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH } from "utils/constants";
+import {
+  DICT_ROOT,
+  LIST_ROOT,
+  SECTION,
+  SLIDER,
+  SWITCH,
+  REF,
+} from "utils/constants";
 
 import { NestedObjectInputConfig } from "./NestedObjectInput";
+import RefInput, { RefInputConfig } from "./RefInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
 import SwitchInput, { SwitchInputConfig } from "./SwitchInput";
 import TextInput, { TextInputConfig } from "./TextInput";
@@ -14,6 +22,8 @@ export function ParamUIConfig({ name, ...props }) {
       return <SliderInputConfig {...props} />;
     case SWITCH:
       return <SwitchInputConfig {...props} />;
+    case REF:
+      return <RefInputConfig {...props} />;
     case SECTION:
     case LIST_ROOT:
     case DICT_ROOT:
@@ -29,5 +39,7 @@ export default function ParamUI({ name, childProps }) {
       return <SliderInput {...childProps} />;
     case SWITCH:
       return <SwitchInput {...childProps} />;
+    case REF:
+      return <RefInput {...childProps} />;
   }
 }
