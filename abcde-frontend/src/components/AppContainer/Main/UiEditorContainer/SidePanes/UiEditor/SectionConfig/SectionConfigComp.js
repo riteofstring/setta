@@ -83,9 +83,15 @@ function SearchItem({
     >
       <HStack align="stretch">
         {/* <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" /> */}
-        <Checkbox isChecked={isChecked} onChange={onCheckboxChange} />
+        <Checkbox
+          isChecked={isChecked}
+          onChange={onCheckboxChange}
+          alignSelf="flex-start"
+          mt="0.25rem"
+          mr="0.25rem"
+        />
         <VStack align="stretch" onClick={onToggle}>
-          <Heading as="h2" size="md" color="gray.700">
+          <Heading as="h2" size="md" color="gray.500">
             {name}
           </Heading>
           <Text>{description}</Text>

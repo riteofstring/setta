@@ -65,7 +65,7 @@ function _SectionContainerCore({
         bg="gray.50"
         borderRadius="xl"
         border="1px"
-        pr="0.5rem "
+        px="0.5rem "
         borderColor="white"
         onClick={() => setActiveSection(sectionId)}
         boxShadow="md"
@@ -73,7 +73,7 @@ function _SectionContainerCore({
         w="100%"
         overflow="hidden"
       >
-        <DragHandle isTopLevel={isTopLevel} dragListeners={dragListeners} />
+        {/* <DragHandle isTopLevel={isTopLevel} dragListeners={dragListeners} /> */}
         <Stack px=".25rem" py="1rem" w="100%">
           <SectionHeader
             sectionId={sectionId}
