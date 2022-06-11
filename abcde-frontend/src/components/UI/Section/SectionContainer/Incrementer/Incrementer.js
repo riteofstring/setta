@@ -57,6 +57,7 @@ export default function Incrementer({
         aria-label="Number of sections"
         bg="white"
         borderRadius="md"
+        className="nodrag"
       />
 
       <IconButton
@@ -66,6 +67,7 @@ export default function Incrementer({
         isDisabled={!decrementButtonCondition()}
         aria-label="Delete child section"
         borderRadius="full"
+        className="nodrag"
       />
 
       <IconButton
@@ -74,6 +76,7 @@ export default function Incrementer({
         onClick={() => addSections(numSections)}
         aria-label="Add child section"
         borderRadius="full"
+        className="nodrag"
       />
     </HStack>
   );

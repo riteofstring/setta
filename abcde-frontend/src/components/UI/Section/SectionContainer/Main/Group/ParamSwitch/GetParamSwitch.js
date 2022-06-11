@@ -23,7 +23,7 @@ export default function GetParamSwitch({
   const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
   return (
     infos.length > 0 && (
-      <FormControl id="groupone">
+      <FormControl>
         {infos.map((e, idx) => (
           <ParamSwitch
             key={`${e.name}-${idx}`}

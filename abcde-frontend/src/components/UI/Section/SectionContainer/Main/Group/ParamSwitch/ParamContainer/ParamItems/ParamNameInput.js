@@ -18,6 +18,7 @@ export default function ParamNameInput({ value, onBlur }) {
       variant="flushed"
       size="xs"
       maxWidth="10rem"
+      className="nodrag"
     />
   );
 }

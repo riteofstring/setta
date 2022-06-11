@@ -5,7 +5,7 @@ import { SortableSectionContainer } from "../SectionContainer/SortableSectionCon
 
 const borderLeft = theme.colors.whiteAlpha;
 
-function _NestedSection({ parentId, sectionId, nextId, depth, dummy }) {
+function _NestedSection({ parentId, sectionId, nextId, depth }) {
   return (
     // <VStack alignItems="stretch">
     <Grid gap={2}>
@@ -14,7 +14,6 @@ function _NestedSection({ parentId, sectionId, nextId, depth, dummy }) {
         parentId={parentId}
         nextId={nextId}
         depth={depth}
-        dummy={dummy}
       />
     </Grid>
     // </VStack>

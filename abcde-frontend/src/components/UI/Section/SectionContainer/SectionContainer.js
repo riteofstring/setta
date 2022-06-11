@@ -12,12 +12,10 @@ function SectionContainer({
   nextId,
   depth,
   dragListeners,
-  dummy,
 }) {
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
-  console.log("SectionContainer", dummy);
 
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
@@ -38,7 +36,6 @@ function SectionContainer({
         childrenAreCollapsed={childrenAreCollapsed}
         flipChildrenAreCollapsed={flipChildrenAreCollapsed}
         dragListeners={dragListeners}
-        dummy={dummy}
       />
 
       <Box
@@ -51,7 +48,6 @@ function SectionContainer({
             sectionId={sectionId}
             depth={depth}
             setChildren={setIdsOverview}
-            dummy={dummy}
           />
         )}
       </Box>
@@ -60,5 +56,5 @@ function SectionContainer({
 }
 
 export default React.memo(SectionContainer, (prev, next) => {
-  return prev.nextId === next.nextId && prev.dummy == next.dummy;
+  return prev.nextId === next.nextId;
 });

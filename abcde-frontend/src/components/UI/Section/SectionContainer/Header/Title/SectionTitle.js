@@ -25,6 +25,7 @@ export default function SectionTitle({ heading, onTitleInputChange }) {
       onSubmit={onBlur}
       fontFamily="Work Sans"
       fontWeight="bold"
+      className="nodrag"
     >
       <EditablePreview />
       <Input

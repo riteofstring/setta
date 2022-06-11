@@ -11,7 +11,6 @@ export default function ManyNestedSections({
   sectionId,
   depth,
   setChildren,
-  dummy,
 }) {
   const goToSection = useGoToSection(sectionId, INDICATOR_GOTO_PARENT);
 
@@ -39,7 +38,6 @@ export default function ManyNestedSections({
               nextId={childIds[idx + 1]}
               key={`Nested-Sec-${e}`}
               depth={depth + 1}
-              dummy={dummy}
             />
           ))}
         </VStack>

@@ -16,6 +16,7 @@ export default function KwargsControls({ sectionId, objInfoId, objInfo }) {
           variant="outline"
           borderRadius="full"
           onClick={addKwarg}
+          className="nodrag"
         />
       </HStack>
     </Stack>

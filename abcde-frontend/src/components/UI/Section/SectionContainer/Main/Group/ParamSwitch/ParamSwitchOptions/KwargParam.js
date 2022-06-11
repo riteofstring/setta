@@ -29,6 +29,7 @@ export default function KwargParam(props) {
         _hover={{
           color: "gray.800",
         }}
+        className="nodrag"
       />
       <ParamContainer {...props}>
         <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />

@@ -25,7 +25,7 @@ export const ComboboxInput = React.forwardRef(
     ref
   ) => {
     return (
-      <InputGroup width="100%">
+      <InputGroup width="100%" className="nodrag">
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
@@ -112,7 +112,7 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
       {...props}
       ref={ref}
       position="absolute"
-      className="nowheel"
+      className="nowheel nodrag"
     />
   );
 });

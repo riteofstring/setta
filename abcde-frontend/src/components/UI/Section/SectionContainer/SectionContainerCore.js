@@ -24,7 +24,6 @@ function _SectionContainerCore({
   deleteChild,
   hasNested,
   dragListeners,
-  dummy,
 }) {
   const sectionInfo = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
@@ -57,7 +56,6 @@ function _SectionContainerCore({
       spacing={0}
       alignItems="stretch"
       boxShadow={isActive || isActiveSection ? "xl" : "sm"}
-      // boxShadow="sm"
       borderRadius="xl"
       bg="white"
       w={`${SECTIONWIDTH}px`}
@@ -98,7 +96,7 @@ function _SectionContainerCore({
             onTitleInputChange={onTitleInputChange}
             requiresKeyInput={requiresKeyInput(config.subType)}
           />
-          {!dummy && !isListRoot && (
+          {!isListRoot && (
             <Stack>
               {hasObjects && (
                 <SectionSearch
@@ -137,7 +135,6 @@ const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
     "childrenAreCollapsed",
     "nextId",
     "hasNested",
-    "dummy",
   ];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
