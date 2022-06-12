@@ -20,18 +20,24 @@ export const ComboboxInput = React.forwardRef(
       textSize,
       height = "40px",
       simpleSearch = false,
+      size = "normal",
       ...props
     },
     ref
   ) => {
     return (
-      <InputGroup width="100%" className="nodrag">
+      <InputGroup
+        width="100%"
+        className="nodrag"
+        size={size === "small" ? "sm" : "md"}
+      >
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
         {!simpleSearch ? (
           <FancySearch
             height={height}
+            size={size}
             textSize={textSize}
             {...props}
             {...toggleButtonProps}
@@ -39,6 +45,7 @@ export const ComboboxInput = React.forwardRef(
         ) : (
           <SimpleSearch
             height={height}
+            size={size}
             textSize={textSize}
             {...props}
             {...toggleButtonProps}
@@ -52,6 +59,8 @@ export const ComboboxInput = React.forwardRef(
               borderRadius={!simpleSearch ? "full" : "2xl"}
               bg={!simpleSearch ? "white" : "unset"}
               icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              // height={height - 10}
+              size={size === "small" ? "xs" : "md"}
             />
           </InputRightElement>
         )}
@@ -65,13 +74,14 @@ const FancySearch = ({
   ref,
   textSize,
   height,
+  size,
   ...props
 }) => {
   return (
     <Input
       w="100%"
       pl="2.5rem"
-      h={height}
+      h={(size === "small" && "32px") || height}
       {...props}
       {...toggleButtonProps}
       ref={ref}
@@ -89,11 +99,12 @@ const SimpleSearch = ({
   ref,
   textSize,
   height,
+  size,
   ...props
 }) => {
   return (
     <Input
-      h={height}
+      h={(size === "small" && "32px") || height}
       {...props}
       {...toggleButtonProps}
       size={textSize}
@@ -113,6 +124,7 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
       ref={ref}
       position="absolute"
       className="nowheel nodrag"
+      zIndex="100"
     />
   );
 });
