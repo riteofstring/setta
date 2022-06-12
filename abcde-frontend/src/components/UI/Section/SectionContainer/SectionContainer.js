@@ -2,6 +2,7 @@ import { Stack, Box } from "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import React, { useState, useCallback } from "react";
+import { useKeyPress } from "react-flow-renderer";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionContainerCore from "./SectionContainerCore";
@@ -24,8 +25,13 @@ function SectionContainer({
     setChildrenAreCollapsed(!childrenAreCollapsed);
   }, [childrenAreCollapsed]);
 
+  const spacePressed = useKeyPress("Control");
+  const isDraggingChild = parentId && spacePressed
+  const trueDragListeners = isDraggingChild ? dragListeners : {};
+  const className = isDraggingChild ? "nodrag" : "";
+
   return (
-    <Stack>
+    <Stack {...trueDragListeners} className={className}>
       <SectionContainerCore
         sectionId={sectionId}
         parentId={parentId}

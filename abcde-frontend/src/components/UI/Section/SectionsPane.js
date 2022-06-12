@@ -41,7 +41,6 @@ function SectionsPane() {
     id: e.id,
     position: e.initialPosition,
     type: "sectionContainerNode",
-    // dragHandle: ".TopLevelDragHandle",
   }));
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);

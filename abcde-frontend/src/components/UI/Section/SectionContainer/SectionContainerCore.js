@@ -4,6 +4,7 @@ import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useState } from "react";
+import { DragHandle } from "utils/DragHandle/DragHandle";
 import {
   isListLike,
   isRoot,
@@ -28,7 +29,7 @@ function _SectionContainerCore({
   const sectionInfo = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
-  const { name: variableName, selectedItem, isTopLevel } = sectionInfo;
+  const { name: variableName, selectedItem } = sectionInfo;
   const selectedItemInSpecs = config.objects.includes(selectedItem);
   const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
@@ -85,7 +86,7 @@ function _SectionContainerCore({
         borderColor="white"
         overflow="hidden"
       >
-        {/* <DragHandle isTopLevel={isTopLevel} dragListeners={dragListeners} /> */}
+        {/* {parentId && <DragHandle dragListeners={dragListeners} />} */}
         <Stack px=".25rem" py="1rem" w="100%">
           <SectionHeader
             sectionId={sectionId}
