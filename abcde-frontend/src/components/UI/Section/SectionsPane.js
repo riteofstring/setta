@@ -75,46 +75,44 @@ function SectionsPane() {
     useDragIntoDeck(reactFlowRef);
 
   return (
-    <>
-      <ReactFlow
-        ref={reactFlowRef}
-        nodes={nodes}
-        minZoom={0.1}
-        maxZoom={10}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        style={reactFlowStyle}
-        // snapGrid={[32, 32]}
-        // snapToGrid={true}
-        onPaneContextMenu={openPaneCtxMenu}
-        onSelectionContextMenu={openSelectionCtxMenu}
-        onNodeContextMenu={openNodeCtxMenu}
-        onPaneClick={closeCtxMenus}
-        onMoveStart={closeCtxMenus}
-        onNodeDrag={onNodeDrag}
-        onNodeDragStop={onNodeDragStop}
-        onSelectionDrag={onSelectionDrag}
-        onSelectionDragStop={onSelectionDragStop}
-      >
-        <PaneContextMenu
-          {...paneCtxMenuDetails}
-          closeContextMenu={closePaneCtxMenu}
-          reactFlowRef={reactFlowRef}
-        />
-        <SelectionContextMenu
-          {...selectionCtxMenuDetails}
-          closeContextMenu={closeSelectionCtxMenu}
-          reactFlowRef={reactFlowRef}
-        />
-        <NodeContextMenu
-          {...nodeCtxMenuDetails}
-          closeContextMenu={closeNodeCtxMenu}
-        />
-        <ResponsiveMiniMap />
-        <ResponsiveControls />
-        <Background color="#b3bfd1" size={0.75} gap={16} />
-      </ReactFlow>
-    </>
+    <ReactFlow
+      ref={reactFlowRef}
+      nodes={nodes}
+      minZoom={0.1}
+      maxZoom={10}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      style={reactFlowStyle}
+      // snapGrid={[32, 32]}
+      // snapToGrid={true}
+      onPaneContextMenu={openPaneCtxMenu}
+      onSelectionContextMenu={openSelectionCtxMenu}
+      onNodeContextMenu={openNodeCtxMenu}
+      onPaneClick={closeCtxMenus}
+      onMoveStart={closeCtxMenus}
+      onNodeDrag={onNodeDrag}
+      onNodeDragStop={onNodeDragStop}
+      onSelectionDrag={onSelectionDrag}
+      onSelectionDragStop={onSelectionDragStop}
+    >
+      <PaneContextMenu
+        {...paneCtxMenuDetails}
+        closeContextMenu={closePaneCtxMenu}
+        reactFlowRef={reactFlowRef}
+      />
+      <SelectionContextMenu
+        {...selectionCtxMenuDetails}
+        closeContextMenu={closeSelectionCtxMenu}
+        reactFlowRef={reactFlowRef}
+      />
+      <NodeContextMenu
+        {...nodeCtxMenuDetails}
+        closeContextMenu={closeNodeCtxMenu}
+      />
+      <ResponsiveMiniMap />
+      <ResponsiveControls />
+      <Background color="#b3bfd1" size={0.75} gap={16} />
+    </ReactFlow>
   );
 }
 

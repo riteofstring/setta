@@ -1,11 +1,9 @@
 import {
   Tabs,
   TabList,
-  Tab,
   TabPanels,
   TabPanel,
   Button,
-  Box,
   useMultiStyleConfig,
   useTab,
 } from "@chakra-ui/react";

@@ -9,7 +9,7 @@ export default function TextInput({
   defaultVal,
   onChangeEnd,
   isDisabled,
-  className
+  className,
 }) {
   return (
     <Tooltip isDisabled={isDisabled} hasArrow label="Label Tooltip Placeholder">
