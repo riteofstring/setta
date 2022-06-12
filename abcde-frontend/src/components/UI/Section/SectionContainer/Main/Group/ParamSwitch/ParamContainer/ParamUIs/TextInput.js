@@ -9,6 +9,7 @@ export default function TextInput({
   defaultVal,
   onChangeEnd,
   isDisabled,
+  className
 }) {
   return (
     <Tooltip isDisabled={isDisabled} hasArrow label="Label Tooltip Placeholder">
@@ -21,6 +22,7 @@ export default function TextInput({
         isDisabled={isDisabled}
         value={value}
         onChange={(e) => onChangeEnd(e.target.value)}
+        className={className}
       />
     </Tooltip>
   );
