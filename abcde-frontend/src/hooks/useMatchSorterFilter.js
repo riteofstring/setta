@@ -10,7 +10,11 @@ export function useMatchSorterFilter(completeList, keys, delay = null) {
   const setFilterWithDelay = _.debounce((x) => setFilter(x), delay);
 
   useDeepCompareEffect(() => {
-    setFilteredList(matchSorter(completeList, filter, { keys }));
+    if (filter) {
+      setFilteredList(matchSorter(completeList, filter, { keys }));
+    } else {
+      setFilteredList(completeList);
+    }
   }, [filter, completeList]);
 
   if (delay) {
