@@ -3,6 +3,7 @@ import "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
+import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useState, useCallback } from "react";
 import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
@@ -72,6 +73,7 @@ export default React.memo(SectionContainer, (prev, next) => {
 
 function Container(props) {
   const { isDeck, sectionId, parentId, dragListeners } = props;
+  const refForPosition = useSetSectionPosition(sectionId);
   const ctrlPressed = useKeyPress("Control");
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
@@ -81,6 +83,7 @@ function Container(props) {
     <>
       {isDeck ? (
         <Stack
+          ref={refForPosition}
           bg="hsla(212, 22%, 50%, 0.2)"
           pt=".75rem"
           px="2rem"
@@ -93,7 +96,11 @@ function Container(props) {
           {props.children}
         </Stack>
       ) : (
-        <Stack {...trueDragListeners} className={className}>
+        <Stack
+          ref={refForPosition}
+          {...trueDragListeners}
+          className={className}
+        >
           {props.children}
         </Stack>
       )}

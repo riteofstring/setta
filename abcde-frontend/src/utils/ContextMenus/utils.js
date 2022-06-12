@@ -17,6 +17,7 @@ export function useOnClickAddSection({
     const initialPosition = getPosition(x, y);
     const sectionProps = { isTopLevel: true, initialPosition };
     if (isDeck) {
+      sectionProps.name = "Deck";
       sectionProps.uiTypeId = DECK_UI_TYPE_ID;
     }
     const [newId] = addSection(sectionProps);

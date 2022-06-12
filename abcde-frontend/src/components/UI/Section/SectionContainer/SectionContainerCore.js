@@ -2,7 +2,6 @@ import { Stack, HStack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useState } from "react";
 import {
   isListLike,
@@ -27,7 +26,6 @@ function _SectionContainerCore({
 }) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
-  const refForPosition = useSetSectionPosition(sectionId);
   const selectedItemInSpecs = config.objects.includes(selectedItem);
   const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
@@ -68,7 +66,6 @@ function _SectionContainerCore({
       onMouseUp={() => isActive && setIsActive(false)}
     >
       <HStack
-        ref={refForPosition}
         direction="column"
         bg="gray.50"
         borderRadius="xl"
