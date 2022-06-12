@@ -23,7 +23,7 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
     _.forEach(coords, function (value, key) {
       newValues[key] = { initialPosition: project(value), isTopLevel: true };
     });
-    setIdsOverviewThunk({ sectionId: deckId, newStateFn: (x) => [] });
+    setIdsOverviewThunk({ sectionId: deckId, newStateFn: () => [] });
     setSectionInfoAttrObjInput({ newValues });
     deleteSections({ sectionIds: [deckId] });
   }

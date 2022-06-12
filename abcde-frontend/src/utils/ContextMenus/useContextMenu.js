@@ -32,7 +32,7 @@ function useContextMenu({
 }
 
 function useSelectionContextMenu() {
-  function openFn(suggested, curr, nodes, ...otherArgs) {
+  function openFn(suggested, curr, nodes) {
     return { ...suggested, nodeIds: nodes.map((x) => x.id) };
   }
 
@@ -44,7 +44,7 @@ function useSelectionContextMenu() {
 }
 
 function useNodeContextMenu() {
-  function openFn(suggested, curr, node, ...otherArgs) {
+  function openFn(suggested, curr, node) {
     return { ...suggested, nodeId: node.id };
   }
 

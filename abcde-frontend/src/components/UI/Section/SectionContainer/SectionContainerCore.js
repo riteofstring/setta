@@ -4,7 +4,6 @@ import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React, { useState } from "react";
-import { DragHandle } from "utils/DragHandle/DragHandle";
 import {
   isListLike,
   isRoot,

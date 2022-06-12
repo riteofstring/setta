@@ -26,7 +26,7 @@ function SectionContainer({
   }, [childrenAreCollapsed]);
 
   const spacePressed = useKeyPress("Control");
-  const isDraggingChild = parentId && spacePressed
+  const isDraggingChild = parentId && spacePressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
 

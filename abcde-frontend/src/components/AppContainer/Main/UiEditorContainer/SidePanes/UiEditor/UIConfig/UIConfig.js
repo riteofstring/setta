@@ -39,10 +39,9 @@ export default function UIConfigFunc() {
   return (
     <VStack align="stretch" spacing={0}>
       <InputGroup pb="1rem">
-        <InputLeftElement
-          pointerEvents="none"
-          children={<SearchIcon color="gray.300" />}
-        />
+        <InputLeftElement pointerEvents="none">
+          <SearchIcon color="gray.300" />
+        </InputLeftElement>
         <Input variant="flushed" placeholder="Search" />
       </InputGroup>
       {paramInfos &&

@@ -33,10 +33,9 @@ export default function Overview() {
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Overview">
       <InputGroup pb="1rem">
-        <InputLeftElement
-          pointerEvents="none"
-          children={<SearchIcon color="gray.300" />}
-        />
+        <InputLeftElement pointerEvents="none">
+          <SearchIcon color="gray.300" />
+        </InputLeftElement>
         <Input variant="flushed" placeholder="Search" />
       </InputGroup>
 
