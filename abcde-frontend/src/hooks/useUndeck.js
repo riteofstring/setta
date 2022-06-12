@@ -1,25 +1,53 @@
 import { useStoreActions } from "easy-peasy";
+import { useEffect, useState } from "react";
+import { useReactFlow } from "react-flow-renderer";
 
-export function useUndeck() {
-  const getDeckChildrenThunk = useStoreActions(
-    (x) => x.sectionInfos.getDeckChildrenThunk
-  );
+import {
+  useGetSectionPosition,
+  useRequestSectionPositionUpdate,
+} from "./useGetSectionPosition";
+import { useGetDeckChildren } from "./useIdsOverview";
+
+function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
   const setIdsOverviewThunk = useStoreActions(
     (x) => x.sectionInfos.setIdsOverviewThunk
   );
-  const setSectionInfoAttr = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttr
+  const setSectionInfoAttrObjInput = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttrObjInput
   );
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
 
-  return (sectionId) => {
-    const childIds = getDeckChildrenThunk({ sectionId });
-    setIdsOverviewThunk({ sectionId, newStateFn: (x) => [] });
-    setSectionInfoAttr({
-      sectionIds: childIds,
-      attr: "isTopLevel",
-      value: true,
+  const { project } = useReactFlow();
+  function onCoordsReceived(coords) {
+    const newValues = {};
+    _.forEach(coords, function (value, key) {
+      newValues[key] = { initialPosition: project(value), isTopLevel: true };
     });
-    deleteSections({ sectionIds: [sectionId] });
+    setIdsOverviewThunk({ sectionId: deckId, newStateFn: (x) => [] });
+    setSectionInfoAttrObjInput({ newValues });
+    deleteSections({ sectionIds: [deckId] });
+  }
+
+  useGetSectionPosition(childIds, requesterName, onCoordsReceived);
+}
+
+export function useUndeck(sectionId) {
+  const [deckId, setDeckId] = useState(null);
+  const requesterName = `useUndeck-${deckId}`;
+  const childIds = useGetDeckChildren(deckId);
+  const requestPositionUpdate = useRequestSectionPositionUpdate();
+  useMakeChildrenTopLevel(deckId, childIds, requesterName);
+
+  // closeContextMenu() happens before easy-peasy state updates.
+  // So sectionId ends up being null by the time onCoordsReceived is called
+  // Therefore, only update deckId when sectionId is not null
+  useEffect(() => {
+    if (sectionId) {
+      setDeckId(sectionId);
+    }
+  }, [sectionId]);
+
+  return () => {
+    requestPositionUpdate(childIds, requesterName);
   };
 }

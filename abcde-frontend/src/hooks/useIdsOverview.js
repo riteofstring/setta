@@ -12,6 +12,13 @@ import {
 } from "./useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
+export function useGetDeckChildren(sectionId) {
+  const childrenInfoId = useStoreState(
+    (x) => x.sectionInfos.idsOverview[sectionId]
+  );
+  return useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]);
+}
+
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);

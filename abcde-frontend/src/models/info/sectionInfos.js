@@ -30,6 +30,16 @@ const sectionInfos = {
     }
   }),
 
+  setSectionInfoAttrObjInput: action((state, payload) => {
+    const { newValues } = payload;
+    for (let sectionId of Object.keys(newValues)) {
+      state.x[sectionId] = Object.assign(
+        state.x[sectionId],
+        newValues[sectionId]
+      );
+    }
+  }),
+
   setIdsOverview: action((state, payload) => {
     const { sectionId, childrenInfoId } = payload;
     state.idsOverview[sectionId] = childrenInfoId;
@@ -62,13 +72,6 @@ const sectionInfos = {
       _.filter(x, (v) => v.isTopLevel),
       (y) => ({ id: y.id, initialPosition: y.initialPosition })
     );
-  }),
-
-  getDeckChildrenThunk: thunk((actions, payload, helpers) => {
-    const { sectionId } = payload;
-    const state = helpers.getState();
-    const childrenInfoId = state.idsOverview[sectionId];
-    return state.childrenInfo[childrenInfoId];
   }),
 
   setIdsOverviewThunk: thunk((actions, payload, helpers) => {
