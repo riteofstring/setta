@@ -34,6 +34,20 @@
           "uiTypeName": "UNKNOWN"
         }
       }
+    },
+    "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86": {
+      "id": "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86",
+      "name": "A Single Parameter",
+      "description": "Very important",
+      "children": {
+        "297fbd94-70ca-4e90-81b8-96a603519a85": {
+          "id": "297fbd94-70ca-4e90-81b8-96a603519a85",
+          "name": "birth_location",
+          "defaultVal": "India",
+          "type": "",
+          "uiTypeName": "TEXT"
+        }
+      }
     }
   }
 }

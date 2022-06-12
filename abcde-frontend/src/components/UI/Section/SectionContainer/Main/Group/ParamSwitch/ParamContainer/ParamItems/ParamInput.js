@@ -23,7 +23,7 @@ export default function ParamInput(props) {
   }, [enteredValue]);
 
   return (
-    <div className="nodrag">
+    // <div className="nodrag">
       <ParamUI
         name={uiType.type}
         childProps={{
@@ -35,6 +35,6 @@ export default function ParamInput(props) {
           ...props.uiTypeConfig,
         }}
       />
-    </div>
+    // </div>
   );
 }

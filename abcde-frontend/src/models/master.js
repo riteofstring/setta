@@ -101,7 +101,7 @@ const master = {
     const sectionInfos = _.mapValues(payload, (x) => {
       const y = new SectionInfo({
         isTopLevel: true,
-        initialPosition: { x: 250, y: 300 * idx },
+        initialPosition: { x: 500 * (Math.floor(idx / 3)+0.75), y: 300 * (idx % 3) },
         ...x,
       });
       idx += 1;
