@@ -9,9 +9,10 @@ import {
 } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import React from "react";
 import Measure from "react-measure";
+import { useIsOverflow } from "utils/Overflow/useIsOverflow";
 import { UI_EDITOR } from "utils/constants";
 
 import SectionConfig from "./SectionConfig";
@@ -27,6 +28,9 @@ export default function UiEditor() {
   const tabIndex = useStoreState((x) => x.uiEditor.tabIndex);
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const [dimensions, setDimensions] = useState({});
+
+  const ref = useRef();
+  const isOverflow = useIsOverflow(ref);
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">

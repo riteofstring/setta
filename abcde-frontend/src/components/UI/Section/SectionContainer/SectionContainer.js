@@ -1,8 +1,17 @@
-import { Stack, Box } from "@chakra-ui/react";
+import {
+  Stack,
+  Box,
+  Editable,
+  EditableInput,
+  EditablePreview,
+} from "@chakra-ui/react";
+import "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
+import { useGetSectionType } from "hooks/useSectionType";
 import React, { useState, useCallback } from "react";
 import { useKeyPress } from "react-flow-renderer";
+import { DECK } from "utils/constants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionContainerCore from "./SectionContainerCore";
@@ -14,36 +23,32 @@ function SectionContainer({
   depth,
   dragListeners,
 }) {
+  const isDeck = useGetSectionType(sectionId).type === DECK;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
   const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
-
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
-
   const flipChildrenAreCollapsed = useCallback(() => {
     setChildrenAreCollapsed(!childrenAreCollapsed);
   }, [childrenAreCollapsed]);
-
-  const spacePressed = useKeyPress("Control");
-  const isDraggingChild = parentId && spacePressed;
-  const trueDragListeners = isDraggingChild ? dragListeners : {};
-  const className = isDraggingChild ? "nodrag" : "";
+  console.log("isDeck: ", isDeck);
 
   return (
-    <Stack {...trueDragListeners} className={className}>
-      <SectionContainerCore
-        sectionId={sectionId}
-        parentId={parentId}
-        nextId={nextId}
-        addChild={addChild}
-        deleteChild={deleteChild}
-        hasNested={hasNested}
-        childrenAreCollapsed={childrenAreCollapsed}
-        flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-        dragListeners={dragListeners}
-      />
-
+    <Container isDeck={isDeck}>
+      {!isDeck && (
+        <SectionContainerCore
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          addChild={addChild}
+          deleteChild={deleteChild}
+          hasNested={hasNested}
+          childrenAreCollapsed={childrenAreCollapsed}
+          flipChildrenAreCollapsed={flipChildrenAreCollapsed}
+          dragListeners={dragListeners}
+        />
+      )}
       <Box
         flexDirection="column"
         display={childrenAreCollapsed ? "none" : "flex"}
@@ -54,13 +59,59 @@ function SectionContainer({
             sectionId={sectionId}
             depth={depth}
             setChildren={setIdsOverview}
+            isDeck={isDeck}
           />
         )}
       </Box>
-    </Stack>
+    </Container>
   );
 }
-
 export default React.memo(SectionContainer, (prev, next) => {
   return prev.nextId === next.nextId;
 });
+
+function Container(props) {
+  const { isDeck, parentId, dragListeners } = props;
+  const spacePressed = useKeyPress("Control");
+  const isDraggingChild = parentId && spacePressed;
+  const trueDragListeners = isDraggingChild ? dragListeners : {};
+  const className = isDraggingChild ? "nodrag" : "";
+
+  return (
+    <>
+      {isDeck ? (
+        <Stack
+          bg="hsla(212, 22%, 50%, 0.2)"
+          pt=".75rem"
+          px="2rem"
+          pb="1.5rem"
+          borderRadius="3xl"
+          // border="1px solid hsla(255, 22%, 100%, 0.3)"
+          // boxShadow="xs"
+        >
+          <Editable
+            fontFamily="Work Sans"
+            defaultValue="Deck"
+            fontWeight="bold"
+            color="gray.100"
+            fontSize="4xl"
+            mb="-.5rem"
+            letterSpacing="tighter"
+          >
+            <EditablePreview />
+            <EditableInput
+              className="nodrag"
+              w="450px"
+              letterSpacing="tighter"
+            />
+          </Editable>
+          {props.children}
+        </Stack>
+      ) : (
+        <Stack dragListeners={trueDragListeners} className={className}>
+          {props.children}
+        </Stack>
+      )}
+    </>
+  );
+}
