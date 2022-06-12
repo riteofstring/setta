@@ -1,14 +1,19 @@
-import {
-  Editable,
-  EditableInput,
-  EditablePreview,
-  Input,
-} from "@chakra-ui/react";
+import { Editable, EditableInput, EditablePreview } from "@chakra-ui/react";
+import { useStoreActions } from "easy-peasy";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 
-export default function SectionTitle({ heading, onTitleInputChange }) {
+export default function SectionTitle({ sectionId, editableProps, inputProps }) {
+  const { name: sectionName } = useGetSectionInfo(sectionId);
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
+  );
+  function onTitleInputChange(value) {
+    setSectionInfoAttr({ sectionId, attr: "name", value });
+  }
+
   const [inputValue, setInputValue, onSubmit] = useEditableOnSubmit(
-    heading,
+    sectionName,
     onTitleInputChange
   );
 
@@ -16,20 +21,11 @@ export default function SectionTitle({ heading, onTitleInputChange }) {
     <Editable
       value={inputValue}
       onChange={setInputValue}
-      isPreviewFocusable={true}
       onSubmit={onSubmit}
-      fontFamily="Work Sans"
-      fontWeight="bold"
-      className="nodrag"
+      {...editableProps}
     >
       <EditablePreview />
-      <Input
-        as={EditableInput}
-        paddingX="0.5rem"
-        paddingY="0"
-        marginLeft="-0.5rem"
-        height="30px"
-      />
+      <EditableInput {...inputProps} />
     </Editable>
   );
 }

@@ -25,10 +25,9 @@ function _SectionContainerCore({
   hasNested,
   dragListeners,
 }) {
-  const sectionInfo = useGetSectionInfo(sectionId);
+  const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const refForPosition = useSetSectionPosition(sectionId);
-  const { name: variableName, selectedItem } = sectionInfo;
   const selectedItemInSpecs = config.objects.includes(selectedItem);
   const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
@@ -43,10 +42,6 @@ function _SectionContainerCore({
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
-  }
-
-  function onTitleInputChange(value) {
-    setSectionInfoAttr({ sectionId, attr: "name", value });
   }
 
   // // temp_
@@ -89,7 +84,6 @@ function _SectionContainerCore({
         <Stack px=".25rem" py="1rem" w="100%">
           <SectionHeader
             sectionId={sectionId}
-            variableName={variableName}
             parentId={parentId}
             nextId={nextId}
             isList={isList}
@@ -97,7 +91,6 @@ function _SectionContainerCore({
             addChild={addChild}
             deleteChild={deleteChild}
             hasNested={hasNested}
-            onTitleInputChange={onTitleInputChange}
             requiresKeyInput={requiresKeyInput(config.subType)}
           />
           {!isListRoot && (

@@ -13,15 +13,3 @@ export function useEditableOnSubmit(initialValue, onSetTitle) {
 
   return [inputValue, setInputValue, onBlur];
 }
-
-// export function useOnTitleChange(sectionId) {
-//   const setSectionInfoAttr = useStoreActions(
-//     (x) => x.sectionInfos.setSectionInfoAttr
-//   );
-
-//   function onTitleInputChange(value) {
-//     setSectionInfoAttr({ sectionId, attr: "name", value });
-//   }
-
-//   return useEditableOnBlur(heading, onTitleInputChange);
-// }

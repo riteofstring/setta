@@ -1,10 +1,4 @@
-import {
-  Stack,
-  Box,
-  Editable,
-  EditableInput,
-  EditablePreview,
-} from "@chakra-ui/react";
+import { Stack, Box } from "@chakra-ui/react";
 import "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
@@ -14,9 +8,8 @@ import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
+import SectionTitle from "./Header/Title/SectionTitle";
 import SectionContainerCore from "./SectionContainerCore";
-import { useStoreActions } from "easy-peasy";
-import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 
 function SectionContainer({
   sectionId,
@@ -83,16 +76,21 @@ function Container(props) {
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
-  const setSectionInfoAttr = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttr
-  );
-  function onTitleInputChange(value) {
-    setSectionInfoAttr({ sectionId, attr: "name", value });
-  }
-  const [inputValue, setInputValue, onSubmit] = useEditableOnSubmit(
-    "Deck",
-    onTitleInputChange
-  );
+
+  const editableProps = {
+    fontFamily: "Work Sans",
+    fontWeight: "bold",
+    color: "gray.100",
+    fontSize: "4xl",
+    mb: "-.5rem",
+    letterSpacing: "tighter",
+  };
+
+  const inputProps = {
+    className: "nodrag",
+    w: "450px",
+    letterSpacing: "tighter",
+  };
 
   return (
     <>
@@ -106,24 +104,11 @@ function Container(props) {
           // border="1px solid hsla(255, 22%, 100%, 0.3)"
           // boxShadow="xs"
         >
-          <Editable
-            fontFamily="Work Sans"
-            fontWeight="bold"
-            color="gray.100"
-            fontSize="4xl"
-            mb="-.5rem"
-            letterSpacing="tighter"
-            value={inputValue}
-            onChange={setInputValue}
-            onSubmit={onSubmit}
-          >
-            <EditablePreview />
-            <EditableInput
-              className="nodrag"
-              w="450px"
-              letterSpacing="tighter"
-            />
-          </Editable>
+          <SectionTitle
+            sectionId={sectionId}
+            editableProps={editableProps}
+            inputProps={inputProps}
+          />
           {props.children}
         </Stack>
       ) : (
