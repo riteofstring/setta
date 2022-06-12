@@ -1,11 +1,9 @@
 import {
   Tabs,
   TabList,
-  Tab,
   TabPanels,
   TabPanel,
   Button,
-  Box,
   useMultiStyleConfig,
   useTab,
 } from "@chakra-ui/react";
@@ -70,7 +68,7 @@ export default function UiEditor() {
               <TabPanel p="3px">
                 <UIConfig />
               </TabPanel>
-              <TabPanel display="grid" place-items="center" px="0">
+              <TabPanel display="grid" place-items="center">
                 <YamlEditor dimensions={dimensions} />
               </TabPanel>
             </TabPanels>

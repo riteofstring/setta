@@ -2,7 +2,7 @@ import { Text, HStack } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { OVERVIEW } from "utils/constants";
 
-export default function SectionItem({ sectionId, sectionHeading, isList }) {
+export default function SectionItem({ sectionId, sectionHeading }) {
   const goToSection = useGoToSection(sectionId, OVERVIEW);
 
   const onClick = () => {

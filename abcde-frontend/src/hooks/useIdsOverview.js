@@ -12,6 +12,16 @@ import {
 } from "./useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
+export function useGetAllChildren(sectionId) {
+  const childrenInfoId = useStoreState(
+    (x) => x.sectionInfos.idsOverview[sectionId]
+  );
+  return defaultState(
+    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
+    () => []
+  );
+}
+
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
   const setIdsOverview = useSetIdsOverview(sectionId);
@@ -32,13 +42,7 @@ export function useSetIdsOverview(sectionId) {
 }
 
 function useGetIdsOverview(sectionId) {
-  const childrenInfoId = useStoreState(
-    (x) => x.sectionInfos.idsOverview[sectionId]
-  );
-  const allChildrenId = defaultState(
-    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
-    () => []
-  );
+  const allChildrenId = useGetAllChildren(sectionId);
   const currChildrenId = useGetCurrChildrenIds(sectionId);
   const sectionTypeName = useGetSectionType(sectionId).type;
   if (isRoot(sectionTypeName)) {

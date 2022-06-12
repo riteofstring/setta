@@ -23,18 +23,17 @@ export default function ParamInput(props) {
   }, [enteredValue]);
 
   return (
-    // <div className="nodrag">
-      <ParamUI
-        name={uiType.type}
-        childProps={{
-          value,
-          defaultVal,
-          onChange,
-          onChangeEnd,
-          isDisabled: props.isDisabled,
-          ...props.uiTypeConfig,
-        }}
-      />
-    // </div>
+    <ParamUI
+      name={uiType.type}
+      childProps={{
+        value,
+        defaultVal,
+        onChange,
+        onChangeEnd,
+        isDisabled: props.isDisabled,
+        className: "nodrag",
+        ...props.uiTypeConfig,
+      }}
+    />
   );
 }

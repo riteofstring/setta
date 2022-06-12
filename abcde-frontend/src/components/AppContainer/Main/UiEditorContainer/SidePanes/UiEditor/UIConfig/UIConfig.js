@@ -15,6 +15,7 @@ import {
   Input,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
+import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useParamChildId } from "hooks/useParamInfo";
 import {
   useGetObjInfos,
@@ -34,20 +35,28 @@ export default function UIConfigFunc() {
   const paramInfos = useGetAllParamAndKwargInfos(sectionId, objInfo);
   const getUITypeFn = useGetParamUIType(sectionId);
 
+  const [filteredList, setFilter] = useMatchSorterFilter(
+    paramInfos,
+    ["name"],
+    500
+  );
+
   console.log("activeSectionId", sectionId);
 
   return (
     <VStack align="stretch" spacing={0}>
-      <InputGroup pb="2.5rem">
-        <InputLeftElement
-          pointerEvents="none"
-          children={<SearchIcon color="gray.300" />}
+      <InputGroup pb="1rem">
+        <InputLeftElement pointerEvents="none">
+          <SearchIcon color="gray.300" />
+        </InputLeftElement>
+        <Input
+          variant="flushed"
+          placeholder="Search"
+          onChange={(e) => setFilter(e.target.value)}
         />
-        <Input variant="flushed" placeholder="Search" />
       </InputGroup>
-      {paramInfos &&
-        paramInfos.length > 0 &&
-        paramInfos.map((e, idx) => (
+      {filteredList.length > 0 &&
+        filteredList.map((e, idx) => (
           <UIElement
             sectionId={sectionId}
             paramInfo={e}
@@ -82,56 +91,68 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   };
 
   return (
-    <VStack
-      align="stretch"
-      _hover={{
-        "&:hover .uiconfig-param-save-as": {
-          visibility: "visible",
-          opacity: "1",
-          transitionDuration: "opacity 0.5s",
-        },
-      }}
+    <ReduceMotionAccordian
+      defaultIndex={[0]}
+      allowMultiple
+      borderTopColor="transparent"
+      borderBottomColor="transparent"
     >
-      <Box flex="1" textAlign="left">
-        <Heading
-          as="h3"
-          size="sm"
+      <AccordionItem>
+        <AccordionButton
+          // _expanded={{ color: "gray.400" }}
           color="gray.500"
-          textTransform="uppercase"
-          letterSpacing="widest"
+          _hover={{ bg: "white", boxShadow: "sm" }}
+          borderRadius="md"
         >
-          {paramName}
-        </Heading>
-      </Box>
+          <Box flex="1" textAlign="left">
+            <Heading
+              as="h3"
+              size="sm"
+              color="gray.500"
+              textTransform="uppercase"
+              letterSpacing="widest"
+            >
+              {paramName}
+            </Heading>
+          </Box>
+          <AccordionIcon />
+        </AccordionButton>
 
-      <UIConfigDropdownAndFields
-        onDropdownSelect={onSelect}
-        selectedId={uiType.id}
-        selectedType={uiType.type}
-        onConfigChange={onChange}
-        paramInfoId={paramInfo.id}
-        savedConfig={uiType.config}
-        childIdFn={childIdFn}
-        origin={SET_FROM_SIDEPANE}
-      />
-      <SaveLoadButtons />
-    </VStack>
+        <AccordionPanel
+          px={0}
+          pt={2}
+          pb={4}
+          width="100%"
+          display="flex"
+          alignItems="stretch"
+          flexDir="column"
+        >
+          <UIConfigDropdownAndFields
+            onDropdownSelect={onSelect}
+            selectedId={uiType.id}
+            selectedType={uiType.type}
+            onConfigChange={onChange}
+            paramInfoId={paramInfo.id}
+            savedConfig={uiType.config}
+            childIdFn={childIdFn}
+            origin={SET_FROM_SIDEPANE}
+          />
+          <SaveLoadButtons />
+        </AccordionPanel>
+      </AccordionItem>
+    </ReduceMotionAccordian>
   );
 }
 
 function SaveLoadButtons() {
   return (
-    <Stack spacing={3} direction="row" pb="1.5rem">
+    <Stack spacing={3} direction="row" pt="1.125rem" pb="2rem">
       <Spacer />
-      <Button
-        variant="outline"
-        size="xs"
-        color="gray.500"
-        className="uiconfig-param-save-as"
-        visibility="hidden"
-        opacity="0"
-      >
-        Save As
+      <Button variant="ghost" size="xs" color="gray.400">
+        Apply
+      </Button>
+      <Button variant="outline" size="xs">
+        Save
       </Button>
     </Stack>
   );

@@ -1,10 +1,8 @@
 import {
   Stack,
   Box,
-  Heading,
   Editable,
   EditableInput,
-  EditableTextarea,
   EditablePreview,
 } from "@chakra-ui/react";
 import "@chakra-ui/react";
@@ -12,10 +10,13 @@ import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
 import React, { useState, useCallback } from "react";
+import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionContainerCore from "./SectionContainerCore";
+import { useStoreActions } from "easy-peasy";
+import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 
 function SectionContainer({
   sectionId,
@@ -36,7 +37,12 @@ function SectionContainer({
   console.log("isDeck: ", isDeck);
 
   return (
-    <Container isDeck={isDeck}>
+    <Container
+      isDeck={isDeck}
+      sectionId={sectionId}
+      parentId={parentId}
+      dragListeners={dragListeners}
+    >
       {!isDeck && (
         <SectionContainerCore
           sectionId={sectionId}
@@ -72,7 +78,22 @@ export default React.memo(SectionContainer, (prev, next) => {
 });
 
 function Container(props) {
-  const isDeck = props.isDeck;
+  const { isDeck, sectionId, parentId, dragListeners } = props;
+  const ctrlPressed = useKeyPress("Control");
+  const isDraggingChild = parentId && ctrlPressed;
+  const trueDragListeners = isDraggingChild ? dragListeners : {};
+  const className = isDraggingChild ? "nodrag" : "";
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
+  );
+  function onTitleInputChange(value) {
+    setSectionInfoAttr({ sectionId, attr: "name", value });
+  }
+  const [inputValue, setInputValue, onSubmit] = useEditableOnSubmit(
+    "Deck",
+    onTitleInputChange
+  );
+
   return (
     <>
       {isDeck ? (
@@ -87,12 +108,14 @@ function Container(props) {
         >
           <Editable
             fontFamily="Work Sans"
-            defaultValue="Deck"
             fontWeight="bold"
             color="gray.100"
             fontSize="4xl"
             mb="-.5rem"
             letterSpacing="tighter"
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={onSubmit}
           >
             <EditablePreview />
             <EditableInput
@@ -104,7 +127,9 @@ function Container(props) {
           {props.children}
         </Stack>
       ) : (
-        <Stack>{props.children}</Stack>
+        <Stack {...trueDragListeners} className={className}>
+          {props.children}
+        </Stack>
       )}
     </>
   );

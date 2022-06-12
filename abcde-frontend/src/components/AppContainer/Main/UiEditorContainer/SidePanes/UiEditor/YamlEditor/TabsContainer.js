@@ -45,7 +45,7 @@ export default function TabsContainer({
               borderRight: "1px",
               borderBottom: "1px",
               borderColor: "gray.200",
-              padding: "0.33rem 0.25rem 0.33rem .5rem",
+              padding: "0.33rem 1rem",
               marginRight: "0.125rem",
             }}
             _selected={{ color: "white", bg: "gray.400" }}
@@ -57,10 +57,9 @@ export default function TabsContainer({
               icon={closeIconCondition(e) && <SmallCloseIcon />}
               borderRadius="full"
               variant="ghost"
-              _hover={{ backgroundColor: "gray.900" }}
               size="xs"
-              ml="0.25rem"
-              marginright="0"
+              ml="0.75rem"
+              marginright="0.125rem"
               onClick={() => onRemoveClickWrapper(e)}
               onMouseOver={() => onTabMouseOver(e)}
               onMouseLeave={() => onTabMouseLeave(e)}

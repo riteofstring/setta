@@ -7,8 +7,6 @@ export default function SimpleConfig({ options, onChange, savedConfig }) {
       key={`${e}-${idx}`}
       onChange={(v) => onChange(e, () => v.target.value)}
       value={savedConfig?.[e] ? savedConfig[e] : ""}
-      variant="flushed"
-      size="xs"
     />
   ));
 }
