@@ -2,6 +2,7 @@ import { SearchIcon } from "@chakra-ui/icons";
 import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
+import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
@@ -16,12 +17,24 @@ const paneProps = {
 
 export default function Overview() {
   const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
+  const [filter, setFilter] = useState("");
+  const [filteredList, setFilteredList] = useState([]);
 
   const topLevelSectionIds = useStoreState((x) =>
     x.sectionInfos.topLevelSectionPositions.map((x) => x.id)
   );
   const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
+
+  useDeepCompareEffect(() => {
+    if (listOfSectionIdsAndNames.length > 0) {
+      setFilteredList([
+        matchSorter(listOfSectionIdsAndNames[0], filter, {
+          keys: ["sectionHeading"],
+        }),
+      ]);
+    }
+  }, [filter, listOfSectionIdsAndNames]);
 
   useDeepCompareEffect(() => {
     console.log("Overview useEffect");
@@ -36,10 +49,15 @@ export default function Overview() {
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
-        <Input variant="flushed" placeholder="Search" />
+        <Input
+          variant="flushed"
+          placeholder="Search"
+          onChange={(e) => setFilter(e.target.value)}
+          value={filter}
+        />
       </InputGroup>
 
-      <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
+      <SectionList listOfSectionIdsAndNames={filteredList} />
     </PaneContainer>
   );
 }
