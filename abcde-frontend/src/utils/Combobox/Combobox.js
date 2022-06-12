@@ -27,7 +27,7 @@ export const ComboboxInput = React.forwardRef(
   ) => {
     return (
       <InputGroup
-        width="100%"
+        // width="100%"
         className="nodrag"
         size={size === "small" ? "sm" : "md"}
       >
@@ -81,7 +81,7 @@ const FancySearch = ({
 }) => {
   return (
     <Input
-      w="100%"
+      // w="100%"
       pl="2.5rem"
       h={(size === "small" && "32px") || height}
       {...props}
@@ -125,7 +125,9 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
       display={isOpen ? null : "none"}
       {...props}
       ref={ref}
-      position="absolute"
+      // position="absolute"
+      position="fixed"
+      overflow="visible !important"
       className="nowheel nodrag"
       zIndex="100"
     />

@@ -1,5 +1,5 @@
 import { SearchIcon } from "@chakra-ui/icons";
-import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
+import { Heading, Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
 import { useState } from "react";

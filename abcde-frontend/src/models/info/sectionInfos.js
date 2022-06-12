@@ -30,16 +30,6 @@ const sectionInfos = {
     }
   }),
 
-  setSectionInfoAttrObjInput: action((state, payload) => {
-    const { newValues } = payload;
-    for (let sectionId of Object.keys(newValues)) {
-      state.x[sectionId] = Object.assign(
-        state.x[sectionId],
-        newValues[sectionId]
-      );
-    }
-  }),
-
   setIdsOverview: action((state, payload) => {
     const { sectionId, childrenInfoId } = payload;
     state.idsOverview[sectionId] = childrenInfoId;

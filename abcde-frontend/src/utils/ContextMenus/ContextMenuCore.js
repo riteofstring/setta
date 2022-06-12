@@ -2,7 +2,8 @@ import { Menu, MenuButton, Portal } from "@chakra-ui/react";
 import { useRef, useEffect } from "react";
 
 export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
-  const ref = useOutsideAlerter(isOpen, closeContextMenu);
+  const ref = useRef(null);
+  useOutsideAlerter(ref, isOpen, closeContextMenu);
 
   return (
     <Portal>
@@ -27,8 +28,7 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
 }
 
 // https://stackoverflow.com/a/42234988
-function useOutsideAlerter(isOpen, closeContextMenu) {
-  const ref = useRef(null);
+function useOutsideAlerter(ref, isOpen, closeContextMenu) {
   useEffect(() => {
     function handleClickOutside(event) {
       if (ref.current && !ref.current.contains(event.target) && isOpen) {
@@ -42,5 +42,4 @@ function useOutsideAlerter(isOpen, closeContextMenu) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [ref, isOpen]);
-  return ref;
 }
