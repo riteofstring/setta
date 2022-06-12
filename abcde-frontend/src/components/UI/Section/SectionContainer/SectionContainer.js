@@ -90,7 +90,7 @@ function Container(props) {
             defaultValue="Deck"
             fontWeight="bold"
             color="gray.100"
-            fontSize="5xl"
+            fontSize="4xl"
             mb="-.5rem"
           >
             <EditablePreview />
