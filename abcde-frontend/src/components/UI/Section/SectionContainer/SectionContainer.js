@@ -92,6 +92,7 @@ function Container(props) {
             color="gray.100"
             fontSize="4xl"
             mb="-.5rem"
+            letterSpacing="tighter"
           >
             <EditablePreview />
             <EditableInput className="nodrag" w="450px" />
