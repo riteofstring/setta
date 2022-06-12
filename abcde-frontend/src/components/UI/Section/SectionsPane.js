@@ -4,6 +4,7 @@ import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ReactFlow, { useNodesState, Background } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
@@ -64,6 +65,9 @@ function SectionsPane() {
     selectionCtxMenuDetails,
     openSelectionCtxMenu,
     closeSelectionCtxMenu,
+    nodeCtxMenuDetails,
+    openNodeCtxMenu,
+    closeNodeCtxMenu,
     closeCtxMenus,
   ] = useAllContextMenus();
 
@@ -84,6 +88,7 @@ function SectionsPane() {
         // snapToGrid={true}
         onPaneContextMenu={openPaneCtxMenu}
         onSelectionContextMenu={openSelectionCtxMenu}
+        onNodeContextMenu={openNodeCtxMenu}
         onPaneClick={closeCtxMenus}
         onMoveStart={closeCtxMenus}
         onNodeDrag={onNodeDrag}
@@ -100,6 +105,10 @@ function SectionsPane() {
           {...selectionCtxMenuDetails}
           closeContextMenu={closeSelectionCtxMenu}
           reactFlowRef={reactFlowRef}
+        />
+        <NodeContextMenu
+          {...nodeCtxMenuDetails}
+          closeContextMenu={closeNodeCtxMenu}
         />
         <ResponsiveMiniMap />
         <ResponsiveControls />

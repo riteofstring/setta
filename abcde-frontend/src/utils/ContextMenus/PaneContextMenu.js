@@ -8,7 +8,7 @@ export function PaneContextMenu(props) {
 
   return (
     <ContextMenuCore {...props}>
-      <MenuList>
+      <MenuList zIndex={10}>
         <MenuItem onClick={onClick(false)}>New Section</MenuItem>
         <MenuItem onClick={onClick(true)}>New Deck</MenuItem>
       </MenuList>
