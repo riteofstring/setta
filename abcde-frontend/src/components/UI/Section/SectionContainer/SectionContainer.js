@@ -15,6 +15,8 @@ import { DECK } from "utils/constants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionContainerCore from "./SectionContainerCore";
+import { useStoreActions } from "easy-peasy";
+import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 
 function SectionContainer({
   sectionId,
@@ -37,6 +39,7 @@ function SectionContainer({
   return (
     <Container
       isDeck={isDeck}
+      sectionId={sectionId}
       parentId={parentId}
       dragListeners={dragListeners}
     >
@@ -75,11 +78,21 @@ export default React.memo(SectionContainer, (prev, next) => {
 });
 
 function Container(props) {
-  const { isDeck, parentId, dragListeners } = props;
+  const { isDeck, sectionId, parentId, dragListeners } = props;
   const ctrlPressed = useKeyPress("Control");
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
+  );
+  function onTitleInputChange(value) {
+    setSectionInfoAttr({ sectionId, attr: "name", value });
+  }
+  const [inputValue, setInputValue, onSubmit] = useEditableOnSubmit(
+    "Deck",
+    onTitleInputChange
+  );
 
   return (
     <>
@@ -95,12 +108,14 @@ function Container(props) {
         >
           <Editable
             fontFamily="Work Sans"
-            defaultValue="Deck"
             fontWeight="bold"
             color="gray.100"
             fontSize="4xl"
             mb="-.5rem"
             letterSpacing="tighter"
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={onSubmit}
           >
             <EditablePreview />
             <EditableInput
