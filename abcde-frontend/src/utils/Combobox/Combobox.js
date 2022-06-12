@@ -89,8 +89,9 @@ const FancySearch = ({
       ref={ref}
       placeholder="Search"
       border={0}
-      borderRadius="1.2rem"
-      borderBottomRadius={isOpen && "none"}
+      borderRadius="full"
+      // borderRadius="1.2rem"
+      // borderBottomRadius={isOpen && "none"}
       boxShadow="sm"
       size={textSize}
     />
@@ -130,6 +131,8 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
       overflow="visible !important"
       className="nowheel nodrag"
       zIndex="100"
+      borderRadius="3xl"
+      mt="0.5rem"
     />
   );
 });
@@ -141,14 +144,15 @@ export const ComboboxItem = React.forwardRef(
     return (
       <ListItem
         transition="background-color 220ms, color 220ms"
-        bg={isActive ? "gray.500" : null}
-        color={isActive ? "white" : "gray.700"}
+        bg={isActive ? "gray.100" : null}
+        // color={isActive ? "gray.800" : "gray.500"}
+        color="gray.700"
         px={4}
         py={2}
         cursor="pointer"
         {...props}
         ref={ref}
-        borderRadius="2xl"
+        borderRadius="xl"
         mx="0.25rem"
         my="0.125rem"
       />
