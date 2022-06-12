@@ -1,4 +1,13 @@
-import { Stack, Box, Heading } from "@chakra-ui/react";
+import {
+  Stack,
+  Box,
+  Heading,
+  Editable,
+  EditableInput,
+  EditableTextarea,
+  EditablePreview,
+} from "@chakra-ui/react";
+import "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -69,13 +78,24 @@ function Container(props) {
       {isDeck ? (
         <Stack
           bg="hsla(212, 22%, 50%, 0.2)"
-          py="1.5rem"
+          pt=".75rem"
           px="2rem"
+          pb="1.5rem"
           borderRadius="3xl"
           // border="1px solid hsla(255, 22%, 100%, 0.3)"
           // boxShadow="xs"
         >
-          <Heading color="gray.100">Deck</Heading>
+          <Editable
+            fontFamily="Work Sans"
+            defaultValue="Deck"
+            fontWeight="bold"
+            color="gray.100"
+            fontSize="5xl"
+            mb="-.5rem"
+          >
+            <EditablePreview />
+            <EditableInput paddingY="0" className="nodrag" w="auto" />
+          </Editable>
           {props.children}
         </Stack>
       ) : (
