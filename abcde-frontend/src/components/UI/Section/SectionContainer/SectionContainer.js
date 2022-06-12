@@ -94,7 +94,7 @@ function Container(props) {
             mb="-.5rem"
           >
             <EditablePreview />
-            <EditableInput paddingY="0" className="nodrag" w="auto" />
+            <EditableInput className="nodrag" w="450px" />
           </Editable>
           {props.children}
         </Stack>
