@@ -6,7 +6,7 @@ import {
   useGetSectionPosition,
   useRequestSectionPositionUpdate,
 } from "./useGetSectionPosition";
-import { useGetDeckChildren } from "./useIdsOverview";
+import { useGetAllChildren } from "./useIdsOverview";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
   const setIdsOverviewThunk = useStoreActions(
@@ -34,7 +34,7 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
 export function useUndeck(sectionId) {
   const [deckId, setDeckId] = useState(null);
   const requesterName = `useUndeck-${deckId}`;
-  const childIds = useGetDeckChildren(deckId);
+  const childIds = useGetAllChildren(deckId);
   const requestPositionUpdate = useRequestSectionPositionUpdate();
   useMakeChildrenTopLevel(deckId, childIds, requesterName);
 
