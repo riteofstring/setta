@@ -64,6 +64,13 @@ const sectionInfos = {
     );
   }),
 
+  getDeckChildrenThunk: thunk((actions, payload, helpers) => {
+    const { sectionId } = payload;
+    const state = helpers.getState();
+    const childrenInfoId = state.idsOverview[sectionId];
+    return state.childrenInfo[childrenInfoId];
+  }),
+
   setIdsOverviewThunk: thunk((actions, payload, helpers) => {
     const { sectionId, newStateFn } = payload;
     let childrenInfoId = helpers.getState().idsOverview[sectionId];

@@ -8,10 +8,10 @@ import { ContextMenuCore } from "./ContextMenuCore";
 export function NodeContextMenu(props) {
   const { nodeId, closeContextMenu } = props;
   const nodeIsDeck = useGetSectionType(nodeId).type === DECK;
-  const undeck = useUndeck(nodeId);
+  const undeck = useUndeck();
 
   function onClick() {
-    undeck();
+    undeck(nodeId);
     closeContextMenu();
   }
 

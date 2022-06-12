@@ -1,18 +1,22 @@
 import { useStoreActions } from "easy-peasy";
 
-import { useIdsOverview } from "./useIdsOverview";
-
-export function useUndeck(sectionId) {
-  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
+export function useUndeck() {
+  const getDeckChildrenThunk = useStoreActions(
+    (x) => x.sectionInfos.getDeckChildrenThunk
+  );
+  const setIdsOverviewThunk = useStoreActions(
+    (x) => x.sectionInfos.setIdsOverviewThunk
+  );
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
 
-  return () => {
-    setIdsOverview((x) => []);
+  return (sectionId) => {
+    const childIds = getDeckChildrenThunk({ sectionId });
+    setIdsOverviewThunk({ sectionId, newStateFn: (x) => [] });
     setSectionInfoAttr({
-      sectionIds: idsOverview,
+      sectionIds: childIds,
       attr: "isTopLevel",
       value: true,
     });
