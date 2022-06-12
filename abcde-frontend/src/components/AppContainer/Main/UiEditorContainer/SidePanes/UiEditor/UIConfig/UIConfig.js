@@ -35,9 +35,11 @@ export default function UIConfigFunc() {
   const paramInfos = useGetAllParamAndKwargInfos(sectionId, objInfo);
   const getUITypeFn = useGetParamUIType(sectionId);
 
-  const [filteredList, setFilter] = useMatchSorterFilter(paramInfos, {
-    keys: ["name"],
-  });
+  const [filteredList, setFilter] = useMatchSorterFilter(
+    paramInfos,
+    ["name"],
+    500
+  );
 
   console.log("activeSectionId", sectionId);
 

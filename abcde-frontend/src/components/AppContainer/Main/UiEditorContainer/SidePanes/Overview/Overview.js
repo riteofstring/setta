@@ -17,9 +17,9 @@ const paneProps = {
 
 export default function Overview() {
   const [sectionList, setSectionList] = useState([[]]);
-  const [filteredList, setFilter] = useMatchSorterFilter(sectionList[0], {
-    keys: ["sectionHeading"],
-  });
+  const [filteredList, setFilter] = useMatchSorterFilter(sectionList[0], [
+    "sectionHeading",
+  ]);
 
   const topLevelSectionIds = useStoreState((x) =>
     x.sectionInfos.topLevelSectionPositions.map((x) => x.id)
