@@ -25,7 +25,7 @@ function _SortableSectionContainer({ sectionId, ...props }) {
   const scaledTransform = transformWithZoom(transform);
 
   const style = {
-    transform: CSS.Transform.toString(scaledTransform),
+    transform: CSS.Translate.toString(scaledTransform),
     transition,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
