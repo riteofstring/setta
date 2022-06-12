@@ -10,6 +10,7 @@ import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
+import mapInteraction from "models/mapInteraction";
 import master from "models/master";
 import panes from "models/panes";
 import projectParamDefaults from "models/projectDefaults/projectParamDefaults";
@@ -29,6 +30,7 @@ const store = createStore(
       factoriesInfo: factoriesInfo,
       funcsInfo: funcsInfo,
       panes: panes,
+      mapInteraction: mapInteraction,
       cliSocket: cliSocket,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,

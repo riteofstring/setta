@@ -1,8 +1,7 @@
 import { SearchIcon } from "@chakra-ui/icons";
-import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
+import { Heading, Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
-import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
@@ -16,10 +15,7 @@ const paneProps = {
 };
 
 export default function Overview() {
-  const [sectionList, setSectionList] = useState([[]]);
-  const [filteredList, setFilter] = useMatchSorterFilter(sectionList[0], [
-    "sectionHeading",
-  ]);
+  const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
 
   const topLevelSectionIds = useStoreState((x) =>
     x.sectionInfos.topLevelSectionPositions.map((x) => x.id)
@@ -29,7 +25,7 @@ export default function Overview() {
 
   useDeepCompareEffect(() => {
     console.log("Overview useEffect");
-    setSectionList(
+    setListOfSectionIdsAndNames(
       getOverviewListing([topLevelSectionIds], currChildren, idNames)
     );
   }, [topLevelSectionIds, currChildren, idNames]);
@@ -37,17 +33,14 @@ export default function Overview() {
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Overview">
       <InputGroup pb="1rem">
-        <InputLeftElement pointerEvents="none">
-          <SearchIcon color="gray.300" />
-        </InputLeftElement>
-        <Input
-          variant="flushed"
-          placeholder="Search"
-          onChange={(e) => setFilter(e.target.value)}
+        <InputLeftElement
+          pointerEvents="none"
+          children={<SearchIcon color="gray.300" />}
         />
+        <Input variant="flushed" placeholder="Search" />
       </InputGroup>
 
-      <SectionList listOfSectionIdsAndNames={[filteredList]} />
+      <SectionList listOfSectionIdsAndNames={listOfSectionIdsAndNames} />
     </PaneContainer>
   );
 }

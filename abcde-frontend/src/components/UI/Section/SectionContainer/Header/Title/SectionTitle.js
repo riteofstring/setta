@@ -4,20 +4,25 @@ import {
   EditablePreview,
   Input,
 } from "@chakra-ui/react";
-import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
+import { useState } from "react";
 
 export default function SectionTitle({ heading, onTitleInputChange }) {
-  const [inputValue, setInputValue, onSubmit] = useEditableOnSubmit(
-    heading,
-    onTitleInputChange
-  );
+  const [inputValue, setInputValue] = useState(heading);
+
+  const onBlur = (v) => {
+    if (v != "") {
+      onTitleInputChange(v);
+    } else {
+      setInputValue(heading);
+    }
+  };
 
   return (
     <Editable
       value={inputValue}
       onChange={setInputValue}
       isPreviewFocusable={true}
-      onSubmit={onSubmit}
+      onSubmit={onBlur}
       fontFamily="Work Sans"
       fontWeight="bold"
       className="nodrag"
@@ -33,3 +38,28 @@ export default function SectionTitle({ heading, onTitleInputChange }) {
     </Editable>
   );
 }
+
+// old:
+// return (
+//   <>
+//     {requiresKeyInput ? (
+//       <Input
+//         placeholder="Please Enter Key"
+//         value={inputValue}
+//         width="50%"
+//         onChange={(v) => setInputValue(v.target.value)}
+//         onBlur={(v) => onBlur(v.target.value)}
+//       />
+//     ) : (
+//       <Heading
+//         size="md"
+//         fontWeight="black"
+//         letterSpacing="tighter"
+//         color="gray.700"
+//         as="h2"
+//       >
+//         {heading}
+//       </Heading>
+//     )}
+//   </>
+// );

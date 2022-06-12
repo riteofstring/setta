@@ -17,6 +17,7 @@ export default function SectionListItems({
             <SectionItem
               sectionId={e.sectionId}
               sectionHeading={e.sectionHeading}
+              isList={e.isList}
               pageNum={pageNum}
             />
           </Stack>

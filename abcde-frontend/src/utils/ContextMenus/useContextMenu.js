@@ -32,24 +32,12 @@ function useContextMenu({
 }
 
 function useSelectionContextMenu() {
-  function openFn(suggested, curr, nodes) {
+  function openFn(suggested, curr, nodes, ...otherArgs) {
     return { ...suggested, nodeIds: nodes.map((x) => x.id) };
   }
 
   function initialStateFn(suggested) {
     return { ...suggested, nodeIds: [] };
-  }
-
-  return useContextMenu({ openFn, closeFn: initialStateFn, initialStateFn });
-}
-
-function useNodeContextMenu() {
-  function openFn(suggested, curr, node) {
-    return { ...suggested, nodeId: node.id };
-  }
-
-  function initialStateFn(suggested) {
-    return { ...suggested, nodeId: null };
   }
 
   return useContextMenu({ openFn, closeFn: initialStateFn, initialStateFn });
@@ -61,17 +49,12 @@ export function useAllContextMenus() {
   const [selectionDetails, openSelection, closeSelection] =
     useSelectionContextMenu();
 
-  const [nodeDetails, openNode, closeNode] = useNodeContextMenu();
-
   function closeContextMenus() {
     if (paneDetails.isOpen) {
       closePane();
     }
     if (selectionDetails.isOpen) {
       closeSelection();
-    }
-    if (nodeDetails.isOpen) {
-      closeNode();
     }
   }
 
@@ -82,9 +65,6 @@ export function useAllContextMenus() {
     selectionDetails,
     openSelection,
     closeSelection,
-    nodeDetails,
-    openNode,
-    closeNode,
     closeContextMenus,
   ];
 }

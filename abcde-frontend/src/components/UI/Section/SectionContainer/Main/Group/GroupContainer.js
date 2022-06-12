@@ -1,11 +1,10 @@
 import { Stack } from "@chakra-ui/react";
 import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
-import React from "react";
 
 import KwargsControls from "../KwargsControls/KwargsControls";
 import GetParamSwitch from "./ParamSwitch/GetParamSwitch";
 
-function _GroupContainer({
+export default function GroupContainer({
   sectionId,
   objInfoId,
   selectedItemInSpecs,
@@ -41,6 +40,3 @@ function _GroupContainer({
     </Stack>
   );
 }
-
-const GroupContainer = React.memo(_GroupContainer);
-export default GroupContainer;

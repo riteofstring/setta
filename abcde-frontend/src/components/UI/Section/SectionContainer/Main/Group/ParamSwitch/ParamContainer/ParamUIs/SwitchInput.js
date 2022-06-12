@@ -9,7 +9,6 @@ export default function SwitchInput({
   defaultVal,
   onChangeEnd,
   isDisabled,
-  className,
 }) {
   return (
     // <Tooltip isDisabled={isDisabled} hasArrow label="Label Tooltip Placeholder">
@@ -18,7 +17,6 @@ export default function SwitchInput({
       isDisabled={isDisabled}
       onChange={(e) => onChangeEnd(e.target.checked)}
       size="sm"
-      className={className}
     />
     // </Tooltip>
   );
