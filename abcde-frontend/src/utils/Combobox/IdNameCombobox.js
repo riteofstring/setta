@@ -9,6 +9,7 @@ export function IdNameCombobox({
   initialSelection,
   textSize = "sm",
   simpleSearch,
+  size,
 }) {
   const init = _.find(allItems, { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
@@ -36,6 +37,7 @@ export function IdNameCombobox({
       matchSorterProps={{ keys: ["name"] }}
       textSize={textSize}
       simpleSearch={simpleSearch}
+      size={size}
     />
   );
 }

@@ -12,6 +12,10 @@ export const AppTheme = extendTheme({
         scrollbarColor: "gray.300 transparent",
         scrollbarHeight: "thin",
       },
+      ".js-focus-visible :focus:not([data-focus-visible-added])": {
+        outline: "none",
+        boxShadow: "none",
+      },
       "body::-webkit-scrollbar": {
         width: "0.5rem",
         height: "0.5rem",

@@ -20,6 +20,8 @@ export function UIConfigDropdownAndFields({
         allItems={availableUITypes}
         initialSelection={selectedId}
         onSelectedItemChange={onDropdownSelect}
+        // height="32px"
+        size="small"
       />
       <ParamUIConfig
         name={selectedType}

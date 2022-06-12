@@ -20,6 +20,8 @@ export function ComboboxSearch({
   matchSorterProps,
   textSize,
   simpleSearch,
+  height,
+  size,
 }) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -64,7 +66,13 @@ export function ComboboxSearch({
 
   return (
     <>
-      <Flex direction="column" align="center" overflow="visible" h="2.5rem">
+      <Flex
+        direction="column"
+        align="center"
+        overflow="visible"
+        h="2.5rem"
+        w="100%"
+      >
         {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
         label
       </Text> */}
@@ -78,29 +86,27 @@ export function ComboboxSearch({
           dropdown={true}
           textSize={textSize}
           simpleSearch={simpleSearch}
+          size={size}
         />
 
-        {/* TODO: FIX WIDTH & ZINDEX */}
         <Flex
           {...getComboboxProps()}
           direction="column"
           flex="1 1 auto"
-          width="400px"
           zIndex="10000"
-          position="absolute"
-          mt="2.5rem"
+          // w="100%"
+          w="424px"
         >
           <ComboboxList
             isOpen={isOpen}
             {...getMenuProps()}
             flex={1}
             maxH="16rem"
-            mt={2}
+            mt={0}
             bg="white"
-            borderRadius="3xl"
+            borderBottomLeftRadius="3xl"
+            borderBottomRightRadius="3xl"
             boxShadow="xl"
-            border="1px"
-            borderColor="gray.300"
             w="inherit"
             // p=".5rem"
             display={isOpen ? "flex" : "none"}
@@ -113,7 +119,6 @@ export function ComboboxSearch({
                   itemIndex={index}
                   highlightedIndex={highlightedIndex}
                   key={index}
-                  className="SectionSearch"
                 >
                   {itemToString(item)}
                 </ComboboxItem>

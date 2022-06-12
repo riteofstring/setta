@@ -73,12 +73,12 @@ function SearchItem({
       // mb="1.25rem"
       borderRadius="md"
       cursor="pointer"
-      // _hover={{
-      //   background: "white",
-      //   boxShadow: "sm",
-      //   borderColor: "white",
-      //   transition: "box-shadow 200ms, background 200ms",
-      // }}
+      _hover={{
+        background: "white",
+        boxShadow: "sm",
+        borderColor: "white",
+        transition: "box-shadow 200ms, background 200ms",
+      }}
       border="1px"
       borderColor="rgba(0, 0, 0, 0)"
       className="edit-list-item"

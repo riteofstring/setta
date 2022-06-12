@@ -39,6 +39,7 @@ export const ComboboxInput = React.forwardRef(
             height={height}
             size={size}
             textSize={textSize}
+            isOpen={isOpen}
             {...props}
             {...toggleButtonProps}
           />
@@ -75,6 +76,7 @@ const FancySearch = ({
   textSize,
   height,
   size,
+  isOpen,
   ...props
 }) => {
   return (
@@ -87,7 +89,8 @@ const FancySearch = ({
       ref={ref}
       placeholder="Search"
       border={0}
-      borderRadius="full"
+      borderRadius="1.2rem"
+      borderBottomRadius={isOpen && "none"}
       boxShadow="sm"
       size={textSize}
     />

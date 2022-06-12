@@ -14,13 +14,15 @@ export default function SectionItem({ sectionId, sectionHeading, isList }) {
       <Text
         cursor="pointer"
         py={0.5}
-        px={2}
+        px={3}
         w="100%"
         borderRadius="0.25rem"
         color="gray.500"
         _hover={{
-          boxShadow: "inset 0px 0px 0px 10px gray.500",
-          bg: "gray.100",
+          background: "white",
+          boxShadow: "sm",
+          borderColor: "white",
+          transition: "box-shadow 200ms, background 200ms",
         }}
         onClick={onClick}
       >

@@ -60,10 +60,10 @@ export default function UiEditor() {
               overflowY="auto"
               ref={measureRef}
             >
-              <TabPanel p="0">
+              <TabPanel p="3px">
                 <SectionConfig />
               </TabPanel>
-              <TabPanel>
+              <TabPanel p="3px">
                 <UIConfig />
               </TabPanel>
               <TabPanel display="grid" place-items="center">

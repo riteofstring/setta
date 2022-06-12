@@ -1,3 +1,4 @@
+import { SearchIcon } from "@chakra-ui/icons";
 import {
   Heading,
   VStack,
@@ -9,6 +10,9 @@ import {
   AccordionPanel,
   AccordionIcon,
   Box,
+  InputGroup,
+  InputLeftElement,
+  Input,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useParamChildId } from "hooks/useParamInfo";
@@ -34,6 +38,13 @@ export default function UIConfigFunc() {
 
   return (
     <VStack align="stretch" spacing={0}>
+      <InputGroup pb="1rem">
+        <InputLeftElement
+          pointerEvents="none"
+          children={<SearchIcon color="gray.300" />}
+        />
+        <Input variant="flushed" placeholder="Search" />
+      </InputGroup>
       {paramInfos &&
         paramInfos.length > 0 &&
         paramInfos.map((e, idx) => (
@@ -74,20 +85,39 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
     <ReduceMotionAccordian
       defaultIndex={[0]}
       allowMultiple
-      borderTopColor="white"
-      borderBottomColor="gray.100"
+      borderTopColor="transparent"
+      borderBottomColor="transparent"
     >
       <AccordionItem>
-        <AccordionButton>
+        <AccordionButton
+          // _expanded={{ color: "gray.400" }}
+          color="gray.500"
+          _hover={{ bg: "white", boxShadow: "sm" }}
+          borderRadius="md"
+        >
           <Box flex="1" textAlign="left">
-            <Heading as="h3" size="sm" color="gray.500">
+            <Heading
+              as="h3"
+              size="sm"
+              color="gray.500"
+              textTransform="uppercase"
+              letterSpacing="widest"
+            >
               {paramName}
             </Heading>
           </Box>
           <AccordionIcon />
         </AccordionButton>
 
-        <AccordionPanel pb={4}>
+        <AccordionPanel
+          px={0}
+          pt={2}
+          pb={4}
+          width="100%"
+          display="flex"
+          alignItems="stretch"
+          flexDir="column"
+        >
           <UIConfigDropdownAndFields
             onDropdownSelect={onSelect}
             selectedId={uiType.id}
