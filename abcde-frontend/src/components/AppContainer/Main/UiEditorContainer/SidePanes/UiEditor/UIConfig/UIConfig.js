@@ -139,10 +139,10 @@ function SaveLoadButtons() {
   return (
     <Stack spacing={3} direction="row" pt="1.125rem" pb="2rem">
       <Spacer />
-      <Button variant="ghost" size="xs" color="gray.400">
-        Apply
+      <Button variant="outline" size="sm">
+        Apply To...
       </Button>
-      <Button variant="outline" size="xs">
+      <Button variant="solid" size="sm">
         Save
       </Button>
     </Stack>

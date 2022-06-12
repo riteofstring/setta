@@ -5,7 +5,7 @@ export function RefInputConfig() {
   return null;
 }
 
-export default function RefInput({ value, onChangeEnd }) {
+export default function RefInput({ value, onChangeEnd, className }) {
   const availableSections = useStoreState((x) => x.sectionInfos.x);
 
   return (
@@ -13,6 +13,7 @@ export default function RefInput({ value, onChangeEnd }) {
       allItems={_.values(availableSections)}
       initialSelection={value}
       onSelectedItemChange={onChangeEnd}
+      className={className}
     />
   );
 }

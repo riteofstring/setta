@@ -36,6 +36,7 @@ export default function SliderInput({
   max,
   step,
   isDisabled,
+  className,
 }) {
   return (
     <Slider
@@ -47,6 +48,7 @@ export default function SliderInput({
       step={tryParseFloat(step)}
       isDisabled={isDisabled}
       focusThumbOnChange={false}
+      className={className}
     >
       <SliderTrack>
         <SliderFilledTrack />

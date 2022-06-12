@@ -23,12 +23,13 @@ export function useSetSectionPosition(sectionId) {
   useEffect(() => {
     if (positionUpdateRequested && refForPosition.current) {
       const { y, x } = refForPosition.current.getBoundingClientRect();
+      const sectionIds = [sectionId];
       setSectionPosition({ sectionId, y: y, x: x });
       setPositionUpdateRequested({
-        sectionId,
+        sectionIds,
         positionUpdateRequested: false,
       });
-      setPositionUpdated({ sectionId, positionUpdated: true });
+      setPositionUpdated({ sectionIds, positionUpdated: true });
     }
   }, [positionUpdateRequested]);
 
