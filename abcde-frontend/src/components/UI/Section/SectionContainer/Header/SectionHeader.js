@@ -22,6 +22,30 @@ export function SectionHeader({
     deleteSelf({ startId: sectionId });
   };
 
+  return (
+    <Stack direction="row" align="center" w="100%" pl="0.75em">
+      <NonDeckSectionTitle sectionId={sectionId} />
+      <Spacer />
+      {(isList || isListRoot) && (
+        <Incrementer
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          isListRoot={isListRoot}
+          addChild={addChild}
+          deleteChild={deleteChild}
+          hasNested={hasNested}
+        />
+      )}
+      <CustomCloseButton
+        onClick={onCustomCloseButtonClick}
+        aria-label="Delete self"
+      />
+    </Stack>
+  );
+}
+
+function NonDeckSectionTitle({ sectionId }) {
   const editableProps = {
     isPreviewFocusable: true,
     fontFamily: "Work Sans",
@@ -35,32 +59,11 @@ export function SectionHeader({
     marginLeft: "-0.5rem",
     height: "30px",
   };
-
   return (
-    <Stack direction="row" align="center" w="100%" pl="0.75em">
-      <SectionTitle
-        sectionId={sectionId}
-        editableProps={editableProps}
-        inputProps={inputProps}
-      />
-      <Spacer />
-      {(isList || isListRoot) && (
-        <>
-          <Incrementer
-            sectionId={sectionId}
-            parentId={parentId}
-            nextId={nextId}
-            isListRoot={isListRoot}
-            addChild={addChild}
-            deleteChild={deleteChild}
-            hasNested={hasNested}
-          />
-        </>
-      )}
-      <CustomCloseButton
-        onClick={onCustomCloseButtonClick}
-        aria-label="Delete self"
-      />
-    </Stack>
+    <SectionTitle
+      sectionId={sectionId}
+      editableProps={editableProps}
+      inputProps={inputProps}
+    />
   );
 }

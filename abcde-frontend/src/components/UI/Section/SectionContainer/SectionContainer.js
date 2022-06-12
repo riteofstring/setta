@@ -77,6 +77,31 @@ function Container(props) {
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
 
+  return (
+    <>
+      {isDeck ? (
+        <Stack
+          bg="hsla(212, 22%, 50%, 0.2)"
+          pt=".75rem"
+          px="2rem"
+          pb="1.5rem"
+          borderRadius="3xl"
+          // border="1px solid hsla(255, 22%, 100%, 0.3)"
+          // boxShadow="xs"
+        >
+          <DeckSectionTitle sectionId={sectionId} />
+          {props.children}
+        </Stack>
+      ) : (
+        <Stack {...trueDragListeners} className={className}>
+          {props.children}
+        </Stack>
+      )}
+    </>
+  );
+}
+
+function DeckSectionTitle({ sectionId }) {
   const editableProps = {
     fontFamily: "Work Sans",
     fontWeight: "bold",
@@ -91,31 +116,11 @@ function Container(props) {
     w: "450px",
     letterSpacing: "tighter",
   };
-
   return (
-    <>
-      {isDeck ? (
-        <Stack
-          bg="hsla(212, 22%, 50%, 0.2)"
-          pt=".75rem"
-          px="2rem"
-          pb="1.5rem"
-          borderRadius="3xl"
-          // border="1px solid hsla(255, 22%, 100%, 0.3)"
-          // boxShadow="xs"
-        >
-          <SectionTitle
-            sectionId={sectionId}
-            editableProps={editableProps}
-            inputProps={inputProps}
-          />
-          {props.children}
-        </Stack>
-      ) : (
-        <Stack {...trueDragListeners} className={className}>
-          {props.children}
-        </Stack>
-      )}
-    </>
+    <SectionTitle
+      sectionId={sectionId}
+      editableProps={editableProps}
+      inputProps={inputProps}
+    />
   );
 }
