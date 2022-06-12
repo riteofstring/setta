@@ -67,12 +67,8 @@ function SectionsPane() {
     closeCtxMenus,
   ] = useAllContextMenus();
 
-  const [
-    onNodeDrag,
-    onNodeDragStop,
-    onSelectionDragStart,
-    onSelectionDragStop,
-  ] = useDragIntoDeck(reactFlowRef);
+  const [onNodeDrag, onNodeDragStop, onSelectionDrag, onSelectionDragStop] =
+    useDragIntoDeck(reactFlowRef);
 
   return (
     <>
@@ -92,7 +88,7 @@ function SectionsPane() {
         onMoveStart={closeCtxMenus}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
-        onSelectionDragStart={onSelectionDragStart}
+        onSelectionDrag={onSelectionDrag}
         onSelectionDragStop={onSelectionDragStop}
       >
         <PaneContextMenu

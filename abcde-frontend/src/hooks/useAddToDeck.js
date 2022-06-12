@@ -1,8 +1,10 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
+import { DECK } from "utils/constants";
 
 import { useMouseToReactFlowPosition } from "./useMouseToReactFlowPosition";
+import { useGetSectionType } from "./useSectionType";
 
 export function useAddToDeck() {
   const setIdsOverview = useStoreActions(
@@ -25,19 +27,33 @@ export function useAddToDeck() {
   };
 }
 
+function useDropOverNode(overNode, setOverNode) {
+  const addToDeck = useAddToDeck();
+  const overNodeIsDeck = useGetSectionType(overNode).type === DECK;
+  return (draggingNodes) => {
+    if (overNodeIsDeck) {
+      addToDeck(
+        overNode,
+        draggingNodes.map((x) => x.id)
+      );
+    }
+    setOverNode(null);
+  };
+}
+
 export function useDragIntoDeck(reactFlowRef) {
   const { getNodes } = useReactFlow();
   const getMousePosition = useMouseToReactFlowPosition(reactFlowRef);
   const [overNode, setOverNode] = useState(null);
-  const sectionInfos = useStoreState((x) => x.sectionInfos.x);
-  const addToDeck = useAddToDeck();
+  const dropOverNode = useDropOverNode(overNode, setOverNode);
 
-  function onNodeDrag(e, node) {
+  function draggingOverNode(e, draggingNodes) {
     const nodes = getNodes();
     const { x, y } = getMousePosition(e.clientX, e.clientY);
+    const draggingNodeIds = draggingNodes.map((x) => x.id);
     for (let n of nodes) {
       if (
-        n.id !== node.id &&
+        !draggingNodeIds.includes(n.id) &&
         x > n.position.x &&
         x < n.position.x + n.width &&
         y > n.position.y &&
@@ -50,20 +66,21 @@ export function useDragIntoDeck(reactFlowRef) {
     setOverNode(null);
   }
 
-  function onNodeDragStop(e, node) {
-    if (overNode && sectionInfos[overNode].isDeck) {
-      addToDeck(overNode, [node.id]);
-    }
+  function onNodeDrag(e, node) {
+    draggingOverNode(e, [node]);
   }
 
-  function onSelectionDragStart() {}
+  function onNodeDragStop(e, node) {
+    dropOverNode([node]);
+  }
 
-  function onSelectionDragStop(e, nodes) {}
+  function onSelectionDrag(e, nodes) {
+    draggingOverNode(e, nodes);
+  }
 
-  return [
-    onNodeDrag,
-    onNodeDragStop,
-    onSelectionDragStart,
-    onSelectionDragStop,
-  ];
+  function onSelectionDragStop(e, nodes) {
+    dropOverNode(nodes);
+  }
+
+  return [onNodeDrag, onNodeDragStop, onSelectionDrag, onSelectionDragStop];
 }

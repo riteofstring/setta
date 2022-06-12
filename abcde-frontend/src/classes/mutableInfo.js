@@ -63,7 +63,6 @@ export class SectionInfo extends MutableInfo {
     selectedItem = null,
     isTopLevel = false,
     initialPosition,
-    isDeck = false,
   }) {
     super();
     this.id = maybeNewId(id);
@@ -76,7 +75,6 @@ export class SectionInfo extends MutableInfo {
     this.paramInfoId = paramInfoId;
     this.isTopLevel = isTopLevel;
     this.initialPosition = initialPosition;
-    this.isDeck = isDeck;
     this.exportable = [
       "id",
       "name",

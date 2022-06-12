@@ -1,6 +1,6 @@
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
-import { DEFAULT_DECK_UI_TYPE_ID } from "utils/constants";
+import { DECK_UI_TYPE_ID } from "utils/constants";
 
 export function useOnClickAddSection({
   x,
@@ -17,8 +17,7 @@ export function useOnClickAddSection({
     const initialPosition = getPosition(x, y);
     const sectionProps = { isTopLevel: true, initialPosition };
     if (isDeck) {
-      sectionProps.uiTypeId = DEFAULT_DECK_UI_TYPE_ID;
-      sectionProps.isDeck = true;
+      sectionProps.uiTypeId = DECK_UI_TYPE_ID;
     }
     const [newId] = addSection(sectionProps);
     if (afterAddSection) {

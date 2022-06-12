@@ -21,6 +21,13 @@
       "isPreset": true,
       "config": {}
     },
+    "0595871f-4506-4bda-b6f1-9a3864e02a68": {
+      "id": "0595871f-4506-4bda-b6f1-9a3864e02a68",
+      "type": "REF",
+      "name": "",
+      "isPreset": true,
+      "config": {}
+    },
     "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
       "id": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "type": "SECTION",
@@ -48,6 +55,18 @@
     "623a9242-53e9-4b42-b695-431e9754a836": {
       "id": "623a9242-53e9-4b42-b695-431e9754a836",
       "type": "DICT_ROOT",
+      "name": "",
+      "isPreset": true,
+      "config": {
+        "objects": [],
+        "parameters": [],
+        "uiTypeCollectionId": null,
+        "childUITypeId": null
+      }
+    },
+    "0e050316-06ca-48f4-92c1-9845abdf85f7": {
+      "id": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "type": "DECK",
       "name": "",
       "isPreset": true,
       "config": {
