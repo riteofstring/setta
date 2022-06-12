@@ -75,7 +75,8 @@ export default function TextEditor({ idx, dimensions }) {
         // className={styles.container}
         wrapperClassName={styles.wrapper}
         height={`calc(${dimensions.height}px - 8rem)`}
-        width={`calc(${dimensions.width}px - 2rem)`}
+        width={`calc(${dimensions.width}px - .33rem)`}
+        // w={`calc(${dimensions.width}px`}
       />
     </>
   );
