@@ -5,21 +5,12 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 
 export function useGoToSection(sectionId, requesterName) {
-  const requestPositionUpdate = useRequestSectionPositionUpdate(
-    sectionId,
-    requesterName
-  );
-
+  const requestPositionUpdate = useRequestSectionPositionUpdate();
   useSetGoToCoordinates(sectionId, requesterName);
-
-  return requestPositionUpdate;
+  return () => requestPositionUpdate(sectionId, requesterName);
 }
 
-function useRequestSectionPositionUpdate(
-  sectionId,
-  requesterName,
-  sectionIds = null
-) {
+function useRequestSectionPositionUpdate() {
   const setWhoRequested = useStoreActions(
     (x) => x.sectionPositions.setWhoRequested
   );
@@ -27,7 +18,7 @@ function useRequestSectionPositionUpdate(
   const setPositionUpdateRequested = useStoreActions(
     (x) => x.sectionPositions.setPositionUpdateRequested
   );
-  return () => {
+  return (sectionId, requesterName, sectionIds = null) => {
     setWhoRequested(requesterName);
     setPositionUpdateRequested({
       sectionId,
