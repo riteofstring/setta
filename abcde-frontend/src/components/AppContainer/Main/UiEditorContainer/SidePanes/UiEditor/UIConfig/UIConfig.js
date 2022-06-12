@@ -15,6 +15,7 @@ import {
   Input,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
+import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useParamChildId } from "hooks/useParamInfo";
 import {
   useGetObjInfos,
@@ -34,6 +35,10 @@ export default function UIConfigFunc() {
   const paramInfos = useGetAllParamAndKwargInfos(sectionId, objInfo);
   const getUITypeFn = useGetParamUIType(sectionId);
 
+  const [filteredList, setFilter] = useMatchSorterFilter(paramInfos, {
+    keys: ["name"],
+  });
+
   console.log("activeSectionId", sectionId);
 
   return (
@@ -42,11 +47,14 @@ export default function UIConfigFunc() {
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
-        <Input variant="flushed" placeholder="Search" />
+        <Input
+          variant="flushed"
+          placeholder="Search"
+          onChange={(e) => setFilter(e.target.value)}
+        />
       </InputGroup>
-      {paramInfos &&
-        paramInfos.length > 0 &&
-        paramInfos.map((e, idx) => (
+      {filteredList.length > 0 &&
+        filteredList.map((e, idx) => (
           <UIElement
             sectionId={sectionId}
             paramInfo={e}

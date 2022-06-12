@@ -2,7 +2,7 @@ import { SearchIcon } from "@chakra-ui/icons";
 import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
-import { matchSorter } from "match-sorter";
+import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
@@ -16,9 +16,10 @@ const paneProps = {
 };
 
 export default function Overview() {
-  const [listOfSectionIdsAndNames, setListOfSectionIdsAndNames] = useState([]);
-  const [filter, setFilter] = useState("");
-  const [filteredList, setFilteredList] = useState([]);
+  const [sectionList, setSectionList] = useState([[]]);
+  const [filteredList, setFilter] = useMatchSorterFilter(sectionList[0], {
+    keys: ["sectionHeading"],
+  });
 
   const topLevelSectionIds = useStoreState((x) =>
     x.sectionInfos.topLevelSectionPositions.map((x) => x.id)
@@ -27,18 +28,8 @@ export default function Overview() {
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useDeepCompareEffect(() => {
-    if (listOfSectionIdsAndNames.length > 0) {
-      setFilteredList([
-        matchSorter(listOfSectionIdsAndNames[0], filter, {
-          keys: ["sectionHeading"],
-        }),
-      ]);
-    }
-  }, [filter, listOfSectionIdsAndNames]);
-
-  useDeepCompareEffect(() => {
     console.log("Overview useEffect");
-    setListOfSectionIdsAndNames(
+    setSectionList(
       getOverviewListing([topLevelSectionIds], currChildren, idNames)
     );
   }, [topLevelSectionIds, currChildren, idNames]);
@@ -53,11 +44,10 @@ export default function Overview() {
           variant="flushed"
           placeholder="Search"
           onChange={(e) => setFilter(e.target.value)}
-          value={filter}
         />
       </InputGroup>
 
-      <SectionList listOfSectionIdsAndNames={filteredList} />
+      <SectionList listOfSectionIdsAndNames={[filteredList]} />
     </PaneContainer>
   );
 }
