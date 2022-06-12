@@ -22,6 +22,7 @@ export function UIConfigDropdownAndFields({
         onSelectedItemChange={onDropdownSelect}
         // height="32px"
         size="small"
+        isPane="true"
       />
       <ParamUIConfig
         name={selectedType}

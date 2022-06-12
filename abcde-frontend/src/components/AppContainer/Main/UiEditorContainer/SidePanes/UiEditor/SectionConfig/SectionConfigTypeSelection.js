@@ -20,6 +20,7 @@ export default function SectionConfigTypeSelection({
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
       simpleSearch={simpleSearch}
+      isPane={true}
     />
   );
 }
