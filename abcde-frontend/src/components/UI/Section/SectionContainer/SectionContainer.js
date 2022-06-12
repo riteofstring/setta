@@ -35,7 +35,11 @@ function SectionContainer({
   console.log("isDeck: ", isDeck);
 
   return (
-    <Container isDeck={isDeck}>
+    <Container
+      isDeck={isDeck}
+      parentId={parentId}
+      dragListeners={dragListeners}
+    >
       {!isDeck && (
         <SectionContainerCore
           sectionId={sectionId}
@@ -72,8 +76,8 @@ export default React.memo(SectionContainer, (prev, next) => {
 
 function Container(props) {
   const { isDeck, parentId, dragListeners } = props;
-  const spacePressed = useKeyPress("Control");
-  const isDraggingChild = parentId && spacePressed;
+  const ctrlPressed = useKeyPress("Control");
+  const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
 
@@ -108,7 +112,7 @@ function Container(props) {
           {props.children}
         </Stack>
       ) : (
-        <Stack dragListeners={trueDragListeners} className={className}>
+        <Stack {...trueDragListeners} className={className}>
           {props.children}
         </Stack>
       )}
