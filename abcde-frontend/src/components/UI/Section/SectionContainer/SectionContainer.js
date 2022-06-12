@@ -95,7 +95,11 @@ function Container(props) {
             letterSpacing="tighter"
           >
             <EditablePreview />
-            <EditableInput className="nodrag" w="450px" />
+            <EditableInput
+              className="nodrag"
+              w="450px"
+              letterSpacing="tighter"
+            />
           </Editable>
           {props.children}
         </Stack>
