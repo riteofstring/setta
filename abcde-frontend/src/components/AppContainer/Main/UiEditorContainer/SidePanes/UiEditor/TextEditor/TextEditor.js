@@ -55,11 +55,14 @@ export default function TextEditor({ idx, dimensions }) {
   return (
     <>
       <Button
-        leftIcon={<IoIosRocket />}
+        rightIcon={<IoIosRocket />}
         onClick={handleCreateUI}
         disabled={!isEditorReady}
-        variant="solid"
+        variant="outline"
         mb="1rem"
+        borderRadius="full"
+        // bg="gray.400"
+        // color="gray.50"
       >
         Create UI
       </Button>
