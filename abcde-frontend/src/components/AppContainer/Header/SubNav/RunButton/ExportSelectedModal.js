@@ -5,28 +5,32 @@ function numSpaces(x) {
   return x.search(/\S|$/);
 }
 
-export default function ExportYamlModal({ isOpen, onClose, selectedAsYaml }) {
+export default function ExportSelectedModal({
+  isOpen,
+  onClose,
+  selectedAsString,
+}) {
   return (
     <ModalContainer
       onClose={onClose}
       isOpen={isOpen}
       size={"full"}
       header={<Header />}
-      body={<Body selectedAsYaml={selectedAsYaml} />}
+      body={<Body selectedAsString={selectedAsString} />}
       footer={<Footer />}
     />
   );
 }
 
 function Header() {
-  return <Box>Selections as YAML</Box>;
+  return <Box>Selections</Box>;
 }
 
-function Body({ selectedAsYaml }) {
-  const splitByLines = selectedAsYaml.split("\n");
+function Body({ selectedAsString }) {
+  const splitByLines = selectedAsString.split("\n");
   return splitByLines.map((x, idx) => (
     <Text
-      key={`selectedAsYaml-${idx}`}
+      key={`selectedAsString-${idx}`}
       style={{ textIndent: 10 * numSpaces(x) }}
     >
       {x}
