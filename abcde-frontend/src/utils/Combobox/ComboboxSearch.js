@@ -1,11 +1,9 @@
 import "@chakra-ui/icons";
 import { Flex, Box } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
-import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import React, { useEffect, useState } from "react";
-import { UI_EDITOR } from "utils/constants";
 
 import {
   ComboboxInput,
@@ -22,17 +20,12 @@ export function ComboboxSearch({
   matchSorterProps,
   textSize,
   simpleSearch,
-  height,
+  width,
   size,
-  isPane = false,
 }) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [selection, setSelection] = useState(null);
-
-  const paneWidth = isPane
-    ? useStoreState((x) => x.panes.trueWidth[UI_EDITOR])
-    : null;
 
   useEffect(() => {
     if (initialSelection && !_.isEqual(selection, initialSelection)) {
@@ -102,7 +95,7 @@ export function ComboboxSearch({
           // flex="1 1 auto"
           zIndex="10000"
           // w="calc(100%)"
-          w={isPane ? `${paneWidth - 94}px` : "424px"}
+          w={width}
           alignItems="stretch"
           transitionDuration="0.25s"
         >

@@ -1,3 +1,4 @@
+import { usePaneComboboxWidth } from "hooks/usePaneComboboxWidth";
 import {
   onlySectionTypes,
   useAvailablePresetUITypes,
@@ -14,13 +15,15 @@ export default function SectionConfigTypeSelection({
     onlySectionTypes
   );
 
+  const comboboxWidth = usePaneComboboxWidth();
+
   return (
     <IdNameCombobox
       allItems={availableUITypes}
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
       simpleSearch={simpleSearch}
-      isPane={true}
+      width={comboboxWidth}
     />
   );
 }

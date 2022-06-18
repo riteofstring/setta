@@ -13,6 +13,7 @@ export default function SectionSearch({
       allItems={objInfos}
       onSelectedItemChange={onSelectedItemChange}
       initialSelection={initialSelection}
+      width="424px"
     />
   );
 }

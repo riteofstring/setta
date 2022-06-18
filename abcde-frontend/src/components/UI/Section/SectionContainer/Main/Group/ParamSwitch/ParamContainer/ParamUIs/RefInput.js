@@ -14,6 +14,7 @@ export default function RefInput({ value, onChangeEnd, className }) {
       initialSelection={value}
       onSelectedItemChange={onChangeEnd}
       className={className}
+      width="424px"
     />
   );
 }

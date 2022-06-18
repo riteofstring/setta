@@ -10,7 +10,7 @@ export function IdNameCombobox({
   textSize = "sm",
   simpleSearch,
   size,
-  isPane,
+  width,
 }) {
   const init = _.find(allItems, { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
@@ -39,7 +39,7 @@ export function IdNameCombobox({
       textSize={textSize}
       simpleSearch={simpleSearch}
       size={size}
-      isPane={isPane}
+      width={width}
     />
   );
 }
