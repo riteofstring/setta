@@ -3,11 +3,14 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetUIType } from "hooks/useUIType";
+import React from "react";
 
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
-export default function SectionConfigFunc() {
+export default React.memo(SectionConfigFunc);
+
+function SectionConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
   const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
