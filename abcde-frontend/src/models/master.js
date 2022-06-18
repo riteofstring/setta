@@ -15,7 +15,6 @@ import {
   GLOBAL_DEFAULT,
   PROJECT_DEFAULT,
 } from "utils/constants";
-import { exportSelected } from "utils/exportSelected";
 
 const master = {
   available: {},
@@ -115,10 +114,6 @@ const master = {
       helpers.getStoreActions().sectionInfos.setSectionInfo;
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));
     return _.keys(sectionInfos);
-  }),
-
-  exportSelected: thunk((action, payload, helpers) => {
-    return exportSelected(helpers.getStoreState());
   }),
 };
 

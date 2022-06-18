@@ -17,11 +17,13 @@ import {
 import { useStoreActions } from "easy-peasy";
 import { RiPlayMiniFill } from "react-icons/ri";
 
-import ExportSelectedButton from "./ExportSelectedButton";
+import ExportYamlButton from "./ExportYamlButton";
 
 export default function RunButton() {
   // const runSelected = useStoreActions((actions) => actions.master.runSelected);
-  const exportSelected = useStoreActions((x) => x.master.exportSelected);
+  const exportSelected = useStoreActions(
+    (actions) => actions.master.exportSelected
+  );
   const runExport = () => {
     const selected = exportSelected();
     // runSelected({ selected });
@@ -51,16 +53,7 @@ export default function RunButton() {
             <PopoverHeader>Run Options</PopoverHeader>
             <PopoverCloseButton />
             <PopoverBody>
-              <ExportSelectedButton
-                exportSelected={exportSelected}
-                outputAs="json"
-                buttonText="Export Selected as JSON"
-              />
-              <ExportSelectedButton
-                exportSelected={exportSelected}
-                outputAs="yaml"
-                buttonText="Export Selected as YAML"
-              />
+              <ExportYamlButton exportSelected={exportSelected} />
             </PopoverBody>
             <PopoverFooter>This is the footer</PopoverFooter>
           </PopoverContent>

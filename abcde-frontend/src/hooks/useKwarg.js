@@ -7,7 +7,7 @@ import { useDeleteChild } from "./useAddDeleteChild";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useAddKwarg(sectionId, objInfoId) {
+export function useAddKwarg(sectionId, objInfo) {
   const { kwargCollectionId } = useGetSectionInfo(sectionId);
   const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
@@ -16,13 +16,13 @@ export function useAddKwarg(sectionId, objInfoId) {
     setKwargInfo({ kwargInfoId: kwargInfo.id, kwargInfo });
     setKwargIds({
       collectionId: kwargCollectionId,
-      objInfoId,
+      objInfoId: objInfo.id,
       newStateFn: (x) => [...x, kwargInfo.id],
     });
   };
 }
 
-export function useDeleteKwarg(sectionId, objInfoId) {
+export function useDeleteKwarg(sectionId, objInfo) {
   const { paramCollectionId, kwargCollectionId } = useGetSectionInfo(sectionId);
   const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   const deleteChild = useDeleteChild(sectionId);
@@ -35,7 +35,7 @@ export function useDeleteKwarg(sectionId, objInfoId) {
     return () => {
       setKwargIds({
         collectionId: kwargCollectionId,
-        objInfoId,
+        objInfoId: objInfo.id,
         newStateFn: (x) => x.filter((y) => y !== id),
       });
       deleteKwargInfo({ ids: [id] });

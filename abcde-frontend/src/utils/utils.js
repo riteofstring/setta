@@ -1,5 +1,4 @@
 import { arrayMove } from "@dnd-kit/sortable";
-import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
 
 export const createNewId = () => {
@@ -10,8 +9,12 @@ export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
 
+export function nullOrUndefined(x) {
+  return x === null || x === undefined;
+}
+
 export function allDefined(...x) {
-  return x.every((a) => !_.isNil(a));
+  return x.every((a) => !nullOrUndefined(a));
 }
 
 // https://stackoverflow.com/a/38181008

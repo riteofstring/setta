@@ -26,6 +26,7 @@ function _SectionContainerCore({
 }) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
+  const selectedItemInSpecs = config.objects.includes(selectedItem);
   const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
@@ -102,6 +103,7 @@ function _SectionContainerCore({
               <GroupContainer
                 sectionId={sectionId}
                 objInfoId={selectedItem}
+                selectedItemInSpecs={selectedItemInSpecs}
                 isKwarg={false}
               />
             </Stack>
@@ -112,6 +114,7 @@ function _SectionContainerCore({
         <GroupContainer
           sectionId={sectionId}
           objInfoId={selectedItem}
+          selectedItemInSpecs={selectedItemInSpecs}
           isKwarg={true}
         />
       </VStack>

@@ -16,7 +16,7 @@ export function useInitializeEnteredValue(sectionId) {
       if (!enteredValueId) {
         const newId = createNewId();
         setEnteredValueId(newId);
-        setEnteredValue({ enteredValueId: newId, value: null });
+        setEnteredValue({ enteredValueId: newId, value: "" });
       }
     };
   };

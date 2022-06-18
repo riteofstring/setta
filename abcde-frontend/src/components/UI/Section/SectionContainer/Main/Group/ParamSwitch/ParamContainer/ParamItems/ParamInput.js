@@ -1,5 +1,5 @@
-import _ from "lodash";
 import { useState, useEffect } from "react";
+import { nullOrUndefined } from "utils/utils";
 
 import ParamUI from "../ParamUIs/ParamUI";
 
@@ -19,7 +19,7 @@ export default function ParamInput(props) {
   };
 
   useEffect(() => {
-    setValue(!_.isNil(enteredValue) ? enteredValue : "");
+    setValue(!nullOrUndefined(enteredValue) ? enteredValue : "");
   }, [enteredValue]);
 
   return (
