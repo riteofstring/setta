@@ -19,11 +19,14 @@ import {
 } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
+import React from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
-export default function UIConfigFunc() {
+export default React.memo(UIConfigFunc);
+
+function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const objInfoId = useGetSectionInfo(sectionId).selectedItem;
   const objInfo = useGetObjInfos(sectionId, objInfoId);
