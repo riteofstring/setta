@@ -53,6 +53,11 @@ export default function RunButton() {
             <PopoverBody>
               <ExportSelectedButton
                 exportSelected={exportSelected}
+                outputAs="code"
+                buttonText="Generate Code"
+              />
+              <ExportSelectedButton
+                exportSelected={exportSelected}
                 outputAs="json"
                 buttonText="Export Selected as JSON"
               />
