@@ -1,16 +1,36 @@
 import { getFullObjPath } from "classes/immutableInfo";
 import _ from "lodash";
 
-function paramInfoExportSelected(paramInfo, paramCollectionId, state) {
-  const { enteredValueId } =
+import { DECK, isRoot } from "./constants";
+
+function paramInfoExportSelected(
+  sectionId,
+  paramInfo,
+  paramCollectionId,
+  state
+) {
+  const { enteredValueId, childId } =
     state.paramInfos.x[paramCollectionId][paramInfo.id];
+  if (state.sectionInfos.currChildren[sectionId].includes(childId)) {
+    return sectionExportSelected(state.sectionInfos.x[childId], state);
+  }
   return state.enteredValues.x[enteredValueId];
 }
 
-function multipleParamInfoExportSelected(paramInfos, paramCollectionId, state) {
+function multipleParamInfoExportSelected(
+  sectionId,
+  paramInfos,
+  paramCollectionId,
+  state
+) {
   const output = {};
   for (let p of paramInfos) {
-    const paramSelection = paramInfoExportSelected(p, paramCollectionId, state);
+    const paramSelection = paramInfoExportSelected(
+      sectionId,
+      p,
+      paramCollectionId,
+      state
+    );
     if (!_.isNil(paramSelection)) {
       output[p.name] = paramSelection;
     }
@@ -19,14 +39,15 @@ function multipleParamInfoExportSelected(paramInfos, paramCollectionId, state) {
 }
 
 function paramCollectionExportSelected(
-  uiTypeId,
+  sectionId,
+  sectionType,
   allParamCollections,
   paramCollectionId,
   state
 ) {
   const {
     config: { parameters },
-  } = state.uiTypes.x[uiTypeId];
+  } = sectionType;
   let currParamCollections = {};
   for (let p of parameters) {
     currParamCollections = {
@@ -35,6 +56,7 @@ function paramCollectionExportSelected(
     };
   }
   return multipleParamInfoExportSelected(
+    sectionId,
     Object.values(currParamCollections),
     paramCollectionId,
     state
@@ -42,6 +64,7 @@ function paramCollectionExportSelected(
 }
 
 function kwargsExportSelected(
+  sectionId,
   objInfoId,
   paramCollectionId,
   kwargCollectionId,
@@ -52,13 +75,19 @@ function kwargsExportSelected(
     return {};
   }
   const kwargInfos = kwargIds.map((y) => state.kwargInfos.x[y]);
-  return multipleParamInfoExportSelected(kwargInfos, paramCollectionId, state);
+  return multipleParamInfoExportSelected(
+    sectionId,
+    kwargInfos,
+    paramCollectionId,
+    state
+  );
 }
 
-function objInfoExportSelected(objInfo, paramCollectionId, state) {
+function objInfoExportSelected(sectionId, objInfo, paramCollectionId, state) {
   const { allPackageInfo, allModuleInfo } = state.master;
   const fullObjPath = getFullObjPath(allPackageInfo, allModuleInfo, objInfo);
   const output = multipleParamInfoExportSelected(
+    sectionId,
     Object.values(objInfo.children),
     paramCollectionId,
     state
@@ -66,21 +95,49 @@ function objInfoExportSelected(objInfo, paramCollectionId, state) {
   return { [fullObjPath]: output };
 }
 
+function rootChildrenExportSelected(section, sectionType, state) {
+  const currChildren = state.sectionInfos.currChildren[section.id];
+  const childSelections = [];
+  for (let c of currChildren) {
+    const currSection = state.sectionInfos.x[c];
+    childSelections.push([
+      currSection.name,
+      sectionExportSelected(currSection, state),
+    ]);
+  }
+  if (sectionType.type === "LIST_ROOT") {
+    return childSelections.map((x) => x[1]);
+  }
+  return Object.fromEntries(childSelections);
+}
+
 function sectionExportSelected(section, state) {
   // Confusingly, paramCollectionId is not related to allParamCollections.
   // Instead, it is used for keeping track of param ui types, entered values etc.
   const { allObjInfo, allParamCollections } = state.master;
-  const { selectedItem, uiTypeId, paramCollectionId, kwargCollectionId } =
-    section;
+  const {
+    id: sectionId,
+    selectedItem,
+    uiTypeId,
+    paramCollectionId,
+    kwargCollectionId,
+  } = section;
+  const sectionType = state.uiTypes.x[uiTypeId];
+
+  if (isRoot(sectionType.type)) {
+    return rootChildrenExportSelected(section, sectionType, state);
+  }
 
   const nonObjParams = paramCollectionExportSelected(
-    uiTypeId,
+    sectionId,
+    sectionType,
     allParamCollections,
     paramCollectionId,
     state
   );
 
   const kwargs = kwargsExportSelected(
+    sectionId,
     selectedItem,
     paramCollectionId,
     kwargCollectionId,
@@ -90,6 +147,7 @@ function sectionExportSelected(section, state) {
   let output = { ...nonObjParams, ...kwargs };
   if (selectedItem) {
     const objParams = objInfoExportSelected(
+      sectionId,
       allObjInfo[selectedItem],
       paramCollectionId,
       state
@@ -102,11 +160,17 @@ function sectionExportSelected(section, state) {
 }
 
 export function exportSelected(state) {
-  const output = {};
+  let output = {};
   const sections = state.sectionInfos.x;
-
-  for (let s of _.filter(sections, (x) => x.isTopLevel)) {
-    output[s.name] = sectionExportSelected(s, state);
+  const topLevelSections = _.filter(sections, (x) => x.isTopLevel);
+  for (let s of topLevelSections) {
+    const selected = sectionExportSelected(s, state);
+    const sectionType = state.uiTypes.x[s.uiTypeId];
+    if (sectionType.type === DECK) {
+      output = { ...output, ...selected };
+    } else {
+      output[s.name] = selected;
+    }
   }
   return output;
 }
