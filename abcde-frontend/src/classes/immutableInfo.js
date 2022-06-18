@@ -91,3 +91,7 @@ export function getFullObjPath(allPackageInfo, allModuleInfo, objInfo) {
   const packageName = allPackageInfo.children[moduleInfo.parentId].name;
   return `${packageName}.${moduleName}.${objName}`;
 }
+
+export const NULL_OBJ_INFO = Object.freeze(
+  new ObjInfo({ id: null, name: null, children: {} }, null)
+);

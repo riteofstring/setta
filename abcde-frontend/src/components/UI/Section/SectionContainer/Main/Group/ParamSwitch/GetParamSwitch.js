@@ -13,14 +13,14 @@ export default function GetParamSwitch({
   sectionId,
   infos,
   isKwarg = false,
-  objInfo,
+  objInfoId,
 }) {
   const childIdFn = useParamChildId(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
   const enteredValueFn = useParamEnteredValue(sectionId);
   const getInitUITypeFn = useInitializeUIType(sectionId);
   const getInitEnteredValueFn = useInitializeEnteredValue(sectionId);
-  const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfo);
+  const getDeleteKwargFn = useDeleteKwarg(sectionId, objInfoId);
   return (
     infos.length > 0 && (
       <FormControl>

@@ -15,7 +15,7 @@ import {
   GLOBAL_DEFAULT,
   PROJECT_DEFAULT,
 } from "utils/constants";
-import { exportSelected } from "utils/sectionIds";
+import { exportSelected } from "utils/exportSelected";
 
 const master = {
   available: {},

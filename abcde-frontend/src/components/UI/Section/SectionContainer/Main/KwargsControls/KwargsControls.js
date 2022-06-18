@@ -2,8 +2,8 @@ import { AddIcon } from "@chakra-ui/icons";
 import { HStack, Heading, IconButton, Stack } from "@chakra-ui/react";
 import { useAddKwarg } from "hooks/useKwarg";
 
-export default function KwargsControls({ sectionId, objInfo }) {
-  const addKwarg = useAddKwarg(sectionId, objInfo);
+export default function KwargsControls({ sectionId, objInfoId }) {
+  const addKwarg = useAddKwarg(sectionId, objInfoId);
   return (
     <Stack>
       <HStack pt="1rem" pl=".75rem">
