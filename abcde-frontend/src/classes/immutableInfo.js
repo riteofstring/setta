@@ -83,3 +83,11 @@ export class AllParamCollectionInfo {
     );
   }
 }
+
+export function getFullObjPath(allPackageInfo, allModuleInfo, objInfo) {
+  const objName = objInfo.name;
+  const moduleInfo = allModuleInfo[objInfo.parentId];
+  const moduleName = moduleInfo.name;
+  const packageName = allPackageInfo.children[moduleInfo.parentId].name;
+  return `${packageName}.${moduleName}.${objName}`;
+}

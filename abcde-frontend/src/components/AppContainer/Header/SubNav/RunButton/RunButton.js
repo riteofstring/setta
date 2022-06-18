@@ -21,9 +21,7 @@ import ExportYamlButton from "./ExportYamlButton";
 
 export default function RunButton() {
   // const runSelected = useStoreActions((actions) => actions.master.runSelected);
-  const exportSelected = useStoreActions(
-    (actions) => actions.master.exportSelected
-  );
+  const exportSelected = useStoreActions((x) => x.master.exportSelected);
   const runExport = () => {
     const selected = exportSelected();
     // runSelected({ selected });
