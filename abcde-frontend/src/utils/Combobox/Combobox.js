@@ -42,6 +42,7 @@ export const ComboboxInput = React.forwardRef(
             isOpen={isOpen}
             {...props}
             {...toggleButtonProps}
+            ref={ref}
           />
         ) : (
           <SimpleSearch
@@ -50,6 +51,7 @@ export const ComboboxInput = React.forwardRef(
             textSize={textSize}
             {...props}
             {...toggleButtonProps}
+            ref={ref}
           />
         )}
         {dropdown && (
@@ -70,55 +72,45 @@ export const ComboboxInput = React.forwardRef(
   }
 );
 
-const FancySearch = ({
-  toggleButtonProps,
-  ref,
-  textSize,
-  height,
-  size,
-  isOpen,
-  ...props
-}) => {
-  return (
-    <Input
-      // w="100%"
-      pl="2.5rem"
-      h={(size === "small" && "32px") || height}
-      {...props}
-      {...toggleButtonProps}
-      ref={ref}
-      placeholder="Search"
-      border={0}
-      borderRadius="full"
-      // borderRadius="1.2rem"
-      // borderBottomRadius={isOpen && "none"}
-      boxShadow="sm"
-      size={textSize}
-    />
-  );
-};
+const FancySearch = React.forwardRef(
+  ({ toggleButtonProps, textSize, height, size, isOpen, ...props }, ref) => {
+    return (
+      <Input
+        // w="100%"
+        pl="2.5rem"
+        h={(size === "small" && "32px") || height}
+        {...props}
+        {...toggleButtonProps}
+        placeholder="Search"
+        border={0}
+        borderRadius="full"
+        // borderRadius="1.2rem"
+        // borderBottomRadius={isOpen && "none"}
+        boxShadow="sm"
+        size={textSize}
+        ref={ref}
+      />
+    );
+  }
+);
 
-const SimpleSearch = ({
-  toggleButtonProps,
-  ref,
-  textSize,
-  height,
-  size,
-  ...props
-}) => {
-  return (
-    <Input
-      h={(size === "small" && "32px") || height}
-      {...props}
-      {...toggleButtonProps}
-      size={textSize}
-      variant="flushed"
-      placeholder="Search"
-      pl="2.5rem"
-      bg="unset"
-    />
-  );
-};
+const SimpleSearch = React.forwardRef(
+  ({ toggleButtonProps, textSize, height, size, ...props }, ref) => {
+    return (
+      <Input
+        h={(size === "small" && "32px") || height}
+        {...props}
+        {...toggleButtonProps}
+        size={textSize}
+        variant="flushed"
+        placeholder="Search"
+        pl="2.5rem"
+        bg="unset"
+        ref={ref}
+      />
+    );
+  }
+);
 
 export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
   return (
