@@ -68,7 +68,7 @@ export default function UiEditor() {
               <TabPanel p="3px">
                 <UIConfig />
               </TabPanel>
-              <TabPanel display="grid" place-items="center">
+              <TabPanel display="grid" place-items="center" px="0">
                 <YamlEditor dimensions={dimensions} />
               </TabPanel>
             </TabPanels>

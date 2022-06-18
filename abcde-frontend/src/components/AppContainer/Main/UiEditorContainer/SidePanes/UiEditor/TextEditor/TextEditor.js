@@ -55,11 +55,14 @@ export default function TextEditor({ idx, dimensions }) {
   return (
     <>
       <Button
-        leftIcon={<IoIosRocket />}
+        rightIcon={<IoIosRocket />}
         onClick={handleCreateUI}
         disabled={!isEditorReady}
-        variant="solid"
+        variant="outline"
         mb="1rem"
+        borderRadius="full"
+        // bg="gray.400"
+        // color="gray.50"
       >
         Create UI
       </Button>
@@ -72,7 +75,8 @@ export default function TextEditor({ idx, dimensions }) {
         // className={styles.container}
         wrapperClassName={styles.wrapper}
         height={`calc(${dimensions.height}px - 8rem)`}
-        width={`calc(${dimensions.width}px - 2rem)`}
+        width={`calc(${dimensions.width}px - .33rem)`}
+        // w={`calc(${dimensions.width}px`}
       />
     </>
   );

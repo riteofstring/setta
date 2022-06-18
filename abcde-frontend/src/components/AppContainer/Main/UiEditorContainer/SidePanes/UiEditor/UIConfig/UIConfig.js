@@ -45,7 +45,7 @@ export default function UIConfigFunc() {
 
   return (
     <VStack align="stretch" spacing={0}>
-      <InputGroup pb="1rem">
+      <InputGroup pb="2.5rem">
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
@@ -91,68 +91,56 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   };
 
   return (
-    <ReduceMotionAccordian
-      defaultIndex={[0]}
-      allowMultiple
-      borderTopColor="transparent"
-      borderBottomColor="transparent"
+    <VStack
+      align="stretch"
+      _hover={{
+        "&:hover .uiconfig-param-save-as": {
+          visibility: "visible",
+          opacity: "1",
+          transitionDuration: "opacity 0.5s",
+        },
+      }}
     >
-      <AccordionItem>
-        <AccordionButton
-          // _expanded={{ color: "gray.400" }}
+      <Box flex="1" textAlign="left">
+        <Heading
+          as="h3"
+          size="sm"
           color="gray.500"
-          _hover={{ bg: "white", boxShadow: "sm" }}
-          borderRadius="md"
+          textTransform="uppercase"
+          letterSpacing="widest"
         >
-          <Box flex="1" textAlign="left">
-            <Heading
-              as="h3"
-              size="sm"
-              color="gray.500"
-              textTransform="uppercase"
-              letterSpacing="widest"
-            >
-              {paramName}
-            </Heading>
-          </Box>
-          <AccordionIcon />
-        </AccordionButton>
+          {paramName}
+        </Heading>
+      </Box>
 
-        <AccordionPanel
-          px={0}
-          pt={2}
-          pb={4}
-          width="100%"
-          display="flex"
-          alignItems="stretch"
-          flexDir="column"
-        >
-          <UIConfigDropdownAndFields
-            onDropdownSelect={onSelect}
-            selectedId={uiType.id}
-            selectedType={uiType.type}
-            onConfigChange={onChange}
-            paramInfoId={paramInfo.id}
-            savedConfig={uiType.config}
-            childIdFn={childIdFn}
-            origin={SET_FROM_SIDEPANE}
-          />
-          <SaveLoadButtons />
-        </AccordionPanel>
-      </AccordionItem>
-    </ReduceMotionAccordian>
+      <UIConfigDropdownAndFields
+        onDropdownSelect={onSelect}
+        selectedId={uiType.id}
+        selectedType={uiType.type}
+        onConfigChange={onChange}
+        paramInfoId={paramInfo.id}
+        savedConfig={uiType.config}
+        childIdFn={childIdFn}
+        origin={SET_FROM_SIDEPANE}
+      />
+      <SaveLoadButtons />
+    </VStack>
   );
 }
 
 function SaveLoadButtons() {
   return (
-    <Stack spacing={3} direction="row" pt="1.125rem" pb="2rem">
+    <Stack spacing={3} direction="row" pb="1.5rem">
       <Spacer />
-      <Button variant="ghost" size="xs" color="gray.400">
-        Apply
-      </Button>
-      <Button variant="outline" size="xs">
-        Save
+      <Button
+        variant="outline"
+        size="xs"
+        color="gray.500"
+        className="uiconfig-param-save-as"
+        visibility="hidden"
+        opacity="0"
+      >
+        Save As
       </Button>
     </Stack>
   );
