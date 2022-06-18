@@ -2,7 +2,7 @@ import { UIType } from "classes/uiType";
 import { useStoreState, useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { createNewId } from "utils/utils";
-import { defaultState, nullOrUndefined } from "utils/utils";
+import { defaultState } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
@@ -132,7 +132,7 @@ export function cloneNewUIType({
   newUIType.name = name;
   newUIType.origin = origin;
   newUIType.isPreset = isPreset;
-  if (!nullOrUndefined(config)) {
+  if (!_.isNil(config)) {
     newUIType.config = config;
   }
   return newUIType;

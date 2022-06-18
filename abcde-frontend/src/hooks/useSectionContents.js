@@ -1,3 +1,4 @@
+import { NULL_OBJ_INFO } from "classes/immutableInfo";
 import { useStoreState } from "easy-peasy";
 import { defaultState } from "utils/utils";
 
@@ -18,7 +19,7 @@ export function useGetObjParamKwargInfos(sectionId, objInfoId) {
   return { objInfo, paramInfos, kwargInfos };
 }
 
-function getXInfos(collectionIds, allCollections, infoId = null) {
+function getXInfos(collectionIds, allCollections, infoId) {
   const collections = collectionIds.map((x) => allCollections.children[x]);
   const output = _.merge({}, ...collections.map((x) => x.children));
   if (infoId) {
@@ -31,7 +32,7 @@ function useGetXInfosFromSection(
   collectionName,
   allCollectionName,
   sectionId,
-  infoId = null
+  infoId
 ) {
   const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const sectionType = useGetSectionType(sectionId);
@@ -42,16 +43,20 @@ function useGetXInfosFromSection(
   return [];
 }
 
-export function useGetObjInfos(sectionId, infoId = null) {
-  return useGetXInfosFromSection(
+export function useGetObjInfos(sectionId, infoId) {
+  const objs = useGetXInfosFromSection(
     "objects",
     "allObjCollections",
     sectionId,
     infoId
   );
+  if (infoId === null) {
+    return NULL_OBJ_INFO;
+  }
+  return objs;
 }
 
-function useGetParamCollections(sectionId, infoId = null) {
+function useGetParamCollections(sectionId, infoId) {
   return useGetXInfosFromSection(
     "parameters",
     "allParamCollections",

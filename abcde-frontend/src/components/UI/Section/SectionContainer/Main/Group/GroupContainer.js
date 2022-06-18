@@ -5,18 +5,13 @@ import React from "react";
 import KwargsControls from "../KwargsControls/KwargsControls";
 import GetParamSwitch from "./ParamSwitch/GetParamSwitch";
 
-function _GroupContainer({
-  sectionId,
-  objInfoId,
-  selectedItemInSpecs,
-  isKwarg,
-}) {
-  const { paramInfos, kwargInfos, objInfo } = useGetObjParamKwargInfos(
+function _GroupContainer({ sectionId, objInfoId, isKwarg }) {
+  const { paramInfos, kwargInfos } = useGetObjParamKwargInfos(
     sectionId,
     objInfoId
   );
 
-  const kwargsCondition = selectedItemInSpecs || paramInfos.length > 0;
+  const kwargsCondition = paramInfos.length > 0;
 
   return (
     <Stack
@@ -28,15 +23,10 @@ function _GroupContainer({
         sectionId={sectionId}
         infos={isKwarg ? kwargInfos : paramInfos}
         objInfoId={objInfoId}
-        objInfo={objInfo}
         isKwarg={isKwarg}
       />
       {!isKwarg && kwargsCondition && (
-        <KwargsControls
-          sectionId={sectionId}
-          objInfoId={objInfoId}
-          objInfo={objInfo}
-        />
+        <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
       )}
     </Stack>
   );
