@@ -5,10 +5,6 @@ import {
   Button,
   Stack,
   Spacer,
-  AccordionItem,
-  AccordionButton,
-  AccordionPanel,
-  AccordionIcon,
   Box,
   InputGroup,
   InputLeftElement,
@@ -23,7 +19,6 @@ import {
 } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
