@@ -1,5 +1,5 @@
 import { Button, useDisclosure } from "@chakra-ui/react";
-import { generateCode } from "codeGeneration/generateCode";
+import { generateCode } from "codeGeneration/codeGeneration";
 import { useState } from "react";
 
 import ExportSelectedModal from "./ExportSelectedModal";
