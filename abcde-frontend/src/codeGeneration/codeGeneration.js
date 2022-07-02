@@ -5,16 +5,34 @@ const OBJ = "O~";
 const PARAM = "P~";
 
 class Variable {
-  constructor(name, type, datatype, value, allVars) {
+  constructor(name, originalName, type, datatype, value, allVars) {
     this.name = name;
+    this.originalName = originalName;
     this.type = type;
     this.datatype = datatype;
     this.childVarNames = createVars(value, allVars);
-    this.value = this.childVarNames.length === 0 ? value : undefined;
+    this.value = this.datatype === "primitive" ? value : undefined;
   }
 
-  asString() {
-    return `${this.name}=\n`;
+  createString(allVars) {
+    if (this.str !== undefined) {
+      return;
+    }
+    let valueStr = "";
+    if (this.datatype === "primitive") {
+      valueStr = `${this.value}`;
+    } else if (this.datatype === "array") {
+      valueStr = `[${this.childVarNames}]`;
+    } else if (this.datatype === "object") {
+      const childStrs = [];
+      for (let k of this.childVarNames) {
+        const curr = allVars[k];
+        curr.createString(allVars);
+        childStrs.push(`${curr.originalName}: ${curr.name}`);
+      }
+      valueStr = `{${childStrs.join(", ")}}`;
+    }
+    this.str = `${this.name} = ${valueStr}`;
   }
 }
 
@@ -47,15 +65,15 @@ function getDatatype(x) {
   }
 }
 
-function createVar(key, value, allVars) {
+function createVar(varName, key, value, allVars) {
   let [varType, trueKey] = [key.slice(0, 2), key.slice(2)];
   const datatype = getDatatype(value);
-  return new Variable(trueKey, varType, datatype, value, allVars);
+  return new Variable(varName, trueKey, varType, datatype, value, allVars);
 }
 
 function addChildVarName(key, value, allVars, childVarNames) {
-  const newVar = createVar(key, value, allVars);
   const newVarName = genVarName(allVars);
+  const newVar = createVar(newVarName, key, value, allVars);
   allVars[newVarName] = newVar;
   childVarNames.push(newVarName);
 }
@@ -90,6 +108,9 @@ function createVars(x, allVars) {
 export function generateCode(selected) {
   const allVars = {};
   createVars(selected, allVars);
+  for (let v of Object.values(allVars)) {
+    v.createString(allVars);
+  }
   console.log("allVars", allVars);
 }
 
