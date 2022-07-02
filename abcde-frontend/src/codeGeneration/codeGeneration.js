@@ -14,23 +14,43 @@ class Variable {
     this.value = this.datatype === "primitive" ? value : undefined;
   }
 
+  primitiveString() {
+    if (_.isString(this.value)) {
+      return `"${this.value}"`;
+    } else if (_.isBoolean(this.value)) {
+      return this.value ? "True" : "False";
+    } else if (_.isNull(this.value)) {
+      return "None";
+    } else {
+      return `${this.value}`;
+    }
+  }
+
+  arrayString() {
+    return `[${this.childVarNames.join(", ")}]`;
+  }
+
+  objectString(allVars) {
+    const childStrs = [];
+    for (let k of this.childVarNames) {
+      const curr = allVars[k];
+      curr.createString(allVars);
+      childStrs.push(`${curr.originalName}: ${curr.name}`);
+    }
+    return `{${childStrs.join(", ")}}`;
+  }
+
   createString(allVars) {
     if (this.str !== undefined) {
       return;
     }
     let valueStr = "";
     if (this.datatype === "primitive") {
-      valueStr = `${this.value}`;
+      valueStr = this.primitiveString();
     } else if (this.datatype === "array") {
-      valueStr = `[${this.childVarNames}]`;
+      valueStr = this.arrayString();
     } else if (this.datatype === "object") {
-      const childStrs = [];
-      for (let k of this.childVarNames) {
-        const curr = allVars[k];
-        curr.createString(allVars);
-        childStrs.push(`${curr.originalName}: ${curr.name}`);
-      }
-      valueStr = `{${childStrs.join(", ")}}`;
+      valueStr = this.objectString(allVars);
     }
     this.str = `${this.name} = ${valueStr}`;
   }

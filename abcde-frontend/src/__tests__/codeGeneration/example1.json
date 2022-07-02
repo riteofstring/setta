@@ -31,8 +31,9 @@
 
   "V~OtherParameters": {
     "P~batch_size": "32",
-    "P~some_names": []
+    "P~some_names": [],
+    "P~do_it": true
   },
 
-  "V~X": [[], [1, 2, 3], 5, { "P~dogs": "fluffy" }]
+  "V~X": [[], [1, 2, 3], 5, { "P~dogs": "fluffy" }, null]
 }
