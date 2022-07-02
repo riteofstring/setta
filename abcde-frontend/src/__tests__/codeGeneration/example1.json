@@ -30,10 +30,9 @@
   "V~ValDataset": {},
 
   "V~OtherParameters": {
-    "P~batch_size": "32"
+    "P~batch_size": "32",
+    "P~some_names": []
   },
 
-  "V~X": {}
+  "V~X": [[], [1, 2, 3], 5, { "P~dogs": "fluffy" }]
 }
-
-
