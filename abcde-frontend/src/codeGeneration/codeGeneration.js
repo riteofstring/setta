@@ -45,7 +45,7 @@ class Variable {
     for (let k of this.childVarNames) {
       const curr = allVars[k];
       curr.createString(allVars);
-      childStrs.push(`${curr.originalName}: ${curr.name}`);
+      childStrs.push(`"${curr.originalName}": ${curr.name}`);
     }
     return `{${childStrs.join(", ")}}`;
   }
@@ -76,6 +76,11 @@ class Variable {
     }
     const varName = this.type === VARIABLE ? this.originalName : this.name;
     this.str = `${varName} = ${valueStr}`;
+  }
+
+  addToQueue(allVars, queue) {
+    this.childVarNames.forEach((k) => allVars[k].addToQueue(allVars, queue));
+    queue.push(this.str);
   }
 }
 
@@ -158,7 +163,25 @@ export function generateCode(selected) {
   for (let v of Object.values(allVars)) {
     v.createString(allVars);
   }
-  console.log("allVars", allVars);
+
+  const queue = [];
+  for (let v of Object.values(allVars)) {
+    v.addToQueue(allVars, queue);
+  }
+
+  const strSet = new Set();
+  const output = [];
+  for (let v of queue) {
+    if (!strSet.has(v)) {
+      output.push(v);
+      strSet.add(v);
+    }
+  }
+  const outputStr = output.join("\n");
+
+  // console.log("allVars\n", allVars);
+  // console.log("queue\n", queue);
+  console.log(outputStr);
 }
 
 // Assign every ~V, ~O, and ~P to a global variable namespace
