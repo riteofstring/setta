@@ -1,8 +1,8 @@
 import _ from "lodash";
 
-const VARIABLE = "V~";
-const OBJ = "O~";
-const PARAM = "P~";
+const VARIABLE = "V~"; // top level variable names
+const OBJ = "O~"; // callables
+const PARAM = "P~"; // everything else
 
 class Variable {
   constructor(name, originalName, type, datatype, value, allVars) {
@@ -31,6 +31,16 @@ class Variable {
   }
 
   objectString(allVars) {
+    // If child is callable, then just return child var name
+    // because the callable str is fully constructed in the child.
+    if (this.childVarNames.length === 1) {
+      const curr = allVars[this.childVarNames[0]];
+      if (curr.datatype === "callable") {
+        return curr.name;
+      }
+    }
+
+    // Otherwise we're dealing with an object (dict)
     const childStrs = [];
     for (let k of this.childVarNames) {
       const curr = allVars[k];
@@ -38,6 +48,16 @@ class Variable {
       childStrs.push(`${curr.originalName}: ${curr.name}`);
     }
     return `{${childStrs.join(", ")}}`;
+  }
+
+  callableString(allVars) {
+    const childStrs = [];
+    for (let k of this.childVarNames) {
+      const curr = allVars[k];
+      curr.createString(allVars);
+      childStrs.push(`${curr.originalName}=${curr.name}`);
+    }
+    return `${this.originalName}(${childStrs.join(", ")})`;
   }
 
   createString(allVars) {
@@ -51,8 +71,11 @@ class Variable {
       valueStr = this.arrayString();
     } else if (this.datatype === "object") {
       valueStr = this.objectString(allVars);
+    } else if (this.datatype === "callable") {
+      valueStr = this.callableString(allVars);
     }
-    this.str = `${this.name} = ${valueStr}`;
+    const varName = this.type === VARIABLE ? this.originalName : this.name;
+    this.str = `${varName} = ${valueStr}`;
   }
 }
 
@@ -75,25 +98,29 @@ function genVarName(allVars) {
   return newVar;
 }
 
-function getDatatype(x) {
-  if (Array.isArray(x)) {
+function getDatatype(varType, value) {
+  if (Array.isArray(value)) {
     return "array";
-  } else if (_.isObject(x)) {
+  } else if (_.isObject(value)) {
+    if (varType === OBJ) {
+      return "callable";
+    }
     return "object";
   } else {
     return "primitive";
   }
 }
 
-function createVar(varName, key, value, allVars) {
+function createVar(key, value, allVars) {
   let [varType, trueKey] = [key.slice(0, 2), key.slice(2)];
-  const datatype = getDatatype(value);
+  const datatype = getDatatype(varType, value);
+  const varName = varType === VARIABLE ? trueKey : genVarName(allVars);
   return new Variable(varName, trueKey, varType, datatype, value, allVars);
 }
 
 function addChildVarName(key, value, allVars, childVarNames) {
-  const newVarName = genVarName(allVars);
-  const newVar = createVar(newVarName, key, value, allVars);
+  const newVar = createVar(key, value, allVars);
+  const newVarName = newVar.name;
   allVars[newVarName] = newVar;
   childVarNames.push(newVarName);
 }
