@@ -1,39 +1,39 @@
 {
-  "Model": {
-    "torchvision.models.resnet101": {
-      "pretrained": true,
-
-      "progress": true
+  "V~Model": {
+    "O~torchvision.models.resnet101": {
+      "P~pretrained": true,
+      "P~progress": true
     }
   },
 
-  "Optimizer": {},
+  "V~Optimizer": {},
 
-  "Transform": {
-    "torchvision.transforms.Compose": {
-      "transforms": [
+  "V~Transform": {
+    "O~torchvision.transforms.Compose": {
+      "P~transforms": [
         {
-          "torchvision.transforms.RandomCrop": {
-            "size": "256",
-
-            "padding": "5"
+          "O~torchvision.transforms.RandomCrop": {
+            "P~size": "256",
+            "P~padding": "5"
           }
         },
 
         {
-          "torchvision.transforms.ColorJitter": {}
+          "O~torchvision.transforms.ColorJitter": {}
         }
       ]
     }
   },
 
-  "TrainDataset": {},
+  "V~TrainDataset": {},
 
-  "ValDataset": {},
+  "V~ValDataset": {},
 
-  "OtherParameters": {
-    "batch_size": "32"
+  "V~OtherParameters": {
+    "P~batch_size": "32"
   },
 
-  "X": {}
+  "V~X": {}
 }
+
+
