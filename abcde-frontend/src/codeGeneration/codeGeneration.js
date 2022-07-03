@@ -88,6 +88,12 @@ class Variable {
     this.childVarNames.forEach((k) => allVars[k].addToQueue(allVars, queue));
     queue.push(this.str);
   }
+
+  addImport(allImports) {
+    if (this.datatype === "callable") {
+      allImports.push(`import ${this.originalName}`);
+    }
+  }
 }
 
 // https://stackoverflow.com/a/1349426
@@ -183,6 +189,18 @@ function createVars(x, allVars) {
   }
 }
 
+function createStringWithoutDuplicates(listOfStrings) {
+  const strSet = new Set();
+  const output = [];
+  for (let v of listOfStrings) {
+    if (!strSet.has(v)) {
+      output.push(v);
+      strSet.add(v);
+    }
+  }
+  return output.join("\n");
+}
+
 export function generateCode(selected) {
   const allVars = {};
   createVars(selected, allVars);
@@ -190,20 +208,16 @@ export function generateCode(selected) {
     v.createString(allVars);
   }
 
+  const allImports = [];
   const queue = [];
   for (let v of Object.values(allVars)) {
+    v.addImport(allImports);
     v.addToQueue(allVars, queue);
   }
 
-  const strSet = new Set();
-  const output = [];
-  for (let v of queue) {
-    if (!strSet.has(v)) {
-      output.push(v);
-      strSet.add(v);
-    }
-  }
-  const outputStr = output.join("\n");
+  const importStr = createStringWithoutDuplicates(allImports);
+  const codeStr = createStringWithoutDuplicates(queue);
+  const outputStr = `${importStr}\n\n${codeStr}`;
 
   // console.log("allVars\n", allVars);
   // console.log("queue\n", queue);
