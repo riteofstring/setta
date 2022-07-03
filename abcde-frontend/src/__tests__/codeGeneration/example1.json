@@ -1,5 +1,5 @@
 {
-  "V~Embedder": "R~Model",
+  "V~ImportantList": ["R~Optimizer", "R~Transform", "R~X"],
 
   "V~Model": {
     "O~torchvision.models.resnet101": {
@@ -36,6 +36,8 @@
     "P~some_names": [],
     "P~do_it": true
   },
+
+  "V~Embedder": "R~Model",
 
   "V~X": [[], [1, 2, 3], 5, { "P~dogs": "S~fluffy" }, null]
 }
