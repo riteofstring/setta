@@ -13,8 +13,9 @@ class Variable {
     this.originalName = originalName;
     this.type = type;
     this.datatype = datatype;
-    this.childVarNames = createVars(value, allVars);
     this.value = isPrimitive(this.datatype) ? value : undefined;
+    this.childVarNames =
+      this.datatype === "reference" ? [this.value] : createVars(value, allVars);
   }
 
   primitiveString() {
