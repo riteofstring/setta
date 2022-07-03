@@ -1,4 +1,6 @@
 {
+  "V~Embedder": "R~Model",
+
   "V~Model": {
     "O~torchvision.models.resnet101": {
       "P~pretrained": true,
@@ -13,8 +15,8 @@
       "P~transforms": [
         {
           "O~torchvision.transforms.RandomCrop": {
-            "P~size": "256",
-            "P~padding": "5"
+            "P~size": 256,
+            "P~padding": 5
           }
         },
 
@@ -30,10 +32,10 @@
   "V~ValDataset": {},
 
   "V~OtherParameters": {
-    "P~batch_size": "32",
+    "P~batch_size": 32,
     "P~some_names": [],
     "P~do_it": true
   },
 
-  "V~X": [[], [1, 2, 3], 5, { "P~dogs": "fluffy" }, null]
+  "V~X": [[], [1, 2, 3], 5, { "P~dogs": "S~fluffy" }, null]
 }

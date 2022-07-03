@@ -1,8 +1,11 @@
 import _ from "lodash";
 
+// json prefixes
 const VARIABLE = "V~"; // top level variable names
 const OBJ = "O~"; // callables
-const PARAM = "P~"; // everything else
+const REF = "R~"; // reference to another variable
+const PARAM = "P~"; // parameter names
+const STRING = "S~"; // string value
 
 class Variable {
   constructor(name, originalName, type, datatype, value, allVars) {
@@ -11,18 +14,20 @@ class Variable {
     this.type = type;
     this.datatype = datatype;
     this.childVarNames = createVars(value, allVars);
-    this.value = this.datatype === "primitive" ? value : undefined;
+    this.value = isPrimitive(this.datatype) ? value : undefined;
   }
 
   primitiveString() {
-    if (_.isString(this.value)) {
+    if (this.datatype === "reference") {
+      return this.value;
+    } else if (_.isString(this.value)) {
       return `"${this.value}"`;
     } else if (_.isBoolean(this.value)) {
       return this.value ? "True" : "False";
     } else if (_.isNull(this.value)) {
       return "None";
     } else {
-      return `${this.value}`;
+      return this.value;
     }
   }
 
@@ -65,7 +70,7 @@ class Variable {
       return;
     }
     let valueStr = "";
-    if (this.datatype === "primitive") {
+    if (isPrimitive(this.datatype)) {
       valueStr = this.primitiveString();
     } else if (this.datatype === "array") {
       valueStr = this.arrayString();
@@ -103,24 +108,44 @@ function genVarName(allVars) {
   return newVar;
 }
 
+// Anything that doesn't have more variables inside
+// i.e., strings, numbers, booleans, references
+function isPrimitive(datatype) {
+  return ["string", "reference", "primitive"].includes(datatype);
+}
+
 function getDatatype(varType, value) {
+  let [datatype, trueValue] = [null, value];
   if (Array.isArray(value)) {
-    return "array";
+    datatype = "array";
   } else if (_.isObject(value)) {
     if (varType === OBJ) {
-      return "callable";
+      datatype = "callable";
+    } else {
+      datatype = "object";
     }
-    return "object";
+  } else if (_.isString(value)) {
+    [datatype, trueValue] = splitTypeStr(value);
+    if (datatype === STRING) {
+      datatype = "string";
+    } else if (datatype === REF) {
+      datatype = "reference";
+    }
   } else {
-    return "primitive";
+    datatype = "primitive";
   }
+  return [datatype, trueValue];
+}
+
+function splitTypeStr(key) {
+  return [key.slice(0, 2), key.slice(2)];
 }
 
 function createVar(key, value, allVars) {
-  let [varType, trueKey] = [key.slice(0, 2), key.slice(2)];
-  const datatype = getDatatype(varType, value);
+  const [varType, trueKey] = splitTypeStr(key);
+  const [datatype, trueValue] = getDatatype(varType, value);
   const varName = varType === VARIABLE ? trueKey : genVarName(allVars);
-  return new Variable(varName, trueKey, varType, datatype, value, allVars);
+  return new Variable(varName, trueKey, varType, datatype, trueValue, allVars);
 }
 
 function addChildVarName(key, value, allVars, childVarNames) {
