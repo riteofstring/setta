@@ -1,11 +1,5 @@
 import _ from "lodash";
-
-// json prefixes
-const VARIABLE = "V~"; // top level variable names
-const OBJ = "O~"; // callables
-const REF = "R~"; // reference to another variable
-const PARAM = "P~"; // parameter names
-const STRING = "S~"; // string value
+import { VARIABLE, OBJ, REF, PARAM, STRING } from "utils/codeGenConstants";
 
 class Variable {
   constructor(name, originalName, type, datatype, value, allVars) {
@@ -222,6 +216,7 @@ export function generateCode(selected) {
   // console.log("allVars\n", allVars);
   // console.log("queue\n", queue);
   console.log(outputStr);
+  return outputStr
 }
 
 // Assign every ~V, ~O, and ~P to a global variable namespace
