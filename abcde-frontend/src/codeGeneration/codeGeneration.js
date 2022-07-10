@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { VARIABLE, OBJ, REF, PARAM, STRING } from "utils/codeGenConstants";
+import { VARIABLE, OBJ, REF, STRING } from "utils/codeGenConstants";
 
 class Variable {
   constructor(name, originalName, type, datatype, value, allVars) {
@@ -216,7 +216,7 @@ export function generateCode(selected) {
   // console.log("allVars\n", allVars);
   // console.log("queue\n", queue);
   console.log(outputStr);
-  return outputStr
+  return outputStr;
 }
 
 // Assign every ~V, ~O, and ~P to a global variable namespace
