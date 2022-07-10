@@ -4,6 +4,7 @@ import MainContainer from "components/AppContainer/Main/MainContainer";
 import { loadTestData } from "__tests__utils/loadTestData";
 import { createStore, getStoreProviderWrapper } from "__tests__utils/utils";
 
+// required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = require("resize-observer-polyfill");
 
 test("Tab away from Overview", () => {
@@ -22,6 +23,5 @@ test("Tab away from Overview", () => {
   userEvent.tab();
 
   const modelSectionTitle = screen.getByDisplayValue("Model");
-  screen.debug(modelSectionTitle);
   expect(modelSectionTitle).toHaveFocus();
 });
