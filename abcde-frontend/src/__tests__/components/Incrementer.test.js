@@ -3,7 +3,7 @@ import { renderHook } from "@testing-library/react-hooks";
 import userEvent from "@testing-library/user-event";
 import { addSectionInfo, getStoreProviderWrapper } from "__tests__utils/utils";
 import { createStore } from "__tests__utils/utils";
-import Incrementer from "components/UI/Section/SectionContainer/Incrementer/Incrementer";
+import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
@@ -71,24 +71,26 @@ function componentSetup({ forParent, numChildren }) {
   const childIds = state.childrenInfo[childrenInfoId];
 
   // increment for one of the children
-  function IncrementerForChild() {
+  function SectionHeaderForChild() {
     return (
-      <Incrementer
+      <SectionHeader
         parentId={parent.id}
         sectionId={childIds[0].id}
         nextId={childIds.length > 1 ? childIds[1].id : null}
+        isList={true}
         isListRoot={false}
       />
     );
   }
 
   // increment for one of the children
-  function IncrementerForParent() {
+  function SectionHeaderForParent() {
     const addChild = useAddChild(parent.id);
     const deleteChild = useDeleteChild(parent.id);
     return (
-      <Incrementer
+      <SectionHeader
         sectionId={parent.id}
+        isList={false}
         isListRoot={true}
         addChild={addChild}
         deleteChild={deleteChild}
@@ -97,7 +99,7 @@ function componentSetup({ forParent, numChildren }) {
     );
   }
 
-  render(forParent ? <IncrementerForParent /> : <IncrementerForChild />, {
+  render(forParent ? <SectionHeaderForParent /> : <SectionHeaderForChild />, {
     wrapper,
   });
 

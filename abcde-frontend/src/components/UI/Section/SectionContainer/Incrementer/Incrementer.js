@@ -12,7 +12,6 @@ export default function Incrementer({
   deleteChild,
   hasNested,
 }) {
-  console.log("Incrementer");
   const addSibling = useAddChild(parentId);
   const deleteSibling = useDeleteChild(parentId);
 
