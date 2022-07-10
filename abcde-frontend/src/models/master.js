@@ -1,10 +1,3 @@
-import DefaultDefaults from "__tests__data/simpleTrainTest/DefaultDefaults.json";
-import GlobalDefaults from "__tests__data/simpleTrainTest/GlobalDefaults.json";
-import ObjCollectionsData from "__tests__data/simpleTrainTest/ObjCollections.json";
-import PackagesData from "__tests__data/simpleTrainTest/Packages.json";
-import ParamCollectionsData from "__tests__data/simpleTrainTest/ParamCollections.json";
-import ProjectDefaults from "__tests__data/simpleTrainTest/ProjectDefaults.json";
-import UIData from "__tests__data/simpleTrainTest/UI.json";
 import { createAllInfo } from "classes/infoFactory";
 import { SectionInfo } from "classes/mutableInfo";
 import { action, thunk, debug } from "easy-peasy";
@@ -44,20 +37,26 @@ const master = {
   }),
 
   loadSections: thunk((action, payload, helpers) => {
-    if (true) {
-      action._loadSections({
-        packages: PackagesData,
-        objCollections: ObjCollectionsData,
-        paramCollections: ParamCollectionsData,
-      });
-    } else {
-      // action._loadSections(payload);
-    }
-    action.initDefaultDefaults(DefaultDefaults);
-    action.initGlobalDefaults(GlobalDefaults);
-    action.initProjectDefaults(ProjectDefaults);
-    action.initSectionUITypes(UIData.uiTypes);
-    action.initSections(UIData.sections);
+    const {
+      packages,
+      objCollections,
+      paramCollections,
+      defaultDefaults,
+      globalDefaults,
+      projectDefaults,
+      uiData,
+    } = payload;
+
+    action._loadSections({
+      packages,
+      objCollections,
+      paramCollections,
+    });
+    action.initDefaultDefaults(defaultDefaults);
+    action.initGlobalDefaults(globalDefaults);
+    action.initProjectDefaults(projectDefaults);
+    action.initSectionUITypes(uiData.uiTypes);
+    action.initSections(uiData.sections);
   }),
 
   setActiveSection: action((state, payload) => {
