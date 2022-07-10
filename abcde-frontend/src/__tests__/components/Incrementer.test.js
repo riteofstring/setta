@@ -24,13 +24,16 @@ test("Incrementer: click add N siblings", () => {
   clickAddNChildren(store, parent, 1, 5);
 });
 
-test("Incrementer: delete self", () => {
-  const { store, parent, childIds } = componentSetup({
-    forParent: false,
-    numChildren: 1,
-  });
-  clickDeleteSelf(store, parent, childIds[0]);
-});
+test.each([false, true])(
+  "Incrementer: delete self, forParent=%s",
+  (forParent) => {
+    const { store, parent, childIds } = componentSetup({
+      forParent,
+      numChildren: 1,
+    });
+    clickDeleteSelf(store, parent, childIds[0], forParent);
+  }
+);
 
 test("Incrementer: click add child N times ", () => {
   const { store, parent } = componentSetup({ forParent: true, numChildren: 1 });
@@ -235,7 +238,7 @@ function clickDeleteNChildren(store, parent, numInitialChildren, N) {
   });
 }
 
-function clickDeleteSelf(store, parent, childId) {
+function clickDeleteSelf(store, parent, childId, forParent) {
   const deleteSelf = screen.getByRole("button", {
     name: "Delete self",
   });
@@ -243,7 +246,13 @@ function clickDeleteSelf(store, parent, childId) {
 
   const state = store.getState().sectionInfos;
   const childrenInfoId = state.idsOverview[parent.id];
-  expect(_.size(state.x)).toEqual(1);
+
+  const xSize = forParent ? 0 : 1;
+  expect(_.size(state.x)).toEqual(xSize);
   expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
+
+  if (forParent) {
+    expect(state.x[parent.id]).toBeUndefined();
+  }
 }
