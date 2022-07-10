@@ -92,6 +92,7 @@ export default function PaneContainer(props) {
         initial={vis ? "open" : "closed"}
         zIndex={10}
         outline="none"
+        aria-label={`${paneTitle} Pane`}
       >
         <Resizable
           size={{ width, height }}

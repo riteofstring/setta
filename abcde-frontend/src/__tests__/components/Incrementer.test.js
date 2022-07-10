@@ -157,7 +157,7 @@ function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
   );
 }
 
-function clickIncrementerNTimes({
+async function clickIncrementerNTimes({
   store,
   parent,
   numInitialChildren,
@@ -169,12 +169,12 @@ function clickIncrementerNTimes({
     const addChildButton = screen.getByRole("button", {
       name: buttonName,
     });
-    userEvent.click(addChildButton);
+    await userEvent.click(addChildButton);
     assertionFn(store, parent, numInitialChildren, x + 1);
   }
 }
 
-function enterNClickOnce({
+async function enterNClickOnce({
   store,
   parent,
   numInitialChildren,
@@ -188,9 +188,9 @@ function enterNClickOnce({
   const addChildButton = screen.getByRole("button", {
     name: buttonName,
   });
-  userEvent.clear(numSectionsInput);
-  userEvent.type(numSectionsInput, N.toString());
-  userEvent.click(addChildButton);
+  await userEvent.clear(numSectionsInput);
+  await userEvent.type(numSectionsInput, N.toString());
+  await userEvent.click(addChildButton);
   assertionFn(store, parent, numInitialChildren, N);
 }
 
@@ -238,11 +238,11 @@ function clickDeleteNChildren(store, parent, numInitialChildren, N) {
   });
 }
 
-function clickDeleteSelf(store, parent, childId, forParent) {
+async function clickDeleteSelf(store, parent, childId, forParent) {
   const deleteSelf = screen.getByRole("button", {
     name: "Delete self",
   });
-  userEvent.click(deleteSelf);
+  await userEvent.click(deleteSelf);
 
   const state = store.getState().sectionInfos;
   const childrenInfoId = state.idsOverview[parent.id];
