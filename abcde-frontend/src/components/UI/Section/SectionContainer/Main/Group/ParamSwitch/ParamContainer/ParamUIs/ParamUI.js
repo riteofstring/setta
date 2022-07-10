@@ -1,10 +1,10 @@
 import {
   DICT_ROOT,
   LIST_ROOT,
+  REF,
   SECTION,
   SLIDER,
   SWITCH,
-  REF,
 } from "utils/constants";
 
 import { NestedObjectInputConfig } from "./NestedObjectInput";

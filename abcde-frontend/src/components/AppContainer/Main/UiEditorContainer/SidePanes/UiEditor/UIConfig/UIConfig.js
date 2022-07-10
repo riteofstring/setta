@@ -1,21 +1,21 @@
 import { SearchIcon } from "@chakra-ui/icons";
 import {
-  Heading,
-  VStack,
-  Button,
-  Stack,
-  Spacer,
   Box,
+  Button,
+  Heading,
+  Input,
   InputGroup,
   InputLeftElement,
-  Input,
+  Spacer,
+  Stack,
+  VStack,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useParamChildId } from "hooks/useParamInfo";
 import {
-  useGetObjInfos,
   useGetAllParamAndKwargInfos,
+  useGetObjInfos,
 } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";

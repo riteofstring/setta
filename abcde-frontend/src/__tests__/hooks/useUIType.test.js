@@ -1,4 +1,8 @@
-import { renderHook, act } from "@testing-library/react-hooks";
+import { act, renderHook } from "@testing-library/react-hooks";
+import { useParamChildId } from "hooks/useParamInfo";
+import { useGetSectionType } from "hooks/useSectionType";
+import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
+import _ from "lodash";
 import {
   addParamInfo,
   addSectionInfo,
@@ -6,10 +10,6 @@ import {
   createStore,
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
-import { useParamChildId } from "hooks/useParamInfo";
-import { useGetSectionType } from "hooks/useSectionType";
-import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
-import _ from "lodash";
 
 test("useGetParamUIType", () => {
   const store = createStore();

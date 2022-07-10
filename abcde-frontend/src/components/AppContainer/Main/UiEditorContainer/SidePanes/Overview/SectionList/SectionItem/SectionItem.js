@@ -1,4 +1,4 @@
-import { Text, HStack } from "@chakra-ui/react";
+import { HStack, Text } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { OVERVIEW } from "utils/constants";
 

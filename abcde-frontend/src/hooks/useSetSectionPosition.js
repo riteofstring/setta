@@ -1,4 +1,4 @@
-import { useStoreState, useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useEffect, useRef } from "react";
 
 export function useSetSectionPosition(sectionId) {

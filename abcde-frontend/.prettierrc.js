@@ -1,5 +1,3 @@
 module.exports = {
-  importOrder: ["^[./]"],
-  importOrderSeparation: true,
-  experimentalBabelParserPluginsList: ["jsx", "typescript", "classProperties"],
+  plugins: [require("prettier-plugin-organize-imports")],
 };

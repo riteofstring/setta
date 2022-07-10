@@ -1,9 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { loadTestData } from "__tests__utils/loadTestData";
-import { getStoreProviderWrapper } from "__tests__utils/utils";
-import { createStore } from "__tests__utils/utils";
 import MainContainer from "components/AppContainer/Main/MainContainer";
+import { loadTestData } from "__tests__utils/loadTestData";
+import { createStore, getStoreProviderWrapper } from "__tests__utils/utils";
 
 global.ResizeObserver = require("resize-observer-polyfill");
 

@@ -1,12 +1,12 @@
 import {
+  Button,
+  Flex,
+  FormControl,
   FormErrorMessage,
   FormLabel,
-  FormControl,
-  Flex,
-  Text,
-  Button,
-  Input,
   Grid,
+  Input,
+  Text,
 } from "@chakra-ui/react";
 import { register } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";

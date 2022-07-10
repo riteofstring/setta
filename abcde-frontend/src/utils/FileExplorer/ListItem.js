@@ -1,5 +1,5 @@
-import { HStack, Box, useRadio, Icon } from "@chakra-ui/react";
-import { BiFolder, BiFolderOpen, BiFile } from "react-icons/bi";
+import { Box, HStack, Icon, useRadio } from "@chakra-ui/react";
+import { BiFile, BiFolder, BiFolderOpen } from "react-icons/bi";
 
 export default function ListItem(props) {
   const { isFolder, isSelected } = props;

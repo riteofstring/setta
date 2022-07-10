@@ -1,8 +1,7 @@
-import { HStack, Box, VStack } from "@chakra-ui/react";
+import { Box, HStack, VStack } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
-import React from "react";
-import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { INDICATOR_GOTO_PARENT } from "utils/constants";
+import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 
 import { NestedSection } from "./NestedSection";
 

@@ -1,7 +1,7 @@
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import React, { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IoIosRocket } from "react-icons/io";
 import { resetState } from "store/store";
 

@@ -1,5 +1,5 @@
 import { Menu, MenuButton, Portal } from "@chakra-ui/react";
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
   const ref = useOutsideAlerter(isOpen, closeContextMenu);
