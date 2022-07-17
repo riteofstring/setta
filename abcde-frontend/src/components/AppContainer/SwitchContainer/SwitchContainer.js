@@ -1,6 +1,6 @@
 import { useStoreState } from "easy-peasy";
 import React from "react";
-import { Redirect, Route, Switch } from "react-router-dom";
+import { Route, Switch, Redirect } from "react-router-dom";
 
 import HomePage from "../../HomePage";
 import LoginPage from "../../LoginPage/LoginPage";

@@ -1,0 +1,181 @@
+{
+  "MODULES": {
+    "transforms": {
+      "ModuleInfo": {
+        "torchvision.transforms": {
+          "No compose!": {
+            "Trump": {
+              "default_val": "0",
+              "type": "_empty",
+              "ui_type": "UNKNOWN"
+            },
+            "Biden": {
+              "default_val": "0",
+              "type": "_empty",
+              "ui_type": "UNKNOWN"
+            },
+            "Jorg": {
+              "default_val": "0",
+              "type": "_empty",
+              "ui_type": "UNKNOWN"
+            }
+          },
+          "Compose": {
+            "transforms": {
+              "default_val": "_empty",
+              "type": {
+                "ModuleInfo": {
+                  "torchvision.transforms": {
+                    "ColorJitter": {
+                      "brightness": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "Jupiter": {
+                                "Uranus": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "Pluto": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "Saturn": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "ui_type": "NESTED_OBJECT"
+                      },
+                      "contrast": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "shit": {
+                                "oh": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "lawd": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "ui_type": "NESTED_OBJECT"
+                      },
+                      "saturation": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      },
+                      "hue": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      }
+                    },
+                    "GorillaMode": {
+                      "girth": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "GORILLA BALLS": {
+                                "strength": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "width": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "height": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
+                              },
+                              "donkey nuggets": {
+                                "red": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "green": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "blue": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "ui_type": "NESTED_OBJECT"
+                      },
+                      "length": {
+                        "default_val": "0",
+                        "type": {
+                          "ModuleInfo": {
+                            "torchvision.transforms": {
+                              "SHIT": {
+                                "oh": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                },
+                                "lawd": {
+                                  "default_val": "0",
+                                  "type": "_empty",
+                                  "ui_type": "UNKNOWN"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "ui_type": "NESTED_OBJECT"
+                      },
+                      "saturation": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      },
+                      "hue": {
+                        "default_val": "0",
+                        "type": "_empty",
+                        "ui_type": "UNKNOWN"
+                      }
+                    }
+                  }
+                }
+              },
+              "ui_type": "LIST_NESTED_OBJECT"
+            }
+          }
+        }
+      }
+    }
+  },
+  "UI": {
+    "Transform": ["transforms"]
+  }
+}

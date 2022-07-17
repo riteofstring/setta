@@ -1,6 +1,5 @@
 import { NULL_OBJ_INFO } from "classes/immutableInfo";
 import { useStoreState } from "easy-peasy";
-import _ from "lodash";
 import { defaultState } from "utils/utils";
 
 import { useGetSectionInfo } from "./useSectionInfo";

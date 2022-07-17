@@ -1,5 +1,4 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
-import _ from "lodash";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import { curryAction } from "utils/utils";
 
 import { useGetSectionInfo } from "./useSectionInfo";

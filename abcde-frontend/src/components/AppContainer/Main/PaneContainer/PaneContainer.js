@@ -1,10 +1,10 @@
-import { Box, GridItem, Heading, IconButton } from "@chakra-ui/react";
+import { IconButton, Box, GridItem, Heading } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import useWindowSize from "hooks/useWindowSize";
 import { Resizable } from "re-resizable";
-import { useEffect, useState } from "react";
-import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { useState, useEffect } from "react";
+import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
 import { clamp } from "utils/utils";
 
 const Pane = motion(GridItem);
@@ -92,7 +92,6 @@ export default function PaneContainer(props) {
         initial={vis ? "open" : "closed"}
         zIndex={10}
         outline="none"
-        aria-label={`${paneTitle} Pane`}
       >
         <Resizable
           size={{ width, height }}

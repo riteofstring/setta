@@ -1,6 +1,5 @@
 import { ParamTypeInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
-import _ from "lodash";
 
 function setParamTypeInfo(state, type) {
   if (!(type in state.x)) {

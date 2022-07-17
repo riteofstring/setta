@@ -1,7 +1,6 @@
 import { getFullObjPath } from "classes/immutableInfo";
 import _ from "lodash";
 
-import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
 import { DECK, isRoot } from "./constants";
 
 function paramInfoExportSelected(
@@ -26,17 +25,14 @@ function multipleParamInfoExportSelected(
 ) {
   const output = {};
   for (let p of paramInfos) {
-    let paramSelection = paramInfoExportSelected(
+    const paramSelection = paramInfoExportSelected(
       sectionId,
       p,
       paramCollectionId,
       state
     );
     if (!_.isNil(paramSelection)) {
-      if (_.isString(paramSelection)) {
-        paramSelection = stringPrefix(paramSelection);
-      }
-      output[paramPrefix(p.name)] = paramSelection;
+      output[p.name] = paramSelection;
     }
   }
   return output;
@@ -96,7 +92,7 @@ function objInfoExportSelected(sectionId, objInfo, paramCollectionId, state) {
     paramCollectionId,
     state
   );
-  return { [objPrefix(fullObjPath)]: output };
+  return { [fullObjPath]: output };
 }
 
 function rootChildrenExportSelected(section, sectionType, state) {
@@ -163,22 +159,6 @@ function sectionExportSelected(section, state) {
   return output;
 }
 
-function topLevelPrefix(key) {
-  return `${VARIABLE}${key}`;
-}
-
-function objPrefix(key) {
-  return `${OBJ}${key}`;
-}
-
-function paramPrefix(key) {
-  return `${PARAM}${key}`;
-}
-
-function stringPrefix(x) {
-  return `${STRING}${x}`;
-}
-
 export function exportSelected(state) {
   let output = {};
   const sections = state.sectionInfos.x;
@@ -189,7 +169,7 @@ export function exportSelected(state) {
     if (sectionType.type === DECK) {
       output = { ...output, ...selected };
     } else {
-      output[topLevelPrefix(s.name)] = selected;
+      output[s.name] = selected;
     }
   }
   return output;

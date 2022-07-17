@@ -1,5 +1,4 @@
 import { useStoreState } from "easy-peasy";
-import _ from "lodash";
 
 export function useGroupedObjInfos(objInfos) {
   const allPackageInfo = useStoreState((x) => x.master.allPackageInfo);

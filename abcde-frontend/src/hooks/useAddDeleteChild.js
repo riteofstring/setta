@@ -52,7 +52,7 @@ export function useDeleteChild(sectionId) {
 
   function deleteChild({ numChildren = 1, startId = null }) {
     // For deleting root sections, in which case the parent (sectionid) is "null"
-    if (_.isNil(sectionId)) {
+    if (sectionId === null) {
       deleteSections({ sectionIds: [startId] });
       return;
     }

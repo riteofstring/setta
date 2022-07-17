@@ -1,8 +1,8 @@
 import {
-  AccordionButton,
-  AccordionIcon,
   AccordionItem,
+  AccordionButton,
   AccordionPanel,
+  AccordionIcon,
   Box,
 } from "@chakra-ui/react";
 import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";

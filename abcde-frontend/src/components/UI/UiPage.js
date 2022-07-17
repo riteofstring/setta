@@ -1,7 +1,5 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
-import { NO_AUTH } from "utils/constants";
-import { loadTestData } from "__tests__utils/loadTestData";
 
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 // import { websocketAuth } from "../../dbRequests/authentication.js";
@@ -40,9 +38,10 @@ const UiPage = () => {
       isAuthenticated,
       isNewSession
     );
-    if (NO_AUTH && isAuthenticated && isNewSession) {
+    if (isAuthenticated && isNewSession) {
       console.log("****loadSections****");
-      loadSections(loadTestData());
+      // resetState("master");
+      loadSections();
     }
     // } else {
     //   // tryLoadingDraftUI();

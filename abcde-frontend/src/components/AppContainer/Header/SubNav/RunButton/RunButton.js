@@ -1,18 +1,18 @@
 import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
-  Button,
   ButtonGroup,
-  Icon,
+  Button,
   IconButton,
+  Icon,
   Popover,
-  PopoverArrow,
   PopoverBody,
-  PopoverCloseButton,
-  PopoverContent,
-  PopoverFooter,
-  PopoverHeader,
   PopoverTrigger,
   Portal,
+  PopoverContent,
+  PopoverArrow,
+  PopoverHeader,
+  PopoverCloseButton,
+  PopoverFooter,
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { RiPlayMiniFill } from "react-icons/ri";
@@ -51,11 +51,6 @@ export default function RunButton() {
             <PopoverHeader>Run Options</PopoverHeader>
             <PopoverCloseButton />
             <PopoverBody>
-              <ExportSelectedButton
-                exportSelected={exportSelected}
-                outputAs="code"
-                buttonText="Generate Code"
-              />
               <ExportSelectedButton
                 exportSelected={exportSelected}
                 outputAs="json"

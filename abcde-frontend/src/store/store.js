@@ -1,4 +1,4 @@
-import { action, createStore, persist } from "easy-peasy";
+import { createStore, action, persist } from "easy-peasy";
 import auth from "models/auth";
 import cliSocket from "models/cliSocket";
 import factoriesInfo from "models/factoriesInfo";

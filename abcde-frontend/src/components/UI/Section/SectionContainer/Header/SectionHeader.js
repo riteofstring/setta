@@ -1,4 +1,4 @@
-import { Spacer, Stack } from "@chakra-ui/react";
+import { Stack, Spacer } from "@chakra-ui/react";
 import { useDeleteChild } from "hooks/useAddDeleteChild";
 
 import Incrementer from "../Incrementer/Incrementer";

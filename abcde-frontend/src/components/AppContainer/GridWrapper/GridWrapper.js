@@ -1,4 +1,4 @@
-import { Flex, GridItem } from "@chakra-ui/react";
+import { GridItem, Flex } from "@chakra-ui/react";
 
 export default function GridWrapper(props) {
   return (

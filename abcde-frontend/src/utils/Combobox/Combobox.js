@@ -1,10 +1,10 @@
-import { ChevronDownIcon, ChevronUpIcon, SearchIcon } from "@chakra-ui/icons";
+import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import {
-  IconButton,
-  Input,
-  InputGroup,
   InputLeftElement,
   InputRightElement,
+  InputGroup,
+  IconButton,
+  Input,
   List,
   ListItem,
 } from "@chakra-ui/react";

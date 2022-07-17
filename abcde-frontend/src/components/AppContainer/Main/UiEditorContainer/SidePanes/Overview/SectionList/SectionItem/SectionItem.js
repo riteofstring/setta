@@ -1,4 +1,4 @@
-import { HStack, Text } from "@chakra-ui/react";
+import { Text, HStack } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { OVERVIEW } from "utils/constants";
 
@@ -25,7 +25,6 @@ export default function SectionItem({ sectionId, sectionHeading }) {
           transition: "box-shadow 200ms, background 200ms",
         }}
         onClick={onClick}
-        aria-label={`Overview ${sectionHeading} Listing`}
       >
         {sectionHeading}
       </Text>

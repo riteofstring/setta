@@ -1,5 +1,5 @@
 import { Grid } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import React, { useEffect } from "react";
 import { BrowserRouter } from "react-router-dom";
 

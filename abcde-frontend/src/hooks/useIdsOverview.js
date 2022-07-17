@@ -1,8 +1,9 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState, useStoreActions } from "easy-peasy";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useEffect } from "react";
-import { isRoot, requiresNestedSection } from "utils/constants";
+import { isRoot } from "utils/constants";
+import { requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
 
 import {

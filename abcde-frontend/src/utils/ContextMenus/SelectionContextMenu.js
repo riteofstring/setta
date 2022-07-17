@@ -1,4 +1,4 @@
-import { MenuItem, MenuList } from "@chakra-ui/react";
+import { MenuList, MenuItem } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useAddToDeck } from "hooks/useAddToDeck";
 

@@ -1,7 +1,7 @@
 import { Text } from "@chakra-ui/react";
 import { logout } from "dbRequests/authentication.js";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useHistory } from "react-router-dom";
 import { resetEntireState } from "store/store";
 

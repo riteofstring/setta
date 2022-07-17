@@ -1,6 +1,5 @@
 import { MutableParamUITypeInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
-import _ from "lodash";
 
 function setMutableParamUITypeInfo(state, paramInfoId) {
   if (!(paramInfoId in state.x)) {

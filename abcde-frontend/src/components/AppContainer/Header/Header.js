@@ -1,4 +1,4 @@
-import { Flex, Heading, Link, Spacer, Text } from "@chakra-ui/react";
+import { Flex, Heading, Spacer, Link, Text } from "@chakra-ui/react";
 import { Link as RRLink } from "react-router-dom";
 
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";

@@ -1,5 +1,4 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
-import _ from "lodash";
 import { DECK, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
 
 export function usePresetUIType(uiTypeId) {
