@@ -1,10 +1,10 @@
 import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
+  Button,
   Menu,
   MenuButton,
-  MenuList,
   MenuItem,
-  Button,
+  MenuList,
   useDisclosure,
 } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";

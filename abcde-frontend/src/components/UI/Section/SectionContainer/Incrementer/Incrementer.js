@@ -1,7 +1,7 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
-import { HStack, Input, IconButton, Heading } from "@chakra-ui/react";
+import { Heading, HStack, IconButton, Input } from "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
-import React, { useState } from "react";
+import { useState } from "react";
 
 export default function Incrementer({
   parentId,
@@ -12,7 +12,6 @@ export default function Incrementer({
   deleteChild,
   hasNested,
 }) {
-  console.log("Incrementer");
   const addSibling = useAddChild(parentId);
   const deleteSibling = useDeleteChild(parentId);
 

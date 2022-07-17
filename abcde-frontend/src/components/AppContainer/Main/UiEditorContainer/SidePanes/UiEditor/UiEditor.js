@@ -1,19 +1,18 @@
 import {
-  Tabs,
-  TabList,
-  TabPanels,
-  TabPanel,
   Button,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
   useMultiStyleConfig,
   useTab,
 } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useState, useRef } from "react";
-import React from "react";
+import React, { useRef, useState } from "react";
 import Measure from "react-measure";
-import { useIsOverflow } from "utils/Overflow/useIsOverflow";
 import { UI_EDITOR } from "utils/constants";
+import { useIsOverflow } from "utils/Overflow/useIsOverflow";
 
 import SectionConfig from "./SectionConfig";
 import UIConfig from "./UIConfig";
@@ -25,6 +24,7 @@ const paneProps = {
 };
 
 export default function UiEditor() {
+  const vis = useStoreState((x) => x.panes.vis[paneProps.paneName]);
   const tabIndex = useStoreState((x) => x.uiEditor.tabIndex);
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const [dimensions, setDimensions] = useState({});
@@ -42,11 +42,12 @@ export default function UiEditor() {
         isLazy
         index={tabIndex}
         onChange={setTabIndex}
+        visibility={vis ? "visible" : "hidden"}
       >
         <TabList borderBottom="none" pb="1.5rem">
-          <CustomTab>Card</CustomTab>
-          <CustomTab>Parameters</CustomTab>
-          <CustomTab>YAML</CustomTab>
+          <CustomTab name="Card" />
+          <CustomTab name="Parameters" />
+          <CustomTab name="YAML" />
         </TabList>
         <Measure
           client
@@ -102,8 +103,9 @@ const CustomTab = React.forwardRef((props, ref) => {
       fontSize="xl"
       fontWeight={isSelected ? "800" : "300"}
       color={isSelected ? "gray.800" : "gray.500"}
+      aria-label={`UiEditor ${tabProps.name} Button`}
     >
-      {tabProps.children}
+      {tabProps.name}
     </Button>
   );
 });

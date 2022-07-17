@@ -1,19 +1,20 @@
 import { useStoreState } from "easy-peasy";
 import { useDragIntoDeck } from "hooks/useAddToDeck";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
+import _ from "lodash";
 import React from "react";
-import ReactFlow, { useNodesState, Background } from "react-flow-renderer";
+import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
-import { PANEID } from "utils/constants";
 
+import "./react-flow-css.css";
 import { ResponsiveControls } from "./ResponsiveControls";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
-import "./react-flow-css.css";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 

@@ -1,19 +1,19 @@
 import { SearchIcon } from "@chakra-ui/icons";
 import {
   Box,
+  Button,
+  Checkbox,
+  CheckboxGroup,
+  Grid,
   Heading,
+  HStack,
+  Input,
   InputGroup,
   InputLeftElement,
-  Input,
-  Grid,
   Text,
   VStack,
-  CheckboxGroup,
-  Checkbox,
-  Button,
-  HStack,
 } from "@chakra-ui/react";
-import { useState, createContext, useContext } from "react";
+import { createContext, useContext, useState } from "react";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 
 export const EcoSysContext = createContext(null);

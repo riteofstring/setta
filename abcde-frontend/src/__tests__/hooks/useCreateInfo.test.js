@@ -1,8 +1,8 @@
 import { renderHook } from "@testing-library/react-hooks";
-import { createStore, getStoreProviderWrapper } from "__tests__utils/utils";
 import { SectionInfo } from "classes/mutableInfo";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import _ from "lodash";
+import { createStore, getStoreProviderWrapper } from "__tests__utils/utils";
 
 test("useCreateDefaultSectionInfo", () => {
   const store = createStore();

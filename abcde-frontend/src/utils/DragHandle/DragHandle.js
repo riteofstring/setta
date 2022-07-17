@@ -1,4 +1,4 @@
-import { HStack, Box, Grid } from "@chakra-ui/react";
+import { Box, Grid, HStack } from "@chakra-ui/react";
 
 function Circle({ dragHandleBg = "gray.300" }) {
   return (

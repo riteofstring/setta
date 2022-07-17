@@ -1,4 +1,4 @@
-import { thunk, action } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import { PANEID } from "utils/constants";
 
 function relativePos(sectionPositions, sectionId) {

@@ -1,6 +1,6 @@
-import { HStack, Button } from "@chakra-ui/react";
+import { Button, HStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import ModalContainer from "../ModalContainer/ModalContainer";
 import FileExplorer from "./FileExplorer";

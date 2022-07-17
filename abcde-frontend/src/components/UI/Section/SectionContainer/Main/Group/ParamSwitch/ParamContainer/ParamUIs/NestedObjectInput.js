@@ -2,7 +2,7 @@ import { Button } from "@chakra-ui/react";
 import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useStoreActions } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
 export function NestedObjectInputConfig({ origin, ...props }) {

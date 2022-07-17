@@ -1,5 +1,4 @@
 import { useGetObjInfos } from "hooks/useSectionContents";
-import React from "react";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export default function SectionSearch({

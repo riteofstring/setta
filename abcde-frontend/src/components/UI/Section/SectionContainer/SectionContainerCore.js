@@ -1,7 +1,8 @@
-import { Stack, HStack, VStack } from "@chakra-ui/react";
+import { HStack, Stack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
+import _ from "lodash";
 import React, { useState } from "react";
 import {
   isListLike,

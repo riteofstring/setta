@@ -44,6 +44,7 @@ export default function Overview() {
           variant="flushed"
           placeholder="Search"
           onChange={(e) => setFilter(e.target.value)}
+          aria-label="Overview Search"
         />
       </InputGroup>
 

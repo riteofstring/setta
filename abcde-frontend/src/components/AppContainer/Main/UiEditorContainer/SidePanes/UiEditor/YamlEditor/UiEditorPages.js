@@ -1,4 +1,4 @@
-import { TabPanels, TabPanel } from "@chakra-ui/react";
+import { TabPanel, TabPanels } from "@chakra-ui/react";
 
 import TextEditor from "../TextEditor/TextEditor";
 
