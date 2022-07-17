@@ -1,7 +1,7 @@
+import { loadTestData } from "__tests__utils/loadTestData";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 import { NO_AUTH } from "utils/constants";
-import { loadTestData } from "__tests__utils/loadTestData";
 
 // import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
 // import { websocketAuth } from "../../dbRequests/authentication.js";

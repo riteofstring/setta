@@ -1,6 +1,6 @@
-import { Divider, Flex, HStack } from "@chakra-ui/react";
+import { Flex, HStack, Divider } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
 import EnvSelectButton from "./EnvSelect/EnvSelectButton";

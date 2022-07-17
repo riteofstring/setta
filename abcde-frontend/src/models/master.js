@@ -1,6 +1,6 @@
 import { createAllInfo } from "classes/infoFactory";
 import { SectionInfo } from "classes/mutableInfo";
-import { action, debug, thunk } from "easy-peasy";
+import { action, thunk, debug } from "easy-peasy";
 import { getNewUIType } from "hooks/useUIType";
 import _ from "lodash";
 import {

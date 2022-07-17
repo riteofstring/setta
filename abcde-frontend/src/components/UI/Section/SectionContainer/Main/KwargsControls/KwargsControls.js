@@ -1,5 +1,5 @@
 import { AddIcon } from "@chakra-ui/icons";
-import { Heading, HStack, IconButton, Stack } from "@chakra-ui/react";
+import { HStack, Heading, IconButton, Stack } from "@chakra-ui/react";
 import { useAddKwarg } from "hooks/useKwarg";
 
 export default function KwargsControls({ sectionId, objInfoId }) {

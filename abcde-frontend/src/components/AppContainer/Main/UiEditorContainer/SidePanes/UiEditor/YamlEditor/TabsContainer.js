@@ -1,10 +1,10 @@
 import {
   AddIcon,
+  SmallCloseIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  SmallCloseIcon,
 } from "@chakra-ui/icons";
-import { HStack, IconButton, Tab, TabList } from "@chakra-ui/react";
+import { TabList, Tab, IconButton, HStack } from "@chakra-ui/react";
 import { useState } from "react";
 
 export default function TabsContainer({

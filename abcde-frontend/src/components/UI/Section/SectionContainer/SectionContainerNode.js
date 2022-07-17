@@ -1,4 +1,5 @@
 import { useStoreState } from "easy-peasy";
+import React from "react";
 
 import SectionContainer from "./SectionContainer";
 

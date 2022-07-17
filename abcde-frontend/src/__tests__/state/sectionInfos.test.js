@@ -1,11 +1,11 @@
 import { renderHook } from "@testing-library/react-hooks";
-import { useAddChild } from "hooks/useAddDeleteChild";
-import { act } from "react-dom/test-utils";
 import {
   addSectionInfo,
   createStore,
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
+import { useAddChild } from "hooks/useAddDeleteChild";
+import { act } from "react-dom/test-utils";
 
 test("setSectionInfo", () => {
   const store = createStore();

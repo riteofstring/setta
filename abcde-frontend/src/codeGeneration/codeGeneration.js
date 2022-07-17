@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { OBJ, REF, STRING, VARIABLE } from "utils/codeGenConstants";
+import { VARIABLE, OBJ, REF, STRING } from "utils/codeGenConstants";
 
 class Variable {
   constructor(name, originalName, type, datatype, value, allVars) {

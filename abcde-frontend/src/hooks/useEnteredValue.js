@@ -1,5 +1,6 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { createNewId, curryAction, defaultState } from "utils/utils";
+import { useStoreState, useStoreActions } from "easy-peasy";
+import { createNewId } from "utils/utils";
+import { curryAction, defaultState } from "utils/utils";
 
 import { useParamEnteredValueId } from "./useParamInfo";
 import { getInfo } from "./utils";

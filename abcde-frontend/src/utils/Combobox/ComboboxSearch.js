@@ -1,14 +1,14 @@
 import "@chakra-ui/icons";
-import { Box, Flex } from "@chakra-ui/react";
+import { Flex, Box } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   ComboboxInput,
-  ComboboxItem,
   ComboboxList,
+  ComboboxItem,
   stateReducer,
 } from "./Combobox";
 

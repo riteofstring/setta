@@ -1,18 +1,19 @@
 import {
-  Button,
-  TabList,
-  TabPanel,
-  TabPanels,
   Tabs,
+  TabList,
+  TabPanels,
+  TabPanel,
+  Button,
   useMultiStyleConfig,
   useTab,
 } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import React, { useRef, useState } from "react";
+import { useState, useRef } from "react";
+import React from "react";
 import Measure from "react-measure";
-import { UI_EDITOR } from "utils/constants";
 import { useIsOverflow } from "utils/Overflow/useIsOverflow";
+import { UI_EDITOR } from "utils/constants";
 
 import SectionConfig from "./SectionConfig";
 import UIConfig from "./UIConfig";

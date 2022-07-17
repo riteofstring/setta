@@ -1,66 +1,28 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { loadTestData } from "__tests__utils/loadTestData";
+import { getStoreProviderWrapper } from "__tests__utils/utils";
+import { createStore } from "__tests__utils/utils";
 import MainContainer from "components/AppContainer/Main/MainContainer";
-import { PANEID } from "utils/constants";
-import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 
-// required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = require("resize-observer-polyfill");
 
-test("Tab away from Overview", async () => {
-  createMainContainer();
-  const overviewSearch = getOverviewSearch();
-  overviewSearch.focus();
-  await userEvent.tab();
+test("Tab away from Overview", () => {
+  const store = createStore();
+  store.getActions().master.loadSections(loadTestData());
+  const wrapper = getStoreProviderWrapper(store);
 
-  const modelSectionTitle = screen.getByDisplayValue("Model");
-  expect(modelSectionTitle).toHaveFocus();
-});
-
-test("Overview search", async () => {
-  const { store } = createMainContainer();
-  const overviewSearch = getOverviewSearch();
-
-  // First check that the listings match the existing sections
-  const sectionNames = store.getState().sectionInfos.idNames;
-  let overviewListings = screen.getAllByLabelText(/Overview .+ Listing/);
-  expect(overviewListings.length === Object.values(sectionNames).length);
-  for (let k of Object.values(sectionNames)) {
-    expect(screen.getByLabelText(`Overview ${k} Listing`)).toBeTruthy();
-  }
-
-  // Now test filtering via search
-  await userEvent.type(overviewSearch, "optim");
-  overviewListings = screen.getAllByLabelText(/Overview .+ Listing/);
-  expect(overviewListings.length === 1);
-  expect(screen.getByLabelText(`Overview Optimizer Listing`)).toBeTruthy();
-});
-
-test("Jump to section", async () => {
-  const { store } = createMainContainer();
-  const modelListing = screen.getByLabelText("Overview Model Listing");
-  await userEvent.click(modelListing);
-
-  const sectionPositions = store.getState().sectionPositions.sectionPositions;
-  // Upon clicking section name, the sectionPosition is updated.
-  // Since this is the first click on any section, sectionPositions
-  // will contain only this section's position and the pane's position.
-  expect(Object.keys(sectionPositions)).toEqual([
-    "acd83563-2337-44c2-9b4d-db3641fcbc97",
-    PANEID.toString(),
-  ]);
-});
-
-function getOverviewSearch() {
-  return screen.getByRole("textbox", {
-    name: "Overview Search",
-  });
-}
-
-function createMainContainer() {
-  const { store, wrapper } = createStoreWrapperWithData();
   render(<MainContainer />, {
     wrapper,
   });
-  return { store, wrapper };
-}
+
+  const overviewSearch = screen.getByRole("textbox", {
+    name: "Overview Search",
+  });
+  overviewSearch.focus();
+  userEvent.tab();
+
+  const modelSectionTitle = screen.getByDisplayValue("Model");
+  screen.debug(modelSectionTitle);
+  expect(modelSectionTitle).toHaveFocus();
+});

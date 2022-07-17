@@ -1,4 +1,4 @@
-import { FormLabel, Heading, Tooltip } from "@chakra-ui/react";
+import { Heading, FormLabel, Tooltip } from "@chakra-ui/react";
 
 export default function ParamTextLabel(props) {
   // temp_

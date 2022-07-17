@@ -1,14 +1,14 @@
 import {
-  Box,
-  Checkbox,
-  Collapse,
-  Heading,
-  HStack,
+  VStack,
   List,
   ListItem,
+  Checkbox,
+  Box,
   Text,
+  Heading,
+  HStack,
   useDisclosure,
-  VStack,
+  Collapse,
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";

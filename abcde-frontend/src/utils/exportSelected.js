@@ -1,7 +1,7 @@
 import { getFullObjPath } from "classes/immutableInfo";
 import _ from "lodash";
 
-import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
+import { VARIABLE, OBJ, PARAM, STRING } from "./codeGenConstants";
 import { DECK, isRoot } from "./constants";
 
 function paramInfoExportSelected(

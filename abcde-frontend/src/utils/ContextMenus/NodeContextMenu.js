@@ -1,4 +1,4 @@
-import { MenuItem, MenuList } from "@chakra-ui/react";
+import { MenuList, MenuItem } from "@chakra-ui/react";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useUndeck } from "hooks/useUndeck";
 import { DECK } from "utils/constants";

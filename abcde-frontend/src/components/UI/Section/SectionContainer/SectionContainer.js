@@ -1,10 +1,10 @@
+import { Stack, Box } from "@chakra-ui/react";
 import "@chakra-ui/react";
-import { Box, Stack } from "@chakra-ui/react";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React, { useCallback, useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
 
