@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MainContainer from "components/AppContainer/Main/MainContainer";
+import { act } from "react-dom/test-utils";
 import { PANEID } from "utils/constants";
 import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 
@@ -49,6 +50,22 @@ test("Jump to section", async () => {
     "acd83563-2337-44c2-9b4d-db3641fcbc97",
     PANEID.toString(),
   ]);
+});
+
+test("Unique section name constraint", async () => {
+  createMainContainer();
+  let sectionTitle = screen.getByDisplayValue("Optimizer");
+  await userEvent.clear(sectionTitle);
+  await userEvent.type(sectionTitle, "Optim");
+  await act(async () => await userEvent.tab());
+  expect(screen.getByDisplayValue("Optim")).toBeTruthy();
+
+  sectionTitle = screen.getByDisplayValue("Optim");
+  await userEvent.clear(sectionTitle);
+  await userEvent.type(sectionTitle, "Model");
+  await act(async () => await userEvent.tab());
+  // "Model" is already taken, so it reverts to Optim
+  expect(screen.getByDisplayValue("Optim")).toBeTruthy();
 });
 
 function getOverviewSearch() {
