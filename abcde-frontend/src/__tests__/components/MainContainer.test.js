@@ -9,14 +9,31 @@ global.ResizeObserver = require("resize-observer-polyfill");
 
 test("Tab away from Overview", async () => {
   createMainContainer();
-  const overviewSearch = screen.getByRole("textbox", {
-    name: "Overview Search",
-  });
+  const overviewSearch = getOverviewSearch();
   overviewSearch.focus();
   await userEvent.tab();
 
   const modelSectionTitle = screen.getByDisplayValue("Model");
   expect(modelSectionTitle).toHaveFocus();
+});
+
+test("Overview search", async () => {
+  const { store } = createMainContainer();
+  const overviewSearch = getOverviewSearch();
+
+  // First check that the listings match the existing sections
+  const sectionNames = store.getState().sectionInfos.idNames;
+  let overviewListings = screen.getAllByLabelText(/Overview .+ Listing/);
+  expect(overviewListings.length === Object.values(sectionNames).length);
+  for (let k of Object.values(sectionNames)) {
+    expect(screen.getByLabelText(`Overview ${k} Listing`)).toBeTruthy();
+  }
+
+  // Now test filtering via search
+  await userEvent.type(overviewSearch, "optim");
+  overviewListings = screen.getAllByLabelText(/Overview .+ Listing/);
+  expect(overviewListings.length === 1);
+  expect(screen.getByLabelText(`Overview Optimizer Listing`)).toBeTruthy();
 });
 
 test("Jump to section", async () => {
@@ -33,6 +50,12 @@ test("Jump to section", async () => {
     PANEID.toString(),
   ]);
 });
+
+function getOverviewSearch() {
+  return screen.getByRole("textbox", {
+    name: "Overview Search",
+  });
+}
 
 function createMainContainer() {
   const { store, wrapper } = createStoreWrapperWithData();
