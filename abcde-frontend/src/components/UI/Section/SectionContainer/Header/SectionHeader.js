@@ -1,11 +1,12 @@
 import { Spacer, Stack } from "@chakra-ui/react";
 import { useDeleteChild } from "hooks/useAddDeleteChild";
+import React from "react";
 
 import Incrementer from "../Incrementer/Incrementer";
 import CustomCloseButton from "./CustomCloseButton";
 import SectionTitle from "./Title/SectionTitle";
 
-export function SectionHeader({
+function _SectionHeader({
   sectionId,
   parentId,
   nextId,
@@ -67,3 +68,5 @@ function NonDeckSectionTitle({ sectionId }) {
     />
   );
 }
+
+export const SectionHeader = React.memo(_SectionHeader);
