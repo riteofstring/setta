@@ -1,4 +1,4 @@
-import { MenuList, MenuItem } from "@chakra-ui/react";
+import { MenuItem, MenuList } from "@chakra-ui/react";
 
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";

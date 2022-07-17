@@ -1,18 +1,18 @@
 import { ChevronDownIcon } from "@chakra-ui/icons";
 import {
-  ButtonGroup,
   Button,
-  IconButton,
+  ButtonGroup,
   Icon,
+  IconButton,
   Popover,
+  PopoverArrow,
   PopoverBody,
+  PopoverCloseButton,
+  PopoverContent,
+  PopoverFooter,
+  PopoverHeader,
   PopoverTrigger,
   Portal,
-  PopoverContent,
-  PopoverArrow,
-  PopoverHeader,
-  PopoverCloseButton,
-  PopoverFooter,
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { RiPlayMiniFill } from "react-icons/ri";

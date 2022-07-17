@@ -1,12 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { renderHook } from "@testing-library/react-hooks";
 import userEvent from "@testing-library/user-event";
-import { addSectionInfo, getStoreProviderWrapper } from "__tests__utils/utils";
-import { createStore } from "__tests__utils/utils";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
+import {
+  addSectionInfo,
+  createStore,
+  getStoreProviderWrapper,
+} from "__tests__utils/utils";
 
 test("Incrementer: click add sibling N times", () => {
   const { store, parent } = componentSetup({

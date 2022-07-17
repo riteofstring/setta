@@ -1,4 +1,4 @@
-import { Grid, SimpleGrid, GridItem } from "@chakra-ui/react";
+import { Grid, GridItem, SimpleGrid } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import React from "react";
 import { Link } from "react-router-dom";

@@ -2,7 +2,7 @@ import { Tabs } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { rangeArray, mod } from "utils/utils";
+import { mod, rangeArray } from "utils/utils";
 
 import TabsContainer from "./TabsContainer";
 import UiEditorPages from "./UiEditorPages";

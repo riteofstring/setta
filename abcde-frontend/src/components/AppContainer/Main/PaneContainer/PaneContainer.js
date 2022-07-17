@@ -1,10 +1,10 @@
-import { IconButton, Box, GridItem, Heading } from "@chakra-ui/react";
+import { Box, GridItem, Heading, IconButton } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import useWindowSize from "hooks/useWindowSize";
 import { Resizable } from "re-resizable";
-import { useState, useEffect } from "react";
-import { HiChevronRight, HiChevronLeft } from "react-icons/hi";
+import { useEffect, useState } from "react";
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { clamp } from "utils/utils";
 
 const Pane = motion(GridItem);

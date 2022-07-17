@@ -1,9 +1,9 @@
 import {
+  HStack,
   Slider,
-  SliderTrack,
   SliderFilledTrack,
   SliderThumb,
-  HStack,
+  SliderTrack,
 } from "@chakra-ui/react";
 
 import SimpleConfig from "./SimpleConfig";
