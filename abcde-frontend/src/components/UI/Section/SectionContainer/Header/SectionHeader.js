@@ -41,10 +41,12 @@ function _SectionHeader({
           hasNested={hasNested}
         />
       )}
-      <CustomCloseButton
-        onClick={onCustomCloseButtonClick}
-        aria-label="Delete self"
-      />
+      {!isListRoot && (
+        <CustomCloseButton
+          onClick={onCustomCloseButtonClick}
+          aria-label="Delete self"
+        />
+      )}
     </Stack>
   );
 }

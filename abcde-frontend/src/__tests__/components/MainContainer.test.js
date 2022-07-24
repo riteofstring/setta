@@ -40,6 +40,9 @@ test("Overview search", async () => {
   expect(
     screen.getByTestId(`Overview Listing ${optimizerSectionId}`)
   ).toBeTruthy();
+
+  const modelSectionId = sectionIdFromName(store, "Model");
+  expect(screen.queryByTestId(`Overview Listing ${modelSectionId}`)).toBeNull();
 });
 
 test("Jump to section", async () => {
