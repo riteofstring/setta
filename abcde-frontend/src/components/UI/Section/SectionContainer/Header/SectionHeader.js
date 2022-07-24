@@ -12,7 +12,7 @@ function _SectionHeader({
   nextId,
   isList,
   isListRoot,
-  requiresKeyInput,
+  titleIsEditable,
   addChild,
   deleteChild,
   hasNested,
@@ -25,7 +25,10 @@ function _SectionHeader({
 
   return (
     <Stack direction="row" align="center" w="100%" pl="0.75em">
-      <NonDeckSectionTitle sectionId={sectionId} />
+      <NonDeckSectionTitle
+        sectionId={sectionId}
+        titleIsEditable={titleIsEditable}
+      />
       <Spacer />
       {(isList || isListRoot) && (
         <Incrementer
@@ -46,12 +49,13 @@ function _SectionHeader({
   );
 }
 
-function NonDeckSectionTitle({ sectionId }) {
+function NonDeckSectionTitle({ sectionId, titleIsEditable }) {
   const editableProps = {
     isPreviewFocusable: true,
     fontFamily: "Work Sans",
     fontWeight: "bold",
     className: "nodrag",
+    isDisabled: !titleIsEditable,
   };
 
   const inputProps = {

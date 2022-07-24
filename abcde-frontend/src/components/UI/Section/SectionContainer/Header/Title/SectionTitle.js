@@ -3,6 +3,7 @@ import { useStoreActions } from "easy-peasy";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionSiblingNames } from "hooks/useSectionSiblings";
+import { useEffect } from "react";
 
 export default function SectionTitle({ sectionId, editableProps, inputProps }) {
   const { name: sectionName } = useGetSectionInfo(sectionId);
@@ -20,6 +21,12 @@ export default function SectionTitle({ sectionId, editableProps, inputProps }) {
     onTitleInputChange,
     (v) => !siblingNames.has(v)
   );
+
+  useEffect(() => {
+    if (sectionName !== inputValue) {
+      setInputValue(sectionName);
+    }
+  }, [sectionName]);
 
   return (
     <Editable
