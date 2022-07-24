@@ -36,7 +36,7 @@ const master = {
     console.log("allParamCollections", debug(state.allParamCollections));
   }),
 
-  loadSections: thunk((action, payload, helpers) => {
+  loadSections: thunk((action, payload) => {
     const {
       packages,
       objCollections,

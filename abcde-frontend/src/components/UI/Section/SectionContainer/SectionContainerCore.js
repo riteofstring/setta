@@ -23,7 +23,6 @@ function _SectionContainerCore({
   addChild,
   deleteChild,
   hasNested,
-  dragListeners,
 }) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
@@ -77,7 +76,6 @@ function _SectionContainerCore({
         borderColor="white"
         overflow="hidden"
       >
-        {/* {parentId && <DragHandle dragListeners={dragListeners} />} */}
         <Stack px=".25rem" py="1rem" w="100%">
           <SectionHeader
             sectionId={sectionId}
@@ -121,13 +119,7 @@ function _SectionContainerCore({
 }
 
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = [
-    "addChild",
-    "deleteChild",
-    "childrenAreCollapsed",
-    "nextId",
-    "hasNested",
-  ];
+  const attrs = ["addChild", "deleteChild", "nextId", "hasNested"];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
       return false;

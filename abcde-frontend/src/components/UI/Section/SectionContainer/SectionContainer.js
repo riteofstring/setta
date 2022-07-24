@@ -4,7 +4,7 @@ import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React, { useCallback, useState } from "react";
+import React from "react";
 import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
 
@@ -21,13 +21,9 @@ function SectionContainer({
 }) {
   const isDeck = useGetSectionType(sectionId).type === DECK;
   const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
-  const [childrenAreCollapsed, setChildrenAreCollapsed] = useState(false);
   const hasNested = idsOverview.length > 0;
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
-  const flipChildrenAreCollapsed = useCallback(() => {
-    setChildrenAreCollapsed(!childrenAreCollapsed);
-  }, [childrenAreCollapsed]);
   console.log("isDeck: ", isDeck);
 
   return (
@@ -45,15 +41,9 @@ function SectionContainer({
           addChild={addChild}
           deleteChild={deleteChild}
           hasNested={hasNested}
-          childrenAreCollapsed={childrenAreCollapsed}
-          flipChildrenAreCollapsed={flipChildrenAreCollapsed}
-          dragListeners={dragListeners}
         />
       )}
-      <Box
-        flexDirection="column"
-        display={childrenAreCollapsed ? "none" : "flex"}
-      >
+      <Box flexDirection="column" display="flex">
         {hasNested && (
           <ManyNestedSections
             childIds={idsOverview}

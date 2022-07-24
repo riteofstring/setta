@@ -73,7 +73,7 @@ export const ComboboxInput = React.forwardRef(
 );
 
 const FancySearch = React.forwardRef(
-  ({ toggleButtonProps, textSize, height, size, isOpen, ...props }, ref) => {
+  ({ toggleButtonProps, textSize, height, size, ...props }, ref) => {
     return (
       <Input
         // w="100%"

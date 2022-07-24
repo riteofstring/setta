@@ -3,10 +3,8 @@ import { useStoreState } from "easy-peasy";
 import { Link, useLocation } from "react-router-dom";
 
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
-import EnvSelectButton from "./EnvSelect/EnvSelectButton";
 import FileMenu from "./FileMenu/FileMenu";
 import RunButton from "./RunButton/RunButton";
-import SelectMachine from "./SelectMachine/SelectMachine";
 import UiConfigButton from "./UiConfigButton/UiConfigButton";
 
 export default function SubNav() {
@@ -40,14 +38,9 @@ function NavSwitch() {
 function UiEditorSubNav() {
   return (
     <>
-      {/* <HomeButton /> */}
       <FileMenu />
       <EcoSysButton />
       <UiConfigButton />
-      {/* <TerminalButton /> */}
-      {/* <Spacer /> */}
-      <EnvSelectButton />
-      <SelectMachine />
       <RunButton />
     </>
   );

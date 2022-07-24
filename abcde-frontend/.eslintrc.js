@@ -32,7 +32,10 @@ module.exports = {
     "import/resolver": {
       "eslint-import-resolver-custom-alias": {
         alias: {
+          __tests__: "./src/__tests__",
+          __tests__utils: "./src/__tests__utils",
           classes: "./src/classes",
+          codeGeneration: "./src/codeGeneration",
           components: "./src/components",
           data: "./src/data",
           dbRequests: "./src/dbRequests",
