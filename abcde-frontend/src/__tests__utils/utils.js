@@ -3,6 +3,7 @@ import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
+import _ from "lodash";
 import { act } from "react-dom/test-utils";
 import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
@@ -67,4 +68,9 @@ export function getStoreProviderWrapper(store) {
   return ({ children }) => (
     <StoreProvider store={store}>{children}</StoreProvider>
   );
+}
+
+export function sectionIdFromName(store, name) {
+  const sections = store.getState().sectionInfos.x;
+  return _.filter(sections, (x) => x.name === name)[0].id;
 }

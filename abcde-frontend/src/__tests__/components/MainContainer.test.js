@@ -4,6 +4,7 @@ import MainContainer from "components/AppContainer/Main/MainContainer";
 import { act } from "react-dom/test-utils";
 import { PANEID } from "utils/constants";
 import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
+import { sectionIdFromName } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = require("resize-observer-polyfill");
@@ -23,23 +24,28 @@ test("Overview search", async () => {
   const overviewSearch = getOverviewSearch();
 
   // First check that the listings match the existing sections
-  const sectionNames = store.getState().sectionInfos.idNames;
-  let overviewListings = screen.getAllByLabelText(/Overview .+ Listing/);
-  expect(overviewListings.length === Object.values(sectionNames).length);
-  for (let k of Object.values(sectionNames)) {
-    expect(screen.getByLabelText(`Overview ${k} Listing`)).toBeTruthy();
+  const sections = store.getState().sectionInfos.x;
+  const overviewListingRegex = /Overview Listing .+/;
+  let overviewListings = screen.getAllByTestId(overviewListingRegex);
+  expect(overviewListings.length === Object.values(sections).length);
+  for (let s of Object.values(sections)) {
+    expect(screen.getByTestId(`Overview Listing ${s.id}`)).toBeTruthy();
   }
 
   // Now test filtering via search
   await userEvent.type(overviewSearch, "optim");
-  overviewListings = screen.getAllByLabelText(/Overview .+ Listing/);
+  overviewListings = screen.getAllByTestId(overviewListingRegex);
   expect(overviewListings.length === 1);
-  expect(screen.getByLabelText(`Overview Optimizer Listing`)).toBeTruthy();
+  const optimizerSectionId = sectionIdFromName(store, "Optimizer");
+  expect(
+    screen.getByTestId(`Overview Listing ${optimizerSectionId}`)
+  ).toBeTruthy();
 });
 
 test("Jump to section", async () => {
   const { store } = createMainContainer();
-  const modelListing = screen.getByLabelText("Overview Model Listing");
+  const modelSectionId = sectionIdFromName(store, "Model");
+  const modelListing = screen.getByTestId(`Overview Listing ${modelSectionId}`);
   await userEvent.click(modelListing);
 
   const sectionPositions = store.getState().sectionPositions.sectionPositions;
@@ -47,7 +53,7 @@ test("Jump to section", async () => {
   // Since this is the first click on any section, sectionPositions
   // will contain only this section's position and the pane's position.
   expect(Object.keys(sectionPositions)).toEqual([
-    "acd83563-2337-44c2-9b4d-db3641fcbc97",
+    modelSectionId,
     PANEID.toString(),
   ]);
 });
