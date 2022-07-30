@@ -20,11 +20,11 @@ export function IdNameCombobox({
     setSelection
   ) => {
     if (newSelectedItem) {
-      const { id, name } = newSelectedItem;
-      if (id !== currSelectedItem?.id) {
+      const sid = newSelectedItem.id;
+      if (sid !== currSelectedItem?.id) {
         setSelection(newSelectedItem);
       }
-      onSelectedItemChange(id, name);
+      onSelectedItemChange(sid);
     }
   };
 

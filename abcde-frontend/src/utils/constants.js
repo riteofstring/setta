@@ -6,6 +6,7 @@ export const PANEID = -1;
 export const DEFAULT_ENTERED_TEXT = "// write your code here";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
+export const CONTEXT_MENU = "contextMenu";
 export const INDICATOR_GOTO_PARENT = "indicator_goto_parent";
 
 export const TEXT = "TEXT";
@@ -40,8 +41,8 @@ export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }
 
-export function isTitleEditable(sectionTypeName) {
-  return ![LIST, LIST_ROOT, DICT_ROOT].includes(sectionTypeName);
+export function requiresKeyInput(sectionTypeName) {
+  return sectionTypeName === DICT;
 }
 
 export function isRoot(sectionTypeName) {
@@ -67,3 +68,11 @@ export const uiTypesToPretty = Object.freeze(
 );
 
 export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
+
+export function compatibleName(type) {
+  return {
+    [SECTION]: SECTION,
+    [LIST_ROOT]: LIST_ROOT + DICT_ROOT,
+    [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
+  }[type];
+}

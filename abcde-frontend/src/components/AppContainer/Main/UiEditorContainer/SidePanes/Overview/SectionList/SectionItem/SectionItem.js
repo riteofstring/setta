@@ -25,7 +25,7 @@ export default function SectionItem({ sectionId, sectionHeading }) {
           transition: "box-shadow 200ms, background 200ms",
         }}
         onClick={onClick}
-        data-testid={`Overview Listing ${sectionId}`}
+        data-testId={`Overview Listing ${sectionId}`}
       >
         {sectionHeading}
       </Text>
