@@ -21,6 +21,7 @@ function _SortableSectionContainer({ sectionId, ...props }) {
 
   const sortableProps = useSortable({
     id: sectionId,
+    data: { zoom },
   });
 
   const { attributes, listeners, setNodeRef, transform, transition } =
