@@ -57,11 +57,7 @@ function SectionContainer({
   );
 }
 export default React.memo(SectionContainer, (p, n) => {
-  return (
-    p.nextId === n.nextId &&
-    p.dragKeyPressed === n.dragKeyPressed &&
-    p.sortKeyPressed === n.sortKeyPressed
-  );
+  return p.nextId === n.nextId;
 });
 
 function Container(props) {

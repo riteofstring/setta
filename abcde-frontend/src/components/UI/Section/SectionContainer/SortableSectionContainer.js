@@ -1,8 +1,7 @@
-import { useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { useKeyPress, useStore } from "react-flow-renderer";
+import { useStore } from "react-flow-renderer";
 
 import SectionContainer from "./SectionContainer";
 
@@ -20,21 +19,12 @@ function _SortableSectionContainer({ sectionId, ...props }) {
     return transform;
   }
 
-  const dragKeyPressed = useKeyPress("Alt");
-  const sortKeyPressed = useKeyPress("Control");
-
-  const draggableProps = useDraggable({
-    id: `${sectionId}-draggable`,
-    disabled: !dragKeyPressed,
-  });
-
   const sortableProps = useSortable({
     id: sectionId,
-    disabled: dragKeyPressed,
   });
 
   const { attributes, listeners, setNodeRef, transform, transition } =
-    dragKeyPressed ? draggableProps : sortableProps;
+    sortableProps;
 
   const scaledTransform = transformWithZoom(transform);
 
@@ -50,8 +40,6 @@ function _SortableSectionContainer({ sectionId, ...props }) {
         sectionId={sectionId}
         {...props}
         dragListeners={listeners}
-        dragKeyPressed={dragKeyPressed}
-        sortKeyPressed={sortKeyPressed}
       />
     </div>
   );

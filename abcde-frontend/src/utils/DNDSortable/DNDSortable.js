@@ -4,25 +4,18 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useStoreActions } from "easy-peasy";
 import { useKeyPress } from "react-flow-renderer";
+import { updateWithArrayMove } from "utils/utils";
 
 import { useDNDSensors } from "./useDNDSensors";
 
 export function DNDSortable({ sectionId, items, setItems, ...props }) {
-  // const sensors = useDNDSensors();
-  // function handleDragEnd(event) {
-  //   const { active, over } = event;
-  //   console.log("event", event.over.data.current.sortable);
-
-  //   if (active.id !== over.id) {
-  //     setItems(updateWithArrayMove(active, over));
-  //   }
-  // }
+  const data = { setItems };
   const { setNodeRef } = useDroppable({
-    id: `${sectionId}-droppable`,
+    id: `${sectionId}`,
   });
 
-  // return {props.children}</div>;
 
   return (
     <div ref={setNodeRef}>
@@ -30,6 +23,7 @@ export function DNDSortable({ sectionId, items, setItems, ...props }) {
         id={sectionId}
         items={items}
         strategy={verticalListSortingStrategy}
+        data={data}
       >
         {props.children}
       </SortableContext>
@@ -38,37 +32,31 @@ export function DNDSortable({ sectionId, items, setItems, ...props }) {
 }
 
 export function GlobalDndContext(props) {
-  // const parentIds = useStoreState(
-  //   (x) => _.mapValues(x.sectionInfos.x, (y) => y.parentId),
-  //   _.isEqual
-  // );
+  const setIdsOverviewThunk = useStoreActions(
+    (x) => x.sectionInfos.setIdsOverviewThunk
+  );
+  const isSorting = useKeyPress("Control");
 
   const sensors = useDNDSensors();
-  function handleDragEnd(event) {
-    console.log("handleDragEnd", event);
-    // console.log("handleDragEnd", event);
-    // console.log("parentIds", parentIds)
-    // const { active, over } = event;
-    // if (active.id !== over.id) {
-    //   setItems(updateWithArrayMove(active, over));
-    // }
-  }
-  function onDragOver(event) {
-    console.log("onDragOver", event);
-    // console.log("active", active?.data?.current?.sortable);
-    // console.log("over", over?.data?.current?.sortable);
+  function handleDragEnd({ active, over }) {
+    if (isSorting) {
+      const droppableId = over.data.current.droppableId;
+      console.log("active", active);
+      console.log("over", over);
+      if (active.id !== over.id) {
+        console.log("attemping sort");
+        // over.data.current.setItems(updateWithArrayMove(active, over));
+      }
+    }
   }
 
-  const sortKeyPressed = useKeyPress("Control");
-
-  const modifiers = sortKeyPressed ? [restrictToVerticalAxis] : null;
+  const modifiers = isSorting ? [restrictToVerticalAxis] : null;
 
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
-      onDragOver={onDragOver}
       modifiers={modifiers}
     >
       {props.children}
