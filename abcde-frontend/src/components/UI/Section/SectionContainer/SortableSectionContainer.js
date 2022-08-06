@@ -21,9 +21,10 @@ function _SortableSectionContainer({ sectionId, ...props }) {
   }
 
   const dragKeyPressed = useKeyPress("Alt");
+  const sortKeyPressed = useKeyPress("Control");
 
   const draggableProps = useDraggable({
-    id: sectionId,
+    id: `${sectionId}-draggable`,
     disabled: !dragKeyPressed,
   });
 
@@ -49,6 +50,8 @@ function _SortableSectionContainer({ sectionId, ...props }) {
         sectionId={sectionId}
         {...props}
         dragListeners={listeners}
+        dragKeyPressed={dragKeyPressed}
+        sortKeyPressed={sortKeyPressed}
       />
     </div>
   );

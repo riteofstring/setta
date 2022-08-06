@@ -1,4 +1,4 @@
-import { closestCorners, DndContext } from "@dnd-kit/core";
+import { closestCorners, DndContext, useDroppable } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   SortableContext,
@@ -18,27 +18,22 @@ export function DNDSortable({ sectionId, items, setItems, ...props }) {
   //     setItems(updateWithArrayMove(active, over));
   //   }
   // }
-  // const { setNodeRef } = useDroppable({
-  //   id: sectionId,
-  // });
+  const { setNodeRef } = useDroppable({
+    id: `${sectionId}-droppable`,
+  });
+
+  // return {props.children}</div>;
 
   return (
-    // <DndContext
-    //   sensors={sensors}
-    //   collisionDetection={closestCenter}
-    //   onDragEnd={handleDragEnd}
-    //   // modifiers={[restrictToVerticalAxis]}
-    // >
-    // <div ref={setNodeRef}>
-    <SortableContext
-      id={sectionId}
-      items={items}
-      strategy={verticalListSortingStrategy}
-    >
-      {props.children}
-    </SortableContext>
-    // </div>
-    // </DndContext>
+    <div ref={setNodeRef}>
+      <SortableContext
+        id={sectionId}
+        items={items}
+        strategy={verticalListSortingStrategy}
+      >
+        {props.children}
+      </SortableContext>
+    </div>
   );
 }
 
@@ -50,6 +45,7 @@ export function GlobalDndContext(props) {
 
   const sensors = useDNDSensors();
   function handleDragEnd(event) {
+    console.log("handleDragEnd", event);
     // console.log("handleDragEnd", event);
     // console.log("parentIds", parentIds)
     // const { active, over } = event;
@@ -57,9 +53,10 @@ export function GlobalDndContext(props) {
     //   setItems(updateWithArrayMove(active, over));
     // }
   }
-  function onDragOver({ active, over }) {
-    console.log("active", active?.data?.current?.sortable);
-    console.log("over", over?.data?.current?.sortable);
+  function onDragOver(event) {
+    console.log("onDragOver", event);
+    // console.log("active", active?.data?.current?.sortable);
+    // console.log("over", over?.data?.current?.sortable);
   }
 
   const sortKeyPressed = useKeyPress("Control");

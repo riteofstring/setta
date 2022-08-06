@@ -24,7 +24,6 @@ function SectionContainer({
   const hasNested = idsOverview.length > 0;
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
-  console.log("isDeck: ", isDeck);
 
   return (
     <Container
@@ -57,8 +56,12 @@ function SectionContainer({
     </Container>
   );
 }
-export default React.memo(SectionContainer, (prev, next) => {
-  return prev.nextId === next.nextId;
+export default React.memo(SectionContainer, (p, n) => {
+  return (
+    p.nextId === n.nextId &&
+    p.dragKeyPressed === n.dragKeyPressed &&
+    p.sortKeyPressed === n.sortKeyPressed
+  );
 });
 
 function Container(props) {
