@@ -10,38 +10,59 @@ export function DNDSortable({ sectionId, items, ...props }) {
   const isSorting = useKeyPress("Control");
   const isMovingOut = useKeyPress("Alt");
   const [disabled, setDisabled] = useState(false);
+  const [highlight, setHighlight] = useState(false);
 
   function disableSort({ active }) {
+    if (!active) {
+      return;
+    }
     if (
-      (isMovingOut &&
-        active &&
-        active.data.current.sortable.containerId === sectionId) ||
-      (isSorting &&
-        active &&
-        active.data.current.sortable.containerId !== sectionId)
+      //The currently dragged section is a child of this section
+      (isMovingOut && active.data.current.sortable.containerId === sectionId) ||
+      //The currently dragged section is this section (e.g. a deck)
+      (isMovingOut && active.id === sectionId) ||
+      //The currently dragged section is not a child of this section
+      (isSorting && active.data.current.sortable.containerId !== sectionId)
     ) {
       setDisabled(true);
     }
   }
 
-  function enable() {
+  function onDragDone() {
     setDisabled(false);
+    setHighlight(false);
+  }
+
+  function highlightArea({ active, over }) {
+    if (
+      isMovingOut &&
+      over &&
+      over.data.current.sortable.containerId === sectionId &&
+      active.id !== sectionId // Can't drop a deck into itself
+    ) {
+      setHighlight(true);
+    } else {
+      setHighlight(false);
+    }
   }
 
   useDndMonitor({
     onDragStart: disableSort,
-    onDragEnd: enable,
-    onDragCancel: enable,
+    onDragOver: highlightArea,
+    onDragEnd: onDragDone,
+    onDragCancel: onDragDone,
   });
 
   return (
-    <SortableContext
-      id={sectionId}
-      items={items}
-      strategy={verticalListSortingStrategy}
-      disabled={disabled}
-    >
-      {props.children}
-    </SortableContext>
+    <div style={{ backgroundColor: highlight ? "black" : "" }}>
+      <SortableContext
+        id={sectionId}
+        items={items}
+        strategy={verticalListSortingStrategy}
+        disabled={disabled}
+      >
+        {props.children}
+      </SortableContext>
+    </div>
   );
 }

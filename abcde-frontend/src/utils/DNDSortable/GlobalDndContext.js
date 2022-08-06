@@ -42,27 +42,29 @@ export function GlobalDndContext(props) {
   }
 
   function onDragEnd({ active, over }) {
-    if (active && over) {
-      const activeContainer = active.data.current.sortable.containerId;
-      const overContainer = over.data.current.sortable.containerId;
-      if (
-        isSorting &&
-        activeContainer === overContainer &&
-        active.id !== over.id
-      ) {
-        setIdsOverviewThunk({
-          sectionId: activeContainer,
-          newStateFn: updateWithArrayMove(active, over),
-        });
-      } else if (isMovingOut && activeContainer !== overContainer) {
-        const newIndex = getNewIndex(active, over);
-        moveChildThunk({
-          oldParentId: activeContainer,
-          newParentId: overContainer,
-          childId: active.id,
-          newIndex,
-        });
-      }
+    if (!active || !over) {
+      return;
+    }
+
+    const activeContainer = active.data.current.sortable.containerId;
+    const overContainer = over.data.current.sortable.containerId;
+    if (
+      isSorting &&
+      activeContainer === overContainer &&
+      active.id !== over.id
+    ) {
+      setIdsOverviewThunk({
+        sectionId: activeContainer,
+        newStateFn: updateWithArrayMove(active, over),
+      });
+    } else if (isMovingOut && activeContainer !== overContainer) {
+      const newIndex = getNewIndex(active, over);
+      moveChildThunk({
+        oldParentId: activeContainer,
+        newParentId: overContainer,
+        childId: active.id,
+        newIndex,
+      });
     }
   }
 
