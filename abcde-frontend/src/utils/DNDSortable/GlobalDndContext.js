@@ -1,4 +1,9 @@
-import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
+import {
+  closestCorners,
+  DndContext,
+  DragOverlay,
+  rectIntersection,
+} from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
@@ -40,7 +45,11 @@ export function GlobalDndContext(props) {
     if (active && over) {
       const activeContainer = active.data.current.sortable.containerId;
       const overContainer = over.data.current.sortable.containerId;
-      if (activeContainer === overContainer && active.id !== over.id) {
+      if (
+        isSorting &&
+        activeContainer === overContainer &&
+        active.id !== over.id
+      ) {
         setIdsOverviewThunk({
           sectionId: activeContainer,
           newStateFn: updateWithArrayMove(active, over),
@@ -58,11 +67,12 @@ export function GlobalDndContext(props) {
   }
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
+  const collisionDetection = isMovingOut ? rectIntersection : closestCorners;
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       modifiers={modifiers}

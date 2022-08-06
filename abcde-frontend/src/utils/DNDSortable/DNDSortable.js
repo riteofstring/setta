@@ -8,13 +8,17 @@ import { useKeyPress } from "react-flow-renderer";
 
 export function DNDSortable({ sectionId, items, ...props }) {
   const isSorting = useKeyPress("Control");
+  const isMovingOut = useKeyPress("Alt");
   const [disabled, setDisabled] = useState(false);
 
-  function disableIfSortIsExternal({ active }) {
+  function disableSort({ active }) {
     if (
-      isSorting &&
-      active &&
-      active.data.current.sortable.containerId !== sectionId
+      (isMovingOut &&
+        active &&
+        active.data.current.sortable.containerId === sectionId) ||
+      (isSorting &&
+        active &&
+        active.data.current.sortable.containerId !== sectionId)
     ) {
       setDisabled(true);
     }
@@ -25,7 +29,7 @@ export function DNDSortable({ sectionId, items, ...props }) {
   }
 
   useDndMonitor({
-    onDragStart: disableIfSortIsExternal,
+    onDragStart: disableSort,
     onDragEnd: enable,
     onDragCancel: enable,
   });
