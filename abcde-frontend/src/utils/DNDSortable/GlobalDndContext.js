@@ -28,11 +28,7 @@ export function GlobalDndContext(props) {
     if (active && over) {
       const activeContainer = active.data.current.sortable.containerId;
       const overContainer = over.data.current.sortable.containerId;
-      if (
-        isSorting &&
-        activeContainer === overContainer &&
-        active.id !== over.id
-      ) {
+      if (activeContainer === overContainer && active.id !== over.id) {
         setIdsOverviewThunk({
           sectionId: activeContainer,
           newStateFn: updateWithArrayMove(active, over),
