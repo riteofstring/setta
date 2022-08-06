@@ -10,7 +10,7 @@ import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
-import { GlobalDndContext } from "utils/DNDSortable/DNDSortable";
+import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 
 import "./react-flow-css.css";
 import { ResponsiveControls } from "./ResponsiveControls";
