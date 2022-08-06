@@ -65,18 +65,30 @@ export function GlobalDndContext(props) {
     (x) => x.sectionInfos.setIdsOverviewThunk
   );
   const isSorting = useKeyPress("Control");
+  const isMovingOut = useKeyPress("Alt");
 
   const sensors = useDNDSensors();
   function handleDragEnd({ active, over }) {
-    if (isSorting && active && over) {
-      const containerId = active.data.current.sortable.containerId;
+    if (active && over) {
+      const activeContainer = active.data.current.sortable.containerId;
+      const overContainer = over.data.current.sortable.containerId;
       if (
-        containerId === over.data.current.sortable.containerId &&
+        isSorting &&
+        activeContainer === overContainer &&
         active.id !== over.id
       ) {
         setIdsOverviewThunk({
-          sectionId: containerId,
+          sectionId: activeContainer,
           newStateFn: updateWithArrayMove(active, over),
+        });
+      } else if (isMovingOut && activeContainer !== overContainer) {
+        setIdsOverviewThunk({
+          sectionId: activeContainer,
+          newStateFn: (x) => x.filter((y) => y !== active.id),
+        });
+        setIdsOverviewThunk({
+          sectionId: overContainer,
+          newStateFn: (x) => [...x, active.id],
         });
       }
     }
