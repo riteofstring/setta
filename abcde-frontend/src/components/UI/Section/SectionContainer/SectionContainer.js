@@ -20,7 +20,7 @@ function SectionContainer({
   dragListeners,
 }) {
   const isDeck = useGetSectionType(sectionId).type === DECK;
-  const [idsOverview, setIdsOverview] = useIdsOverview(sectionId);
+  const idsOverview = useIdsOverview(sectionId)[0];
   const hasNested = idsOverview.length > 0;
   const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
@@ -48,7 +48,6 @@ function SectionContainer({
             childIds={idsOverview}
             sectionId={sectionId}
             depth={depth}
-            setChildren={setIdsOverview}
             isDeck={isDeck}
           />
         )}

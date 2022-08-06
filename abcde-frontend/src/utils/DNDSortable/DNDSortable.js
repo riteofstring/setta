@@ -6,7 +6,7 @@ import {
 import { useState } from "react";
 import { useKeyPress } from "react-flow-renderer";
 
-export function DNDSortable({ sectionId, items, setItems, ...props }) {
+export function DNDSortable({ sectionId, items, ...props }) {
   const isSorting = useKeyPress("Control");
   const [disabled, setDisabled] = useState(false);
 
