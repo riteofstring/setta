@@ -1,15 +1,18 @@
 import { HStack, Stack, VStack } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
+import { useIsActiveSection } from "hooks/useActiveSections";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
+import { useKeyPress } from "react-flow-renderer";
 import {
   isListLike,
   isRoot,
   requiresKeyInput,
   SECTIONWIDTH,
 } from "utils/constants";
+import { MULTI_SELECT_KEY } from "utils/interactionConstants";
 
 import { SectionHeader } from "./Header/SectionHeader";
 import GroupContainer from "./Main/Group/GroupContainer";
@@ -24,7 +27,7 @@ function _SectionContainerCore({
   deleteChild,
   hasNested,
 }) {
-  const { selectedItem } = useGetSectionInfo(sectionId);
+  const { selectedItem, isTopLevel } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
@@ -32,14 +35,23 @@ function _SectionContainerCore({
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
-  const isActiveSection =
-    useStoreState((x) => x.master.activeSection) === sectionId;
+  const setActiveSection = useStoreActions((x) => x.activeSections.setNested);
+  const isActiveSection = useIsActiveSection(sectionId);
   const [isActive, setIsActive] = useState(false);
+  const multiSelectKeyPressed = useKeyPress(MULTI_SELECT_KEY);
 
   function onSelectedItemChange(value) {
     setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
   }
+
+  function onSectionClick() {
+    if (isTopLevel || multiSelectKeyPressed) {
+      return;
+    }
+    setActiveSection(sectionId);
+  }
+
+  console.log("isActiveSection, isActive", isActiveSection, isActive)
 
   // // temp_
   const tempBoolDesc = false;
@@ -60,7 +72,7 @@ function _SectionContainerCore({
           : "transparent"
       }
       transitionDuration=".15s"
-      onClick={() => setActiveSection(sectionId)}
+      // onClick={onSectionClick}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
     >

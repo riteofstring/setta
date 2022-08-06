@@ -7,6 +7,7 @@ import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
+import { DRAG_KEY } from "utils/interactionConstants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionTitle from "./Header/Title/SectionTitle";
@@ -64,7 +65,7 @@ export default React.memo(SectionContainer, (prev, next) => {
 function Container(props) {
   const { isDeck, sectionId, parentId, dragListeners } = props;
   const refForPosition = useSetSectionPosition(sectionId);
-  const ctrlPressed = useKeyPress("Control");
+  const ctrlPressed = useKeyPress(DRAG_KEY);
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
