@@ -9,12 +9,20 @@ import { DummySection } from "./DummySection";
 
 import { useDNDSensors } from "./useDNDSensors";
 
+function getNewIndex(active, over) {
+  const isBelowOverItem =
+    over &&
+    active.rect.current.translated &&
+    active.rect.current.translated.top > over.rect.top + over.rect.height / 2;
+
+  const modifier = isBelowOverItem ? 1 : 0;
+  const overItems = over.data.current.sortable.items;
+  const overIndex = overItems.indexOf(over.id);
+  return overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
+}
+
 export function GlobalDndContext(props) {
   const [active, setActive] = useState(null);
-
-  function onDragStart({ active }) {
-    setActive(active);
-  }
 
   const setIdsOverviewThunk = useStoreActions(
     (x) => x.sectionInfos.setIdsOverviewThunk
@@ -22,8 +30,12 @@ export function GlobalDndContext(props) {
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
   const isSorting = useKeyPress("Control");
   const isMovingOut = useKeyPress("Alt");
-
   const sensors = useDNDSensors();
+
+  function onDragStart({ active }) {
+    setActive(active);
+  }
+
   function onDragEnd({ active, over }) {
     if (active && over) {
       const activeContainer = active.data.current.sortable.containerId;
@@ -34,11 +46,12 @@ export function GlobalDndContext(props) {
           newStateFn: updateWithArrayMove(active, over),
         });
       } else if (isMovingOut && activeContainer !== overContainer) {
+        const newIndex = getNewIndex(active, over);
         moveChildThunk({
           oldParentId: activeContainer,
           newParentId: overContainer,
           childId: active.id,
-          newIndex: 0,
+          newIndex,
         });
       }
     }
