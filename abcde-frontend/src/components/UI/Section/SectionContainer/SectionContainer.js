@@ -68,17 +68,18 @@ function Container(props) {
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
+  const commonProps = { ref: refForPosition, ...trueDragListeners, className };
 
   return (
     <>
       {isDeck ? (
         <Stack
-          ref={refForPosition}
           bg="hsla(212, 22%, 50%, 0.2)"
           pt=".75rem"
           px="2rem"
           pb="1.5rem"
           borderRadius="3xl"
+          {...commonProps}
           // border="1px solid hsla(255, 22%, 100%, 0.3)"
           // boxShadow="xs"
         >
@@ -86,13 +87,7 @@ function Container(props) {
           {props.children}
         </Stack>
       ) : (
-        <Stack
-          ref={refForPosition}
-          {...trueDragListeners}
-          className={className}
-        >
-          {props.children}
-        </Stack>
+        <Stack {...commonProps}>{props.children}</Stack>
       )}
     </>
   );
