@@ -1,4 +1,4 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import { useDragIntoDeck } from "hooks/useAddToDeck";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
@@ -10,7 +10,6 @@ import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
-import { MULTI_SELECT_KEY } from "utils/interactionConstants";
 
 import "./react-flow-css.css";
 import { ResponsiveControls } from "./ResponsiveControls";
@@ -37,9 +36,6 @@ function SectionsPane() {
   const reactFlowRef = useSetSectionPosition(PANEID);
   const topLevelSectionPositions = useStoreState(
     (x) => x.sectionInfos.topLevelSectionPositions
-  );
-  const setActiveSections = useStoreActions(
-    (x) => x.activeSections.setTopLevel
   );
 
   const initialNodes = topLevelSectionPositions.map((e) => ({
@@ -78,10 +74,6 @@ function SectionsPane() {
   const [onNodeDrag, onNodeDragStop, onSelectionDrag, onSelectionDragStop] =
     useDragIntoDeck(reactFlowRef);
 
-  function onSelectionChange(v) {
-    // setActiveSections(v.nodes.map((x) => x.id));
-  }
-
   return (
     <ReactFlow
       ref={reactFlowRef}
@@ -102,9 +94,6 @@ function SectionsPane() {
       onNodeDragStop={onNodeDragStop}
       onSelectionDrag={onSelectionDrag}
       onSelectionDragStop={onSelectionDragStop}
-      onSelectionChange={onSelectionChange}
-      deleteKeyCode={null}
-      multiSelectionKeyCode={MULTI_SELECT_KEY}
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}

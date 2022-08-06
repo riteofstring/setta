@@ -1,5 +1,4 @@
 import { action, createStore, persist } from "easy-peasy";
-import activeSections from "models/activeSections";
 import auth from "models/auth";
 import cliSocket from "models/cliSocket";
 import factoriesInfo from "models/factoriesInfo";
@@ -42,7 +41,6 @@ const store = createStore(
       uiEditor: uiEditor,
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
-      activeSections: activeSections,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

@@ -2,7 +2,6 @@ import { createAllInfo } from "classes/infoFactory";
 import { SectionInfo } from "classes/mutableInfo";
 import { action, debug, thunk } from "easy-peasy";
 import { getNewUIType } from "hooks/useUIType";
-
 import _ from "lodash";
 import {
   DEFAULT_DEFAULT,
@@ -18,6 +17,7 @@ const master = {
   allObjInfo: null,
   allObjCollections: null,
   allParamCollections: null,
+  activeSection: null,
 
   // actions
   // Load DATA
@@ -57,6 +57,10 @@ const master = {
     action.initProjectDefaults(projectDefaults);
     action.initSectionUITypes(uiData.uiTypes);
     action.initSections(uiData.sections);
+  }),
+
+  setActiveSection: action((state, payload) => {
+    state.activeSection = payload;
   }),
 
   initDefaultDefaults: thunk((action, payload, helpers) => {
