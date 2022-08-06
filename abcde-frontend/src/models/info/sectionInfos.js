@@ -84,23 +84,6 @@ const sectionInfos = {
     actions.setChildrenInfo({ childrenInfoId, newStateFn });
   }),
 
-  moveChildThunk: thunk((actions, payload) => {
-    const { oldParentId, newParentId, childId, newIndex } = payload;
-
-    actions.setIdsOverviewThunk({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== childId),
-    });
-    actions.setIdsOverviewThunk({
-      sectionId: newParentId,
-      newStateFn: (x) => [
-        ...x.slice(0, newIndex),
-        childId,
-        ...x.slice(newIndex, x.length),
-      ],
-    });
-  }),
-
   export() {
     return {
       sectionInfos: exportState(this),
