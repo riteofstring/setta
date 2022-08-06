@@ -19,7 +19,7 @@ export default function ManyNestedSections({
   };
 
   return (
-    <DNDSortable items={childIds} setItems={setChildren}>
+    <DNDSortable sectionId={sectionId} items={childIds} setItems={setChildren}>
       <HStack alignItems="stretch">
         {!isDeck && (
           <Box

@@ -64,7 +64,7 @@ export default React.memo(SectionContainer, (prev, next) => {
 function Container(props) {
   const { isDeck, sectionId, parentId, dragListeners } = props;
   const refForPosition = useSetSectionPosition(sectionId);
-  const ctrlPressed = useKeyPress("Control");
+  const ctrlPressed = useKeyPress(["Control", "Alt"]);
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
