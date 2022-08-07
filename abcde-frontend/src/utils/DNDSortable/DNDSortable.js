@@ -13,16 +13,13 @@ export function DNDSortable({ sectionId, items, ...props }) {
 
   function disableSort({ active }) {
     const sortableInfo = active?.data.current.sortable;
-    if (!sortableInfo) {
-      return;
-    }
     if (
       //The currently dragged section is a child of this section
-      (isMovingFree && sortableInfo.containerId === sectionId) ||
+      (isMovingFree && sortableInfo?.containerId === sectionId) ||
       //The currently dragged section is this section (e.g. a deck)
       (isMovingFree && active.id === sectionId) ||
       //The currently dragged section is not a child of this section
-      (isSorting && sortableInfo.containerId !== sectionId)
+      (isSorting && sortableInfo?.containerId !== sectionId)
     ) {
       setDisabled(true);
     }
