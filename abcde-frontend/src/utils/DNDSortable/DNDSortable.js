@@ -3,26 +3,26 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useDragActivation } from "hooks/useDragActivation";
 import { useState } from "react";
-import { useKeyPress } from "react-flow-renderer";
 
 export function DNDSortable({ sectionId, items, ...props }) {
-  const isSorting = useKeyPress("Control");
-  const isMovingOut = useKeyPress("Alt");
+  const { isSorting, isMovingFree } = useDragActivation();
   const [disabled, setDisabled] = useState(false);
   const [highlight, setHighlight] = useState(false);
 
   function disableSort({ active }) {
-    if (!active) {
+    const sortableInfo = active?.data.current.sortable;
+    if (!sortableInfo) {
       return;
     }
     if (
       //The currently dragged section is a child of this section
-      (isMovingOut && active.data.current.sortable.containerId === sectionId) ||
+      (isMovingFree && sortableInfo.containerId === sectionId) ||
       //The currently dragged section is this section (e.g. a deck)
-      (isMovingOut && active.id === sectionId) ||
+      (isMovingFree && active.id === sectionId) ||
       //The currently dragged section is not a child of this section
-      (isSorting && active.data.current.sortable.containerId !== sectionId)
+      (isSorting && sortableInfo.containerId !== sectionId)
     ) {
       setDisabled(true);
     }
@@ -35,7 +35,7 @@ export function DNDSortable({ sectionId, items, ...props }) {
 
   function highlightArea({ active, over }) {
     if (
-      isMovingOut &&
+      isMovingFree &&
       over?.data?.current?.sortable?.containerId === sectionId &&
       active.id !== sectionId // Can't drop a deck into itself
     ) {

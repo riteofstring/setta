@@ -2,11 +2,11 @@ import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
+import { useDragActivation } from "hooks/useDragActivation";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
-import { useKeyPress } from "react-flow-renderer";
 import { DECK } from "utils/constants";
 
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
@@ -72,14 +72,18 @@ function Container(props) {
       data: { depth },
     });
   const refForPosition = useSetSectionPosition(sectionId);
-  const dragKeyActivated = useKeyPress(["Control", "Alt"]);
-  const isDraggingSortable = parentId && dragKeyActivated;
+  const { isSorting, isMovingFree } = useDragActivation();
+  const isDraggingSortable = parentId && (isSorting || isMovingFree);
+  const isDraggingTopLevel = depth === 0 && isMovingFree;
   let trueDragListeners = {};
   if (isDraggingSortable) {
     trueDragListeners = dragListeners;
-  } else if (depth === 0) {
+  } else if (isDraggingTopLevel) {
     trueDragListeners = topLevelDragListeners;
   }
+
+  // Don't want the react-flow node (which contains this child)
+  // to move when sorting
   const className = isDraggingSortable ? "nodrag" : "";
 
   function totalRef(e) {

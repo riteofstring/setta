@@ -6,9 +6,9 @@ import {
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useStoreActions } from "easy-peasy";
+import { useDragActivation } from "hooks/useDragActivation";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useKeyPress } from "react-flow-renderer";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
 
@@ -36,8 +36,7 @@ export function GlobalDndContext(props) {
     (x) => x.sectionInfos.setSectionInfoAttr
   );
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
-  const isSorting = useKeyPress("Control");
-  const isMovingOut = useKeyPress("Alt");
+  const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
 
   function onDragStart({ active }) {
@@ -74,7 +73,7 @@ export function GlobalDndContext(props) {
           sectionId: activeContainer,
           newStateFn: updateWithArrayMove(active, over),
         });
-      } else if (isMovingOut && activeContainer !== overContainer) {
+      } else if (isMovingFree && activeContainer !== overContainer) {
         let newIndex;
         if (overContainer) {
           newIndex = getNewIndex(active, over);
@@ -94,7 +93,7 @@ export function GlobalDndContext(props) {
   }
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
-  const collisionDetection = isMovingOut ? rectIntersection : closestCorners;
+  const collisionDetection = isMovingFree ? rectIntersection : closestCorners;
 
   return (
     <DndContext
