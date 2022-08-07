@@ -32,6 +32,9 @@ export function GlobalDndContext(props) {
   const setIdsOverviewThunk = useStoreActions(
     (x) => x.sectionInfos.setIdsOverviewThunk
   );
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
+  );
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
   const isSorting = useKeyPress("Control");
   const isMovingOut = useKeyPress("Alt");
@@ -42,35 +45,51 @@ export function GlobalDndContext(props) {
   }
 
   function onDragEnd({ active, over }) {
+    console.log("onDragEnd");
     if (!active || !over) {
       return;
     }
 
-    const activeContainer = active.data.current.sortable.containerId;
-    let overContainer = over.data.current?.sortable.containerId;
-    if (
-      isSorting &&
-      activeContainer === overContainer &&
-      active.id !== over.id
-    ) {
+    const sortableInfo = active.data.current.sortable;
+    if (!sortableInfo) {
+      const overContainer = over.id;
       setIdsOverviewThunk({
-        sectionId: activeContainer,
-        newStateFn: updateWithArrayMove(active, over),
+        sectionId: overContainer,
+        newStateFn: () => [active.id],
       });
-    } else if (isMovingOut && activeContainer !== overContainer) {
-      let newIndex;
-      if (overContainer) {
-        newIndex = getNewIndex(active, over);
-      } else {
-        overContainer = over.id;
-        newIndex = 0;
+      setSectionInfoAttr({
+        sectionId: active.id,
+        attr: "isTopLevel",
+        value: false,
+      });
+    } else {
+      const activeContainer = sortableInfo.containerId;
+      let overContainer = over.data.current?.sortable.containerId;
+      if (
+        isSorting &&
+        activeContainer === overContainer &&
+        active.id !== over.id
+      ) {
+        setIdsOverviewThunk({
+          sectionId: activeContainer,
+          newStateFn: updateWithArrayMove(active, over),
+        });
+      } else if (isMovingOut && activeContainer !== overContainer) {
+        let newIndex;
+        if (overContainer) {
+          newIndex = getNewIndex(active, over);
+        } else {
+          // else its a droppable (e.g. an empty deck)
+          overContainer = over.id;
+          newIndex = 0;
+        }
+        moveChildThunk({
+          oldParentId: activeContainer,
+          newParentId: overContainer,
+          childId: active.id,
+          newIndex,
+        });
       }
-      moveChildThunk({
-        oldParentId: activeContainer,
-        newParentId: overContainer,
-        childId: active.id,
-        newIndex,
-      });
     }
   }
 
@@ -86,12 +105,14 @@ export function GlobalDndContext(props) {
       modifiers={modifiers}
     >
       {props.children}
-      {createPortal(
-        <DragOverlay>
-          {active?.id ? <DummySection zoom={active.data.current.zoom} /> : null}
-        </DragOverlay>,
-        document.body
-      )}
+      {active?.id &&
+        active.data.current.depth !== 0 &&
+        createPortal(
+          <DragOverlay>
+            <DummySection zoom={active.data.current.zoom} />
+          </DragOverlay>,
+          document.body
+        )}
     </DndContext>
   );
 }

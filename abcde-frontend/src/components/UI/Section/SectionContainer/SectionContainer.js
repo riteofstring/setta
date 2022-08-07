@@ -1,6 +1,6 @@
 import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -33,6 +33,7 @@ function SectionContainer({
       parentId={parentId}
       hasNested={hasNested}
       dragListeners={dragListeners}
+      depth={depth}
     >
       {!isDeck && (
         <SectionContainerCore
@@ -62,18 +63,32 @@ export default React.memo(SectionContainer, (p, n) => {
 });
 
 function Container(props) {
-  const { isDeck, sectionId, parentId, dragListeners, hasNested } = props;
-  const { setNodeRef } = useDroppable({ id: sectionId });
+  const { isDeck, sectionId, parentId, dragListeners, hasNested, depth } =
+    props;
+  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
+  const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
+    useDraggable({
+      id: sectionId,
+      data: { depth },
+    });
   const refForPosition = useSetSectionPosition(sectionId);
-  const ctrlPressed = useKeyPress(["Control", "Alt"]);
-  const isDraggingChild = parentId && ctrlPressed;
-  const trueDragListeners = isDraggingChild ? dragListeners : {};
-  const className = isDraggingChild ? "nodrag" : "";
+  const dragKeyActivated = useKeyPress(["Control", "Alt"]);
+  const isDraggingSortable = parentId && dragKeyActivated;
+  let trueDragListeners = {};
+  if (isDraggingSortable) {
+    trueDragListeners = dragListeners;
+  } else if (depth === 0) {
+    trueDragListeners = topLevelDragListeners;
+  }
+  const className = isDraggingSortable ? "nodrag" : "";
 
   function totalRef(e) {
     refForPosition.current = e;
     if (isDeck && !hasNested) {
-      setNodeRef(e);
+      droppableRef(e);
+    }
+    if (depth === 0) {
+      draggableRef(e);
     }
   }
 
