@@ -87,10 +87,19 @@ const sectionInfos = {
   moveChildThunk: thunk((actions, payload) => {
     const { oldParentId, newParentId, childId, newIndex } = payload;
 
-    actions.setIdsOverviewThunk({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== childId),
-    });
+    if (oldParentId) {
+      actions.setIdsOverviewThunk({
+        sectionId: oldParentId,
+        newStateFn: (x) => x.filter((y) => y !== childId),
+      });
+    } else {
+      // This means it was a top level section
+      actions.setSectionInfoAttr({
+        sectionId: childId,
+        attr: "isTopLevel",
+        value: false,
+      });
+    }
     actions.setIdsOverviewThunk({
       sectionId: newParentId,
       newStateFn: (x) => [

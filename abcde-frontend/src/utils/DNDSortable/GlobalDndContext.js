@@ -32,9 +32,6 @@ export function GlobalDndContext(props) {
   const setIdsOverviewThunk = useStoreActions(
     (x) => x.sectionInfos.setIdsOverviewThunk
   );
-  const setSectionInfoAttr = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttr
-  );
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
   const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
@@ -44,51 +41,38 @@ export function GlobalDndContext(props) {
   }
 
   function onDragEnd({ active, over }) {
-    console.log("onDragEnd");
     if (!active || !over) {
       return;
     }
-
-    const sortableInfo = active.data.current.sortable;
-    if (!sortableInfo) {
-      const overContainer = over.id;
+    const activeContainer = active.data.current.sortable?.containerId;
+    let overContainer = over.data.current?.sortable.containerId;
+    const overIsSortable = !!overContainer;
+    if (!overContainer) {
+      overContainer = over.id;
+    }
+    if (
+      isSorting &&
+      activeContainer === overContainer &&
+      active.id !== over.id
+    ) {
       setIdsOverviewThunk({
-        sectionId: overContainer,
-        newStateFn: () => [active.id],
+        sectionId: activeContainer,
+        newStateFn: updateWithArrayMove(active, over),
       });
-      setSectionInfoAttr({
-        sectionId: active.id,
-        attr: "isTopLevel",
-        value: false,
-      });
-    } else {
-      const activeContainer = sortableInfo.containerId;
-      let overContainer = over.data.current?.sortable.containerId;
-      if (
-        isSorting &&
-        activeContainer === overContainer &&
-        active.id !== over.id
-      ) {
-        setIdsOverviewThunk({
-          sectionId: activeContainer,
-          newStateFn: updateWithArrayMove(active, over),
-        });
-      } else if (isMovingFree && activeContainer !== overContainer) {
-        let newIndex;
-        if (overContainer) {
-          newIndex = getNewIndex(active, over);
-        } else {
-          // else its a droppable (e.g. an empty deck)
-          overContainer = over.id;
-          newIndex = 0;
-        }
-        moveChildThunk({
-          oldParentId: activeContainer,
-          newParentId: overContainer,
-          childId: active.id,
-          newIndex,
-        });
+    } else if (isMovingFree && activeContainer !== overContainer) {
+      let newIndex;
+      if (overIsSortable) {
+        newIndex = getNewIndex(active, over);
+      } else {
+        // else its a droppable (e.g. an empty deck)
+        newIndex = 0;
       }
+      moveChildThunk({
+        oldParentId: activeContainer,
+        newParentId: overContainer,
+        childId: active.id,
+        newIndex,
+      });
     }
   }
 
