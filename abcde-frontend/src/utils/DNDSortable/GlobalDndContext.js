@@ -44,12 +44,19 @@ export function GlobalDndContext(props) {
     if (!active || !over) {
       return;
     }
+
     const activeContainer = active.data.current.sortable?.containerId;
     let overContainer = over.data.current?.sortable.containerId;
     const overIsSortable = !!overContainer;
     if (!overContainer) {
       overContainer = over.id;
     }
+
+    // can't drop section into itself
+    if (active.id === overContainer) {
+      return;
+    }
+
     if (
       isSorting &&
       activeContainer === overContainer &&
