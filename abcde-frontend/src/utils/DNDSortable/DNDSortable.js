@@ -36,8 +36,7 @@ export function DNDSortable({ sectionId, items, ...props }) {
   function highlightArea({ active, over }) {
     if (
       isMovingOut &&
-      over &&
-      over.data.current.sortable.containerId === sectionId &&
+      over?.data?.current?.sortable?.containerId === sectionId &&
       active.id !== sectionId // Can't drop a deck into itself
     ) {
       setHighlight(true);

@@ -47,7 +47,7 @@ export function GlobalDndContext(props) {
     }
 
     const activeContainer = active.data.current.sortable.containerId;
-    const overContainer = over.data.current.sortable.containerId;
+    let overContainer = over.data.current?.sortable.containerId;
     if (
       isSorting &&
       activeContainer === overContainer &&
@@ -58,7 +58,13 @@ export function GlobalDndContext(props) {
         newStateFn: updateWithArrayMove(active, over),
       });
     } else if (isMovingOut && activeContainer !== overContainer) {
-      const newIndex = getNewIndex(active, over);
+      let newIndex;
+      if (overContainer) {
+        newIndex = getNewIndex(active, over);
+      } else {
+        overContainer = over.id;
+        newIndex = 0;
+      }
       moveChildThunk({
         oldParentId: activeContainer,
         newParentId: overContainer,

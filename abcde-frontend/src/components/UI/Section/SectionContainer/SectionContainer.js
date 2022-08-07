@@ -1,5 +1,6 @@
 import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
+import { useDroppable } from "@dnd-kit/core";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -30,6 +31,7 @@ function SectionContainer({
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
+      hasNested={hasNested}
       dragListeners={dragListeners}
     >
       {!isDeck && (
@@ -60,13 +62,22 @@ export default React.memo(SectionContainer, (p, n) => {
 });
 
 function Container(props) {
-  const { isDeck, sectionId, parentId, dragListeners } = props;
+  const { isDeck, sectionId, parentId, dragListeners, hasNested } = props;
+  const { setNodeRef } = useDroppable({ id: sectionId });
   const refForPosition = useSetSectionPosition(sectionId);
   const ctrlPressed = useKeyPress(["Control", "Alt"]);
   const isDraggingChild = parentId && ctrlPressed;
   const trueDragListeners = isDraggingChild ? dragListeners : {};
   const className = isDraggingChild ? "nodrag" : "";
-  const commonProps = { ref: refForPosition, ...trueDragListeners, className };
+
+  function totalRef(e) {
+    refForPosition.current = e;
+    if (isDeck && !hasNested) {
+      setNodeRef(e);
+    }
+  }
+
+  const commonProps = { ref: totalRef, ...trueDragListeners, className };
 
   return (
     <>
