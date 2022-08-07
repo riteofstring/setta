@@ -88,7 +88,7 @@ function Container(props) {
 
   function totalRef(e) {
     refForPosition.current = e;
-    if (isDeck && !hasNested) {
+    if (isDeck && !hasNested && !isSorting) {
       droppableRef(e);
     }
     if (depth === 0) {
