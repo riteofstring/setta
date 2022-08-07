@@ -9,6 +9,7 @@ import { useStoreActions } from "easy-peasy";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
 
@@ -41,15 +42,15 @@ export function GlobalDndContext(props) {
   }
 
   function onDragEnd({ active, over }) {
-    if (!active || !over) {
+    if (!active) {
       return;
     }
 
     const activeContainer = active.data.current.sortable?.containerId;
-    let overContainer = over.data.current?.sortable.containerId;
+    let overContainer = over?.data.current?.sortable.containerId;
     const overIsSortable = !!overContainer;
     if (!overContainer) {
-      overContainer = over.id;
+      overContainer = over ? over.id : PANEID;
     }
 
     // can't drop section into itself

@@ -70,7 +70,7 @@ function SectionsPane() {
     closeNodeCtxMenu,
     closeCtxMenus,
   ] = useAllContextMenus();
-  
+
   return (
     <GlobalDndContext>
       <ReactFlow
