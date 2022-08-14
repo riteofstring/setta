@@ -9,7 +9,7 @@ import { sectionIdFromName } from "__tests__utils/utils";
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = require("resize-observer-polyfill");
 
-test("Tab away from Overview", async () => {
+test("Tabbing away from Overview should focus onto a section when UI config is closed", async () => {
   createMainContainer();
   const overviewSearch = getOverviewSearch();
   overviewSearch.focus();
@@ -19,7 +19,7 @@ test("Tab away from Overview", async () => {
   expect(modelSectionTitle).toHaveFocus();
 });
 
-test("Overview search", async () => {
+test("Overview listing should be filtered by text in search bar", async () => {
   const { store } = createMainContainer();
   const overviewSearch = getOverviewSearch();
 
@@ -58,7 +58,7 @@ test("Jump to section", async () => {
   ]);
 });
 
-test("Unique section name constraint", async () => {
+test("Section names should be unique among siblings.", async () => {
   createMainContainer();
   let sectionTitle = screen.getByDisplayValue("Optimizer");
   await userEvent.clear(sectionTitle);

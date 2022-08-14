@@ -11,7 +11,7 @@ import {
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
 
-test("useGetParamUIType", () => {
+test("Create a section with a parameter that has a UI type. Then useGetParamUIType should return the correct uiType for that parameter.", () => {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
   const { si, uiType, paramInfoId } = createSectionInfoWithParam(
@@ -24,7 +24,21 @@ test("useGetParamUIType", () => {
 });
 
 test.each(useSetUITypeTestCases())(
-  "useSetUIType: isPreset=%s, settingPreset=%s, paramIsNested=%s, settingSectionConfig=%s",
+  `Test the following:
+1. Create section with parameter and uiType (call this "uiType1"). If param is nested, then useGetSectionType(param) should return the uiType.
+2. Add a new uiType ("uiType2").
+3. Make the existing param use "uiType2" via the useSetUIType hook.
+4. useGetParamUIType should now return "uiType2"
+5. Change the config of the param's uiType, via the useSetUIType hook.
+6. Confirm that the param's current uiType has this config, via the useGetParamUIType hook.
+7. If "uiType2" is a preset, and settingPreset is true, then "uiType2" should have this new config.
+8. Also, if "uiType2" is *not* a preset, then it should also have this new config.
+9. Otherwise, if "uiType2" is a preset but settingPreset is false, then it does not have the new config.
+10. If step 9 is true, then there is a new uiType ("uiType3") with a default name "SomeParam".
+11. If the param is nested, it's section type should be either uiType2 or uiType3, but not uiType1.
+Trying setting: isPreset=%s, settingPreset=%s, paramIsNested=%s, settingSectionConfig=%s
+
+`,
   (isPreset, settingPreset, paramIsNested, settingSectionConfig) => {
     testUseSetUIType(
       isPreset,

@@ -11,7 +11,7 @@
     "@emotion/react": "11",
     "@emotion/styled": "11",
     "@fontsource/inter": "4.5.7",
-    "@fontsource/jetbrains-mono": "^4.5.10",
+    "@fontsource/jetbrains-mono": "4.5.10",
     "@fontsource/work-sans": "4.5.7",
     "@monaco-editor/react": "4.0.10",
     "@testing-library/jest-dom": "5.16.4",
