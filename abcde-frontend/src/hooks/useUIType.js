@@ -1,11 +1,10 @@
-import { UIType } from "classes/uiType";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { createNewId, defaultState } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
-  isRoot,
+  isListLike,
   rootTypeToChildType,
   SECTION,
   SET_FROM_SIDEPANE,
@@ -32,30 +31,42 @@ function setChildUITypeConfig(uiType, props, setConfig) {
   }
 }
 
-function useSetUITypeConfig(defaultName, uiType, settingPreset, setUITypeId) {
+function shouldCloneUIType(uiType, settingPreset) {
+  // uiType is a preset, and we're not in "settingPreset" mode
+  const isPresetNotSettingPreset = uiType.isPreset && !settingPreset;
+  // The uiType is a list element (a child of a list root).
+  // Changing its config shouldn't affect its siblings.
+  // Plus it should become indepedent from the root config.
+  const isList = isListLike(uiType.config.subType);
+  return isPresetNotSettingPreset || isList;
+}
+
+function useSetUITypeConfig(
+  defaultName,
+  uiType,
+  settingPreset,
+  originInfoId,
+  setUITypeId
+) {
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   return (props) => {
     // If it's a preset but we're not "saving as", then
     // copy into a non-preset ui type.
     let maybeNewUIType = uiType;
-    if (uiType.isPreset && !settingPreset) {
-      maybeNewUIType = cloneNewUIType({ uiType, name: defaultName });
+    if (shouldCloneUIType(uiType, settingPreset)) {
+      maybeNewUIType = cloneNewUIType({
+        uiType,
+        name: defaultName,
+        originInfoId,
+      });
       setUIType({ uiType: maybeNewUIType });
       setUITypeId(maybeNewUIType.id);
     }
     setConfig({ uiTypeId: maybeNewUIType.id, ...props });
-    setChildUITypeConfig(maybeNewUIType, props, setConfig);
-  };
-}
 
-function useSetNewIdDeleteOld(currUIType, setUITypeId) {
-  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
-  return (newId) => {
-    setUITypeId(newId);
-    if (!currUIType.isPreset) {
-      deleteUIType({ uiTypeId: currUIType.id });
-    }
+    // Changing a root config should also change its child config
+    setChildUITypeConfig(maybeNewUIType, props, setConfig);
   };
 }
 
@@ -70,10 +81,10 @@ export function useSetUIType({
 }) {
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(childId);
-  const setUITypeId = useSetNewIdDeleteOld(
-    currUIType,
-    settingSectionConfig ? setSectionUITypeId : setParamUITypeId
-  );
+  const setUITypeId = settingSectionConfig
+    ? setSectionUITypeId
+    : setParamUITypeId;
+  const originInfoId = settingSectionConfig ? childId : paramInfoId;
 
   const setOtherId = (newId) => {
     if (settingSectionConfig && paramInfoId) {
@@ -92,6 +103,7 @@ export function useSetUIType({
     defaultName,
     currUIType,
     settingPreset,
+    originInfoId,
     _setUITypeId
   );
 
@@ -112,25 +124,20 @@ function useGlobalDefaultUIType(paramType) {
   return useStoreState((x) => x.uiTypes.x[uiTypeId]);
 }
 
-export function getNewUIType({ id, ...props }) {
-  return new UIType({
-    id: id ? id : createNewId(),
-    ...props,
-  });
-}
-
 export function cloneNewUIType({
   uiType,
   name = "",
   config,
   origin = SET_FROM_SIDEPANE,
   isPreset = false,
+  originInfoId,
 }) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
   newUIType.name = name;
   newUIType.origin = origin;
   newUIType.isPreset = isPreset;
+  newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {
     newUIType.config = config;
   }
@@ -167,10 +174,13 @@ function cloneRootUIType(parentUIType) {
 }
 
 function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
+  // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
     return childUITypeId;
   }
+
+  // Otherwise, a child ui type needs to be created
   const newUIType = cloneRootUIType(parentUIType);
   const id = newUIType.id;
   setOneConfig({
@@ -190,11 +200,20 @@ export function useGetChildUITypeId() {
     if (uiTypeId) {
       return uiTypeId;
     }
-    if (isRoot(parentUIType.type)) {
-      return getChildUITypeId(parentUIType, setUIType, setOneConfig);
-    }
-    const newUIType = getNewUIType({});
-    setUIType({ uiType: newUIType });
-    return newUIType.id;
+    return getChildUITypeId(parentUIType, setUIType, setOneConfig);
   };
 }
+
+// Root sections and child behavior:
+
+// ##### Root controlling children #####
+// The first child section causes a new ui type to be created.
+// This new ui type id is added to the root ui type's config as "childUITypeId".
+// All future child sections now use this childUITypeId.
+// So the default is that all children use the same ui type.
+// Whenever the root config changes, the child config also changes.
+// Because all the children are using the same ui type, all children's configs changes when the root config changes.
+
+// ##### Children becoming independent #####
+// Modifying a child's config makes it become independent of the root and the siblings.
+// So now if you modify the root config, the independent child is not affected.

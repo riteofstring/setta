@@ -35,13 +35,7 @@ const UiPage = () => {
   };
 
   useEffect(() => {
-    console.log(
-      "UiPage, isAuthenticated, isNewSession",
-      isAuthenticated,
-      isNewSession
-    );
     if (NO_AUTH && isAuthenticated && isNewSession) {
-      console.log("****loadSections****");
       loadSections(loadTestData());
     }
     // } else {

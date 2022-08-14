@@ -11,6 +11,7 @@
     "@emotion/react": "11",
     "@emotion/styled": "11",
     "@fontsource/inter": "4.5.7",
+    "@fontsource/jetbrains-mono": "4.5.10",
     "@fontsource/work-sans": "4.5.7",
     "@monaco-editor/react": "4.0.10",
     "@testing-library/jest-dom": "5.16.4",
@@ -44,8 +45,6 @@
     "start": "react-scripts start",
     "sna": "SET REACT_APP_NO_AUTH=true&&yarn start",
     "snancm": "SET REACT_APP_NO_AUTH=true&&SET REACT_APP_NO_CONTEXT_MENU=true&&yarn start",
-    "snamac": "REACT_APP_NO_AUTH=true yarn start",
-    "snancmmac": "REACT_APP_NO_AUTH=true REACT_APP_NO_CONTEXT_MENU=true yarn start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
