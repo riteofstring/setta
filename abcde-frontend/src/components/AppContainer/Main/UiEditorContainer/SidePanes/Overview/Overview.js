@@ -28,7 +28,6 @@ export default function Overview() {
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useDeepCompareEffect(() => {
-    console.log("Overview useEffect");
     setSectionList(
       getOverviewListing([topLevelSectionIds], currChildren, idNames)
     );
