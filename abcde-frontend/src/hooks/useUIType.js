@@ -1,11 +1,9 @@
-import { UIType } from "classes/uiType";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { createNewId, defaultState } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
-  isRoot,
   rootTypeToChildType,
   SECTION,
   SET_FROM_SIDEPANE,
@@ -101,13 +99,6 @@ function useGlobalDefaultUIType(paramType) {
   return useStoreState((x) => x.uiTypes.x[uiTypeId]);
 }
 
-export function getNewUIType({ id, ...props }) {
-  return new UIType({
-    id: id ? id : createNewId(),
-    ...props,
-  });
-}
-
 export function cloneNewUIType({
   uiType,
   name = "",
@@ -179,11 +170,6 @@ export function useGetChildUITypeId() {
     if (uiTypeId) {
       return uiTypeId;
     }
-    if (isRoot(parentUIType.type)) {
-      return getChildUITypeId(parentUIType, setUIType, setOneConfig);
-    }
-    const newUIType = getNewUIType({});
-    setUIType({ uiType: newUIType });
-    return newUIType.id;
+    return getChildUITypeId(parentUIType, setUIType, setOneConfig);
   };
 }
