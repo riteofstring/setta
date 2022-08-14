@@ -22,7 +22,6 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
-    console.log("master payload", payload);
     ({
       allPackageInfo: state.allPackageInfo,
       allModuleInfo: state.allModuleInfo,
@@ -30,10 +29,6 @@ const master = {
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));
-
-    console.log("allPackageInfo", debug(state.allPackageInfo));
-    console.log("allObjCollections", debug(state.allObjCollections));
-    console.log("allParamCollections", debug(state.allParamCollections));
   }),
 
   loadSections: thunk((action, payload) => {

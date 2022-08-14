@@ -4,9 +4,13 @@ import { useParamEnteredValue } from "hooks/useEnteredValue";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
+import {
+  useGetParamUIType,
+  useInitializeUIType,
+  useSetUIType,
+} from "hooks/useUIType";
 import _ from "lodash";
-import { LIST_ROOT, requiresNestedSection } from "utils/constants";
+import { LIST_ROOT, requiresNestedSection, SLIDER } from "utils/constants";
 import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import {
   addParamInfo,
@@ -105,10 +109,12 @@ function testUseSetUIType(
     expect(result.current).toEqual(uiType);
   }
 
+  // defaultName is the default for the newly created ui type
+  const defaultName = "SomeParam";
   const hookProps = {
     sectionId: si.id,
     paramInfoId,
-    defaultName: "SomeParam",
+    defaultName,
     childId,
     currUIType: uiType,
     settingPreset,
@@ -117,9 +123,16 @@ function testUseSetUIType(
 
   ({ result } = renderUseSetUIType(hookProps, wrapper));
 
-  // test setting ui type id
-  const newUIType = addUIType(store, { isPreset: newUITypeIsPreset });
+  // create new ui type
+  const newUITypeName = "TheBestSlider";
+  const newUIType = addUIType(store, {
+    isPreset: newUITypeIsPreset,
+    name: newUITypeName,
+    type: SLIDER,
+  });
   expect(uiType.id).not.toEqual(newUIType.id);
+
+  // test setting ui type id
   act(() => result.current[0](newUIType.id));
 
   // get ui type
@@ -141,8 +154,10 @@ function testUseSetUIType(
   } = renderUseGetParamUIType(si.id, paramInfoId, wrapper);
   expect(currentParamUIType.config).toEqual({ maxValue: 634 });
 
+  // uiType has no name.
+  // newUIType was initialized with the name "TheBestSlider"
   expect(uiType.name).toEqual("");
-  expect(newUIType.name).toEqual("");
+  expect(newUIType.name).toEqual(newUITypeName);
 
   const newUITypeConfig = store.getState().uiTypes.x[newUIType.id].config;
   // check if newUIType.config is changed
@@ -156,7 +171,7 @@ function testUseSetUIType(
   // name should only be set if existing type was preset
   // and config was changed when settingPreset is false
   expect(currentParamUIType.name).toEqual(
-    isPresetNotSettingPreset ? "SomeParam" : ""
+    isPresetNotSettingPreset ? defaultName : newUITypeName
   );
 
   // uiType and newUIType exist, plus one more
@@ -196,10 +211,16 @@ function testUITypeHistory() {
     store.getState().master.allParamCollections.children[paramCollectionId];
 
   // get the parameter we are going to test on
-  const { id: paramInfoId, name: paramName } = _.filter(
+  const paramInfo = _.filter(
     variousParams.children,
     (v) => v.name === "dataset_root"
   )[0];
+  const { id: paramInfoId, name: paramName } = paramInfo;
+
+  // initialize paramInfo's uiType
+  // This is usually done in ParamContainer when the parameter loads
+  ({ result } = renderUseInitializeUIType(sectionId, paramInfo, wrapper));
+  act(() => result.current());
 
   // get the param's initial uiType
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
@@ -221,13 +242,15 @@ function testUITypeHistory() {
   expect(result.current[0]).toEqual([]);
 
   // Add a list root ui type
-  const listRootUIType = addUIType(store, { type: LIST_ROOT });
+  const listRootUIType = addUIType(store, { type: LIST_ROOT, isPreset: false });
+  // Sanity check: the uiType should be in the state
+  expect(store.getState().uiTypes.x[listRootUIType.id]).toEqual(listRootUIType);
 
   // Props that are constant in this test
   const propsForSetUIType = {
     sectionId,
     paramInfoId,
-    defaultName: "",
+    defaultName: paramName,
     childId: null,
     settingSectionConfig: false,
   };
@@ -279,6 +302,10 @@ function testUITypeHistory() {
   ));
   act(() => result.current[0](initialUIType.id));
 
+  // The listRootUIType should still exist
+  expect(listRootUIType.id).toBeTruthy();
+  expect(store.getState().uiTypes.x[listRootUIType.id]).toEqual(listRootUIType);
+
   // Current num children should be 0 again
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
   expect(result.current[0]).toEqual([]);
@@ -294,9 +321,15 @@ function testUITypeHistory() {
   ));
   act(() => result.current[0](listRootUIType.id));
 
-  // // The only child should be the ORIGINAL paramChildId
-  // ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  // expect(result.current[0]).toEqual([paramChildId]);
+  // The only child should be the ORIGINAL paramChildId
+  ({ result } = renderUseIdsOverview(sectionId, wrapper));
+  expect(result.current[0]).toEqual([paramChildId]);
+}
+
+function renderUseInitializeUIType(sectionId, paramInfo, wrapper) {
+  return renderHook(() => useInitializeUIType(sectionId)(paramInfo), {
+    wrapper,
+  });
 }
 
 function renderUseAddChild(sectionId, wrapper) {
