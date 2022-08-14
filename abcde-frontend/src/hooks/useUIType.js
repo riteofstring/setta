@@ -84,7 +84,11 @@ export function useSetUIType({
   const setUITypeId = settingSectionConfig
     ? setSectionUITypeId
     : setParamUITypeId;
-  const originInfoId = settingSectionConfig ? childId : paramInfoId;
+  const originInfoId = createOriginInfoId({
+    settingSectionConfig,
+    childId,
+    paramInfoId,
+  });
 
   const setOtherId = (newId) => {
     if (settingSectionConfig && paramInfoId) {
@@ -164,16 +168,25 @@ export function useInitializeUIType(sectionId) {
   };
 }
 
-function cloneRootUIType(parentUIType) {
+function cloneRootUIType(parentUIType, parentSectionId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.isPreset = false;
+  uiType.originInfoId = createOriginInfoId({
+    isChildOfRoot: true,
+    rootSectionId: parentSectionId,
+  });
   return uiType;
 }
 
-function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
+function getChildUITypeId(
+  parentUIType,
+  parentSectionId,
+  setUIType,
+  setOneConfig
+) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
@@ -181,7 +194,7 @@ function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
   }
 
   // Otherwise, a child ui type needs to be created
-  const newUIType = cloneRootUIType(parentUIType);
+  const newUIType = cloneRootUIType(parentUIType, parentSectionId);
   const id = newUIType.id;
   setOneConfig({
     uiTypeId: parentUIType.id,
@@ -196,12 +209,33 @@ export function useGetChildUITypeId() {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
 
-  return (uiTypeId, parentUIType) => {
+  return (uiTypeId, parentUIType, parentSectionId) => {
     if (uiTypeId) {
       return uiTypeId;
     }
-    return getChildUITypeId(parentUIType, setUIType, setOneConfig);
+    return getChildUITypeId(
+      parentUIType,
+      parentSectionId,
+      setUIType,
+      setOneConfig
+    );
   };
+}
+
+export function createOriginInfoId({
+  isPreset,
+  settingSectionConfig,
+  childId,
+  paramInfoId,
+  isChildOfRoot,
+  rootSectionId,
+}) {
+  if (isPreset) {
+    return null;
+  } else if (isChildOfRoot) {
+    return `${rootSectionId}:child`;
+  }
+  return settingSectionConfig ? childId : paramInfoId;
 }
 
 // Root sections and child behavior:

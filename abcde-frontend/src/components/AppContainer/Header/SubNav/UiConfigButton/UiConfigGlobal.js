@@ -15,7 +15,7 @@ import {
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { usePresetUIType } from "hooks/usePresetUIType";
-import { cloneNewUIType } from "hooks/useUIType";
+import { cloneNewUIType, createOriginInfoId } from "hooks/useUIType";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
@@ -118,7 +118,7 @@ function PresetConfig({ selectedId, setSelectedId }) {
       config: localConfig,
       origin: PROJECT_DEFAULT,
       isPreset: true,
-      originInfoId: null, // A preset shouldn't have an originInfoId
+      originInfoId: createOriginInfoId({ isPreset }),
     });
     setUIType({ uiType: newUIType });
     setSelectedId(newUIType.id);
