@@ -4,7 +4,7 @@ import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import _ from "lodash";
 import { createStore, getStoreProviderWrapper } from "__tests__utils/utils";
 
-test("useCreateDefaultSectionInfo should add a new section to sectionInfos", () => {
+test("useCreateDefaultSectionInfo", () => {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
   const { result } = renderHook(() => useCreateDefaultSectionInfo(), {

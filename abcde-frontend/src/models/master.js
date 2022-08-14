@@ -1,7 +1,7 @@
 import { createAllInfo } from "classes/infoFactory";
 import { SectionInfo } from "classes/mutableInfo";
-import { UIType } from "classes/uiType";
-import { action, thunk } from "easy-peasy";
+import { action, debug, thunk } from "easy-peasy";
+import { getNewUIType } from "hooks/useUIType";
 import _ from "lodash";
 import {
   DEFAULT_DEFAULT,
@@ -22,6 +22,7 @@ const master = {
   // actions
   // Load DATA
   _loadSections: action((state, payload) => {
+    console.log("master payload", payload);
     ({
       allPackageInfo: state.allPackageInfo,
       allModuleInfo: state.allModuleInfo,
@@ -29,6 +30,10 @@ const master = {
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,
     } = createAllInfo(payload));
+
+    console.log("allPackageInfo", debug(state.allPackageInfo));
+    console.log("allObjCollections", debug(state.allObjCollections));
+    console.log("allParamCollections", debug(state.allParamCollections));
   }),
 
   loadSections: thunk((action, payload) => {
@@ -86,7 +91,7 @@ const master = {
   }),
 
   initSectionUITypes: thunk((action, payload, helpers) => {
-    const uiTypes = _.map(payload, (x) => new UIType(x));
+    const uiTypes = _.map(payload, (x) => getNewUIType({ ...x }));
     const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
     setManyUITypes({ uiTypes });
   }),
@@ -120,13 +125,11 @@ export default master;
 
 function initDefaultHelper(payload, storeActions, storeName, origin) {
   const setManyUITypes = storeActions.uiTypes.setManyUITypes;
-  const uiTypes = _.map(
-    payload.uiTypes,
-    (x) =>
-      new UIType({
-        ...x,
-        origin,
-      })
+  const uiTypes = _.map(payload.uiTypes, (x) =>
+    getNewUIType({
+      ...x,
+      origin,
+    })
   );
   setManyUITypes({ uiTypes });
 

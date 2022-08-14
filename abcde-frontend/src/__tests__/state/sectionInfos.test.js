@@ -7,13 +7,13 @@ import {
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
 
-test("setSectionInfo should add a section to sectionInfos using the correct key (its id)", () => {
+test("setSectionInfo", () => {
   const store = createStore();
   const si = addSectionInfo(store);
   expect(store.getState().sectionInfos.x[si.id]).toBe(si);
 });
 
-test("setIdsOverviewThunk should add a child to a section's childrenInfo list", () => {
+test("setIdsOverviewThunk", () => {
   const store = createStore();
   const si = addSectionInfo(store);
   const childId = "123456";

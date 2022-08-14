@@ -1,5 +1,4 @@
 import { Flex, Heading, Link, Spacer, Text } from "@chakra-ui/react";
-import "@fontsource/jetbrains-mono/300.css";
 import { Link as RRLink } from "react-router-dom";
 
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
@@ -16,17 +15,16 @@ export default function HeaderContainer() {
         _hover={{ textDecoration: "none" }}
       >
         <Heading
-          fontSize="md"
-          letterSpacing="-1px"
-          color="gray.600"
+          fontSize="sm"
+          fontWeight="100"
+          letterSpacing="10px"
+          color="gray.900"
           mr="1rem"
-          fontFamily="JetBrains Mono"
         >
-          r
-          <Text as="span" color="#00B5D8">
-            un
+          IO
+          <Text as="span" fontWeight="800">
+            VUU
           </Text>
-          coder
         </Heading>
       </Link>
       <SubNav />

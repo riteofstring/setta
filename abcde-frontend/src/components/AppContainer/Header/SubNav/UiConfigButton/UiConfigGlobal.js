@@ -118,7 +118,6 @@ function PresetConfig({ selectedId, setSelectedId }) {
       config: localConfig,
       origin: PROJECT_DEFAULT,
       isPreset: true,
-      originInfoId: null, // A preset shouldn't have an originInfoId
     });
     setUIType({ uiType: newUIType });
     setSelectedId(newUIType.id);

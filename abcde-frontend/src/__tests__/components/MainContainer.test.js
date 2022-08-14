@@ -9,7 +9,7 @@ import { sectionIdFromName } from "__tests__utils/utils";
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = require("resize-observer-polyfill");
 
-test("Tabbing away from Overview should focus onto a section when UI config is closed", async () => {
+test("Tab away from Overview", async () => {
   createMainContainer();
   const overviewSearch = getOverviewSearch();
   overviewSearch.focus();
@@ -19,7 +19,7 @@ test("Tabbing away from Overview should focus onto a section when UI config is c
   expect(modelSectionTitle).toHaveFocus();
 });
 
-test("Overview listing should be filtered by text in search bar", async () => {
+test("Overview search", async () => {
   const { store } = createMainContainer();
   const overviewSearch = getOverviewSearch();
 
@@ -27,7 +27,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
   const sections = store.getState().sectionInfos.x;
   const overviewListingRegex = /Overview Listing .+/;
   let overviewListings = screen.getAllByTestId(overviewListingRegex);
-  expect(overviewListings.length).toEqual(Object.values(sections).length);
+  expect(overviewListings.length === Object.values(sections).length);
   for (let s of Object.values(sections)) {
     expect(screen.getByTestId(`Overview Listing ${s.id}`)).toBeTruthy();
   }
@@ -35,7 +35,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
   // Now test filtering via search
   await userEvent.type(overviewSearch, "optim");
   overviewListings = screen.getAllByTestId(overviewListingRegex);
-  expect(overviewListings.length).toEqual(1);
+  expect(overviewListings.length === 1);
   const optimizerSectionId = sectionIdFromName(store, "Optimizer");
   expect(
     screen.getByTestId(`Overview Listing ${optimizerSectionId}`)
@@ -58,7 +58,7 @@ test("Jump to section", async () => {
   ]);
 });
 
-test("Section names should be unique among siblings.", async () => {
+test("Unique section name constraint", async () => {
   createMainContainer();
   let sectionTitle = screen.getByDisplayValue("Optimizer");
   await userEvent.clear(sectionTitle);
