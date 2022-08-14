@@ -242,20 +242,22 @@ function clickDeleteNChildren(store, parent, numInitialChildren, N) {
 }
 
 async function clickDeleteSelf(store, parent, childId, forParent) {
-  const deleteSelf = screen.getByRole("button", {
+  const deleteSelf = screen.queryByRole("button", {
     name: "Delete self",
   });
+
+  // parent is a list root, which doesn't have a "delete self" button
+  if (forParent) {
+    expect(deleteSelf).toBeNull();
+    return;
+  }
+
   await userEvent.click(deleteSelf);
 
   const state = store.getState().sectionInfos;
   const childrenInfoId = state.idsOverview[parent.id];
 
-  const xSize = forParent ? 0 : 1;
-  expect(_.size(state.x)).toEqual(xSize);
+  expect(_.size(state.x)).toEqual(1);
   expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
-
-  if (forParent) {
-    expect(state.x[parent.id]).toBeUndefined();
-  }
 }

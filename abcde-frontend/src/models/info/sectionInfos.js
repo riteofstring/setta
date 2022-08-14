@@ -1,6 +1,5 @@
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
-import { PANEID } from "utils/constants";
 import { createNewId } from "utils/utils";
 
 import { exportState } from "./utils";
@@ -83,43 +82,6 @@ const sectionInfos = {
       actions.setIdsOverview({ sectionId, childrenInfoId });
     }
     actions.setChildrenInfo({ childrenInfoId, newStateFn });
-  }),
-
-  moveChildThunk: thunk((actions, payload) => {
-    const { oldParentId, newParentId, childId, newIndex } = payload;
-
-    // Remove child from old parent's list
-    if (oldParentId) {
-      actions.setIdsOverviewThunk({
-        sectionId: oldParentId,
-        newStateFn: (x) => x.filter((y) => y !== childId),
-      });
-    } else {
-      // This means it was a top level section
-      actions.setSectionInfoAttr({
-        sectionId: childId,
-        attr: "isTopLevel",
-        value: false,
-      });
-    }
-    if (newParentId === PANEID) {
-      // This means it's becoming a top level section
-      actions.setSectionInfoAttr({
-        sectionId: childId,
-        attr: "isTopLevel",
-        value: true,
-      });
-    } else {
-      // Add child to new parent's list
-      actions.setIdsOverviewThunk({
-        sectionId: newParentId,
-        newStateFn: (x) => [
-          ...x.slice(0, newIndex),
-          childId,
-          ...x.slice(newIndex, x.length),
-        ],
-      });
-    }
   }),
 
   export() {

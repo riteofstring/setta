@@ -9,6 +9,7 @@ export default function ManyNestedSections({
   childIds,
   sectionId,
   depth,
+  setChildren,
   isDeck,
 }) {
   const goToSection = useGoToSection(sectionId, INDICATOR_GOTO_PARENT);
@@ -18,7 +19,7 @@ export default function ManyNestedSections({
   };
 
   return (
-    <DNDSortable sectionId={sectionId} items={childIds}>
+    <DNDSortable items={childIds} setItems={setChildren}>
       <HStack alignItems="stretch">
         {!isDeck && (
           <Box

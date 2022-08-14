@@ -7,7 +7,7 @@ import React, { useState } from "react";
 import {
   isListLike,
   isRoot,
-  requiresKeyInput,
+  isTitleEditable,
   SECTIONWIDTH,
 } from "utils/constants";
 
@@ -36,9 +36,13 @@ function _SectionContainerCore({
   const isActiveSection =
     useStoreState((x) => x.master.activeSection) === sectionId;
   const [isActive, setIsActive] = useState(false);
+  const titleIsEditable = isTitleEditable(config.subType);
 
-  function onSelectedItemChange(value) {
-    setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
+  function onSelectedItemChange(objId, objName) {
+    setSectionInfoAttr({ sectionId, attr: "selectedItem", value: objId });
+    if (isList) {
+      setSectionInfoAttr({ sectionId, attr: "name", value: `- ${objName}` });
+    }
   }
 
   // // temp_
@@ -86,7 +90,7 @@ function _SectionContainerCore({
             addChild={addChild}
             deleteChild={deleteChild}
             hasNested={hasNested}
-            requiresKeyInput={requiresKeyInput(config.subType)}
+            titleIsEditable={titleIsEditable}
           />
           {!isListRoot && (
             <Stack>
