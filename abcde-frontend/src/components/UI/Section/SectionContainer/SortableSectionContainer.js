@@ -19,8 +19,16 @@ function _SortableSectionContainer({ sectionId, ...props }) {
     return transform;
   }
 
+  const sortableProps = useSortable({
+    id: sectionId,
+    data: { zoom },
+  });
+
+  // Possible TODO:
+  // Use isOver (available in sortableProps) to do some styling when
+  // another element is hovering over this element.
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: sectionId });
+    sortableProps;
 
   const scaledTransform = transformWithZoom(transform);
 

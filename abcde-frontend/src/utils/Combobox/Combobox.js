@@ -39,7 +39,7 @@ export const ComboboxInput = React.forwardRef(
             height={height}
             size={size}
             textSize={textSize}
-            isOpen={isOpen}
+            // isOpen={isOpen}
             {...props}
             {...toggleButtonProps}
             ref={ref}
