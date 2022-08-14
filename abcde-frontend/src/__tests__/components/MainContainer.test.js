@@ -27,7 +27,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
   const sections = store.getState().sectionInfos.x;
   const overviewListingRegex = /Overview Listing .+/;
   let overviewListings = screen.getAllByTestId(overviewListingRegex);
-  expect(overviewListings.length === Object.values(sections).length);
+  expect(overviewListings.length).toEqual(Object.values(sections).length);
   for (let s of Object.values(sections)) {
     expect(screen.getByTestId(`Overview Listing ${s.id}`)).toBeTruthy();
   }
@@ -35,7 +35,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
   // Now test filtering via search
   await userEvent.type(overviewSearch, "optim");
   overviewListings = screen.getAllByTestId(overviewListingRegex);
-  expect(overviewListings.length === 1);
+  expect(overviewListings.length).toEqual(1);
   const optimizerSectionId = sectionIdFromName(store, "Optimizer");
   expect(
     screen.getByTestId(`Overview Listing ${optimizerSectionId}`)

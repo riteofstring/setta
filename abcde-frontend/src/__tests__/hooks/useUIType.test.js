@@ -1,8 +1,13 @@
 import { act, renderHook } from "@testing-library/react-hooks";
+import { useAddChild } from "hooks/useAddDeleteChild";
+import { useParamEnteredValue } from "hooks/useEnteredValue";
+import { useIdsOverview } from "hooks/useIdsOverview";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import _ from "lodash";
+import { LIST_ROOT, requiresNestedSection } from "utils/constants";
+import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import {
   addParamInfo,
   addSectionInfo,
@@ -48,6 +53,10 @@ Trying setting: isPreset=%s, settingPreset=%s, paramIsNested=%s, settingSectionC
     );
   }
 );
+
+test("Settings for a param's uiType should be remembered when switching away from it and back to it again", () => {
+  testUITypeHistory();
+});
 
 function useSetUITypeTestCases() {
   const output = [];
@@ -164,6 +173,109 @@ function testUseSetUIType(
     expect(currentChildUIType).toEqual(currentParamUIType);
     expect(currentChildUIType).not.toEqual(uiType);
   }
+}
+
+function testUITypeHistory() {
+  const { store, wrapper } = createStoreWrapperWithData();
+
+  let result = null;
+
+  // get OtherParameters section from test data
+  const { id: sectionId, uiTypeId: sectionTypeId } = _.filter(
+    store.getState().sectionInfos.x,
+    (v) => v.name === "OtherParameters"
+  )[0];
+
+  // get OtherParameters sectionType
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
+  expect(result.current.id).toEqual(sectionTypeId);
+  const paramCollectionId = result.current.config.parameters[0];
+
+  // get the param collection that OtherParameters contains
+  const variousParams =
+    store.getState().master.allParamCollections.children[paramCollectionId];
+
+  // get the parameter we are going to test on
+  const { id: paramInfoId, name: paramName } = _.filter(
+    variousParams.children,
+    (v) => v.name === "dataset_root"
+  );
+
+  // get the param's initial uiType
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
+  const initialUIType = result.current;
+
+  // Check that no value has been entered yet
+  ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
+  const [enteredValue, setEnteredValue] = result.current;
+  expect(enteredValue).toEqual("");
+
+  // Check that enteredValue gets updated correctly
+  const testFolderName = "my/special/folder";
+  act(() => setEnteredValue(testFolderName));
+  ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
+  expect(result.current[0]).toEqual(testFolderName);
+
+  // Current num children should be 0
+  ({ result } = renderUseIdsOverview(sectionId, wrapper));
+  expect(result.current[0].length).toEqual(0);
+
+  // Add a list root ui type
+  const listRootUIType = addUIType(store, { type: LIST_ROOT });
+
+  // set param to use this new uiType
+  ({ result } = renderUseSetUIType(
+    {
+      sectionId,
+      paramInfoId,
+      defaultName: "",
+      childId: null,
+      currUIType: initialUIType,
+      settingSectionConfig: false,
+    },
+    wrapper
+  ));
+  act(() => result.current[0](listRootUIType.id));
+
+  // uiType should be listRootUIType
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
+  expect(result.current).toEqual(listRootUIType);
+
+  // And it should require a nested section
+  expect(requiresNestedSection(result.current.type)).toBeTruthy();
+
+  // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
+  ({ result } = renderUseAddChild(sectionId, wrapper));
+  act(() =>
+    result.current({
+      name: paramName,
+      uiTypeId: listRootUIType.id,
+      parentParamInfoId: paramInfoId,
+    })
+  );
+
+  // // Num children should be 1
+  // ({ result } = renderUseIdsOverview(sectionId, wrapper));
+  // expect(result.current[0].length).toEqual(1);
+
+}
+
+function renderUseAddChild(sectionId, wrapper) {
+  return renderHook(() => useAddChild(sectionId), {
+    wrapper,
+  });
+}
+
+function renderUseIdsOverview(sectionId, wrapper) {
+  return renderHook(() => useIdsOverview(sectionId), {
+    wrapper,
+  });
+}
+
+function renderUseParamEnteredValue(sectionId, paramInfoId, wrapper) {
+  return renderHook(() => useParamEnteredValue(sectionId)(paramInfoId), {
+    wrapper,
+  });
 }
 
 function renderUseSetUIType(hookProps, wrapper) {
