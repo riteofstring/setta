@@ -5,6 +5,7 @@
       "type": "TEXT",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {}
     },
     "eab8f446-17cc-4512-bab5-42bff8570f1f": {
@@ -12,6 +13,7 @@
       "type": "SLIDER",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {}
     },
     "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
@@ -19,6 +21,7 @@
       "type": "SWITCH",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {}
     },
     "0595871f-4506-4bda-b6f1-9a3864e02a68": {
@@ -26,6 +29,7 @@
       "type": "REF",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {}
     },
     "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
@@ -33,6 +37,7 @@
       "type": "SECTION",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {
         "objects": [],
         "parameters": [],
@@ -45,6 +50,7 @@
       "type": "LIST_ROOT",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {
         "objects": [],
         "parameters": [],
@@ -57,6 +63,7 @@
       "type": "DICT_ROOT",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {
         "objects": [],
         "parameters": [],
@@ -69,6 +76,7 @@
       "type": "DECK",
       "name": "",
       "isPreset": true,
+      "isBasePreset": true,
       "config": {
         "objects": [],
         "parameters": [],

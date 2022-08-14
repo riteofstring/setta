@@ -13,8 +13,9 @@ export function UIConfigDropdownAndFields({
   savedConfig,
   childIdFn,
   origin,
+  originInfoId,
 }) {
-  const availableUITypes = useAvailablePresetUITypes(selectedId);
+  const availableUITypes = useAvailablePresetUITypes(originInfoId);
   const comboboxWidth = usePaneComboboxWidth();
 
   return (

@@ -8,10 +8,11 @@ import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 export default function SectionConfigTypeSelection({
   onDropdownSelect,
   selectedId,
+  originInfoId,
   simpleSearch,
 }) {
   const availableUITypes = useAvailablePresetUITypes(
-    selectedId,
+    originInfoId,
     onlySectionTypes
   );
 

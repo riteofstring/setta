@@ -120,6 +120,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
         savedConfig={uiType.config}
         childIdFn={childIdFn}
         origin={SET_FROM_SIDEPANE}
+        originInfoId={paramInfo.id}
       />
       <SaveLoadButtons />
     </VStack>

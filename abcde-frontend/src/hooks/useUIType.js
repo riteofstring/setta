@@ -233,7 +233,7 @@ export function createOriginInfoId({
   if (isPreset) {
     return null;
   } else if (isChildOfRoot) {
-    return `${rootSectionId}:child`;
+    return rootSectionId;
   }
   return settingSectionConfig ? childId : paramInfoId;
 }
