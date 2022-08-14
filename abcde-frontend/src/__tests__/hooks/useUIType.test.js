@@ -1,20 +1,19 @@
-import { act, renderHook } from "@testing-library/react-hooks";
-import { useAddChild } from "hooks/useAddDeleteChild";
-import { useParamEnteredValue } from "hooks/useEnteredValue";
-import { useIdsOverview } from "hooks/useIdsOverview";
-import { useParamChildId } from "hooks/useParamInfo";
-import { useGetSectionType } from "hooks/useSectionType";
-import {
-  useGetParamUIType,
-  useInitializeUIType,
-  useSetUIType,
-} from "hooks/useUIType";
+import { act } from "@testing-library/react-hooks";
 import _ from "lodash";
 import { LIST_ROOT, requiresNestedSection, SLIDER } from "utils/constants";
+import { createSectionInfoWithParam } from "__tests__utils/createSectionInfoWithParam";
 import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import {
-  addParamInfo,
-  addSectionInfo,
+  renderUseAddChild,
+  renderUseGetParamUIType,
+  renderUseGetSectionType,
+  renderUseIdsOverview,
+  renderUseInitializeUIType,
+  renderUseParamChildId,
+  renderUseParamEnteredValue,
+  renderUseSetUIType,
+} from "__tests__utils/renderHooks";
+import {
   addUIType,
   createStore,
   getStoreProviderWrapper,
@@ -335,86 +334,4 @@ function testUITypeHistory() {
   // The only child should be the ORIGINAL paramChildId
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
   expect(result.current[0]).toEqual([paramChildId]);
-}
-
-function renderUseInitializeUIType(sectionId, paramInfo, wrapper) {
-  return renderHook(() => useInitializeUIType(sectionId)(paramInfo), {
-    wrapper,
-  });
-}
-
-function renderUseAddChild(sectionId, wrapper) {
-  return renderHook(() => useAddChild(sectionId), {
-    wrapper,
-  });
-}
-
-function renderUseIdsOverview(sectionId, wrapper) {
-  return renderHook(() => useIdsOverview(sectionId), {
-    wrapper,
-  });
-}
-
-function renderUseParamEnteredValue(sectionId, paramInfoId, wrapper) {
-  return renderHook(() => useParamEnteredValue(sectionId)(paramInfoId), {
-    wrapper,
-  });
-}
-
-function renderUseSetUIType(hookProps, wrapper) {
-  return renderHook(() => useSetUIType(hookProps), {
-    wrapper,
-  });
-}
-
-function renderUseGetParamUIType(sectionId, paramInfoId, wrapper) {
-  return renderHook(() => useGetParamUIType(sectionId)(paramInfoId), {
-    wrapper,
-  });
-}
-
-function renderUseParamChildId(sectionId, paramInfoId, wrapper) {
-  return renderHook(() => useParamChildId(sectionId)(paramInfoId), {
-    wrapper,
-  });
-}
-
-function renderUseGetSectionType(sectionId, wrapper) {
-  return renderHook(() => useGetSectionType(sectionId), {
-    wrapper,
-  });
-}
-
-// After calling this function, state.uiTypes.x will have 2 uiTypes
-// One for the created uiType
-// Another for the section (i.e. a sectionType)
-function createSectionInfoWithParam(store, wrapper, paramIsNested = false) {
-  const si = addSectionInfo(store);
-
-  // create a UIType for a random parameter
-  const uiType = addUIType(store);
-  expect(uiType.id).toBeTruthy();
-  const { uiTypeCollectionId, paramInfoId } = addParamInfo(
-    store,
-    wrapper,
-    si,
-    uiType,
-    paramIsNested
-  );
-
-  // set the section's UIType's config's uiTypeCollectionId
-  act(() => {
-    store.getActions().uiTypes.setOneConfig({
-      uiTypeId: si.uiTypeId,
-      configName: "uiTypeCollectionId",
-      newValueFn: () => uiTypeCollectionId,
-    });
-  });
-
-  return {
-    si,
-    uiType,
-    uiTypeCollectionId,
-    paramInfoId,
-  };
 }
