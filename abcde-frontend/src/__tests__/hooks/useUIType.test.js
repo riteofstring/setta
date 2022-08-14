@@ -172,6 +172,13 @@ function testUseSetUIType(
   );
 
   const isPresetNotSettingPreset = newUITypeIsPreset && !settingPreset;
+
+  // If newUIType is preset and we're not setting preset
+  // then a new ui type *with a unique id* should have been created
+  isPresetNotSettingPreset
+    ? expect(currentParamUIType.id).not.toEqual(newUIType.id)
+    : expect(currentParamUIType.id).toEqual(newUIType.id);
+
   // name should only be set if existing type was preset
   // and config was changed when settingPreset is false
   expect(currentParamUIType.name).toEqual(
