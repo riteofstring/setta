@@ -1,4 +1,5 @@
 import { useStoreState } from "easy-peasy";
+import { useDragIntoDeck } from "hooks/useAddToDeck";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
 import React from "react";
@@ -71,6 +72,9 @@ function SectionsPane() {
     closeCtxMenus,
   ] = useAllContextMenus();
 
+  const [onNodeDrag, onNodeDragStop, onSelectionDrag, onSelectionDragStop] =
+    useDragIntoDeck(reactFlowRef);
+
   return (
     <GlobalDndContext>
       <ReactFlow
@@ -88,6 +92,10 @@ function SectionsPane() {
         onNodeContextMenu={openNodeCtxMenu}
         onPaneClick={closeCtxMenus}
         onMoveStart={closeCtxMenus}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
+        onSelectionDrag={onSelectionDrag}
+        onSelectionDragStop={onSelectionDragStop}
       >
         <PaneContextMenu
           {...paneCtxMenuDetails}

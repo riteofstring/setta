@@ -6,10 +6,9 @@ import {
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useStoreActions } from "easy-peasy";
-import { useDragActivation } from "hooks/useDragActivation";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { PANEID } from "utils/constants";
+import { useKeyPress } from "react-flow-renderer";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
 
@@ -34,7 +33,8 @@ export function GlobalDndContext(props) {
     (x) => x.sectionInfos.setIdsOverviewThunk
   );
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
-  const { isSorting, isMovingFree } = useDragActivation();
+  const isSorting = useKeyPress("Control");
+  const isMovingOut = useKeyPress("Alt");
   const sensors = useDNDSensors();
 
   function onDragStart({ active }) {
@@ -42,22 +42,12 @@ export function GlobalDndContext(props) {
   }
 
   function onDragEnd({ active, over }) {
-    if (!active) {
+    if (!active || !over) {
       return;
     }
 
-    const activeContainer = active.data.current.sortable?.containerId;
-    let overContainer = over?.data.current?.sortable.containerId;
-    const overIsSortable = !!overContainer;
-    if (!overContainer) {
-      overContainer = over ? over.id : PANEID;
-    }
-
-    // can't drop section into itself
-    if (active.id === overContainer) {
-      return;
-    }
-
+    const activeContainer = active.data.current.sortable.containerId;
+    let overContainer = over.data.current?.sortable.containerId;
     if (
       isSorting &&
       activeContainer === overContainer &&
@@ -67,12 +57,12 @@ export function GlobalDndContext(props) {
         sectionId: activeContainer,
         newStateFn: updateWithArrayMove(active, over),
       });
-    } else if (isMovingFree && activeContainer !== overContainer) {
+    } else if (isMovingOut && activeContainer !== overContainer) {
       let newIndex;
-      if (overIsSortable) {
+      if (overContainer) {
         newIndex = getNewIndex(active, over);
       } else {
-        // else its a droppable (e.g. an empty deck)
+        overContainer = over.id;
         newIndex = 0;
       }
       moveChildThunk({
@@ -85,7 +75,7 @@ export function GlobalDndContext(props) {
   }
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
-  const collisionDetection = isMovingFree ? rectIntersection : closestCorners;
+  const collisionDetection = isMovingOut ? rectIntersection : closestCorners;
 
   return (
     <DndContext
@@ -96,14 +86,12 @@ export function GlobalDndContext(props) {
       modifiers={modifiers}
     >
       {props.children}
-      {active?.id &&
-        active.data.current.depth !== 0 &&
-        createPortal(
-          <DragOverlay>
-            <DummySection zoom={active.data.current.zoom} />
-          </DragOverlay>,
-          document.body
-        )}
+      {createPortal(
+        <DragOverlay>
+          {active?.id ? <DummySection zoom={active.data.current.zoom} /> : null}
+        </DragOverlay>,
+        document.body
+      )}
     </DndContext>
   );
 }
