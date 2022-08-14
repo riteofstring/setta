@@ -14,11 +14,33 @@ import {
 } from "__tests__utils/renderHooks";
 import { addUIType } from "__tests__utils/utils";
 
-test("Settings for a param's uiType should persist when switching away from it and back to it again", () => {
-  testUITypeHistory();
-});
+test.each(testCases())(
+  `Settings for a param's uiType should persist when switching away from it and back to it again.
+This test goes through these steps:
+1. Initialize a param's uiType (simulating a param rendering for the first time)
+2. Checking that it has no entered value
+3. Entering a value and checking that it updates correctly
+4. Creating a new list-root ui type, and setting the param to use it
+5. Adding a child (simulating the rendering of the NestedObjectInput component)
+6. Changing the param ui type back to the initial type, and then back to the list-root.
+7. Checking that the current child is the same as the child that was created in step 5.
+Trying setting: isPreset=%s
 
-function testUITypeHistory() {
+`,
+  (isPreset) => {
+    testUITypeHistory(isPreset);
+  }
+);
+
+function testCases() {
+  const output = [];
+  for (let isPreset of [true, false]) {
+    output.push([isPreset]);
+  }
+  return output;
+}
+
+function testUITypeHistory(isPreset) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -70,7 +92,7 @@ function testUITypeHistory() {
   expect(result.current[0]).toEqual([]);
 
   // Add a list root ui type
-  const listRootUIType = addUIType(store, { type: LIST_ROOT, isPreset: false });
+  const listRootUIType = addUIType(store, { type: LIST_ROOT, isPreset });
   // Sanity check: the uiType should be in the state
   expect(store.getState().uiTypes.x[listRootUIType.id]).toEqual(listRootUIType);
 
