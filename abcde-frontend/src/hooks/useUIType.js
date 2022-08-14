@@ -49,16 +49,6 @@ function useSetUITypeConfig(defaultName, uiType, settingPreset, setUITypeId) {
   };
 }
 
-function useSetNewIdDeleteOld(currUIType, setUITypeId) {
-  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
-  return (newId) => {
-    setUITypeId(newId);
-    if (!currUIType.isPreset) {
-      deleteUIType({ uiTypeId: currUIType.id });
-    }
-  };
-}
-
 export function useSetUIType({
   sectionId,
   paramInfoId,
@@ -70,10 +60,9 @@ export function useSetUIType({
 }) {
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(childId);
-  const setUITypeId = useSetNewIdDeleteOld(
-    currUIType,
-    settingSectionConfig ? setSectionUITypeId : setParamUITypeId
-  );
+  const setUITypeId = settingSectionConfig
+    ? setSectionUITypeId
+    : setParamUITypeId;
 
   const setOtherId = (newId) => {
     if (settingSectionConfig && paramInfoId) {

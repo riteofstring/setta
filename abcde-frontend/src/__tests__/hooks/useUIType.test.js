@@ -98,8 +98,10 @@ function testUseSetUIType(
     paramIsNested
   );
 
-  let result = null;
+  // uiType + sectionType
+  expect(_.size(store.getState().uiTypes.x)).toEqual(2);
 
+  let result = null;
   ({ result } = renderUseParamChildId(si.id, paramInfoId, wrapper));
   const childId = result.current[0];
 
@@ -130,6 +132,8 @@ function testUseSetUIType(
     name: newUITypeName,
     type: SLIDER,
   });
+  // uiType + sectionType + newUIType
+  expect(_.size(store.getState().uiTypes.x)).toEqual(3);
   expect(uiType.id).not.toEqual(newUIType.id);
 
   // test setting ui type id
@@ -174,10 +178,10 @@ function testUseSetUIType(
     isPresetNotSettingPreset ? defaultName : newUITypeName
   );
 
-  // uiType and newUIType exist, plus one more
+  // uiType, section's uiType, and newUIType exist, plus one more
   // if newUIType is a preset and !settingPreset
   expect(_.size(store.getState().uiTypes.x)).toEqual(
-    isPresetNotSettingPreset ? 3 : 2
+    isPresetNotSettingPreset ? 4 : 3
   );
 
   if (paramIsNested) {
@@ -374,6 +378,9 @@ function renderUseGetSectionType(sectionId, wrapper) {
   });
 }
 
+// After calling this function, state.uiTypes.x will have 2 uiTypes
+// One for the created uiType
+// Another for the section (i.e. a sectionType)
 function createSectionInfoWithParam(store, wrapper, paramIsNested = false) {
   const si = addSectionInfo(store);
 
