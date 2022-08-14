@@ -199,7 +199,7 @@ function testUITypeHistory() {
   const { id: paramInfoId, name: paramName } = _.filter(
     variousParams.children,
     (v) => v.name === "dataset_root"
-  );
+  )[0];
 
   // get the param's initial uiType
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
@@ -218,23 +218,29 @@ function testUITypeHistory() {
 
   // Current num children should be 0
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  expect(result.current[0].length).toEqual(0);
+  expect(result.current[0]).toEqual([]);
 
   // Add a list root ui type
   const listRootUIType = addUIType(store, { type: LIST_ROOT });
 
+  // Props that are constant in this test
+  const propsForSetUIType = {
+    sectionId,
+    paramInfoId,
+    defaultName: "",
+    childId: null,
+    settingSectionConfig: false,
+  };
+
   // set param to use this new uiType
   ({ result } = renderUseSetUIType(
     {
-      sectionId,
-      paramInfoId,
-      defaultName: "",
-      childId: null,
+      ...propsForSetUIType,
       currUIType: initialUIType,
-      settingSectionConfig: false,
     },
     wrapper
   ));
+
   act(() => result.current[0](listRootUIType.id));
 
   // uiType should be listRootUIType
@@ -254,10 +260,43 @@ function testUITypeHistory() {
     })
   );
 
-  // // Num children should be 1
-  // ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  // expect(result.current[0].length).toEqual(1);
+  // Get the section id of the new nested section
+  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
+  const paramChildId = result.current[0];
 
+  // The only child should be paramChildId
+  ({ result } = renderUseIdsOverview(sectionId, wrapper));
+  expect(result.current[0]).toEqual([paramChildId]);
+
+  // set param to use the initial ui type
+  ({ result } = renderUseSetUIType(
+    {
+      ...propsForSetUIType,
+      childId: paramChildId,
+      currUIType: listRootUIType,
+    },
+    wrapper
+  ));
+  act(() => result.current[0](initialUIType.id));
+
+  // Current num children should be 0 again
+  ({ result } = renderUseIdsOverview(sectionId, wrapper));
+  expect(result.current[0]).toEqual([]);
+
+  // set param back to be list root
+  ({ result } = renderUseSetUIType(
+    {
+      ...propsForSetUIType,
+      childId: paramChildId,
+      currUIType: initialUIType,
+    },
+    wrapper
+  ));
+  act(() => result.current[0](listRootUIType.id));
+
+  // // The only child should be the ORIGINAL paramChildId
+  // ({ result } = renderUseIdsOverview(sectionId, wrapper));
+  // expect(result.current[0]).toEqual([paramChildId]);
 }
 
 function renderUseAddChild(sectionId, wrapper) {
