@@ -68,11 +68,12 @@ function UIConfigFunc() {
 
 function UIElement({ sectionId, paramInfo, getUITypeFn }) {
   const childIdFn = useParamChildId(sectionId);
-  const paramChildId = childIdFn(paramInfo.id)[0];
-  const uiType = getUITypeFn(paramInfo.id);
+  const paramInfoId = paramInfo.id;
+  const paramChildId = childIdFn(paramInfoId)[0];
+  const uiType = getUITypeFn(paramInfoId);
   const [setUITypeId, setConfig] = useSetUIType({
     sectionId,
-    paramInfoId: paramInfo.id,
+    paramInfoId,
     defaultName: paramInfo.name,
     childId: paramChildId,
     currUIType: uiType,
@@ -116,11 +117,10 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
         selectedId={uiType.id}
         selectedType={uiType.type}
         onConfigChange={onChange}
-        paramInfoId={paramInfo.id}
         savedConfig={uiType.config}
-        childIdFn={childIdFn}
+        paramInfoId={paramInfoId}
+        paramChildId={paramChildId}
         origin={SET_FROM_SIDEPANE}
-        originInfoId={paramInfo.id}
       />
       <SaveLoadButtons />
     </VStack>

@@ -20,8 +20,8 @@ function createName(uiType) {
   return x;
 }
 
-function matchesOriginInfoId(v, originInfoId) {
-  return originInfoId && v.originInfoId === originInfoId;
+function matchesOriginInfoId(v, originInfoIds) {
+  return originInfoIds.includes(v.originInfoId);
 }
 
 export function isPreset(v) {
@@ -36,9 +36,9 @@ export function onlySectionTypes(v) {
   return isPreset(v) && isSectionType(v);
 }
 
-function filterUITypes(uiTypes, filterFn, originInfoId) {
+function filterUITypes(uiTypes, filterFn, originInfoIds) {
   const matchesOrigin = _.filter(uiTypes, (v) =>
-    matchesOriginInfoId(v, originInfoId)
+    matchesOriginInfoId(v, originInfoIds)
   );
   const typesOfMatchesOrigin = _.map(matchesOrigin, (v) => v.type);
   const presets = _.filter(uiTypes, (v) => filterFn(v));
@@ -57,9 +57,14 @@ function filterUITypes(uiTypes, filterFn, originInfoId) {
   }));
 }
 
-export function useAvailablePresetUITypes(originInfoId, filterFn = isPreset) {
+export function useAvailablePresetUITypes(originInfoIds, filterFn = isPreset) {
   return useStoreState(
-    (x) => filterUITypes(x.uiTypes.x, filterFn, originInfoId),
+    (x) =>
+      filterUITypes(
+        x.uiTypes.x,
+        filterFn,
+        originInfoIds.filter((x) => x)
+      ),
     _.isEqual
   );
 }

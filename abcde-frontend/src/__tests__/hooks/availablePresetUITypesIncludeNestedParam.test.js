@@ -92,7 +92,7 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
 
   // get available ui types for the section
   ({ result } = renderUseAvailablePresetUITypes(
-    paramChildId,
+    [paramChildId],
     onlySectionTypes,
     wrapper
   ));
@@ -103,7 +103,7 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
 
   // get available ui types for the parameter
   ({ result } = renderUseAvailablePresetUITypes(
-    paramInfoId,
+    [paramInfoId, paramChildId],
     isPreset,
     wrapper
   ));

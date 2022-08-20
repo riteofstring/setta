@@ -11,11 +11,13 @@ export function UIConfigDropdownAndFields({
   onConfigChange,
   paramInfoId,
   savedConfig,
-  childIdFn,
+  paramChildId,
   origin,
-  originInfoId,
 }) {
-  const availableUITypes = useAvailablePresetUITypes(originInfoId);
+  const availableUITypes = useAvailablePresetUITypes([
+    paramInfoId,
+    paramChildId,
+  ]);
   const comboboxWidth = usePaneComboboxWidth();
 
   return (
@@ -30,8 +32,7 @@ export function UIConfigDropdownAndFields({
       />
       <ParamUIConfig
         name={selectedType}
-        paramInfoId={paramInfoId}
-        childIdFn={childIdFn}
+        paramChildId={paramChildId}
         savedConfig={savedConfig}
         onChange={onConfigChange}
         origin={origin}

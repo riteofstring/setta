@@ -13,8 +13,7 @@ export function NestedObjectInputConfig({ origin, ...props }) {
   );
 }
 
-function ButtonGoToSectionConfig({ childIdFn, paramInfoId }) {
-  const existingChildId = childIdFn(paramInfoId)[0];
+function ButtonGoToSectionConfig({ paramChildId }) {
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
   const setCameFromUIConfig = useStoreActions(
@@ -22,8 +21,8 @@ function ButtonGoToSectionConfig({ childIdFn, paramInfoId }) {
   );
 
   const onClick = () => {
-    if (existingChildId) {
-      setActiveSection(existingChildId);
+    if (paramChildId) {
+      setActiveSection(paramChildId);
       setCameFromUIConfig(true);
       setTabIndex(0);
     }
