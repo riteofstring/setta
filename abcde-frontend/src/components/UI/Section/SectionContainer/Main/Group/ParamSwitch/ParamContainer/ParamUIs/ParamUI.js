@@ -14,7 +14,6 @@ import SwitchInput, { SwitchInputConfig } from "./SwitchInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 
 export function ParamUIConfig({ name, ...props }) {
-  console.log("ParamUIConfig", name);
   switch (name) {
     default:
       return <TextInputConfig {...props} />;

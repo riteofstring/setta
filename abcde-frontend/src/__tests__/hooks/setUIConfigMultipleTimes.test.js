@@ -47,7 +47,6 @@ function testSetUIConfigMultipleTimes(usesBasePresetUIType) {
   ({ result } = renderUseSetUIType(propsForSetUIType, wrapper));
 
   const initialNumberOfUITypes = _.size(store.getState().uiTypes.x);
-  console.log("initialNumberOfUITypes", initialNumberOfUITypes);
 
   // set the config multiple times
   for (let val of [3, 23, 45, "dog"]) {

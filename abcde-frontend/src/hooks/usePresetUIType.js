@@ -24,6 +24,10 @@ function matchesOriginInfoId(v, originInfoIds) {
   return originInfoIds.includes(v.originInfoId);
 }
 
+export function matchesOriginInfoIdAndType(v, originInfoIds, type) {
+  return matchesOriginInfoId(v, originInfoIds) && v.type === type;
+}
+
 export function isPreset(v) {
   return v.isPreset && v.type !== DECK;
 }

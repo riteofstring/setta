@@ -10,6 +10,7 @@ import {
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
+import { matchesOriginInfoIdAndType } from "./usePresetUIType";
 import { useSetSectionUITypeId } from "./useSectionInfo";
 import { getInfo } from "./utils";
 
@@ -22,6 +23,17 @@ export function useGetParamUIType(sectionId) {
       () => ({})
     );
   };
+}
+
+function useExistingNonPresetMatchingType(uiType, originInfoId) {
+  const matches = useStoreState(
+    (x) =>
+      _.filter(x.uiTypes.x, (v) =>
+        matchesOriginInfoIdAndType(v, [originInfoId], uiType.type)
+      ),
+    _.isEqual
+  );
+  return matches.length > 0 ? matches[0] : null;
 }
 
 function setChildUITypeConfig(uiType, props, setConfig) {
@@ -50,17 +62,25 @@ function useSetUITypeConfig(
 ) {
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  // Try using existing non-preset (uiType with same originInfoId and type)
+  const possibleMatch = useExistingNonPresetMatchingType(uiType, originInfoId);
   return (props) => {
-    // If it's a preset but we're not "saving as", then
-    // copy into a non-preset ui type.
+    // If it's a preset but we're not "saving as",
+    // then use existing non-preset, or copy into a new non-preset ui type.
     let maybeNewUIType = uiType;
     if (shouldCloneUIType(uiType, settingPreset)) {
-      maybeNewUIType = cloneNewUIType({
-        uiType,
-        name: defaultName,
-        originInfoId,
-      });
-      setUIType({ uiType: maybeNewUIType });
+      // There's no match, so clone the preset into a non-preset
+      if (!possibleMatch) {
+        maybeNewUIType = cloneNewUIType({
+          uiType,
+          name: defaultName,
+          originInfoId,
+        });
+        setUIType({ uiType: maybeNewUIType });
+      } else {
+        maybeNewUIType = possibleMatch;
+      }
+      // In both cases, make the section or param to use the new or existing id
       setUITypeId(maybeNewUIType.id);
     }
     setConfig({ uiTypeId: maybeNewUIType.id, ...props });
