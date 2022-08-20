@@ -1,13 +1,13 @@
 import { act } from "@testing-library/react-hooks";
-import _ from "lodash";
 import { LIST_ROOT, requiresNestedSection } from "utils/constants";
-import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
+import {
+  createStoreWrapperWithData,
+  getParameterToTestOnAndInitialUIType,
+} from "__tests__utils/createStoreWrapperWithData";
 import {
   renderUseAddChild,
   renderUseGetParamUIType,
-  renderUseGetSectionType,
   renderUseIdsOverview,
-  renderUseInitializeUIType,
   renderUseParamChildId,
   renderUseParamEnteredValue,
   renderUseSetUIType,
@@ -45,36 +45,12 @@ function testUITypeHistory(isPreset) {
 
   let result = null;
 
-  // get OtherParameters section from test data
-  const { id: sectionId, uiTypeId: sectionTypeId } = _.filter(
-    store.getState().sectionInfos.x,
-    (v) => v.name === "OtherParameters"
-  )[0];
-
-  // get OtherParameters sectionType
-  ({ result } = renderUseGetSectionType(sectionId, wrapper));
-  expect(result.current.id).toEqual(sectionTypeId);
-  const paramCollectionId = result.current.config.parameters[0];
-
-  // get the param collection that OtherParameters contains
-  const variousParams =
-    store.getState().master.allParamCollections.children[paramCollectionId];
-
-  // get the parameter we are going to test on
-  const paramInfo = _.filter(
-    variousParams.children,
-    (v) => v.name === "dataset_root"
-  )[0];
-  const { id: paramInfoId, name: paramName } = paramInfo;
-
-  // initialize paramInfo's uiType
-  // This is usually done in ParamContainer when the parameter loads
-  ({ result } = renderUseInitializeUIType(sectionId, paramInfo, wrapper));
-  act(() => result.current());
-
-  // get the param's initial uiType
-  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
-  const initialUIType = result.current;
+  // get section, param, and ui type to test on
+  const {
+    sectionInfo: { id: sectionId },
+    paramInfo: { id: paramInfoId, name: paramName },
+    initialUIType,
+  } = getParameterToTestOnAndInitialUIType(store, wrapper);
 
   // Check that no value has been entered yet
   ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
