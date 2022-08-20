@@ -26,10 +26,10 @@ export function getParamInfoByName(paramCollection, name) {
   return _.filter(paramCollection.children, (v) => v.name === name)[0];
 }
 
-export function getBasePresetByName(store, type) {
+export function getUITypeByName(store, name, type, isBasePreset) {
   return _.filter(
     store.getState().uiTypes.x,
-    (v) => v.type === type && v.isBasePreset
+    (v) => v.name === name && v.type === type && v.isBasePreset === isBasePreset
   )[0];
 }
 

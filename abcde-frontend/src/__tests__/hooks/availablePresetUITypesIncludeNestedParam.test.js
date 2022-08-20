@@ -1,11 +1,11 @@
 import { isPreset, onlySectionTypes } from "hooks/usePresetUIType";
 import { act } from "react-dom/test-utils";
-import { SECTION } from "utils/constants";
+import { LIST_ROOT, SECTION } from "utils/constants";
 import {
   createStoreWrapperWithData,
-  getBasePresetByName,
   getParameterToTestOnAndInitialUIType,
   getSectionByName,
+  getUITypeByName,
   setParamToObjectTypeAndAddChildSection,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
@@ -15,7 +15,17 @@ import {
   renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
-test("Available uiTypes for nested parameters should be the same when viewed from the section's persepctive.", () => {
+test.each([
+  ["", SECTION, true],
+  ["torchvision transforms", LIST_ROOT, false],
+])(
+  "Available uiTypes for nested parameters should be the same when viewed from the section's persepctive.",
+  (uiTypeName, uiTypeType, isBasePreset) => {
+    testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset);
+  }
+);
+
+function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -28,7 +38,12 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
   } = getParameterToTestOnAndInitialUIType(store, wrapper);
 
   // Get a base preset to fork off of
-  const baseSectionType = getBasePresetByName(store, SECTION);
+  const typeToForkOff = getUITypeByName(
+    store,
+    uiTypeName,
+    uiTypeType,
+    isBasePreset
+  );
 
   // Props that are constant in this test
   const propsForSetUIType = {
@@ -45,16 +60,16 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
   const paramChildId = setParamToObjectTypeAndAddChildSection(
     wrapper,
     propsForSetUIType,
-    baseSectionType
+    typeToForkOff
   );
 
-  // The param's uitype should now be baseSectionType
+  // The param's uitype should now be typeToForkOff
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
-  expect(result.current).toEqual(baseSectionType);
+  expect(result.current).toEqual(typeToForkOff);
 
-  // The child section's type should also now be baseSectionType
+  // The child section's type should also now be typeToForkOff
   ({ result } = renderUseGetSectionType(paramChildId, wrapper));
-  expect(result.current).toEqual(baseSectionType);
+  expect(result.current).toEqual(typeToForkOff);
 
   // get the child section's info object
   const sectionInfo = getSectionByName(store, paramName);
@@ -67,7 +82,7 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
       ...propsForSetUIType,
       childId: paramChildId,
       settingSectionConfig: true,
-      currUIType: baseSectionType,
+      currUIType: typeToForkOff,
     },
     wrapper
   ));
@@ -82,8 +97,8 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
   // The section type should be a non-preset fork
   ({ result } = renderUseGetSectionType(paramChildId, wrapper));
   const forkedUIType = result.current;
-  expect(forkedUIType.type).toEqual(SECTION);
-  expect(forkedUIType).not.toEqual(baseSectionType);
+  expect(forkedUIType.type).toEqual(uiTypeType);
+  expect(forkedUIType).not.toEqual(typeToForkOff);
   expect(forkedUIType.isPreset).toEqual(false);
   expect(forkedUIType.config["ATestConfig"]).toEqual(["fruit"]);
 
@@ -126,4 +141,4 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
   // The different parameter shouldn't contain the forked ui type
   availableUITypeIds = result.current.map((x) => x.id);
   expect(availableUITypeIds).not.toContain(forkedUIType.id);
-});
+}
