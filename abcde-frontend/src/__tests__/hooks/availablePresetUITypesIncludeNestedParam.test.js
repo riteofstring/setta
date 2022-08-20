@@ -111,4 +111,19 @@ test("Available uiTypes for nested parameters should be the same when viewed fro
 
   // available ui types should contain the currently used type
   expect(availableUITypeIds).toContain(forkedUIType.id);
+
+  // Get a different parameter
+  const { paramInfo: aDifferentParamInfo } =
+    getParameterToTestOnAndInitialUIType(store, wrapper, true);
+
+  // get available ui types for this parameter
+  ({ result } = renderUseAvailablePresetUITypes(
+    [aDifferentParamInfo.id, aDifferentParamInfo.childId],
+    isPreset,
+    wrapper
+  ));
+
+  // The different parameter shouldn't contain the forked ui type
+  availableUITypeIds = result.current.map((x) => x.id);
+  expect(availableUITypeIds).not.toContain(forkedUIType.id);
 });
