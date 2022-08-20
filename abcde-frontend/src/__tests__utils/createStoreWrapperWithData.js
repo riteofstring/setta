@@ -4,6 +4,7 @@ import { requiresNestedSection } from "utils/constants";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAddChild,
+  renderUseAvailablePresetUITypes,
   renderUseGetParamUIType,
   renderUseGetSectionType,
   renderUseInitializeUIType,
@@ -34,7 +35,7 @@ export function getUITypeByName(store, name, type, isBasePreset) {
 }
 
 // returns dataset_root parameter of the OtherParameters section
-export function getParameterToTestOn(store, wrapper, usesBasePresetUIType) {
+export function getParameterToTestOn(store, wrapper, paramName) {
   let result = null;
 
   // get OtherParameters section
@@ -49,8 +50,6 @@ export function getParameterToTestOn(store, wrapper, usesBasePresetUIType) {
   // get the param collection that OtherParameters contains
   const variousParams =
     store.getState().master.allParamCollections.children[paramCollectionId];
-
-  const paramName = usesBasePresetUIType ? "batch_size" : "dataset_root";
 
   // get the parameter we are going to test on
   const paramInfo = getParamInfoByName(variousParams, paramName);
@@ -72,13 +71,13 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
 export function getParameterToTestOnAndInitialUIType(
   store,
   wrapper,
-  usesBasePresetUIType = false
+  paramName
 ) {
   // get section and parameter to test on
   const { sectionInfo, paramInfo } = getParameterToTestOn(
     store,
     wrapper,
-    usesBasePresetUIType
+    paramName
   );
 
   // get the param's initial ui type
@@ -125,4 +124,15 @@ export function setParamToObjectTypeAndAddChildSection(
 
   // return paramChildId
   return result.current[0];
+}
+
+export function getAvailableUITypeIds(originInfoIds, filterFn, wrapper) {
+  let result = null;
+  // get available ui types for the section
+  ({ result } = renderUseAvailablePresetUITypes(
+    originInfoIds,
+    filterFn,
+    wrapper
+  ));
+  return result.current.map((x) => x.id);
 }

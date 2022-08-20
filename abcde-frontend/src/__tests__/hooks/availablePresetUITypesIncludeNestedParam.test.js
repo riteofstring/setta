@@ -3,13 +3,13 @@ import { act } from "react-dom/test-utils";
 import { LIST_ROOT, SECTION } from "utils/constants";
 import {
   createStoreWrapperWithData,
+  getAvailableUITypeIds,
   getParameterToTestOnAndInitialUIType,
   getSectionByName,
   getUITypeByName,
   setParamToObjectTypeAndAddChildSection,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
-  renderUseAvailablePresetUITypes,
   renderUseGetParamUIType,
   renderUseGetSectionType,
   renderUseSetUIType,
@@ -35,7 +35,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(store, wrapper);
+  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
 
   // Get a base preset to fork off of
   const typeToForkOff = getUITypeByName(
@@ -105,40 +105,34 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   // The originInfoId should be the section id, because this is where the config was changed
   expect(forkedUIType.originInfoId).toEqual(paramChildId);
 
-  // get available ui types for the section
-  ({ result } = renderUseAvailablePresetUITypes(
+  let availableUITypeIds = getAvailableUITypeIds(
     [paramChildId],
     onlySectionTypes,
     wrapper
-  ));
-  let availableUITypeIds = result.current.map((x) => x.id);
+  );
 
   // available ui types should contain the currently used type
   expect(availableUITypeIds).toContain(forkedUIType.id);
 
-  // get available ui types for the parameter
-  ({ result } = renderUseAvailablePresetUITypes(
+  availableUITypeIds = getAvailableUITypeIds(
     [paramInfoId, paramChildId],
     isPreset,
     wrapper
-  ));
-  availableUITypeIds = result.current.map((x) => x.id);
+  );
 
   // available ui types should contain the currently used type
   expect(availableUITypeIds).toContain(forkedUIType.id);
 
   // Get a different parameter
   const { paramInfo: aDifferentParamInfo } =
-    getParameterToTestOnAndInitialUIType(store, wrapper, true);
+    getParameterToTestOnAndInitialUIType(store, wrapper, "batch_size");
 
-  // get available ui types for this parameter
-  ({ result } = renderUseAvailablePresetUITypes(
+  availableUITypeIds = getAvailableUITypeIds(
     [aDifferentParamInfo.id, aDifferentParamInfo.childId],
     isPreset,
     wrapper
-  ));
+  );
 
   // The different parameter shouldn't contain the forked ui type
-  availableUITypeIds = result.current.map((x) => x.id);
   expect(availableUITypeIds).not.toContain(forkedUIType.id);
 }

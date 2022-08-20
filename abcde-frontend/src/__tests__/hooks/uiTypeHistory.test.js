@@ -40,7 +40,7 @@ function testUITypeHistory(isPreset) {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(store, wrapper);
+  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
 
   // Check that no value has been entered yet
   ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));

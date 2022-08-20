@@ -26,7 +26,7 @@ function testSetUIConfigMultipleTimes(usesBasePresetUIType) {
   } = getParameterToTestOnAndInitialUIType(
     store,
     wrapper,
-    usesBasePresetUIType
+    usesBasePresetUIType ? "batch_size" : "dataset_root"
   );
 
   expect(initialUIType.isPreset).toEqual(true);
