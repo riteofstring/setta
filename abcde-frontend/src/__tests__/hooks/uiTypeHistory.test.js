@@ -1,14 +1,12 @@
 import { act } from "@testing-library/react-hooks";
-import { LIST_ROOT, requiresNestedSection } from "utils/constants";
+import { LIST_ROOT } from "utils/constants";
 import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
+  setParamToObjectTypeAndAddChildSection,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
-  renderUseAddChild,
-  renderUseGetParamUIType,
   renderUseIdsOverview,
-  renderUseParamChildId,
   renderUseParamEnteredValue,
   renderUseSetUIType,
 } from "__tests__utils/renderHooks";
@@ -73,37 +71,11 @@ function testUITypeHistory(isPreset) {
     settingSectionConfig: false,
   };
 
-  // set param to use this new uiType
-  ({ result } = renderUseSetUIType(
-    {
-      ...propsForSetUIType,
-      currUIType: initialUIType,
-    },
-    wrapper
-  ));
-
-  act(() => result.current[0](listRootUIType.id));
-
-  // uiType should be listRootUIType
-  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
-  expect(result.current).toEqual(listRootUIType);
-
-  // And it should require a nested section
-  expect(requiresNestedSection(result.current.type)).toBeTruthy();
-
-  // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
-  ({ result } = renderUseAddChild(sectionId, wrapper));
-  act(() =>
-    result.current({
-      name: paramName,
-      uiTypeId: listRootUIType.id,
-      parentParamInfoId: paramInfoId,
-    })
+  const paramChildId = setParamToObjectTypeAndAddChildSection(
+    wrapper,
+    { ...propsForSetUIType, currUIType: initialUIType },
+    listRootUIType
   );
-
-  // Get the section id of the new nested section
-  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
-  const paramChildId = result.current[0];
 
   // The only child should be paramChildId
   ({ result } = renderUseIdsOverview(sectionId, wrapper));

@@ -24,7 +24,7 @@ function matchesOriginInfoId(v, originInfoId) {
   return originInfoId && v.originInfoId === originInfoId;
 }
 
-function isPreset(v) {
+export function isPreset(v) {
   return v.isPreset && v.type !== DECK;
 }
 

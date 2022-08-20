@@ -1,10 +1,14 @@
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
+import { requiresNestedSection } from "utils/constants";
 import { loadTestData } from "./loadTestData";
 import {
+  renderUseAddChild,
   renderUseGetParamUIType,
   renderUseGetSectionType,
   renderUseInitializeUIType,
+  renderUseParamChildId,
+  renderUseSetUIType,
 } from "./renderHooks";
 import { createStore, getStoreProviderWrapper } from "./utils";
 
@@ -20,6 +24,13 @@ export function getSectionByName(store, name) {
 
 export function getParamInfoByName(paramCollection, name) {
   return _.filter(paramCollection.children, (v) => v.name === name)[0];
+}
+
+export function getBasePresetByName(store, type) {
+  return _.filter(
+    store.getState().uiTypes.x,
+    (v) => v.type === type && v.isBasePreset
+  )[0];
 }
 
 // returns dataset_root parameter of the OtherParameters section
@@ -77,4 +88,41 @@ export function getParameterToTestOnAndInitialUIType(
     wrapper
   );
   return { sectionInfo, paramInfo, initialUIType };
+}
+
+export function setParamToObjectTypeAndAddChildSection(
+  wrapper,
+  setUITypeProps,
+  objectUIType
+) {
+  let result = null;
+
+  // set param to use this new uiType
+  ({ result } = renderUseSetUIType(setUITypeProps, wrapper));
+
+  act(() => result.current[0](objectUIType.id));
+
+  const { sectionId, paramInfoId, defaultName } = setUITypeProps;
+  // uiType should be listRootUIType
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
+  expect(result.current).toEqual(objectUIType);
+
+  // And it should require a nested section
+  expect(requiresNestedSection(result.current.type)).toBeTruthy();
+
+  // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
+  ({ result } = renderUseAddChild(sectionId, wrapper));
+  act(() =>
+    result.current({
+      name: defaultName,
+      uiTypeId: objectUIType.id,
+      parentParamInfoId: paramInfoId,
+    })
+  );
+
+  // Get the section id of the new nested section
+  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
+
+  // return paramChildId
+  return result.current[0];
 }

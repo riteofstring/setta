@@ -3,12 +3,23 @@ import { useAddChild } from "hooks/useAddDeleteChild";
 import { useParamEnteredValue } from "hooks/useEnteredValue";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useParamChildId } from "hooks/useParamInfo";
+import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
 import { useGetSectionType } from "hooks/useSectionType";
 import {
   useGetParamUIType,
   useInitializeUIType,
   useSetUIType,
 } from "hooks/useUIType";
+
+export function renderUseAvailablePresetUITypes(
+  originInfoId,
+  filterFn,
+  wrapper
+) {
+  return renderHook(() => useAvailablePresetUITypes(originInfoId, filterFn), {
+    wrapper,
+  });
+}
 
 export function renderUseInitializeUIType(sectionId, paramInfo, wrapper) {
   return renderHook(() => useInitializeUIType(sectionId)(paramInfo), {
