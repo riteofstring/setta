@@ -23,7 +23,7 @@ export function getParamInfoByName(paramCollection, name) {
 }
 
 // returns dataset_root parameter of the OtherParameters section
-export function getParameterToTestOn(store, wrapper) {
+export function getParameterToTestOn(store, wrapper, usesBasePresetUIType) {
   let result = null;
 
   // get OtherParameters section
@@ -39,8 +39,10 @@ export function getParameterToTestOn(store, wrapper) {
   const variousParams =
     store.getState().master.allParamCollections.children[paramCollectionId];
 
+  const paramName = usesBasePresetUIType ? "batch_size" : "dataset_root";
+
   // get the parameter we are going to test on
-  const paramInfo = getParamInfoByName(variousParams, "dataset_root");
+  const paramInfo = getParamInfoByName(variousParams, paramName);
   return { sectionInfo, paramInfo };
 }
 
@@ -56,9 +58,17 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
   return result.current;
 }
 
-export function getParameterToTestOnAndInitialUIType(store, wrapper) {
+export function getParameterToTestOnAndInitialUIType(
+  store,
+  wrapper,
+  usesBasePresetUIType = false
+) {
   // get section and parameter to test on
-  const { sectionInfo, paramInfo } = getParameterToTestOn(store, wrapper);
+  const { sectionInfo, paramInfo } = getParameterToTestOn(
+    store,
+    wrapper,
+    usesBasePresetUIType
+  );
 
   // get the param's initial ui type
   const initialUIType = initializeAndReturnUIType(
