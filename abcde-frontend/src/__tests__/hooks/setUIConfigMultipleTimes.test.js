@@ -6,16 +6,12 @@ import {
 } from "__tests__utils/createStoreWrapperWithData";
 import { renderUseSetUIType } from "__tests__utils/renderHooks";
 
-test.each(testCases())(
+test.each([false, true])(
   "Setting a non-preset config multiple times should result in only 1 new ui type",
   (usesBasePresetUIType) => {
     testSetUIConfigMultipleTimes(usesBasePresetUIType);
   }
 );
-
-function testCases() {
-  return [false, true];
-}
 
 function testSetUIConfigMultipleTimes(usesBasePresetUIType) {
   const { store, wrapper } = createStoreWrapperWithData();

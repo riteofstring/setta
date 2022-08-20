@@ -14,7 +14,7 @@ import {
 } from "__tests__utils/renderHooks";
 import { addUIType } from "__tests__utils/utils";
 
-test.each(testCases())(
+test.each([true, false])(
   `Settings for a param's uiType should persist when switching away from it and back to it again.
 This test goes through these steps:
 1. Initialize a param's uiType (simulating a param rendering for the first time)
@@ -31,14 +31,6 @@ Trying setting: isPreset=%s
     testUITypeHistory(isPreset);
   }
 );
-
-function testCases() {
-  const output = [];
-  for (let isPreset of [true, false]) {
-    output.push([isPreset]);
-  }
-  return output;
-}
 
 function testUITypeHistory(isPreset) {
   const { store, wrapper } = createStoreWrapperWithData();
