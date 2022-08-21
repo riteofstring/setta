@@ -130,5 +130,7 @@ export function getAvailableUITypeIds(hookProps, wrapper) {
   let result = null;
   // get available ui types for the section
   ({ result } = renderUseAvailablePresetUITypes(hookProps, wrapper));
-  return result.current.map((x) => x.id);
+  const ids = result.current.map((x) => x.id);
+  expect(_.uniq(ids).length).toEqual(ids.length);
+  return ids;
 }

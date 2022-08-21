@@ -83,10 +83,12 @@ function filterUITypes(
       (v.isBasePreset && !typesOfMatchesOrigin.includes(v.type))
   );
 
-  return [...presetsFiltered, ...matchesOriginOrIsSelected].map((v) => ({
-    id: v.id,
-    name: createName(v),
-  }));
+  return _.uniq([...presetsFiltered, ...matchesOriginOrIsSelected]).map(
+    (v) => ({
+      id: v.id,
+      name: createName(v),
+    })
+  );
 }
 
 // If paramInfoId is provided, then look for ui types originating from paramInfoId or paramChildId
