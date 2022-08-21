@@ -120,6 +120,13 @@ const sectionInfos = {
         ],
       });
     }
+
+    // Set sectionInfo's parentId
+    actions.setSectionInfoAttr({
+      sectionId: childId,
+      attr: "parentId",
+      value: newParentId === PANEID ? undefined : newParentId,
+    });
   }),
 
   export() {

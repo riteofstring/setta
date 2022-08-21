@@ -116,4 +116,6 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
     wrapper
   );
   expect(availableUITypeIds).not.toContain(listRootNewUIType.id);
+  // it should still see its own non-preset uitype
+  expect(availableUITypeIds).toContain(rootChildIdUIType.id);
 });
