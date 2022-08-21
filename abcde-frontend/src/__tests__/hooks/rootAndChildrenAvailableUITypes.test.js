@@ -69,14 +69,14 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   const { id: rootChildId } = rootChildInfo;
 
   ({ result } = renderUseGetSectionType(rootChildId, wrapper));
-  const rootChildIdUIType = result.current;
+  const rootChildUIType = result.current;
 
   // root section shouldn't see child non-preset uitype
   let availableUITypeIds = getAvailableUITypeIds(
     { sectionId: listRootSectionId },
     wrapper
   );
-  expect(availableUITypeIds).not.toContain(rootChildIdUIType.id);
+  expect(availableUITypeIds).not.toContain(rootChildUIType.id);
 
   // rootChild SHOULD see list root type because it is a preset
   availableUITypeIds = getAvailableUITypeIds(
@@ -85,7 +85,7 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   );
   expect(availableUITypeIds).toContain(listRootType.id);
   // it should also see its own non-preset uitype
-  expect(availableUITypeIds).toContain(rootChildIdUIType.id);
+  expect(availableUITypeIds).toContain(rootChildUIType.id);
 
   // change the list root's config
   ({ result } = renderUseSetUIType(
@@ -117,5 +117,36 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   );
   expect(availableUITypeIds).not.toContain(listRootNewUIType.id);
   // it should still see its own non-preset uitype
-  expect(availableUITypeIds).toContain(rootChildIdUIType.id);
+  expect(availableUITypeIds).toContain(rootChildUIType.id);
+
+  // change the root child's config
+  ({ result } = renderUseSetUIType(
+    {
+      ...propsForSetUIType,
+      childId: rootChildId,
+      settingSectionConfig: true,
+      currUIType: rootChildUIType,
+    },
+    wrapper
+  ));
+
+  act(() =>
+    result.current[1]({
+      configName: "parameters",
+      newValueFn: () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+    })
+  );
+
+  // get list root child's new type which is a non-preset
+  ({ result } = renderUseGetSectionType(rootChildId, wrapper));
+  const rootChildNewUIType = result.current;
+  expect(rootChildNewUIType.isPreset).toEqual(false);
+
+  // rootChild should see its new uitype + the uitype that originated from the root
+  availableUITypeIds = getAvailableUITypeIds(
+    { sectionId: rootChildId },
+    wrapper
+  );
+  expect(availableUITypeIds).toContain(rootChildUIType.id);
+  expect(availableUITypeIds).toContain(rootChildNewUIType.id);
 });

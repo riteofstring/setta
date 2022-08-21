@@ -28,18 +28,24 @@ function createName(uiType) {
   return x;
 }
 
-function matchesOriginInfoId(v, originInfoIds, parentInfo = {}) {
-  const forSelf =
-    originInfoIds.includes(v.originInfoId) && !v.isForChildOfOriginInfoId;
-  const fromParent =
-    parentInfo.id === v.originInfoId &&
-    isRoot(parentInfo.type) &&
-    v.isForChildOfOriginInfoId;
-  return forSelf || fromParent;
+function isFromSelf(v, originInfoIds) {
+  return originInfoIds.includes(v.originInfoId) && !v.isForChildOfOriginInfoId;
 }
 
-export function matchesOriginInfoIdAndType(v, originInfoIds, type) {
-  return matchesOriginInfoId(v, originInfoIds) && v.type === type;
+function isFromParent(v, parentInfo) {
+  return (
+    parentInfo.id === v.originInfoId &&
+    isRoot(parentInfo.type) &&
+    v.isForChildOfOriginInfoId
+  );
+}
+
+function matchesOriginInfoId(v, originInfoIds, parentInfo = {}) {
+  return isFromSelf(v, originInfoIds) || isFromParent(v, parentInfo);
+}
+
+export function isFromSelfAndMatchesType(v, originInfoIds, type) {
+  return isFromSelf(v, originInfoIds) && v.type === type;
 }
 
 export function isPreset(v) {

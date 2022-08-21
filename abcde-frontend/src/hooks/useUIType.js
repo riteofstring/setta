@@ -10,7 +10,7 @@ import {
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
-import { matchesOriginInfoIdAndType } from "./usePresetUIType";
+import { isFromSelfAndMatchesType } from "./usePresetUIType";
 import { useSetSectionUITypeId } from "./useSectionInfo";
 import { getInfo } from "./utils";
 
@@ -29,7 +29,7 @@ function useExistingNonPresetMatchingType(uiType, originInfoId) {
   const matches = useStoreState(
     (x) =>
       _.filter(x.uiTypes.x, (v) =>
-        matchesOriginInfoIdAndType(v, [originInfoId], uiType.type)
+        isFromSelfAndMatchesType(v, [originInfoId], uiType.type)
       ),
     _.isEqual
   );
@@ -155,6 +155,7 @@ export function cloneNewUIType({
   origin = SET_FROM_SIDEPANE,
   isPreset = false,
   originInfoId,
+  isForChildOfOriginInfoId = false,
 }) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
@@ -165,6 +166,7 @@ export function cloneNewUIType({
   if (!_.isNil(config)) {
     newUIType.config = config;
   }
+  newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
   return newUIType;
 }
 
