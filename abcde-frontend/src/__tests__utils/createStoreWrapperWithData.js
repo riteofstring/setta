@@ -34,12 +34,11 @@ export function getUITypeByName(store, name, type, isBasePreset) {
   )[0];
 }
 
-// returns dataset_root parameter of the OtherParameters section
-export function getParameterToTestOn(store, wrapper, paramName) {
+export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   let result = null;
 
   // get OtherParameters section
-  const sectionInfo = getSectionByName(store, "OtherParameters");
+  const sectionInfo = getSectionByName(store, sectionName);
 
   const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
   // get OtherParameters sectionType
@@ -71,12 +70,14 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
 export function getParameterToTestOnAndInitialUIType(
   store,
   wrapper,
+  sectionName,
   paramName
 ) {
   // get section and parameter to test on
   const { sectionInfo, paramInfo } = getParameterToTestOn(
     store,
     wrapper,
+    sectionName,
     paramName
   );
 
@@ -140,4 +141,18 @@ export function getAvailableUITypeIds(hookProps, store, wrapper) {
     )
   ).toEqual(!!hookProps.settingSectionConfig);
   return ids;
+}
+
+export function testSectionNamesParamNames() {
+  const otherParameters = [
+    "dataset_root",
+    "batch_size",
+    "test_batch_size",
+    "epochs",
+  ].map((x) => ({ sectionName: "OtherParameters", paramName: x }));
+  const xParameters = ["birth_location"].map((x) => ({
+    sectionName: "X",
+    paramName: x,
+  }));
+  return [...otherParameters, ...xParameters];
 }

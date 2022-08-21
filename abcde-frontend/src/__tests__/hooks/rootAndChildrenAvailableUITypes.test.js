@@ -24,7 +24,12 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(store, wrapper, "batch_size");
+  } = getParameterToTestOnAndInitialUIType(
+    store,
+    wrapper,
+    "OtherParameters",
+    "batch_size"
+  );
 
   // Get a base preset to fork off of
   const listRootType = getUITypeByName(

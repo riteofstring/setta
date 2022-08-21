@@ -23,7 +23,12 @@ function testAvailableForkedNonPreset() {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
+  } = getParameterToTestOnAndInitialUIType(
+    store,
+    wrapper,
+    "OtherParameters",
+    "dataset_root"
+  );
 
   const hookProps = {
     sectionId,

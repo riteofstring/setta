@@ -34,7 +34,12 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
+  } = getParameterToTestOnAndInitialUIType(
+    store,
+    wrapper,
+    "OtherParameters",
+    "dataset_root"
+  );
 
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   const sectionType = result.current;
@@ -130,7 +135,12 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
 
   // Get a different parameter
   const { sectionInfo: aDifferentSectionInfo, paramInfo: aDifferentParamInfo } =
-    getParameterToTestOnAndInitialUIType(store, wrapper, "batch_size");
+    getParameterToTestOnAndInitialUIType(
+      store,
+      wrapper,
+      "OtherParameters",
+      "batch_size"
+    );
 
   availableUITypeIds = getAvailableUITypeIds(
     {

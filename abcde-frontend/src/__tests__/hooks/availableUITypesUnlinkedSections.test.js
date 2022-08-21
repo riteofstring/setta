@@ -26,7 +26,12 @@ function testUnlinkedSections() {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
+  } = getParameterToTestOnAndInitialUIType(
+    store,
+    wrapper,
+    "OtherParameters",
+    "dataset_root"
+  );
 
   // Modify the uitype to create a forked non-preset type
   ({ result } = renderUseSetUIType(
