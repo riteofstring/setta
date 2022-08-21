@@ -1,5 +1,5 @@
 import { act } from "react-dom/test-utils";
-import { LIST_ROOT } from "utils/constants";
+import { LIST_ROOT, PANEID } from "utils/constants";
 import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
@@ -118,6 +118,26 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   expect(availableUITypeIds).not.toContain(listRootNewUIType.id);
   // it should still see its own non-preset uitype
   expect(availableUITypeIds).toContain(rootChildUIType.id);
+
+  // move rootChild to be a top level section (no parent)
+  store.getActions().sectionInfos.moveChildThunk({
+    oldParentId: listRootSectionId,
+    newParentId: PANEID,
+    childId: rootChildId,
+  });
+
+  // rootChild should see its own uitype
+  availableUITypeIds = getAvailableUITypeIds(
+    { sectionId: rootChildId },
+    wrapper
+  );
+  expect(availableUITypeIds).toContain(rootChildUIType.id);
+
+  // move rootChild back into its original place
+  store.getActions().sectionInfos.moveChildThunk({
+    newParentId: listRootSectionId,
+    childId: rootChildId,
+  });
 
   // change the root child's config
   ({ result } = renderUseSetUIType(
