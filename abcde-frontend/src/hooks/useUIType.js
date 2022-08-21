@@ -7,10 +7,14 @@ import {
   isListLike,
   rootTypeToChildType,
   SECTION,
+  SECTION_TYPE_NAMES,
   SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
-import { isFromSelfAndMatchesType } from "./usePresetUIType";
+import {
+  createOriginInfoId,
+  isFromSelfAndMatchesType,
+} from "./usePresetUIType";
 import { useSetSectionUITypeId } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 import { getInfo } from "./utils";
@@ -101,7 +105,6 @@ export function useSetUIType({
   settingSectionConfig,
 }) {
   const { config: sectionTypeConfig } = useGetSectionType(sectionId);
-  const { config: childTypeConfig } = useGetSectionType(childId);
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(childId);
   const setUITypeId = settingSectionConfig
@@ -110,8 +113,8 @@ export function useSetUIType({
   const originInfoId = createOriginInfoId({
     settingSectionConfig,
     sectionTypeConfig,
-    childTypeConfig,
     paramInfoId,
+    childId,
   });
 
   const setOtherId = (newId) => {
@@ -169,6 +172,9 @@ export function cloneNewUIType({
   newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {
     newUIType.config = config;
+    if (SECTION_TYPE_NAMES.includes(newUIType.type)) {
+      newUIType.config.uiTypeCollectionId = createNewId();
+    }
   }
   newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
   return newUIType;
@@ -194,21 +200,22 @@ export function useInitializeUIType(sectionId) {
   };
 }
 
-function cloneRootUIType(parentUIType) {
+function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
+  uiType.config.uiTypeCollectionId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.isPreset = false;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,
-    rootOriginInfoId: parentUIType.originInfoId,
+    rootId: parentId,
   });
   uiType.isForChildOfOriginInfoId = true;
   return uiType;
 }
 
-function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
+function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
@@ -216,7 +223,7 @@ function getChildUITypeId(parentUIType, setUIType, setOneConfig) {
   }
 
   // Otherwise, a child ui type needs to be created
-  const newUIType = cloneRootUIType(parentUIType);
+  const newUIType = cloneRootUIType(parentUIType, parentId);
   const id = newUIType.id;
   setOneConfig({
     uiTypeId: parentUIType.id,
@@ -231,31 +238,12 @@ export function useGetChildUITypeId() {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
 
-  return (uiTypeId, parentUIType) => {
+  return (uiTypeId, parentUIType, parentId) => {
     if (uiTypeId) {
       return uiTypeId;
     }
-    return getChildUITypeId(parentUIType, setUIType, setOneConfig);
+    return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
   };
-}
-
-export function createOriginInfoId({
-  isPreset,
-  settingSectionConfig,
-  sectionTypeConfig,
-  childTypeConfig,
-  paramInfoId,
-  isChildOfRoot,
-  rootOriginInfoId,
-}) {
-  if (isPreset) {
-    return {};
-  } else if (isChildOfRoot) {
-    return rootOriginInfoId;
-  }
-  return settingSectionConfig
-    ? { childTypeConfig, paramInfoId }
-    : { sectionTypeConfig, paramInfoId };
 }
 
 // Root sections and child behavior:
@@ -287,7 +275,7 @@ export function createOriginInfoId({
 // The check is:
 // (originInfoIdMatches && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoIdMatches && isForChildOfOriginInfoId=true)
 
-// originInfoId format: {uiTypeCollectionId, paramInfoId}
+// originInfoId format: {uiTypeCollectionId, paramInfoId} or {sectionId}
 // When changing a param's uitype, the uiTypeCollectionId is from the section's uiType, and paramInfoId is from the param.
 // When changing a nested param's uitype, the uiTypeCollectionId is from the PARENT section's uiType, and paramInfoId is from the param.
-// When changing a section not associated with a param, the uiTypeCollectionId is from the section's uiType. The paramInfoId is null.
+// When changing a section not associated with a param, use sectionId

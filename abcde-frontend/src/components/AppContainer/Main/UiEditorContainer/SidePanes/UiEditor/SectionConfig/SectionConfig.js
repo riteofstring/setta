@@ -60,7 +60,6 @@ function SectionConfigFunc() {
         onSectionTypeChange={onSectionTypeChange}
         currTypeId={currTypeId}
         sectionId={sectionId}
-        paramInfoId={paramInfoId}
         savedConfig={currUIType.config}
         onConfigChange={onConfigChange}
       />
@@ -72,7 +71,6 @@ function SectionConfigCore({
   onSectionTypeChange,
   currTypeId,
   sectionId,
-  paramInfoId,
   savedConfig,
   onConfigChange,
 }) {
@@ -82,7 +80,6 @@ function SectionConfigCore({
         onDropdownSelect={onSectionTypeChange}
         selectedId={currTypeId}
         sectionId={sectionId}
-        paramInfoId={paramInfoId}
         simpleSearch={true}
       />
       <SectionConfigComp savedConfig={savedConfig} onChange={onConfigChange} />

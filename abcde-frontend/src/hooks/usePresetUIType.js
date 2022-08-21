@@ -99,32 +99,23 @@ export function useAvailablePresetUITypes({
   paramInfoId,
   settingSectionConfig,
 }) {
-  const { parentId } = useGetSectionInfo(sectionId);
-  const { id: sectionTypeId, config: sectionTypeConfig } =
+  const { parentId, paramInfoId: sectionParamInfoId } =
+    useGetSectionInfo(sectionId);
+  const { id: sectionTypeId } =
     useGetSectionType(sectionId);
   const { type: parentType, config: parentTypeConfig } =
     useGetSectionType(parentId);
   const paramUITypeId = useParamUITypeId(sectionId)(paramInfoId)[0];
-  let originInfoId;
-
-  if (settingSectionConfig && paramInfoId) {
-    originInfoId = {
-      uiTypeCollectionId: parentTypeConfig?.uiTypeCollectionId,
-      paramInfoId,
-    };
-  } else if (settingSectionConfig && !paramInfoId) {
-    originInfoId = {
-      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
-    };
-  } else {
-    originInfoId = {
-      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
-      paramInfoId,
-    };
-  }
-  const parentInfo = settingSectionConfig
-    ? { originInfoId: parentTypeConfig?.uiType, type: parentType }
-    : {};
+  const originInfoId = createOriginInfoId({
+    settingSectionConfig,
+    sectionTypeConfig: parentTypeConfig,
+    childId: sectionId,
+    paramInfoId: paramInfoId ? paramInfoId : sectionParamInfoId,
+  });
+  const parentInfo = {
+    type: parentType,
+    originInfoId: createOriginInfoId({ isChildOfRoot: true, rootId: parentId }),
+  };
   const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
   const filterFn = paramInfoId ? isPreset : onlySectionTypes;
 
@@ -139,4 +130,34 @@ export function useAvailablePresetUITypes({
       ),
     _.isEqual
   );
+}
+
+export function createOriginInfoId({
+  isPreset,
+  settingSectionConfig,
+  sectionTypeConfig,
+  childId,
+  paramInfoId,
+  isChildOfRoot,
+  rootId,
+}) {
+  if (isPreset) {
+    return {};
+  } else if (isChildOfRoot) {
+    return { sectionId: rootId };
+  } else if (settingSectionConfig && paramInfoId) {
+    return {
+      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      paramInfoId,
+    };
+  } else if (settingSectionConfig && !paramInfoId) {
+    return { sectionId: childId };
+  } else if (paramInfoId) {
+    return {
+      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      paramInfoId,
+    };
+  } else {
+    return {};
+  }
 }

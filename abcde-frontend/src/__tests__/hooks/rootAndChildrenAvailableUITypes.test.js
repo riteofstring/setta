@@ -73,14 +73,14 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
 
   // root section shouldn't see child non-preset uitype
   let availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: listRootSectionId },
+    { sectionId: listRootSectionId, settingSectionConfig: true },
     wrapper
   );
   expect(availableUITypeIds).not.toContain(rootChildUIType.id);
 
   // rootChild SHOULD see list root type because it is a preset
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId },
+    { sectionId: rootChildId, settingSectionConfig: true },
     wrapper
   );
   expect(availableUITypeIds).toContain(listRootType.id);
@@ -112,7 +112,7 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
 
   // rootChild SHOULD NOT see list root type because it is now a non-preset
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId },
+    { sectionId: rootChildId, settingSectionConfig: true },
     wrapper
   );
   expect(availableUITypeIds).not.toContain(listRootNewUIType.id);
@@ -128,7 +128,7 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
 
   // rootChild should see its own uitype
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId },
+    { sectionId: rootChildId, settingSectionConfig: true },
     wrapper
   );
   expect(availableUITypeIds).toContain(rootChildUIType.id);
@@ -164,9 +164,10 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
 
   // rootChild should see its new uitype + the uitype that originated from the root
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId },
+    { sectionId: rootChildId, settingSectionConfig: true },
     wrapper
   );
+
   expect(availableUITypeIds).toContain(rootChildUIType.id);
   expect(availableUITypeIds).toContain(rootChildNewUIType.id);
 });

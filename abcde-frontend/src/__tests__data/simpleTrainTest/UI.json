@@ -87,6 +87,20 @@
         "uiTypeCollectionId": "5fd29aed-89b2-42cb-be2e-35548aabb99a"
       }
     },
+    "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9": {
+      "id": "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
+      "name": "The2ndOtherParameters",
+      "type": "SECTION",
+      "isPreset": false,
+      "config": {
+        "objects": [],
+        "parameters": ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+        "uiTypeCollectionId": "5fd29aed-89b2-42cb-be2e-35548aabb99a"
+      },
+      "originInfoId": {
+        "uiTypeCollectionId": "5fd29aed-89b2-42cb-be2e-35548aabb99a"
+      }
+    },
     "58f123d7-8a82-44d8-9d83-06d1659052c7": {
       "id": "58f123d7-8a82-44d8-9d83-06d1659052c7",
       "name": "X",
@@ -166,7 +180,7 @@
     "78651b57-73ab-4205-a8d7-4b9fb3b9f51b": {
       "id": "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
       "name": "The2ndOtherParameters",
-      "uiTypeId": "2b157b97-4424-4831-83a5-836c7dc17a6e",
+      "uiTypeId": "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
       "paramCollectionId": "b5be702c-0234-417c-9e5f-41129a603196",
       "kwargCollectionId": "65251bf1-7f34-4270-ae1d-a31fa85f8238",
       "selectedItem": null,

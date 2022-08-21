@@ -6,12 +6,10 @@ export default function SectionConfigTypeSelection({
   onDropdownSelect,
   selectedId,
   sectionId,
-  paramInfoId,
   simpleSearch,
 }) {
   const availableUITypes = useAvailablePresetUITypes({
     sectionId,
-    paramInfoId,
     settingSectionConfig: true,
   });
 

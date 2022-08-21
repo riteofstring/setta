@@ -36,6 +36,9 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
     initialUIType,
   } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
 
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
+  const sectionType = result.current;
+
   // Get a base preset to fork off of
   const typeToForkOff = getUITypeByName(
     store,
@@ -71,9 +74,9 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(result.current).toEqual(typeToForkOff);
 
   // get the child section's info object
-  const sectionInfo = getSectionByName(store, paramName);
-  expect(sectionInfo.name).toEqual(paramName);
-  expect(sectionInfo.paramInfoId).toEqual(paramInfoId);
+  const childSectionInfo = getSectionByName(store, paramName);
+  expect(childSectionInfo.name).toEqual(paramName);
+  expect(childSectionInfo.paramInfoId).toEqual(paramInfoId);
 
   // change the section's config
   ({ result } = renderUseSetUIType(
@@ -101,11 +104,14 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(forkedUIType.isPreset).toEqual(false);
   expect(forkedUIType.config["ATestConfig"]).toEqual(["fruit"]);
 
-  // The originInfoId should be the section id, because this is where the config was changed
-  expect(forkedUIType.originInfoId).toEqual(paramChildId);
+  // The originInfoId should be the parent's uiTypeCollectionId + the paramInfoId
+  expect(forkedUIType.originInfoId).toEqual({
+    uiTypeCollectionId: sectionType.config.uiTypeCollectionId,
+    paramInfoId,
+  });
 
   let availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: paramChildId },
+    { sectionId: paramChildId, settingSectionConfig: true },
     wrapper
   );
 
