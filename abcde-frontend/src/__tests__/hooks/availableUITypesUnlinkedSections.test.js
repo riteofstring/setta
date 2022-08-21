@@ -24,7 +24,6 @@ function testUnlinkedSections(inputSectionName, inputParamName) {
 
   let result = null;
 
-  // get OtherParameters section, and dataset_root parameter
   // get section, param, and ui type to test on
   const {
     sectionInfo: { id: sectionId },

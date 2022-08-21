@@ -1,18 +1,14 @@
-import { act } from "react-dom/test-utils";
-import { LIST_ROOT, PANEID } from "utils/constants";
+import { PANEID } from "utils/constants";
+import { createListRootAndChild } from "__tests__utils/createListRootAndChild";
 import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
   getParameterToTestOnAndInitialUIType,
-  getUITypeByName,
-  setParamToObjectTypeAndAddChildSection,
   testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
   changeUITypeConfig,
-  renderUseAddChild,
   renderUseGetSectionType,
-  renderUseIdsOverview,
 } from "__tests__utils/renderHooks";
 
 test.each(testSectionNamesParamNames({}))(
@@ -39,15 +35,6 @@ function testRootAndChild(inputSectionName, inputParamName) {
     inputParamName
   );
 
-  // Get a base preset to fork off of
-  const listRootType = getUITypeByName(
-    store,
-    "torchvision transforms",
-    LIST_ROOT,
-    false
-  );
-
-  // Props that are constant in this test
   const propsForSetUIType = {
     sectionId,
     paramInfoId,
@@ -58,31 +45,16 @@ function testRootAndChild(inputSectionName, inputParamName) {
     currUIType: initialUIType,
   };
 
-  // set the param to the base preset type, and add a child section
-  const listRootSectionId = setParamToObjectTypeAndAddChildSection(
-    wrapper,
-    propsForSetUIType,
-    listRootType
-  );
-
-  // The param's uitype should now be listRootType
-  ({ result } = renderUseGetSectionType(listRootSectionId, wrapper));
-  expect(result.current).toEqual(listRootType);
-
-  // Add child to the root (simulates clicking on incrementer)
-  ({ result } = renderUseAddChild(listRootSectionId, wrapper));
-  act(() => result.current({ numChildren: 1 }));
-
-  // get list root's child
-  ({ result } = renderUseIdsOverview(listRootSectionId, wrapper));
-  const rootChildren = result.current[0];
-  const rootChildInfo = store.getState().sectionInfos.x[rootChildren[0]];
-  expect(rootChildren.length).toEqual(1);
-  expect(rootChildInfo.parentId).toEqual(listRootSectionId);
-  const { id: rootChildId } = rootChildInfo;
-
-  ({ result } = renderUseGetSectionType(rootChildId, wrapper));
-  const rootChildUIType = result.current;
+  const { listRootSectionId, listRootType, rootChildId, rootChildUIType } =
+    createListRootAndChild(
+      store,
+      wrapper,
+      sectionId,
+      paramInfoId,
+      paramName,
+      initialUIType,
+      propsForSetUIType
+    );
 
   // root section shouldn't see child non-preset uitype
   let availableUITypeIds = getAvailableUITypeIds(
