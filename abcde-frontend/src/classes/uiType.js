@@ -12,7 +12,7 @@ export class UIType extends MutableInfo {
     origin = SET_FROM_SIDEPANE,
     isPreset = false,
     isBasePreset = false,
-    originInfoId = {},
+    originInfoId,
     isForChildOfOriginInfoId = false,
   }) {
     super();
@@ -23,7 +23,7 @@ export class UIType extends MutableInfo {
     this.origin = origin; // Where this uiType was created (sidepane, global settings etc.)
     this.isPreset = isPreset; // For when the user explicitly saves a ui type.
     this.isBasePreset = isBasePreset; // For the base types that we provide. They have no config.
-    // If not a preset, what uiTypeCollectionId + paramInfoId is this uiType associated with?
+    // If not a preset, what sectionId or paramInfoId is this uiType associated with?
     this.originInfoId = originInfoId;
     // If a section produces a uiType meant for its children, set this to true.
     this.isForChildOfOriginInfoId = isForChildOfOriginInfoId;

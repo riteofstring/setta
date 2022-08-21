@@ -6,23 +6,15 @@ import {
   getParameterToTestOnAndInitialUIType,
   getUITypeByName,
   setParamToObjectTypeAndAddChildSection,
-  testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
-  changeUITypeConfig,
   renderUseAddChild,
   renderUseGetSectionType,
   renderUseIdsOverview,
+  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
-test.each(testSectionNamesParamNames({}))(
-  "A list/dict root shouldn't see the non-preset uitype of its children, and vice versa",
-  ({ sectionName, paramName }) => {
-    testRootAndChild(sectionName, paramName);
-  }
-);
-
-function testRootAndChild(inputSectionName, inputParamName) {
+test("A list/dict root shouldn't see the non-preset uitype of its children, and vice versa", () => {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -32,12 +24,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(
-    store,
-    wrapper,
-    inputSectionName,
-    inputParamName
-  );
+  } = getParameterToTestOnAndInitialUIType(store, wrapper, "batch_size");
 
   // Get a base preset to fork off of
   const listRootType = getUITypeByName(
@@ -86,16 +73,14 @@ function testRootAndChild(inputSectionName, inputParamName) {
 
   // root section shouldn't see child non-preset uitype
   let availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: listRootSectionId, settingSectionConfig: true },
-    store,
+    { sectionId: listRootSectionId },
     wrapper
   );
   expect(availableUITypeIds).not.toContain(rootChildUIType.id);
 
   // rootChild SHOULD see list root type because it is a preset
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId, settingSectionConfig: true },
-    store,
+    { sectionId: rootChildId },
     wrapper
   );
   expect(availableUITypeIds).toContain(listRootType.id);
@@ -103,16 +88,21 @@ function testRootAndChild(inputSectionName, inputParamName) {
   expect(availableUITypeIds).toContain(rootChildUIType.id);
 
   // change the list root's config
-  changeUITypeConfig(
+  ({ result } = renderUseSetUIType(
     {
       ...propsForSetUIType,
       childId: listRootSectionId,
       settingSectionConfig: true,
       currUIType: listRootType,
     },
-    "parameters",
-    () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
     wrapper
+  ));
+
+  act(() =>
+    result.current[1]({
+      configName: "parameters",
+      newValueFn: () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+    })
   );
 
   // get list root's new type which is a non-preset
@@ -122,8 +112,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
 
   // rootChild SHOULD NOT see list root type because it is now a non-preset
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId, settingSectionConfig: true },
-    store,
+    { sectionId: rootChildId },
     wrapper
   );
   expect(availableUITypeIds).not.toContain(listRootNewUIType.id);
@@ -139,8 +128,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
 
   // rootChild should see its own uitype
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId, settingSectionConfig: true },
-    store,
+    { sectionId: rootChildId },
     wrapper
   );
   expect(availableUITypeIds).toContain(rootChildUIType.id);
@@ -152,16 +140,21 @@ function testRootAndChild(inputSectionName, inputParamName) {
   });
 
   // change the root child's config
-  changeUITypeConfig(
+  ({ result } = renderUseSetUIType(
     {
       ...propsForSetUIType,
       childId: rootChildId,
       settingSectionConfig: true,
       currUIType: rootChildUIType,
     },
-    "parameters",
-    () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
     wrapper
+  ));
+
+  act(() =>
+    result.current[1]({
+      configName: "parameters",
+      newValueFn: () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+    })
   );
 
   // get list root child's new type which is a non-preset
@@ -171,11 +164,9 @@ function testRootAndChild(inputSectionName, inputParamName) {
 
   // rootChild should see its new uitype + the uitype that originated from the root
   availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: rootChildId, settingSectionConfig: true },
-    store,
+    { sectionId: rootChildId },
     wrapper
   );
-
   expect(availableUITypeIds).toContain(rootChildUIType.id);
   expect(availableUITypeIds).toContain(rootChildNewUIType.id);
-}
+});

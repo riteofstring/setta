@@ -3,7 +3,6 @@ import _ from "lodash";
 import { SLIDER } from "utils/constants";
 import { createSectionInfoWithParam } from "__tests__utils/createSectionInfoWithParam";
 import {
-  changeUITypeConfig,
   renderUseGetParamUIType,
   renderUseGetSectionType,
   renderUseParamChildId,
@@ -138,7 +137,10 @@ function testUseSetUIType(
   hookProps.currUIType = store.getState().uiTypes.x[newUIType.id];
   expect(hookProps.currUIType.config).toEqual({});
 
-  changeUITypeConfig(hookProps, "maxValue", () => 634, wrapper);
+  ({ result } = renderUseSetUIType(hookProps, wrapper));
+  act(() =>
+    result.current[1]({ configName: "maxValue", newValueFn: () => 634 })
+  );
 
   // get ui type
   const {

@@ -18,7 +18,6 @@ export function UIConfigDropdownAndFields({
   const availableUITypes = useAvailablePresetUITypes({
     sectionId,
     paramInfoId,
-    settingSectionConfig: false,
   });
   const comboboxWidth = usePaneComboboxWidth();
 
