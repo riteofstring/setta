@@ -7,7 +7,7 @@ import {
 } from "__tests__utils/createStoreWrapperWithData";
 import { renderUseSetUIType } from "__tests__utils/renderHooks";
 
-test.each(testSectionNamesParamNames())(
+test.each(testSectionNamesParamNames({}))(
   "Setting a non-preset config multiple times should result in only 1 new ui type",
   ({ sectionName, paramName }) => {
     testSetUIConfigMultipleTimes(sectionName, paramName);

@@ -34,7 +34,7 @@ Trying setting: isPreset=$isPreset, sectionName=$sectionName, paramName=$paramNa
 function testCases() {
   const output = [];
   for (let isPreset of [true, false]) {
-    for (let sectionNameParamName of testSectionNamesParamNames()) {
+    for (let sectionNameParamName of testSectionNamesParamNames({})) {
       output.push({ isPreset, ...sectionNameParamName });
     }
   }

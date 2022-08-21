@@ -3,16 +3,21 @@ import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
   getParameterToTestOnAndInitialUIType,
+  testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
+  changeUITypeConfig,
   renderUseGetParamUIType,
   renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
-test("Forked non-presets should always appear", () =>
-  testAvailableForkedNonPreset());
+test.each(testSectionNamesParamNames({}))(
+  "Forked non-presets should always appear, sectionName=$sectionName, paramName=$paramName",
+  ({ sectionName, paramName }) =>
+    testAvailableForkedNonPreset(sectionName, paramName)
+);
 
-function testAvailableForkedNonPreset() {
+function testAvailableForkedNonPreset(inputSectionName, inputParamName) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -26,8 +31,8 @@ function testAvailableForkedNonPreset() {
   } = getParameterToTestOnAndInitialUIType(
     store,
     wrapper,
-    "OtherParameters",
-    "dataset_root"
+    inputSectionName,
+    inputParamName
   );
 
   const hookProps = {
@@ -40,27 +45,23 @@ function testAvailableForkedNonPreset() {
   };
 
   // Modify the uitype to create a forked non-preset type
-  ({ result } = renderUseSetUIType(hookProps, wrapper));
-  act(() =>
-    result.current[1]({
-      configName: "maxValue",
-      newValueFn: () => "910",
-    })
-  );
+  changeUITypeConfig(hookProps, "maxValue", () => "910", wrapper);
 
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
   const newUIType = result.current;
 
-  // get the available uitypes for dataset_root in the X section
+  // get the available uitypes
   let availableUITypeIds = getAvailableUITypeIds(
     { sectionId, paramInfoId },
     store,
     wrapper
   );
 
-  // should contain the preset type
-  expect(availableUITypeIds).toContain(initialUIType.id);
-  // should contain the forked type created in the OtherParameters section
+  // should contain the preset type (unless it's a base preset)
+  if (!initialUIType.isBasePreset) {
+    expect(availableUITypeIds).toContain(initialUIType.id);
+  }
+  // should contain the forked type
   expect(availableUITypeIds).toContain(newUIType.id);
 
   // set back to original type
@@ -75,6 +76,6 @@ function testAvailableForkedNonPreset() {
 
   // should contain the preset type
   expect(availableUITypeIds).toContain(initialUIType.id);
-  // should contain the forked type created in the OtherParameters section
+  // should contain the forked type
   expect(availableUITypeIds).toContain(newUIType.id);
 }

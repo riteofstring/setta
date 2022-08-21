@@ -1,4 +1,3 @@
-import { act } from "react-dom/test-utils";
 import { LIST_ROOT, SECTION } from "utils/constants";
 import {
   createStoreWrapperWithData,
@@ -9,9 +8,9 @@ import {
   setParamToObjectTypeAndAddChildSection,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
+  changeUITypeConfig,
   renderUseGetParamUIType,
   renderUseGetSectionType,
-  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
 test.each([
@@ -84,21 +83,16 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(childSectionInfo.paramInfoId).toEqual(paramInfoId);
 
   // change the section's config
-  ({ result } = renderUseSetUIType(
+  changeUITypeConfig(
     {
       ...propsForSetUIType,
       childId: paramChildId,
       settingSectionConfig: true,
       currUIType: typeToForkOff,
     },
+    "ATestConfig",
+    () => ["fruit"],
     wrapper
-  ));
-
-  act(() =>
-    result.current[1]({
-      configName: "ATestConfig",
-      newValueFn: () => ["fruit"],
-    })
   );
 
   // The section type should be a non-preset fork

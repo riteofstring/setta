@@ -6,15 +6,23 @@ import {
   getParameterToTestOnAndInitialUIType,
   getUITypeByName,
   setParamToObjectTypeAndAddChildSection,
+  testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
+  changeUITypeConfig,
   renderUseAddChild,
   renderUseGetSectionType,
   renderUseIdsOverview,
-  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
-test("A list/dict root shouldn't see the non-preset uitype of its children, and vice versa", () => {
+test.each(testSectionNamesParamNames({}))(
+  "A list/dict root shouldn't see the non-preset uitype of its children, and vice versa",
+  ({ sectionName, paramName }) => {
+    testRootAndChild(sectionName, paramName);
+  }
+);
+
+function testRootAndChild(inputSectionName, inputParamName) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -27,8 +35,8 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   } = getParameterToTestOnAndInitialUIType(
     store,
     wrapper,
-    "OtherParameters",
-    "batch_size"
+    inputSectionName,
+    inputParamName
   );
 
   // Get a base preset to fork off of
@@ -95,21 +103,16 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   expect(availableUITypeIds).toContain(rootChildUIType.id);
 
   // change the list root's config
-  ({ result } = renderUseSetUIType(
+  changeUITypeConfig(
     {
       ...propsForSetUIType,
       childId: listRootSectionId,
       settingSectionConfig: true,
       currUIType: listRootType,
     },
+    "parameters",
+    () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
     wrapper
-  ));
-
-  act(() =>
-    result.current[1]({
-      configName: "parameters",
-      newValueFn: () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
-    })
   );
 
   // get list root's new type which is a non-preset
@@ -149,21 +152,16 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
   });
 
   // change the root child's config
-  ({ result } = renderUseSetUIType(
+  changeUITypeConfig(
     {
       ...propsForSetUIType,
       childId: rootChildId,
       settingSectionConfig: true,
       currUIType: rootChildUIType,
     },
+    "parameters",
+    () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
     wrapper
-  ));
-
-  act(() =>
-    result.current[1]({
-      configName: "parameters",
-      newValueFn: () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
-    })
   );
 
   // get list root child's new type which is a non-preset
@@ -180,4 +178,4 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
 
   expect(availableUITypeIds).toContain(rootChildUIType.id);
   expect(availableUITypeIds).toContain(rootChildNewUIType.id);
-});
+}

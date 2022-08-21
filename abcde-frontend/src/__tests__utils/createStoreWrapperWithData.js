@@ -143,7 +143,7 @@ export function getAvailableUITypeIds(hookProps, store, wrapper) {
   return ids;
 }
 
-export function testSectionNamesParamNames() {
+export function testSectionNamesParamNames({ excludeSections = [] }) {
   const otherParameters = [
     "dataset_root",
     "batch_size",
@@ -154,5 +154,6 @@ export function testSectionNamesParamNames() {
     sectionName: "X",
     paramName: x,
   }));
-  return [...otherParameters, ...xParameters];
+  const output = [...otherParameters, ...xParameters];
+  return output.filter((x) => !excludeSections.includes(x.sectionName));
 }
