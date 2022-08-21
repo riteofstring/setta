@@ -98,13 +98,14 @@ export function useAvailablePresetUITypes({
 }) {
   const { parentId, paramInfoId: sectionParamInfoId } =
     useGetSectionInfo(sectionId);
-  const { id: sectionTypeId } = useGetSectionType(sectionId);
+  const { id: sectionTypeId, config: sectionTypeConfig } =
+    useGetSectionType(sectionId);
   const { type: parentType, config: parentTypeConfig } =
     useGetSectionType(parentId);
   const paramUITypeId = useParamUITypeId(sectionId)(paramInfoId)[0];
   const originInfoId = createOriginInfoId({
     settingSectionConfig,
-    sectionTypeConfig: parentTypeConfig,
+    sectionTypeConfig: paramInfoId ? sectionTypeConfig : parentTypeConfig,
     childId: sectionId,
     paramInfoId: paramInfoId ? paramInfoId : sectionParamInfoId,
   });
