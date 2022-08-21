@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
-import { requiresNestedSection } from "utils/constants";
+import { requiresNestedSection, SECTION_TYPE_NAMES } from "utils/constants";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAddChild,
@@ -126,11 +126,18 @@ export function setParamToObjectTypeAndAddChildSection(
   return result.current[0];
 }
 
-export function getAvailableUITypeIds(hookProps, wrapper) {
+export function getAvailableUITypeIds(hookProps, store, wrapper) {
   let result = null;
   // get available ui types for the section
   ({ result } = renderUseAvailablePresetUITypes(hookProps, wrapper));
   const ids = result.current.map((x) => x.id);
   expect(_.uniq(ids).length).toEqual(ids.length);
+  // If configuring section, then only section types should be available.
+  // Otherwise, both section types and parameter types should be available.
+  expect(
+    ids.every((id) =>
+      SECTION_TYPE_NAMES.includes(store.getState().uiTypes.x[id].type)
+    )
+  ).toEqual(!!hookProps.settingSectionConfig);
   return ids;
 }

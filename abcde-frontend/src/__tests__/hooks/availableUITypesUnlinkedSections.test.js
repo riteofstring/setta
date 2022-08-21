@@ -77,6 +77,7 @@ function testUnlinkedSections() {
   // get the available uitypes for dataset_root in the X section
   let availableUITypeIds = getAvailableUITypeIds(
     { sectionId: xSection.id, paramInfoId },
+    store,
     wrapper
   );
 

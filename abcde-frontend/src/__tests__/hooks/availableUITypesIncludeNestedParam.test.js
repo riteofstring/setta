@@ -112,6 +112,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
 
   let availableUITypeIds = getAvailableUITypeIds(
     { sectionId: paramChildId, settingSectionConfig: true },
+    store,
     wrapper
   );
 
@@ -120,6 +121,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
 
   availableUITypeIds = getAvailableUITypeIds(
     { sectionId, paramInfoId },
+    store,
     wrapper
   );
 
@@ -135,6 +137,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
       sectionId: aDifferentSectionInfo.id,
       paramInfoId: aDifferentParamInfo.id,
     },
+    store,
     wrapper
   );
 
