@@ -75,4 +75,16 @@ export function changeUITypeConfig(hookProps, configName, newValueFn, wrapper) {
       newValueFn,
     })
   );
+  // A forked preset can never be a base preset
+  if (hookProps.settingSectionConfig) {
+    ({ result } = renderUseGetSectionType(hookProps.childId, wrapper));
+  } else {
+    ({ result } = renderUseGetParamUIType(
+      hookProps.sectionId,
+      hookProps.paramInfoId,
+      wrapper
+    ));
+  }
+  const newUIType = result.current;
+  expect(newUIType.isBasePreset).toEqual(false);
 }

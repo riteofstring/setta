@@ -169,6 +169,7 @@ export function cloneNewUIType({
   newUIType.name = name;
   newUIType.origin = origin;
   newUIType.isPreset = isPreset;
+  newUIType.isBasePreset = false;
   newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {
     newUIType.config = config;
@@ -207,6 +208,7 @@ function cloneRootUIType(parentUIType, parentId) {
   uiType.config.uiTypeCollectionId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.isPreset = false;
+  uiType.isBasePreset = false;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,
     rootId: parentId,
