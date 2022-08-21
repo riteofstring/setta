@@ -23,11 +23,7 @@ export function useCreateChildSectionInfo(sectionId) {
   const parentSectionInfo = useGetSectionInfo(sectionId);
 
   return ({ numChildren, ...sectionInfoProps }) => {
-    const uiTypeId = getChildUITypeId(
-      sectionInfoProps.uiTypeId,
-      parentUIType,
-      parentSectionInfo.id
-    );
+    const uiTypeId = getChildUITypeId(sectionInfoProps.uiTypeId, parentUIType);
     const newInfos = createManySectionInfo({
       sectionInfoProps: { ...sectionInfoProps, parentSectionInfo, uiTypeId },
       numChildren,
