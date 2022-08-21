@@ -11,6 +11,7 @@ import {
   renderUseAddChild,
   renderUseGetSectionType,
   renderUseIdsOverview,
+  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
 test("A list/dict root shouldn't see the non-preset uitype of its children, and vice versa", () => {
@@ -83,6 +84,8 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
     wrapper
   );
   expect(availableUITypeIds).toContain(listRootType.id);
+  // it should also see its own non-preset uitype
+  expect(availableUITypeIds).toContain(rootChildIdUIType.id);
 
   // change the list root's config
   ({ result } = renderUseSetUIType(

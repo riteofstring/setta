@@ -1,7 +1,14 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { DECK, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
+import {
+  DECK,
+  isRoot,
+  SECTION_TYPE_NAMES,
+  uiTypesToPretty,
+} from "utils/constants";
 import { useParamChildId } from "./useParamInfo";
+import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionType } from "./useSectionType";
 
 export function usePresetUIType(uiTypeId) {
   const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
@@ -21,16 +28,18 @@ function createName(uiType) {
   return x;
 }
 
-function matchesOriginInfoId(v, originInfoIds) {
-  return originInfoIds.includes(v.originInfoId);
+function matchesOriginInfoId(v, originInfoIds, parentInfo = {}) {
+  const forSelf =
+    originInfoIds.includes(v.originInfoId) && !v.isForChildOfOriginInfoId;
+  const fromParent =
+    parentInfo.id === v.originInfoId &&
+    isRoot(parentInfo.type) &&
+    v.isForChildOfOriginInfoId;
+  return forSelf || fromParent;
 }
 
 export function matchesOriginInfoIdAndType(v, originInfoIds, type) {
   return matchesOriginInfoId(v, originInfoIds) && v.type === type;
-}
-
-function matchesOriginInfoIdAndNotForChild(v, originInfoIds) {
-  return matchesOriginInfoId(v, originInfoIds) && !v.isForChildOfOriginInfoId;
 }
 
 export function isPreset(v) {
@@ -45,9 +54,9 @@ export function onlySectionTypes(v) {
   return isPreset(v) && isSectionType(v);
 }
 
-function filterUITypes(uiTypes, filterFn, originInfoIds) {
+function filterUITypes(uiTypes, filterFn, originInfoIds, parentInfo) {
   const matchesOrigin = _.filter(uiTypes, (v) =>
-    matchesOriginInfoIdAndNotForChild(v, originInfoIds)
+    matchesOriginInfoId(v, originInfoIds, parentInfo)
   );
   const typesOfMatchesOrigin = _.map(matchesOrigin, (v) => v.type);
   const presets = _.filter(uiTypes, (v) => filterFn(v));
@@ -66,9 +75,14 @@ function filterUITypes(uiTypes, filterFn, originInfoIds) {
   }));
 }
 
+// If paramInfoId is provided, then look for ui types originating from paramInfoId or paramChildId
+// Otherwise, look for sectionId and maybe parentId
 export function useAvailablePresetUITypes({ sectionId, paramInfoId }) {
+  const { parentId } = useGetSectionInfo(sectionId);
+  const { type: parentType } = useGetSectionType(parentId);
   const paramChildId = useParamChildId(sectionId)(paramInfoId)[0];
   const originInfoIds = paramInfoId ? [paramInfoId, paramChildId] : [sectionId];
+  const parentInfo = paramInfoId ? {} : { id: parentId, type: parentType };
   const filterFn = paramInfoId ? isPreset : onlySectionTypes;
 
   return useStoreState(
@@ -76,7 +90,8 @@ export function useAvailablePresetUITypes({ sectionId, paramInfoId }) {
       filterUITypes(
         x.uiTypes.x,
         filterFn,
-        originInfoIds.filter((x) => x)
+        originInfoIds.filter((x) => x),
+        parentInfo
       ),
     _.isEqual
   );
