@@ -13,6 +13,7 @@ export class UIType extends MutableInfo {
     isPreset = false,
     isBasePreset = false,
     originInfoId,
+    isForChildOfOriginInfoId = false,
   }) {
     super();
     this.id = maybeNewId(id);
@@ -24,6 +25,8 @@ export class UIType extends MutableInfo {
     this.isBasePreset = isBasePreset; // For the base types that we provide. They have no config.
     // If not a preset, what sectionId or paramInfoId is this uiType associated with?
     this.originInfoId = originInfoId;
+    // If a section produces a uiType meant for its children, set this to true.
+    this.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
     this.exportable = ["id", "name", "config"];
   }
 }

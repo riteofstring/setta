@@ -52,7 +52,7 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
     listRootType
   );
 
-  // The param's uitype should now be typeToForkOff
+  // The param's uitype should now be listRootType
   ({ result } = renderUseGetSectionType(listRootSectionId, wrapper));
   expect(result.current).toEqual(listRootType);
 
@@ -77,6 +77,46 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
     onlySectionTypes,
     wrapper
   );
-
   expect(availableUITypeIds).not.toContain(rootChildIdUIType.id);
+
+  //   // rootChild SHOULD see list root type because it is a preset
+  //   availableUITypeIds = getAvailableUITypeIds(
+  //     [rootChildId],
+  //     onlySectionTypes,
+  //     wrapper
+  //   );
+  //   expect(availableUITypeIds).toContain(listRootType.id);
+
+  //   // change the list root's config
+  //   ({ result } = renderUseSetUIType(
+  //     {
+  //       ...propsForSetUIType,
+  //       childId: listRootSectionId,
+  //       settingSectionConfig: true,
+  //       currUIType: listRootType,
+  //     },
+  //     wrapper
+  //   ));
+
+  //   act(() =>
+  //     result.current[1]({
+  //       configName: "parameters",
+  //       newValueFn: () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+  //     })
+  //   );
+
+  //   // get list root's new type which is a non-preset
+  //   ({ result } = renderUseGetSectionType(listRootSectionId, wrapper));
+  //   const listRootNewUIType = result.current;
+  //   expect(listRootNewUIType.isPreset).toEqual(false);
+
+  //   console.log("listRootNewUIType", listRootNewUIType)
+
+  //   // rootChild SHOULD NOT see list root type because it is now a  preset
+  //   availableUITypeIds = getAvailableUITypeIds(
+  //     [rootChildId],
+  //     onlySectionTypes,
+  //     wrapper
+  //   );
+  //   expect(availableUITypeIds).not.toContain(listRootNewUIType.id);
 });

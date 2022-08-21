@@ -198,6 +198,7 @@ function cloneRootUIType(parentUIType, parentSectionId) {
     isChildOfRoot: true,
     rootSectionId: parentSectionId,
   });
+  uiType.isForChildOfOriginInfoId = true;
   return uiType;
 }
 
@@ -271,3 +272,18 @@ export function createOriginInfoId({
 // ##### Children becoming independent #####
 // Modifying a child's config makes it become independent of the root and the siblings.
 // So now if you modify the root config, the independent child is not affected.
+
+// OriginInfoId behavior:
+
+// Approach 1:
+// A list root creates a child uitype.
+// The child uiType's originInfoId is the list root's section id.
+// The child uiType also has isForChildOfOriginInfoId=true.
+// Available uitypes a section match by originInfoId=sectionId and isForChildOfOriginInfoId=false
+// AND originInfoId=parentId and isForChildOfOriginInfoId=true
+// The problem with this is that child sections will see "lingering" ui types when parents change from list root to something else.
+// These lingering ui types can't be deleted, because the child sections are stored in history
+// and need access to those ui types if they are ever re-rendered (i.e. if the parent becomes a list root again).
+// So in addition checking isForChildOfOriginInfoId, a section needs to check if its parent is a root.
+// The check is:
+// (originInfoId=sectionId && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoId=parentId && isForChildOfOriginInfoId=true)

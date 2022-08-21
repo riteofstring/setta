@@ -28,6 +28,10 @@ export function matchesOriginInfoIdAndType(v, originInfoIds, type) {
   return matchesOriginInfoId(v, originInfoIds) && v.type === type;
 }
 
+function matchesOriginInfoIdAndNotForChild(v, originInfoIds) {
+  return matchesOriginInfoId(v, originInfoIds) && !v.isForChildOfOriginInfoId;
+}
+
 export function isPreset(v) {
   return v.isPreset && v.type !== DECK;
 }
@@ -42,7 +46,7 @@ export function onlySectionTypes(v) {
 
 function filterUITypes(uiTypes, filterFn, originInfoIds) {
   const matchesOrigin = _.filter(uiTypes, (v) =>
-    matchesOriginInfoId(v, originInfoIds)
+    matchesOriginInfoIdAndNotForChild(v, originInfoIds)
   );
   const typesOfMatchesOrigin = _.map(matchesOrigin, (v) => v.type);
   const presets = _.filter(uiTypes, (v) => filterFn(v));
