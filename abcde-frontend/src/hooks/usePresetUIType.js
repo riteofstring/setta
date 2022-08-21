@@ -66,13 +66,10 @@ function filterUITypes(uiTypes, filterFn, originInfoIds) {
   }));
 }
 
-export function useAvailablePresetUITypes({
-  sectionId,
-  paramInfoId,
-  filterFn = isPreset,
-}) {
+export function useAvailablePresetUITypes({ sectionId, paramInfoId }) {
   const paramChildId = useParamChildId(sectionId)(paramInfoId)[0];
   const originInfoIds = paramInfoId ? [paramInfoId, paramChildId] : [sectionId];
+  const filterFn = paramInfoId ? isPreset : onlySectionTypes;
 
   return useStoreState(
     (x) =>

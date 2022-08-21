@@ -1,4 +1,3 @@
-import { onlySectionTypes } from "hooks/usePresetUIType";
 import { act } from "react-dom/test-utils";
 import { LIST_ROOT, SECTION } from "utils/constants";
 import {
@@ -106,7 +105,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(forkedUIType.originInfoId).toEqual(paramChildId);
 
   let availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: paramChildId, filterFn: onlySectionTypes },
+    { sectionId: paramChildId },
     wrapper
   );
 

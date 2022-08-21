@@ -1,8 +1,5 @@
 import { usePaneComboboxWidth } from "hooks/usePaneComboboxWidth";
-import {
-  onlySectionTypes,
-  useAvailablePresetUITypes,
-} from "hooks/usePresetUIType";
+import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export default function SectionConfigTypeSelection({
@@ -13,7 +10,6 @@ export default function SectionConfigTypeSelection({
 }) {
   const availableUITypes = useAvailablePresetUITypes({
     sectionId,
-    filterFn: onlySectionTypes,
   });
 
   const comboboxWidth = usePaneComboboxWidth();
