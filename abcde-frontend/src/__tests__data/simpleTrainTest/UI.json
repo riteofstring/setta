@@ -149,6 +149,16 @@
       "parentId": null,
       "paramInfoId": null
     },
+    "78651b57-73ab-4205-a8d7-4b9fb3b9f51b": {
+      "id": "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
+      "name": "The2ndOtherParameters",
+      "uiTypeId": "2b157b97-4424-4831-83a5-836c7dc17a6e",
+      "paramCollectionId": "b5be702c-0234-417c-9e5f-41129a603196",
+      "kwargCollectionId": "65251bf1-7f34-4270-ae1d-a31fa85f8238",
+      "selectedItem": null,
+      "parentId": null,
+      "paramInfoId": null
+    },
     "4e2bf130-390b-4299-8054-aa54b7740a60": {
       "id": "4e2bf130-390b-4299-8054-aa54b7740a60",
       "name": "X",
