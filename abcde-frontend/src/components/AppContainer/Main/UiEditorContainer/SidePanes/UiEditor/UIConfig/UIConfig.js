@@ -118,6 +118,7 @@ function UIElement({ sectionId, paramInfo, getUITypeFn }) {
         selectedType={uiType.type}
         onConfigChange={onChange}
         savedConfig={uiType.config}
+        sectionId={sectionId}
         paramInfoId={paramInfoId}
         paramChildId={paramChildId}
         origin={SET_FROM_SIDEPANE}

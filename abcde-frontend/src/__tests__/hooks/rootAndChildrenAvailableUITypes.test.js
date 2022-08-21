@@ -73,8 +73,7 @@ test("A list/dict root shouldn't see the non-preset uitype of its children, and 
 
   // root section shouldn't see child non-preset uitype
   let availableUITypeIds = getAvailableUITypeIds(
-    [listRootSectionId],
-    onlySectionTypes,
+    { sectionId: listRootSectionId, filterFn: onlySectionTypes },
     wrapper
   );
   expect(availableUITypeIds).not.toContain(rootChildIdUIType.id);

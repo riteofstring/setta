@@ -11,10 +11,10 @@ export default function SectionConfigTypeSelection({
   sectionId,
   simpleSearch,
 }) {
-  const availableUITypes = useAvailablePresetUITypes(
-    [sectionId],
-    onlySectionTypes
-  );
+  const availableUITypes = useAvailablePresetUITypes({
+    sectionId,
+    filterFn: onlySectionTypes,
+  });
 
   const comboboxWidth = usePaneComboboxWidth();
 

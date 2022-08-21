@@ -11,12 +11,8 @@ import {
   useSetUIType,
 } from "hooks/useUIType";
 
-export function renderUseAvailablePresetUITypes(
-  originInfoId,
-  filterFn,
-  wrapper
-) {
-  return renderHook(() => useAvailablePresetUITypes(originInfoId, filterFn), {
+export function renderUseAvailablePresetUITypes(hookProps, wrapper) {
+  return renderHook(() => useAvailablePresetUITypes(hookProps), {
     wrapper,
   });
 }

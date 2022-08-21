@@ -1,6 +1,7 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { DECK, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
+import { useParamChildId } from "./useParamInfo";
 
 export function usePresetUIType(uiTypeId) {
   const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
@@ -65,7 +66,14 @@ function filterUITypes(uiTypes, filterFn, originInfoIds) {
   }));
 }
 
-export function useAvailablePresetUITypes(originInfoIds, filterFn = isPreset) {
+export function useAvailablePresetUITypes({
+  sectionId,
+  paramInfoId,
+  filterFn = isPreset,
+}) {
+  const paramChildId = useParamChildId(sectionId)(paramInfoId)[0];
+  const originInfoIds = paramInfoId ? [paramInfoId, paramChildId] : [sectionId];
+
   return useStoreState(
     (x) =>
       filterUITypes(

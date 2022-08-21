@@ -1,4 +1,4 @@
-import { isPreset, onlySectionTypes } from "hooks/usePresetUIType";
+import { onlySectionTypes } from "hooks/usePresetUIType";
 import { act } from "react-dom/test-utils";
 import { LIST_ROOT, SECTION } from "utils/constants";
 import {
@@ -19,7 +19,7 @@ test.each([
   ["", SECTION, true],
   ["torchvision transforms", LIST_ROOT, false],
 ])(
-  "Available uiTypes for nested parameters should be the same when viewed from the section's persepctive.",
+  "Available uiTypes for nested parameters should be the same when viewed from the section's perspective.",
   (uiTypeName, uiTypeType, isBasePreset) => {
     testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset);
   }
@@ -106,8 +106,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(forkedUIType.originInfoId).toEqual(paramChildId);
 
   let availableUITypeIds = getAvailableUITypeIds(
-    [paramChildId],
-    onlySectionTypes,
+    { sectionId: paramChildId, filterFn: onlySectionTypes },
     wrapper
   );
 
@@ -115,8 +114,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(availableUITypeIds).toContain(forkedUIType.id);
 
   availableUITypeIds = getAvailableUITypeIds(
-    [paramInfoId, paramChildId],
-    isPreset,
+    { sectionId, paramInfoId },
     wrapper
   );
 
@@ -124,12 +122,14 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(availableUITypeIds).toContain(forkedUIType.id);
 
   // Get a different parameter
-  const { paramInfo: aDifferentParamInfo } =
+  const { sectionInfo: aDifferentSectionInfo, paramInfo: aDifferentParamInfo } =
     getParameterToTestOnAndInitialUIType(store, wrapper, "batch_size");
 
   availableUITypeIds = getAvailableUITypeIds(
-    [aDifferentParamInfo.id, aDifferentParamInfo.childId],
-    isPreset,
+    {
+      sectionId: aDifferentSectionInfo.id,
+      paramInfoId: aDifferentParamInfo.id,
+    },
     wrapper
   );
 

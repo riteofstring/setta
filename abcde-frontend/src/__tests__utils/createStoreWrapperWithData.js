@@ -126,13 +126,9 @@ export function setParamToObjectTypeAndAddChildSection(
   return result.current[0];
 }
 
-export function getAvailableUITypeIds(originInfoIds, filterFn, wrapper) {
+export function getAvailableUITypeIds(hookProps, wrapper) {
   let result = null;
   // get available ui types for the section
-  ({ result } = renderUseAvailablePresetUITypes(
-    originInfoIds,
-    filterFn,
-    wrapper
-  ));
+  ({ result } = renderUseAvailablePresetUITypes(hookProps, wrapper));
   return result.current.map((x) => x.id);
 }
