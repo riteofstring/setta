@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "@testing-library/react-hooks";
 import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";

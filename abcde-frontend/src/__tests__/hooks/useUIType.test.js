@@ -1,5 +1,5 @@
+import { act } from "@testing-library/react-hooks";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import { SLIDER } from "utils/constants";
 import { createSectionInfoWithParam } from "__tests__utils/createSectionInfoWithParam";
 import {

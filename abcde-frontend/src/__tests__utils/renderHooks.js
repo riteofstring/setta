@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "@testing-library/react-hooks";
 import { useAddChild } from "hooks/useAddDeleteChild";
 import { useParamEnteredValue } from "hooks/useEnteredValue";
 import { useIdsOverview } from "hooks/useIdsOverview";

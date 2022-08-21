@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "@testing-library/react-hooks";
 import { SectionInfo } from "classes/mutableInfo";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import _ from "lodash";

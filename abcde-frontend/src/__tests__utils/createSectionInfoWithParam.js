@@ -1,4 +1,4 @@
-import { act } from "react-dom/test-utils";
+import { act } from "@testing-library/react-hooks";
 import { addParamInfo, addSectionInfo, addUIType } from "__tests__utils/utils";
 
 // After calling this function, state.uiTypes.x will have 2 uiTypes

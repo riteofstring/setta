@@ -3,8 +3,3 @@
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
 import "@testing-library/jest-dom";
-
-global.IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-self.IS_REACT_ACT_ENVIRONMENT = true;
-window.IS_REACT_ACT_ENVIRONMENT = true;
