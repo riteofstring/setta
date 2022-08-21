@@ -27,6 +27,7 @@ function testMovingListSection() {
     "dataset_root"
   );
 
+  // create list root and a child
   const { listRootSectionId, rootChildId } = createListRootAndChild(
     store,
     wrapper,
@@ -36,12 +37,14 @@ function testMovingListSection() {
     initialUIType
   );
 
+  // move child to the pane (top-level)
   store.getActions().sectionInfos.moveChildThunk({
     oldParentId: listRootSectionId,
     newParentId: PANEID,
     childId: rootChildId,
   });
 
+  // its subtype should no longer be LIST
   ({ result } = renderUseGetSectionType(rootChildId, wrapper));
   const rootChildUIType = result.current;
   expect(rootChildUIType.config.subType).toEqual(null);
