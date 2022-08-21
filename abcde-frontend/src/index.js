@@ -1,10 +1,9 @@
 import { ChakraProvider } from "@chakra-ui/react";
 import { StoreProvider, useStoreRehydrated } from "easy-peasy";
 import React from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 import store from "store/store";
 import { AppTheme } from "styles/Theme";
-
 import App from "./App";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
@@ -14,7 +13,10 @@ function WaitForStateRehydration({ children }) {
   return isRehydrated ? children : null;
 }
 
-ReactDOM.render(
+const container = document.getElementById("root");
+const root = createRoot(container);
+
+root.render(
   <React.StrictMode>
     <ChakraProvider theme={AppTheme}>
       <StoreProvider store={store}>
@@ -23,8 +25,7 @@ ReactDOM.render(
         </WaitForStateRehydration>
       </StoreProvider>
     </ChakraProvider>
-  </React.StrictMode>,
-  document.getElementById("root")
+  </React.StrictMode>
 );
 
 reportWebVitals();

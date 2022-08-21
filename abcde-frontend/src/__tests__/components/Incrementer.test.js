@@ -1,15 +1,20 @@
-import { render, screen } from "@testing-library/react";
-import { renderHook } from "@testing-library/react-hooks";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import {
   addSectionInfo,
   createStore,
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
+
+global.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+self.IS_REACT_ACT_ENVIRONMENT = true;
+window.IS_REACT_ACT_ENVIRONMENT = true;
+
+// console.log("globalThis.IS_REACT_ACT_ENVIRONMENT", globalThis.IS_REACT_ACT_ENVIRONMENT)
 
 test("Incrementer: click add sibling N times", () => {
   const { store, parent } = componentSetup({
@@ -69,8 +74,8 @@ function componentSetup({ forParent, numChildren }) {
   const wrapper = getStoreProviderWrapper(store);
   const parent = addSectionInfo(store);
   let { result } = renderHook(() => useAddChild(parent.id), { wrapper });
-  _.range(numChildren).forEach(() => {
-    act(() => result.current({}));
+  _.range(numChildren).forEach(async () => {
+    await waitFor(() => result.current({}));
   });
   const state = store.getState().sectionInfos;
   const childrenInfoId = state.idsOverview[parent.id];

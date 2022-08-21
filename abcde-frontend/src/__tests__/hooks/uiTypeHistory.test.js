@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react-hooks";
+import { act } from "react-dom/test-utils";
 import { LIST_ROOT } from "utils/constants";
 import {
   createStoreWrapperWithData,
