@@ -10,6 +10,7 @@ export default function SectionConfigTypeSelection({
 }) {
   const availableUITypes = useAvailablePresetUITypes({
     sectionId,
+    settingSectionConfig: true,
   });
 
   const comboboxWidth = usePaneComboboxWidth();

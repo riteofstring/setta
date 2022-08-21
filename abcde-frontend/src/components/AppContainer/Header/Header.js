@@ -16,7 +16,7 @@ export default function HeaderContainer() {
         _hover={{ textDecoration: "none" }}
       >
         <Heading
-          fontSize="xl"
+          fontSize="md"
           letterSpacing="-1px"
           color="gray.600"
           mr="1rem"
