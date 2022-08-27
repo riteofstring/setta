@@ -4,14 +4,14 @@ import { createNewId, defaultState } from "utils/utils";
 
 import {
   DEFAULT_DEFAULT_UI_TYPE_ID,
+  isListLike,
   rootTypeToChildType,
   SECTION,
+  SET_FROM_SIDEPANE,
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
-import { createOriginInfoId } from "./usePresetUIType";
+import { isFromSelfAndMatchesType } from "./usePresetUIType";
 import { useSetSectionUITypeId } from "./useSectionInfo";
-import { useGetSectionType } from "./useSectionType";
-import { getFnSetUIType } from "./useUITypeCoreFunctions";
 import { getInfo } from "./utils";
 
 export function useGetParamUIType(sectionId) {
@@ -25,6 +25,71 @@ export function useGetParamUIType(sectionId) {
   };
 }
 
+function useExistingNonPresetMatchingType(uiType, originInfoId) {
+  const matches = useStoreState(
+    (x) =>
+      _.filter(x.uiTypes.x, (v) =>
+        isFromSelfAndMatchesType(v, [originInfoId], uiType.type)
+      ),
+    _.isEqual
+  );
+  return matches.length > 0 ? matches[0] : null;
+}
+
+function setChildUITypeConfig(uiType, props, setConfig) {
+  const { childUITypeId } = uiType.config;
+  if (childUITypeId) {
+    setConfig({ uiTypeId: childUITypeId, ...props });
+  }
+}
+
+function shouldCloneUIType(uiType, settingPreset) {
+  // uiType is a preset, and we're not in "settingPreset" mode
+  const isPresetNotSettingPreset = uiType.isPreset && !settingPreset;
+  // The uiType is a list element (a child of a list root).
+  // Changing its config shouldn't affect its siblings.
+  // Plus it should become indepedent from the root config.
+  const isList = isListLike(uiType.config.subType);
+  return isPresetNotSettingPreset || isList;
+}
+
+function useSetUITypeConfig(
+  defaultName,
+  uiType,
+  settingPreset,
+  originInfoId,
+  setUITypeId
+) {
+  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  // Try using existing non-preset (uiType with same originInfoId and type)
+  const possibleMatch = useExistingNonPresetMatchingType(uiType, originInfoId);
+  return (props) => {
+    // If it's a preset but we're not "saving as",
+    // then use existing non-preset, or copy into a new non-preset ui type.
+    let maybeNewUIType = uiType;
+    if (shouldCloneUIType(uiType, settingPreset)) {
+      // There's no match, so clone the preset into a non-preset
+      if (!possibleMatch) {
+        maybeNewUIType = cloneNewUIType({
+          uiType,
+          name: defaultName,
+          originInfoId,
+        });
+        setUIType({ uiType: maybeNewUIType });
+      } else {
+        maybeNewUIType = possibleMatch;
+      }
+      // In both cases, make the section or param to use the new or existing id
+      setUITypeId(maybeNewUIType.id);
+    }
+    setConfig({ uiTypeId: maybeNewUIType.id, ...props });
+
+    // Changing a root config should also change its child config
+    setChildUITypeConfig(maybeNewUIType, props, setConfig);
+  };
+}
+
 export function useSetUIType({
   sectionId,
   paramInfoId,
@@ -34,28 +99,39 @@ export function useSetUIType({
   settingPreset = false,
   settingSectionConfig,
 }) {
-  const { config: sectionTypeConfig } = useGetSectionType(sectionId);
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
   const setSectionUITypeId = useSetSectionUITypeId(childId);
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const possibleMatchWrapperFn = (fn) =>
-    useStoreState((x) => fn(x.uiTypes.x), _.isEqual);
-
-  return getFnSetUIType({
-    paramInfoId,
-    defaultName,
+  const setUITypeId = settingSectionConfig
+    ? setSectionUITypeId
+    : setParamUITypeId;
+  const originInfoId = createOriginInfoId({
+    settingSectionConfig,
     childId,
+    paramInfoId,
+  });
+
+  const setOtherId = (newId) => {
+    if (settingSectionConfig && paramInfoId) {
+      setParamUITypeId(newId);
+    } else if (!settingSectionConfig && childId) {
+      setSectionUITypeId(newId);
+    }
+  };
+
+  const _setUITypeId = (newId) => {
+    setUITypeId(newId);
+    setOtherId(newId);
+  };
+
+  const setUITypeConfig = useSetUITypeConfig(
+    defaultName,
     currUIType,
     settingPreset,
-    settingSectionConfig,
-    sectionTypeConfig,
-    setParamUITypeId,
-    setSectionUITypeId,
-    setConfig,
-    setUIType,
-    possibleMatchWrapperFn,
-  });
+    originInfoId,
+    _setUITypeId
+  );
+
+  return [_setUITypeId, setUITypeConfig];
 }
 
 function useProjectDefaultUIType(paramInfoId) {
@@ -70,6 +146,28 @@ function useGlobalDefaultUIType(paramType) {
     (x) => x.globalParamDefaults.x[paramType]?.uiTypeId
   );
   return useStoreState((x) => x.uiTypes.x[uiTypeId]);
+}
+
+export function cloneNewUIType({
+  uiType,
+  name = "",
+  config,
+  origin = SET_FROM_SIDEPANE,
+  isPreset = false,
+  originInfoId,
+  isForChildOfOriginInfoId = false,
+}) {
+  const newUIType = _.cloneDeep(uiType);
+  newUIType.id = createNewId();
+  newUIType.name = name;
+  newUIType.origin = origin;
+  newUIType.isPreset = isPreset;
+  newUIType.originInfoId = originInfoId;
+  if (!_.isNil(config)) {
+    newUIType.config = config;
+  }
+  newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
+  return newUIType;
 }
 
 export function useInitializeUIType(sectionId) {
@@ -92,23 +190,26 @@ export function useInitializeUIType(sectionId) {
   };
 }
 
-function cloneRootUIType(parentUIType, parentId) {
+function cloneRootUIType(parentUIType, parentSectionId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
-  uiType.config.uiTypeCollectionId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.isPreset = false;
-  uiType.isBasePreset = false;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,
-    rootId: parentId,
+    rootSectionId: parentSectionId,
   });
   uiType.isForChildOfOriginInfoId = true;
   return uiType;
 }
 
-function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
+function getChildUITypeId(
+  parentUIType,
+  parentSectionId,
+  setUIType,
+  setOneConfig
+) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
@@ -116,7 +217,7 @@ function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
   }
 
   // Otherwise, a child ui type needs to be created
-  const newUIType = cloneRootUIType(parentUIType, parentId);
+  const newUIType = cloneRootUIType(parentUIType, parentSectionId);
   const id = newUIType.id;
   setOneConfig({
     uiTypeId: parentUIType.id,
@@ -131,12 +232,33 @@ export function useGetChildUITypeId() {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
 
-  return (uiTypeId, parentUIType, parentId) => {
+  return (uiTypeId, parentUIType, parentSectionId) => {
     if (uiTypeId) {
       return uiTypeId;
     }
-    return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
+    return getChildUITypeId(
+      parentUIType,
+      parentSectionId,
+      setUIType,
+      setOneConfig
+    );
   };
+}
+
+export function createOriginInfoId({
+  isPreset,
+  settingSectionConfig,
+  childId,
+  paramInfoId,
+  isChildOfRoot,
+  rootSectionId,
+}) {
+  if (isPreset) {
+    return null;
+  } else if (isChildOfRoot) {
+    return rootSectionId;
+  }
+  return settingSectionConfig ? childId : paramInfoId;
 }
 
 // Root sections and child behavior:
@@ -157,18 +279,13 @@ export function useGetChildUITypeId() {
 
 // Approach 1:
 // A list root creates a child uitype.
-// The child uiType's originInfoId is the list root's originInfoId.
+// The child uiType's originInfoId is the list root's section id.
 // The child uiType also has isForChildOfOriginInfoId=true.
-// Available uitypes a section match by originInfoIdMatches and isForChildOfOriginInfoId=false
-// AND originInfoIdMatches and isForChildOfOriginInfoId=true
+// Available uitypes a section match by originInfoId=sectionId and isForChildOfOriginInfoId=false
+// AND originInfoId=parentId and isForChildOfOriginInfoId=true
 // The problem with this is that child sections will see "lingering" ui types when parents change from list root to something else.
 // These lingering ui types can't be deleted, because the child sections are stored in history
 // and need access to those ui types if they are ever re-rendered (i.e. if the parent becomes a list root again).
 // So in addition checking isForChildOfOriginInfoId, a section needs to check if its parent is a root.
 // The check is:
-// (originInfoIdMatches && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoIdMatches && isForChildOfOriginInfoId=true)
-
-// originInfoId format: {uiTypeCollectionId, paramInfoId} or {sectionId}
-// When changing a param's uitype, the uiTypeCollectionId is from the section's uiType, and paramInfoId is from the param.
-// When changing a nested param's uitype, the uiTypeCollectionId is from the PARENT section's uiType, and paramInfoId is from the param.
-// When changing a section not associated with a param, use sectionId
+// (originInfoId=sectionId && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoId=parentId && isForChildOfOriginInfoId=true)

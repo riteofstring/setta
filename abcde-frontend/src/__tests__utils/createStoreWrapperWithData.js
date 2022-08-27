@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
-import { requiresNestedSection, SECTION_TYPE_NAMES } from "utils/constants";
+import { requiresNestedSection } from "utils/constants";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAddChild,
@@ -34,11 +34,12 @@ export function getUITypeByName(store, name, type, isBasePreset) {
   )[0];
 }
 
-export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
+// returns dataset_root parameter of the OtherParameters section
+export function getParameterToTestOn(store, wrapper, paramName) {
   let result = null;
 
   // get OtherParameters section
-  const sectionInfo = getSectionByName(store, sectionName);
+  const sectionInfo = getSectionByName(store, "OtherParameters");
 
   const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
   // get OtherParameters sectionType
@@ -70,14 +71,12 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
 export function getParameterToTestOnAndInitialUIType(
   store,
   wrapper,
-  sectionName,
   paramName
 ) {
   // get section and parameter to test on
   const { sectionInfo, paramInfo } = getParameterToTestOn(
     store,
     wrapper,
-    sectionName,
     paramName
   );
 
@@ -127,33 +126,11 @@ export function setParamToObjectTypeAndAddChildSection(
   return result.current[0];
 }
 
-export function getAvailableUITypeIds(hookProps, store, wrapper) {
+export function getAvailableUITypeIds(hookProps, wrapper) {
   let result = null;
   // get available ui types for the section
   ({ result } = renderUseAvailablePresetUITypes(hookProps, wrapper));
   const ids = result.current.map((x) => x.id);
   expect(_.uniq(ids).length).toEqual(ids.length);
-  // If configuring section, then only section types should be available.
-  // Otherwise, both section types and parameter types should be available.
-  expect(
-    ids.every((id) =>
-      SECTION_TYPE_NAMES.includes(store.getState().uiTypes.x[id].type)
-    )
-  ).toEqual(!!hookProps.settingSectionConfig);
   return ids;
-}
-
-export function testSectionNamesParamNames({ excludeSections = [] }) {
-  const otherParameters = [
-    "dataset_root",
-    "batch_size",
-    "test_batch_size",
-    "epochs",
-  ].map((x) => ({ sectionName: "OtherParameters", paramName: x }));
-  const xParameters = ["birth_location"].map((x) => ({
-    sectionName: "X",
-    paramName: x,
-  }));
-  const output = [...otherParameters, ...xParameters];
-  return output.filter((x) => !excludeSections.includes(x.sectionName));
 }

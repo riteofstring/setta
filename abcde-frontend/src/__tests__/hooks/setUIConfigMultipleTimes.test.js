@@ -3,18 +3,17 @@ import { act } from "react-dom/test-utils";
 import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
-  testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import { renderUseSetUIType } from "__tests__utils/renderHooks";
 
-test.each(testSectionNamesParamNames({}))(
+test.each([false, true])(
   "Setting a non-preset config multiple times should result in only 1 new ui type",
-  ({ sectionName, paramName }) => {
-    testSetUIConfigMultipleTimes(sectionName, paramName);
+  (usesBasePresetUIType) => {
+    testSetUIConfigMultipleTimes(usesBasePresetUIType);
   }
 );
 
-function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
+function testSetUIConfigMultipleTimes(usesBasePresetUIType) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -27,11 +26,11 @@ function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
   } = getParameterToTestOnAndInitialUIType(
     store,
     wrapper,
-    inputSectionName,
-    inputParamName
+    usesBasePresetUIType ? "batch_size" : "dataset_root"
   );
 
   expect(initialUIType.isPreset).toEqual(true);
+  expect(initialUIType.isBasePreset).toEqual(usesBasePresetUIType);
 
   // Props that are constant in this test
   const propsForSetUIType = {

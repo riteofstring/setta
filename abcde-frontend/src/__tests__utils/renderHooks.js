@@ -10,7 +10,6 @@ import {
   useInitializeUIType,
   useSetUIType,
 } from "hooks/useUIType";
-import { act } from "react-dom/test-utils";
 
 export function renderUseAvailablePresetUITypes(hookProps, wrapper) {
   return renderHook(() => useAvailablePresetUITypes(hookProps), {
@@ -64,27 +63,4 @@ export function renderUseGetSectionType(sectionId, wrapper) {
   return renderHook(() => useGetSectionType(sectionId), {
     wrapper,
   });
-}
-
-export function changeUITypeConfig(hookProps, configName, newValueFn, wrapper) {
-  let result = null;
-  ({ result } = renderUseSetUIType(hookProps, wrapper));
-  act(() =>
-    result.current[1]({
-      configName,
-      newValueFn,
-    })
-  );
-  // A forked preset can never be a base preset
-  if (hookProps.settingSectionConfig) {
-    ({ result } = renderUseGetSectionType(hookProps.childId, wrapper));
-  } else {
-    ({ result } = renderUseGetParamUIType(
-      hookProps.sectionId,
-      hookProps.paramInfoId,
-      wrapper
-    ));
-  }
-  const newUIType = result.current;
-  expect(newUIType.isBasePreset).toEqual(false);
 }

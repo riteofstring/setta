@@ -1,43 +1,35 @@
+import { act } from "react-dom/test-utils";
 import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
   getParameterToTestOnAndInitialUIType,
   getSectionByName,
-  testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
-  changeUITypeConfig,
   renderUseGetParamUIType,
   renderUseGetSectionType,
+  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
-// exclude the X section since that's our "other" section to test on in this particular test
-test.each(testSectionNamesParamNames({ excludeSections: ["X"] }))(
-  "Sections that use the same parameters, but with different uiTypeCollectionIds, should not see each other's forked non-presets",
-  ({ sectionName, paramName }) => {
-    testUnlinkedSections(sectionName, paramName);
-  }
-);
+test("Sections that use the same parameters, but with different uiTypeCollectionIds, should not see each other's forked non-presets", () => {
+  testUnlinkedSections();
+});
 
-function testUnlinkedSections(inputSectionName, inputParamName) {
+function testUnlinkedSections() {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
 
+  // get OtherParameters section, and dataset_root parameter
   // get section, param, and ui type to test on
   const {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(
-    store,
-    wrapper,
-    inputSectionName,
-    inputParamName
-  );
+  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
 
   // Modify the uitype to create a forked non-preset type
-  changeUITypeConfig(
+  ({ result } = renderUseSetUIType(
     {
       sectionId,
       paramInfoId,
@@ -46,9 +38,13 @@ function testUnlinkedSections(inputSectionName, inputParamName) {
       settingPreset: false,
       currUIType: initialUIType,
     },
-    "maxValue",
-    () => "910",
     wrapper
+  ));
+  act(() =>
+    result.current[1]({
+      configName: "maxValue",
+      newValueFn: () => "910",
+    })
   );
 
   // The param's uitype should now be typeToForkOff
@@ -61,7 +57,7 @@ function testUnlinkedSections(inputSectionName, inputParamName) {
   const xSectionInitialUIType = result.current;
 
   // Add the "various params" collection to the X section
-  changeUITypeConfig(
+  ({ result } = renderUseSetUIType(
     {
       defaultName: xSection.name,
       childId: xSection.id,
@@ -69,15 +65,18 @@ function testUnlinkedSections(inputSectionName, inputParamName) {
       settingPreset: false,
       currUIType: xSectionInitialUIType,
     },
-    "parameters",
-    (x) => [...x, "253cd8a8-a95a-4d15-b98b-73318b3632a1"],
     wrapper
+  ));
+  act(() =>
+    result.current[1]({
+      configName: "parameters",
+      newValueFn: (x) => [...x, "253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+    })
   );
 
   // get the available uitypes for dataset_root in the X section
   let availableUITypeIds = getAvailableUITypeIds(
     { sectionId: xSection.id, paramInfoId },
-    store,
     wrapper
   );
 

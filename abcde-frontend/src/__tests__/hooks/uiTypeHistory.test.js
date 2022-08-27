@@ -4,7 +4,6 @@ import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
   setParamToObjectTypeAndAddChildSection,
-  testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
   renderUseIdsOverview,
@@ -13,7 +12,7 @@ import {
 } from "__tests__utils/renderHooks";
 import { addUIType } from "__tests__utils/utils";
 
-test.each(testCases())(
+test.each([true, false])(
   `Settings for a param's uiType should persist when switching away from it and back to it again.
 This test goes through these steps:
 1. Initialize a param's uiType (simulating a param rendering for the first time)
@@ -23,25 +22,15 @@ This test goes through these steps:
 5. Adding a child (simulating the rendering of the NestedObjectInput component)
 6. Changing the param ui type back to the initial type, and then back to the list-root.
 7. Checking that the current child is the same as the child that was created in step 5.
-Trying setting: isPreset=$isPreset, sectionName=$sectionName, paramName=$paramName
+Trying setting: isPreset=%s
 
 `,
-  ({ isPreset, sectionName, paramName }) => {
-    testUITypeHistory(isPreset, sectionName, paramName);
+  (isPreset) => {
+    testUITypeHistory(isPreset);
   }
 );
 
-function testCases() {
-  const output = [];
-  for (let isPreset of [true, false]) {
-    for (let sectionNameParamName of testSectionNamesParamNames({})) {
-      output.push({ isPreset, ...sectionNameParamName });
-    }
-  }
-  return output;
-}
-
-function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
+function testUITypeHistory(isPreset) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -51,12 +40,7 @@ function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(
-    store,
-    wrapper,
-    inputSectionName,
-    inputParamName
-  );
+  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
 
   // Check that no value has been entered yet
   ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));

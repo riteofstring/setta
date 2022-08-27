@@ -1,3 +1,4 @@
+import { act } from "react-dom/test-utils";
 import { LIST_ROOT, SECTION } from "utils/constants";
 import {
   createStoreWrapperWithData,
@@ -8,9 +9,9 @@ import {
   setParamToObjectTypeAndAddChildSection,
 } from "__tests__utils/createStoreWrapperWithData";
 import {
-  changeUITypeConfig,
   renderUseGetParamUIType,
   renderUseGetSectionType,
+  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 
 test.each([
@@ -33,15 +34,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
     sectionInfo: { id: sectionId },
     paramInfo: { id: paramInfoId, name: paramName },
     initialUIType,
-  } = getParameterToTestOnAndInitialUIType(
-    store,
-    wrapper,
-    "OtherParameters",
-    "dataset_root"
-  );
-
-  ({ result } = renderUseGetSectionType(sectionId, wrapper));
-  const sectionType = result.current;
+  } = getParameterToTestOnAndInitialUIType(store, wrapper, "dataset_root");
 
   // Get a base preset to fork off of
   const typeToForkOff = getUITypeByName(
@@ -78,21 +71,26 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(result.current).toEqual(typeToForkOff);
 
   // get the child section's info object
-  const childSectionInfo = getSectionByName(store, paramName);
-  expect(childSectionInfo.name).toEqual(paramName);
-  expect(childSectionInfo.paramInfoId).toEqual(paramInfoId);
+  const sectionInfo = getSectionByName(store, paramName);
+  expect(sectionInfo.name).toEqual(paramName);
+  expect(sectionInfo.paramInfoId).toEqual(paramInfoId);
 
   // change the section's config
-  changeUITypeConfig(
+  ({ result } = renderUseSetUIType(
     {
       ...propsForSetUIType,
       childId: paramChildId,
       settingSectionConfig: true,
       currUIType: typeToForkOff,
     },
-    "ATestConfig",
-    () => ["fruit"],
     wrapper
+  ));
+
+  act(() =>
+    result.current[1]({
+      configName: "ATestConfig",
+      newValueFn: () => ["fruit"],
+    })
   );
 
   // The section type should be a non-preset fork
@@ -103,15 +101,11 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   expect(forkedUIType.isPreset).toEqual(false);
   expect(forkedUIType.config["ATestConfig"]).toEqual(["fruit"]);
 
-  // The originInfoId should be the parent's uiTypeCollectionId + the paramInfoId
-  expect(forkedUIType.originInfoId).toEqual({
-    uiTypeCollectionId: sectionType.config.uiTypeCollectionId,
-    paramInfoId,
-  });
+  // The originInfoId should be the section id, because this is where the config was changed
+  expect(forkedUIType.originInfoId).toEqual(paramChildId);
 
   let availableUITypeIds = getAvailableUITypeIds(
-    { sectionId: paramChildId, settingSectionConfig: true },
-    store,
+    { sectionId: paramChildId },
     wrapper
   );
 
@@ -120,7 +114,6 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
 
   availableUITypeIds = getAvailableUITypeIds(
     { sectionId, paramInfoId },
-    store,
     wrapper
   );
 
@@ -129,19 +122,13 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
 
   // Get a different parameter
   const { sectionInfo: aDifferentSectionInfo, paramInfo: aDifferentParamInfo } =
-    getParameterToTestOnAndInitialUIType(
-      store,
-      wrapper,
-      "OtherParameters",
-      "batch_size"
-    );
+    getParameterToTestOnAndInitialUIType(store, wrapper, "batch_size");
 
   availableUITypeIds = getAvailableUITypeIds(
     {
       sectionId: aDifferentSectionInfo.id,
       paramInfoId: aDifferentParamInfo.id,
     },
-    store,
     wrapper
   );
 
