@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { act } from "react-dom/test-utils";
 import {
   createStoreWrapperWithData,
@@ -10,15 +11,24 @@ import {
 } from "__tests__utils/moveSectionIntoDeck";
 import { renderUseParamEnteredValue } from "__tests__utils/renderHooks";
 
-test.each([false, true])("Single entered value", (isInDeck) => {
-  singleParameter(isInDeck);
+test.each(testCases())("Single entered value", (depth) => {
+  singleParameter(depth);
 });
 
-test.each([false, true])("Multiple entered values", (isInDeck) => {
-  multipleParameters(isInDeck);
+test.each(testCases())("Multiple entered values", (depth) => {
+  multipleParameters(depth);
 });
 
-function singleParameter(isInDeck) {
+function testCases() {
+  const output = [];
+  // depth is how many decks deep the parameters will be nested
+  for (let depth of _.range(5)) {
+    output.push(depth);
+  }
+  return output;
+}
+
+function singleParameter(depth) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -43,10 +53,8 @@ function singleParameter(isInDeck) {
     "V~The2ndOtherParameters": {},
   };
 
-  if (isInDeck) {
-    const deckId = createDeck(wrapper, "Deck");
-    moveSectionIntoDeck(store, wrapper, sectionId, deckId);
-  }
+  // put a deck within a deck within a deck ...
+  recursivelyAddDeckWithinDeck(store, wrapper, sectionId, depth);
 
   for (let value of ["51", 51, true, false]) {
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
@@ -61,7 +69,7 @@ function singleParameter(isInDeck) {
   }
 }
 
-function multipleParameters(isInDeck) {
+function multipleParameters(depth) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -78,10 +86,7 @@ function multipleParameters(isInDeck) {
       x.paramName
     );
 
-    if (isInDeck) {
-      const deckId = createDeck(wrapper, "Deck");
-      moveSectionIntoDeck(store, wrapper, sectionId, deckId);
-    }
+    recursivelyAddDeckWithinDeck(store, wrapper, sectionId, depth);
 
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
     act(() => result.current[1](enteredValues[idx]));
@@ -103,5 +108,15 @@ function multipleParameters(isInDeck) {
     },
     "V~The2ndOtherParameters": {},
     "V~X": { "P~birth_location": "S~36" },
+  });
+}
+
+function recursivelyAddDeckWithinDeck(store, wrapper, sectionId, depth) {
+  // put a deck within a deck within a deck ...
+  let currId = sectionId;
+  _.range(depth).forEach(() => {
+    let deckId = createDeck(wrapper, "Deck");
+    moveSectionIntoDeck(store, wrapper, currId, deckId);
+    currId = deckId;
   });
 }
