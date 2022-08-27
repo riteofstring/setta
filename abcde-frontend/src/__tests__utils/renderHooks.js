@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react-hooks";
 import { useAddChild } from "hooks/useAddDeleteChild";
+import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import {
   useInitializeEnteredValue,
   useParamEnteredValue,
@@ -67,6 +68,10 @@ export function renderUseGetSectionType(sectionId, wrapper) {
   return renderHook(() => useGetSectionType(sectionId), {
     wrapper,
   });
+}
+
+export function renderUseCreateDefaultSectionInfo(wrapper) {
+  return renderHook(() => useCreateDefaultSectionInfo(), { wrapper });
 }
 
 export function renderUseInitializeEnteredValue(

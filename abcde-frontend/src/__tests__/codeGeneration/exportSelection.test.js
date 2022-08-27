@@ -4,7 +4,10 @@ import {
   getParameterToTestOnAndInitialUIType,
   testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
-import { moveSectionIntoDeck } from "__tests__utils/moveSectionIntoDeck";
+import {
+  createDeck,
+  moveSectionIntoDeck,
+} from "__tests__utils/moveSectionIntoDeck";
 import { renderUseParamEnteredValue } from "__tests__utils/renderHooks";
 
 test.each([false, true])("Single entered value", (isInDeck) => {
@@ -41,7 +44,8 @@ function singleParameter(isInDeck) {
   };
 
   if (isInDeck) {
-    moveSectionIntoDeck(store, wrapper, sectionId);
+    const deckId = createDeck(wrapper, "Deck");
+    moveSectionIntoDeck(store, wrapper, sectionId, deckId);
   }
 
   for (let value of ["51", 51, true, false]) {
@@ -75,7 +79,8 @@ function multipleParameters(isInDeck) {
     );
 
     if (isInDeck) {
-      moveSectionIntoDeck(store, wrapper, sectionId);
+      const deckId = createDeck(wrapper, "Deck");
+      moveSectionIntoDeck(store, wrapper, sectionId, deckId);
     }
 
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
