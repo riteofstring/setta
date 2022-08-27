@@ -194,9 +194,11 @@ export function exportSelected(state) {
   const sections = state.sectionInfos.x;
   const topLevelSections = _.filter(sections, (x) => x.isTopLevel);
   for (let s of topLevelSections) {
-    const selected = sectionExportSelected(s, state);
+    let selected = sectionExportSelected(s, state);
     const sectionType = state.uiTypes.x[s.uiTypeId];
     if (sectionType.type === DECK) {
+      // sections in a top level deck should be treated like top level sections
+      selected = _.mapKeys(selected, (v, k) => topLevelPrefix(k));
       output = { ...output, ...selected };
     } else {
       output[topLevelPrefix(s.name)] = selected;
