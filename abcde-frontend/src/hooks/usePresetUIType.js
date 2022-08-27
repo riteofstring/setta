@@ -6,7 +6,7 @@ import {
   SECTION_TYPE_NAMES,
   uiTypesToPretty,
 } from "utils/constants";
-import { useParamChildId, useParamUITypeId } from "./useParamInfo";
+import { useParamUITypeId } from "./useParamInfo";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
@@ -28,24 +28,24 @@ function createName(uiType) {
   return x;
 }
 
-function isFromSelf(v, originInfoIds) {
-  return originInfoIds.includes(v.originInfoId) && !v.isForChildOfOriginInfoId;
+function isFromSelf(v, originInfoId) {
+  return _.isEqual(v.originInfoId, originInfoId) && !v.isForChildOfOriginInfoId;
 }
 
 function isFromParent(v, parentInfo) {
   return (
-    parentInfo.id === v.originInfoId &&
+    _.isEqual(v.originInfoId, parentInfo.originInfoId) &&
     isRoot(parentInfo.type) &&
     v.isForChildOfOriginInfoId
   );
 }
 
-function matchesOriginInfoId(v, originInfoIds, parentInfo = {}) {
-  return isFromSelf(v, originInfoIds) || isFromParent(v, parentInfo);
+function matchesOriginInfoId(v, originInfoId, parentInfo = {}) {
+  return isFromSelf(v, originInfoId) || isFromParent(v, parentInfo);
 }
 
-export function isFromSelfAndMatchesType(v, originInfoIds, type) {
-  return isFromSelf(v, originInfoIds) && v.type === type;
+export function isFromSelfAndMatchesType(v, originInfoId, type) {
+  return isFromSelf(v, originInfoId) && v.type === type;
 }
 
 function isPreset(v) {
@@ -56,24 +56,21 @@ function isSectionType(v) {
   return SECTION_TYPE_NAMES.includes(v.type);
 }
 
-export function onlySectionTypes(v) {
-  return isPreset(v) && isSectionType(v);
-}
-
 function filterUITypes(
   uiTypes,
   filterFn,
   selectedId,
-  originInfoIds,
+  originInfoId,
   parentInfo
 ) {
   const matchesOriginOrIsSelected = _.filter(
     uiTypes,
     (v) =>
-      matchesOriginInfoId(v, originInfoIds, parentInfo) || v.id === selectedId
+      (filterFn(v) && matchesOriginInfoId(v, originInfoId, parentInfo)) ||
+      v.id === selectedId
   );
   const typesOfMatchesOrigin = _.map(matchesOriginOrIsSelected, (v) => v.type);
-  const presets = _.filter(uiTypes, (v) => filterFn(v));
+  const presets = _.filter(uiTypes, (v) => filterFn(v) && isPreset(v));
 
   // Remove base presets that have a corresponding uiType with a matching originInfoId
   const presetsFiltered = _.filter(
@@ -91,19 +88,33 @@ function filterUITypes(
   );
 }
 
-// If paramInfoId is provided, then look for ui types originating from paramInfoId or paramChildId
-// Otherwise, look for sectionId and maybe parentId.
-// selectedId is the currently selected uiTypeId
-export function useAvailablePresetUITypes({ sectionId, paramInfoId }) {
-  const { parentId } = useGetSectionInfo(sectionId);
-  const { id: sectionTypeId } = useGetSectionType(sectionId);
-  const { type: parentType } = useGetSectionType(parentId);
+// If paramInfoId is provided, then originInfoId is {uiTypeCollectionId, paramInfoId},
+// where uiTypeCollectionId comes from the section that contains the parameter
+// Otherwise, look for sectionId and maybe parentId
+export function useAvailablePresetUITypes({
+  sectionId,
+  paramInfoId,
+  settingSectionConfig,
+}) {
+  const { parentId, paramInfoId: sectionParamInfoId } =
+    useGetSectionInfo(sectionId);
+  const { id: sectionTypeId, config: sectionTypeConfig } =
+    useGetSectionType(sectionId);
+  const { type: parentType, config: parentTypeConfig } =
+    useGetSectionType(parentId);
   const paramUITypeId = useParamUITypeId(sectionId)(paramInfoId)[0];
-  const paramChildId = useParamChildId(sectionId)(paramInfoId)[0];
-  const originInfoIds = paramInfoId ? [paramInfoId, paramChildId] : [sectionId];
-  const parentInfo = paramInfoId ? {} : { id: parentId, type: parentType };
+  const originInfoId = createOriginInfoId({
+    settingSectionConfig,
+    sectionTypeConfig: paramInfoId ? sectionTypeConfig : parentTypeConfig,
+    childId: sectionId,
+    paramInfoId: paramInfoId ? paramInfoId : sectionParamInfoId,
+  });
+  const parentInfo = {
+    type: parentType,
+    originInfoId: createOriginInfoId({ isChildOfRoot: true, rootId: parentId }),
+  };
   const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
-  const filterFn = paramInfoId ? isPreset : onlySectionTypes;
+  const filterFn = paramInfoId ? () => true : isSectionType;
 
   return useStoreState(
     (x) =>
@@ -111,9 +122,39 @@ export function useAvailablePresetUITypes({ sectionId, paramInfoId }) {
         x.uiTypes.x,
         filterFn,
         selectedId,
-        originInfoIds.filter((x) => x),
+        originInfoId,
         parentInfo
       ),
     _.isEqual
   );
+}
+
+export function createOriginInfoId({
+  isPreset,
+  settingSectionConfig,
+  sectionTypeConfig,
+  childId,
+  paramInfoId,
+  isChildOfRoot,
+  rootId,
+}) {
+  if (isPreset) {
+    return {};
+  } else if (isChildOfRoot) {
+    return { sectionId: rootId };
+  } else if (settingSectionConfig && paramInfoId) {
+    return {
+      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      paramInfoId,
+    };
+  } else if (settingSectionConfig && !paramInfoId) {
+    return { sectionId: childId };
+  } else if (paramInfoId) {
+    return {
+      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      paramInfoId,
+    };
+  } else {
+    return {};
+  }
 }

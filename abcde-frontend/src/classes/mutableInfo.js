@@ -62,7 +62,7 @@ export class SectionInfo extends MutableInfo {
     paramInfoId,
     selectedItem = null,
     isTopLevel = false,
-    initialPosition,
+    initialPosition = { x: 0, y: 0 },
   }) {
     super();
     this.id = maybeNewId(id);
