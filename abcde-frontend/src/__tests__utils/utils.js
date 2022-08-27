@@ -6,12 +6,17 @@ import { useAddChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
 import store, { resetEntireState } from "store/store";
-import { SECTION } from "utils/constants";
+import { DECK, DECK_UI_TYPE_ID, SECTION } from "utils/constants";
 import { createNewId } from "utils/utils";
 
 export function createStore() {
   resetEntireState();
   return store;
+}
+
+export function addDeck(store) {
+  const uiType = addUIType(store, { type: DECK, uiTypeId: DECK_UI_TYPE_ID });
+  return addSectionInfo(store, uiType);
 }
 
 export function addSectionInfo(store, inputUIType = null) {

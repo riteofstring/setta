@@ -4,17 +4,18 @@ import {
   getParameterToTestOnAndInitialUIType,
   testSectionNamesParamNames,
 } from "__tests__utils/createStoreWrapperWithData";
+import { moveSectionIntoDeck } from "__tests__utils/moveSectionIntoDeck";
 import { renderUseParamEnteredValue } from "__tests__utils/renderHooks";
 
-test("Single entered value", () => {
-  singleParameter();
+test.each([false, true])("Single entered value", (isInDeck) => {
+  singleParameter(isInDeck);
 });
 
-test("Multiple entered values", () => {
-  multipleParameters();
+test.each([false, true])("Multiple entered values", (isInDeck) => {
+  multipleParameters(isInDeck);
 });
 
-function singleParameter() {
+function singleParameter(isInDeck) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -39,6 +40,10 @@ function singleParameter() {
     "V~The2ndOtherParameters": {},
   };
 
+  if (isInDeck) {
+    moveSectionIntoDeck(store, wrapper, sectionId);
+  }
+
   for (let value of ["51", 51, true, false]) {
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
     act(() => result.current[1](value));
@@ -52,7 +57,7 @@ function singleParameter() {
   }
 }
 
-function multipleParameters() {
+function multipleParameters(isInDeck) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -68,6 +73,10 @@ function multipleParameters() {
       x.sectionName,
       x.paramName
     );
+
+    if (isInDeck) {
+      moveSectionIntoDeck(store, wrapper, sectionId);
+    }
 
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
     act(() => result.current[1](enteredValues[idx]));

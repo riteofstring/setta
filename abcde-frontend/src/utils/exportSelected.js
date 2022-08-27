@@ -104,6 +104,9 @@ function objInfoExportSelected(sectionId, objInfo, paramCollectionId, state) {
 
 function rootChildrenExportSelected(section, sectionType, state) {
   const currChildren = state.sectionInfos.currChildren[section.id];
+  if (!currChildren) {
+    return {};
+  }
   const childSelections = [];
   for (let c of currChildren) {
     const currSection = state.sectionInfos.x[c];
