@@ -196,16 +196,6 @@
       "selectedItem": null,
       "parentId": null,
       "paramInfoId": null
-    },
-    "d2ed6226-c0a3-470a-8eb1-eec6e3f67e42": {
-      "id": "d2ed6226-c0a3-470a-8eb1-eec6e3f67e42",
-      "name": "Deck",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
-      "paramCollectionId": "5848043a-8b9c-4650-9feb-4f1a49216585",
-      "kwargCollectionId": "70fd9515-009f-4d54-8701-e366163afbbc",
-      "selectedItem": null,
-      "parentId": null,
-      "paramInfoId": null
     }
   }
 }

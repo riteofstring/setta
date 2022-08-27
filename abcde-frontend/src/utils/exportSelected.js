@@ -2,7 +2,7 @@ import { getFullObjPath } from "classes/immutableInfo";
 import _ from "lodash";
 
 import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
-import { DECK, isRoot } from "./constants";
+import { DECK, isRoot, LIST_ROOT } from "./constants";
 
 function paramInfoExportSelected(
   sectionId,
@@ -102,25 +102,6 @@ function objInfoExportSelected(sectionId, objInfo, paramCollectionId, state) {
   return { [objPrefix(fullObjPath)]: output };
 }
 
-function rootChildrenExportSelected(section, sectionType, state) {
-  const currChildren = state.sectionInfos.currChildren[section.id];
-  if (!currChildren) {
-    return {};
-  }
-  const childSelections = [];
-  for (let c of currChildren) {
-    const currSection = state.sectionInfos.x[c];
-    childSelections.push([
-      currSection.name,
-      sectionExportSelected(currSection, state),
-    ]);
-  }
-  if (sectionType.type === "LIST_ROOT") {
-    return childSelections.map((x) => x[1]);
-  }
-  return Object.fromEntries(childSelections);
-}
-
 function sectionExportSelected(section, state) {
   // Confusingly, paramCollectionId is not related to allParamCollections.
   // Instead, it is used for keeping track of param ui types, entered values etc.
@@ -135,7 +116,8 @@ function sectionExportSelected(section, state) {
   const sectionType = state.uiTypes.x[uiTypeId];
 
   if (isRoot(sectionType.type)) {
-    return rootChildrenExportSelected(section, sectionType, state);
+    const currChildren = state.sectionInfos.currChildren[section.id];
+    return multipleSectionExportSelected(currChildren, sectionType, state);
   }
 
   const nonObjParams = paramCollectionExportSelected(
@@ -169,6 +151,44 @@ function sectionExportSelected(section, state) {
   return output;
 }
 
+function processSelected(currSection, selected, sectionType, state) {
+  const currSectionType = state.uiTypes.x[currSection.uiTypeId].type;
+  const parentIsPane = !sectionType;
+  const parentIsListRoot = sectionType?.type === LIST_ROOT;
+  if (parentIsListRoot) {
+    if (currSectionType === DECK) {
+      return selected;
+    } else {
+      return [selected];
+    }
+  } else {
+    // the "section" is the pane, and the children are top-level sections
+    if (currSectionType === DECK) {
+      return parentIsPane
+        ? _.mapKeys(selected, (v, k) => topLevelPrefix(k))
+        : selected;
+    } else {
+      return parentIsPane
+        ? { [topLevelPrefix(currSection.name)]: selected }
+        : { [currSection.name]: selected };
+    }
+  }
+}
+
+function multipleSectionExportSelected(children, sectionType, state) {
+  const parentIsListRoot = sectionType?.type === LIST_ROOT;
+  let output = parentIsListRoot ? [] : {};
+  for (let c of children) {
+    const currSection = state.sectionInfos.x[c];
+    let selected = sectionExportSelected(currSection, state);
+    selected = processSelected(currSection, selected, sectionType, state);
+    output = parentIsListRoot
+      ? [...output, ...selected]
+      : { ...output, ...selected };
+  }
+  return output;
+}
+
 function topLevelPrefix(key) {
   return `${VARIABLE}${key}`;
 }
@@ -190,19 +210,15 @@ function maybeStringPrefix(x) {
 }
 
 export function exportSelected(state) {
-  let output = {};
   const sections = state.sectionInfos.x;
-  const topLevelSections = _.filter(sections, (x) => x.isTopLevel);
-  for (let s of topLevelSections) {
-    let selected = sectionExportSelected(s, state);
-    const sectionType = state.uiTypes.x[s.uiTypeId];
-    if (sectionType.type === DECK) {
-      // sections in a top level deck should be treated like top level sections
-      selected = _.mapKeys(selected, (v, k) => topLevelPrefix(k));
-      output = { ...output, ...selected };
-    } else {
-      output[topLevelPrefix(s.name)] = selected;
-    }
-  }
-  return output;
+  const topLevelSectionIds = _.filter(sections, (x) => x.isTopLevel).map(
+    (x) => x.id
+  );
+  return multipleSectionExportSelected(topLevelSectionIds, null, state);
 }
+
+// Look at parent of deck to determine what to do with children of deck
+// 1. If parent of deck is the pane, then children become top-level sections.
+// 2. If parent of deck is a list root, then children become list elements.
+// 3. If parent of deck is a dict root, then children become dict elements.
+// 4. If parent of deck is a section, then children become nested params.
