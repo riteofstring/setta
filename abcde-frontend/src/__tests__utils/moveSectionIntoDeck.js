@@ -4,12 +4,14 @@ import {
   renderUseIdsOverview,
 } from "./renderHooks";
 
-export function moveSectionIntoDeck(store, wrapper, sectionId, deckId) {
-  store.getActions().sectionInfos.moveChildThunk({
-    newParentId: deckId,
-    childId: sectionId,
-    newIndex: 0,
-  });
+export function moveSectionIntoDeck(store, wrapper, sectionIds, deckId) {
+  for (let sectionId of sectionIds) {
+    store.getActions().sectionInfos.moveChildThunk({
+      newParentId: deckId,
+      childId: sectionId,
+      newIndex: 0,
+    });
+  }
   // necessary to update currChildren
   renderUseIdsOverview(deckId, wrapper);
 }

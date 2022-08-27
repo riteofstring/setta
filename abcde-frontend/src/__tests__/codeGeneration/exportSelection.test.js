@@ -54,7 +54,7 @@ function singleParameter(depth) {
   };
 
   // put a deck within a deck within a deck ...
-  recursivelyAddDeckWithinDeck(store, wrapper, sectionId, depth);
+  recursivelyAddDeckWithinDeck(store, wrapper, [sectionId], depth);
 
   for (let value of ["51", 51, true, false]) {
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
@@ -73,8 +73,8 @@ function multipleParameters(depth) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
-  const enteredValues = [true, "dogs", 51, false, "36"];
-  let idx = 0;
+  const sectionIds = [];
+  const paramInfoIds = [];
   for (let x of testSectionNamesParamNames({})) {
     const {
       sectionInfo: { id: sectionId },
@@ -85,10 +85,15 @@ function multipleParameters(depth) {
       x.sectionName,
       x.paramName
     );
+    sectionIds.push(sectionId);
+    paramInfoIds.push(paramInfoId);
+  }
+  recursivelyAddDeckWithinDeck(store, wrapper, _.uniq(sectionIds), depth);
 
-    recursivelyAddDeckWithinDeck(store, wrapper, sectionId, depth);
-
-    ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
+  const enteredValues = [true, "dogs", 51, false, "36"];
+  let idx = 0;
+  for (let x of _.zip(sectionIds, paramInfoIds)) {
+    ({ result } = renderUseParamEnteredValue(x[0], x[1], wrapper));
     act(() => result.current[1](enteredValues[idx]));
     idx += 1;
   }
@@ -111,12 +116,12 @@ function multipleParameters(depth) {
   });
 }
 
-function recursivelyAddDeckWithinDeck(store, wrapper, sectionId, depth) {
+function recursivelyAddDeckWithinDeck(store, wrapper, sectionIds, depth) {
   // put a deck within a deck within a deck ...
-  let currId = sectionId;
+  let currIds = sectionIds;
   _.range(depth).forEach(() => {
     let deckId = createDeck(wrapper, "Deck");
-    moveSectionIntoDeck(store, wrapper, currId, deckId);
-    currId = deckId;
+    moveSectionIntoDeck(store, wrapper, currIds, deckId);
+    currIds = [deckId];
   });
 }
