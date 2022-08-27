@@ -38,9 +38,7 @@ function multipleParamInfoExportSelected(
       state
     );
     if (!_.isNil(paramSelection)) {
-      if (_.isString(paramSelection)) {
-        paramSelection = stringPrefix(paramSelection);
-      }
+      paramSelection = maybeStringPrefix(paramSelection);
       output[paramPrefix(p.name)] = paramSelection;
     }
   }
@@ -182,6 +180,10 @@ function paramPrefix(key) {
 
 function stringPrefix(x) {
   return `${STRING}${x}`;
+}
+
+function maybeStringPrefix(x) {
+  return _.isString(x) ? stringPrefix(x) : x;
 }
 
 export function exportSelected(state) {

@@ -24,12 +24,7 @@ function singleParameter() {
     "birth_location"
   );
 
-  ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
-  act(() => result.current[1](51));
-
-  const selected = store.getActions().master.exportSelected();
-
-  expect(selected).toEqual({
+  const commonOutput = {
     "V~Model": {},
     "V~Optimizer": {},
     "V~Transform": {},
@@ -37,6 +32,17 @@ function singleParameter() {
     "V~ValDataset": {},
     "V~OtherParameters": {},
     "V~The2ndOtherParameters": {},
-    "V~X": { "P~birth_location": 51 },
-  });
+  };
+
+  for (let value of ["51", 51, true, false]) {
+    ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
+    act(() => result.current[1](value));
+
+    const selected = store.getActions().master.exportSelected();
+    const correct = value === "51" ? "S~51" : value;
+    expect(selected).toEqual({
+      ...commonOutput,
+      "V~X": { "P~birth_location": correct },
+    });
+  }
 }
