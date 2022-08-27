@@ -109,18 +109,13 @@ function testRootAndChild(inputSectionName, inputParamName) {
     childId: rootChildId,
   });
 
-  // a forked ui type is created because the subtype changes
-  ({ result } = renderUseGetSectionType(rootChildId, wrapper));
-  let rootChildNewUIType = result.current;
-  expect(rootChildNewUIType.config.subType).toEqual(null);
-
   // rootChild should see its own uitype
   availableUITypeIds = getAvailableUITypeIds(
     { sectionId: rootChildId, settingSectionConfig: true },
     store,
     wrapper
   );
-  expect(availableUITypeIds).toContain(rootChildNewUIType.id);
+  expect(availableUITypeIds).toContain(rootChildUIType.id);
 
   // move rootChild back into its original place
   store.getActions().sectionInfos.moveChildThunk({
@@ -134,7 +129,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
       ...propsForSetUIType,
       childId: rootChildId,
       settingSectionConfig: true,
-      currUIType: rootChildNewUIType,
+      currUIType: rootChildUIType,
     },
     "parameters",
     () => ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
@@ -143,7 +138,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
 
   // get list root child's new type which is a non-preset
   ({ result } = renderUseGetSectionType(rootChildId, wrapper));
-  rootChildNewUIType = result.current;
+  const rootChildNewUIType = result.current;
   expect(rootChildNewUIType.isPreset).toEqual(false);
 
   // rootChild should see its new uitype + the uitype that originated from the root

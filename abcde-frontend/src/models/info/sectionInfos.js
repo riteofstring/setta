@@ -1,8 +1,6 @@
 import { action, computed, thunk } from "easy-peasy";
-import { getFnSetSectionUITypeId } from "hooks/useSectionInfo";
-import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
-import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
+import { PANEID } from "utils/constants";
 import { createNewId } from "utils/utils";
 
 import { exportState } from "./utils";
@@ -87,7 +85,7 @@ const sectionInfos = {
     actions.setChildrenInfo({ childrenInfoId, newStateFn });
   }),
 
-  moveChildThunk: thunk((actions, payload, helpers) => {
+  moveChildThunk: thunk((actions, payload) => {
     const { oldParentId, newParentId, childId, newIndex } = payload;
 
     // Remove child from old parent's list
@@ -129,13 +127,6 @@ const sectionInfos = {
       attr: "parentId",
       value: newParentId === PANEID ? undefined : newParentId,
     });
-
-    maybeChangeSectionSubtype({
-      newParentId,
-      childId,
-      state: helpers.getStoreState(),
-      actions: helpers.getStoreActions(),
-    });
   }),
 
   export() {
@@ -161,51 +152,4 @@ function deleteSectionFn(state, sectionId) {
   delete state.idsOverview[sectionId];
   delete state.childrenInfo[childrenInfoId];
   delete state.currChildren[sectionId];
-}
-
-function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
-  const newParentUITypeId = state.sectionInfos.x[newParentId]?.uiTypeId;
-  const newParentUIType = state.uiTypes.x[newParentUITypeId];
-  const {
-    uiTypeId: childUITypeId,
-    name: childSectionName,
-    paramInfoId,
-  } = state.sectionInfos.x[childId];
-  const childUIType = state.uiTypes.x[childUITypeId];
-  const setConfig = actions.uiTypes.setOneConfig;
-  const setUIType = actions.uiTypes.setUIType;
-  const setParamUITypeId = () => null; //TODO: determine best course of action here
-  const setSectionUITypeId = getFnSetSectionUITypeId(
-    childId,
-    actions.sectionInfos.setSectionInfoAttr
-  );
-  const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
-
-  const configChangeFn = getFnSetUIType({
-    paramInfoId,
-    defaultName: childSectionName,
-    childId,
-    currUIType: childUIType,
-    settingPreset: false,
-    settingSectionConfig: true,
-    sectionTypeConfig: newParentUIType?.config,
-    setParamUITypeId,
-    setSectionUITypeId,
-    setConfig,
-    setUIType,
-    possibleMatchWrapperFn,
-  })[1];
-
-  const configProps = {
-    configName: "subType",
-  };
-
-  const parentIsRoot = isRoot(newParentUIType?.type);
-  const childIsListLike = isListLike(childUIType.config.subType);
-
-  if (parentIsRoot && !childIsListLike) {
-    configChangeFn({ ...configProps, newValueFn: () => LIST });
-  } else if (!parentIsRoot && childIsListLike) {
-    configChangeFn({ ...configProps, newValueFn: () => null });
-  }
 }

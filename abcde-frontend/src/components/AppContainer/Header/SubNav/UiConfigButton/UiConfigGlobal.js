@@ -15,7 +15,7 @@ import {
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { createOriginInfoId, usePresetUIType } from "hooks/usePresetUIType";
-import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
+import { cloneNewUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
