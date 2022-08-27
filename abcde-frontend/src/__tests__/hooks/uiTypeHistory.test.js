@@ -61,7 +61,7 @@ function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
   // Check that no value has been entered yet
   ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
   const [enteredValue, setEnteredValue] = result.current;
-  expect(enteredValue).toEqual("");
+  expect(enteredValue).toEqual(null);
 
   // Check that enteredValue gets updated correctly
   const testFolderName = "my/special/folder";

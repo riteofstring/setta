@@ -10,9 +10,14 @@ function paramInfoExportSelected(
   paramCollectionId,
   state
 ) {
-  const { enteredValueId, childId } =
-    state.paramInfos.x[paramCollectionId][paramInfo.id];
-  if (state.sectionInfos.currChildren[sectionId].includes(childId)) {
+  const enteredValueInfo =
+    state.paramInfos.x[paramCollectionId]?.[paramInfo.id];
+  if (!enteredValueInfo) {
+    return undefined;
+  }
+  const { enteredValueId, childId } = enteredValueInfo;
+  const sectionChildren = state.sectionInfos.currChildren[sectionId];
+  if (sectionChildren && sectionChildren.includes(childId)) {
     return sectionExportSelected(state.sectionInfos.x[childId], state);
   }
   return state.enteredValues.x[enteredValueId];

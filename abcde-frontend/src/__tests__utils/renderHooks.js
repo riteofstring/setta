@@ -1,6 +1,9 @@
 import { renderHook } from "@testing-library/react-hooks";
 import { useAddChild } from "hooks/useAddDeleteChild";
-import { useParamEnteredValue } from "hooks/useEnteredValue";
+import {
+  useInitializeEnteredValue,
+  useParamEnteredValue,
+} from "hooks/useEnteredValue";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
@@ -62,6 +65,16 @@ export function renderUseParamChildId(sectionId, paramInfoId, wrapper) {
 
 export function renderUseGetSectionType(sectionId, wrapper) {
   return renderHook(() => useGetSectionType(sectionId), {
+    wrapper,
+  });
+}
+
+export function renderUseInitializeEnteredValue(
+  sectionId,
+  paramInfoId,
+  wrapper
+) {
+  return renderHook(() => useInitializeEnteredValue(sectionId)(paramInfoId), {
     wrapper,
   });
 }

@@ -7,6 +7,7 @@ import {
   renderUseAvailablePresetUITypes,
   renderUseGetParamUIType,
   renderUseGetSectionType,
+  renderUseInitializeEnteredValue,
   renderUseInitializeUIType,
   renderUseParamChildId,
   renderUseSetUIType,
@@ -23,7 +24,7 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-export function getParamInfoByName(paramCollection, name) {
+function getParamInfoByName(paramCollection, name) {
   return _.filter(paramCollection.children, (v) => v.name === name)[0];
 }
 
@@ -34,19 +35,19 @@ export function getUITypeByName(store, name, type, isBasePreset) {
   )[0];
 }
 
-export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
+function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   let result = null;
 
-  // get OtherParameters section
+  // get section
   const sectionInfo = getSectionByName(store, sectionName);
 
   const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
-  // get OtherParameters sectionType
+  // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
   const paramCollectionId = result.current.config.parameters[0];
 
-  // get the param collection that OtherParameters contains
+  // get the param collection that the section contains
   const variousParams =
     store.getState().master.allParamCollections.children[paramCollectionId];
 
@@ -55,7 +56,7 @@ export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   return { sectionInfo, paramInfo };
 }
 
-export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
+function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
   let result = null;
   // initialize paramInfo's uiType
   // This is usually done in ParamContainer when the parameter loads
@@ -65,6 +66,16 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
   // get the param's initial uiType
   ({ result } = renderUseGetParamUIType(sectionId, paramInfo.id, wrapper));
   return result.current;
+}
+
+function initializeEnteredValueId(sectionId, paramInfoId, wrapper) {
+  let result = null;
+  ({ result } = renderUseInitializeEnteredValue(
+    sectionId,
+    paramInfoId,
+    wrapper
+  ));
+  act(() => result.current());
 }
 
 export function getParameterToTestOnAndInitialUIType(
@@ -87,6 +98,10 @@ export function getParameterToTestOnAndInitialUIType(
     paramInfo,
     wrapper
   );
+
+  // initialize entered value id for the parameter
+  initializeEnteredValueId(sectionInfo.id, paramInfo.id, wrapper);
+
   return { sectionInfo, paramInfo, initialUIType };
 }
 
