@@ -39,7 +39,8 @@ export function useSetUIType({
   const setSectionUITypeId = useSetSectionUITypeId(childId);
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const allUITypes = useStoreState((x) => x.uiTypes.x);
+  const possibleMatchWrapperFn = (fn) =>
+    useStoreState((x) => fn(x.uiTypes.x), _.isEqual);
 
   return getFnSetUIType({
     paramInfoId,
@@ -53,7 +54,7 @@ export function useSetUIType({
     setSectionUITypeId,
     setConfig,
     setUIType,
-    allUITypes,
+    possibleMatchWrapperFn,
   });
 }
 

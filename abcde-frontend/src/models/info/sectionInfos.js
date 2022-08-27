@@ -179,7 +179,7 @@ function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
     childId,
     actions.sectionInfos.setSectionInfoAttr
   );
-  const allUITypes = state.uiTypes.x;
+  const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
 
   const configChangeFn = getFnSetUIType({
     paramInfoId,
@@ -193,7 +193,7 @@ function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
     setSectionUITypeId,
     setConfig,
     setUIType,
-    allUITypes,
+    possibleMatchWrapperFn,
   })[1];
 
   const configProps = {

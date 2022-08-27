@@ -53,11 +53,13 @@ function setChildUITypeConfig(uiType, props, setConfig) {
   }
 }
 
-function existingNonPresetMatchingType(uiType, originInfoId, uiTypeState) {
-  const matches = _.filter(uiTypeState, (v) =>
-    isFromSelfAndMatchesType(v, originInfoId, uiType.type)
-  );
-  return matches.length > 0 ? matches[0] : null;
+function existingNonPresetMatchingType(uiType, originInfoId) {
+  return (allUITypes) => {
+    const matches = _.filter(allUITypes, (v) =>
+      isFromSelfAndMatchesType(v, originInfoId, uiType.type)
+    );
+    return matches.length > 0 ? matches[0] : null;
+  };
 }
 
 export function getFnSetUITypeConfigAndMaybeClone({
@@ -111,7 +113,7 @@ export function getFnSetUIType({
   setSectionUITypeId,
   setConfig,
   setUIType,
-  allUITypes,
+  possibleMatchWrapperFn,
 }) {
   const setUITypeId = settingSectionConfig
     ? setSectionUITypeId
@@ -125,10 +127,8 @@ export function getFnSetUIType({
   });
 
   // Try using existing non-preset (uiType with same originInfoId and type)
-  const possibleMatch = existingNonPresetMatchingType(
-    currUIType,
-    originInfoId,
-    allUITypes
+  const possibleMatch = possibleMatchWrapperFn(
+    existingNonPresetMatchingType(currUIType, originInfoId)
   );
 
   const setOtherId = (newId) => {
