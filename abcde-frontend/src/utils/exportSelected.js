@@ -157,7 +157,7 @@ function processSelected(currSection, selected, sectionType, state) {
   const parentIsListRoot = sectionType?.type === LIST_ROOT;
   if (parentIsListRoot) {
     if (currSectionType === DECK) {
-      return selected;
+      return Object.values(selected);
     } else {
       return [selected];
     }
