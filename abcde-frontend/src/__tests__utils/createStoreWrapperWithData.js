@@ -24,7 +24,24 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-function getParamInfoByName(paramCollection, name) {
+
+export function getParamInfoByFullPath(
+  allPackageInfo,
+  packageName,
+  moduleName,
+  objName,
+  paramName
+) {
+  const pkg = _.filter(
+    allPackageInfo.children,
+    (x) => x.name === packageName
+  )[0];
+  const module = _.filter(pkg.children, (x) => x.name === moduleName)[0];
+  const obj = _.filter(module.children, (x) => x.name === objName)[0];
+  return _.filter(obj.children, (x) => x.name === paramName)[0];
+}
+
+function getParamCollectionParamInfoByName(paramCollection, name) {
   return _.filter(paramCollection.children, (v) => v.name === name)[0];
 }
 
@@ -52,11 +69,11 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
     store.getState().master.allParamCollections.children[paramCollectionId];
 
   // get the parameter we are going to test on
-  const paramInfo = getParamInfoByName(variousParams, paramName);
+  const paramInfo = getParamCollectionParamInfoByName(variousParams, paramName);
   return { sectionInfo, paramInfo };
 }
 
-function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
+export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
   let result = null;
   // initialize paramInfo's uiType
   // This is usually done in ParamContainer when the parameter loads
@@ -105,6 +122,31 @@ export function getParameterToTestOnAndInitialUIType(
   return { sectionInfo, paramInfo, initialUIType };
 }
 
+export function addChildSectionAndGetChildId(
+  sectionId,
+  paramInfoId,
+  defaultName,
+  uiTypeId,
+  wrapper
+) {
+  let result = null;
+  // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
+  ({ result } = renderUseAddChild(sectionId, wrapper));
+  act(() =>
+    result.current({
+      name: defaultName,
+      uiTypeId,
+      parentParamInfoId: paramInfoId,
+    })
+  );
+
+  // Get the section id of the new nested section
+  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
+
+  // return paramChildId
+  return result.current[0];
+}
+
 export function setParamToObjectTypeAndAddChildSection(
   wrapper,
   setUITypeProps,
@@ -125,21 +167,13 @@ export function setParamToObjectTypeAndAddChildSection(
   // And it should require a nested section
   expect(requiresNestedSection(result.current.type)).toBeTruthy();
 
-  // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
-  ({ result } = renderUseAddChild(sectionId, wrapper));
-  act(() =>
-    result.current({
-      name: defaultName,
-      uiTypeId: objectUIType.id,
-      parentParamInfoId: paramInfoId,
-    })
+  return addChildSectionAndGetChildId(
+    sectionId,
+    paramInfoId,
+    defaultName,
+    objectUIType.id,
+    wrapper
   );
-
-  // Get the section id of the new nested section
-  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
-
-  // return paramChildId
-  return result.current[0];
 }
 
 export function getAvailableUITypeIds(hookProps, store, wrapper) {
