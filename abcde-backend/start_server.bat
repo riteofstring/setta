@@ -1,1 +1,0 @@
-cd abcde && python manage.py runserver
