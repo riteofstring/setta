@@ -9,4 +9,3 @@ venv/
 .vscode/
 *.sqlite3
 migrations/
-MNIST/

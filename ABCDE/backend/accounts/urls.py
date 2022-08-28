@@ -1,7 +1,7 @@
 from django.urls import path
 from knox import views as knox_views
 
-from .api import LoginAPI, RegisterAPI, VerifyTokenAPI, WebsocketAuthAPI
+from .api import LoginAPI, RegisterAPI, VerifyTokenAPI
 
 urlpatterns = [
     path("api/auth/register", RegisterAPI.as_view()),
@@ -10,6 +10,5 @@ urlpatterns = [
     path(
         "api/auth/logoutall", knox_views.LogoutAllView.as_view(), name="knox_logoutall"
     ),
-    path("api/auth/websocketAuth", WebsocketAuthAPI.as_view()),
     path("api/auth/verifyToken", VerifyTokenAPI.as_view()),
 ]

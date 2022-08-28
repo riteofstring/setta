@@ -147,7 +147,3 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = "/static/"
-
-
-CLI_WEBSOCKET_GROUP_NAME = "cli"
-# NEWGENERATEDCODE_WEBSOCKET_GROUP_NAME = "newGeneratedCode"

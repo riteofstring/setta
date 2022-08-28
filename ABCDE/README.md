@@ -3,7 +3,6 @@
 Setting up environments for the first time:
 
 1. ```.\setup_abcde_env.bat```
-2. ```.\setup_machine_learning_env.bat```
 
 Updating the environment requirements:
 ```.\update_env_reqs.bat```
