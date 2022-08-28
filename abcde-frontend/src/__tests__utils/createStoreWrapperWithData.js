@@ -1,6 +1,10 @@
 import { waitFor } from "@testing-library/react";
 import _ from "lodash";
-import { requiresNestedSection, SECTION_TYPE_NAMES } from "utils/constants";
+import {
+  PANEID,
+  requiresNestedSection,
+  SECTION_TYPE_NAMES,
+} from "utils/constants";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAddChild,
@@ -207,7 +211,9 @@ export function testSectionNamesParamNames({ excludeSections = [] }) {
   return output.filter((x) => !excludeSections.includes(x.sectionName));
 }
 
-export async function callMoveChildThunk(store, wrapper, props, sectionId) {
+export async function callMoveChildThunk(store, wrapper, props) {
   await waitFor(() => store.getActions().sectionInfos.moveChildThunk(props));
-  renderUseIdsOverview(sectionId, wrapper);
+  if (props.newParentId && props.newParentId !== PANEID) {
+    renderUseIdsOverview(props.newParentId, wrapper);
+  }
 }

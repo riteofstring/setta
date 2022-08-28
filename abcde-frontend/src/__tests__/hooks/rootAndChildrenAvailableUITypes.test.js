@@ -1,6 +1,7 @@
 import { PANEID } from "utils/constants";
 import { createListRootAndChild } from "__tests__utils/createListRootAndChild";
 import {
+  callMoveChildThunk,
   createStoreWrapperWithData,
   getAvailableUITypeIds,
   getParameterToTestOnAndInitialUIType,
@@ -103,7 +104,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
   expect(availableUITypeIds).toContain(rootChildUIType.id);
 
   // move rootChild to be a top level section (no parent)
-  store.getActions().sectionInfos.moveChildThunk({
+  callMoveChildThunk(store, wrapper, {
     oldParentId: listRootSectionId,
     newParentId: PANEID,
     childId: rootChildId,
@@ -123,7 +124,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
   expect(availableUITypeIds).toContain(rootChildNewUIType.id);
 
   // move rootChild back into its original place
-  store.getActions().sectionInfos.moveChildThunk({
+  callMoveChildThunk(store, wrapper, {
     newParentId: listRootSectionId,
     childId: rootChildId,
   });

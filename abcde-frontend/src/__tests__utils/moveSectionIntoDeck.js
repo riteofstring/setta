@@ -1,4 +1,5 @@
 import { DECK_UI_TYPE_ID } from "utils/constants";
+import { callMoveChildThunk } from "./createStoreWrapperWithData";
 import {
   renderUseCreateDefaultSectionInfo,
   renderUseIdsOverview,
@@ -6,7 +7,7 @@ import {
 
 export function moveSectionIntoDeck(store, wrapper, sectionIds, deckId) {
   sectionIds.forEach((v, i) => {
-    store.getActions().sectionInfos.moveChildThunk({
+    callMoveChildThunk(store, wrapper, {
       newParentId: deckId,
       childId: v,
       newIndex: i,

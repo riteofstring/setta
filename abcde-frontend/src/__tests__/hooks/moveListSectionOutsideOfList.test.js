@@ -1,6 +1,7 @@
 import { PANEID } from "utils/constants";
 import { createListRootAndChild } from "__tests__utils/createListRootAndChild";
 import {
+  callMoveChildThunk,
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
 } from "__tests__utils/createStoreWrapperWithData";
@@ -38,7 +39,7 @@ function testMovingListSection() {
   );
 
   // move child to the pane (top-level)
-  store.getActions().sectionInfos.moveChildThunk({
+  callMoveChildThunk(store, wrapper, {
     oldParentId: listRootSectionId,
     newParentId: PANEID,
     childId: rootChildId,

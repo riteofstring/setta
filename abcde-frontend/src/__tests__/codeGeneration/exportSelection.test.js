@@ -216,16 +216,11 @@ function addToDeckAndMaybePutDeckInTransforms(
   if (putDeckInTransforms) {
     // move child to the pane (top-level)
     for (let i = 0; i < deckIds.length; i++) {
-      callMoveChildThunk(
-        store,
-        wrapper,
-        {
-          newParentId: listRootId,
-          childId: deckIds[i],
-          newIndex: numTransforms + i, //put deck at end of list
-        },
-        listRootId
-      );
+      callMoveChildThunk(store, wrapper, {
+        newParentId: listRootId,
+        childId: deckIds[i],
+        newIndex: numTransforms + i, //put deck at end of list
+      });
     }
   }
 }
