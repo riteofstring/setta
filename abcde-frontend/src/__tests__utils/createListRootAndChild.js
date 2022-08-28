@@ -1,4 +1,4 @@
-import { act } from "react-dom/test-utils";
+import { waitFor } from "@testing-library/react";
 import { LIST, LIST_ROOT } from "utils/constants";
 import {
   getUITypeByName,
@@ -57,7 +57,7 @@ export function createListRootAndChild(
 
   // Add child to the root (simulates clicking on incrementer)
   ({ result } = renderUseAddChild(listRootSectionId, wrapper));
-  act(() => result.current({ numChildren: 1 }));
+  waitFor(() => result.current({ numChildren: 1 }));
 
   // get list root's child
   ({ result } = renderUseIdsOverview(listRootSectionId, wrapper));

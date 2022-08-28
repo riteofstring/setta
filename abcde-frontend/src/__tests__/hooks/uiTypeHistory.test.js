@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react-hooks";
+import { waitFor } from "@testing-library/react";
 import { LIST_ROOT } from "utils/constants";
 import {
   createStoreWrapperWithData,
@@ -65,7 +65,7 @@ function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
 
   // Check that enteredValue gets updated correctly
   const testFolderName = "my/special/folder";
-  act(() => setEnteredValue(testFolderName));
+  waitFor(() => setEnteredValue(testFolderName));
   ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
   expect(result.current[0]).toEqual(testFolderName);
 
@@ -106,7 +106,7 @@ function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
     },
     wrapper
   ));
-  act(() => result.current[0](initialUIType.id));
+  waitFor(() => result.current[0](initialUIType.id));
 
   // The listRootUIType should still exist
   expect(listRootUIType.id).toBeTruthy();
@@ -125,7 +125,7 @@ function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
     },
     wrapper
   ));
-  act(() => result.current[0](listRootUIType.id));
+  waitFor(() => result.current[0](listRootUIType.id));
 
   // The only child should be the ORIGINAL paramChildId
   ({ result } = renderUseIdsOverview(sectionId, wrapper));

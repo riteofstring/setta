@@ -1,6 +1,5 @@
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook, waitFor } from "@testing-library/react";
 import { useAddChild } from "hooks/useAddDeleteChild";
-import { act } from "react-dom/test-utils";
 import {
   addSectionInfo,
   createStore,
@@ -32,8 +31,8 @@ test("deleting a section should delete its children too", () => {
   const si1 = addSectionInfo(store);
   const si2 = addSectionInfo(store);
   const { result } = renderHook(() => useAddChild(si1.id), { wrapper });
-  act(() => result.current({}));
-  act(() => {
+  waitFor(() => result.current({}));
+  waitFor(() => {
     store.getActions().sectionInfos.deleteSections({ sectionIds: [si1.id] });
   });
   const state = store.getState().sectionInfos;

@@ -1,10 +1,11 @@
+import { waitFor } from "@testing-library/react";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import {
   listOfTransformsAsJson,
   selectComposeTransform,
 } from "__tests__utils/addNestedListRoot";
 import {
+  callMoveChildThunk,
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
   testSectionNamesParamNames,
@@ -42,7 +43,11 @@ function testCases() {
   return output;
 }
 
-function singleParameter(numNestedDecks, numTransforms, putDeckInTransforms) {
+async function singleParameter(
+  numNestedDecks,
+  numTransforms,
+  putDeckInTransforms
+) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -82,7 +87,7 @@ function singleParameter(numNestedDecks, numTransforms, putDeckInTransforms) {
 
   for (let value of ["51", 51, true, false]) {
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
-    act(() => result.current[1](value));
+    await waitFor(() => result.current[1](value));
 
     const selected = store.getActions().master.exportSelected();
     const correct = value === "51" ? "S~51" : value;
@@ -102,7 +107,7 @@ function singleParameter(numNestedDecks, numTransforms, putDeckInTransforms) {
   }
 }
 
-function multipleParameters(
+async function multipleParameters(
   numNestedDecks,
   numTransforms,
   putDeckInTransforms
@@ -138,7 +143,7 @@ function multipleParameters(
   let idx = 0;
   for (let x of _.zip(sectionIds, paramInfoIds)) {
     ({ result } = renderUseParamEnteredValue(x[0], x[1], wrapper));
-    act(() => result.current[1](enteredValues[idx]));
+    await waitFor(() => result.current[1](enteredValues[idx]));
     idx += 1;
   }
 
@@ -210,12 +215,17 @@ function addToDeckAndMaybePutDeckInTransforms(
 
   if (putDeckInTransforms) {
     // move child to the pane (top-level)
-    deckIds.forEach((v, i) =>
-      store.getActions().sectionInfos.moveChildThunk({
-        newParentId: listRootId,
-        childId: v,
-        newIndex: numTransforms + i, //put deck at end of list
-      })
-    );
+    for (let i = 0; i < deckIds.length; i++) {
+      callMoveChildThunk(
+        store,
+        wrapper,
+        {
+          newParentId: listRootId,
+          childId: deckIds[i],
+          newIndex: numTransforms + i, //put deck at end of list
+        },
+        listRootId
+      );
+    }
   }
 }

@@ -1,10 +1,9 @@
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook, waitFor } from "@testing-library/react";
 import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
 import { useAddChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import store, { resetEntireState } from "store/store";
 import { DECK, DECK_UI_TYPE_ID, SECTION } from "utils/constants";
 import { createNewId } from "utils/utils";
@@ -47,7 +46,7 @@ export function addParamInfo(
   const [uiTypeCollectionId, paramInfoId] = [createNewId(), createNewId()];
   const { paramCollectionId } = sectionInfo;
   const actions = store.getActions().paramInfos;
-  act(() => {
+  waitFor(() => {
     actions.setUITypeId({
       collectionId: uiTypeCollectionId,
       paramInfoId,
@@ -58,7 +57,7 @@ export function addParamInfo(
     const { result } = renderHook(() => useAddChild(sectionInfo.id), {
       wrapper,
     });
-    act(() =>
+    waitFor(() =>
       result.current({
         uiTypeId: uiType.id,
         collectionId: paramCollectionId,

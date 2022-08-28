@@ -1,5 +1,5 @@
+import { waitFor } from "@testing-library/react";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
@@ -9,12 +9,12 @@ import { renderUseSetUIType } from "__tests__utils/renderHooks";
 
 test.each(testSectionNamesParamNames({}))(
   "Setting a non-preset config multiple times should result in only 1 new ui type",
-  ({ sectionName, paramName }) => {
-    testSetUIConfigMultipleTimes(sectionName, paramName);
+  async ({ sectionName, paramName }) => {
+    await testSetUIConfigMultipleTimes(sectionName, paramName);
   }
 );
 
-function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
+async function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -43,15 +43,13 @@ function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
     settingPreset: false,
     currUIType: initialUIType,
   };
-
-  // set param to use this new uiType
-  ({ result } = renderUseSetUIType(propsForSetUIType, wrapper));
-
   const initialNumberOfUITypes = _.size(store.getState().uiTypes.x);
 
   // set the config multiple times
   for (let val of [3, 23, 45, "dog"]) {
-    act(() =>
+    // set param to use this new uiType
+    ({ result } = renderUseSetUIType(propsForSetUIType, wrapper));
+    await waitFor(() =>
       result.current[1]({
         configName: "someArbitraryConfig",
         newValueFn: () => val,

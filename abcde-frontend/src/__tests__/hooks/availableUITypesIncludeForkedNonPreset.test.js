@@ -1,4 +1,4 @@
-import { act } from "react-dom/test-utils";
+import { waitFor } from "@testing-library/react";
 import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
@@ -66,7 +66,7 @@ function testAvailableForkedNonPreset(inputSectionName, inputParamName) {
 
   // set back to original type
   ({ result } = renderUseSetUIType(hookProps, wrapper));
-  act(() => result.current[0](initialUIType.id));
+  waitFor(() => result.current[0](initialUIType.id));
 
   availableUITypeIds = getAvailableUITypeIds(
     { sectionId, paramInfoId },

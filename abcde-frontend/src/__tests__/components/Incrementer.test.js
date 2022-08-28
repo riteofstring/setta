@@ -1,10 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import { renderHook } from "@testing-library/react-hooks";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import {
   addSectionInfo,
   createStore,
@@ -70,7 +68,7 @@ function componentSetup({ forParent, numChildren }) {
   const parent = addSectionInfo(store);
   let { result } = renderHook(() => useAddChild(parent.id), { wrapper });
   _.range(numChildren).forEach(() => {
-    act(() => result.current({}));
+    waitFor(() => result.current({}));
   });
   const state = store.getState().sectionInfos;
   const childrenInfoId = state.idsOverview[parent.id];

@@ -1,5 +1,5 @@
+import { waitFor } from "@testing-library/react";
 import _ from "lodash";
-import { act } from "react-dom/test-utils";
 import { requiresNestedSection, SECTION_TYPE_NAMES } from "utils/constants";
 import { loadTestData } from "./loadTestData";
 import {
@@ -7,6 +7,7 @@ import {
   renderUseAvailablePresetUITypes,
   renderUseGetParamUIType,
   renderUseGetSectionType,
+  renderUseIdsOverview,
   renderUseInitializeEnteredValue,
   renderUseInitializeUIType,
   renderUseParamChildId,
@@ -77,7 +78,7 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
   // initialize paramInfo's uiType
   // This is usually done in ParamContainer when the parameter loads
   ({ result } = renderUseInitializeUIType(sectionId, paramInfo, wrapper));
-  act(() => result.current());
+  waitFor(() => result.current());
 
   // get the param's initial uiType
   ({ result } = renderUseGetParamUIType(sectionId, paramInfo.id, wrapper));
@@ -91,7 +92,7 @@ export function initializeEnteredValueId(sectionId, paramInfoId, wrapper) {
     paramInfoId,
     wrapper
   ));
-  act(() => result.current());
+  waitFor(() => result.current());
 }
 
 export function getParameterToTestOnAndInitialUIType(
@@ -131,7 +132,7 @@ export function addChildSectionAndGetChildId(
   let result = null;
   // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
   ({ result } = renderUseAddChild(sectionId, wrapper));
-  act(() =>
+  waitFor(() =>
     result.current({
       name: defaultName,
       uiTypeId,
@@ -156,7 +157,7 @@ export function setParamToObjectTypeAndAddChildSection(
   // set param to use this new uiType
   ({ result } = renderUseSetUIType(setUITypeProps, wrapper));
 
-  act(() => result.current[0](objectUIType.id));
+  waitFor(() => result.current[0](objectUIType.id));
 
   const { sectionId, paramInfoId, defaultName } = setUITypeProps;
   // uiType should be listRootUIType
@@ -204,4 +205,9 @@ export function testSectionNamesParamNames({ excludeSections = [] }) {
   }));
   const output = [...otherParameters, ...xParameters];
   return output.filter((x) => !excludeSections.includes(x.sectionName));
+}
+
+export async function callMoveChildThunk(store, wrapper, props, sectionId) {
+  await waitFor(() => store.getActions().sectionInfos.moveChildThunk(props));
+  renderUseIdsOverview(sectionId, wrapper);
 }

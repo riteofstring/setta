@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react-hooks";
+import { waitFor } from "@testing-library/react";
 import _ from "lodash";
 import { SLIDER } from "utils/constants";
 import { createSectionInfoWithParam } from "__tests__utils/createSectionInfoWithParam";
@@ -128,7 +128,7 @@ function testUseSetUIType(
   expect(uiType.id).not.toEqual(newUIType.id);
 
   // test setting ui type id
-  act(() => result.current[0](newUIType.id));
+  waitFor(() => result.current[0](newUIType.id));
 
   // get ui type
   ({ result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper));

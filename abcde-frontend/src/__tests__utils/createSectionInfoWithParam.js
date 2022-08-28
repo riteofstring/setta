@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react-hooks";
+import { waitFor } from "@testing-library/react";
 import { addParamInfo, addSectionInfo, addUIType } from "__tests__utils/utils";
 
 // After calling this function, state.uiTypes.x will have 2 uiTypes
@@ -23,7 +23,7 @@ export function createSectionInfoWithParam(
   );
 
   // set the section's UIType's config's uiTypeCollectionId
-  act(() => {
+  waitFor(() => {
     store.getActions().uiTypes.setOneConfig({
       uiTypeId: si.uiTypeId,
       configName: "uiTypeCollectionId",

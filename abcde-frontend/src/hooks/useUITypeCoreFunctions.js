@@ -62,7 +62,7 @@ function existingNonPresetMatchingType(uiType, originInfoId) {
   };
 }
 
-export function getFnSetUITypeConfigAndMaybeClone({
+function getFnSetUITypeConfigAndMaybeClone({
   defaultName,
   currUIType,
   settingPreset,
@@ -79,7 +79,6 @@ export function getFnSetUITypeConfigAndMaybeClone({
     if (shouldCloneUIType(currUIType, settingPreset)) {
       // There's no match, so clone the preset into a non-preset
       if (!possibleMatch) {
-        console.log("cloning!");
         maybeNewUIType = cloneNewUIType({
           uiType: currUIType,
           name: defaultName,
@@ -87,7 +86,6 @@ export function getFnSetUITypeConfigAndMaybeClone({
         });
         setUIType({ uiType: maybeNewUIType });
       } else {
-        console.log("using possibleMatch!");
         maybeNewUIType = possibleMatch;
       }
       // In both cases, make the section or param to use the new or existing id
@@ -133,7 +131,6 @@ export function getFnSetUIType({
 
   const setOtherId = (newId) => {
     if (settingSectionConfig && paramInfoId) {
-      console.log("setting param ui type id");
       setParamUITypeId(newId);
     } else if (!settingSectionConfig && childId) {
       setSectionUITypeId(newId);

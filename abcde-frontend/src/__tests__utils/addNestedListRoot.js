@@ -1,4 +1,4 @@
-import { act } from "react-dom/test-utils";
+import { waitFor } from "@testing-library/react";
 import {
   addChildSectionAndGetChildId,
   getParamInfoByFullPath,
@@ -99,7 +99,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
         paramInfo.id,
         wrapper
       ));
-      act(() => result.current[1](paramSettings[paramName]));
+      waitFor(() => result.current[1](paramSettings[paramName]));
     }
   }
 

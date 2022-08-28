@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook, waitFor } from "@testing-library/react";
 import { useAddChild } from "hooks/useAddDeleteChild";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import {
@@ -14,7 +14,6 @@ import {
   useInitializeUIType,
   useSetUIType,
 } from "hooks/useUIType";
-import { act } from "react-dom/test-utils";
 
 export function renderUseAvailablePresetUITypes(hookProps, wrapper) {
   return renderHook(() => useAvailablePresetUITypes(hookProps), {
@@ -87,7 +86,7 @@ export function renderUseInitializeEnteredValue(
 export function changeUITypeConfig(hookProps, configName, newValueFn, wrapper) {
   let result = null;
   ({ result } = renderUseSetUIType(hookProps, wrapper));
-  act(() =>
+  waitFor(() =>
     result.current[1]({
       configName,
       newValueFn,
