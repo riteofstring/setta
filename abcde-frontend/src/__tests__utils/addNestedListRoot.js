@@ -102,6 +102,8 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
       act(() => result.current[1](paramSettings[paramName]));
     }
   }
+
+  return { transformSectionId: transformSection.id, listRootId };
 }
 
 // a preset list of transforms for testing with

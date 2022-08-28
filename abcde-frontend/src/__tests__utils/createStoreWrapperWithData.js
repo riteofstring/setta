@@ -24,7 +24,6 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-
 export function getParamInfoByFullPath(
   allPackageInfo,
   packageName,

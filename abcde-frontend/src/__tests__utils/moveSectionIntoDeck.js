@@ -5,13 +5,13 @@ import {
 } from "./renderHooks";
 
 export function moveSectionIntoDeck(store, wrapper, sectionIds, deckId) {
-  for (let sectionId of sectionIds) {
+  sectionIds.forEach((v, i) => {
     store.getActions().sectionInfos.moveChildThunk({
       newParentId: deckId,
-      childId: sectionId,
-      newIndex: 0,
+      childId: v,
+      newIndex: i,
     });
-  }
+  });
   // necessary to update currChildren
   renderUseIdsOverview(deckId, wrapper);
 }
