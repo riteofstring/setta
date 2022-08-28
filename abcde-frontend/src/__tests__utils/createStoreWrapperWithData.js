@@ -85,7 +85,7 @@ export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
   return result.current;
 }
 
-function initializeEnteredValueId(sectionId, paramInfoId, wrapper) {
+export function initializeEnteredValueId(sectionId, paramInfoId, wrapper) {
   let result = null;
   ({ result } = renderUseInitializeEnteredValue(
     sectionId,

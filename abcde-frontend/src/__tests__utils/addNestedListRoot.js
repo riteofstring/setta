@@ -1,13 +1,21 @@
+import { act } from "react-dom/test-utils";
 import {
   addChildSectionAndGetChildId,
   getParamInfoByFullPath,
   getSectionByName,
   initializeAndReturnUIType,
+  initializeEnteredValueId,
 } from "./createStoreWrapperWithData";
-import { renderUseAddChild, renderUseIdsOverview } from "./renderHooks";
+import {
+  renderUseAddChild,
+  renderUseIdsOverview,
+  renderUseParamEnteredValue,
+} from "./renderHooks";
 
 // select the Compose object in the Transforms section
 export function selectComposeTransform(store, wrapper, numTransforms) {
+  expect(numTransforms).toBeLessThanOrEqual(3);
+
   let result = null;
 
   const paramInfo = getParamInfoByFullPath(
@@ -61,4 +69,60 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
   ({ result } = renderUseIdsOverview(listRootId, wrapper));
   const listElementIds = result.current[0];
   expect(listElementIds.length).toEqual(numTransforms);
+
+  const transformSettings = listOfTransforms();
+
+  // select object for each list element, and set some parameters
+  for (let i = 0; i < listElementIds.length; i++) {
+    const [objName, paramSettings] = transformSettings[i];
+    for (let paramName of Object.keys(paramSettings)) {
+      const paramInfo = getParamInfoByFullPath(
+        store.getState().master.allPackageInfo,
+        "torchvision",
+        "transforms",
+        objName,
+        paramName
+      );
+
+      // select object
+      store.getActions().sectionInfos.setSectionInfoAttr({
+        sectionId: listElementIds[i],
+        attr: "selectedItem",
+        value: paramInfo.parentId,
+      });
+
+      // initialize enteredValueId
+      initializeEnteredValueId(listElementIds[i], paramInfo.id, wrapper);
+
+      ({ result } = renderUseParamEnteredValue(
+        listElementIds[i],
+        paramInfo.id,
+        wrapper
+      ));
+      act(() => result.current[1](paramSettings[paramName]));
+    }
+  }
+}
+
+// a preset list of transforms for testing with
+function listOfTransforms() {
+  // objName, paramName:value
+  return [
+    ["CenterCrop", { size: 824 }],
+    ["RandomCrop", { padding: 2, pad_if_needed: true }],
+    ["Normalize", { mean: "75" }],
+  ];
+}
+
+export function listOfTransformsAsJson() {
+  return [
+    { "O~torchvision.transforms.CenterCrop": { "P~size": 824 } },
+    {
+      "O~torchvision.transforms.RandomCrop": {
+        "P~padding": 2,
+        "P~pad_if_needed": true,
+      },
+    },
+    { "O~torchvision.transforms.Normalize": { "P~mean": "S~75" } },
+  ];
 }

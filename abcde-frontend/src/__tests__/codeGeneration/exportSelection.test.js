@@ -1,6 +1,10 @@
 import _ from "lodash";
 import { act } from "react-dom/test-utils";
 import {
+  listOfTransformsAsJson,
+  selectComposeTransform,
+} from "__tests__utils/addNestedListRoot";
+import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
   testSectionNamesParamNames,
@@ -11,24 +15,31 @@ import {
 } from "__tests__utils/moveSectionIntoDeck";
 import { renderUseParamEnteredValue } from "__tests__utils/renderHooks";
 
-test.each(testCases())("Single entered value", (depth) => {
-  singleParameter(depth);
-});
+test.each(testCases())(
+  "Single entered value",
+  (numNestedDecks, numTransforms) => {
+    singleParameter(numNestedDecks, numTransforms);
+  }
+);
 
-test.each(testCases())("Multiple entered values", (depth) => {
-  multipleParameters(depth);
-});
-
+test.each(testCases())(
+  "Single entered value",
+  (numNestedDecks, numTransforms) => {
+    multipleParameters(numNestedDecks, numTransforms);
+  }
+);
 function testCases() {
   const output = [];
   // depth is how many decks deep the parameters will be nested
-  for (let depth of _.range(5)) {
-    output.push(depth);
+  for (let depth of _.range(4)) {
+    for (let numTransforms of _.range(3)) {
+      output.push([depth, numTransforms]);
+    }
   }
   return output;
 }
 
-function singleParameter(depth) {
+function singleParameter(numNestedDecks, numTransforms) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -46,7 +57,11 @@ function singleParameter(depth) {
   const commonOutput = {
     "V~Model": {},
     "V~Optimizer": {},
-    "V~Transform": {},
+    "V~Transform": {
+      "O~torchvision.transforms.Compose": {
+        "P~transforms": listOfTransformsAsJson().slice(0, numTransforms),
+      },
+    },
     "V~TrainDataset": {},
     "V~ValDataset": {},
     "V~OtherParameters": {},
@@ -54,7 +69,8 @@ function singleParameter(depth) {
   };
 
   // put a deck within a deck within a deck ...
-  recursivelyAddDeckWithinDeck(store, wrapper, [sectionId], depth);
+  recursivelyAddDeckWithinDeck(store, wrapper, [sectionId], numNestedDecks);
+  selectComposeTransform(store, wrapper, numTransforms);
 
   for (let value of ["51", 51, true, false]) {
     ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
@@ -69,7 +85,7 @@ function singleParameter(depth) {
   }
 }
 
-function multipleParameters(depth) {
+function multipleParameters(numNestedDecks, numTransforms) {
   const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
@@ -88,7 +104,13 @@ function multipleParameters(depth) {
     sectionIds.push(sectionId);
     paramInfoIds.push(paramInfoId);
   }
-  recursivelyAddDeckWithinDeck(store, wrapper, _.uniq(sectionIds), depth);
+  recursivelyAddDeckWithinDeck(
+    store,
+    wrapper,
+    _.uniq(sectionIds),
+    numNestedDecks
+  );
+  selectComposeTransform(store, wrapper, numTransforms);
 
   const enteredValues = [true, "dogs", 51, false, "36"];
   let idx = 0;
@@ -102,7 +124,11 @@ function multipleParameters(depth) {
   expect(selected).toEqual({
     "V~Model": {},
     "V~Optimizer": {},
-    "V~Transform": {},
+    "V~Transform": {
+      "O~torchvision.transforms.Compose": {
+        "P~transforms": listOfTransformsAsJson().slice(0, numTransforms),
+      },
+    },
     "V~TrainDataset": {},
     "V~ValDataset": {},
     "V~OtherParameters": {
