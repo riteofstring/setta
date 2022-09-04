@@ -1,32 +1,29 @@
-import { action } from "easy-peasy";
+import { action, debug } from "easy-peasy";
 
 const auth = {
-  token: localStorage.getItem("token"),
+  access_token: localStorage.getItem("access_token"),
   isAuthenticated: false,
-  user: null,
   isNewSession: true,
 
   loginSuccess: action((state, payload) => {
-    localStorage.setItem("token", payload.token);
-    state.token = payload.token;
-    state.user = payload.user;
+    localStorage.setItem("access_token", payload.access_token);
+    state.access_token = payload.access_token;
     state.isAuthenticated = true;
     state.isNewSession = true;
+    console.log("loginSuccess", debug(state));
   }),
 
   loginFail: action((state) => {
     console.log("loginFail");
     localStorage.clear();
     sessionStorage.clear();
-    state.token = null;
+    state.access_token = null;
     state.isAuthenticated = false;
-    state.user = null;
   }),
 
   stayLoggedIn: action((state, payload) => {
     console.log("verified existing token", payload);
     state.isAuthenticated = true;
-    state.user = payload.user;
     state.isNewSession = false;
   }),
 };

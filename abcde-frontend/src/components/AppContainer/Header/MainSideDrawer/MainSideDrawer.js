@@ -26,14 +26,14 @@ function Body() {
   let history = useHistory();
 
   const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
-  const token = useStoreState((state) => state.auth.token);
+  const access_token = useStoreState((state) => state.auth.access_token);
 
   const goToLogout = () => {
     history.push("/logout");
   };
 
   const saveDraft = () => {
-    saveDraftUI({ token }).then(() => null);
+    saveDraftUI({ access_token }).then(() => null);
   };
 
   return (

@@ -12,7 +12,7 @@ import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 const AppContainer = () => {
   //
-  const token = useStoreState((state) => state.auth.token);
+  const access_token = useStoreState((state) => state.auth.access_token);
   const loginFail = useStoreActions((action) => action.auth.loginFail);
   const stayLoggedIn = useStoreActions((action) => action.auth.stayLoggedIn);
 
@@ -20,7 +20,7 @@ const AppContainer = () => {
 
   useEffect(() => {
     verifyToken({
-      authToken: token,
+      access_token,
       actionStayLoggedIn: stayLoggedIn,
       actionLoginFail: loginFail,
     });

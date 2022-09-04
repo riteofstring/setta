@@ -2,22 +2,22 @@ import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
 
 export const verifyToken = ({
-  authToken,
+  access_token,
   actionStayLoggedIn,
   actionLoginFail,
 }) => {
-  console.log("trying to verify existing token", authToken);
+  console.log("trying to verify existing token", access_token);
   if (NO_AUTH) {
     actionStayLoggedIn({ user: "user" });
     return true;
   }
   return axios
-    .post(BACKEND + "api/auth/verifyToken", null, tokenConfig(authToken))
+    .post(BACKEND + "api/auth/verifyToken", null, tokenConfig(access_token))
     .then((res) => {
       actionStayLoggedIn(res.data);
       return true;
     })
-    .catch((err) => {
+    .catch(() => {
       actionLoginFail(null);
       return false;
     });
@@ -31,7 +31,7 @@ export const login = ({
   actionLoginFail,
 }) => {
   if (NO_AUTH) {
-    actionLoginSuccess({ user: "user", token: "12345" });
+    actionLoginSuccess({ user: "user", access_token: "12345" });
     return true;
   }
 
@@ -42,24 +42,24 @@ export const login = ({
       actionLoginSuccess(res.data);
       return true;
     })
-    .catch((err) => {
+    .catch(() => {
       actionLoginFail(null);
       return false;
     });
 };
 
 // LOGIN USER
-export const logout = ({ actionLoginFail, authToken }) => {
+export const logout = ({ actionLoginFail, access_token }) => {
   if (NO_AUTH) {
     actionLoginFail(null);
     return;
   }
   axios
-    .post(BACKEND + "api/auth/logout", null, tokenConfig(authToken))
-    .then((res) => {
+    .post(BACKEND + "api/auth/logout", null, tokenConfig(access_token))
+    .then(() => {
       actionLoginFail(null);
     })
-    .catch((err) => {
+    .catch(() => {
       actionLoginFail(null);
     });
 };
@@ -79,12 +79,12 @@ export const register = ({
     .then((res) => {
       actionLoginSuccess(res.data);
     })
-    .catch((err) => {
+    .catch(() => {
       actionLoginFail(null);
     });
 };
 
-export const tokenConfig = (authToken) => {
+export const tokenConfig = (access_token) => {
   // Headers
   const config = {
     headers: {
@@ -93,8 +93,8 @@ export const tokenConfig = (authToken) => {
   };
 
   // If token, add to headers config
-  if (authToken) {
-    config.headers["Authorization"] = `Token ${authToken}`;
+  if (access_token) {
+    config.headers["Authorization"] = `Token ${access_token}`;
   }
 
   return config;

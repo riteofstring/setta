@@ -23,8 +23,8 @@ const uiInfo = {
   }),
 
   loadFolderAndUINames: thunk(async (action, payload) => {
-    const { token } = payload;
-    const uiNames = await loadFolderAndUINamesBackend({ token });
+    const { access_token } = payload;
+    const uiNames = await loadFolderAndUINamesBackend({ access_token });
     action.setLoadedFolderAndUINames(uiNames);
   }),
 
@@ -51,11 +51,11 @@ const uiInfo = {
   }),
 
   saveUI: thunk((action, payload, helpers) => {
-    const { token, name, folder } = payload;
+    const { access_token, name, folder } = payload;
     const globalState = helpers.getStoreState();
     const ui = exportAllStates(globalState);
     return saveUIBackend({
-      token,
+      access_token,
       name,
       folder,
       ui,
@@ -63,7 +63,7 @@ const uiInfo = {
   }),
 
   saveDraftUI: thunk((action, payload, helpers) => {
-    const { token } = payload;
+    const { access_token } = payload;
     const state = helpers.getState();
     let name = state.currUIName;
     let folder = state.currUIFolder;
@@ -71,7 +71,7 @@ const uiInfo = {
       name = "testDraft";
       folder = "drafts";
     }
-    return action.saveUI({ token, name, folder });
+    return action.saveUI({ access_token, name, folder });
 
     // TEMPORARY
     // return new Promise((resolve, reject) => resolve("temporary promise"));

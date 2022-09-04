@@ -7,13 +7,13 @@ import { resetEntireState } from "store/store";
 
 export default function LogoutPage() {
   const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
-  const authToken = useStoreState((state) => state.auth.token);
+  const access_token = useStoreState((state) => state.auth.access_token);
   let history = useHistory();
 
   useEffect(() => {
     console.log("LogoutPage useEffect");
     history.push("/");
-    logout({ actionLoginFail, authToken });
+    logout({ actionLoginFail, access_token });
     resetEntireState();
   }, []);
 

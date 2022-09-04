@@ -28,7 +28,7 @@ export default function SaveLoadModal(props) {
 
   const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
-  const token = useStoreState((state) => state.auth.token);
+  const access_token = useStoreState((state) => state.auth.access_token);
 
   const _setSelectedFolder = (value) => {
     if (value !== undefined) {
@@ -62,9 +62,9 @@ export default function SaveLoadModal(props) {
 
   const onSaveOrLoadClick = () => {
     if (isSaveAs) {
-      saveUI({ token, folderName: selectedFolder, uiName: enteredFile });
+      saveUI({ access_token, folderName: selectedFolder, uiName: enteredFile });
     } else if (buttonText === "Load") {
-      loadUI({ token, folderName: selectedFolder, uiName: enteredFile });
+      loadUI({ access_token, folderName: selectedFolder, uiName: enteredFile });
     }
 
     _onClose();
@@ -79,7 +79,7 @@ export default function SaveLoadModal(props) {
       overrideFooter={true}
       body={
         <Body
-          token={token}
+          access_token={access_token}
           folderNames={folderNames}
           foldersAndFiles={foldersAndFiles}
           onFileSelect={_setSelectedFile}

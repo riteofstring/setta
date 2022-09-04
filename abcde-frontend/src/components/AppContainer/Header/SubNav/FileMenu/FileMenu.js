@@ -18,7 +18,7 @@ export default function FileMenu() {
   const [buttonText, setButtonText] = useState("");
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const token = useStoreState((state) => state.auth.token);
+  const access_token = useStoreState((state) => state.auth.access_token);
   const loadFolderAndUINames = useStoreActions(
     (actions) => actions.uiInfo.loadFolderAndUINames
   );
@@ -30,7 +30,7 @@ export default function FileMenu() {
   const _onOpen = (buttonText) => {
     setButtonText(buttonText);
     onOpen();
-    loadFolderAndUINames({ token });
+    loadFolderAndUINames({ access_token });
   };
 
   function SaveAsOrLoadButton({ buttonText }) {
@@ -45,7 +45,7 @@ export default function FileMenu() {
   }
 
   function onSaveButtonClick() {
-    saveDraftUI({ token });
+    saveDraftUI({ access_token });
   }
 
   return (

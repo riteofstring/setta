@@ -13,7 +13,7 @@ import FileListContainer from "./FileListContainer";
 import ListItem from "./ListItem";
 
 export default function FileExplorer({
-  token,
+  access_token,
   folderNames,
   foldersAndFiles,
   onFolderSelect,
@@ -50,7 +50,7 @@ export default function FileExplorer({
       setFoldersAndFiles({ ...foldersAndFiles, [newFolderName]: [] });
       setShowNewFolderField(false);
       onFolderSelect(newFolderName);
-      createNewFolder({ token, name: newFolderName });
+      createNewFolder({ access_token, name: newFolderName });
     }
   };
 
