@@ -1,6 +1,5 @@
 import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
-import cliSocket from "models/cliSocket";
 import factoriesInfo from "models/factoriesInfo";
 import funcsInfo from "models/funcsInfo";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
@@ -29,7 +28,6 @@ const store = createStore(
       factoriesInfo: factoriesInfo,
       funcsInfo: funcsInfo,
       panes: panes,
-      cliSocket: cliSocket,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,
       objInfos: objInfos,

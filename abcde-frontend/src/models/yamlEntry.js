@@ -1,4 +1,3 @@
-import { createUI as createUIBackend } from "dbRequests/ui";
 import { action, thunk } from "easy-peasy";
 import { merge } from "lodash";
 import { DEFAULT_ENTERED_TEXT } from "utils/constants";
@@ -23,11 +22,6 @@ const yamlEntry = {
       merge(allYamls[0], ...allYamls.slice(1));
     }
     allYamls = allYamls[0];
-    const cliSocket = helpers.getStoreState().cliSocket.cliSocket;
-    createUIBackend({
-      cliSocket,
-      enteredText: allYamls,
-    });
   }),
 };
 

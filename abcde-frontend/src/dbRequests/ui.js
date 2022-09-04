@@ -4,21 +4,6 @@ import { BACKEND } from "utils/constants";
 
 import { tokenConfig } from "./authentication";
 
-export const generateAndRunCode = ({
-  cliSocket,
-  SELECTED,
-  FACTORIES,
-  FUNCS,
-}) => {
-  const body = JSON.stringify({ code: { SELECTED, FACTORIES, FUNCS } });
-  cliSocket.send(body);
-};
-
-export const createUI = ({ cliSocket, enteredText }) => {
-  const body = JSON.stringify({ enteredText });
-  cliSocket.send(body);
-};
-
 export const saveUI = ({ token, name, folder, ui }) => {
   const body = { ui: { name, ...ui }, folder: { name: folder } };
   return axios

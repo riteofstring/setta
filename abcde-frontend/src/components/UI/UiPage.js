@@ -2,10 +2,6 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 import { NO_AUTH } from "utils/constants";
 import { loadTestData } from "__tests__utils/loadTestData";
-
-// import TemplateUIToggle from "./TemplateUI/TemplateUIToggle";
-// import { websocketAuth } from "../../dbRequests/authentication.js";
-// import { resetState } from "../../store/store";
 import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {
@@ -13,43 +9,13 @@ const UiPage = () => {
     (actions) => actions.master.loadSections
   );
 
-  const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
-
-  const token = useStoreState((state) => state.auth.token);
   const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
   const isNewSession = useStoreState((state) => state.auth.isNewSession);
-
-  const actionWebsocketTokenRetrievalSuccess = useStoreActions(
-    (actions) => actions.auth.websocketTokenRetrievalSuccess
-  );
-  const actionWebsocketTokenRetrievalFail = useStoreActions(
-    (actions) => actions.auth.websocketTokenRetrievalFail
-  );
-
-  const setCLISocket = useStoreActions(
-    (actions) => actions.cliSocket.setCLISocket
-  );
-
-  const tryLoadingDraftUI = () => {
-    loadUI({ token, loadType: "draft" });
-  };
 
   useEffect(() => {
     if (NO_AUTH && isAuthenticated && isNewSession) {
       loadSections(loadTestData());
     }
-    // } else {
-    //   // tryLoadingDraftUI();
-    //   websocketAuth({
-    //     authToken: token,
-    //     actionWebsocketTokenRetrievalSuccess,
-    //     actionWebsocketTokenRetrievalFail,
-    //   }).then((x) => {
-    //     if (x) {
-    //       setCLISocket({ token: x });
-    //     }
-    //   });
-    // }
   }, [isAuthenticated, isNewSession]);
 
   return (

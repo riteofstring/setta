@@ -23,12 +23,8 @@ export default function TextEditor({ idx, dimensions }) {
     (actions) => actions.factoriesInfo.setFactories
   );
   const setFuncs = useStoreActions((actions) => actions.funcsInfo.setFuncs);
-  const createUI = useStoreActions((actions) => actions.yamlEntry.createUI);
   const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
   const token = useStoreState((state) => state.auth.token);
-  const uiInfoFromCLI = useStoreState((state) => state.cliSocket.uiInfo);
-  const factoriesFromCLI = useStoreState((state) => state.cliSocket.factories);
-  const funcsFromCLI = useStoreState((state) => state.cliSocket.funcs);
 
   const handleEditorDidMount = (_valueGetter) => {
     setIsEditorReady(true);
@@ -36,7 +32,7 @@ export default function TextEditor({ idx, dimensions }) {
   };
 
   const handleCreateUI = async () => {
-    createUI();
+    // createUI();
   };
 
   useEffect(() => {
