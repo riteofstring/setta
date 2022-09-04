@@ -35,11 +35,6 @@ const uiInfo = {
     //   helpers.getStoreActions().master.setEntireState;
     // const yamlEntrySetEntireState =
     //   helpers.getStoreActions().yamlEntry.setEntireState;
-    // const factoriesInfoSetEntireState =
-    //   helpers.getStoreActions().factoriesInfo.setEntireState;
-    // const funcsInfoSetEntireState =
-    //   helpers.getStoreActions().funcsInfo.setEntireState;
-
     // const { loadType } = payload;
     // delete payload["loadType"];
     // const loadFunc = loadType === "draft" ? loadDraftUIBackend : loadUIBackend;
@@ -49,13 +44,9 @@ const uiInfo = {
     //   const {
     //     masterState,
     //     yamlEntryState,
-    //     factoriesInfoState,
-    //     funcsInfoState,
     //   } = JSON.parse(data);
     //   masterSetEntireState(JSON.parse(masterState));
     //   yamlEntrySetEntireState(JSON.parse(yamlEntryState));
-    //   factoriesInfoSetEntireState(JSON.parse(factoriesInfoState));
-    //   funcsInfoSetEntireState(JSON.parse(funcsInfoState));
     // }
   }),
 

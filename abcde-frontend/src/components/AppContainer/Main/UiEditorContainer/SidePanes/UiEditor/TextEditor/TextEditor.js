@@ -1,9 +1,8 @@
 import { Button } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { IoIosRocket } from "react-icons/io";
-import { resetState } from "store/store";
 
 import styles from "./TextEditor.module.css";
 
@@ -16,15 +15,6 @@ export default function TextEditor({ idx, dimensions }) {
   const setEnteredText = useStoreActions(
     (actions) => actions.yamlEntry.setEnteredText
   );
-  const loadSections = useStoreActions(
-    (actions) => actions.master.loadSections
-  );
-  const setFactories = useStoreActions(
-    (actions) => actions.factoriesInfo.setFactories
-  );
-  const setFuncs = useStoreActions((actions) => actions.funcsInfo.setFuncs);
-  const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
-  const token = useStoreState((state) => state.auth.token);
 
   const handleEditorDidMount = (_valueGetter) => {
     setIsEditorReady(true);
@@ -34,16 +24,6 @@ export default function TextEditor({ idx, dimensions }) {
   const handleCreateUI = async () => {
     // createUI();
   };
-
-  useEffect(() => {
-    if (uiInfoFromCLI) {
-      resetState("master");
-      loadSections(uiInfoFromCLI);
-      setFactories(factoriesFromCLI);
-      setFuncs(funcsFromCLI);
-      saveDraftUI({ token });
-    }
-  }, [uiInfoFromCLI, factoriesFromCLI, funcsFromCLI]);
 
   const onChange = (newValue) => {
     setEnteredText({ idx, text: newValue });

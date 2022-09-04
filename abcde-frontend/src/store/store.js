@@ -1,7 +1,5 @@
 import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
-import factoriesInfo from "models/factoriesInfo";
-import funcsInfo from "models/funcsInfo";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
 import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
@@ -25,8 +23,6 @@ const store = createStore(
       yamlEntry: yamlEntry,
       auth: auth,
       uiInfo: uiInfo,
-      factoriesInfo: factoriesInfo,
-      funcsInfo: funcsInfo,
       panes: panes,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,
