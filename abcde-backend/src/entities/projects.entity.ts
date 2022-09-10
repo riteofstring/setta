@@ -13,8 +13,8 @@ import { Users } from './users.entity';
 // A project is a collection of UIs, settings, module collections etc.
 @Entity({ customRepository: () => ProjectsRepository })
 export class Projects {
-  @PrimaryKey()
-  id: number;
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
+  id: string;
 
   @Property()
   name: string;

@@ -1,5 +1,5 @@
 export default [
-  { name: 'Some draft project of mine', owner: 1 },
-  { name: 'Phd bullshit', owner: 1 },
-  { name: 'Stable diffusion', owner: 1 },
+  { name: 'Some draft project of mine', owner: { name: 'Kevin' } },
+  { name: 'Phd bullshit', owner: { name: 'Kevin' } },
+  { name: 'Stable diffusion', owner: { name: 'Kevin' } },
 ];

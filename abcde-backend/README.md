@@ -14,18 +14,20 @@ psql -U postgres
 # enter the password that you entered during installation
 ```
 
-### Create db
+### Create db, create tables, add data
 ```bash
-# inside psql
-create database abcde;
+./db/blankSlate.bat
 ```
 
-Run db migrations:
-```
-.\migrate.bat
+### Start server
+```bash
+./startServer.bat
 ```
 
-
+### Kill postgres
+```bash
+./db/kill.bat
+```
 
 ### References
 

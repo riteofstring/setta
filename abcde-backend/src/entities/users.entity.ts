@@ -3,8 +3,8 @@ import { UsersRepository } from '../users/users.repository';
 
 @Entity({ customRepository: () => UsersRepository })
 export class Users {
-  @PrimaryKey()
-  id: number;
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
+  id: string;
 
   @Property()
   name: string;
