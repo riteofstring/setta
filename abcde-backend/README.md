@@ -1,7 +1,8 @@
 ## PostgreSQL setup
-Install PostgreSQL from here: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
-No need to install Stack Builder or pgadmin using the Postgres installer.
-Set password to 123
+
+- Install PostgreSQL from here: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
+- No need to install Stack Builder or pgadmin using the Postgres installer.
+- Set password to 123
 
 ### Add postgres to path
 Add `%PROGRAMFILES%\PostgreSQL\14\bin` to the PATH environment variable.
@@ -18,3 +19,16 @@ psql -U postgres
 # inside psql
 create database abcde;
 ```
+
+Run db migrations:
+```
+.\migrate.bat
+```
+
+
+
+### References
+
+- https://docs.nestjs.com/
+- https://github.com/mikro-orm/nestjs-realworld-example-app
+- https://github.com/mikro-orm/nestjs
