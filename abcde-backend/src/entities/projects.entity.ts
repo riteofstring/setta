@@ -1,4 +1,4 @@
-import { Entity, OneToOne, PrimaryKey, Property } from '@mikro-orm/core';
+import { Entity, ManyToOne, PrimaryKey, Property } from '@mikro-orm/core';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { Users } from './users.entity';
 
@@ -10,7 +10,7 @@ export class Projects {
   @Property()
   name: string;
 
-  @OneToOne({ primary: false })
+  @ManyToOne({ primary: false, hidden: true })
   owner: Users;
 
   constructor({ name, owner }: { name: string; owner: Users }) {
