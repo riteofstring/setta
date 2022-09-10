@@ -1,6 +1,7 @@
 import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+import { UsersRepository } from '../users/users.repository';
 
-@Entity()
+@Entity({ customRepository: () => UsersRepository })
 export class Users {
   @PrimaryKey()
   id: number;

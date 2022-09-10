@@ -11,7 +11,7 @@ const config: Options = {
   entitiesTs: ['src/**/*.entity.ts'],
   debug: true,
   migrations: {
-    path: 'dist/src/migrations',
+    path: 'dist/migrations',
     pathTs: 'src/migrations',
   },
 };
