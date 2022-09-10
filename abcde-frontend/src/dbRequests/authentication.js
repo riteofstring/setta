@@ -94,7 +94,7 @@ export const tokenConfig = (access_token) => {
 
   // If token, add to headers config
   if (access_token) {
-    config.headers["Authorization"] = `Token ${access_token}`;
+    config.headers["Authorization"] = `Bearer ${access_token}`;
   }
 
   return config;
