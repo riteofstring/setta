@@ -14,11 +14,8 @@ import { login } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";
 import { useFormik } from "formik";
 import React, { useState } from "react";
-import { useHistory } from "react-router-dom";
 
 const LoginPage = () => {
-  let history = useHistory();
-
   const actionLoginSuccess = useStoreActions(
     (actions) => actions.auth.loginSuccess
   );
@@ -34,16 +31,11 @@ const LoginPage = () => {
         password: "",
       },
       onSubmit: ({ username, password }) => {
-        // alert(`username: ${username}, password: ${password}`);
         login({
           username,
           password,
           actionLoginSuccess,
           actionLoginFail,
-        }).then((x) => {
-          if (x) {
-            history.push("/");
-          }
         });
       },
     });

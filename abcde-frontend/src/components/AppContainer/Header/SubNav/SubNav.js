@@ -1,6 +1,5 @@
 import { Divider, Flex, HStack } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
-import { Link, useLocation } from "react-router-dom";
 
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
 import FileMenu from "./FileMenu/FileMenu";
@@ -20,17 +19,16 @@ export default function SubNav() {
 
 function NavSwitch() {
   const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
-  const location = useLocation();
 
   if (isAuthenticated) {
-    switch (location.pathname) {
-      case "/":
-        return <UiEditorSubNav />;
-      case "/home":
-        return <HomePageSubNav />;
-      case "/logout":
-        return <LoggedOutNav />;
-    }
+    // switch (location.pathname) {
+    //   case "/":
+    //     return <UiEditorSubNav />;
+    //   case "/home":
+    //     return <HomePageSubNav />;
+    //   case "/logout":
+    //     return <LoggedOutNav />;
+    // }
   }
   return <></>;
 }
@@ -53,8 +51,8 @@ function HomePageSubNav() {
 function LoggedOutNav() {
   return (
     <>
-      <Link to="/">Login</Link>
-      <Link to="/signup">Sign Up</Link>
+      {/* <Link to="/">Login</Link>
+      <Link to="/signup">Sign Up</Link> */}
     </>
   );
 }

@@ -1,7 +1,6 @@
 import { Grid, GridItem, SimpleGrid } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import React from "react";
-import { Link } from "react-router-dom";
 
 function HomePage() {
   return (
@@ -53,25 +52,23 @@ function RightColumn() {
 
 function DummyItem() {
   return (
-    <Link to="/">
-      <Grid
-        templateRows="1fr 5rem"
-        borderRadius="3xl"
-        border="1px"
-        borderColor="gray.100"
-        minHeight="15rem"
-        overflow="hidden"
-        // boxShadow="sm"
-        _hover={{
-          transition: "box-shadow 200ms",
-          boxShadow: "lg",
-          borderColor: "white",
-          cursor: "pointer",
-        }}
-      >
-        <GridItem p="1rem" bg="gray.50"></GridItem>
-        <GridItem p="1rem">Description</GridItem>
-      </Grid>
-    </Link>
+    <Grid
+      templateRows="1fr 5rem"
+      borderRadius="3xl"
+      border="1px"
+      borderColor="gray.100"
+      minHeight="15rem"
+      overflow="hidden"
+      // boxShadow="sm"
+      _hover={{
+        transition: "box-shadow 200ms",
+        boxShadow: "lg",
+        borderColor: "white",
+        cursor: "pointer",
+      }}
+    >
+      <GridItem p="1rem" bg="gray.50"></GridItem>
+      <GridItem p="1rem">Description</GridItem>
+    </Grid>
   );
 }

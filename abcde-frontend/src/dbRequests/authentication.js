@@ -1,6 +1,28 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
 
+export function accessPage({
+  address,
+  access_token,
+  actionStayLoggedIn,
+  actionLoginFail,
+}) {
+  if (NO_AUTH) {
+    actionStayLoggedIn();
+    return true;
+  }
+  return axios
+    .post(BACKEND + address, null, tokenConfig(access_token))
+    .then(() => {
+      actionStayLoggedIn();
+      return true;
+    })
+    .catch(() => {
+      actionLoginFail();
+      return false;
+    });
+}
+
 // LOGIN USER
 export const login = ({
   username,
@@ -21,7 +43,7 @@ export const login = ({
       return true;
     })
     .catch(() => {
-      actionLoginFail(null);
+      actionLoginFail();
       return false;
     });
 };
@@ -35,10 +57,10 @@ export const logout = ({ actionLoginFail, access_token }) => {
   axios
     .post(BACKEND + "api/auth/logout", null, tokenConfig(access_token))
     .then(() => {
-      actionLoginFail(null);
+      actionLoginFail();
     })
     .catch(() => {
-      actionLoginFail(null);
+      actionLoginFail();
     });
 };
 
@@ -58,7 +80,7 @@ export const register = ({
       actionLoginSuccess(res.data);
     })
     .catch(() => {
-      actionLoginFail(null);
+      actionLoginFail();
     });
 };
 
