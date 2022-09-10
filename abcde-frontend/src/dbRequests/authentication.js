@@ -1,28 +1,6 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
 
-export const verifyToken = ({
-  access_token,
-  actionStayLoggedIn,
-  actionLoginFail,
-}) => {
-  console.log("trying to verify existing token", access_token);
-  if (NO_AUTH) {
-    actionStayLoggedIn({ user: "user" });
-    return true;
-  }
-  return axios
-    .post(BACKEND + "api/auth/verifyToken", null, tokenConfig(access_token))
-    .then((res) => {
-      actionStayLoggedIn(res.data);
-      return true;
-    })
-    .catch(() => {
-      actionLoginFail(null);
-      return false;
-    });
-};
-
 // LOGIN USER
 export const login = ({
   username,

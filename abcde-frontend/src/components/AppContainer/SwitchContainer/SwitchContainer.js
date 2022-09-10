@@ -1,10 +1,8 @@
 import { useStoreState } from "easy-peasy";
 import React from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
-
 import HomePage from "../../HomePage";
 import LoginPage from "../../LoginPage/LoginPage";
-// import TerminalPage from "../../TerminalPage/TerminalPage";
 import LogoutPage from "../../LogoutPage/LogoutPage";
 import SignUpPage from "../../SignUpPage/SignUpPage";
 import MainContainer from "../Main/MainContainer";
@@ -18,9 +16,6 @@ const SwitchContainer = () => {
           <PrivateRoute exact path="/" isAuthenticated={isAuthenticated}>
             <MainContainer />
           </PrivateRoute>
-          {/* <PrivateRoute exact path="/terminal">
-            <TerminalPage />
-          </PrivateRoute> */}
           <PrivateRoute exact path="/logout" isAuthenticated={isAuthenticated}>
             <LogoutPage />
           </PrivateRoute>

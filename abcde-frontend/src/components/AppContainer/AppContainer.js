@@ -1,31 +1,10 @@
 import { Grid } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
-import React, { useEffect } from "react";
+import React from "react";
 import { BrowserRouter } from "react-router-dom";
-
-import { verifyToken } from "../../dbRequests/authentication";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
-// import HeaderContainer from "./Header/Header";
-// import MainContainer from "./Main/MainContainer";
-
 const AppContainer = () => {
-  //
-  const access_token = useStoreState((state) => state.auth.access_token);
-  const loginFail = useStoreActions((action) => action.auth.loginFail);
-  const stayLoggedIn = useStoreActions((action) => action.auth.stayLoggedIn);
-
-  // console.log("AppContainer isAuthenticated", isAuthenticated);
-
-  useEffect(() => {
-    verifyToken({
-      access_token,
-      actionStayLoggedIn: stayLoggedIn,
-      actionLoginFail: loginFail,
-    });
-  }, []);
-
   return (
     <BrowserRouter>
       <HeaderContainer />
