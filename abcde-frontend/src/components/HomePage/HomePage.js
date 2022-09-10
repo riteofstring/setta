@@ -1,12 +1,20 @@
 import { Grid, GridItem, SimpleGrid } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { useStoreActions } from "easy-peasy";
-import React from "react";
+import { getProjects } from "dbRequests/projects";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import React, { useEffect, useState } from "react";
 import { UI } from "utils/pageNames";
-import Projects from "__tests__data/simpleTrainTest/Projects.json";
 
 function HomePage() {
-  const projects = Projects;
+  const access_token = useStoreState((x) => x.auth.access_token);
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      setProjects(await getProjects({ access_token }));
+    }
+    fetchData();
+  }, []);
 
   return (
     <GridWrapper gridTemplateColumns="300px 1fr" display="grid">
