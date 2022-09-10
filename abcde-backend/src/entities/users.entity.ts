@@ -7,4 +7,7 @@ export class Users {
 
   @Property()
   name: string;
+
+  @Property({ hidden: true })
+  password: string;
 }

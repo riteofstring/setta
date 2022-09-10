@@ -351,6 +351,11 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
+"@faker-js/faker@7.5.0":
+  version "7.5.0"
+  resolved "https://registry.yarnpkg.com/@faker-js/faker/-/faker-7.5.0.tgz#8e8265f65f5b68d2a57886d59b03788eeb676264"
+  integrity sha512-8wNUCCUHvfvI0gQpDUho/3gPzABffnCn5um65F8dzQ86zz6dlt4+nmAA7PQUc8L+eH+9RgR/qzy5N/8kN0Ozdw==
+
 "@humanwhocodes/config-array@^0.6.0":
   version "0.6.0"
   resolved "https://registry.yarnpkg.com/@humanwhocodes/config-array/-/config-array-0.6.0.tgz#b5621fdb3b32309d2d16575456cbc277fa8f021a"
@@ -662,7 +667,7 @@
     knex "2.3.0"
     umzug "3.2.1"
 
-"@mikro-orm/nestjs@^5.1.1":
+"@mikro-orm/nestjs@5.1.1":
   version "5.1.1"
   resolved "https://registry.yarnpkg.com/@mikro-orm/nestjs/-/nestjs-5.1.1.tgz#ef80f6442f2306fb3b61831297ea1d40260209f8"
   integrity sha512-jw2sbIFBitaE/io1t5rSNNUzJQuq+i7AJRQzb3mh5g8z1LT9Ssdasbi1YmIftU5E6aH7wsfgXNWCrTSZqJavFA==
@@ -674,6 +679,15 @@
   dependencies:
     "@mikro-orm/knex" "^5.4.1-dev.17+1fb46384"
     pg "8.8.0"
+
+"@mikro-orm/seeder@5.4.1-dev.17":
+  version "5.4.1-dev.17"
+  resolved "https://registry.yarnpkg.com/@mikro-orm/seeder/-/seeder-5.4.1-dev.17.tgz#7458ad3cb965fb3938413e18b4b483bc32fee652"
+  integrity sha512-AYeKmvYR8IwbYXnzVdPml2mQ84XUOc31Ynd76jIPtA98bZtsD0IU3icjMcw+44OIvd46kgy6RHKqz3/EOKZnBw==
+  dependencies:
+    "@faker-js/faker" "7.5.0"
+    fs-extra "10.1.0"
+    globby "11.0.4"
 
 "@nestjs/cli@9.0.0":
   version "9.0.0"
@@ -4792,7 +4806,7 @@ ts-loader@9.2.3:
     micromatch "^4.0.0"
     semver "^7.3.4"
 
-ts-node@^10.9.1:
+ts-node@10.9.1:
   version "10.9.1"
   resolved "https://registry.yarnpkg.com/ts-node/-/ts-node-10.9.1.tgz#e73de9102958af9e1f0b168a6ff320e25adcff4b"
   integrity sha512-NtVysVPkxxrwFGUUxGYhfux8k78pQB3JqYBXlLRZgdGUqTO5wU/UyHop5p70iEbGhB7q5KmiZiU0Y3KlJrScEw==

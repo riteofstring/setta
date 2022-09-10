@@ -1,1 +1,1 @@
-call node_modules/.bin/ts-node --esm migrate.ts
+call node_modules/.bin/ts-node --esm test/migrate.ts

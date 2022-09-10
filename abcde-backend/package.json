@@ -23,7 +23,7 @@
   "dependencies": {
     "@mikro-orm/core": "5.4.1-dev.17",
     "@mikro-orm/migrations": "5.4.1-dev.17",
-    "@mikro-orm/nestjs": "^5.1.1",
+    "@mikro-orm/nestjs": "5.1.1",
     "@mikro-orm/postgresql": "5.4.1-dev.17",
     "@nestjs/common": "9.0.0",
     "@nestjs/core": "9.0.0",
@@ -38,6 +38,7 @@
     "rxjs": "7.2.0"
   },
   "devDependencies": {
+    "@mikro-orm/seeder": "5.4.1-dev.17",
     "@nestjs/cli": "9.0.0",
     "@nestjs/schematics": "9.0.0",
     "@nestjs/testing": "9.0.0",
@@ -58,7 +59,7 @@
     "supertest": "6.1.3",
     "ts-jest": "28.0.5",
     "ts-loader": "9.2.3",
-    "ts-node": "^10.9.1",
+    "ts-node": "10.9.1",
     "tsconfig-paths": "4.0.0",
     "typescript": "4.3.5"
   },
