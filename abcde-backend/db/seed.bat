@@ -1,1 +1,1 @@
-call node_modules/.bin/ts-node --esm test/seedDb.ts
+call node_modules/.bin/ts-node --esm test/seed.ts
