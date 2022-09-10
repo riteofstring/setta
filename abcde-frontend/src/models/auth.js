@@ -6,6 +6,7 @@ const auth = {
   isNewSession: true,
 
   loginSuccess: action((state, payload) => {
+    console.log("loginSuccess", payload);
     localStorage.setItem("access_token", payload.access_token);
     state.access_token = payload.access_token;
     state.isAuthenticated = true;

@@ -67,15 +67,14 @@ export const logout = ({ actionLoginFail, access_token }) => {
 // REGISTER USER
 export const register = ({
   username,
-  email,
   password,
   actionLoginSuccess,
   actionLoginFail,
 }) => {
   console.log("attempting register");
-  const body = JSON.stringify({ username, email, password });
+  const body = JSON.stringify({ username, password });
   axios
-    .post(BACKEND + "api/auth/register", body, tokenConfig(null))
+    .post(BACKEND + "auth/register", body, tokenConfig(null))
     .then((res) => {
       actionLoginSuccess(res.data);
     })

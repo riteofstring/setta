@@ -15,10 +15,8 @@ import React from "react";
 import * as Yup from "yup";
 
 const SignUpPage = () => {
-  const actionLoginSuccess = useStoreActions(
-    (actions) => actions.auth.loginSuccess
-  );
-  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
+  const actionLoginSuccess = useStoreActions((x) => x.auth.loginSuccess);
+  const actionLoginFail = useStoreActions((x) => x.auth.loginFail);
 
   const { handleSubmit, handleChange, values, touched, errors, handleBlur } =
     useFormik({
@@ -34,7 +32,7 @@ const SignUpPage = () => {
           .max(10, "Username must be shorter than 10 characters")
           .required("Required"),
         password: Yup.string()
-          .min(6, "Password should be longer than 6 characters")
+          .min(3, "Password should be longer than 3 characters")
           .required(),
         confirmpassword: Yup.string().oneOf(
           [Yup.ref("password"), null],

@@ -1,5 +1,6 @@
 import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
+import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
 import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
@@ -35,6 +36,7 @@ const store = createStore(
       uiEditor: uiEditor,
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
+      currPage: currPage,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

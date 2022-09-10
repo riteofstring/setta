@@ -1,5 +1,6 @@
-import { Divider, Flex, HStack } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
+import { Button, Divider, Flex, HStack } from "@chakra-ui/react";
+import { useStoreActions, useStoreState } from "easy-peasy";
+import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 
 import EcoSysButton from "./EcoSysButton/EcoSysButton";
 import FileMenu from "./FileMenu/FileMenu";
@@ -18,17 +19,17 @@ export default function SubNav() {
 }
 
 function NavSwitch() {
-  const isAuthenticated = useStoreState((state) => state.auth.isAuthenticated);
+  const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
+  const currPage = useStoreState((x) => x.currPage.name);
+  const setCurrPage = useStoreActions((x) => x.currPage.setName);
 
   if (isAuthenticated) {
-    // switch (location.pathname) {
-    //   case "/":
-    //     return <UiEditorSubNav />;
-    //   case "/home":
-    //     return <HomePageSubNav />;
-    //   case "/logout":
-    //     return <LoggedOutNav />;
-    // }
+    switch (currPage) {
+      case UI:
+        return <UiEditorSubNav />;
+    }
+  } else {
+    return <LoggedOutNav setCurrPage={setCurrPage} />;
   }
   return <></>;
 }
@@ -48,11 +49,11 @@ function HomePageSubNav() {
   return <>{/* <HomeButton /> */}</>;
 }
 
-function LoggedOutNav() {
+function LoggedOutNav({ setCurrPage }) {
   return (
     <>
-      {/* <Link to="/">Login</Link>
-      <Link to="/signup">Sign Up</Link> */}
+      <Button onClick={() => setCurrPage(LOGIN)}>Login</Button>
+      <Button onClick={() => setCurrPage(SIGN_UP)}>Sign Up</Button>
     </>
   );
 }
