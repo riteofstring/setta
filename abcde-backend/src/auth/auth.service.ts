@@ -18,10 +18,24 @@ export class AuthService {
     return null;
   }
 
+  // called after guard
   async login(user: any) {
     const payload = { name: user.name, sub: user.id };
     return {
       access_token: this.jwtService.sign(payload),
     };
+  }
+
+  // called without guard
+  async register(userInfo: any) {
+    const { username, password } = userInfo;
+    return await this.usersService
+      .create(username, password)
+      .then((user) => {
+        return this.login(user);
+      })
+      .catch((e) => {
+        throw e;
+      });
   }
 }
