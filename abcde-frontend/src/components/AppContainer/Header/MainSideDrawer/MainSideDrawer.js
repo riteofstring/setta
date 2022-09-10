@@ -5,7 +5,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { resetEntireState } from "store/store";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
 
-export default function HeaderContainer() {
+export default function MainSideDrawer() {
   return (
     <DrawerContainer
       header={<Header />}

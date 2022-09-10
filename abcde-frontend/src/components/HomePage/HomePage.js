@@ -1,12 +1,17 @@
 import { Grid, GridItem, SimpleGrid } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { useStoreActions } from "easy-peasy";
 import React from "react";
+import { UI } from "utils/pageNames";
+import Projects from "__tests__data/simpleTrainTest/Projects.json";
 
 function HomePage() {
+  const projects = Projects;
+
   return (
     <GridWrapper gridTemplateColumns="300px 1fr" display="grid">
       <LeftColumn />
-      <RightColumn />
+      <RightColumn projects={projects} />
     </GridWrapper>
   );
 }
@@ -27,7 +32,7 @@ function LeftColumn() {
   );
 }
 
-function RightColumn() {
+function RightColumn({ projects }) {
   return (
     <GridItem overflowY="auto">
       <SimpleGrid
@@ -37,20 +42,17 @@ function RightColumn() {
         p="2.5rem"
         minChildWidth="20rem"
       >
-        <DummyItem />
-        <DummyItem />
-        <DummyItem />
-        <DummyItem />
-        <DummyItem />
-        <DummyItem />
-        <DummyItem />
-        <DummyItem />
+        {projects.map((x) => (
+          <ProjectItem key={`Project ${x.name}`} name={x.name} />
+        ))}
       </SimpleGrid>
     </GridItem>
   );
 }
 
-function DummyItem() {
+function ProjectItem({ name }) {
+  const setCurrPage = useStoreActions((x) => x.currPage.setName);
+
   return (
     <Grid
       templateRows="1fr 5rem"
@@ -66,9 +68,10 @@ function DummyItem() {
         borderColor: "white",
         cursor: "pointer",
       }}
+      onClick={() => setCurrPage(UI)}
     >
       <GridItem p="1rem" bg="gray.50"></GridItem>
-      <GridItem p="1rem">Description</GridItem>
+      <GridItem p="1rem">{name}</GridItem>
     </Grid>
   );
 }

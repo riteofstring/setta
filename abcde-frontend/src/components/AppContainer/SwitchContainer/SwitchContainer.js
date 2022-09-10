@@ -1,10 +1,10 @@
+import HomePage from "components/HomePage";
 import SignUpPage from "components/SignUpPage/SignUpPage";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
-import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
-// import HomePage from "../../HomePage";
+import { NO_AUTH } from "utils/constants";
+import { HOME, LOGIN, SIGN_UP, UI } from "utils/pageNames";
 import LoginPage from "../../LoginPage/LoginPage";
-// import SignUpPage from "../../SignUpPage/SignUpPage";
 import MainContainer from "../Main/MainContainer";
 
 const SwitchContainer = () => {
@@ -14,7 +14,11 @@ const SwitchContainer = () => {
 
   function getPage() {
     if (isAuthenticated) {
-      return <MainContainer />;
+      if (currPage === UI) {
+        return <MainContainer />;
+      } else if (currPage === HOME) {
+        return <HomePage />;
+      }
     } else {
       if (currPage === LOGIN) {
         return <LoginPage />;
@@ -22,11 +26,16 @@ const SwitchContainer = () => {
         return <SignUpPage />;
       }
     }
+    return <LoginPage />;
   }
 
   useEffect(() => {
     if (isAuthenticated) {
-      setCurrPage(UI);
+      if (NO_AUTH) {
+        setCurrPage(UI);
+      } else {
+        setCurrPage(HOME);
+      }
     } else {
       setCurrPage(LOGIN);
     }
