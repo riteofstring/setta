@@ -11,9 +11,4 @@ export class Users {
 
   @Property({ hidden: true })
   password: string;
-
-  constructor({ username, password }: { username: string; password: string }) {
-    this.name = username;
-    this.password = password;
-  }
 }

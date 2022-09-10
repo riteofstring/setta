@@ -1,5 +1,4 @@
 import { Injectable, HttpStatus, HttpException } from '@nestjs/common';
-import { Users } from '../entities/users.entity';
 import { UsersRepository } from './users.repository';
 import { validate } from 'class-validator';
 
@@ -29,7 +28,7 @@ export class UsersService {
     }
 
     // create new user
-    const user = new Users({ username, password });
+    const user = this.usersRepository.create({ name: username, password });
     const errors = await validate(user);
 
     if (errors.length > 0) {
