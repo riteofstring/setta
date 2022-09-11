@@ -1,7 +1,13 @@
 import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
-import data from '../seedData/codeInfo';
+import data from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/NewPackages';
+
+// TODO
+// Add this to package.json when we switch to a monorepo
+// "imports": {
+//   "#abcde-data/*": "abcde-frontend/src/__tests__data/*"
+// }
 
 export class CodeInfoSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
