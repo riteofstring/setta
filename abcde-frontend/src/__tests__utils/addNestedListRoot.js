@@ -19,7 +19,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
   let result = null;
 
   const paramInfo = getParamInfoByFullPath(
-    store.getState().master.allPackageInfo,
+    store.getState().master.allObjInfo,
     "torchvision",
     "transforms",
     "Compose",
@@ -77,7 +77,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
     const [objName, paramSettings] = transformSettings[i];
     for (let paramName of Object.keys(paramSettings)) {
       const paramInfo = getParamInfoByFullPath(
-        store.getState().master.allPackageInfo,
+        store.getState().master.allObjInfo,
         "torchvision",
         "transforms",
         objName,

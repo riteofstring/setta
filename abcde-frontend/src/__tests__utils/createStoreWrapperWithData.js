@@ -29,24 +29,19 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-export function getParamInfoByFullPath(
-  allPackageInfo,
-  packageName,
-  moduleName,
-  objName,
-  paramName
-) {
-  const pkg = _.filter(
-    allPackageInfo.children,
-    (x) => x.name === packageName
-  )[0];
-  const module = _.filter(pkg.children, (x) => x.name === moduleName)[0];
-  const obj = _.filter(module.children, (x) => x.name === objName)[0];
-  return _.filter(obj.children, (x) => x.name === paramName)[0];
+export function getParamInfoByFullPath(allObjInfo, ...pathAsName) {
+  let curr = null;
+  let currChildren = Object.values(allObjInfo);
+  for (const name of pathAsName) {
+    curr = currChildren.filter((x) => x.name === name)[0];
+    currChildren = curr.children.map((x) => allObjInfo[x]);
+  }
+  return curr;
 }
 
-function getParamCollectionParamInfoByName(paramCollection, name) {
-  return _.filter(paramCollection.children, (v) => v.name === name)[0];
+function getParamCollectionParamInfoByName(allObjInfo, paramCollection, name) {
+  const childrenInfo = paramCollection.children.map((x) => allObjInfo[x]);
+  return _.filter(childrenInfo, (v) => v.name === name)[0];
 }
 
 export function getUITypeByName(store, name, type, isBasePreset) {
@@ -66,14 +61,18 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
-  const paramCollectionId = result.current.config.parameters[0];
+  const paramCollectionId = result.current.config.collections[0];
 
   // get the param collection that the section contains
-  const variousParams =
-    store.getState().master.allParamCollections.children[paramCollectionId];
+  const allObjInfo = store.getState().master.allObjInfo;
+  const variousParams = allObjInfo[paramCollectionId];
 
   // get the parameter we are going to test on
-  const paramInfo = getParamCollectionParamInfoByName(variousParams, paramName);
+  const paramInfo = getParamCollectionParamInfoByName(
+    allObjInfo,
+    variousParams,
+    paramName
+  );
   return { sectionInfo, paramInfo };
 }
 
