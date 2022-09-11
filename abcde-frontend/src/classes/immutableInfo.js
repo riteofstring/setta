@@ -1,53 +1,15 @@
 import _ from "lodash";
 
-export class ParameterInfo {
-  constructor(jsonInput, parentId) {
-    this.id = jsonInput.id;
-    this.name = jsonInput.name;
-    this.defaultVal = jsonInput.defaultVal;
-    this.type = jsonInput.type;
-    this.parentId = parentId;
-  }
-}
-
-class ObjInfo {
-  constructor(jsonInput, parentId) {
-    this.id = jsonInput.id;
-    this.name = jsonInput.name;
-    this.parentId = parentId;
-    this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ParameterInfo(x, this.id))
-    );
-  }
-}
-
-class ModuleInfo {
-  constructor(jsonInput, parentId) {
-    this.id = jsonInput.id;
-    this.name = jsonInput.name;
-    this.parentId = parentId;
-    this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ObjInfo(x, this.id))
-    );
-  }
-}
-
-class PackageInfo {
+export class ObjInfo {
   constructor(jsonInput) {
     this.id = jsonInput.id;
     this.name = jsonInput.name;
     this.version = jsonInput.version;
-    this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new ModuleInfo(x, this.id))
-    );
-  }
-}
-
-export class AllPackageInfo {
-  constructor(jsonInput) {
-    this.children = _.mapValues(jsonInput.children, (x) =>
-      Object.freeze(new PackageInfo(x))
-    );
+    this.defaultVal = jsonInput.defaultVal;
+    this.type = jsonInput.type;
+    this.rel = jsonInput.rel;
+    this.parentId = jsonInput.parentId;
+    this.children = jsonInput.children;
   }
 }
 
@@ -84,14 +46,16 @@ export class AllParamCollectionInfo {
   }
 }
 
-export function getFullObjPath(allPackageInfo, allModuleInfo, objInfo) {
-  const objName = objInfo.name;
-  const moduleInfo = allModuleInfo[objInfo.parentId];
-  const moduleName = moduleInfo.name;
-  const packageName = allPackageInfo.children[moduleInfo.parentId].name;
-  return `${packageName}.${moduleName}.${objName}`;
+export function getFullObjPath(allObjInfo, objInfo) {
+  let currObjInfo = objInfo;
+  let path = currObjInfo.name;
+  while (currObjInfo.parentId) {
+    currObjInfo = allObjInfo[currObjInfo.parentId];
+    path = `${currObjInfo.name}.${path}`;
+  }
+  return { path, version: currObjInfo.version };
 }
 
 export const NULL_OBJ_INFO = Object.freeze(
-  new ObjInfo({ id: null, name: null, children: {} }, null)
+  new ObjInfo({ id: null, name: null, children: {} })
 );

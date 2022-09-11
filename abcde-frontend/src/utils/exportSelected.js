@@ -91,8 +91,8 @@ function kwargsExportSelected(
 }
 
 function objInfoExportSelected(sectionId, objInfo, paramCollectionId, state) {
-  const { allPackageInfo, allModuleInfo } = state.master;
-  const fullObjPath = getFullObjPath(allPackageInfo, allModuleInfo, objInfo);
+  const { allObjInfo } = state.master;
+  const { path: fullObjPath } = getFullObjPath(allObjInfo, objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
     Object.values(objInfo.children),

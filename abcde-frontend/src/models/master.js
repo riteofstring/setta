@@ -11,9 +11,6 @@ import {
 import { exportSelected } from "utils/exportSelected";
 
 const master = {
-  available: {},
-  allPackageInfo: null,
-  allModuleInfo: null,
   allObjInfo: null,
   allObjCollections: null,
   allParamCollections: null,
@@ -23,8 +20,6 @@ const master = {
   // Load DATA
   _loadSections: action((state, payload) => {
     ({
-      allPackageInfo: state.allPackageInfo,
-      allModuleInfo: state.allModuleInfo,
       allObjInfo: state.allObjInfo,
       allObjCollections: state.allObjCollections,
       allParamCollections: state.allParamCollections,

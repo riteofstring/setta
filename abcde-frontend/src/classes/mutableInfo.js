@@ -1,7 +1,7 @@
 import { immerable } from "immer";
 import { maybeNewId } from "utils/utils";
 
-import { ParameterInfo } from "./immutableInfo";
+import { ObjInfo } from "./immutableInfo";
 
 export function exportInfo(cls) {
   const output = {};
@@ -87,7 +87,7 @@ export class SectionInfo extends MutableInfo {
   }
 }
 
-export class KwargInfo extends ParameterInfo {
+export class KwargInfo extends ObjInfo {
   [immerable] = true;
   exportable = ["id", "name"];
 }
