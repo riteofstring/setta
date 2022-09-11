@@ -1,16 +1,8 @@
-import { AllObjCollectionInfo, AllParamCollectionInfo } from "./immutableInfo";
+import _ from "lodash";
+import { COLLECTION } from "utils/constants";
 
-export function createAllInfo(available) {
-  const allObjInfo = Object.freeze(available.packages);
-  const allObjCollections = Object.freeze(
-    new AllObjCollectionInfo(available.objCollections, allObjInfo)
-  );
-  const allParamCollections = Object.freeze(
-    new AllParamCollectionInfo(available.paramCollections)
-  );
-  return {
-    allObjInfo,
-    allObjCollections,
-    allParamCollections,
-  };
+export function createAllInfo(packages) {
+  const allObjInfo = Object.freeze(packages);
+  const allCollections = _.pickBy(allObjInfo, (v) => v.type === COLLECTION);
+  return { allObjInfo, allCollections };
 }

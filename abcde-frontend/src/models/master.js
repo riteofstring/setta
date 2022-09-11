@@ -1,7 +1,7 @@
 import { createAllInfo } from "classes/infoFactory";
 import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
-import { action, thunk } from "easy-peasy";
+import { action, debug, thunk } from "easy-peasy";
 import _ from "lodash";
 import {
   DEFAULT_DEFAULT,
@@ -11,37 +11,29 @@ import {
 import { exportSelected } from "utils/exportSelected";
 
 const master = {
-  allObjInfo: null,
-  allObjCollections: null,
-  allParamCollections: null,
+  allObjInfo: {},
+  allCollections: {},
   activeSection: null,
 
   // actions
   // Load DATA
-  _loadSections: action((state, payload) => {
-    ({
-      allObjInfo: state.allObjInfo,
-      allObjCollections: state.allObjCollections,
-      allParamCollections: state.allParamCollections,
-    } = createAllInfo(payload));
+  loadObjInfoAndCollections: action((state, payload) => {
+    ({ allObjInfo: state.allObjInfo, allCollections: state.allCollections } =
+      createAllInfo(payload));
+
+    console.log("master.allObjInfo", debug(state.allObjInfo))
   }),
 
   loadSections: thunk((action, payload) => {
     const {
       packages,
-      objCollections,
-      paramCollections,
       defaultDefaults,
       globalDefaults,
       projectDefaults,
       uiData,
     } = payload;
 
-    action._loadSections({
-      packages,
-      objCollections,
-      paramCollections,
-    });
+    action.loadObjInfoAndCollections(packages);
     action.initDefaultDefaults(defaultDefaults);
     action.initGlobalDefaults(globalDefaults);
     action.initProjectDefaults(projectDefaults);

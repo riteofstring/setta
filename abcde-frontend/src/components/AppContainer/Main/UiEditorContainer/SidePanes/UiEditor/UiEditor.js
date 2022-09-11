@@ -59,12 +59,12 @@ export default function UiEditor() {
               overflowY="auto"
               ref={measureRef}
             >
-              <TabPanel p="3px">
+              {/* <TabPanel p="3px">
                 <SectionConfig />
-              </TabPanel>
-              <TabPanel p="3px">
+              </TabPanel> */}
+              {/* <TabPanel p="3px">
                 <UIConfig />
-              </TabPanel>
+              </TabPanel> */}
               <TabPanel display="grid" place-items="center" px="0">
                 <YamlEditor dimensions={dimensions} />
               </TabPanel>

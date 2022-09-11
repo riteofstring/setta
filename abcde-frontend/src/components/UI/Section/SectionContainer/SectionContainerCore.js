@@ -26,7 +26,6 @@ function _SectionContainerCore({
 }) {
   const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
-  const hasObjects = config.objects.length > 0;
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
   const setSectionInfoAttr = useStoreActions(
@@ -90,13 +89,11 @@ function _SectionContainerCore({
           />
           {!isListRoot && (
             <Stack>
-              {hasObjects && (
-                <SectionSearch
-                  sectionId={sectionId}
-                  initialSelection={selectedItem}
-                  onSelectedItemChange={onSelectedItemChange}
-                />
-              )}
+              <SectionSearch
+                sectionId={sectionId}
+                initialSelection={selectedItem}
+                onSelectedItemChange={onSelectedItemChange}
+              />
               {tempBoolDesc && <SectionDescription />}
               <GroupContainer
                 sectionId={sectionId}

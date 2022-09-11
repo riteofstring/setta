@@ -1,4 +1,6 @@
 const Packages = require("./src/__tests__data/simpleTrainTest/Packages.json");
+const ObjCollections = require("./src/__tests__data/simpleTrainTest/ObjCollections.json");
+const ParamCollections = require("./src/__tests__data/simpleTrainTest/ParamCollections.json");
 const fs = require("fs");
 
 const newJson = {};
@@ -47,7 +49,38 @@ for (let p of Object.values(Packages.children)) {
   }
 }
 
-console.log(newJson);
+for (let collection of Object.values(ObjCollections.children)) {
+  newJson[collection.id] = {
+    id: collection.id,
+    name: collection.name,
+    type: "collection",
+    description: collection.description,
+    children: collection.children,
+    requiresSearch: true
+  };
+}
+
+for (let collection of Object.values(ParamCollections.children)) {
+  newJson[collection.id] = {
+    id: collection.id,
+    name: collection.name,
+    type: "collection",
+    description: collection.description,
+    children: [],
+  };
+  for (let param of Object.values(collection.children)) {
+    newJson[collection.id].children.push(param.id);
+    newJson[param.id] = {
+      id: param.id,
+      name: param.name,
+      defaultVal: param.defaultVal,
+      type: param.type,
+      rel: "parameter",
+      parentId: collection.id,
+      children: [],
+    };
+  }
+}
 
 fs.writeFileSync(
   "./src/__tests__data/simpleTrainTest/NewPackages.json",

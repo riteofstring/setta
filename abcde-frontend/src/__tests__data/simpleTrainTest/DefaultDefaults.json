@@ -39,8 +39,7 @@
       "isPreset": true,
       "isBasePreset": true,
       "config": {
-        "objects": [],
-        "parameters": [],
+        "collections": [],
         "uiTypeCollectionId": null,
         "subType": null
       }
@@ -52,8 +51,7 @@
       "isPreset": true,
       "isBasePreset": true,
       "config": {
-        "objects": [],
-        "parameters": [],
+        "collections": [],
         "uiTypeCollectionId": null,
         "childUITypeId": null
       }
@@ -65,8 +63,7 @@
       "isPreset": true,
       "isBasePreset": true,
       "config": {
-        "objects": [],
-        "parameters": [],
+        "collections": [],
         "uiTypeCollectionId": null,
         "childUITypeId": null
       }
@@ -78,8 +75,7 @@
       "isPreset": true,
       "isBasePreset": true,
       "config": {
-        "objects": [],
-        "parameters": [],
+        "collections": [],
         "uiTypeCollectionId": null,
         "childUITypeId": null
       }

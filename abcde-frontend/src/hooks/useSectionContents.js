@@ -1,4 +1,3 @@
-import { NULL_OBJ_INFO } from "classes/immutableInfo";
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
@@ -14,56 +13,52 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
 
 // TODO: SPLIT UP
 export function useGetObjParamKwargInfos(sectionId, objInfoId) {
-  const objInfo = useGetObjInfos(sectionId, objInfoId);
+  const allObjInfo = useStoreState((x) => x.master.allObjInfo);
+  console.log("useGetObjParamKwargInfos");
+  console.log("objInfoId", objInfoId);
+  console.log("allObjInfo", allObjInfo);
+  const objInfo = useStoreState((x) => x.master.allObjInfo[objInfoId]);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
   return { objInfo, paramInfos, kwargInfos };
 }
 
-function getXInfos(collectionIds, allCollections, infoId) {
-  const collections = collectionIds.map((x) => allCollections.children[x]);
-  const output = _.merge({}, ...collections.map((x) => x.children));
-  if (infoId) {
-    return output[infoId];
-  }
-  return Object.values(output);
+function getCollections(
+  collectionIds,
+  allObjInfo,
+  allCollections,
+  requiresSearch
+) {
+  const collections = collectionIds
+    .map((x) => allCollections[x])
+    .filter((x) => x && (requiresSearch ? x.requiresSearch : true));
+  const ids = [].concat(...collections.map((x) => x.children));
+  return ids.map((x) => allObjInfo[x]);
 }
 
-function useGetXInfosFromSection(
-  collectionName,
-  allCollectionName,
-  sectionId,
-  infoId
-) {
-  const allCollections = useStoreState((x) => x.master[allCollectionName]);
+export function useGetCollections(sectionId, requiresSearch) {
+  const allObjInfo = useStoreState((x) => x.master.allObjInfo);
+  const allCollections = useStoreState((x) => x.master.allCollections);
   const sectionType = useGetSectionType(sectionId);
   if (sectionId) {
-    const collectionIds = sectionType.config[collectionName];
-    return getXInfos(collectionIds, allCollections, infoId);
+    const collectionIds = sectionType.config.collections;
+    console.log("collectionIds", collectionIds);
+    return getCollections(
+      collectionIds,
+      allObjInfo,
+      allCollections,
+      requiresSearch
+    );
   }
   return [];
 }
 
-export function useGetObjInfos(sectionId, infoId) {
-  const objs = useGetXInfosFromSection(
-    "objects",
-    "allObjCollections",
-    sectionId,
-    infoId
-  );
-  if (infoId === null) {
-    return NULL_OBJ_INFO;
-  }
-  return objs;
+export function useGetObjInfos(sectionId) {
+  return useGetCollections(sectionId);
 }
 
-function useGetParamCollections(sectionId, infoId) {
-  return useGetXInfosFromSection(
-    "parameters",
-    "allParamCollections",
-    sectionId,
-    infoId
-  );
+function useGetParamCollections(sectionId) {
+  return useGetCollections(sectionId);
 }
 
 function useGetKwargIds(sectionId, objInfo) {
@@ -86,9 +81,11 @@ function useGetKwargInfos(sectionId, objInfo) {
 }
 
 function useGetAllParamInfos(sectionId, objInfo) {
-  const objParamInfos = objInfo?.children
-    ? Object.values(objInfo.children)
-    : [];
+  console.log("objInfo", objInfo);
+  const allObjInfo = useStoreState((x) => x.master.allObjInfo);
+  const childrenList = objInfo ? objInfo.children : [];
+  console.log("childrenList", childrenList);
+  const objParamInfos = childrenList.map((x) => allObjInfo[x]);
   const paramCollections = useGetParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
 }

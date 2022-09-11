@@ -1,4 +1,4 @@
-import { useGetObjInfos } from "hooks/useSectionContents";
+import { useGetCollections } from "hooks/useSectionContents";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export default function SectionSearch({
@@ -6,13 +6,15 @@ export default function SectionSearch({
   onSelectedItemChange,
   initialSelection,
 }) {
-  const objInfos = useGetObjInfos(sectionId);
+  const searchableItems = useGetCollections(sectionId, true);
   return (
-    <IdNameCombobox
-      allItems={objInfos}
-      onSelectedItemChange={onSelectedItemChange}
-      initialSelection={initialSelection}
-      width="424px"
-    />
+    searchableItems.length > 0 && (
+      <IdNameCombobox
+        allItems={searchableItems}
+        onSelectedItemChange={onSelectedItemChange}
+        initialSelection={initialSelection}
+        width="424px"
+      />
+    )
   );
 }
