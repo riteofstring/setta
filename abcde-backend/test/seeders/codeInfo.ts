@@ -16,6 +16,15 @@ export class CodeInfoSeeder extends Seeder {
     // now add the children
     for (const x of Object.values(data)) {
       const children = x.children;
+      const childrenObjs = await em.find(CodeInfo, {
+        id: { $in: children },
+      });
+      const parent = await em.findOne(
+        CodeInfo,
+        { id: x.id },
+        { populate: ['children'] },
+      );
+      parent.children.set(childrenObjs);
     }
   }
 }
