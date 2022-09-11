@@ -13,8 +13,7 @@ import {
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useParamChildId } from "hooks/useParamInfo";
-import { useGetAllParamAndKwargInfos } from "hooks/useSectionContents";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import React from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
@@ -25,9 +24,7 @@ export default React.memo(UIConfigFunc);
 
 function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
-  const objInfoId = useGetSectionInfo(sectionId).selectedItem;
-  const objInfo = useGetObjInfos(sectionId, objInfoId);
-  const paramInfos = useGetAllParamAndKwargInfos(sectionId, objInfo);
+  const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
   const getUITypeFn = useGetParamUIType(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
@@ -35,8 +32,6 @@ function UIConfigFunc() {
     ["name"],
     500
   );
-
-  console.log("activeSectionId", sectionId);
 
   return (
     <VStack align="stretch" spacing={0}>

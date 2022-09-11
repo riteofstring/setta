@@ -8,15 +8,22 @@ import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = useGetSectionInfo(sectionId);
-  return useGetObjParamKwargInfos(sectionId, selectedItem);
+  return useGetObjParamKwargInfos(sectionId, selectedItem, true);
 }
 
 // TODO: SPLIT UP
-export function useGetObjParamKwargInfos(sectionId, objInfoId) {
+export function useGetObjParamKwargInfos(
+  sectionId,
+  objInfoId,
+  returnAsOneList
+) {
   const objInfo = useStoreState((x) => x.master.allObjInfo[objInfoId]);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
-  return { objInfo, paramInfos, kwargInfos };
+  if (returnAsOneList) {
+    return [...paramInfos, ...kwargInfos];
+  }
+  return { paramInfos, kwargInfos };
 }
 
 function getCollections(
@@ -73,11 +80,4 @@ function useGetAllParamInfos(sectionId, objInfo) {
   const objParamInfos = childrenList.map((x) => allObjInfo[x]);
   const paramCollections = useGetCollections(sectionId, false);
   return [...objParamInfos, ...paramCollections];
-}
-
-export function useGetAllParamAndKwargInfos(sectionId, objInfo) {
-  return [
-    ...useGetAllParamInfos(sectionId, objInfo),
-    ...useGetKwargInfos(sectionId, objInfo),
-  ];
 }

@@ -51,10 +51,8 @@ function useGetIdsOverview(sectionId) {
 }
 
 function useGetCurrChildrenIds(sectionId) {
-  const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = useChildIdHelper(paramInfos, sectionId);
-  const kwargChildIds = useChildIdHelper(kwargInfos, sectionId);
-  return [...paramChildIds, ...kwargChildIds];
+  const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
+  return useChildIdHelper(paramInfos, sectionId);
 }
 
 function useChildIdHelper(infos, sectionId) {

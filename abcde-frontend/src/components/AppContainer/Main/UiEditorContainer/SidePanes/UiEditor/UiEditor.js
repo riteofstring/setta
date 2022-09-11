@@ -12,6 +12,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useState } from "react";
 import Measure from "react-measure";
 import { UI_EDITOR } from "utils/constants";
+import UIConfig from "./UIConfig";
 
 import YamlEditor from "./YamlEditor";
 
@@ -60,9 +61,9 @@ export default function UiEditor() {
               {/* <TabPanel p="3px">
                 <SectionConfig />
               </TabPanel> */}
-              {/* <TabPanel p="3px">
+              <TabPanel p="3px">
                 <UIConfig />
-              </TabPanel> */}
+              </TabPanel>
               <TabPanel display="grid" place-items="center" px="0">
                 <YamlEditor dimensions={dimensions} />
               </TabPanel>
