@@ -13,10 +13,6 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
 
 // TODO: SPLIT UP
 export function useGetObjParamKwargInfos(sectionId, objInfoId) {
-  const allObjInfo = useStoreState((x) => x.master.allObjInfo);
-  console.log("useGetObjParamKwargInfos");
-  console.log("objInfoId", objInfoId);
-  console.log("allObjInfo", allObjInfo);
   const objInfo = useStoreState((x) => x.master.allObjInfo[objInfoId]);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
@@ -31,7 +27,7 @@ function getCollections(
 ) {
   const collections = collectionIds
     .map((x) => allCollections[x])
-    .filter((x) => x && (requiresSearch ? x.requiresSearch : true));
+    .filter((x) => x && x.requiresSearch === requiresSearch);
   const ids = [].concat(...collections.map((x) => x.children));
   return ids.map((x) => allObjInfo[x]);
 }
@@ -42,7 +38,6 @@ export function useGetCollections(sectionId, requiresSearch) {
   const sectionType = useGetSectionType(sectionId);
   if (sectionId) {
     const collectionIds = sectionType.config.collections;
-    console.log("collectionIds", collectionIds);
     return getCollections(
       collectionIds,
       allObjInfo,
@@ -51,14 +46,6 @@ export function useGetCollections(sectionId, requiresSearch) {
     );
   }
   return [];
-}
-
-export function useGetObjInfos(sectionId) {
-  return useGetCollections(sectionId);
-}
-
-function useGetParamCollections(sectionId) {
-  return useGetCollections(sectionId);
 }
 
 function useGetKwargIds(sectionId, objInfo) {
@@ -81,12 +68,10 @@ function useGetKwargInfos(sectionId, objInfo) {
 }
 
 function useGetAllParamInfos(sectionId, objInfo) {
-  console.log("objInfo", objInfo);
   const allObjInfo = useStoreState((x) => x.master.allObjInfo);
   const childrenList = objInfo ? objInfo.children : [];
-  console.log("childrenList", childrenList);
   const objParamInfos = childrenList.map((x) => allObjInfo[x]);
-  const paramCollections = useGetParamCollections(sectionId);
+  const paramCollections = useGetCollections(sectionId, false);
   return [...objParamInfos, ...paramCollections];
 }
 

@@ -13,10 +13,7 @@ import {
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useParamChildId } from "hooks/useParamInfo";
-import {
-  useGetAllParamAndKwargInfos,
-  useGetObjInfos,
-} from "hooks/useSectionContents";
+import { useGetAllParamAndKwargInfos } from "hooks/useSectionContents";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import React from "react";

@@ -1,7 +1,7 @@
 import { createAllInfo } from "classes/infoFactory";
 import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
-import { action, debug, thunk } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import {
   DEFAULT_DEFAULT,
@@ -20,8 +20,6 @@ const master = {
   loadObjInfoAndCollections: action((state, payload) => {
     ({ allObjInfo: state.allObjInfo, allCollections: state.allCollections } =
       createAllInfo(payload));
-
-    console.log("master.allObjInfo", debug(state.allObjInfo))
   }),
 
   loadSections: thunk((action, payload) => {

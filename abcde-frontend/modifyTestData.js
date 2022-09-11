@@ -56,7 +56,7 @@ for (let collection of Object.values(ObjCollections.children)) {
     type: "collection",
     description: collection.description,
     children: collection.children,
-    requiresSearch: true
+    requiresSearch: true,
   };
 }
 
@@ -67,6 +67,7 @@ for (let collection of Object.values(ParamCollections.children)) {
     type: "collection",
     description: collection.description,
     children: [],
+    requiresSearch: false,
   };
   for (let param of Object.values(collection.children)) {
     newJson[collection.id].children.push(param.id);
