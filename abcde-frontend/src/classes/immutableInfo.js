@@ -7,7 +7,6 @@ export class ObjInfo {
     this.type = jsonInput.type;
     this.rel = jsonInput.rel;
     this.description = jsonInput.description;
-    this.requiresSearch = jsonInput.requiresSearch;
     this.parentId = jsonInput.parentId;
     this.children = jsonInput.children;
   }

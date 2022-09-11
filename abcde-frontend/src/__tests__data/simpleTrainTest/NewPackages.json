@@ -5731,8 +5731,7 @@
       "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
       "8b59f872-8f35-4809-8650-2a2cdc984038",
       "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa"
-    ],
-    "requiresSearch": true
+    ]
   },
   "0671b39c-8479-4831-8627-8b37f12ef635": {
     "id": "0671b39c-8479-4831-8627-8b37f12ef635",
@@ -5749,16 +5748,14 @@
       "a41fc545-d910-405f-9c9f-9afe66914d69",
       "9b2f4419-9347-49be-b082-772497712d65",
       "795f9f49-1c37-4ee6-8542-a0648b7879f8"
-    ],
-    "requiresSearch": true
+    ]
   },
   "bb751616-d554-4ec8-84c1-8760078956d3": {
     "id": "bb751616-d554-4ec8-84c1-8760078956d3",
     "name": "My Models",
     "type": "collection",
     "description": "",
-    "children": ["ab24bb52-2514-4265-a191-ceaf7029cda0"],
-    "requiresSearch": true
+    "children": ["ab24bb52-2514-4265-a191-ceaf7029cda0"]
   },
   "93cd43f3-218c-4542-ad03-406a5b77aab5": {
     "id": "93cd43f3-218c-4542-ad03-406a5b77aab5",
@@ -5769,8 +5766,7 @@
       "a98c53c2-fe71-4bf7-80f9-243ab4926324",
       "6927502e-42bb-4b31-bf8a-96f47c63febc",
       "0c264e90-eb09-4dfb-bb5b-b357037b2a08"
-    ],
-    "requiresSearch": true
+    ]
   },
   "400e8e11-596b-4a4b-a69b-4c5201b58a84": {
     "id": "400e8e11-596b-4a4b-a69b-4c5201b58a84",
@@ -5815,16 +5811,14 @@
       "811db7c6-4b25-4a4f-bc75-c20258a5e891",
       "037da68a-1827-47ef-adec-b081388c657c",
       "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa"
-    ],
-    "requiresSearch": true
+    ]
   },
   "69405361-0296-4321-9361-bd5b35aa2e5e": {
     "id": "69405361-0296-4321-9361-bd5b35aa2e5e",
     "name": "Compose Transform",
     "type": "collection",
     "description": "Just transforms.Compose, since this is often used to wrap the actual transforms.",
-    "children": ["ac679940-4a07-4fc0-9fa4-4b5498405693"],
-    "requiresSearch": true
+    "children": ["ac679940-4a07-4fc0-9fa4-4b5498405693"]
   },
   "1ec242dd-688e-4f71-a0de-cc13752461ce": {
     "id": "1ec242dd-688e-4f71-a0de-cc13752461ce",
@@ -5873,8 +5867,7 @@
       "079c1a70-f2e9-452a-a011-7a2e685efcd4",
       "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
       "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69"
-    ],
-    "requiresSearch": true
+    ]
   },
   "253cd8a8-a95a-4d15-b98b-73318b3632a1": {
     "id": "253cd8a8-a95a-4d15-b98b-73318b3632a1",
@@ -5886,8 +5879,7 @@
       "039be87f-76d9-4e39-979b-ac7cef982937",
       "97e7a459-3b8b-4908-9843-71f4a43b2b2e",
       "c947c792-05d5-433c-95e5-2db1919c4b4e"
-    ],
-    "requiresSearch": false
+    ]
   },
   "30c695b3-49b4-4fc7-9dc5-1dff0cc4dc21": {
     "id": "30c695b3-49b4-4fc7-9dc5-1dff0cc4dc21",
@@ -5930,8 +5922,7 @@
     "name": "A Single Parameter",
     "type": "collection",
     "description": "Very important",
-    "children": ["297fbd94-70ca-4e90-81b8-96a603519a85"],
-    "requiresSearch": false
+    "children": ["297fbd94-70ca-4e90-81b8-96a603519a85"]
   },
   "297fbd94-70ca-4e90-81b8-96a603519a85": {
     "id": "297fbd94-70ca-4e90-81b8-96a603519a85",
