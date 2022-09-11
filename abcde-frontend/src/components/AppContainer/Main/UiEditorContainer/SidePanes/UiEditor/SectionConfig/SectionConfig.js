@@ -49,8 +49,8 @@ function SectionConfigFunc() {
     }
   };
 
-  const onConfigChange = (configName, newValueFn) => {
-    setUITypeConfig({ configName, newValueFn });
+  const onConfigChange = (newValueFn) => {
+    setUITypeConfig({ configName: "collections", newValueFn });
   };
 
   return (

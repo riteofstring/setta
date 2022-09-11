@@ -13,12 +13,16 @@ export class ObjInfo {
   }
 }
 
-export function getFullObjPath(allObjInfo, objInfo) {
+export function getFullObjPath(allObjInfo, objInfo, skipLast = 0) {
   let currObjInfo = objInfo;
-  let path = currObjInfo.name;
+  let path = [currObjInfo.name];
   while (currObjInfo.parentId) {
     currObjInfo = allObjInfo[currObjInfo.parentId];
-    path = `${currObjInfo.name}.${path}`;
+    path.push(currObjInfo.name);
   }
+  if (path.length > skipLast) {
+    path = path.slice(skipLast);
+  }
+  path = path.reverse().join(".");
   return { path, version: currObjInfo.version };
 }

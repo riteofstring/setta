@@ -23,20 +23,17 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
       <VStack align="stretch" mt="1rem">
         <Box pt=".25rem">
           <List spacing={3}>
-            {_.map(collections, (col, type) =>
-              _.values(col?.children).map((x) => (
-                <SearchItem
-                  id={x.id}
-                  name={x.name}
-                  description={x.description}
-                  details={x.children}
-                  isChecked={savedConfig?.[type]?.includes(x.id)}
-                  onChange={onChange}
-                  type={type}
-                  key={`SearchItem-${x.id}`}
-                />
-              ))
-            )}
+            {_.values(allCollections).map((x) => (
+              <SearchItem
+                id={x.id}
+                name={x.name}
+                description={x.description}
+                details={x.children}
+                isChecked={savedConfig?.collections.includes(x.id)}
+                onChange={onChange}
+                key={`SearchItem-${x.id}`}
+              />
+            ))}
           </List>
         </Box>
       </VStack>
@@ -44,19 +41,11 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
   );
 }
 
-function SearchItem({
-  id,
-  name,
-  description,
-  details,
-  isChecked,
-  onChange,
-  type,
-}) {
+function SearchItem({ id, name, description, details, isChecked, onChange }) {
   const { isOpen, onToggle } = useDisclosure();
 
   function onCheckboxChange(e) {
-    onChange(type, checkboxChangeFn(e, id));
+    onChange(checkboxChangeFn(e, id));
   }
 
   return (
@@ -107,11 +96,7 @@ function SearchItem({
           </Text>
         </VStack>
       </HStack>
-      {type === "objects" ? (
-        <ObjCollectionDetails isOpen={isOpen} details={details} />
-      ) : (
-        <ParamCollectionDetails isOpen={isOpen} details={details} />
-      )}
+      <ObjCollectionDetails isOpen={isOpen} details={details} />
     </ListItem>
   );
 }
@@ -139,16 +124,4 @@ function ObjListText({ objList }) {
       <Text>{x.name}</Text>
     </div>
   ));
-}
-
-function ParamCollectionDetails({ isOpen, details }) {
-  return (
-    <Collapse in={isOpen} animateOpacity>
-      <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
-        {_.map(details, (x, id) => (
-          <Text key={`ParamCollectionDetails-${id}`}>{x.name}</Text>
-        ))}
-      </Box>
-    </Collapse>
-  );
 }
