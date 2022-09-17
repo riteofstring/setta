@@ -21,13 +21,28 @@ psql -U postgres
 
 ### Start server
 ```bash
-./startServer.bat
+./start.bat
 ```
 
 ### Kill postgres
 ```bash
 ./db/kill.bat
 ```
+
+### Open psql and view the database
+```bash
+./db/login.bat
+```
+
+### Seed just a single class without clearing existing data
+
+For example, use just the SectionsSeeder:
+```bash
+./db/oneSeed.bat SectionsSeeder
+```
+
+
+
 
 ### References
 
