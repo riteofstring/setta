@@ -7,10 +7,10 @@ import {
   Property,
 } from '@mikro-orm/core';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { UIs } from './uis.entity';
+import { Sections } from './sections.entity';
 import { Users } from './users.entity';
 
-// A project is a collection of UIs, settings, module collections etc.
+// A project is a collection of sections, settings, module collections etc.
 @Entity({ customRepository: () => ProjectsRepository })
 export class Projects {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
@@ -22,6 +22,6 @@ export class Projects {
   @ManyToOne({ primary: false, hidden: true })
   owner: Users;
 
-  @ManyToMany(() => UIs)
-  uis = new Collection<UIs>(this);
+  @ManyToMany(() => Sections)
+  sections = new Collection<Sections>(this);
 }
