@@ -35,6 +35,7 @@ export class CodeInfo {
   @ManyToOne({ nullable: true })
   parent?: CodeInfo;
 
+  // It can have children without being their parent
   @ManyToMany(() => CodeInfo)
   children = new Collection<CodeInfo>(this);
 }

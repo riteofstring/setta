@@ -4,12 +4,19 @@ import { UsersSeeder } from './seeders/users';
 import { ProjectsSeeder } from './seeders/projects';
 import { CodeInfoSeeder } from './seeders/codeInfo';
 import { SectionsSeeder } from './seeders/sections';
+import { UITypesSeeder } from './seeders/uiTypes';
 
 (async () => {
   const orm = await MikroORM.init(config);
   const seeder = orm.getSeeder();
   await orm.getSchemaGenerator().refreshDatabase();
-  const seeders = [UsersSeeder, SectionsSeeder, ProjectsSeeder, CodeInfoSeeder];
+  const seeders = [
+    UsersSeeder,
+    CodeInfoSeeder,
+    UITypesSeeder,
+    SectionsSeeder,
+    ProjectsSeeder,
+  ];
   for (const x of seeders) {
     await seeder.seed(x);
   }
