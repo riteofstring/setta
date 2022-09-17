@@ -1,8 +1,7 @@
 import {
-  Collection,
   Entity,
-  ManyToMany,
   ManyToOne,
+  OneToOne,
   PrimaryKey,
   Property,
 } from '@mikro-orm/core';
@@ -19,9 +18,9 @@ export class Projects {
   @Property()
   name: string;
 
-  @ManyToOne({ primary: false, hidden: true })
+  @ManyToOne({ hidden: true })
   owner: Users;
 
-  @ManyToMany(() => Sections)
-  sections = new Collection<Sections>(this);
+  @OneToOne({ nullable: true })
+  sectionGroup: Sections;
 }

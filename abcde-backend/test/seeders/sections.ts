@@ -15,10 +15,7 @@ export class SectionsSeeder extends Seeder {
 
     // now add sectionGroups
     for (const x of sectionGroups) {
-      const childrenObjs = await em.find(Sections, {
-        id: { $in: x.children },
-      });
-      em.create(Sections, { id: x.id, children: childrenObjs });
+      em.create(Sections, x);
     }
   }
 }

@@ -32,7 +32,7 @@ export class CodeInfo {
   @Property({ nullable: true })
   description?: string;
 
-  @ManyToOne({ primary: false, nullable: true })
+  @ManyToOne({ nullable: true })
   parent?: CodeInfo;
 
   @ManyToMany(() => CodeInfo)
