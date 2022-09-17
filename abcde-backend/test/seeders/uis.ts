@@ -2,7 +2,7 @@ import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { UIs } from '../../src/entities/uis.entity';
 import { Projects } from '../../src/entities/projects.entity';
-import data from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UIs';
+import data from '../../../abcde-frontend/src/__tests__data/UIs';
 
 export class UIsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
