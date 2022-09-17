@@ -1,10 +1,10 @@
 import { Entity, ManyToOne, PrimaryKey, PrimaryKeyType } from '@mikro-orm/core';
-import { EnteredValuesCollectionsRepository } from '../../enteredValues/enteredValuesCollections.repository';
+import { EVColsRepository } from '../../enteredValues/evCols.repository';
 import { CodeInfo } from '../codeInfo.entity';
-import { EnteredValues } from './enteredValues.entity';
+import { EV } from './ev.entity';
 
-@Entity({ customRepository: () => EnteredValuesCollectionsRepository })
-export class EnteredValuesCollections {
+@Entity({ customRepository: () => EVColsRepository })
+export class EVCols {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
   id: string;
 
@@ -12,7 +12,7 @@ export class EnteredValuesCollections {
   codeInfo: CodeInfo;
 
   @ManyToOne()
-  enteredValue: EnteredValues;
+  enteredValue: EV;
 
   [PrimaryKeyType]?: [string, number];
 }

@@ -18,7 +18,7 @@ export class Projects {
   @Property()
   name: string;
 
-  @ManyToOne({ hidden: true })
+  @ManyToOne()
   owner: Users;
 
   @OneToOne({ nullable: true })

@@ -1,8 +1,8 @@
 import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
-import { EnteredValuesRepository } from '../../enteredValues/enteredValues.repository';
+import { EVRepository } from '../../enteredValues/ev.repository';
 
-@Entity({ customRepository: () => EnteredValuesRepository })
-export class EnteredValues {
+@Entity({ customRepository: () => EVRepository })
+export class EV {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
   id: string;
 
