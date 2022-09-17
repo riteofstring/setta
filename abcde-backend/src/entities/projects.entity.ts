@@ -6,6 +6,7 @@ import {
   Property,
 } from '@mikro-orm/core';
 import { ProjectsRepository } from '../projects/projects.repository';
+import { SectionEVCols } from './enteredValues/sectionEvCols.entity';
 import { Sections } from './sections.entity';
 import { Users } from './users.entity';
 
@@ -23,4 +24,7 @@ export class Projects {
 
   @OneToOne({ nullable: true })
   sectionGroup: Sections;
+
+  @ManyToOne({ nullable: true })
+  sectionEVCol: SectionEVCols;
 }

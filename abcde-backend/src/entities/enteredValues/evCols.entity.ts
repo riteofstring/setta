@@ -3,6 +3,7 @@ import { EVColsRepository } from '../../enteredValues/evCols.repository';
 import { CodeInfo } from '../codeInfo.entity';
 import { EV } from './ev.entity';
 
+// groups of parameter -> enteredvalue mappings
 @Entity({ customRepository: () => EVColsRepository })
 export class EVCols {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
