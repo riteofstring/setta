@@ -1,4 +1,4 @@
-import { Entity, OneToOne, Property } from '@mikro-orm/core';
+import { Entity, OneToOne } from '@mikro-orm/core';
 import { SectionUITypesRepository } from '../../uiTypes/sectionUITypes.repository';
 import { CodeInfo } from '../codeInfo.entity';
 import { UITypes } from './uiTypes.entity';
