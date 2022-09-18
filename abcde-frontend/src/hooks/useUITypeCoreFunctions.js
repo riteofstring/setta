@@ -4,7 +4,6 @@ import {
   SECTION_TYPE_NAMES,
   SET_FROM_SIDEPANE,
 } from "utils/constants";
-import { isPreset } from "utils/uiTypeConstants";
 import { createNewId } from "utils/utils";
 import {
   createOriginInfoId,
@@ -13,7 +12,7 @@ import {
 
 function shouldCloneUIType(uiType, settingPreset) {
   // uiType is a preset, and we're not in "settingPreset" mode
-  const isPresetNotSettingPreset = isPreset(uiType) && !settingPreset;
+  const isPresetNotSettingPreset = uiType.isPreset && !settingPreset;
   // The uiType is a list element (a child of a list root).
   // Changing its config shouldn't affect its siblings.
   // Plus it should become indepedent from the root config.
@@ -26,7 +25,7 @@ export function cloneNewUIType({
   name = "",
   config,
   origin = SET_FROM_SIDEPANE,
-  presetType = null,
+  isPreset = false,
   originInfoId,
   isForChildOfOriginInfoId = false,
 }) {
@@ -34,7 +33,8 @@ export function cloneNewUIType({
   newUIType.id = createNewId();
   newUIType.name = name;
   newUIType.origin = origin;
-  newUIType.presetType = presetType;
+  newUIType.isPreset = isPreset;
+  newUIType.isBasePreset = false;
   newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {
     newUIType.config = config;
