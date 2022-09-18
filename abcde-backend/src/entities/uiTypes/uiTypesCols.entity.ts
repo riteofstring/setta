@@ -2,12 +2,13 @@ import { Entity, ManyToOne, PrimaryKey, PrimaryKeyType } from '@mikro-orm/core';
 import { UITypesColsRepository } from '../../uiTypes/uiTypesCols.repository';
 import { CodeInfo } from '../codeInfo.entity';
 import { UITypes } from './uiTypes.entity';
+import { UITypesColsIds } from './uiTypesColsIds.entity';
 
 // groups of parameter -> uiType mappings
 @Entity({ customRepository: () => UITypesColsRepository })
 export class UITypesCols {
-  @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
-  id: string;
+  @PrimaryKey()
+  id: number;
 
   @ManyToOne({ primary: true })
   codeInfo: CodeInfo;
@@ -15,5 +16,8 @@ export class UITypesCols {
   @ManyToOne()
   uiType: UITypes;
 
-  [PrimaryKeyType]?: [string, number];
+  @ManyToOne(() => UITypesColsIds)
+  colId: UITypesColsIds;
+
+  [PrimaryKeyType]?: [number, number];
 }
