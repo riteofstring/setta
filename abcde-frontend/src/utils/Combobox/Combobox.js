@@ -118,11 +118,9 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
       display={isOpen ? null : "none"}
       {...props}
       ref={ref}
-      // position="absolute"
       position="fixed"
       overflow="visible !important"
       className="nowheel nodrag"
-      zIndex="100"
       borderRadius="3xl"
       mt="0.5rem"
     />

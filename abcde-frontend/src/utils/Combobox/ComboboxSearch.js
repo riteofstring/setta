@@ -92,9 +92,6 @@ export function ComboboxSearch({
         <Flex
           {...getComboboxProps()}
           direction="column"
-          // flex="1 1 auto"
-          zIndex="10000"
-          // w="calc(100%)"
           w={width}
           alignItems="stretch"
           transitionDuration="0.25s"
