@@ -5,6 +5,7 @@ import {
   requiresNestedSection,
   SECTION_TYPE_NAMES,
 } from "utils/constants";
+import { isBasePreset } from "utils/uiTypeConstants";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAddChild,
@@ -44,10 +45,11 @@ function getParamCollectionParamInfoByName(allObjInfo, paramCollection, name) {
   return _.filter(childrenInfo, (v) => v.name === name)[0];
 }
 
-export function getUITypeByName(store, name, type, isBasePreset) {
+export function getUITypeByName(store, name, type, useBasePreset) {
   return _.filter(
     store.getState().uiTypes.x,
-    (v) => v.name === name && v.type === type && v.isBasePreset === isBasePreset
+    (v) =>
+      v.name === name && v.type === type && isBasePreset(v) === useBasePreset
   )[0];
 }
 

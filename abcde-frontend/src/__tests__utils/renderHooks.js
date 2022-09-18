@@ -14,6 +14,7 @@ import {
   useInitializeUIType,
   useSetUIType,
 } from "hooks/useUIType";
+import { isBasePreset } from "utils/uiTypeConstants";
 
 export function renderUseAvailablePresetUITypes(hookProps, wrapper) {
   return renderHook(() => useAvailablePresetUITypes(hookProps), {
@@ -103,5 +104,5 @@ export function changeUITypeConfig(hookProps, configName, newValueFn, wrapper) {
     ));
   }
   const newUIType = result.current;
-  expect(newUIType.isBasePreset).toEqual(false);
+  expect(isBasePreset(newUIType)).toEqual(false);
 }

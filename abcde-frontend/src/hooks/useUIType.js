@@ -98,8 +98,7 @@ function cloneRootUIType(parentUIType, parentId) {
   uiType.type = SECTION;
   uiType.config.uiTypeCollectionId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
-  uiType.isPreset = false;
-  uiType.isBasePreset = false;
+  uiType.presetType = null;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,
     rootId: parentId,

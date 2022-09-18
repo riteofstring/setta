@@ -1,4 +1,5 @@
 import { PANEID } from "utils/constants";
+import { isPreset } from "utils/uiTypeConstants";
 import { createListRootAndChild } from "__tests__utils/createListRootAndChild";
 import {
   callMoveChildThunk,
@@ -91,7 +92,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
   // get list root's new type which is a non-preset
   ({ result } = renderUseGetSectionType(listRootSectionId, wrapper));
   const listRootNewUIType = result.current;
-  expect(listRootNewUIType.isPreset).toEqual(false);
+  expect(isPreset(listRootNewUIType)).toEqual(false);
 
   // rootChild SHOULD NOT see list root type because it is now a non-preset
   availableUITypeIds = getAvailableUITypeIds(
@@ -145,7 +146,7 @@ function testRootAndChild(inputSectionName, inputParamName) {
   // get list root child's new type which is a non-preset
   ({ result } = renderUseGetSectionType(rootChildId, wrapper));
   rootChildNewUIType = result.current;
-  expect(rootChildNewUIType.isPreset).toEqual(false);
+  expect(isPreset(rootChildNewUIType)).toEqual(false);
 
   // rootChild should see its new uitype + the uitype that originated from the root
   availableUITypeIds = getAvailableUITypeIds(
