@@ -3,7 +3,7 @@ import _ from "lodash";
 import { createNewId, defaultState } from "utils/utils";
 
 import {
-  DEFAULT_DEFAULT_UI_TYPE_ID,
+  DEFAULT_BASE_UI_TYPE_ID,
   rootTypeToChildType,
   SECTION,
 } from "../utils/constants";
@@ -86,7 +86,7 @@ export function useInitializeUIType(sectionId) {
       } else if (globalDefaultUIType) {
         setUITypeId(globalDefaultUIType.id);
       } else {
-        setUITypeId(DEFAULT_DEFAULT_UI_TYPE_ID);
+        setUITypeId(DEFAULT_BASE_UI_TYPE_ID);
       }
     };
   };
@@ -98,8 +98,7 @@ function cloneRootUIType(parentUIType, parentId) {
   uiType.type = SECTION;
   uiType.config.uiTypeCollectionId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
-  uiType.isPreset = false;
-  uiType.isBasePreset = false;
+  uiType.presetType = null;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,
     rootId: parentId,

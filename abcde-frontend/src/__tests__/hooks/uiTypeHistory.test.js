@@ -1,5 +1,6 @@
 import { waitFor } from "@testing-library/react";
 import { LIST_ROOT } from "utils/constants";
+import { USER } from "utils/uiTypeConstants";
 import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
@@ -23,25 +24,25 @@ This test goes through these steps:
 5. Adding a child (simulating the rendering of the NestedObjectInput component)
 6. Changing the param ui type back to the initial type, and then back to the list-root.
 7. Checking that the current child is the same as the child that was created in step 5.
-Trying setting: isPreset=$isPreset, sectionName=$sectionName, paramName=$paramName
+Trying setting: presetType=$presetType, sectionName=$sectionName, paramName=$paramName
 
 `,
-  ({ isPreset, sectionName, paramName }) => {
-    testUITypeHistory(isPreset, sectionName, paramName);
+  ({ presetType, sectionName, paramName }) => {
+    testUITypeHistory(presetType, sectionName, paramName);
   }
 );
 
 function testCases() {
   const output = [];
-  for (let isPreset of [true, false]) {
+  for (let presetType of [USER, null]) {
     for (let sectionNameParamName of testSectionNamesParamNames({})) {
-      output.push({ isPreset, ...sectionNameParamName });
+      output.push({ presetType, ...sectionNameParamName });
     }
   }
   return output;
 }
 
-function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
+function testUITypeHistory(presetType, inputSectionName, inputParamName) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -74,7 +75,7 @@ function testUITypeHistory(isPreset, inputSectionName, inputParamName) {
   expect(result.current[0]).toEqual([]);
 
   // Add a list root ui type
-  const listRootUIType = addUIType(store, { type: LIST_ROOT, isPreset });
+  const listRootUIType = addUIType(store, { type: LIST_ROOT, presetType });
   // Sanity check: the uiType should be in the state
   expect(store.getState().uiTypes.x[listRootUIType.id]).toEqual(listRootUIType);
 

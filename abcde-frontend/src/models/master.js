@@ -23,16 +23,11 @@ const master = {
   }),
 
   loadSections: thunk((action, payload) => {
-    const {
-      packages,
-      defaultDefaults,
-      globalDefaults,
-      projectDefaults,
-      uiData,
-    } = payload;
+    const { packages, baseUITypes, globalDefaults, projectDefaults, uiData } =
+      payload;
 
     action.loadObjInfoAndCollections(packages);
-    action.initDefaultDefaults(defaultDefaults);
+    action.initBaseUITypes(baseUITypes);
     action.initGlobalDefaults(globalDefaults);
     action.initProjectDefaults(projectDefaults);
     action.initSectionUITypes(uiData.uiTypes);
@@ -43,7 +38,7 @@ const master = {
     state.activeSection = payload;
   }),
 
-  initDefaultDefaults: thunk((action, payload, helpers) => {
+  initBaseUITypes: thunk((action, payload, helpers) => {
     initDefaultHelper(
       payload,
       helpers.getStoreActions(),

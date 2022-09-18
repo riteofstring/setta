@@ -1,5 +1,6 @@
 import { waitFor } from "@testing-library/react";
 import _ from "lodash";
+import { isPreset } from "utils/uiTypeConstants";
 import {
   createStoreWrapperWithData,
   getParameterToTestOnAndInitialUIType,
@@ -31,7 +32,7 @@ async function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
     inputParamName
   );
 
-  expect(initialUIType.isPreset).toEqual(true);
+  expect(isPreset(initialUIType)).toEqual(true);
 
   // Props that are constant in this test
   const propsForSetUIType = {

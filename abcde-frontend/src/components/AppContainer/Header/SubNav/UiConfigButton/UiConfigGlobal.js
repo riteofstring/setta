@@ -19,6 +19,7 @@ import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
+import { USER } from "utils/uiTypeConstants";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {
@@ -117,8 +118,8 @@ function PresetConfig({ selectedId, setSelectedId }) {
       name,
       config: localConfig,
       origin: PROJECT_DEFAULT,
-      isPreset: true,
-      originInfoId: createOriginInfoId({ isPreset }),
+      presetType: USER,
+      originInfoId: createOriginInfoId({ presetType }),
     });
     setUIType({ uiType: newUIType });
     setSelectedId(newUIType.id);

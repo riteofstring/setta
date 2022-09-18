@@ -1,4 +1,5 @@
 import { waitFor } from "@testing-library/react";
+import { isBasePreset } from "utils/uiTypeConstants";
 import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
@@ -58,7 +59,7 @@ function testAvailableForkedNonPreset(inputSectionName, inputParamName) {
   );
 
   // should contain the preset type (unless it's a base preset)
-  if (!initialUIType.isBasePreset) {
+  if (!isBasePreset(initialUIType)) {
     expect(availableUITypeIds).toContain(initialUIType.id);
   }
   // should contain the forked type

@@ -4,7 +4,7 @@ export default {
       id: "ad41e56e-0c81-413d-8a63-ccfa59107c79",
       name: "Model",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: [
           "0671b39c-8479-4831-8627-8b37f12ef635",
@@ -20,7 +20,7 @@ export default {
       id: "aca715a7-e487-4151-8099-5823b9f54637",
       name: "Optimizer",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
         uiTypeCollectionId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
@@ -33,7 +33,7 @@ export default {
       id: "4dfce153-7c8a-427e-bc86-31802494166d",
       name: "Transform",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
         uiTypeCollectionId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
@@ -46,7 +46,7 @@ export default {
       id: "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5",
       name: "TrainDataset",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
         uiTypeCollectionId: "76e6a946-446b-4fcb-a803-db01482ed97e",
@@ -59,7 +59,7 @@ export default {
       id: "861265e9-2701-42dd-821b-d80734ec0db1",
       name: "ValDataset",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
         uiTypeCollectionId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
@@ -72,7 +72,7 @@ export default {
       id: "2b157b97-4424-4831-83a5-836c7dc17a6e",
       name: "OtherParameters",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
         uiTypeCollectionId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
@@ -85,7 +85,7 @@ export default {
       id: "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
       name: "The2ndOtherParameters",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
         uiTypeCollectionId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
@@ -98,7 +98,7 @@ export default {
       id: "58f123d7-8a82-44d8-9d83-06d1659052c7",
       name: "X",
       type: "SECTION",
-      isPreset: false,
+      presetType: null,
       config: {
         collections: ["f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86"],
         uiTypeCollectionId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
@@ -115,7 +115,7 @@ export default {
       uiTypeId: "ad41e56e-0c81-413d-8a63-ccfa59107c79",
       paramCollectionId: "10a2f61d-f615-4b94-9c8e-ad34f5c540e0",
       kwargCollectionId: "f12edae3-5e1e-4099-b4bd-42caa4c01087",
-      selectedItem: null,
+      selectedItem: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
       parentId: null,
       paramInfoId: null,
     },
