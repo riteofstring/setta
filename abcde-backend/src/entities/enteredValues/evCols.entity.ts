@@ -7,8 +7,8 @@ import { EVColsIds } from './evColsIds.entity';
 // groups of parameter -> enteredvalue mappings
 @Entity({ customRepository: () => EVColsRepository })
 export class EVCols {
-  @PrimaryKey()
-  id: number;
+  @ManyToOne(() => EVColsIds, { primary: true })
+  id: EVColsIds;
 
   @ManyToOne({ primary: true })
   codeInfo: CodeInfo;
@@ -16,8 +16,5 @@ export class EVCols {
   @ManyToOne()
   enteredValue: EV;
 
-  @ManyToOne(() => EVColsIds)
-  colId: EVColsIds;
-
-  [PrimaryKeyType]?: [number, number];
+  [PrimaryKeyType]?: [string, number];
 }

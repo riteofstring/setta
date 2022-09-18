@@ -8,6 +8,6 @@ export class UITypesColsIds {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
   id: string;
 
-  @OneToMany(() => UITypesCols, (e) => e.colId)
+  @OneToMany(() => UITypesCols, (e) => e.id)
   uiTypesCols = new Collection<UITypesCols>(this);
 }

@@ -7,8 +7,8 @@ import { UITypesColsIds } from './uiTypesColsIds.entity';
 // groups of parameter -> uiType mappings
 @Entity({ customRepository: () => UITypesColsRepository })
 export class UITypesCols {
-  @PrimaryKey()
-  id: number;
+  @ManyToOne(() => UITypesColsIds, { primary: true })
+  id: UITypesColsIds;
 
   @ManyToOne({ primary: true })
   codeInfo: CodeInfo;
@@ -16,8 +16,5 @@ export class UITypesCols {
   @ManyToOne(() => UITypes)
   uiType: UITypes;
 
-  @ManyToOne(() => UITypesColsIds)
-  colId: UITypesColsIds;
-
-  [PrimaryKeyType]?: [number, number];
+  [PrimaryKeyType]?: [string, number];
 }
