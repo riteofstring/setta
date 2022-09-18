@@ -17,4 +17,7 @@ export class SectionUITypes {
 
   @Property({ nullable: true })
   subType: string;
+
+  @ManyToOne({ nullable: true })
+  childUIType: UITypes;
 }

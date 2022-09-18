@@ -7,14 +7,23 @@ import baseUITypes from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
 import { UITypesColsIds } from '../../src/entities/uiTypes/uiTypesColsIds.entity';
 
+async function createIfNotFound(em, type, props) {
+  let x = await em.findOne(type, props);
+  if (!x) {
+    x = em.create(type, props);
+  }
+  return x;
+}
+
 async function createSectionUIType(em, x) {
   const baseType = em.create(UITypes, x);
-  let [collections, uiTypeCol] = [null, null];
+  let [collections, uiTypeCol, childUIType] = [null, null, null];
 
   const {
     config: {
       collections: xCollections,
       uiTypeCollectionId: xUITypeCol,
+      childUITypeId: xChildUITypeId,
       subType,
     },
   } = x;
@@ -28,20 +37,22 @@ async function createSectionUIType(em, x) {
   }
 
   if (xUITypeCol) {
-    uiTypeCol = await em.findOne(UITypesColsIds, {
+    uiTypeCol = await createIfNotFound(em, UITypesColsIds, {
       id: xUITypeCol,
     });
-
-    if (!uiTypeCol) {
-      uiTypeCol = em.create(UITypesColsIds, {
-        id: xUITypeCol,
-      });
-    }
   }
+
+  if (xChildUITypeId) {
+    childUIType = await createIfNotFound(em, UITypes, {
+      id: xChildUITypeId,
+    });
+  }
+
   em.create(SectionUITypes, {
     id: baseType,
     collections,
     uiTypeCol,
+    childUIType,
     subType,
   });
 }
