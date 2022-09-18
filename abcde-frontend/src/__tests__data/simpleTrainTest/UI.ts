@@ -115,7 +115,7 @@ export default {
       uiTypeId: "ad41e56e-0c81-413d-8a63-ccfa59107c79",
       paramCollectionId: "10a2f61d-f615-4b94-9c8e-ad34f5c540e0",
       kwargCollectionId: "f12edae3-5e1e-4099-b4bd-42caa4c01087",
-      selectedItem: null,
+      selectedItem: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
       parentId: null,
       paramInfoId: null,
     },
