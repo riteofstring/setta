@@ -2,7 +2,6 @@ import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { Sections } from '../../src/entities/sections/sections.entity';
 import simpleTrainTest from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UI';
-import ui from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UI';
 import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
 
 export class SectionsSeeder extends Seeder {
@@ -12,7 +11,7 @@ export class SectionsSeeder extends Seeder {
     }
 
     // update uitype origin ids
-    for (const x of Object.values(ui.uiTypes)) {
+    for (const x of Object.values(simpleTrainTest.uiTypes)) {
       if (!x.originInfoId.sectionId) {
         continue;
       }

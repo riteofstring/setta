@@ -21,7 +21,7 @@ export class SectionConfigCols {
   @ManyToOne({ nullable: true })
   selectedItem: CodeInfo;
 
-  @ManyToOne({ nullable: true })
+  @ManyToOne()
   sectionType: UITypes;
 
   [PrimaryKeyType]?: [string, number];
