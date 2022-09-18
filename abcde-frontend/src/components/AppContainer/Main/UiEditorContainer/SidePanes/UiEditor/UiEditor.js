@@ -15,8 +15,6 @@ import { UI_EDITOR } from "utils/constants";
 import SectionConfig from "./SectionConfig";
 import UIConfig from "./UIConfig";
 
-import YamlEditor from "./YamlEditor";
-
 const paneProps = {
   right: true,
   paneName: UI_EDITOR,
@@ -43,7 +41,7 @@ export default function UiEditor() {
         <TabList borderBottom="none" pb="1.5rem">
           <CustomTab name="Card" />
           <CustomTab name="Parameters" />
-          <CustomTab name="YAML" />
+          {/* <CustomTab name="YAML" /> */}
         </TabList>
         <Measure
           client
@@ -65,9 +63,9 @@ export default function UiEditor() {
               <TabPanel p="3px">
                 <UIConfig />
               </TabPanel>
-              <TabPanel display="grid" place-items="center" px="0">
+              {/* <TabPanel display="grid" place-items="center" px="0">
                 <YamlEditor dimensions={dimensions} />
-              </TabPanel>
+              </TabPanel> */}
             </TabPanels>
           )}
         </Measure>
