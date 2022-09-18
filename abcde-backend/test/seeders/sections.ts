@@ -3,11 +3,13 @@ import { Seeder } from '@mikro-orm/seeder';
 import { Sections } from '../../src/entities/sections/sections.entity';
 import simpleTrainTest from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UI';
 import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
+import { EVColsIds } from '../../src/entities/enteredValues/evColsIds.entity';
 
 export class SectionsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
     for (const x of Object.values(simpleTrainTest.sections)) {
       em.create(Sections, x);
+      em.create(EVColsIds, { id: x.paramCollectionId });
     }
 
     // update uitype origin ids

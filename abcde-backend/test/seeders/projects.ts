@@ -9,6 +9,7 @@ import { SectionConfigColsIds } from '../../src/entities/sections/sectionConfigC
 import { SectionConfigCols } from '../../src/entities/sections/sectionConfigCols.entity';
 import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
+import { EVColsIds } from '../../src/entities/enteredValues/evColsIds.entity';
 
 export class ProjectsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
@@ -31,14 +32,19 @@ export class ProjectsSeeder extends Seeder {
 
       // create a section config for each section in the section group
       for (const section of sectionGroup.children) {
-        const { selectedItem: sid, uiTypeId } =
-          simpleTrainTest.sections[section.id];
+        const {
+          selectedItem: sid,
+          uiTypeId,
+          paramCollectionId,
+        } = simpleTrainTest.sections[section.id];
         const selectedItem = await em.findOne(CodeInfo, { id: sid });
         const uiType = await em.findOne(UITypes, { id: uiTypeId });
+        const evCol = await em.findOne(EVColsIds, { id: paramCollectionId });
 
         em.create(SectionConfigCols, {
           id: x.sectionConfigCol,
           section,
+          evCol,
           selectedItem,
           sectionType: uiType,
         });
