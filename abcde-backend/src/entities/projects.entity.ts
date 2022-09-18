@@ -6,8 +6,8 @@ import {
   Property,
 } from '@mikro-orm/core';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { SectionConfigCols } from './sectionConfigCols.entity';
-import { Sections } from './sections.entity';
+import { SectionConfigColsIds } from './sections/sectionConfigColsIds.entity';
+import { Sections } from './sections/sections.entity';
 import { Users } from './users.entity';
 
 // A project is a collection of sections, settings, module collections etc.
@@ -22,9 +22,9 @@ export class Projects {
   @ManyToOne()
   owner: Users;
 
-  @OneToOne({ nullable: true })
+  @OneToOne()
   sectionGroup: Sections;
 
-  @ManyToOne({ nullable: true })
-  sectionConfigCol: SectionConfigCols;
+  @ManyToOne()
+  sectionConfigCol: SectionConfigColsIds;
 }

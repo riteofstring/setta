@@ -1,7 +1,7 @@
 import { Entity, ManyToOne, PrimaryKey, Property } from '@mikro-orm/core';
 import { UITypesRepository } from '../../uiTypes/uiTypes.repository';
 import { CodeInfo } from '../codeInfo.entity';
-import { Sections } from '../sections.entity';
+import { Sections } from '../sections/sections.entity';
 import { UITypesColsIds } from './uiTypesColsIds.entity';
 
 @Entity({ customRepository: () => UITypesRepository })
