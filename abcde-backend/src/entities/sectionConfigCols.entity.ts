@@ -4,7 +4,6 @@ import { CodeInfo } from './codeInfo.entity';
 import { Sections } from './sections.entity';
 import { UITypes } from './uitypes/uiTypes.entity';
 import { EVColsIds } from './enteredValues/evColsIds.entity';
-import { UITypesColsIds } from './uiTypes/uiTypesColsIds.entity';
 
 // groups of section -> evCol mappings
 @Entity({ customRepository: () => SectionConfigColsRepository })
@@ -20,9 +19,6 @@ export class SectionConfigCols {
 
   @ManyToOne()
   selectedItem: CodeInfo;
-
-  @ManyToOne()
-  uiTypeCol: UITypesColsIds;
 
   @ManyToOne()
   sectionType: UITypes;

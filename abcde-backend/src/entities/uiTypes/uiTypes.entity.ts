@@ -1,5 +1,8 @@
-import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+import { Entity, ManyToOne, PrimaryKey, Property } from '@mikro-orm/core';
 import { UITypesRepository } from '../../uiTypes/uiTypes.repository';
+import { CodeInfo } from '../codeInfo.entity';
+import { Sections } from '../sections.entity';
+import { UITypesColsIds } from './uiTypesColsIds.entity';
 
 @Entity({ customRepository: () => UITypesRepository })
 export class UITypes {
@@ -17,4 +20,13 @@ export class UITypes {
   // "base" means its one of the base presets
   @Property({ nullable: true })
   presetType: string;
+
+  @ManyToOne({ nullable: true })
+  originSection: Sections;
+
+  @ManyToOne({ nullable: true })
+  originUITypeCol: UITypesColsIds;
+
+  @ManyToOne({ nullable: true })
+  originCodeInfo: CodeInfo;
 }

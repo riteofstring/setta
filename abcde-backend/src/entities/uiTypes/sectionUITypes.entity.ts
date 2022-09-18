@@ -1,7 +1,8 @@
-import { Entity, OneToOne } from '@mikro-orm/core';
+import { Entity, ManyToOne, OneToOne } from '@mikro-orm/core';
 import { SectionUITypesRepository } from '../../uiTypes/sectionUITypes.repository';
 import { CodeInfo } from '../codeInfo.entity';
 import { UITypes } from './uiTypes.entity';
+import { UITypesColsIds } from './uiTypesColsIds.entity';
 
 @Entity({ customRepository: () => SectionUITypesRepository })
 export class SectionUITypes {
@@ -10,4 +11,7 @@ export class SectionUITypes {
 
   @OneToOne()
   collections: CodeInfo;
+
+  @ManyToOne()
+  uiTypeCol: UITypesColsIds;
 }

@@ -13,7 +13,7 @@ export class UITypesCols {
   @ManyToOne({ primary: true })
   codeInfo: CodeInfo;
 
-  @ManyToOne()
+  @ManyToOne(() => UITypes)
   uiType: UITypes;
 
   @ManyToOne(() => UITypesColsIds)
