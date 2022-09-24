@@ -166,12 +166,25 @@ function getReducerModifications(
   state,
   changes,
   changeTypes,
-  latestItems,
   setFilteredItems,
   allItems,
+  filteredItems,
   matchSorterProps
 ) {
+  let latestItems = filteredItems;
+
+  if ([changeTypes.ItemClick, changeTypes.ToggleButtonClick].includes(type)) {
+    if (!_.isEqual(allItems, filteredItems)) {
+      latestItems = allItems;
+      setFilteredItems(latestItems);
+    }
+  } else if (type === changeTypes.InputChange) {
+    latestItems = matchSorter(allItems, changes.inputValue, matchSorterProps);
+    setFilteredItems(latestItems);
+  }
+
   switch (type) {
+    case changeTypes.InputChange:
     case changeTypes.ToggleButtonClick:
       return {
         highlightedIndex: _.findIndex(latestItems, changes.selectedItem),
@@ -182,11 +195,6 @@ function getReducerModifications(
       if (state.highlightedIndex === -1) {
         return resetToPreviousVal(state);
       }
-      return {};
-    case changeTypes.InputChange:
-      setFilteredItems(
-        matchSorter(allItems, changes.inputValue, matchSorterProps)
-      );
       return {};
     default:
       return {};
@@ -199,23 +207,15 @@ export function useComboboxStateReducer({ allItems, matchSorterProps }) {
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
     const changeTypes = useCombobox.stateChangeTypes;
-    let latestItems = filteredItems;
-
-    if ([changeTypes.ItemClick, changeTypes.ToggleButtonClick].includes(type)) {
-      if (!_.isEqual(allItems, filteredItems)) {
-        latestItems = allItems;
-        setFilteredItems(latestItems);
-      }
-    }
 
     const mods = getReducerModifications(
       type,
       state,
       changes,
       changeTypes,
-      latestItems,
       setFilteredItems,
       allItems,
+      filteredItems,
       matchSorterProps
     );
 
