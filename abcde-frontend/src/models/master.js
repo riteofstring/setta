@@ -40,6 +40,8 @@ const master = {
       storeName: "projectParamDefaults",
       paramDefaults: projectDefaults.paramDefaults,
     });
+    action.initEV(ev);
+    action.initEVCols(evCols);
     action.initSections({ sections, sectionChildren });
   }),
 
@@ -58,6 +60,36 @@ const master = {
     const uiTypes = _.map(payload, (x) => new UIType(x));
     const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
     setManyUITypes({ uiTypes });
+  }),
+
+  initEV: thunk((action, payload, helpers) => {
+    _.forEach(payload, (v, k) =>
+      helpers
+        .getStoreActions()
+        .enteredValues.setEnteredValue({ enteredValueId: k, value: v })
+    );
+  }),
+
+  initEVCols: thunk((action, payload, helpers) => {
+    const pActions = helpers.getStoreActions().paramInfos;
+    for (const colId of Object.keys(payload)) {
+      for (const paramInfo of Object.values(payload[colId])) {
+        const commonProps = {
+          collectionId: colId,
+          paramInfoId: paramInfo.id,
+        };
+        pActions.setEnteredValueId({
+          ...commonProps,
+          enteredValueId: paramInfo.enteredValueId,
+        });
+        if (paramInfo.childId) {
+          pActions.setChildId({
+            ...commonProps,
+            childId: paramInfo.childId,
+          });
+        }
+      }
+    }
   }),
 
   initSections: thunk((action, payload, helpers) => {
