@@ -7,7 +7,7 @@ import { UI } from "utils/pageNames";
 
 function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState({});
 
   useEffect(() => {
     async function fetchData() {
@@ -50,7 +50,7 @@ function RightColumn({ projects }) {
         p="2.5rem"
         minChildWidth="20rem"
       >
-        {projects.map((x) => (
+        {Object.values(projects).map((x) => (
           <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
         ))}
       </SimpleGrid>
