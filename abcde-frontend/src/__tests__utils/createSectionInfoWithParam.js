@@ -4,7 +4,11 @@ import { addParamInfo, addSectionInfo, addUIType } from "__tests__utils/utils";
 // After calling this function, state.uiTypes.x will have 2 uiTypes
 // One for the created uiType
 // Another for the section (i.e. a sectionType)
-export function createSectionInfoWithParam(store, paramIsNested = false) {
+export function createSectionInfoWithParam(
+  store,
+  wrapper,
+  paramIsNested = false
+) {
   const si = addSectionInfo(store);
 
   // create a UIType for a random parameter
@@ -12,6 +16,7 @@ export function createSectionInfoWithParam(store, paramIsNested = false) {
   expect(uiType.id).toBeTruthy();
   const { uiTypeCollectionId, paramInfoId } = addParamInfo(
     store,
+    wrapper,
     si,
     uiType,
     paramIsNested

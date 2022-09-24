@@ -12,8 +12,11 @@ import {
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useGetAllChildren(sectionId) {
+  const childrenInfoId = useStoreState(
+    (x) => x.sectionInfos.idsOverview[sectionId]
+  );
   return defaultState(
-    useStoreState((x) => x.sectionInfos.idsOverview[sectionId]),
+    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
     () => []
   );
 }
@@ -31,7 +34,7 @@ export function useIdsOverview(sectionId) {
 }
 
 export function useSetIdsOverview(sectionId) {
-  const fn = useStoreActions((x) => x.sectionInfos.setIdsOverview);
+  const fn = useStoreActions((x) => x.sectionInfos.setIdsOverviewThunk);
   return (newStateFn) => {
     return fn({ sectionId, newStateFn });
   };

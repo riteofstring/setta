@@ -65,7 +65,6 @@ function testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset) {
 
   // set the param to the base preset type, and add a child section
   const paramChildId = setParamToObjectTypeAndAddChildSection(
-    store,
     wrapper,
     propsForSetUIType,
     typeToForkOff
