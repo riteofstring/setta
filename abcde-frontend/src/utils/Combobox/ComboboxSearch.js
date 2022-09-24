@@ -3,13 +3,8 @@ import { Box, Flex } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-
-import {
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-  useComboboxStateReducer,
-} from "./Combobox";
+import { ComboboxInput, ComboboxItem, ComboboxList } from "./Combobox";
+import { useComboboxStateReducer } from "./ComboboxStateReducer";
 
 export function ComboboxSearch({
   allItems,
