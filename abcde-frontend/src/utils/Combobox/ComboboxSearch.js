@@ -58,6 +58,7 @@ export function ComboboxSearch({
         overflow="visible"
         h="2.5rem"
         w="100%"
+        {...getComboboxProps()}
       >
         {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
         label
@@ -75,7 +76,6 @@ export function ComboboxSearch({
         />
 
         <Flex
-          {...getComboboxProps()}
           direction="column"
           w={width}
           alignItems="stretch"

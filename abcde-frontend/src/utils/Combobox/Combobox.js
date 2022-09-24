@@ -33,26 +33,16 @@ export const ComboboxInput = React.forwardRef(
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
-        {!simpleSearch ? (
-          <FancySearch
-            height={height}
-            size={size}
-            textSize={textSize}
-            // isOpen={isOpen}
-            {...props}
-            {...toggleButtonProps}
-            ref={ref}
-          />
-        ) : (
-          <SimpleSearch
-            height={height}
-            size={size}
-            textSize={textSize}
-            {...props}
-            {...toggleButtonProps}
-            ref={ref}
-          />
-        )}
+        <SearchInput
+          simpleSearch={simpleSearch}
+          height={height}
+          size={size}
+          textSize={textSize}
+          isOpen={isOpen}
+          {...props}
+          {...toggleButtonProps}
+          ref={ref}
+        />
         {dropdown && (
           <InputRightElement>
             <IconButton
@@ -71,43 +61,35 @@ export const ComboboxInput = React.forwardRef(
   }
 );
 
-const FancySearch = React.forwardRef(
-  ({ toggleButtonProps, textSize, height, size, ...props }, ref) => {
-    return (
-      <Input
-        // w="100%"
-        pl="2.5rem"
-        h={(size === "small" && "32px") || height}
-        {...props}
-        {...toggleButtonProps}
-        placeholder="Search"
-        border={0}
-        borderRadius="full"
-        // borderRadius="1.2rem"
-        // borderBottomRadius={isOpen && "none"}
-        boxShadow="sm"
-        size={textSize}
-        ref={ref}
-      />
-    );
-  }
-);
+const SearchInput = React.forwardRef(
+  ({ textSize, height, size, simpleSearch, isOpen, ...props }, ref) => {
+    function onClick(e) {
+      if (!isOpen) {
+        props.onClick(e);
+      }
+    }
 
-const SimpleSearch = React.forwardRef(
-  ({ toggleButtonProps, textSize, height, size, ...props }, ref) => {
-    return (
-      <Input
-        h={(size === "small" && "32px") || height}
-        {...props}
-        {...toggleButtonProps}
-        size={textSize}
-        variant="flushed"
-        placeholder="Search"
-        pl="2.5rem"
-        bg="unset"
-        ref={ref}
-      />
-    );
+    const commonProps = {
+      ...props,
+      onClick: onClick,
+      placeholder: "Search",
+      h: (size === "small" && "32px") || height,
+      pl: "2.5rem",
+      size: textSize,
+    };
+
+    const specificProps = simpleSearch
+      ? {
+          variant: "flushed",
+          bg: "unset",
+        }
+      : {
+          border: 0,
+          borderRadius: "full",
+          boxShadow: "sm",
+        };
+
+    return <Input {...commonProps} {...specificProps} ref={ref} />;
   }
 );
 
