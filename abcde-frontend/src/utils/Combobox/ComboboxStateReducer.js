@@ -20,14 +20,22 @@ function getReducerModifications(
   setFilteredItems,
   allItems,
   filteredItems,
-  matchSorterProps
+  matchSorterProps,
+  isFirstLoad,
+  setIsFirstLoad
 ) {
   let latestItems = filteredItems;
 
-  if ([changeTypes.ItemClick, changeTypes.ToggleButtonClick].includes(type)) {
+  if (
+    type === changeTypes.ItemClick ||
+    (type === changeTypes.ToggleButtonClick && isFirstLoad)
+  ) {
     if (!_.isEqual(allItems, filteredItems)) {
       latestItems = allItems;
       setFilteredItems(latestItems);
+    }
+    if (isFirstLoad) {
+      setIsFirstLoad(false);
     }
   } else if (type === changeTypes.InputChange) {
     latestItems = matchSorter(allItems, changes.inputValue, matchSorterProps);
@@ -42,11 +50,12 @@ function getReducerModifications(
       };
     case changeTypes.InputKeyDownEscape:
       return resetToPreviousVal(state);
-    case changeTypes.InputBlur:
-      if (state.highlightedIndex === -1) {
-        return resetToPreviousVal(state);
-      }
-      return {};
+    // Commented out for now because InputBlur gets triggered even when just clicking on the search bar
+    // case changeTypes.InputBlur:
+    //   if (state.highlightedIndex === -1) {
+    //     return resetToPreviousVal(state);
+    //   }
+    //   return {};
     default:
       return {};
   }
@@ -54,6 +63,7 @@ function getReducerModifications(
 
 export function useComboboxStateReducer({ allItems, matchSorterProps }) {
   const [filteredItems, setFilteredItems] = useState([]);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
@@ -67,7 +77,9 @@ export function useComboboxStateReducer({ allItems, matchSorterProps }) {
       setFilteredItems,
       allItems,
       filteredItems,
-      matchSorterProps
+      matchSorterProps,
+      isFirstLoad,
+      setIsFirstLoad
     );
 
     return { ...changes, ...mods };
