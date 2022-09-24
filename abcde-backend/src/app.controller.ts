@@ -1,4 +1,4 @@
-import { Controller, Request, Post, UseGuards } from '@nestjs/common';
+import { Controller, Request, Post, UseGuards, Param } from '@nestjs/common';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { LocalAuthGuard } from './auth/local-auth.guard';
 import { AuthService } from './auth/auth.service';
@@ -32,5 +32,11 @@ export class AppController {
   @Post('projects')
   getProjects(@Request() req) {
     return this.projectsService.getAllByOwner(req.user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('projects/:id')
+  loadProject(@Param('id') id: string) {
+    return this.projectsService.loadOne(id);
   }
 }
