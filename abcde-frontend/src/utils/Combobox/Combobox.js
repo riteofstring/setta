@@ -8,8 +8,7 @@ import {
   List,
   ListItem,
 } from "@chakra-ui/react";
-import { useCombobox } from "downshift";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -128,32 +127,15 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
 });
 
 export const ComboboxItem = React.forwardRef(
-  ({ itemIndex, highlightedIndex, itemType, ...props }, ref) => {
+  ({ itemIndex, highlightedIndex, ...props }, ref) => {
     const isActive = itemIndex === highlightedIndex;
-    const [listItemType, setListItemType] = useState({});
-
-    useEffect(() => {
-      if (itemType.presetType === "user") {
-        setListItemType({
-          weight: "700",
-          fontStyle: "italic",
-          color: "green.700",
-        });
-      }
-      if (itemType.presetType === "base") {
-        setListItemType({ weight: "700", color: "blue.500" });
-      }
-      if (itemType.presetType === null) {
-        setListItemType("grey.500");
-      }
-    }, []);
 
     return (
       <ListItem
         transition="background-color 220ms, color 220ms"
         bg={isActive ? "gray.100" : null}
-        color={listItemType.color}
-        weight={listItemType.weight}
+        // color={isActive ? "gray.800" : "gray.500"}
+        color="gray.700"
         px={4}
         py={2}
         cursor="pointer"
@@ -162,33 +144,7 @@ export const ComboboxItem = React.forwardRef(
         borderRadius="xl"
         mx="0.25rem"
         my="0.125rem"
-        fontStyle={listItemType.fontStyle}
       />
     );
   }
 );
-
-function resetToPreviousVal(state, changes) {
-  const sname = state.selectedItem?.name;
-  const newInputValue = sname ? sname : state.inputValue;
-  return {
-    ...changes,
-    selectedItem: state.selectedItem,
-    inputValue: newInputValue,
-  };
-}
-
-export function stateReducer(state, actionAndChanges) {
-  const { type, changes } = actionAndChanges;
-  switch (type) {
-    case useCombobox.stateChangeTypes.InputKeyDownEscape:
-      return resetToPreviousVal(state, changes);
-    case useCombobox.stateChangeTypes.InputBlur:
-      if (state.highlightedIndex !== -1) {
-        return changes;
-      }
-      return resetToPreviousVal(state, changes);
-    default:
-      return changes; // otherwise business as usual.
-  }
-}
