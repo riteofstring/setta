@@ -2,14 +2,13 @@ import "@chakra-ui/icons";
 import { Box, Flex } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
-import { matchSorter } from "match-sorter";
 import { useEffect, useState } from "react";
 
 import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-  stateReducer,
+  useComboboxStateReducer,
 } from "./Combobox";
 
 export function ComboboxSearch({
@@ -23,22 +22,17 @@ export function ComboboxSearch({
   width,
   size,
 }) {
-  const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
   const [selection, setSelection] = useState(null);
+  const { filteredItems, stateReducer } = useComboboxStateReducer({
+    allItems,
+    matchSorterProps,
+  });
 
   useEffect(() => {
     if (initialSelection && !_.isEqual(selection, initialSelection)) {
       setSelection(initialSelection);
     }
   }, [initialSelection]);
-
-  const onClick = () => {
-    if (!_.isEqual(allItems, items)) {
-      setItems(allItems);
-      setFilteredItems(allItems);
-    }
-  };
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
     onSelectedItemChange(selection, selectedItem, setSelection);
@@ -59,9 +53,6 @@ export function ComboboxSearch({
     items: filteredItems,
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,
-    onInputValueChange: ({ inputValue }) => {
-      setFilteredItems(matchSorter(items, inputValue, matchSorterProps));
-    },
   });
 
   return (
@@ -78,10 +69,9 @@ export function ComboboxSearch({
       </Text> */}
         <ComboboxInput
           {...getInputProps()}
-          toggleButtonProps={getToggleButtonProps({ onClick: onClick })}
+          toggleButtonProps={getToggleButtonProps()}
           bg="white"
           placeholder="Search..."
-          onClick={onClick}
           isOpen={isOpen}
           dropdown={true}
           textSize={textSize}

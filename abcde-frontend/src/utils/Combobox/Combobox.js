@@ -9,7 +9,9 @@ import {
   ListItem,
 } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
-import React from "react";
+import _ from "lodash";
+import { matchSorter } from "match-sorter";
+import React, { useState } from "react";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -150,27 +152,75 @@ export const ComboboxItem = React.forwardRef(
   }
 );
 
-function resetToPreviousVal(state, changes) {
+function resetToPreviousVal(state) {
   const sname = state.selectedItem?.name;
   const newInputValue = sname ? sname : state.inputValue;
   return {
-    ...changes,
     selectedItem: state.selectedItem,
     inputValue: newInputValue,
   };
 }
 
-export function stateReducer(state, actionAndChanges) {
-  const { type, changes } = actionAndChanges;
+function getReducerModifications(
+  type,
+  state,
+  changes,
+  changeTypes,
+  latestItems,
+  setFilteredItems,
+  allItems,
+  matchSorterProps
+) {
   switch (type) {
-    case useCombobox.stateChangeTypes.InputKeyDownEscape:
-      return resetToPreviousVal(state, changes);
-    case useCombobox.stateChangeTypes.InputBlur:
-      if (state.highlightedIndex !== -1) {
-        return changes;
+    case changeTypes.ToggleButtonClick:
+      return {
+        highlightedIndex: _.findIndex(latestItems, changes.selectedItem),
+      };
+    case changeTypes.InputKeyDownEscape:
+      return resetToPreviousVal(state);
+    case changeTypes.InputBlur:
+      if (state.highlightedIndex === -1) {
+        return resetToPreviousVal(state);
       }
-      return resetToPreviousVal(state, changes);
+      return {};
+    case changeTypes.InputChange:
+      setFilteredItems(
+        matchSorter(allItems, changes.inputValue, matchSorterProps)
+      );
+      return {};
     default:
-      return changes; // otherwise business as usual.
+      return {};
   }
+}
+
+export function useComboboxStateReducer({ allItems, matchSorterProps }) {
+  const [filteredItems, setFilteredItems] = useState([]);
+
+  function stateReducer(state, actionAndChanges) {
+    const { type, changes } = actionAndChanges;
+    const changeTypes = useCombobox.stateChangeTypes;
+    let latestItems = filteredItems;
+
+    if ([changeTypes.ItemClick, changeTypes.ToggleButtonClick].includes(type)) {
+      if (!_.isEqual(allItems, filteredItems)) {
+        latestItems = allItems;
+        setFilteredItems(latestItems);
+      }
+    }
+
+    const mods = getReducerModifications(
+      type,
+      state,
+      changes,
+      changeTypes,
+      latestItems,
+      setFilteredItems,
+      allItems,
+      matchSorterProps
+    );
+
+    return { ...changes, ...mods };
+  }
+
+  return { filteredItems, stateReducer };
 }
