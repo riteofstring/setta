@@ -126,6 +126,7 @@ export const ComboboxItem = React.forwardRef(
         borderRadius="xl"
         mx="0.25rem"
         my="0.125rem"
+        data-testid={"ComboboxListItem"}
       />
     );
   }
