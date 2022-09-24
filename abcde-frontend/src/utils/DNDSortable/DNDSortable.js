@@ -54,19 +54,19 @@ export function DNDSortable({ sectionId, items, ...props }) {
     <Box
       backgroundColor={highlight ? "hsla(95, 100%, 20%, 0.2)" : ""}
       borderRadius="3xl"
-      borderWidth="5px"
-      borderColor={highlight ? "hsla(95, 100%, 50%, 1)" : "rgba(0, 0, 0, 0)"}
+      outline={`${
+        highlight ? "hsla(95, 100%, 50%, 1)" : "rgba(0, 0, 0, 0)"
+      } solid 5px`}
       boxShadow={
         highlight
           ? "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 0px 0px 10px hsla(95, 100%, 75%, 0.5)"
           : ""
       }
-      transition="box-shadow 0.2s, background-color 0.2s, border 0.2s"
-      pt="0.5rem"
-      px="0.5rem"
-      mx="-0.5rem"
-      my="-0.5rem"
-      className="SORTABLE"
+      transition="box-shadow 0.2s, background-color 0.2s, outline 0.2s"
+      py="0.75rem"
+      px="0.75rem"
+      mx="-0.75rem"
+      my="-0.75rem"
     >
       <SortableContext
         id={sectionId}

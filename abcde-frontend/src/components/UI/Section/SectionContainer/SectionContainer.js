@@ -45,16 +45,17 @@ function SectionContainer({
           hasNested={hasNested}
         />
       )}
-      <Box flexDirection="column" display="flex">
-        {hasNested && (
+
+      {hasNested && (
+        <Box flexDirection="column" display="flex">
           <ManyNestedSections
             childIds={idsOverview}
             sectionId={sectionId}
             depth={depth}
             isDeck={isDeck}
           />
-        )}
-      </Box>
+        </Box>
+      )}
     </Container>
   );
 }
@@ -108,8 +109,7 @@ function Container(props) {
           pb="1.5rem"
           borderRadius="3xl"
           {...commonProps}
-          // border="1px solid hsla(255, 22%, 100%, 0.3)"
-          // boxShadow="xs"
+          className="STACK"
         >
           <DeckSectionTitle sectionId={sectionId} />
           {props.children}
