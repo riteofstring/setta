@@ -110,6 +110,7 @@ export function ComboboxSearch({
             // p=".5rem"
             display={isOpen ? "flex" : "none"}
             alignItems="stretch"
+            zIndex="1010"
           >
             <Box m={3} maxH="100%" overflowY="scroll" width="100%">
               {filteredItems.map((item, index) => (
