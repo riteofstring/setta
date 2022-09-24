@@ -2,7 +2,6 @@ import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
 import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
-import currProject from "models/info/currProject";
 import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
@@ -16,11 +15,13 @@ import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
+import yamlEntry from "models/yamlEntry";
 
 const store = createStore(
   persist(
     {
       master: master,
+      yamlEntry: yamlEntry,
       auth: auth,
       uiInfo: uiInfo,
       panes: panes,
@@ -36,7 +37,6 @@ const store = createStore(
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
       currPage: currPage,
-      currProject: currProject,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

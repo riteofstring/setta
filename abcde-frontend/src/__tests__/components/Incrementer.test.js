@@ -71,7 +71,8 @@ function componentSetup({ forParent, numChildren }) {
     waitFor(() => result.current({}));
   });
   const state = store.getState().sectionInfos;
-  const childIds = state.idsOverview[parent.id];
+  const childrenInfoId = state.idsOverview[parent.id];
+  const childIds = state.childrenInfo[childrenInfoId];
 
   // increment for one of the children
   function SectionHeaderForChild() {
@@ -131,22 +132,30 @@ function assertDeleteChildIsEnabled() {
 
 function assertNChildrenAdded(store, parent, numInitialChildren, N) {
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren + N);
   // 1 parent so only 1 entry in idsOverview
   expect(_.size(state.idsOverview)).toEqual(1);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren + N);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren + N
+  );
 }
 
 function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
   // 1 parent so only 1 entry in idsOverview
   expect(_.size(state.idsOverview)).toEqual(1);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren - N);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren - N
+  );
 }
 
 async function clickIncrementerNTimes({
@@ -237,10 +246,11 @@ async function clickDeleteSelf(store, parent, childId, forParent) {
   await userEvent.click(deleteSelf);
 
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   const xSize = forParent ? 0 : 1;
   expect(_.size(state.x)).toEqual(xSize);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(0);
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
 
   if (forParent) {

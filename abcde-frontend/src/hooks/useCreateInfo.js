@@ -20,16 +20,16 @@ export function useCreateChildSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const getChildUITypeId = useGetChildUITypeId();
   const parentUIType = useGetSectionType(sectionId);
-  const { id: parentId, name: parentName } = useGetSectionInfo(sectionId);
+  const parentSectionInfo = useGetSectionInfo(sectionId);
 
   return ({ numChildren, ...sectionInfoProps }) => {
     const uiTypeId = getChildUITypeId(
       sectionInfoProps.uiTypeId,
       parentUIType,
-      parentId
+      parentSectionInfo.id
     );
     const newInfos = createManySectionInfo({
-      sectionInfoProps: { ...sectionInfoProps, parentId, parentName, uiTypeId },
+      sectionInfoProps: { ...sectionInfoProps, parentSectionInfo, uiTypeId },
       numChildren,
     });
     setSectionInfo((x) => ({ ...x, ...newInfos }));
