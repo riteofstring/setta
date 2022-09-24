@@ -1,7 +1,7 @@
-import { render, renderHook, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
-import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
+import { useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import {
   addSectionInfo,
@@ -66,9 +66,8 @@ function componentSetup({ forParent, numChildren }) {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
   const parent = addSectionInfo(store);
-  let { result } = renderHook(() => useAddChild(parent.id), { wrapper });
   _.range(numChildren).forEach(() => {
-    waitFor(() => result.current({}));
+    store.getActions().thunks.addChild({ parentId: parent.id });
   });
   const state = store.getState().sectionInfos;
   const childIds = state.idsOverview[parent.id];
@@ -88,14 +87,12 @@ function componentSetup({ forParent, numChildren }) {
 
   // increment for one of the children
   function SectionHeaderForParent() {
-    const addChild = useAddChild(parent.id);
     const deleteChild = useDeleteChild(parent.id);
     return (
       <SectionHeader
         sectionId={parent.id}
         isList={false}
         isListRoot={true}
-        addChild={addChild}
         deleteChild={deleteChild}
         hasNested={true}
       />

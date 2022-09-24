@@ -1,10 +1,5 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { useAddChild } from "hooks/useAddDeleteChild";
-import {
-  addSectionInfo,
-  createStore,
-  getStoreProviderWrapper,
-} from "__tests__utils/utils";
+import { waitFor } from "@testing-library/react";
+import { addSectionInfo, createStore } from "__tests__utils/utils";
 
 test("setSectionInfo should add a section to sectionInfos using the correct key (its id)", () => {
   const store = createStore();
@@ -26,11 +21,9 @@ test("setIdsOverview should add a child to a section's idsOverview list", () => 
 
 test("deleting a section should delete its children too", () => {
   const store = createStore();
-  const wrapper = getStoreProviderWrapper(store);
   const si1 = addSectionInfo(store);
   const si2 = addSectionInfo(store);
-  const { result } = renderHook(() => useAddChild(si1.id), { wrapper });
-  waitFor(() => result.current({}));
+  store.getActions().thunks.addChild({ parentId: si1.id });
   waitFor(() => {
     store.getActions().sectionInfos.deleteSections({ sectionIds: [si1.id] });
   });
