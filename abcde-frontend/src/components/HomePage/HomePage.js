@@ -51,15 +51,21 @@ function RightColumn({ projects }) {
         minChildWidth="20rem"
       >
         {projects.map((x) => (
-          <ProjectItem key={`Project ${x.name}`} name={x.name} />
+          <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
         ))}
       </SimpleGrid>
     </GridItem>
   );
 }
 
-function ProjectItem({ name }) {
+function ProjectItem({ name, id }) {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  const setCurrProject = useStoreActions((x) => x.currProject.setId);
+
+  function onClick() {
+    setCurrPage(UI);
+    setCurrProject(id);
+  }
 
   return (
     <Grid
@@ -76,7 +82,7 @@ function ProjectItem({ name }) {
         borderColor: "white",
         cursor: "pointer",
       }}
-      onClick={() => setCurrPage(UI)}
+      onClick={onClick}
     >
       <GridItem p="1rem" bg="gray.50"></GridItem>
       <GridItem p="1rem">{name}</GridItem>

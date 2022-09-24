@@ -30,9 +30,7 @@ function getNewIndex(active, over) {
 export function GlobalDndContext(props) {
   const [active, setActive] = useState(null);
 
-  const setIdsOverviewThunk = useStoreActions(
-    (x) => x.sectionInfos.setIdsOverviewThunk
-  );
+  const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
   const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
@@ -63,7 +61,7 @@ export function GlobalDndContext(props) {
       activeContainer === overContainer &&
       active.id !== over.id
     ) {
-      setIdsOverviewThunk({
+      setIdsOverview({
         sectionId: activeContainer,
         newStateFn: updateWithArrayMove(active, over),
       });

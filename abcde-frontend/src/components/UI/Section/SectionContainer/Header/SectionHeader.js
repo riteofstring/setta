@@ -13,7 +13,6 @@ function _SectionHeader({
   isList,
   isListRoot,
   requiresKeyInput,
-  addChild,
   deleteChild,
   hasNested,
 }) {
@@ -25,7 +24,7 @@ function _SectionHeader({
 
   return (
     <Stack direction="row" align="center" w="100%" pl="0.75em">
-      <CardTitle sectionId={sectionId} isList={isList} />
+      <NonDeckSectionTitle sectionId={sectionId} />
       <Spacer />
       {(isList || isListRoot) && (
         <Incrementer
@@ -33,7 +32,6 @@ function _SectionHeader({
           parentId={parentId}
           nextId={nextId}
           isListRoot={isListRoot}
-          addChild={addChild}
           deleteChild={deleteChild}
           hasNested={hasNested}
         />
@@ -46,7 +44,7 @@ function _SectionHeader({
   );
 }
 
-function CardTitle({ sectionId, isList }) {
+function NonDeckSectionTitle({ sectionId }) {
   const editableProps = {
     isPreviewFocusable: true,
     fontFamily: "Work Sans",
@@ -65,7 +63,6 @@ function CardTitle({ sectionId, isList }) {
       sectionId={sectionId}
       editableProps={editableProps}
       inputProps={inputProps}
-      isList={isList}
     />
   );
 }

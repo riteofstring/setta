@@ -12,17 +12,16 @@ test("setSectionInfo should add a section to sectionInfos using the correct key 
   expect(store.getState().sectionInfos.x[si.id]).toBe(si);
 });
 
-test("setIdsOverviewThunk should add a child to a section's childrenInfo list", () => {
+test("setIdsOverview should add a child to a section's idsOverview list", () => {
   const store = createStore();
   const si = addSectionInfo(store);
   const childId = "123456";
   const newStateFn = (x) => [...x, childId];
   store
     .getActions()
-    .sectionInfos.setIdsOverviewThunk({ sectionId: si.id, newStateFn });
+    .sectionInfos.setIdsOverview({ sectionId: si.id, newStateFn });
   const state = store.getState().sectionInfos;
-  const childrenInfoId = state.idsOverview[si.id];
-  expect(state.childrenInfo[childrenInfoId]).toEqual([childId]);
+  expect(state.idsOverview[si.id]).toEqual([childId]);
 });
 
 test("deleting a section should delete its children too", () => {
@@ -38,6 +37,5 @@ test("deleting a section should delete its children too", () => {
   const state = store.getState().sectionInfos;
   expect(state.x).toEqual({ [si2.id]: si2 });
   expect(state.idsOverview).toEqual({});
-  expect(state.childrenInfo).toEqual({});
   expect(state.currChildren).toEqual({});
 });
