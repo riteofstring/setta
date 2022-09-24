@@ -1,9 +1,7 @@
 import { useStoreActions } from "easy-peasy";
 
 export function useAddToDeck() {
-  const setIdsOverview = useStoreActions(
-    (x) => x.sectionInfos.setIdsOverviewThunk
-  );
+  const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
