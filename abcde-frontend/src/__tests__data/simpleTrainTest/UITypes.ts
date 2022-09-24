@@ -106,4 +106,20 @@ export default {
       sectionId: "4e2bf130-390b-4299-8054-aa54b7740a60",
     },
   },
+  "eb52c8be-fe8b-4439-b74c-e755135c8415": {
+    id: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    type: "SECTION",
+    name: "torchvision transforms",
+    config: {
+      collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
+      uiTypeCollectionId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
+      childUITypeId: null,
+      subType: "LIST",
+    },
+    presetType: null,
+    originInfoId: {
+      sectionId: "e304954a-d52d-47fc-8c79-c47c6e53e752",
+    },
+    isForChildOfOriginInfoId: true,
+  },
 };

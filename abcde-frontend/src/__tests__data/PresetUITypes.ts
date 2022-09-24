@@ -21,7 +21,7 @@ export default {
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
       uiTypeCollectionId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
-      childUITypeId: null,
+      childUITypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
     },
   },
 };
