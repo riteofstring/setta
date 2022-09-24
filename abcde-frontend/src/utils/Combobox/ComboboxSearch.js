@@ -16,6 +16,7 @@ export function ComboboxSearch({
   simpleSearch,
   width,
   size,
+  itemStyleGetter,
 }) {
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
@@ -104,7 +105,7 @@ export function ComboboxSearch({
                   itemIndex={index}
                   highlightedIndex={highlightedIndex}
                   key={index}
-                  itemType={allItems[index]}
+                  itemStyle={itemStyleGetter?.(item)}
                 >
                   {itemToString(item)}
                 </ComboboxItem>

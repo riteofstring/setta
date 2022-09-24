@@ -8,7 +8,7 @@ import {
   List,
   ListItem,
 } from "@chakra-ui/react";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -109,32 +109,13 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
 });
 
 export const ComboboxItem = React.forwardRef(
-  ({ itemIndex, highlightedIndex, itemType, ...props }, ref) => {
+  ({ itemIndex, highlightedIndex, itemStyle, ...props }, ref) => {
     const isActive = itemIndex === highlightedIndex;
-    const [listItemType, setListItemType] = useState({});
-
-    useEffect(() => {
-      if (itemType.presetType === "user") {
-        setListItemType({
-          weight: "700",
-          fontStyle: "italic",
-          color: "green.700",
-        });
-      }
-      if (itemType.presetType === "base") {
-        setListItemType({ weight: "700", color: "blue.500" });
-      }
-      if (itemType.presetType === null) {
-        setListItemType("grey.500");
-      }
-    }, []);
 
     return (
       <ListItem
         transition="background-color 220ms, color 220ms"
         bg={isActive ? "gray.100" : null}
-        color={listItemType.color}
-        weight={listItemType.weight}
         px={4}
         py={2}
         cursor="pointer"
@@ -144,7 +125,7 @@ export const ComboboxItem = React.forwardRef(
         mx="0.25rem"
         my="0.125rem"
         data-testid={"ComboboxListItem"}
-        fontStyle={listItemType.fontStyle}
+        {...itemStyle}
       />
     );
   }
