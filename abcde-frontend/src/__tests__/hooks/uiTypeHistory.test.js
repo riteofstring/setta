@@ -89,7 +89,6 @@ function testUITypeHistory(presetType, inputSectionName, inputParamName) {
   };
 
   const paramChildId = setParamToObjectTypeAndAddChildSection(
-    store,
     wrapper,
     { ...propsForSetUIType, currUIType: initialUIType },
     listRootUIType

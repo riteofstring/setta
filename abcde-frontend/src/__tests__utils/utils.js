@@ -1,7 +1,8 @@
-import { waitFor } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
+import { useAddChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
@@ -30,24 +31,34 @@ export function addUIType(store, props = {}) {
   return uiType;
 }
 
-export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
+export function addParamInfo(
+  store,
+  wrapper,
+  sectionInfo,
+  uiType,
+  isNested = false
+) {
   const [uiTypeCollectionId, paramInfoId] = [createNewId(), createNewId()];
   const { paramCollectionId } = sectionInfo;
-  const setUITypeId = store.getActions().paramInfos.setUITypeId;
+  const actions = store.getActions().paramInfos;
   waitFor(() => {
-    setUITypeId({
+    actions.setUITypeId({
       collectionId: uiTypeCollectionId,
       paramInfoId,
       uiTypeId: uiType.id,
     });
   });
   if (isNested) {
-    store.getActions().thunks.addChild({
-      parentId: sectionInfo.id,
-      uiTypeId: uiType.id,
-      collectionId: paramCollectionId,
-      parentParamInfoId: paramInfoId,
+    const { result } = renderHook(() => useAddChild(sectionInfo.id), {
+      wrapper,
     });
+    waitFor(() =>
+      result.current({
+        uiTypeId: uiType.id,
+        collectionId: paramCollectionId,
+        parentParamInfoId: paramInfoId,
+      })
+    );
   }
   return { uiTypeCollectionId, paramInfoId };
 }

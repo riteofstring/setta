@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
+import { useAddChild } from "hooks/useAddDeleteChild";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import {
   useInitializeEnteredValue,
@@ -23,6 +24,12 @@ export function renderUseAvailablePresetUITypes(hookProps, wrapper) {
 
 export function renderUseInitializeUIType(sectionId, paramInfo, wrapper) {
   return renderHook(() => useInitializeUIType(sectionId)(paramInfo), {
+    wrapper,
+  });
+}
+
+export function renderUseAddChild(sectionId, wrapper) {
+  return renderHook(() => useAddChild(sectionId), {
     wrapper,
   });
 }

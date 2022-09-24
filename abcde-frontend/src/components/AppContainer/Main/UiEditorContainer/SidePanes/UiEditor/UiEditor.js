@@ -9,7 +9,8 @@ import {
 } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import React from "react";
+import React, { useState } from "react";
+import Measure from "react-measure";
 import { UI_EDITOR } from "utils/constants";
 import SectionConfig from "./SectionConfig";
 import UIConfig from "./UIConfig";
@@ -23,6 +24,7 @@ export default function UiEditor() {
   const vis = useStoreState((x) => x.panes.vis[paneProps.paneName]);
   const tabIndex = useStoreState((x) => x.uiEditor.tabIndex);
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const [dimensions, setDimensions] = useState({});
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
@@ -39,22 +41,34 @@ export default function UiEditor() {
         <TabList borderBottom="none" pb="1.5rem">
           <CustomTab name="Card" />
           <CustomTab name="Parameters" />
+          {/* <CustomTab name="YAML" /> */}
         </TabList>
-        <TabPanels
-          flexGrow="1"
-          display="grid"
-          place-items="center"
-          id="tabPanelOne"
-          h="inherit"
-          overflowY="auto"
+        <Measure
+          client
+          onResize={(contentRect) => setDimensions(contentRect.client)}
         >
-          <TabPanel p="3px">
-            <SectionConfig />
-          </TabPanel>
-          <TabPanel p="3px">
-            <UIConfig />
-          </TabPanel>
-        </TabPanels>
+          {({ measureRef }) => (
+            <TabPanels
+              flexGrow="1"
+              display="grid"
+              place-items="center"
+              id="tabPanelOne"
+              h="inherit"
+              overflowY="auto"
+              ref={measureRef}
+            >
+              <TabPanel p="3px">
+                <SectionConfig />
+              </TabPanel>
+              <TabPanel p="3px">
+                <UIConfig />
+              </TabPanel>
+              {/* <TabPanel display="grid" place-items="center" px="0">
+                <YamlEditor dimensions={dimensions} />
+              </TabPanel> */}
+            </TabPanels>
+          )}
+        </Measure>
       </Tabs>
     </PaneContainer>
   );
