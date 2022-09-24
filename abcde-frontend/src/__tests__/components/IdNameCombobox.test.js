@@ -56,6 +56,10 @@ test("Test IdNameCombobox", async () => {
   listItems = screen.getAllByTestId("ComboboxListItem");
   expect(listItems.length).toEqual(1);
 
+  // clicking on an edited field shouldn't change the field's contents
+  await userEvent.click(searchBox);
+  expect(searchBox.value).toEqual("cat");
+
   // escape, click on searchbox, then select an item
   // state.selected should now be the new id
   await userEvent.tab();
