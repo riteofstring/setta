@@ -1,0 +1,9 @@
+.wrapper {
+  max-height: inherit;
+  /* flex-grow: 1; */
+}
+
+.container {
+  max-height: inherit;
+  height: inherit;
+}

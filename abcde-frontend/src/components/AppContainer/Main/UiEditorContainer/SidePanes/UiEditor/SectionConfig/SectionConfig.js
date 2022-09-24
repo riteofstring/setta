@@ -80,7 +80,6 @@ function SectionConfigCore({
         onDropdownSelect={onSectionTypeChange}
         selectedId={currTypeId}
         sectionId={sectionId}
-        simpleSearch={true}
       />
       <SectionConfigComp savedConfig={savedConfig} onChange={onConfigChange} />
     </>

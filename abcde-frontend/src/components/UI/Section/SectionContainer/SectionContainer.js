@@ -1,7 +1,7 @@
 import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useDeleteChild } from "hooks/useAddDeleteChild";
+import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -23,6 +23,7 @@ function SectionContainer({
   const isDeck = useGetSectionType(sectionId).type === DECK;
   const idsOverview = useIdsOverview(sectionId)[0];
   const hasNested = idsOverview.length > 0;
+  const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
 
   return (
@@ -39,6 +40,7 @@ function SectionContainer({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
+          addChild={addChild}
           deleteChild={deleteChild}
           hasNested={hasNested}
         />

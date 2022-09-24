@@ -75,6 +75,7 @@ const master = {
     let idx = 0;
     const sectionInfos = _.mapValues(payload, (x) => {
       const y = new SectionInfo({
+        isTopLevel: true,
         initialPosition: {
           x: 500 * (Math.floor(idx / 3) + 0.75),
           y: 300 * (idx % 3),
@@ -84,20 +85,10 @@ const master = {
       idx += 1;
       return y;
     });
-
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
-    const setIdsOverview =
-      helpers.getStoreActions().sectionInfos.setIdsOverview;
-
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-
-    _.forEach(
-      payload,
-      (v) =>
-        v.children &&
-        setIdsOverview({ sectionId: v.id, newStateFn: () => v.children })
-    );
+    return _.keys(sectionInfos);
   }),
 
   exportSelected: thunk((action, payload, helpers) => {

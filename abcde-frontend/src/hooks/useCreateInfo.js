@@ -7,7 +7,7 @@ import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 import { useGetChildUITypeId } from "./useUIType";
 
-export function createManySectionInfo({ sectionInfoProps, numChildren }) {
+function createManySectionInfo({ sectionInfoProps, numChildren }) {
   const newInfos = {};
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = new SectionInfo(sectionInfoProps);
@@ -20,16 +20,16 @@ export function useCreateChildSectionInfo(sectionId) {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
   const getChildUITypeId = useGetChildUITypeId();
   const parentUIType = useGetSectionType(sectionId);
-  const { id: parentId, name: parentName } = useGetSectionInfo(sectionId);
+  const parentSectionInfo = useGetSectionInfo(sectionId);
 
   return ({ numChildren, ...sectionInfoProps }) => {
     const uiTypeId = getChildUITypeId(
       sectionInfoProps.uiTypeId,
       parentUIType,
-      parentId
+      parentSectionInfo.id
     );
     const newInfos = createManySectionInfo({
-      sectionInfoProps: { ...sectionInfoProps, parentId, parentName, uiTypeId },
+      sectionInfoProps: { ...sectionInfoProps, parentSectionInfo, uiTypeId },
       numChildren,
     });
     setSectionInfo((x) => ({ ...x, ...newInfos }));
