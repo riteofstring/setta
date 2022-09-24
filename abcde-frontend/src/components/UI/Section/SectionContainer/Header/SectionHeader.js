@@ -13,7 +13,6 @@ function _SectionHeader({
   isList,
   isListRoot,
   requiresKeyInput,
-  addChild,
   deleteChild,
   hasNested,
 }) {
@@ -33,7 +32,6 @@ function _SectionHeader({
           parentId={parentId}
           nextId={nextId}
           isListRoot={isListRoot}
-          addChild={addChild}
           deleteChild={deleteChild}
           hasNested={hasNested}
         />

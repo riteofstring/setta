@@ -20,7 +20,6 @@ function _SectionContainerCore({
   sectionId,
   parentId,
   nextId,
-  addChild,
   deleteChild,
   hasNested,
 }) {
@@ -82,7 +81,6 @@ function _SectionContainerCore({
             nextId={nextId}
             isList={isList}
             isListRoot={isListRoot}
-            addChild={addChild}
             deleteChild={deleteChild}
             hasNested={hasNested}
             requiresKeyInput={requiresKeyInput(config.subType)}
@@ -116,7 +114,7 @@ function _SectionContainerCore({
 }
 
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["addChild", "deleteChild", "nextId", "hasNested"];
+  const attrs = ["deleteChild", "nextId", "hasNested"];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
       return false;

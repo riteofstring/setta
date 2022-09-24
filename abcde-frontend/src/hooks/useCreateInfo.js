@@ -7,7 +7,7 @@ import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 import { useGetChildUITypeId } from "./useUIType";
 
-function createManySectionInfo({ sectionInfoProps, numChildren }) {
+export function createManySectionInfo({ sectionInfoProps, numChildren }) {
   const newInfos = {};
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = new SectionInfo(sectionInfoProps);

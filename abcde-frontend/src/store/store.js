@@ -16,6 +16,7 @@ import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
+import thunks from "thunks/thunks";
 
 const store = createStore(
   persist(
@@ -37,6 +38,7 @@ const store = createStore(
       globalParamDefaults: globalParamDefaults,
       currPage: currPage,
       currProject: currProject,
+      thunks: thunks,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;
