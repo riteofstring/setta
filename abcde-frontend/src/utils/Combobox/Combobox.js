@@ -8,6 +8,7 @@ import {
   List,
   ListItem,
 } from "@chakra-ui/react";
+import { useCombobox } from "downshift";
 import React from "react";
 
 export const ComboboxInput = React.forwardRef(
@@ -148,3 +149,28 @@ export const ComboboxItem = React.forwardRef(
     );
   }
 );
+
+function resetToPreviousVal(state, changes) {
+  const sname = state.selectedItem?.name;
+  const newInputValue = sname ? sname : state.inputValue;
+  return {
+    ...changes,
+    selectedItem: state.selectedItem,
+    inputValue: newInputValue,
+  };
+}
+
+export function stateReducer(state, actionAndChanges) {
+  const { type, changes } = actionAndChanges;
+  switch (type) {
+    case useCombobox.stateChangeTypes.InputKeyDownEscape:
+      return resetToPreviousVal(state, changes);
+    case useCombobox.stateChangeTypes.InputBlur:
+      if (state.highlightedIndex !== -1) {
+        return changes;
+      }
+      return resetToPreviousVal(state, changes);
+    default:
+      return changes; // otherwise business as usual.
+  }
+}
