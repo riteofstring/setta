@@ -8,7 +8,6 @@ import {
   List,
   ListItem,
 } from "@chakra-ui/react";
-import { useCombobox } from "downshift";
 import React, { useEffect, useState } from "react";
 
 export const ComboboxInput = React.forwardRef(
@@ -34,26 +33,16 @@ export const ComboboxInput = React.forwardRef(
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />
         </InputLeftElement>
-        {!simpleSearch ? (
-          <FancySearch
-            height={height}
-            size={size}
-            textSize={textSize}
-            // isOpen={isOpen}
-            {...props}
-            {...toggleButtonProps}
-            ref={ref}
-          />
-        ) : (
-          <SimpleSearch
-            height={height}
-            size={size}
-            textSize={textSize}
-            {...props}
-            {...toggleButtonProps}
-            ref={ref}
-          />
-        )}
+        <SearchInput
+          simpleSearch={simpleSearch}
+          height={height}
+          size={size}
+          textSize={textSize}
+          isOpen={isOpen}
+          {...props}
+          {...toggleButtonProps}
+          ref={ref}
+        />
         {dropdown && (
           <InputRightElement>
             <IconButton
@@ -72,43 +61,35 @@ export const ComboboxInput = React.forwardRef(
   }
 );
 
-const FancySearch = React.forwardRef(
-  ({ toggleButtonProps, textSize, height, size, ...props }, ref) => {
-    return (
-      <Input
-        // w="100%"
-        pl="2.5rem"
-        h={(size === "small" && "32px") || height}
-        {...props}
-        {...toggleButtonProps}
-        placeholder="Search"
-        border={0}
-        borderRadius="full"
-        // borderRadius="1.2rem"
-        // borderBottomRadius={isOpen && "none"}
-        boxShadow="sm"
-        size={textSize}
-        ref={ref}
-      />
-    );
-  }
-);
+const SearchInput = React.forwardRef(
+  ({ textSize, height, size, simpleSearch, isOpen, ...props }, ref) => {
+    function onClick(e) {
+      if (!isOpen) {
+        props.onClick(e);
+      }
+    }
 
-const SimpleSearch = React.forwardRef(
-  ({ toggleButtonProps, textSize, height, size, ...props }, ref) => {
-    return (
-      <Input
-        h={(size === "small" && "32px") || height}
-        {...props}
-        {...toggleButtonProps}
-        size={textSize}
-        variant="flushed"
-        placeholder="Search"
-        pl="2.5rem"
-        bg="unset"
-        ref={ref}
-      />
-    );
+    const commonProps = {
+      ...props,
+      onClick: onClick,
+      placeholder: "Search",
+      h: (size === "small" && "32px") || height,
+      pl: "2.5rem",
+      size: textSize,
+    };
+
+    const specificProps = simpleSearch
+      ? {
+          variant: "flushed",
+          bg: "unset",
+        }
+      : {
+          border: 0,
+          borderRadius: "full",
+          boxShadow: "sm",
+        };
+
+    return <Input {...commonProps} {...specificProps} ref={ref} />;
   }
 );
 
@@ -162,33 +143,9 @@ export const ComboboxItem = React.forwardRef(
         borderRadius="xl"
         mx="0.25rem"
         my="0.125rem"
+        data-testid={"ComboboxListItem"}
         fontStyle={listItemType.fontStyle}
       />
     );
   }
 );
-
-function resetToPreviousVal(state, changes) {
-  const sname = state.selectedItem?.name;
-  const newInputValue = sname ? sname : state.inputValue;
-  return {
-    ...changes,
-    selectedItem: state.selectedItem,
-    inputValue: newInputValue,
-  };
-}
-
-export function stateReducer(state, actionAndChanges) {
-  const { type, changes } = actionAndChanges;
-  switch (type) {
-    case useCombobox.stateChangeTypes.InputKeyDownEscape:
-      return resetToPreviousVal(state, changes);
-    case useCombobox.stateChangeTypes.InputBlur:
-      if (state.highlightedIndex !== -1) {
-        return changes;
-      }
-      return resetToPreviousVal(state, changes);
-    default:
-      return changes; // otherwise business as usual.
-  }
-}
