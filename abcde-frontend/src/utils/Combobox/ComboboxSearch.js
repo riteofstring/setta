@@ -95,7 +95,7 @@ export function ComboboxSearch({
             // p=".5rem"
             display={isOpen ? "flex" : "none"}
             alignItems="stretch"
-            zIndex="1010"
+            zIndex="20"
           >
             <Box m={3} maxH="100%" overflowY="scroll" width="100%">
               {filteredItems.map((item, index) => (
@@ -104,6 +104,7 @@ export function ComboboxSearch({
                   itemIndex={index}
                   highlightedIndex={highlightedIndex}
                   key={index}
+                  itemType={allItems[index]}
                 >
                   {itemToString(item)}
                 </ComboboxItem>
