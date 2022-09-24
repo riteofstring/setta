@@ -1,3 +1,4 @@
+import { loadProject } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
 import { NO_AUTH } from "utils/constants";
@@ -9,12 +10,21 @@ const UiPage = () => {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
   const isNewSession = useStoreState((x) => x.auth.isNewSession);
   const stayLoggedIn = useStoreActions((x) => x.auth.stayLoggedIn);
+  const access_token = useStoreState((x) => x.auth.access_token);
+  const currProject = useStoreState((x) => x.currProject.id);
 
   useEffect(() => {
+    async function fetchData() {
+      return await loadProject({ access_token, id: currProject });
+    }
+
     if (NO_AUTH && isAuthenticated && isNewSession) {
       loadSections(loadTestData());
       // set isNewSession to false so that loadTestData won't be called again later
       stayLoggedIn();
+    } else {
+      const projectInfo = fetchData();
+      console.log("projectInfo", projectInfo);
     }
   }, [isAuthenticated, isNewSession]);
 
