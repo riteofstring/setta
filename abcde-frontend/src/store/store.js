@@ -16,13 +16,11 @@ import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
-import yamlEntry from "models/yamlEntry";
 
 const store = createStore(
   persist(
     {
       master: master,
-      yamlEntry: yamlEntry,
       auth: auth,
       uiInfo: uiInfo,
       panes: panes,
