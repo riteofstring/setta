@@ -1,76 +1,74 @@
 export default {
-  uiTypes: {
-    "3fdaeb6a-e989-4888-b844-17a76f0b0192": {
-      id: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-      type: "TEXT",
-      name: "",
-      presetType: "base",
-      config: {},
+  "3fdaeb6a-e989-4888-b844-17a76f0b0192": {
+    id: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+    type: "TEXT",
+    name: "",
+    presetType: "base",
+    config: {},
+  },
+  "eab8f446-17cc-4512-bab5-42bff8570f1f": {
+    id: "eab8f446-17cc-4512-bab5-42bff8570f1f",
+    type: "SLIDER",
+    name: "",
+    presetType: "base",
+    config: {},
+  },
+  "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
+    id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
+    type: "SWITCH",
+    name: "",
+    presetType: "base",
+    config: {},
+  },
+  "0595871f-4506-4bda-b6f1-9a3864e02a68": {
+    id: "0595871f-4506-4bda-b6f1-9a3864e02a68",
+    type: "REF",
+    name: "",
+    presetType: "base",
+    config: {},
+  },
+  "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
+    id: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+    type: "SECTION",
+    name: "",
+    presetType: "base",
+    config: {
+      collections: [],
+      uiTypeCollectionId: null,
+      subType: null,
     },
-    "eab8f446-17cc-4512-bab5-42bff8570f1f": {
-      id: "eab8f446-17cc-4512-bab5-42bff8570f1f",
-      type: "SLIDER",
-      name: "",
-      presetType: "base",
-      config: {},
+  },
+  "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
+    id: "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+    type: "LIST_ROOT",
+    name: "",
+    presetType: "base",
+    config: {
+      collections: [],
+      uiTypeCollectionId: null,
+      childUITypeId: null,
     },
-    "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
-      id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-      type: "SWITCH",
-      name: "",
-      presetType: "base",
-      config: {},
+  },
+  "623a9242-53e9-4b42-b695-431e9754a836": {
+    id: "623a9242-53e9-4b42-b695-431e9754a836",
+    type: "DICT_ROOT",
+    name: "",
+    presetType: "base",
+    config: {
+      collections: [],
+      uiTypeCollectionId: null,
+      childUITypeId: null,
     },
-    "0595871f-4506-4bda-b6f1-9a3864e02a68": {
-      id: "0595871f-4506-4bda-b6f1-9a3864e02a68",
-      type: "REF",
-      name: "",
-      presetType: "base",
-      config: {},
-    },
-    "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
-      id: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      type: "SECTION",
-      name: "",
-      presetType: "base",
-      config: {
-        collections: [],
-        uiTypeCollectionId: null,
-        subType: null,
-      },
-    },
-    "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
-      id: "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
-      type: "LIST_ROOT",
-      name: "",
-      presetType: "base",
-      config: {
-        collections: [],
-        uiTypeCollectionId: null,
-        childUITypeId: null,
-      },
-    },
-    "623a9242-53e9-4b42-b695-431e9754a836": {
-      id: "623a9242-53e9-4b42-b695-431e9754a836",
-      type: "DICT_ROOT",
-      name: "",
-      presetType: "base",
-      config: {
-        collections: [],
-        uiTypeCollectionId: null,
-        childUITypeId: null,
-      },
-    },
-    "0e050316-06ca-48f4-92c1-9845abdf85f7": {
-      id: "0e050316-06ca-48f4-92c1-9845abdf85f7",
-      type: "DECK",
-      name: "",
-      presetType: "base",
-      config: {
-        collections: [],
-        uiTypeCollectionId: null,
-        childUITypeId: null,
-      },
+  },
+  "0e050316-06ca-48f4-92c1-9845abdf85f7": {
+    id: "0e050316-06ca-48f4-92c1-9845abdf85f7",
+    type: "DECK",
+    name: "",
+    presetType: "base",
+    config: {
+      collections: [],
+      uiTypeCollectionId: null,
+      childUITypeId: null,
     },
   },
 };

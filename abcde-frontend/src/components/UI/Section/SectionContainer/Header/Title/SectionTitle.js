@@ -1,20 +1,10 @@
-import {
-  Editable,
-  EditableInput,
-  EditablePreview,
-  Text,
-} from "@chakra-ui/react";
+import { Editable, EditableInput, EditablePreview } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionSiblingNames } from "hooks/useSectionSiblings";
 
-export default function SectionTitle({
-  sectionId,
-  editableProps,
-  inputProps,
-  isList,
-}) {
+export default function SectionTitle({ sectionId, editableProps, inputProps }) {
   const { name: sectionName } = useGetSectionInfo(sectionId);
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
@@ -31,35 +21,6 @@ export default function SectionTitle({
     (v) => !siblingNames.has(v)
   );
 
-  if (!isList) {
-    return (
-      <EditableTitle
-        inputValue={inputValue}
-        setInputValue={setInputValue}
-        onSubmit={onSubmit}
-        editableProps={editableProps}
-        inputProps={inputProps}
-      />
-    );
-  }
-  return <ListTitle inputValue={inputValue} />;
-}
-
-function ListTitle({ inputValue }) {
-  return (
-    <Text fontWeight="100" color="gray.400" as="i" userSelect="none">
-      {inputValue}
-    </Text>
-  );
-}
-
-function EditableTitle({
-  inputValue,
-  setInputValue,
-  onSubmit,
-  editableProps,
-  inputProps,
-}) {
   return (
     <Editable
       value={inputValue}
