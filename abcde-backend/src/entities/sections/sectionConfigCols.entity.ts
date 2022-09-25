@@ -1,10 +1,8 @@
 import { Entity, ManyToOne, PrimaryKeyType } from '@mikro-orm/core';
 import { SectionConfigColsRepository } from '../../sections/sectionConfigCols.repository';
-import { CodeInfo } from '../codeInfo.entity';
 import { Sections } from './sections.entity';
-import { UITypes } from '../uitypes/uiTypes.entity';
-import { EVColsIds } from '../enteredValues/evColsIds.entity';
 import { SectionConfigColsIds } from './sectionConfigColsIds.entity';
+import { SectionConfig } from './sectionConfig.entity';
 
 // groups of section -> evCol mappings
 @Entity({ customRepository: () => SectionConfigColsRepository })
@@ -16,13 +14,7 @@ export class SectionConfigCols {
   section: Sections;
 
   @ManyToOne({ nullable: true })
-  evCol: EVColsIds;
-
-  @ManyToOne({ nullable: true })
-  selectedItem: CodeInfo;
-
-  @ManyToOne()
-  sectionType: UITypes;
+  config: SectionConfig;
 
   [PrimaryKeyType]?: [string, number];
 }

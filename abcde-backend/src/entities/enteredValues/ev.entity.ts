@@ -1,5 +1,6 @@
-import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+import { Entity, ManyToOne, PrimaryKey, Property } from '@mikro-orm/core';
 import { EVRepository } from '../../enteredValues/ev.repository';
+import { Sections } from '../sections/sections.entity';
 
 @Entity({ customRepository: () => EVRepository })
 export class EV {
@@ -8,4 +9,7 @@ export class EV {
 
   @Property({ nullable: true })
   value: string;
+
+  @ManyToOne({ nullable: true })
+  child: Sections;
 }

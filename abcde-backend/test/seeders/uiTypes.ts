@@ -56,7 +56,11 @@ export class UITypesSeeder extends Seeder {
     const uiTypeList = [simpleTrainTestUITypes, baseUITypes, presetUITypes];
     for (const currUITypes of uiTypeList) {
       for (const x of Object.values(currUITypes)) {
-        if (['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK'].includes(x.type)) {
+        if (
+          ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(
+            x.type,
+          )
+        ) {
           await createSectionUIType(em, x);
         } else {
           em.create(UITypes, x);

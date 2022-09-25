@@ -5,9 +5,6 @@ import projectsData from '../../../abcde-frontend/src/__tests__data/Projects';
 import { Sections } from '../../src/entities/sections/sections.entity';
 import { SectionConfigColsIds } from '../../src/entities/sections/sectionConfigColsIds.entity';
 import { SectionConfigCols } from '../../src/entities/sections/sectionConfigCols.entity';
-import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
-import { CodeInfo } from '../../src/entities/codeInfo.entity';
-import { EVColsIds } from '../../src/entities/enteredValues/evColsIds.entity';
 import { loadAllSections } from '../utils';
 
 export class ProjectsSeeder extends Seeder {
@@ -25,24 +22,19 @@ export class ProjectsSeeder extends Seeder {
       );
 
       const allSections = loadAllSections();
-      // create a section config for each section in the section group
-      for (const section of sectionGroup.children) {
-        const {
-          selectedItem: sid,
-          uiTypeId,
-          paramCollectionId,
-        } = allSections[section.id];
-        const selectedItem = await em.findOne(CodeInfo, { id: sid });
-        const uiType = await em.findOne(UITypes, { id: uiTypeId });
-        const evCol = await em.findOne(EVColsIds, { id: paramCollectionId });
+      let sectionsToProcess: any = [sectionGroup];
+
+      while (sectionsToProcess.length > 0) {
+        const section = sectionsToProcess.pop();
 
         em.create(SectionConfigCols, {
           id: x.sectionConfigCol,
           section,
-          evCol,
-          selectedItem,
-          sectionType: uiType,
+          config: allSections[section.id].configId,
         });
+
+        const children = await section.children.init();
+        sectionsToProcess = [...sectionsToProcess, ...children];
       }
     }
   }

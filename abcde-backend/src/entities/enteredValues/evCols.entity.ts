@@ -1,7 +1,6 @@
 import { Entity, ManyToOne, PrimaryKeyType } from '@mikro-orm/core';
 import { EVColsRepository } from '../../enteredValues/evCols.repository';
 import { CodeInfo } from '../codeInfo.entity';
-import { Sections } from '../sections/sections.entity';
 import { EV } from './ev.entity';
 import { EVColsIds } from './evColsIds.entity';
 
@@ -16,9 +15,6 @@ export class EVCols {
 
   @ManyToOne()
   enteredValue: EV;
-
-  @ManyToOne({ nullable: true })
-  child: Sections;
 
   [PrimaryKeyType]?: [string, number];
 }
