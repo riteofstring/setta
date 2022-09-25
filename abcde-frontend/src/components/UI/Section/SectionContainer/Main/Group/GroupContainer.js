@@ -14,7 +14,7 @@ function _GroupContainer({ sectionId, objInfoId, isKwarg }) {
   const kwargsCondition = paramInfos.length > 0;
 
   return (
-    <VStack bg="white" borderRadius="xl" alignItems="stretch">
+    <VStack alignItems="stretch">
       <Stack
         py={kwargInfos.length > 0 && isKwarg && "1rem"}
         w="auto"
