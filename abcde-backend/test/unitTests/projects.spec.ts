@@ -36,4 +36,13 @@ describe('ProjectsService', () => {
       expect(projects.length).toEqual(0);
     });
   });
+
+  describe('Get a specific project', () => {
+    it('A project with nested sections', async () => {
+      const project = await service.loadOne(
+        '61e089c8-62bf-4e8c-915e-111b4587da81',
+      );
+      expect(project.sections.length).toEqual(12);
+    });
+  });
 });
