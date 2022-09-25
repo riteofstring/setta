@@ -6,6 +6,6 @@ export class EV {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
   id: string;
 
-  @Property()
+  @Property({ nullable: true })
   value: string;
 }

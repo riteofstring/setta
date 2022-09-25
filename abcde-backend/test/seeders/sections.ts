@@ -1,19 +1,38 @@
 import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { Sections } from '../../src/entities/sections/sections.entity';
-import simpleTrainTest from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UI';
+import simpleTrainTestUITypes from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
 import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
 import { EVColsIds } from '../../src/entities/enteredValues/evColsIds.entity';
+import {
+  createIfNotFound,
+  loadAllSectionChildren,
+  loadAllSections,
+} from '../utils';
 
 export class SectionsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
-    for (const x of Object.values(simpleTrainTest.sections)) {
-      em.create(Sections, x);
-      em.create(EVColsIds, { id: x.paramCollectionId });
+    const allSections = loadAllSections();
+    for (const x of Object.values(allSections)) {
+      await createIfNotFound(em, Sections, { id: x.id, name: x.name });
+      await createIfNotFound(em, EVColsIds, { id: x.paramCollectionId });
+    }
+
+    const allSectionChildren = loadAllSectionChildren();
+    for (const sid of Object.keys(allSectionChildren)) {
+      const section = await em.findOne(
+        Sections,
+        { id: sid },
+        { populate: ['children'] },
+      );
+      const children = await em.find(Sections, {
+        id: { $in: allSectionChildren[sid] },
+      });
+      section.children.set(children);
     }
 
     // update uitype origin ids
-    for (const x of Object.values(simpleTrainTest.uiTypes)) {
+    for (const x of Object.values(simpleTrainTestUITypes)) {
       if (!x.originInfoId.sectionId) {
         continue;
       }

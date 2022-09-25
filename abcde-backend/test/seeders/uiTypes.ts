@@ -2,18 +2,12 @@ import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
 import { SectionUITypes } from '../../src/entities/uiTypes/sectionUITypes.entity';
-import simpleTrainTest from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UI';
+import simpleTrainTestUITypes from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
 import baseUITypes from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
+import presetUITypes from '../../../abcde-frontend/src/__tests__data/PresetUITypes';
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
 import { UITypesColsIds } from '../../src/entities/uiTypes/uiTypesColsIds.entity';
-
-async function createIfNotFound(em, type, props) {
-  let x = await em.findOne(type, props);
-  if (!x) {
-    x = em.create(type, props);
-  }
-  return x;
-}
+import { createIfNotFound } from '../utils';
 
 async function createSectionUIType(em, x) {
   const baseType = em.create(UITypes, x);
@@ -59,9 +53,9 @@ async function createSectionUIType(em, x) {
 
 export class UITypesSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
-    const uiTypeList = [simpleTrainTest, baseUITypes];
+    const uiTypeList = [simpleTrainTestUITypes, baseUITypes, presetUITypes];
     for (const currUITypes of uiTypeList) {
-      for (const x of Object.values(currUITypes.uiTypes)) {
+      for (const x of Object.values(currUITypes)) {
         if (['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK'].includes(x.type)) {
           await createSectionUIType(em, x);
         } else {

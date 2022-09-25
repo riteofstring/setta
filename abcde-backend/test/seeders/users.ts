@@ -5,6 +5,6 @@ import data from '../../../abcde-frontend/src/__tests__data/Users';
 
 export class UsersSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
-    data.forEach((x) => em.create(Users, x));
+    Object.values(data).forEach((x) => em.create(Users, x));
   }
 }
