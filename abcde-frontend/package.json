@@ -44,7 +44,7 @@
     "snamac": "REACT_APP_NO_AUTH=true yarn start",
     "snancmmac": "REACT_APP_NO_AUTH=true REACT_APP_NO_CONTEXT_MENU=true yarn start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "SET REACT_APP_NO_AUTH=true&&react-scripts test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

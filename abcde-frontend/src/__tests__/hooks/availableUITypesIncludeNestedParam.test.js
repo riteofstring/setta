@@ -16,7 +16,7 @@ import {
 
 test.each([
   ["", SECTION, true],
-  ["torchvision transforms", LIST_ROOT, false],
+  ["my preset for testing", LIST_ROOT, false],
 ])(
   "Available uiTypes for nested parameters should be the same when viewed from the section's perspective.",
   (uiTypeName, uiTypeType, useBasePreset) => {

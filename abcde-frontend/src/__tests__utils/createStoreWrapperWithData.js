@@ -21,6 +21,9 @@ import { createStore, getStoreProviderWrapper } from "./utils";
 
 export function createStoreWrapperWithData() {
   const store = createStore();
+  store
+    .getActions()
+    .currProject.setSectionGroup("5184caec-eef4-4798-9613-a11aafa8c2ff");
   store.getActions().master.loadSections(loadTestData());
   return { store, wrapper: getStoreProviderWrapper(store) };
 }

@@ -18,7 +18,7 @@ export function createListRootAndChild(
   // Get a base preset to fork off of
   const listRootType = getUITypeByName(
     store,
-    "torchvision transforms",
+    "my preset for testing",
     LIST_ROOT,
     false
   );
