@@ -35,12 +35,7 @@ export function addUIType(store, props = {}) {
   return uiType;
 }
 
-export function addParamInfo(
-  store,
-  sectionInfo,
-  uiType,
-  isNested = false
-) {
+export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
   const [uiTypeCollectionId, paramInfoId] = [createNewId(), createNewId()];
   const setUITypeId = store.getActions().paramInfos.setUITypeId;
   waitFor(() => {

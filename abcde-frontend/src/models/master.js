@@ -94,10 +94,15 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    const { sections, sectionConfigs, sectionChildren } = payload;
-    const projectSectionGroup =
-      helpers.getStoreState().currProject.sectionGroup;
-    const topLevelIds = sectionChildren[projectSectionGroup];
+    let { sections, sectionConfigs, sectionChildren } = payload;
+    let topLevelIds = null;
+    ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
+      omitProjectSectionAndGetTopLevelIds(
+        helpers.getStoreState(),
+        sections,
+        sectionConfigs,
+        sectionChildren
+      ));
 
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
@@ -129,9 +134,7 @@ const master = {
     setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
 
     _.forEach(sectionChildren, (x, id) => {
-      if (id !== projectSectionGroup) {
-        setIdsOverview({ sectionId: id, newStateFn: () => x });
-      }
+      setIdsOverview({ sectionId: id, newStateFn: () => x });
     });
   }),
 
@@ -141,3 +144,20 @@ const master = {
 };
 
 export default master;
+
+function omitProjectSectionAndGetTopLevelIds(
+  state,
+  sections,
+  sectionConfigs,
+  sectionChildren
+) {
+  const projectSectionGroup = state.currProject.sectionGroup;
+  const topLevelIds = sectionChildren[projectSectionGroup];
+  const projectSectionConfigId = sections[projectSectionGroup].configId;
+  return {
+    sections: _.omit(sections, projectSectionGroup),
+    sectionConfigs: _.omit(sectionConfigs, projectSectionConfigId),
+    sectionChildren: _.omit(sectionChildren, projectSectionGroup),
+    topLevelIds,
+  };
+}
