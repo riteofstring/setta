@@ -2,9 +2,7 @@ import { Button, Divider, Flex, HStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 
-import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
-import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
-import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";
+import EcoSysButton from "./EcoSysButton/EcoSysButton";
 import FileMenu from "./FileMenu/FileMenu";
 import RunButton from "./RunButton/RunButton";
 import UiConfigButton from "./UiConfigButton/UiConfigButton";
@@ -40,14 +38,8 @@ function UiEditorSubNav() {
   return (
     <>
       <FileMenu />
-      {/* <EcoSysButton /> */}
-      <ClearHistoryButton />
-      <Divider orientation="vertical" pr=".5rem" />
-      <CreateSectionButton />
-      <CreateGroupButton />
+      <EcoSysButton />
       <UiConfigButton />
-      <Divider orientation="vertical" pr=".5rem" />
-
       <RunButton />
     </>
   );

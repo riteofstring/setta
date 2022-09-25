@@ -10,7 +10,6 @@ export function IdNameCombobox({
   simpleSearch,
   size,
   width,
-  itemStyleGetter,
 }) {
   const init = _.find(allItems, { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
@@ -40,7 +39,6 @@ export function IdNameCombobox({
       simpleSearch={simpleSearch}
       size={size}
       width={width}
-      itemStyleGetter={itemStyleGetter}
     />
   );
 }

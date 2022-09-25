@@ -16,3 +16,18 @@ export async function getProjects({ access_token }) {
       return [];
     });
 }
+
+export async function loadProject({ access_token, id }) {
+  if (NO_AUTH) {
+    return Projects[id];
+  }
+
+  return axios
+    .post(BACKEND + `projects/${id}`, null, tokenConfig(access_token))
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}
