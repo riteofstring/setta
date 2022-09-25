@@ -23,6 +23,10 @@ describe('ProjectsService', () => {
     service = app.get(ProjectsService);
   });
 
+  afterAll(async () => {
+    await app.close();
+  });
+
   describe('Get list of user projects', () => {
     const user = new Users();
     it('for a user with projects', async () => {
@@ -42,6 +46,8 @@ describe('ProjectsService', () => {
       const project = await service.loadOne(
         '61e089c8-62bf-4e8c-915e-111b4587da81',
       );
+      console.log(project);
+
       expect(project.sections.length).toEqual(12);
     });
   });
