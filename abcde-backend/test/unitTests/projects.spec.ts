@@ -1,16 +1,19 @@
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ProjectsService } from '../../src/projects/projects.service';
 import config from '../../src/mikro-orm.config';
-import { Users } from '../../src/entities/users.entity';
 import { AppModule } from '../../src/app.module';
+import projectsData from '../../../abcde-frontend/src/__tests__data/Projects';
+import usersData from '../../../abcde-frontend/src/__tests__data/Users';
+import { INestApplication } from '@nestjs/common';
+import * as request from 'supertest';
 
 describe('ProjectsService', () => {
-  let app: TestingModule;
-  let service: ProjectsService;
+  let app: INestApplication;
+  let access_token: string;
+  const testUser = usersData['25961114-6655-4e2c-b70f-e2e3aaa84131'];
 
   beforeAll(async () => {
-    app = await Test.createTestingModule({
+    const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         MikroOrmModule.forRoot({
           ...config,
@@ -20,35 +23,40 @@ describe('ProjectsService', () => {
         AppModule,
       ],
     }).compile();
-    service = app.get(ProjectsService);
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    // login
+    const { body } = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ username: testUser.name, password: testUser.password })
+      .expect(201);
+    access_token = body.access_token;
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  describe('Get list of user projects', () => {
-    const user = new Users();
-    it('for a user with projects', async () => {
-      user.id = '25961114-6655-4e2c-b70f-e2e3aaa84131';
-      const projects = await service.getAllByOwner(user);
-      expect(projects.length).toEqual(3);
-    });
-    it('for a user with no projects', async () => {
-      user.id = 'cb61fad7-0d48-40bf-b75b-c24f60600f69';
-      const projects = await service.getAllByOwner(user);
-      expect(projects.length).toEqual(0);
-    });
+  it('Get list of user projects', async () => {
+    const { body: projects } = await request(app.getHttpServer())
+      .post('/projects')
+      .set('Authorization', `Bearer ${access_token}`);
+    expect(projects.length).toEqual(3);
   });
 
-  describe('Get a specific project', () => {
-    it('A project with nested sections', async () => {
-      const project = await service.loadOne(
-        '61e089c8-62bf-4e8c-915e-111b4587da81',
-      );
-      console.log(project);
+  it('Get a project with nested sections', async () => {
+    const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
+    const { body: project } = await request(app.getHttpServer())
+      .post(`/projects/${projectId}`)
+      .set('Authorization', `Bearer ${access_token}`);
 
-      expect(project.sections.length).toEqual(12);
-    });
+    expect(project.project.name).toEqual(projectsData[projectId].name);
+    expect(project.project.sectionGroup).toEqual(
+      projectsData[projectId].sectionGroup,
+    );
+
+    expect(project.sections.length).toEqual(12);
   });
 });
