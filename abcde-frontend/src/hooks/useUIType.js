@@ -107,12 +107,7 @@ function cloneRootUIType(parentUIType, parentId) {
   return uiType;
 }
 
-export function getChildUITypeId(
-  parentUIType,
-  parentId,
-  setUIType,
-  setOneConfig
-) {
+function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {

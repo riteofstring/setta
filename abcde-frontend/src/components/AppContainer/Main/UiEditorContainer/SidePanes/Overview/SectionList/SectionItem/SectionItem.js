@@ -13,7 +13,7 @@ export default function SectionItem({ sectionId, sectionHeading }) {
     <HStack py="0.125rem">
       <Text
         cursor="pointer"
-        py={0.5}
+        // py={0.5}
         px={3}
         w="100%"
         borderRadius="0.25rem"

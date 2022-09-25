@@ -1,4 +1,5 @@
 import axios from "axios";
+import { allFoldersQuery, UIQuery } from "graphql/queries/uiQueries";
 import { BACKEND } from "utils/constants";
 
 import { tokenConfig } from "./authentication";

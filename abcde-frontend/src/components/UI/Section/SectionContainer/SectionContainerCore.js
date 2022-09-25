@@ -20,6 +20,7 @@ function _SectionContainerCore({
   sectionId,
   parentId,
   nextId,
+  addChild,
   deleteChild,
   hasNested,
 }) {
@@ -61,12 +62,13 @@ function _SectionContainerCore({
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
+      // mt="0.5rem"
     >
       <HStack
         direction="column"
         bg="gray.50"
         borderRadius="xl"
-        px="0.5rem "
+        px="0.5rem"
         boxShadow="md"
         zIndex={isActiveSection ? "1000" : "10"}
         w="100%"
@@ -81,6 +83,7 @@ function _SectionContainerCore({
             nextId={nextId}
             isList={isList}
             isListRoot={isListRoot}
+            addChild={addChild}
             deleteChild={deleteChild}
             hasNested={hasNested}
             requiresKeyInput={requiresKeyInput(config.subType)}
@@ -102,19 +105,18 @@ function _SectionContainerCore({
           )}
         </Stack>
       </HStack>
-      <VStack bg="white" borderRadius="xl" alignItems="stretch">
-        <GroupContainer
-          sectionId={sectionId}
-          objInfoId={selectedItem}
-          isKwarg={true}
-        />
-      </VStack>
+
+      <GroupContainer
+        sectionId={sectionId}
+        objInfoId={selectedItem}
+        isKwarg={true}
+      />
     </VStack>
   );
 }
 
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["deleteChild", "nextId", "hasNested"];
+  const attrs = ["addChild", "deleteChild", "nextId", "hasNested"];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
       return false;

@@ -1,4 +1,4 @@
-import { Box, HStack, VStack } from "@chakra-ui/react";
+import { Box, HStack, Stack } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { INDICATOR_GOTO_PARENT } from "utils/constants";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
@@ -32,7 +32,7 @@ export default function ManyNestedSections({
           />
         )}
 
-        <VStack spacing="0">
+        <Stack spacing="0.5rem" alignItems="flex-start">
           {childIds.map((e, idx) => (
             <NestedSection
               parentId={sectionId}
@@ -42,7 +42,7 @@ export default function ManyNestedSections({
               depth={depth + 1}
             />
           ))}
-        </VStack>
+        </Stack>
       </HStack>
     </DNDSortable>
   );

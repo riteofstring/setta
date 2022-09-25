@@ -43,8 +43,12 @@ export class MutableObjInfo extends MutableInfo {
   }
 }
 
-function initName(name, parentName) {
-  return name ? name : parentName;
+function initName(name, parentSectionInfo) {
+  if (name) {
+    return name;
+  } else if (parentSectionInfo) {
+    return parentSectionInfo.name;
+  }
 }
 
 export class SectionInfo extends MutableInfo {
@@ -52,23 +56,22 @@ export class SectionInfo extends MutableInfo {
     id,
     name,
     uiTypeId,
+    parentSectionInfo,
     paramCollectionId,
     kwargCollectionId,
     paramInfoId,
     selectedItem = null,
     isTopLevel = false,
     initialPosition = { x: 0, y: 0 },
-    parentId = null,
-    parentName = "",
   }) {
     super();
     this.id = maybeNewId(id);
     this.uiTypeId = uiTypeId;
-    this.name = initName(name, parentName);
+    this.name = initName(name, parentSectionInfo);
     this.selectedItem = selectedItem;
     this.paramCollectionId = maybeNewId(paramCollectionId);
     this.kwargCollectionId = maybeNewId(kwargCollectionId);
-    this.parentId = parentId;
+    this.parentId = parentSectionInfo?.id;
     this.paramInfoId = paramInfoId;
     this.isTopLevel = isTopLevel;
     this.initialPosition = initialPosition;
