@@ -70,7 +70,7 @@ function _SectionContainerCore({
         borderRadius="xl"
         px="0.5rem"
         boxShadow="md"
-        zIndex={isActiveSection ? "1000" : "10"}
+        zIndex={isActiveSection ? "150" : "10"}
         w="100%"
         border="1px"
         borderColor="white"

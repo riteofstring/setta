@@ -29,6 +29,7 @@ export default function ManyNestedSections({
             _hover={{ bg: "whiteAlpha.500", cursor: "pointer" }}
             mb=".25rem"
             onClick={onClick}
+            zIndex="200"
           />
         )}
 
