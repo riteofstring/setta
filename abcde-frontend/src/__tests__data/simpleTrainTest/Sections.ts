@@ -3,7 +3,7 @@ export default {
   "5184caec-eef4-4798-9613-a11aafa8c2ff": {
     id: "5184caec-eef4-4798-9613-a11aafa8c2ff",
     name: "",
-    uiTypeId: null,
+    uiTypeId: "3e3ed4cb-0f9a-47ea-845a-c2d456a7091c",
     paramCollectionId: null,
     kwargCollectionId: null,
     selectedItem: null,
