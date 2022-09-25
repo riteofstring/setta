@@ -1,10 +1,8 @@
 import { action, computed, thunk } from "easy-peasy";
-import { getFnSetSectionUITypeId } from "hooks/useSectionInfo";
+import { getFnSetSectionUITypeId } from "hooks/useSectionConfig";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
-
-import { exportState } from "./utils";
 
 function setDefaultIdsOverview(state, sectionId) {
   if (!(sectionId in state.idsOverview)) {
@@ -120,13 +118,6 @@ const sectionInfos = {
       actions: helpers.getStoreActions(),
     });
   }),
-
-  export() {
-    return {
-      sectionInfos: exportState(this),
-      idsOverview: this.idsOverview,
-    };
-  },
 };
 
 export default sectionInfos;
@@ -144,20 +135,22 @@ function deleteSectionFn(state, sectionId) {
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
-  const newParentUITypeId = state.sectionInfos.x[newParentId]?.uiTypeId;
+  const newParentConfigId = state.sectionInfos.x[newParentId]?.configId;
+  const newParentUITypeId = state.sectionConfigs.x[newParentConfigId]?.uiTypeId;
   const newParentUIType = state.uiTypes.x[newParentUITypeId];
   const {
-    uiTypeId: childUITypeId,
     name: childSectionName,
     paramInfoId,
+    configId: childConfigId,
   } = state.sectionInfos.x[childId];
+  const childUITypeId = state.sectionConfigs.x[childConfigId].uiTypeId;
   const childUIType = state.uiTypes.x[childUITypeId];
   const setConfig = actions.uiTypes.setOneConfig;
   const setUIType = actions.uiTypes.setUIType;
   const setParamUITypeId = () => null; //TODO: determine best course of action here
   const setSectionUITypeId = getFnSetSectionUITypeId(
-    childId,
-    actions.sectionInfos.setSectionInfoAttr
+    childConfigId,
+    actions.sectionConfigs.setSectionConfigAttr
   );
   const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
 

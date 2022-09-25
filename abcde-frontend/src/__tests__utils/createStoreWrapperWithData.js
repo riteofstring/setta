@@ -61,7 +61,9 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   // get section
   const sectionInfo = getSectionByName(store, sectionName);
 
-  const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
+  const { id: sectionId, configId } = sectionInfo;
+  const { uiTypeId: sectionTypeId } =
+    store.getState().sectionConfigs.x[configId];
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);

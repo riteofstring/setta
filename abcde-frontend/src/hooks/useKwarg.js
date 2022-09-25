@@ -4,11 +4,11 @@ import { useParamChildId } from "hooks/useParamInfo";
 import { createNewId } from "utils/utils";
 
 import { useDeleteChild } from "./useAddDeleteChild";
-import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useAddKwarg(sectionId, objInfoId) {
-  const { kwargCollectionId } = useGetSectionInfo(sectionId);
+  const { kwargCollectionId } = useGetSectionConfig(sectionId);
   const setKwargInfo = useStoreActions((x) => x.kwargInfos.setKwargInfo);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   return () => {
@@ -23,7 +23,8 @@ export function useAddKwarg(sectionId, objInfoId) {
 }
 
 export function useDeleteKwarg(sectionId, objInfoId) {
-  const { paramCollectionId, kwargCollectionId } = useGetSectionInfo(sectionId);
+  const { paramCollectionId, kwargCollectionId } =
+    useGetSectionConfig(sectionId);
   const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   const deleteChild = useDeleteChild(sectionId);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);

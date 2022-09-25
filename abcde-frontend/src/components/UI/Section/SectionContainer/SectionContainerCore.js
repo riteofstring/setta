@@ -1,6 +1,6 @@
 import { HStack, Stack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
@@ -23,7 +23,7 @@ function _SectionContainerCore({
   deleteChild,
   hasNested,
 }) {
-  const { selectedItem } = useGetSectionInfo(sectionId);
+  const { selectedItem } = useGetSectionConfig(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);

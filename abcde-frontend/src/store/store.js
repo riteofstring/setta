@@ -7,6 +7,7 @@ import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
+import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
@@ -27,6 +28,7 @@ const store = createStore(
       panes: panes,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,
+      sectionConfigs: sectionConfigs,
       objInfos: objInfos,
       paramInfos: paramInfos,
       kwargInfos: kwargInfos,

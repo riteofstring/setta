@@ -3,13 +3,13 @@ import { addSectionInfo, createStore } from "__tests__utils/utils";
 
 test("setSectionInfo should add a section to sectionInfos using the correct key (its id)", () => {
   const store = createStore();
-  const si = addSectionInfo(store);
+  const { section: si } = addSectionInfo(store);
   expect(store.getState().sectionInfos.x[si.id]).toBe(si);
 });
 
 test("setIdsOverview should add a child to a section's idsOverview list", () => {
   const store = createStore();
-  const si = addSectionInfo(store);
+  const { section: si } = addSectionInfo(store);
   const childId = "123456";
   const newStateFn = (x) => [...x, childId];
   store
@@ -21,8 +21,8 @@ test("setIdsOverview should add a child to a section's idsOverview list", () => 
 
 test("deleting a section should delete its children too", () => {
   const store = createStore();
-  const si1 = addSectionInfo(store);
-  const si2 = addSectionInfo(store);
+  const { section: si1 } = addSectionInfo(store);
+  const { section: si2 } = addSectionInfo(store);
   store.getActions().thunks.addChild({ parentId: si1.id });
   waitFor(() => {
     store.getActions().sectionInfos.deleteSections({ sectionIds: [si1.id] });

@@ -1,5 +1,5 @@
 import { createAllInfo } from "classes/infoFactory";
-import { SectionInfo } from "classes/mutableInfo";
+import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
@@ -23,6 +23,7 @@ const master = {
       globalDefaults,
       projectDefaults,
       sections,
+      sectionConfigs,
       sectionChildren,
       ev,
       evCols,
@@ -42,7 +43,7 @@ const master = {
     });
     action.initEV(ev);
     action.initEVCols(evCols);
-    action.initSections({ sections, sectionChildren });
+    action.initSections({ sections, sectionConfigs, sectionChildren });
   }),
 
   setActiveSection: action((state, payload) => {
@@ -93,8 +94,7 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    const { sections, sectionChildren } = payload;
-
+    const { sections, sectionConfigs, sectionChildren } = payload;
     const projectSectionGroup =
       helpers.getStoreState().currProject.sectionGroup;
     const topLevelIds = sectionChildren[projectSectionGroup];
@@ -113,12 +113,20 @@ const master = {
       return y;
     });
 
+    const sectionConfigInfos = _.mapValues(
+      sectionConfigs,
+      (x) => new SectionConfig(x)
+    );
+
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
+    const setSectionConfig =
+      helpers.getStoreActions().sectionConfigs.setSectionConfig;
     const setIdsOverview =
       helpers.getStoreActions().sectionInfos.setIdsOverview;
 
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));
+    setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
 
     _.forEach(sectionChildren, (x, id) => {
       if (id !== projectSectionGroup) {

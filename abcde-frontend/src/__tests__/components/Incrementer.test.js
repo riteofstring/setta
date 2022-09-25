@@ -65,7 +65,7 @@ test("Incrementer: click delete N children", () => {
 function componentSetup({ forParent, numChildren }) {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const parent = addSectionInfo(store);
+  const { section: parent } = addSectionInfo(store);
   _.range(numChildren).forEach(() => {
     store.getActions().thunks.addChild({ parentId: parent.id });
   });

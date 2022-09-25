@@ -9,7 +9,7 @@ import {
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
 import { createOriginInfoId } from "./usePresetUIType";
-import { useSetSectionUITypeId } from "./useSectionInfo";
+import { useSetSectionUITypeId } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
 import { getFnSetUIType } from "./useUITypeCoreFunctions";
 import { getInfo } from "./utils";

@@ -5,7 +5,7 @@ import { addParamInfo, addSectionInfo, addUIType } from "__tests__utils/utils";
 // One for the created uiType
 // Another for the section (i.e. a sectionType)
 export function createSectionInfoWithParam(store, paramIsNested = false) {
-  const si = addSectionInfo(store);
+  const { section: si, sectionConfig: siConfig } = addSectionInfo(store);
 
   // create a UIType for a random parameter
   const uiType = addUIType(store);
@@ -20,7 +20,7 @@ export function createSectionInfoWithParam(store, paramIsNested = false) {
   // set the section's UIType's config's uiTypeCollectionId
   waitFor(() => {
     store.getActions().uiTypes.setOneConfig({
-      uiTypeId: si.uiTypeId,
+      uiTypeId: siConfig.uiTypeId,
       configName: "uiTypeCollectionId",
       newValueFn: () => uiTypeCollectionId,
     });

@@ -1,5 +1,5 @@
 import { waitFor } from "@testing-library/react";
-import { SectionInfo } from "classes/mutableInfo";
+import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
 import _ from "lodash";
@@ -17,11 +17,16 @@ export function addSectionInfo(store, inputUIType = null) {
   if (!uiType) {
     uiType = addUIType(store, { type: SECTION });
   }
-  const si = new SectionInfo({ uiTypeId: uiType.id });
+  const si = new SectionInfo({});
+  const siConfig = new SectionConfig({ id: si.configId, uiTypeId: uiType.id });
   store
     .getActions()
     .sectionInfos.setSectionInfo((x) => ({ ...x, [si.id]: si }));
-  return si;
+  store.getActions().sectionConfigs.setSectionConfig((x) => ({
+    ...x,
+    [siConfig.id]: siConfig,
+  }));
+  return { section: si, sectionConfig: siConfig };
 }
 
 export function addUIType(store, props = {}) {
@@ -30,9 +35,13 @@ export function addUIType(store, props = {}) {
   return uiType;
 }
 
-export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
+export function addParamInfo(
+  store,
+  sectionInfo,
+  uiType,
+  isNested = false
+) {
   const [uiTypeCollectionId, paramInfoId] = [createNewId(), createNewId()];
-  const { paramCollectionId } = sectionInfo;
   const setUITypeId = store.getActions().paramInfos.setUITypeId;
   waitFor(() => {
     setUITypeId({
@@ -45,7 +54,6 @@ export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
     store.getActions().thunks.addChild({
       parentId: sectionInfo.id,
       uiTypeId: uiType.id,
-      collectionId: paramCollectionId,
       parentParamInfoId: paramInfoId,
     });
   }
