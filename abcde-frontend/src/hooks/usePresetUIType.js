@@ -76,7 +76,6 @@ function filterUITypes(
     (v) => ({
       id: v.id,
       name: createName(v),
-      presetType: v.presetType,
     })
   );
 }

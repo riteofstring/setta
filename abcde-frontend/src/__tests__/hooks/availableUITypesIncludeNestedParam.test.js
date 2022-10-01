@@ -16,7 +16,7 @@ import {
 
 test.each([
   ["", SECTION, true],
-  ["torchvision transforms", LIST_ROOT, false],
+  ["my preset for testing", LIST_ROOT, false],
 ])(
   "Available uiTypes for nested parameters should be the same when viewed from the section's perspective.",
   (uiTypeName, uiTypeType, useBasePreset) => {
@@ -65,6 +65,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset) {
 
   // set the param to the base preset type, and add a child section
   const paramChildId = setParamToObjectTypeAndAddChildSection(
+    store,
     wrapper,
     propsForSetUIType,
     typeToForkOff
