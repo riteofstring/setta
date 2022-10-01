@@ -7,6 +7,7 @@ import {
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
+import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import {
   useGetParamUIType,
@@ -59,6 +60,12 @@ export function renderUseParamChildId(sectionId, paramInfoId, wrapper) {
 
 export function renderUseGetSectionType(sectionId, wrapper) {
   return renderHook(() => useGetSectionType(sectionId), {
+    wrapper,
+  });
+}
+
+export function renderUseGetSectionConfig(sectionId, wrapper) {
+  return renderHook(() => useGetSectionConfig(sectionId), {
     wrapper,
   });
 }

@@ -1,6 +1,9 @@
 import { HStack, Stack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGetSectionConfig } from "hooks/useSectionConfig";
+import {
+  useGetSectionConfig,
+  useSetSectionConfigAttr,
+} from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
@@ -27,17 +30,14 @@ function _SectionContainerCore({
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
-  const setSectionInfoAttr = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttr
+  const setSectionConfigAttr = useSetSectionConfigAttr(
+    sectionId,
+    "selectedItem"
   );
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
   const isActiveSection =
     useStoreState((x) => x.master.activeSection) === sectionId;
   const [isActive, setIsActive] = useState(false);
-
-  function onSelectedItemChange(value) {
-    setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
-  }
 
   // // temp_
   const tempBoolDesc = false;
@@ -90,7 +90,7 @@ function _SectionContainerCore({
               <SectionSearch
                 sectionId={sectionId}
                 initialSelection={selectedItem}
-                onSelectedItemChange={onSelectedItemChange}
+                onSelectedItemChange={setSectionConfigAttr}
               />
               {tempBoolDesc && <SectionDescription />}
               <GroupContainer

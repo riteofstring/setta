@@ -1,5 +1,5 @@
 import { action, computed, thunk } from "easy-peasy";
-import { getFnSetSectionUITypeId } from "hooks/useSectionConfig";
+import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
@@ -148,8 +148,9 @@ function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
   const setConfig = actions.uiTypes.setOneConfig;
   const setUIType = actions.uiTypes.setUIType;
   const setParamUITypeId = () => null; //TODO: determine best course of action here
-  const setSectionUITypeId = getFnSetSectionUITypeId(
+  const setSectionUITypeId = getFnSetSectionConfigAttr(
     childConfigId,
+    "uiTypeId",
     actions.sectionConfigs.setSectionConfigAttr
   );
   const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);

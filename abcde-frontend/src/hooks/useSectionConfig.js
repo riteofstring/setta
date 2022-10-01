@@ -3,9 +3,12 @@ import { defaultState } from "utils/utils";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { getInfo } from "./utils";
 
-export function getFnSetSectionUITypeId(configId, setSectionConfigAttr) {
-  return (uiTypeId) =>
-    setSectionConfigAttr({ configId, attr: "uiTypeId", value: uiTypeId });
+export function getFnSetSectionConfigAttr(
+  configId,
+  attr,
+  setSectionConfigAttr
+) {
+  return (value) => setSectionConfigAttr({ configId, attr, value });
 }
 
 export function useGetSectionConfig(sectionId) {
@@ -16,10 +19,10 @@ export function useGetSectionConfig(sectionId) {
   );
 }
 
-export function useSetSectionUITypeId(sectionId) {
+export function useSetSectionConfigAttr(sectionId, attr) {
   const configId = useGetSectionInfo(sectionId).configId;
   const setSectionConfigAttr = useStoreActions(
     (x) => x.sectionConfigs.setSectionConfigAttr
   );
-  return getFnSetSectionUITypeId(configId, setSectionConfigAttr);
+  return getFnSetSectionConfigAttr(configId, attr, setSectionConfigAttr);
 }
