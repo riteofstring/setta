@@ -1,7 +1,7 @@
 import { thunk } from "easy-peasy";
 import { insertIntoArrayOrXpend } from "utils/utils";
 
-function getNewChildFn(startId, newIds) {
+function getNewStateFn(startId, newIds) {
   return (x) => {
     let insertIdx = null;
     if (startId !== null) {
@@ -31,7 +31,7 @@ export const addChild = thunk((action, payload, helpers) => {
 
   helpers.getStoreActions().sectionInfos.setIdsOverview({
     sectionId: parentId,
-    newStateFn: getNewChildFn(startId, newIds),
+    newStateFn: getNewStateFn(startId, newIds),
   });
 
   if (parentParamInfoId) {

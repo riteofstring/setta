@@ -1,7 +1,6 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { Heading, HStack, IconButton, Input } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import { useDeleteChild } from "hooks/useAddDeleteChild";
 import { useState } from "react";
 
 export default function Incrementer({
@@ -9,11 +8,10 @@ export default function Incrementer({
   sectionId,
   nextId,
   isListRoot,
-  deleteChild,
   hasNested,
 }) {
   const addChild = useStoreActions((x) => x.thunks.addChild);
-  const deleteSibling = useDeleteChild(parentId);
+  const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
 
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
@@ -29,9 +27,13 @@ export default function Incrementer({
 
   const deleteChildren = (numSections) => {
     if (isListRoot) {
-      deleteChild({ numChildren: numSections });
+      deleteChild({ sectionId, numChildren: numSections });
     } else {
-      deleteSibling({ numChildren: numSections, startId: nextId });
+      deleteChild({
+        sectionId: parentId,
+        numChildren: numSections,
+        startId: nextId,
+      });
     }
   };
   const numSectionsOnChange = (value) => {
