@@ -1,23 +1,13 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Grid,
-  GridItem,
-  Heading,
-  HStack,
-  useDisclosure,
-} from "@chakra-ui/react";
+import { Grid, GridItem, SimpleGrid } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { getProjects } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
-import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
+import { UI } from "utils/pageNames";
 
 function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState({});
 
   useEffect(() => {
     async function fetchData() {
@@ -27,12 +17,8 @@ function HomePage() {
   }, []);
 
   return (
-    <GridWrapper
-      gridTemplateColumns="1fr"
-      display="grid"
-      backgroundColor="gray.100"
-    >
-      {/* <LeftColumn /> */}
+    <GridWrapper gridTemplateColumns="300px 1fr" display="grid">
+      <LeftColumn />
       <RightColumn projects={projects} />
     </GridWrapper>
   );
@@ -57,106 +43,49 @@ function LeftColumn() {
 function RightColumn({ projects }) {
   return (
     <GridItem overflowY="auto">
-      <Button
-        mt="2.5rem"
-        mx="2.5rem"
-        borderRadius="full"
-        leftIcon={<BiAddToQueue />}
-        colorScheme="blue"
-      >
-        Create New Project
-      </Button>
-
-      <Grid
-        gridTemplateColumns="repeat(auto-fit, 20rem)"
-        gap="2rem"
-        pt="1.75rem"
-        px="2.5rem"
+      <SimpleGrid
+        // columns={[1, null, null, 2, 3, "auto"]}
+        // minChildWidth="10rem"
+        spacing={10}
+        p="2.5rem"
         minChildWidth="20rem"
-        justifyItems="flex-start"
       >
-        {projects.map((x) => (
-          <ProjectItem key={`Project ${x.name}`} name={x.name} />
+        {Object.values(projects).map((x) => (
+          <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
         ))}
-      </Grid>
+      </SimpleGrid>
     </GridItem>
   );
 }
 
-function ProjectItem({ name }) {
+function ProjectItem({ name, id }) {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const setCurrProject = useStoreActions((x) => x.currProject.setId);
+
+  function onClick() {
+    setCurrPage(UI);
+    setCurrProject(id);
+  }
 
   return (
     <Grid
       templateRows="1fr 5rem"
       borderRadius="3xl"
       border="1px"
-      borderColor="gray.300"
+      borderColor="gray.100"
       minHeight="15rem"
-      width={{ base: "auto", sm: "20rem" }}
       overflow="hidden"
+      // boxShadow="sm"
       _hover={{
         transition: "box-shadow 200ms",
         boxShadow: "lg",
         borderColor: "white",
         cursor: "pointer",
       }}
-      // onClick={() => setCurrPage(UI)}
+      onClick={onClick}
     >
-      <GridItem
-        p="1rem"
-        bg="gray.300"
-        display="grid"
-        backgroundImage="https://via.placeholder.com/400"
-        backgroundPosition="center"
-      >
-        <Button
-          placeSelf="flex-start flex-end"
-          borderRadius="full"
-          leftIcon={<BiGitBranch />}
-          size="xs"
-          onClick={onOpen}
-        >
-          Configs
-        </Button>
-        <ConfigButton onClose={onClose} isOpen={isOpen} />
-      </GridItem>
-      <GridItem p="1rem" bg="white">
-        <Heading as="h3" fontSize="md">
-          {name}
-        </Heading>
-        <HStack gap="0.15rem" mt="0.25rem">
-          <Badge colorScheme="green">PyTorch 2.9</Badge>
-          <Badge colorScheme="red">NumPy</Badge>
-        </HStack>
-      </GridItem>
+      <GridItem p="1rem" bg="gray.50"></GridItem>
+      <GridItem p="1rem">{name}</GridItem>
     </Grid>
   );
-}
-
-function ConfigButton({ onClose, isOpen }) {
-  return (
-    <ModalContainer
-      onClose={onClose}
-      isOpen={isOpen}
-      size={"4xl"}
-      header={<Header />}
-      overrideFooter={true}
-      body={<Body />}
-      // footer={<Footer />}
-    />
-  );
-}
-
-function Header() {
-  return <Heading>Configs</Heading>;
-}
-
-function Body() {
-  return <Box />;
-}
-
-function Footer() {
-  return <Box />;
 }

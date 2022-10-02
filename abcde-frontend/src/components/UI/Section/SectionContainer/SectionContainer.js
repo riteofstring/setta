@@ -1,7 +1,7 @@
 import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
+import { useDeleteChild } from "hooks/useAddDeleteChild";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -23,7 +23,6 @@ function SectionContainer({
   const isDeck = useGetSectionType(sectionId).type === DECK;
   const idsOverview = useIdsOverview(sectionId)[0];
   const hasNested = idsOverview.length > 0;
-  const addChild = useAddChild(sectionId);
   const deleteChild = useDeleteChild(sectionId);
 
   return (
@@ -40,22 +39,20 @@ function SectionContainer({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          addChild={addChild}
           deleteChild={deleteChild}
           hasNested={hasNested}
         />
       )}
-
-      {hasNested && (
-        <Box flexDirection="column" display="flex">
+      <Box flexDirection="column" display="flex">
+        {hasNested && (
           <ManyNestedSections
             childIds={idsOverview}
             sectionId={sectionId}
             depth={depth}
             isDeck={isDeck}
           />
-        </Box>
-      )}
+        )}
+      </Box>
     </Container>
   );
 }
@@ -109,7 +106,8 @@ function Container(props) {
           pb="1.5rem"
           borderRadius="3xl"
           {...commonProps}
-          className="STACK"
+          // border="1px solid hsla(255, 22%, 100%, 0.3)"
+          // boxShadow="xs"
         >
           <DeckSectionTitle sectionId={sectionId} />
           {props.children}
