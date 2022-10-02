@@ -1,7 +1,7 @@
 import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
-import data from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/CodeInfo';
+import data from '../../../abcde-frontend/src/__tests__data/CodeInfo';
 
 // TODO
 // Add this to package.json when we switch to a monorepo

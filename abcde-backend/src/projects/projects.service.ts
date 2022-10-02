@@ -5,6 +5,13 @@ import { EntityManager } from '@mikro-orm/postgresql';
 import { SectionsRepository } from '../sections/sections.repository';
 import { SectionConfigColsRepository } from '../sections/sectionConfigCols.repository';
 import { Projects } from '../entities/projects/projects.entity';
+import { UITypes } from '../entities/uitypes/uiTypes.entity';
+// import { getSpecificUITypeTable } from '../utils/constants';
+import { SectionUITypes } from '../entities/uiTypes/sectionUITypes.entity';
+import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
+import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
+import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
+import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
 
 @Injectable()
 export class ProjectsService {
@@ -44,6 +51,33 @@ export class ProjectsService {
       }
     }
 
-    return { project, sectionChildren };
+    const { baseUITypes } = await this.loadBaseUITypes();
+
+    return { project, sectionChildren, baseUITypes };
+  }
+
+  async loadBaseUITypes(): Promise<any> {
+    const uiTypes = await this.em.find(UITypes, { presetType: 'base' });
+
+    const configs = [];
+    for (const table of [
+      SectionUITypes,
+      SliderUITypes,
+      SwitchUITypes,
+      TextUITypes,
+      RefUITypes,
+    ]) {
+      // @ts-ignore
+      const result = await this.em.find(table, { id: { $in: uiTypes } });
+      configs.push(...result);
+    }
+
+    const baseUITypes = {};
+    for (const x of configs) {
+      const { id, ...config } = x;
+      baseUITypes[id.id] = { ...id, config };
+    }
+
+    return { baseUITypes };
   }
 }
