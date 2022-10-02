@@ -1,13 +1,13 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
-import { useGetSectionConfig } from "./useSectionConfig";
 
+import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
-  const { selectedItem } = useGetSectionConfig(sectionId);
+  const { selectedItem } = useGetSectionInfo(sectionId);
   return useGetObjParamKwargInfos(sectionId, selectedItem, true);
 }
 
@@ -56,7 +56,7 @@ export function useGetCollections(sectionId, requiresSearch) {
 }
 
 function useGetKwargIds(sectionId, objInfo) {
-  const { kwargCollectionId } = useGetSectionConfig(sectionId);
+  const { kwargCollectionId } = useGetSectionInfo(sectionId);
   return defaultState(
     useStoreState(
       (x) => getInfo(x.objInfos)[kwargCollectionId]?.[objInfo.id]?.kwargIds

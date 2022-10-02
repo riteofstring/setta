@@ -39,6 +39,7 @@ module.exports = {
           components: "./src/components",
           data: "./src/data",
           dbRequests: "./src/dbRequests",
+          graphql: "./src/graphql",
           hooks: "./src/hooks",
           models: "./src/models",
           store: "./src/store",

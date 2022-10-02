@@ -20,6 +20,7 @@ function StandardGrid(props) {
     display = null,
     gridTemplateColumns = null,
     gridTemplateRows = null,
+    backgroundColor = "auto",
   } = props;
   return (
     <GridItem
@@ -33,6 +34,7 @@ function StandardGrid(props) {
       display={display}
       gridTemplateColumns={gridTemplateColumns}
       gridTemplateRows={gridTemplateRows}
+      backgroundColor={backgroundColor}
     >
       {props.children}
     </GridItem>

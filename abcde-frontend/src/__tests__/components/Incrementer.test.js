@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
-import { useDeleteChild } from "hooks/useAddDeleteChild";
+import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import {
   addSectionInfo,
@@ -65,12 +65,14 @@ test("Incrementer: click delete N children", () => {
 function componentSetup({ forParent, numChildren }) {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { section: parent } = addSectionInfo(store);
+  const parent = addSectionInfo(store);
+  let { result } = renderHook(() => useAddChild(parent.id), { wrapper });
   _.range(numChildren).forEach(() => {
-    store.getActions().thunks.addChild({ parentId: parent.id });
+    waitFor(() => result.current({}));
   });
   const state = store.getState().sectionInfos;
-  const childIds = state.idsOverview[parent.id];
+  const childrenInfoId = state.idsOverview[parent.id];
+  const childIds = state.childrenInfo[childrenInfoId];
 
   // increment for one of the children
   function SectionHeaderForChild() {
@@ -87,12 +89,14 @@ function componentSetup({ forParent, numChildren }) {
 
   // increment for one of the children
   function SectionHeaderForParent() {
+    const addChild = useAddChild(parent.id);
     const deleteChild = useDeleteChild(parent.id);
     return (
       <SectionHeader
         sectionId={parent.id}
         isList={false}
         isListRoot={true}
+        addChild={addChild}
         deleteChild={deleteChild}
         hasNested={true}
       />
@@ -128,22 +132,30 @@ function assertDeleteChildIsEnabled() {
 
 function assertNChildrenAdded(store, parent, numInitialChildren, N) {
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren + N);
   // 1 parent so only 1 entry in idsOverview
   expect(_.size(state.idsOverview)).toEqual(1);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren + N);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren + N
+  );
 }
 
 function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
   // 1 parent so only 1 entry in idsOverview
   expect(_.size(state.idsOverview)).toEqual(1);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren - N);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren - N
+  );
 }
 
 async function clickIncrementerNTimes({
@@ -234,10 +246,11 @@ async function clickDeleteSelf(store, parent, childId, forParent) {
   await userEvent.click(deleteSelf);
 
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   const xSize = forParent ? 0 : 1;
   expect(_.size(state.x)).toEqual(xSize);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(0);
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
 
   if (forParent) {

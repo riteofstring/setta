@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
+import { useAddChild } from "hooks/useAddDeleteChild";
 import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import {
   useInitializeEnteredValue,
@@ -7,7 +8,6 @@ import {
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useParamChildId } from "hooks/useParamInfo";
 import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
-import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import {
   useGetParamUIType,
@@ -24,6 +24,12 @@ export function renderUseAvailablePresetUITypes(hookProps, wrapper) {
 
 export function renderUseInitializeUIType(sectionId, paramInfo, wrapper) {
   return renderHook(() => useInitializeUIType(sectionId)(paramInfo), {
+    wrapper,
+  });
+}
+
+export function renderUseAddChild(sectionId, wrapper) {
+  return renderHook(() => useAddChild(sectionId), {
     wrapper,
   });
 }
@@ -60,12 +66,6 @@ export function renderUseParamChildId(sectionId, paramInfoId, wrapper) {
 
 export function renderUseGetSectionType(sectionId, wrapper) {
   return renderHook(() => useGetSectionType(sectionId), {
-    wrapper,
-  });
-}
-
-export function renderUseGetSectionConfig(sectionId, wrapper) {
-  return renderHook(() => useGetSectionConfig(sectionId), {
     wrapper,
   });
 }

@@ -1,5 +1,7 @@
 import { action } from "easy-peasy";
 
+import { exportState } from "./utils";
+
 const uiTypes = {
   x: {},
 
@@ -36,6 +38,10 @@ const uiTypes = {
     const { uiTypeId } = payload;
     delete state.x[uiTypeId];
   }),
+
+  export() {
+    return exportState(this);
+  },
 };
 
 export default uiTypes;
