@@ -1,8 +1,8 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { curryAction } from "utils/utils";
+import { useGetSectionConfig } from "./useSectionConfig";
 
-import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
 function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
@@ -20,7 +20,7 @@ function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
 }
 
 function useParamWithParamCollectionId(sectionId, stateName, setStateFn, key) {
-  const { paramCollectionId } = useGetSectionInfo(sectionId);
+  const { paramCollectionId } = useGetSectionConfig(sectionId);
   return useParamInfoState(paramCollectionId, stateName, setStateFn, key, "x");
 }
 
@@ -61,7 +61,7 @@ export function useGetManyParamsWithParamCollectionId(
   paramInfos,
   key
 ) {
-  const { paramCollectionId } = useGetSectionInfo(sectionId);
+  const { paramCollectionId } = useGetSectionConfig(sectionId);
   return useStoreState(
     (x) =>
       paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]?.[key]),

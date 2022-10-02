@@ -14,10 +14,11 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
+import { UI } from "utils/pageNames";
 
 function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState({});
 
   useEffect(() => {
     async function fetchData() {
@@ -75,16 +76,22 @@ function RightColumn({ projects }) {
         minChildWidth="20rem"
         justifyItems="flex-start"
       >
-        {projects.map((x) => (
-          <ProjectItem key={`Project ${x.name}`} name={x.name} />
+        {Object.values(projects).map((x) => (
+          <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
         ))}
       </Grid>
     </GridItem>
   );
 }
 
-function ProjectItem({ name }) {
+function ProjectItem({ name, id }) {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  const setCurrProject = useStoreActions((x) => x.currProject.setId);
+
+  function onClick() {
+    setCurrPage(UI);
+    setCurrProject(id);
+  }
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   return (
@@ -102,7 +109,7 @@ function ProjectItem({ name }) {
         borderColor: "white",
         cursor: "pointer",
       }}
-      // onClick={() => setCurrPage(UI)}
+      onClick={onClick}
     >
       <GridItem
         p="1rem"

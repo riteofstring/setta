@@ -9,7 +9,7 @@ import {
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
 import { createOriginInfoId } from "./usePresetUIType";
-import { useSetSectionUITypeId } from "./useSectionInfo";
+import { useSetSectionConfigAttr } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
 import { getFnSetUIType } from "./useUITypeCoreFunctions";
 import { getInfo } from "./utils";
@@ -36,7 +36,7 @@ export function useSetUIType({
 }) {
   const { config: sectionTypeConfig } = useGetSectionType(sectionId);
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  const setSectionUITypeId = useSetSectionUITypeId(childId);
+  const setSectionUITypeId = useSetSectionConfigAttr(childId, "uiTypeId");
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const possibleMatchWrapperFn = (fn) =>
@@ -107,7 +107,12 @@ function cloneRootUIType(parentUIType, parentId) {
   return uiType;
 }
 
-function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
+export function getChildUITypeId(
+  parentUIType,
+  parentId,
+  setUIType,
+  setOneConfig
+) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {

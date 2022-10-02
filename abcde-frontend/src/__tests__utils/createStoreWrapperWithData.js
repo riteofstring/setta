@@ -6,9 +6,9 @@ import {
   SECTION_TYPE_NAMES,
 } from "utils/constants";
 import { isBasePreset } from "utils/uiTypeConstants";
+import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "./loadTestData";
 import {
-  renderUseAddChild,
   renderUseAvailablePresetUITypes,
   renderUseGetParamUIType,
   renderUseGetSectionType,
@@ -22,7 +22,10 @@ import { createStore, getStoreProviderWrapper } from "./utils";
 
 export function createStoreWrapperWithData() {
   const store = createStore();
-  store.getActions().master.loadSections(loadTestData());
+  const testData = loadTestData();
+  const rootSection = getRootSectionId(testData.sectionChildren);
+  store.getActions().currProject.setSectionGroup(rootSection);
+  store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }
 
@@ -59,7 +62,9 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   // get section
   const sectionInfo = getSectionByName(store, sectionName);
 
-  const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
+  const { id: sectionId, configId } = sectionInfo;
+  const { uiTypeId: sectionTypeId } =
+    store.getState().sectionConfigs.x[configId];
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
@@ -132,18 +137,17 @@ export function addChildSectionAndGetChildId(
   paramInfoId,
   defaultName,
   uiTypeId,
+  store,
   wrapper
 ) {
   let result = null;
   // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
-  ({ result } = renderUseAddChild(sectionId, wrapper));
-  waitFor(() =>
-    result.current({
-      name: defaultName,
-      uiTypeId,
-      parentParamInfoId: paramInfoId,
-    })
-  );
+  store.getActions().thunks.addChild({
+    parentId: sectionId,
+    name: defaultName,
+    uiTypeId,
+    parentParamInfoId: paramInfoId,
+  });
 
   // Get the section id of the new nested section
   ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
@@ -153,6 +157,7 @@ export function addChildSectionAndGetChildId(
 }
 
 export function setParamToObjectTypeAndAddChildSection(
+  store,
   wrapper,
   setUITypeProps,
   objectUIType
@@ -177,6 +182,7 @@ export function setParamToObjectTypeAndAddChildSection(
     paramInfoId,
     defaultName,
     objectUIType.id,
+    store,
     wrapper
   );
 }
