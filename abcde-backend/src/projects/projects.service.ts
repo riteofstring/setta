@@ -36,6 +36,14 @@ export class ProjectsService {
       ...project
     } = fullObj;
 
-    return { project, sectionConfigCols };
+    const sectionChildren = {};
+    for (const col of sectionConfigCols) {
+      const children = col.section.children;
+      if (children.length > 0) {
+        sectionChildren[col.section.id] = children.getItems().map((x) => x.id);
+      }
+    }
+
+    return { project, sectionChildren };
   }
 }
