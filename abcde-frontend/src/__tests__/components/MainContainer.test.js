@@ -5,20 +5,8 @@ import { PANEID } from "utils/constants";
 import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import { sectionIdFromName } from "__tests__utils/utils";
 
-class ResizeObserver {
-  observe() {
-    // do nothing
-  }
-  unobserve() {
-    // do nothing
-  }
-  disconnect() {
-    // do nothing
-  }
-}
-
 // required to avoid "ReferenceError: ResizeObserver is not defined"
-global.ResizeObserver = ResizeObserver;
+global.ResizeObserver = require("resize-observer-polyfill");
 
 test("Tabbing away from Overview should focus onto a section when UI config is closed", async () => {
   createMainContainer();

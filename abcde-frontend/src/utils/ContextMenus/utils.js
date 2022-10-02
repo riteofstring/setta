@@ -16,12 +16,11 @@ export function useOnClickAddSection({
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
     const initialPosition = getPosition(x, y);
     const sectionProps = { isTopLevel: true, initialPosition };
-    const configProps = {};
     if (isDeck) {
       sectionProps.name = "Deck";
-      configProps.uiTypeId = DECK_UI_TYPE_ID;
+      sectionProps.uiTypeId = DECK_UI_TYPE_ID;
     }
-    const [newId] = addSection(sectionProps, configProps);
+    const [newId] = addSection(sectionProps);
     if (afterAddSection) {
       afterAddSection(newId);
     }

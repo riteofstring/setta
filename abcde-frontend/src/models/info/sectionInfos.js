@@ -1,19 +1,23 @@
 import { action, computed, thunk } from "easy-peasy";
-import { getFnSetSectionUITypeId } from "hooks/useSectionConfig";
+import { getFnSetSectionUITypeId } from "hooks/useSectionInfo";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
+import { createNewId } from "utils/utils";
 
-function setDefaultIdsOverview(state, sectionId) {
-  if (!(sectionId in state.idsOverview)) {
-    state.idsOverview[sectionId] = [];
+import { exportState } from "./utils";
+
+function setDefaultChildrenInfo(state, childrenInfoId) {
+  if (!(childrenInfoId in state.childrenInfo)) {
+    state.childrenInfo[childrenInfoId] = [];
   }
-  return state.idsOverview[sectionId];
+  return state.childrenInfo[childrenInfoId];
 }
 
 const sectionInfos = {
   x: {},
   idsOverview: {},
+  childrenInfo: {},
   currChildren: {},
 
   setSectionInfo: action((state, payload) => {
@@ -40,9 +44,14 @@ const sectionInfos = {
   }),
 
   setIdsOverview: action((state, payload) => {
-    const { sectionId, newStateFn } = payload;
-    const currState = setDefaultIdsOverview(state, sectionId);
-    state.idsOverview[sectionId] = newStateFn(currState);
+    const { sectionId, childrenInfoId } = payload;
+    state.idsOverview[sectionId] = childrenInfoId;
+  }),
+
+  setChildrenInfo: action((state, payload) => {
+    const { childrenInfoId, newStateFn } = payload;
+    const currState = setDefaultChildrenInfo(state, childrenInfoId);
+    state.childrenInfo[childrenInfoId] = newStateFn(currState);
   }),
 
   setCurrChildren: action((state, payload) => {
@@ -68,12 +77,22 @@ const sectionInfos = {
     );
   }),
 
+  setIdsOverviewThunk: thunk((actions, payload, helpers) => {
+    const { sectionId, newStateFn } = payload;
+    let childrenInfoId = helpers.getState().idsOverview[sectionId];
+    if (!childrenInfoId) {
+      childrenInfoId = createNewId();
+      actions.setIdsOverview({ sectionId, childrenInfoId });
+    }
+    actions.setChildrenInfo({ childrenInfoId, newStateFn });
+  }),
+
   moveChildThunk: thunk((actions, payload, helpers) => {
     const { oldParentId, newParentId, childId, newIndex } = payload;
 
     // Remove child from old parent's list
     if (oldParentId) {
-      actions.setIdsOverview({
+      actions.setIdsOverviewThunk({
         sectionId: oldParentId,
         newStateFn: (x) => x.filter((y) => y !== childId),
       });
@@ -94,7 +113,7 @@ const sectionInfos = {
       });
     } else {
       // Add child to new parent's list
-      actions.setIdsOverview({
+      actions.setIdsOverviewThunk({
         sectionId: newParentId,
         newStateFn: (x) => [
           ...x.slice(0, newIndex),
@@ -118,12 +137,21 @@ const sectionInfos = {
       actions: helpers.getStoreActions(),
     });
   }),
+
+  export() {
+    return {
+      sectionInfos: exportState(this),
+      idsOverview: this.idsOverview,
+      childrenInfo: this.childrenInfo,
+    };
+  },
 };
 
 export default sectionInfos;
 
 function deleteSectionFn(state, sectionId) {
-  const childIds = state.idsOverview[sectionId];
+  const childrenInfoId = state.idsOverview[sectionId];
+  const childIds = state.childrenInfo[childrenInfoId];
   if (childIds) {
     for (let child of childIds) {
       deleteSectionFn(state, child);
@@ -131,26 +159,25 @@ function deleteSectionFn(state, sectionId) {
   }
   delete state.x[sectionId];
   delete state.idsOverview[sectionId];
+  delete state.childrenInfo[childrenInfoId];
   delete state.currChildren[sectionId];
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
-  const newParentConfigId = state.sectionInfos.x[newParentId]?.configId;
-  const newParentUITypeId = state.sectionConfigs.x[newParentConfigId]?.uiTypeId;
+  const newParentUITypeId = state.sectionInfos.x[newParentId]?.uiTypeId;
   const newParentUIType = state.uiTypes.x[newParentUITypeId];
   const {
+    uiTypeId: childUITypeId,
     name: childSectionName,
     paramInfoId,
-    configId: childConfigId,
   } = state.sectionInfos.x[childId];
-  const childUITypeId = state.sectionConfigs.x[childConfigId].uiTypeId;
   const childUIType = state.uiTypes.x[childUITypeId];
   const setConfig = actions.uiTypes.setOneConfig;
   const setUIType = actions.uiTypes.setUIType;
   const setParamUITypeId = () => null; //TODO: determine best course of action here
   const setSectionUITypeId = getFnSetSectionUITypeId(
-    childConfigId,
-    actions.sectionConfigs.setSectionConfigAttr
+    childId,
+    actions.sectionInfos.setSectionInfoAttr
   );
   const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
 

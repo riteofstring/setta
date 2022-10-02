@@ -1,44 +1,52 @@
-import { SectionConfig, SectionInfo } from "classes/mutableInfo";
+import { SectionInfo } from "classes/mutableInfo";
 import { useStoreActions } from "easy-peasy";
+import _ from "lodash";
 import { DEFAULT_SECTION_UI_TYPE_ID } from "utils/constants";
 
-export function createManySectionInfo({
-  sectionInfoProps,
-  sectionConfigProps,
-  numChildren,
-}) {
+import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionType } from "./useSectionType";
+import { useGetChildUITypeId } from "./useUIType";
+
+function createManySectionInfo({ sectionInfoProps, numChildren }) {
   const newInfos = {};
-  const newConfigs = {};
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = new SectionInfo(sectionInfoProps);
-    const { id, configId } = sectionInfo;
-    newInfos[id] = sectionInfo;
-    newConfigs[configId] = new SectionConfig({
-      id: configId,
-      ...sectionConfigProps,
-    });
+    newInfos[sectionInfo.id] = sectionInfo;
   }
-  return { newInfos, newConfigs };
+  return newInfos;
+}
+
+export function useCreateChildSectionInfo(sectionId) {
+  const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
+  const getChildUITypeId = useGetChildUITypeId();
+  const parentUIType = useGetSectionType(sectionId);
+  const parentSectionInfo = useGetSectionInfo(sectionId);
+
+  return ({ numChildren, ...sectionInfoProps }) => {
+    const uiTypeId = getChildUITypeId(
+      sectionInfoProps.uiTypeId,
+      parentUIType,
+      parentSectionInfo.id
+    );
+    const newInfos = createManySectionInfo({
+      sectionInfoProps: { ...sectionInfoProps, parentSectionInfo, uiTypeId },
+      numChildren,
+    });
+    setSectionInfo((x) => ({ ...x, ...newInfos }));
+    return _.keys(newInfos);
+  };
 }
 
 export function useCreateDefaultSectionInfo() {
   const setSectionInfo = useStoreActions((x) => x.sectionInfos.setSectionInfo);
-  const setSectionConfig = useStoreActions(
-    (x) => x.sectionConfigs.setSectionConfig
-  );
-  return (sectionInfoProps, sectionConfigProps) => {
+  return (sectionInfoProps) => {
     const sectionInfo = new SectionInfo({
       name: "New Section",
+      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
       ...sectionInfoProps,
     });
-    const sectionConfig = new SectionConfig({
-      id: sectionInfo.configId,
-      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
-      ...sectionConfigProps,
-    });
-    const { id, configId } = sectionInfo;
+    const id = sectionInfo.id;
     setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));
-    setSectionConfig((x) => ({ ...x, [configId]: sectionConfig }));
     return [id];
   };
 }

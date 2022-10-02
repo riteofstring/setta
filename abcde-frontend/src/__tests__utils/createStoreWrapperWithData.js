@@ -8,6 +8,7 @@ import {
 import { isBasePreset } from "utils/uiTypeConstants";
 import { loadTestData } from "./loadTestData";
 import {
+  renderUseAddChild,
   renderUseAvailablePresetUITypes,
   renderUseGetParamUIType,
   renderUseGetSectionType,
@@ -21,9 +22,6 @@ import { createStore, getStoreProviderWrapper } from "./utils";
 
 export function createStoreWrapperWithData() {
   const store = createStore();
-  store
-    .getActions()
-    .currProject.setSectionGroup("5184caec-eef4-4798-9613-a11aafa8c2ff");
   store.getActions().master.loadSections(loadTestData());
   return { store, wrapper: getStoreProviderWrapper(store) };
 }
@@ -61,9 +59,7 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   // get section
   const sectionInfo = getSectionByName(store, sectionName);
 
-  const { id: sectionId, configId } = sectionInfo;
-  const { uiTypeId: sectionTypeId } =
-    store.getState().sectionConfigs.x[configId];
+  const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
@@ -136,17 +132,18 @@ export function addChildSectionAndGetChildId(
   paramInfoId,
   defaultName,
   uiTypeId,
-  store,
   wrapper
 ) {
   let result = null;
   // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
-  store.getActions().thunks.addChild({
-    parentId: sectionId,
-    name: defaultName,
-    uiTypeId,
-    parentParamInfoId: paramInfoId,
-  });
+  ({ result } = renderUseAddChild(sectionId, wrapper));
+  waitFor(() =>
+    result.current({
+      name: defaultName,
+      uiTypeId,
+      parentParamInfoId: paramInfoId,
+    })
+  );
 
   // Get the section id of the new nested section
   ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
@@ -156,7 +153,6 @@ export function addChildSectionAndGetChildId(
 }
 
 export function setParamToObjectTypeAndAddChildSection(
-  store,
   wrapper,
   setUITypeProps,
   objectUIType
@@ -181,7 +177,6 @@ export function setParamToObjectTypeAndAddChildSection(
     paramInfoId,
     defaultName,
     objectUIType.id,
-    store,
     wrapper
   );
 }

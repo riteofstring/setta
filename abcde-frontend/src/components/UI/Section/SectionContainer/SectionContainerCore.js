@@ -1,6 +1,6 @@
 import { HStack, Stack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
@@ -20,10 +20,11 @@ function _SectionContainerCore({
   sectionId,
   parentId,
   nextId,
+  addChild,
   deleteChild,
   hasNested,
 }) {
-  const { selectedItem } = useGetSectionConfig(sectionId);
+  const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
@@ -61,14 +62,15 @@ function _SectionContainerCore({
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
+      // mt="0.5rem"
     >
       <HStack
         direction="column"
         bg="gray.50"
         borderRadius="xl"
-        px="0.5rem "
+        px="0.5rem"
         boxShadow="md"
-        zIndex={isActiveSection ? "1000" : "10"}
+        zIndex={isActiveSection ? "150" : "10"}
         w="100%"
         border="1px"
         borderColor="white"
@@ -81,6 +83,7 @@ function _SectionContainerCore({
             nextId={nextId}
             isList={isList}
             isListRoot={isListRoot}
+            addChild={addChild}
             deleteChild={deleteChild}
             hasNested={hasNested}
             requiresKeyInput={requiresKeyInput(config.subType)}
@@ -102,19 +105,18 @@ function _SectionContainerCore({
           )}
         </Stack>
       </HStack>
-      <VStack bg="white" borderRadius="xl" alignItems="stretch">
-        <GroupContainer
-          sectionId={sectionId}
-          objInfoId={selectedItem}
-          isKwarg={true}
-        />
-      </VStack>
+
+      <GroupContainer
+        sectionId={sectionId}
+        objInfoId={selectedItem}
+        isKwarg={true}
+      />
     </VStack>
   );
 }
 
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["deleteChild", "nextId", "hasNested"];
+  const attrs = ["addChild", "deleteChild", "nextId", "hasNested"];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
       return false;

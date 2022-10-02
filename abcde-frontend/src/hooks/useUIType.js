@@ -9,7 +9,7 @@ import {
 } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
 import { createOriginInfoId } from "./usePresetUIType";
-import { useSetSectionUITypeId } from "./useSectionConfig";
+import { useSetSectionUITypeId } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 import { getFnSetUIType } from "./useUITypeCoreFunctions";
 import { getInfo } from "./utils";
@@ -107,12 +107,7 @@ function cloneRootUIType(parentUIType, parentId) {
   return uiType;
 }
 
-export function getChildUITypeId(
-  parentUIType,
-  parentId,
-  setUIType,
-  setOneConfig
-) {
+function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {

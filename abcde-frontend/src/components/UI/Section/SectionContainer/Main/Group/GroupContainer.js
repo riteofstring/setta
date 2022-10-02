@@ -1,4 +1,4 @@
-import { Stack } from "@chakra-ui/react";
+import { Stack, VStack } from "@chakra-ui/react";
 import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
 import React from "react";
 
@@ -14,21 +14,23 @@ function _GroupContainer({ sectionId, objInfoId, isKwarg }) {
   const kwargsCondition = paramInfos.length > 0;
 
   return (
-    <Stack
-      py={kwargInfos.length > 0 && isKwarg && "1rem"}
-      w="auto"
-      mx={kwargInfos.length > 0 && isKwarg && ".75rem"}
-    >
-      <GetParamSwitch
-        sectionId={sectionId}
-        infos={isKwarg ? kwargInfos : paramInfos}
-        objInfoId={objInfoId}
-        isKwarg={isKwarg}
-      />
-      {!isKwarg && kwargsCondition && (
-        <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
-      )}
-    </Stack>
+    <VStack alignItems="stretch">
+      <Stack
+        py={kwargInfos.length > 0 && isKwarg && "1rem"}
+        w="auto"
+        mx={kwargInfos.length > 0 && isKwarg && ".75rem"}
+      >
+        <GetParamSwitch
+          sectionId={sectionId}
+          infos={isKwarg ? kwargInfos : paramInfos}
+          objInfoId={objInfoId}
+          isKwarg={isKwarg}
+        />
+        {!isKwarg && kwargsCondition && (
+          <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
+        )}
+      </Stack>
+    </VStack>
   );
 }
 

@@ -19,7 +19,10 @@ import {
 test("Create a section with a parameter that has a UI type. Then useGetParamUIType should return the correct uiType for that parameter.", () => {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { si, uiType, paramInfoId } = createSectionInfoWithParam(store);
+  const { si, uiType, paramInfoId } = createSectionInfoWithParam(
+    store,
+    wrapper
+  );
 
   const { result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper);
   expect(result.current).toEqual(uiType);
@@ -83,6 +86,7 @@ function testUseSetUIType(
   const wrapper = getStoreProviderWrapper(store);
   const { si, uiType, paramInfoId } = createSectionInfoWithParam(
     store,
+    wrapper,
     paramIsNested
   );
 
