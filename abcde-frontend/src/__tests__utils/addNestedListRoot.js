@@ -7,6 +7,7 @@ import {
   initializeEnteredValueId,
 } from "./createStoreWrapperWithData";
 import {
+  renderUseAddChild,
   renderUseIdsOverview,
   renderUseParamEnteredValue,
 } from "./renderHooks";
@@ -61,9 +62,8 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
   expect(result.current[0]).toEqual([]);
 
   // add numTransforms children to the list root
-  store
-    .getActions()
-    .thunks.addChild({ parentId: listRootId, numChildren: numTransforms });
+  ({ result } = renderUseAddChild(listRootId, wrapper));
+  result.current({ numChildren: numTransforms });
 
   // list root should now have numTransforms children
   ({ result } = renderUseIdsOverview(listRootId, wrapper));

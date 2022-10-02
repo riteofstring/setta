@@ -1,9 +1,14 @@
+import { waitFor } from "@testing-library/react";
 import { LIST, LIST_ROOT } from "utils/constants";
 import {
   getUITypeByName,
   setParamToObjectTypeAndAddChildSection,
 } from "./createStoreWrapperWithData";
-import { renderUseGetSectionType, renderUseIdsOverview } from "./renderHooks";
+import {
+  renderUseAddChild,
+  renderUseGetSectionType,
+  renderUseIdsOverview,
+} from "./renderHooks";
 
 export function createListRootAndChild(
   store,
@@ -18,7 +23,7 @@ export function createListRootAndChild(
   // Get a base preset to fork off of
   const listRootType = getUITypeByName(
     store,
-    "my preset for testing",
+    "torchvision transforms",
     LIST_ROOT,
     false
   );
@@ -38,7 +43,6 @@ export function createListRootAndChild(
 
   // set the param to the base preset type, and add a child section
   const listRootSectionId = setParamToObjectTypeAndAddChildSection(
-    store,
     wrapper,
     _propsForSetUIType,
     listRootType
@@ -52,9 +56,8 @@ export function createListRootAndChild(
   expect(result.current).toEqual(listRootType);
 
   // Add child to the root (simulates clicking on incrementer)
-  store
-    .getActions()
-    .thunks.addChild({ parentId: listRootSectionId, numChildren: 1 });
+  ({ result } = renderUseAddChild(listRootSectionId, wrapper));
+  waitFor(() => result.current({ numChildren: 1 }));
 
   // get list root's child
   ({ result } = renderUseIdsOverview(listRootSectionId, wrapper));

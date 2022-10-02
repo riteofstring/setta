@@ -1,6 +1,6 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { Heading, HStack, IconButton, Input } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
+import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import { useState } from "react";
 
 export default function Incrementer({
@@ -8,10 +8,12 @@ export default function Incrementer({
   sectionId,
   nextId,
   isListRoot,
+  addChild,
+  deleteChild,
   hasNested,
 }) {
-  const addChild = useStoreActions((x) => x.thunks.addChild);
-  const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
+  const addSibling = useAddChild(parentId);
+  const deleteSibling = useDeleteChild(parentId);
 
   const decrementButtonCondition = () => {
     return (isListRoot && hasNested) || (!isListRoot && nextId);
@@ -19,21 +21,17 @@ export default function Incrementer({
 
   const addSections = (numSections) => {
     if (isListRoot) {
-      addChild({ parentId: sectionId, numChildren: numSections });
+      addChild({ numChildren: numSections });
     } else {
-      addChild({ parentId, numChildren: numSections, startId: sectionId });
+      addSibling({ numChildren: numSections, startId: sectionId });
     }
   };
 
   const deleteChildren = (numSections) => {
     if (isListRoot) {
-      deleteChild({ sectionId, numChildren: numSections });
+      deleteChild({ numChildren: numSections });
     } else {
-      deleteChild({
-        sectionId: parentId,
-        numChildren: numSections,
-        startId: nextId,
-      });
+      deleteSibling({ numChildren: numSections, startId: nextId });
     }
   };
   const numSectionsOnChange = (value) => {

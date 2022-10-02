@@ -1,20 +1,23 @@
-export default {
-  "45121316-4a0b-44be-aa6a-7b7c12b56f0f": {
+export default [
+  {
     id: "45121316-4a0b-44be-aa6a-7b7c12b56f0f",
-    name: "Apple Orchard Farm",
+    name: "Some draft project of mine",
     owner: "25961114-6655-4e2c-b70f-e2e3aaa84131",
-    configs: [{ id: "49b33992-4015-49dd-be29-d080e836709c", curr: true }],
+    sectionGroup: "3c9c7a85-7220-4dd0-8ad1-1a293121f1ca",
+    sectionConfigCol: "707ec6aa-2648-4670-8ace-4b79e95291af",
   },
-  "61e089c8-62bf-4e8c-915e-111b4587da81": {
+  {
     id: "61e089c8-62bf-4e8c-915e-111b4587da81",
     name: "SimpleTrainTest",
     owner: "25961114-6655-4e2c-b70f-e2e3aaa84131",
-    configs: [{ id: "439f5590-fa98-4564-8f63-ec75b6dc89b2", curr: true }],
+    sectionGroup: "5184caec-eef4-4798-9613-a11aafa8c2ff",
+    sectionConfigCol: "c9f2e5b5-9108-4801-82f5-329c32269e93",
   },
-  "d7d82407-46bf-4a08-b36e-4a34350c51d5": {
+  {
     id: "d7d82407-46bf-4a08-b36e-4a34350c51d5",
-    name: "Diffusion drops",
+    name: "Stable diffusion",
     owner: "25961114-6655-4e2c-b70f-e2e3aaa84131",
-    configs: [{ id: "f8153d07-ae08-44a8-88a9-a107a7333218", curr: true }],
+    sectionGroup: "309bb421-dfb0-43bc-acbe-6d0450e522ed",
+    sectionConfigCol: "364442c2-51fe-4377-8f49-67efab29ceee",
   },
-};
+];

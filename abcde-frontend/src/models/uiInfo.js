@@ -6,6 +6,8 @@ import {
 import { action, thunk } from "easy-peasy";
 import { allDefined } from "utils/utils";
 
+import { exportAllStates } from "./info/utils";
+
 const uiInfo = {
   currUIName: null,
   currUIFolder: null,
@@ -51,7 +53,7 @@ const uiInfo = {
   saveUI: thunk((action, payload, helpers) => {
     const { access_token, name, folder } = payload;
     const globalState = helpers.getStoreState();
-    // const ui = exportAllStates(globalState);
+    const ui = exportAllStates(globalState);
     return saveUIBackend({
       access_token,
       name,
