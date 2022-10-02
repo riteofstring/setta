@@ -6,6 +6,7 @@ import {
   SECTION_TYPE_NAMES,
 } from "utils/constants";
 import { isBasePreset } from "utils/uiTypeConstants";
+import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAvailablePresetUITypes,
@@ -21,10 +22,10 @@ import { createStore, getStoreProviderWrapper } from "./utils";
 
 export function createStoreWrapperWithData() {
   const store = createStore();
-  store
-    .getActions()
-    .currProject.setSectionGroup("5184caec-eef4-4798-9613-a11aafa8c2ff");
-  store.getActions().master.loadSections(loadTestData());
+  const testData = loadTestData();
+  const rootSection = getRootSectionId(testData.sectionChildren);
+  store.getActions().currProject.setSectionGroup(rootSection);
+  store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }
 

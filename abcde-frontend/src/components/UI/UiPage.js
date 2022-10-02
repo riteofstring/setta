@@ -3,6 +3,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useProjectLoader } from "hooks/useProjectLoader";
 import React, { useEffect } from "react";
 import { NO_AUTH } from "utils/constants";
+import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "__tests__utils/loadTestData";
 import SectionsPane from "./Section/SectionsPane";
 
@@ -15,8 +16,10 @@ const UiPage = () => {
   const noAuthLoader = useNoAuthLoading();
 
   useEffect(() => {
-    if (NO_AUTH && isAuthenticated && isNewSession) {
-      noAuthLoader(projectLoader);
+    if (NO_AUTH) {
+      if (isAuthenticated && isNewSession) {
+        noAuthLoader(projectLoader);
+      }
     } else {
       const projectInfo = fetchData(access_token, currProject);
       console.log("projectInfo", projectInfo);
@@ -37,12 +40,10 @@ function useNoAuthLoading() {
   const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
 
   return async (projectLoader) => {
-    const projectInfo = await fetchData(
-      null,
-      "61e089c8-62bf-4e8c-915e-111b4587da81"
-    );
-    setSectionGroup(projectInfo.sectionGroup);
-    projectLoader(loadTestData());
+    const testData = loadTestData();
+    const rootSection = getRootSectionId(testData.sectionChildren);
+    setSectionGroup(rootSection);
+    projectLoader(testData);
     // set isNewSession to false so that loadTestData won't be called again later
     stayLoggedIn();
   };

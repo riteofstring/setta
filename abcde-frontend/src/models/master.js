@@ -24,6 +24,7 @@ const master = {
       projectDefaults,
       sections,
       sectionConfigs,
+      sectionConfigCol,
       sectionChildren,
       ev,
       evCols,
@@ -43,7 +44,12 @@ const master = {
     });
     action.initEV(ev);
     action.initEVCols(evCols);
-    action.initSections({ sections, sectionConfigs, sectionChildren });
+    action.initSections({
+      sections,
+      sectionConfigs,
+      sectionConfigCol,
+      sectionChildren,
+    });
   }),
 
   setActiveSection: action((state, payload) => {
@@ -94,7 +100,8 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    let { sections, sectionConfigs, sectionChildren } = payload;
+    let { sections, sectionConfigs, sectionConfigCol, sectionChildren } =
+      payload;
     let topLevelIds = null;
     ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
       omitProjectSectionAndGetTopLevelIds(
@@ -112,6 +119,7 @@ const master = {
           y: 300 * (idx % 3),
         },
         ...x,
+        configId: sectionConfigCol[x.id].configId,
         isTopLevel: topLevelIds.includes(x.id),
       });
       idx += 1;
