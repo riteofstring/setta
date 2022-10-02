@@ -1,8 +1,16 @@
-import { Grid, GridItem, SimpleGrid } from "@chakra-ui/react";
+import {
+  Badge,
+  Button,
+  Grid,
+  GridItem,
+  Heading,
+  HStack,
+} from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { getProjects } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
+import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import { UI } from "utils/pageNames";
 
 function HomePage() {
@@ -17,8 +25,12 @@ function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridTemplateColumns="300px 1fr" display="grid">
-      <LeftColumn />
+    <GridWrapper
+      gridTemplateColumns="1fr"
+      display="grid"
+      backgroundColor="gray.100"
+    >
+      {/* <LeftColumn /> */}
       <RightColumn projects={projects} />
     </GridWrapper>
   );
@@ -43,17 +55,30 @@ function LeftColumn() {
 function RightColumn({ projects }) {
   return (
     <GridItem overflowY="auto">
-      <SimpleGrid
+      <Button
+        mt="2.5rem"
+        mx="2.5rem"
+        borderRadius="full"
+        leftIcon={<BiAddToQueue />}
+        colorScheme="blue"
+      >
+        Create New Project
+      </Button>
+      <Grid
         // columns={[1, null, null, 2, 3, "auto"]}
         // minChildWidth="10rem"
-        spacing={10}
-        p="2.5rem"
+        // gridTemplateColumns="auto-fill"
+        gridTemplateColumns="repeat(auto-fit, 20rem)"
+        gap="2rem"
+        pt="1.75rem"
+        px="2.5rem"
         minChildWidth="20rem"
+        justifyItems="flex-start"
       >
         {projects.map((x) => (
           <ProjectItem key={`Project ${x.name}`} name={x.name} />
         ))}
-      </SimpleGrid>
+      </Grid>
     </GridItem>
   );
 }
@@ -66,8 +91,9 @@ function ProjectItem({ name }) {
       templateRows="1fr 5rem"
       borderRadius="3xl"
       border="1px"
-      borderColor="gray.100"
+      borderColor="gray.300"
       minHeight="15rem"
+      width={{ base: "auto", sm: "20rem" }}
       overflow="hidden"
       // boxShadow="sm"
       _hover={{
@@ -78,8 +104,25 @@ function ProjectItem({ name }) {
       }}
       onClick={() => setCurrPage(UI)}
     >
-      <GridItem p="1rem" bg="gray.50"></GridItem>
-      <GridItem p="1rem">{name}</GridItem>
+      <GridItem p="1rem" bg="gray.300" display="grid">
+        <Button
+          placeSelf="flex-start flex-end"
+          borderRadius="full"
+          leftIcon={<BiGitBranch />}
+          size="xs"
+        >
+          Configs
+        </Button>
+      </GridItem>
+      <GridItem p="1rem" bg="white">
+        <Heading as="h3" fontSize="md">
+          {name}
+        </Heading>
+        <HStack gap="0.15rem" mt="0.25rem">
+          <Badge colorScheme="green">PyTorch 2.9</Badge>
+          <Badge colorScheme="red">NumPy</Badge>
+        </HStack>
+      </GridItem>
     </Grid>
   );
 }
