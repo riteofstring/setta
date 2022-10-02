@@ -8,6 +8,10 @@ import presetUITypes from '../../../abcde-frontend/src/__tests__data/PresetUITyp
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
 import { UITypesColsIds } from '../../src/entities/uiTypes/uiTypesColsIds.entity';
 import { createIfNotFound } from '../utils';
+import { SliderUITypes } from '../../src/entities/uiTypes/sliderUITypes.entity';
+import { TextUITypes } from '../../src/entities/uiTypes/textUITypes.entity';
+import { SwitchUITypes } from '../../src/entities/uiTypes/switchUITypes.entity';
+import { RefUITypes } from '../../src/entities/uiTypes/refUITypes.entity';
 
 async function createSectionUIType(em, x) {
   const baseType = em.create(UITypes, x);
@@ -51,6 +55,26 @@ async function createSectionUIType(em, x) {
   });
 }
 
+async function createSliderUIType(em, x) {
+  em.create(UITypes, x);
+  em.create(SliderUITypes, { id: x.id, ...x.config });
+}
+
+async function createTextUIType(em, x) {
+  em.create(UITypes, x);
+  em.create(TextUITypes, { id: x.id, ...x.config });
+}
+
+async function createSwitchUIType(em, x) {
+  em.create(UITypes, x);
+  em.create(SwitchUITypes, { id: x.id, ...x.config });
+}
+
+async function createRefUIType(em, x) {
+  em.create(UITypes, x);
+  em.create(RefUITypes, { id: x.id, ...x.config });
+}
+
 export class UITypesSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
     const uiTypeList = [simpleTrainTestUITypes, baseUITypes, presetUITypes];
@@ -62,6 +86,14 @@ export class UITypesSeeder extends Seeder {
           )
         ) {
           await createSectionUIType(em, x);
+        } else if (x.type === 'SLIDER') {
+          await createSliderUIType(em, x);
+        } else if (x.type === 'TEXT') {
+          await createTextUIType(em, x);
+        } else if (x.type === 'SWITCH') {
+          await createSwitchUIType(em, x);
+        } else if (x.type === 'REF') {
+          await createRefUIType(em, x);
         } else {
           em.create(UITypes, x);
         }

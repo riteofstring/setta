@@ -7,12 +7,12 @@ export class SliderUITypes {
   @OneToOne({ primary: true })
   id: UITypes;
 
-  @Property()
+  @Property({ nullable: true })
   min: number;
 
-  @Property()
+  @Property({ nullable: true })
   max: number;
 
-  @Property()
+  @Property({ nullable: true })
   step: number;
 }
