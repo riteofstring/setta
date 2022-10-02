@@ -2,10 +2,12 @@ import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
 import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
+import currProject from "models/info/currProject";
 import enteredValues from "models/info/enteredValues";
 import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
+import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
@@ -15,18 +17,18 @@ import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
-import yamlEntry from "models/yamlEntry";
+import thunks from "thunks/thunks";
 
 const store = createStore(
   persist(
     {
       master: master,
-      yamlEntry: yamlEntry,
       auth: auth,
       uiInfo: uiInfo,
       panes: panes,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,
+      sectionConfigs: sectionConfigs,
       objInfos: objInfos,
       paramInfos: paramInfos,
       kwargInfos: kwargInfos,
@@ -37,6 +39,8 @@ const store = createStore(
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
       currPage: currPage,
+      currProject: currProject,
+      thunks: thunks,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;

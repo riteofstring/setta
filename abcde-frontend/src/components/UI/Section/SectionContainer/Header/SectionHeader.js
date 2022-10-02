@@ -1,7 +1,6 @@
 import { Spacer, Stack } from "@chakra-ui/react";
-import { useDeleteChild } from "hooks/useAddDeleteChild";
+import { useStoreActions } from "easy-peasy";
 import React from "react";
-
 import Incrementer from "../Incrementer/Incrementer";
 import CustomCloseButton from "./CustomCloseButton";
 import SectionTitle from "./Title/SectionTitle";
@@ -13,14 +12,12 @@ function _SectionHeader({
   isList,
   isListRoot,
   requiresKeyInput,
-  addChild,
-  deleteChild,
   hasNested,
 }) {
-  const deleteSelf = useDeleteChild(parentId);
+  const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
 
   const onCustomCloseButtonClick = () => {
-    deleteSelf({ startId: sectionId });
+    deleteChild({ sectionId: parentId, startId: sectionId });
   };
 
   return (
@@ -33,8 +30,6 @@ function _SectionHeader({
           parentId={parentId}
           nextId={nextId}
           isListRoot={isListRoot}
-          addChild={addChild}
-          deleteChild={deleteChild}
           hasNested={hasNested}
         />
       )}
