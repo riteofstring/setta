@@ -1,0 +1,20 @@
+{
+  "paramDefaults": {
+    "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f": {
+      "uiTypeId": "846a8370-fbfc-4d99-a249-40dbdaac4cd3"
+    }
+  },
+  "uiTypes": {
+    "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
+      "id": "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
+      "name": "torchvision transforms",
+      "type": "LIST_ROOT",
+      "presetType": "user",
+      "config": {
+        "collections": ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
+        "uiTypeCollectionId": "55220afb-c43e-4c79-8d27-a0dd592e2add",
+        "childUITypeId": null
+      }
+    }
+  }
+}

@@ -1,9 +1,6 @@
 import { HStack, Stack, VStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import {
-  useGetSectionConfig,
-  useSetSectionConfigAttr,
-} from "hooks/useSectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
@@ -23,21 +20,25 @@ function _SectionContainerCore({
   sectionId,
   parentId,
   nextId,
+  addChild,
   deleteChild,
   hasNested,
 }) {
-  const { selectedItem } = useGetSectionConfig(sectionId);
+  const { selectedItem } = useGetSectionInfo(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
-  const setSectionConfigAttr = useSetSectionConfigAttr(
-    sectionId,
-    "selectedItem"
+  const setSectionInfoAttr = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttr
   );
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
   const isActiveSection =
     useStoreState((x) => x.master.activeSection) === sectionId;
   const [isActive, setIsActive] = useState(false);
+
+  function onSelectedItemChange(value) {
+    setSectionInfoAttr({ sectionId, attr: "selectedItem", value });
+  }
 
   // // temp_
   const tempBoolDesc = false;
@@ -82,6 +83,7 @@ function _SectionContainerCore({
             nextId={nextId}
             isList={isList}
             isListRoot={isListRoot}
+            addChild={addChild}
             deleteChild={deleteChild}
             hasNested={hasNested}
             requiresKeyInput={requiresKeyInput(config.subType)}
@@ -91,7 +93,7 @@ function _SectionContainerCore({
               <SectionSearch
                 sectionId={sectionId}
                 initialSelection={selectedItem}
-                onSelectedItemChange={setSectionConfigAttr}
+                onSelectedItemChange={onSelectedItemChange}
               />
               {tempBoolDesc && <SectionDescription />}
               <GroupContainer
@@ -114,7 +116,7 @@ function _SectionContainerCore({
 }
 
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["deleteChild", "nextId", "hasNested"];
+  const attrs = ["addChild", "deleteChild", "nextId", "hasNested"];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
       return false;

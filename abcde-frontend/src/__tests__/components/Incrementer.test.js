@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
+import { useAddChild, useDeleteChild } from "hooks/useAddDeleteChild";
 import _ from "lodash";
 import {
   addSectionInfo,
@@ -8,68 +9,70 @@ import {
   getStoreProviderWrapper,
 } from "__tests__utils/utils";
 
-test("Incrementer: click add sibling N times", async () => {
+test("Incrementer: click add sibling N times", () => {
   const { store, parent } = componentSetup({
     forParent: false,
     numChildren: 1,
   });
-  await clickAddChildNTimes(store, parent, 1, 5);
+  clickAddChildNTimes(store, parent, 1, 5);
 });
 
-test("Incrementer: click add N siblings", async () => {
+test("Incrementer: click add N siblings", () => {
   const { store, parent } = componentSetup({
     forParent: false,
     numChildren: 1,
   });
-  await clickAddNChildren(store, parent, 1, 5);
+  clickAddNChildren(store, parent, 1, 5);
 });
 
 test.each([false, true])(
   "Incrementer: delete self, forParent=%s",
-  async (forParent) => {
+  (forParent) => {
     const { store, parent, childIds } = componentSetup({
       forParent,
       numChildren: 1,
     });
-    await clickDeleteSelf(store, parent, childIds[0], forParent);
+    clickDeleteSelf(store, parent, childIds[0], forParent);
   }
 );
 
-test("Incrementer: click add child N times ", async () => {
+test("Incrementer: click add child N times ", () => {
   const { store, parent } = componentSetup({ forParent: true, numChildren: 1 });
-  await clickAddChildNTimes(store, parent, 1, 5);
+  clickAddChildNTimes(store, parent, 1, 5);
 });
 
-test("Incrementer: click add N children ", async () => {
+test("Incrementer: click add N children ", () => {
   const { store, parent } = componentSetup({ forParent: true, numChildren: 1 });
-  await clickAddNChildren(store, parent, 1, 5);
+  clickAddNChildren(store, parent, 1, 5);
 });
 
-test("Incrementer: click delete child N times", async () => {
+test("Incrementer: click delete child N times", () => {
   const { store, parent } = componentSetup({
     forParent: true,
     numChildren: 4,
   });
-  await clickDeleteChildNTimes(store, parent, 4, 4);
+  clickDeleteChildNTimes(store, parent, 4, 4);
 });
 
-test("Incrementer: click delete N children", async () => {
+test("Incrementer: click delete N children", () => {
   const { store, parent } = componentSetup({
     forParent: true,
     numChildren: 4,
   });
-  await clickDeleteNChildren(store, parent, 4, 4);
+  clickDeleteNChildren(store, parent, 4, 4);
 });
 
 function componentSetup({ forParent, numChildren }) {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { section: parent } = addSectionInfo(store);
+  const parent = addSectionInfo(store);
+  let { result } = renderHook(() => useAddChild(parent.id), { wrapper });
   _.range(numChildren).forEach(() => {
-    store.getActions().thunks.addChild({ parentId: parent.id });
+    waitFor(() => result.current({}));
   });
   const state = store.getState().sectionInfos;
-  const childIds = state.idsOverview[parent.id];
+  const childrenInfoId = state.idsOverview[parent.id];
+  const childIds = state.childrenInfo[childrenInfoId];
 
   // increment for one of the children
   function SectionHeaderForChild() {
@@ -86,11 +89,15 @@ function componentSetup({ forParent, numChildren }) {
 
   // increment for one of the children
   function SectionHeaderForParent() {
+    const addChild = useAddChild(parent.id);
+    const deleteChild = useDeleteChild(parent.id);
     return (
       <SectionHeader
         sectionId={parent.id}
         isList={false}
         isListRoot={true}
+        addChild={addChild}
+        deleteChild={deleteChild}
         hasNested={true}
       />
     );
@@ -125,22 +132,30 @@ function assertDeleteChildIsEnabled() {
 
 function assertNChildrenAdded(store, parent, numInitialChildren, N) {
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren + N);
   // 1 parent so only 1 entry in idsOverview
   expect(_.size(state.idsOverview)).toEqual(1);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren + N);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren + N
+  );
 }
 
 function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
   // 1 parent so only 1 entry in idsOverview
   expect(_.size(state.idsOverview)).toEqual(1);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren - N);
+  expect(childrenInfoId).toBeTruthy();
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(
+    numInitialChildren - N
+  );
 }
 
 async function clickIncrementerNTimes({
@@ -180,8 +195,8 @@ async function enterNClickOnce({
   assertionFn(store, parent, numInitialChildren, N);
 }
 
-async function clickAddChildNTimes(store, parent, numInitialChildren, N) {
-  await clickIncrementerNTimes({
+function clickAddChildNTimes(store, parent, numInitialChildren, N) {
+  clickIncrementerNTimes({
     store,
     parent,
     numInitialChildren,
@@ -191,8 +206,8 @@ async function clickAddChildNTimes(store, parent, numInitialChildren, N) {
   });
 }
 
-async function clickAddNChildren(store, parent, numInitialChildren, N) {
-  await enterNClickOnce({
+function clickAddNChildren(store, parent, numInitialChildren, N) {
+  enterNClickOnce({
     store,
     parent,
     numInitialChildren,
@@ -202,8 +217,8 @@ async function clickAddNChildren(store, parent, numInitialChildren, N) {
   });
 }
 
-async function clickDeleteChildNTimes(store, parent, numInitialChildren, N) {
-  await clickIncrementerNTimes({
+function clickDeleteChildNTimes(store, parent, numInitialChildren, N) {
+  clickIncrementerNTimes({
     store,
     parent,
     numInitialChildren,
@@ -213,8 +228,8 @@ async function clickDeleteChildNTimes(store, parent, numInitialChildren, N) {
   });
 }
 
-async function clickDeleteNChildren(store, parent, numInitialChildren, N) {
-  await enterNClickOnce({
+function clickDeleteNChildren(store, parent, numInitialChildren, N) {
+  enterNClickOnce({
     store,
     parent,
     numInitialChildren,
@@ -231,10 +246,11 @@ async function clickDeleteSelf(store, parent, childId, forParent) {
   await userEvent.click(deleteSelf);
 
   const state = store.getState().sectionInfos;
+  const childrenInfoId = state.idsOverview[parent.id];
 
   const xSize = forParent ? 0 : 1;
   expect(_.size(state.x)).toEqual(xSize);
-  expect(_.size(state.idsOverview[parent.id])).toEqual(0);
+  expect(_.size(state.childrenInfo[childrenInfoId])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
 
   if (forParent) {
