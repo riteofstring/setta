@@ -35,7 +35,7 @@ export default function RunButton() {
         mr="-px"
         onClick={runExport}
       >
-        Run
+        Generate
       </Button>
       <Popover>
         <PopoverTrigger>
@@ -48,7 +48,7 @@ export default function RunButton() {
         <Portal>
           <PopoverContent>
             <PopoverArrow />
-            <PopoverHeader>Run Options</PopoverHeader>
+            <PopoverHeader>Generate Options</PopoverHeader>
             <PopoverCloseButton />
             <PopoverBody>
               <ExportSelectedButton

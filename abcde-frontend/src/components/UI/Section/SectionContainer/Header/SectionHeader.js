@@ -22,7 +22,7 @@ function _SectionHeader({
 
   return (
     <Stack direction="row" align="center" w="100%" pl="0.75em">
-      <NonDeckSectionTitle sectionId={sectionId} />
+      <CardTitle sectionId={sectionId} isList={isList} />
       <Spacer />
       {(isList || isListRoot) && (
         <Incrementer
@@ -41,7 +41,7 @@ function _SectionHeader({
   );
 }
 
-function NonDeckSectionTitle({ sectionId }) {
+function CardTitle({ sectionId, isList }) {
   const editableProps = {
     isPreviewFocusable: true,
     fontFamily: "Work Sans",
@@ -60,6 +60,7 @@ function NonDeckSectionTitle({ sectionId }) {
       sectionId={sectionId}
       editableProps={editableProps}
       inputProps={inputProps}
+      isList={isList}
     />
   );
 }

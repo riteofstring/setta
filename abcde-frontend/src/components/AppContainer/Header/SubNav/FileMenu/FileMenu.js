@@ -61,6 +61,7 @@ export default function FileMenu() {
           <MenuItem icon={<VscSave />} onClick={onSaveButtonClick}>
             Save
           </MenuItem>
+
           <SaveAsOrLoadButton buttonText="Save As" />
         </MenuList>
       </Menu>

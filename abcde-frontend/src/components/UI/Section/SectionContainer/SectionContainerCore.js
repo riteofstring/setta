@@ -61,14 +61,15 @@ function _SectionContainerCore({
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
+      // mt="0.5rem"
     >
       <HStack
         direction="column"
         bg="gray.50"
         borderRadius="xl"
-        px="0.5rem "
+        px="0.5rem"
         boxShadow="md"
-        zIndex={isActiveSection ? "1000" : "10"}
+        zIndex={isActiveSection ? "150" : "10"}
         w="100%"
         border="1px"
         borderColor="white"
@@ -102,13 +103,12 @@ function _SectionContainerCore({
           )}
         </Stack>
       </HStack>
-      <VStack bg="white" borderRadius="xl" alignItems="stretch">
-        <GroupContainer
-          sectionId={sectionId}
-          objInfoId={selectedItem}
-          isKwarg={true}
-        />
-      </VStack>
+
+      <GroupContainer
+        sectionId={sectionId}
+        objInfoId={selectedItem}
+        isKwarg={true}
+      />
     </VStack>
   );
 }

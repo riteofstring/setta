@@ -32,7 +32,7 @@ const SwitchContainer = () => {
   useEffect(() => {
     if (isAuthenticated) {
       if (NO_AUTH) {
-        setCurrPage(UI);
+        setCurrPage(HOME);
       } else {
         setCurrPage(HOME);
       }
