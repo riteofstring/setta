@@ -1,16 +1,19 @@
 import {
   Badge,
+  Box,
   Button,
   Grid,
   GridItem,
   Heading,
   HStack,
+  useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { getProjects } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
+import ModalContainer from "utils/ModalContainer/ModalContainer";
 
 function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
@@ -63,10 +66,8 @@ function RightColumn({ projects }) {
       >
         Create New Project
       </Button>
+
       <Grid
-        // columns={[1, null, null, 2, 3, "auto"]}
-        // minChildWidth="10rem"
-        // gridTemplateColumns="auto-fill"
         gridTemplateColumns="repeat(auto-fit, 20rem)"
         gap="2rem"
         pt="1.75rem"
@@ -84,6 +85,7 @@ function RightColumn({ projects }) {
 
 function ProjectItem({ name }) {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   return (
     <Grid
@@ -94,7 +96,6 @@ function ProjectItem({ name }) {
       minHeight="15rem"
       width={{ base: "auto", sm: "20rem" }}
       overflow="hidden"
-      // boxShadow="sm"
       _hover={{
         transition: "box-shadow 200ms",
         boxShadow: "lg",
@@ -115,9 +116,11 @@ function ProjectItem({ name }) {
           borderRadius="full"
           leftIcon={<BiGitBranch />}
           size="xs"
+          onClick={onOpen}
         >
           Configs
         </Button>
+        <ConfigButton onClose={onClose} isOpen={isOpen} />
       </GridItem>
       <GridItem p="1rem" bg="white">
         <Heading as="h3" fontSize="md">
@@ -130,4 +133,30 @@ function ProjectItem({ name }) {
       </GridItem>
     </Grid>
   );
+}
+
+function ConfigButton({ onClose, isOpen }) {
+  return (
+    <ModalContainer
+      onClose={onClose}
+      isOpen={isOpen}
+      size={"4xl"}
+      header={<Header />}
+      overrideFooter={true}
+      body={<Body />}
+      // footer={<Footer />}
+    />
+  );
+}
+
+function Header() {
+  return <Heading>Configs</Heading>;
+}
+
+function Body() {
+  return <Box />;
+}
+
+function Footer() {
+  return <Box />;
 }
