@@ -11,7 +11,6 @@ import { getProjects } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
-import { UI } from "utils/pageNames";
 
 function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
@@ -102,9 +101,15 @@ function ProjectItem({ name }) {
         borderColor: "white",
         cursor: "pointer",
       }}
-      onClick={() => setCurrPage(UI)}
+      // onClick={() => setCurrPage(UI)}
     >
-      <GridItem p="1rem" bg="gray.300" display="grid">
+      <GridItem
+        p="1rem"
+        bg="gray.300"
+        display="grid"
+        backgroundImage="https://via.placeholder.com/400"
+        backgroundPosition="center"
+      >
         <Button
           placeSelf="flex-start flex-end"
           borderRadius="full"

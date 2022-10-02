@@ -1,10 +1,9 @@
-import { Button, Icon } from "@chakra-ui/react";
-import { BsCardHeading } from "react-icons/bs";
+import { Button } from "@chakra-ui/react";
 
 export default function CreateSectionButton() {
   return (
     <Button
-      leftIcon={<Icon as={BsCardHeading} />}
+      // leftIcon={<Icon as={BsCardHeading} />}
       size="xs"
       mr="-px"
       variant="ghost"
