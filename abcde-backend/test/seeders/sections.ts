@@ -11,6 +11,9 @@ import {
   loadAllSections,
 } from '../utils';
 import { SectionConfig } from '../../src/entities/sections/sectionConfig.entity';
+import { SectionConfigColsIds } from '../../src/entities/sections/sectionConfigColsIds.entity';
+import sectionConfigCols from '../../../abcde-frontend/src/__tests__data/SectionConfigCols';
+import { SectionConfigCols } from '../../src/entities/sections/sectionConfigCols.entity';
 
 export class SectionsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
@@ -28,6 +31,18 @@ export class SectionsSeeder extends Seeder {
         selectedItem: x.selectedItem,
         sectionType: x.uiTypeId,
       });
+    }
+
+    for (const colId of Object.keys(sectionConfigCols)) {
+      em.create(SectionConfigColsIds, { id: colId });
+      const currCol = sectionConfigCols[colId];
+      for (const sectionId of Object.keys(currCol)) {
+        em.create(SectionConfigCols, {
+          id: colId,
+          section: sectionId,
+          config: currCol[sectionId].configId,
+        });
+      }
     }
 
     const allSectionChildren = loadAllSectionChildren();
