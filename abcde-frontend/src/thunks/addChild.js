@@ -42,7 +42,6 @@ export const addChild = thunk((action, payload, helpers) => {
     const enteredValueId =
       helpers.getStoreState().paramInfos.x[collectionId]?.[parentParamInfoId];
 
-
     helpers.getStoreActions().enteredValues.setChildId({
       enteredValueId,
       childId: newIds[0],

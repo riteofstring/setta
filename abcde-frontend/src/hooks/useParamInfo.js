@@ -2,7 +2,6 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { curryAction, defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
-
 import { useGetSectionTypeConfig } from "./useSectionType";
 
 function useParamInfoState(collectionId, setStateFn, key, attr) {

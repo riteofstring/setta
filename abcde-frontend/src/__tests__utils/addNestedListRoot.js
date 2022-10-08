@@ -1,10 +1,10 @@
 import { waitFor } from "@testing-library/react";
 import {
   addChildSectionAndGetChildId,
+  callInitializeParamThunk,
   getParamInfoByFullPath,
   getSectionByName,
   initializeAndReturnUIType,
-  initializeEnteredValueId,
 } from "./createStoreWrapperWithData";
 import {
   renderUseIdsOverview,
@@ -92,7 +92,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
       });
 
       // initialize enteredValueId
-      initializeEnteredValueId(listElementIds[i], paramInfo.id, wrapper);
+      callInitializeParamThunk(store, listElementIds[i], paramInfo.id, wrapper);
 
       ({ result } = renderUseParamEnteredValue(
         listElementIds[i],
