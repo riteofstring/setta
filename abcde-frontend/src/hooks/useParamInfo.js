@@ -5,7 +5,7 @@ import { useGetSectionConfig } from "./useSectionConfig";
 
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
+function useParamInfoState(collectionId, setStateFn, key, attr) {
   return (paramInfoId) => {
     const setX = curryAction(
       useStoreActions((x) => x.paramInfos[setStateFn]),
@@ -19,20 +19,19 @@ function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
   };
 }
 
-function useParamWithParamCollectionId(sectionId, stateName, setStateFn, key) {
+function useParamWithParamCollectionId(sectionId, setStateFn, key) {
   const { paramCollectionId } = useGetSectionConfig(sectionId);
-  return useParamInfoState(paramCollectionId, stateName, setStateFn, key, "x");
+  return useParamInfoState(paramCollectionId, setStateFn, key, "x");
 }
 
-function useParamWithUITypeColId(sectionId, stateName, setStateFn, key) {
+function useParamWithUITypeColId(sectionId, setStateFn, key) {
   const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
-  return useParamInfoState(uiTypeColId, stateName, setStateFn, key, "y");
+  return useParamInfoState(uiTypeColId, setStateFn, key, "y");
 }
 
 export function useParamEnteredValueId(sectionId) {
   return useParamWithParamCollectionId(
     sectionId,
-    "enteredValueId",
     "setEnteredValueId",
     "enteredValueId"
   );
@@ -58,12 +57,7 @@ export function useParamChildId(sectionId) {
 }
 
 export function useParamUITypeId(sectionId) {
-  return useParamWithUITypeColId(
-    sectionId,
-    "uiTypeId",
-    "setUITypeId",
-    "uiTypeId"
-  );
+  return useParamWithUITypeColId(sectionId, "setUITypeId", "uiTypeId");
 }
 
 export function useGetManyParamsWithParamCollectionId(
