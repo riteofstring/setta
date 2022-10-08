@@ -3,27 +3,19 @@ import { useStoreActions } from "easy-peasy";
 import { useGetParamUIType } from "hooks/useParamInfo";
 import { useEffect } from "react";
 import { requiresNestedSection } from "utils/constants";
-
 import ParamInput from "./ParamItems/ParamInput";
-import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
   const { sectionId, paramInfo } = props;
-  const initializeParamUIType = useStoreActions(
-    (x) => x.thunks.initializeParamUIType
-  );
-  const initializeEnteredValue = useStoreActions(
-    (x) => x.thunks.initializeEnteredValue
-  );
+  const initializeParam = useStoreActions((x) => x.thunks.initializeParam);
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
 
   useEffect(() => {
-    initializeParamUIType({ sectionId, paramInfo });
-    initializeEnteredValue({ sectionId, paramInfo });
+    initializeParam({ sectionId, paramInfo });
   }, [paramInfo.id]);
 
-  return !requiresNestedSection(uiType.type) ? (
-    <>
+  return (
+    !requiresNestedSection(uiType.type) && (
       <FormControl as="fieldset">
         <HStack
           px=".75rem"
@@ -46,13 +38,6 @@ export default function ParamContainer(props) {
           />
         </HStack>
       </FormControl>
-    </>
-  ) : (
-    <NestedObjectInput
-      sectionId={sectionId}
-      paramName={paramInfo.name}
-      uiTypeId={uiType.id}
-      parentParamInfoId={paramInfo.id}
-    />
+    )
   );
 }
