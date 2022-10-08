@@ -1,5 +1,5 @@
 import AppContainer from "components/AppContainer/AppContainer";
-import { Head } from "next/head";
+import Head from "next/head";
 
 export default function HomePage() {
   return (
