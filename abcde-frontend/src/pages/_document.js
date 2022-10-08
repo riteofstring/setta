@@ -16,7 +16,7 @@ export default function Document() {
 
         <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-        <title>runcoder.io</title>
+        {/* <title>runcoder.io</title> */}
       </Head>
       <body>
         <Main />
