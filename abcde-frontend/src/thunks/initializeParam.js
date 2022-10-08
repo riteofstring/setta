@@ -1,5 +1,8 @@
 import { thunk } from "easy-peasy";
-import { DEFAULT_BASE_UI_TYPE_ID } from "utils/constants";
+import {
+  DEFAULT_BASE_UI_TYPE_ID,
+  requiresNestedSection,
+} from "utils/constants";
 import { createNewId, curryAction } from "utils/utils";
 
 export const initializeParam = thunk((actions, payload, helpers) => {
@@ -85,8 +88,12 @@ function initializeChild(
   enteredValueId,
   helpers
 ) {
-  const childId =
-    helpers.getStoreState().enteredValues.x[enteredValueId].childId;
+  const s = helpers.getStoreState();
+  const uiType = s.uiTypes.x[uiTypeId];
+  if (!requiresNestedSection(uiType.type)) {
+    return;
+  }
+  const childId = s.enteredValues.x[enteredValueId].childId;
   if (!childId) {
     helpers.getStoreActions().thunks.addChild({
       parentId: sectionId,
