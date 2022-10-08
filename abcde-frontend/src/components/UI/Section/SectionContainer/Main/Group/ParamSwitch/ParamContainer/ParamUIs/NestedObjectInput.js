@@ -1,7 +1,6 @@
 import { Button } from "@chakra-ui/react";
 import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useStoreActions } from "easy-peasy";
-import { useGetParamChildId } from "hooks/useParamInfo";
 import { useEffect } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
@@ -35,8 +34,9 @@ export default function NestedObjectInput({
   paramName,
   uiTypeId,
   parentParamInfoId,
+  childIdFn,
 }) {
-  const existingChildId = useGetParamChildId(sectionId, parentParamInfoId);
+  const existingChildId = childIdFn(parentParamInfoId)[0];
   const addChild = useStoreActions((x) => x.thunks.addChild);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 
-import "./react-flow-css.css";
+import "./React-flow-css.module.css";
 import { ResponsiveControls } from "./ResponsiveControls";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";

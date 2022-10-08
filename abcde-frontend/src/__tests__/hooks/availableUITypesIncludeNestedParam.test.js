@@ -105,9 +105,9 @@ function testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset) {
   expect(isPreset(forkedUIType)).toEqual(false);
   expect(forkedUIType.config["ATestConfig"]).toEqual(["fruit"]);
 
-  // The originInfoId should be the parent's uiTypeColId + the paramInfoId
+  // The originInfoId should be the parent's uiTypeCollectionId + the paramInfoId
   expect(forkedUIType.originInfoId).toEqual({
-    uiTypeColId: sectionType.config.uiTypeColId,
+    uiTypeCollectionId: sectionType.config.uiTypeCollectionId,
     paramInfoId,
   });
 

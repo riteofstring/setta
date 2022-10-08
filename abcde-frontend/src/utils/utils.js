@@ -39,6 +39,14 @@ export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
   }
 }
 
+export function rangeArray(low, high) {
+  return Array.from(new Array(high), (x, i) => i + low);
+}
+
+export function mod(n, m) {
+  return ((n % m) + m) % m;
+}
+
 export function curryAction(action, args, key = null) {
   const fn = (newState) => {
     const asArg = key ? { [key]: newState } : newState;
