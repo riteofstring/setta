@@ -7,12 +7,11 @@ export class MutableInfo {
   [immerable] = true;
 }
 
-// Entered Value
-export class EVInfo extends MutableInfo {
-  constructor({ id, value = "", childId }) {
+export class MutableParamInfo extends MutableInfo {
+  constructor({ id, enteredValueId, childId }) {
     super();
     this.id = id;
-    this.value = value;
+    this.enteredValueId = enteredValueId;
     this.childId = childId;
   }
 }
@@ -22,6 +21,14 @@ export class MutableParamUITypeInfo extends MutableInfo {
     super();
     this.id = id;
     this.uiTypeId = uiTypeId;
+  }
+}
+
+export class MutableObjInfo extends MutableInfo {
+  constructor({ id, kwargIds = [] }) {
+    super();
+    this.id = id;
+    this.kwargIds = kwargIds;
   }
 }
 

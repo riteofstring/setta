@@ -79,7 +79,6 @@ const master = {
 
   initEVCols: thunk((action, payload, helpers) => {
     const pActions = helpers.getStoreActions().paramInfos;
-    const evActions = helpers.getStoreActions().enteredValues;
     for (const colId of Object.keys(payload)) {
       for (const paramInfo of Object.values(payload[colId])) {
         const commonProps = {
@@ -91,8 +90,8 @@ const master = {
           enteredValueId: paramInfo.enteredValueId,
         });
         if (paramInfo.childId) {
-          evActions.setChildId({
-            enteredValueId: paramInfo.enteredValueId,
+          pActions.setChildId({
+            ...commonProps,
             childId: paramInfo.childId,
           });
         }
@@ -114,15 +113,12 @@ const master = {
 
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
-      const initialPosition = {
-        x: 500 * (Math.floor(idx / 3) + 0.75),
-        y: 300 * (idx % 3),
-      };
-      const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
       const y = new SectionInfo({
-        initialPosition,
+        initialPosition: {
+          x: 500 * (Math.floor(idx / 3) + 0.75),
+          y: 300 * (idx % 3),
+        },
         ...x,
-        parentId,
         configId: sectionConfigCol[x.id].configId,
         isTopLevel: topLevelIds.includes(x.id),
       });
