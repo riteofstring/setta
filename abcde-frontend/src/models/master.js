@@ -79,6 +79,7 @@ const master = {
 
   initEVCols: thunk((action, payload, helpers) => {
     const pActions = helpers.getStoreActions().paramInfos;
+    const evActions = helpers.getStoreActions().enteredValues;
     for (const colId of Object.keys(payload)) {
       for (const paramInfo of Object.values(payload[colId])) {
         const commonProps = {
@@ -90,8 +91,8 @@ const master = {
           enteredValueId: paramInfo.enteredValueId,
         });
         if (paramInfo.childId) {
-          pActions.setChildId({
-            ...commonProps,
+          evActions.setChildId({
+            enteredValueId: paramInfo.enteredValueId,
             childId: paramInfo.childId,
           });
         }

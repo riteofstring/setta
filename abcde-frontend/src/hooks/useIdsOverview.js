@@ -45,11 +45,7 @@ function useGetCurrChildrenIds(sectionId) {
 }
 
 function useChildIdHelper(infos, sectionId) {
-  const uiTypeIds = useGetManyParamsWithUITypeColId(
-    sectionId,
-    infos,
-    "uiTypeId"
-  );
+  const uiTypeIds = useGetManyParamsWithUITypeColId(sectionId, infos);
   const hasNested = useStoreState(
     (x) =>
       infos.filter((y, i) =>

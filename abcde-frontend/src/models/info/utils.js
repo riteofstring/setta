@@ -1,9 +1,6 @@
-export function setToDefault(state, firstId, secondId, newValueFn, attr = "x") {
-  if (!(firstId in state[attr])) {
-    state[attr][firstId] = {};
+export function setToDefault(state, id) {
+  if (!(id in state)) {
+    state[id] = {};
   }
-  if (!(secondId in state[attr][firstId])) {
-    state[attr][firstId][secondId] = newValueFn();
-  }
-  return state[attr][firstId][secondId];
+  return state[id];
 }

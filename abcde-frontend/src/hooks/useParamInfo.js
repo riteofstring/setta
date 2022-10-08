@@ -12,7 +12,7 @@ function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
       { collectionId }
     );
     const x = useStoreState(
-      (x) => x.paramInfos[attr][collectionId]?.[paramInfoId]?.[stateName]
+      (x) => x.paramInfos[attr][collectionId]?.[paramInfoId]
     );
     const setX_ = curryAction(setX, { paramInfoId }, key);
     return [x, setX_];
@@ -39,12 +39,22 @@ export function useParamEnteredValueId(sectionId) {
 }
 
 export function useParamChildId(sectionId) {
-  return useParamWithParamCollectionId(
-    sectionId,
-    "childId",
-    "setChildId",
-    "childId"
-  );
+  const { paramCollectionId } = useGetSectionConfig(sectionId);
+
+  return (paramInfoId) => {
+    const enteredValueId = useStoreState(
+      (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
+    );
+
+    const setX = curryAction(
+      useStoreActions((x) => x.enteredValues.setChildId),
+      { enteredValueId },
+      "childId"
+    );
+    const x = useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
+
+    return [x, setX];
+  };
 }
 
 export function useParamUITypeId(sectionId) {
@@ -62,17 +72,20 @@ export function useGetManyParamsWithParamCollectionId(
   key
 ) {
   const { paramCollectionId } = useGetSectionConfig(sectionId);
+  const enteredValueIds = useStoreState(
+    (x) => paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]),
+    _.isEqual
+  );
   return useStoreState(
-    (x) =>
-      paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]?.[key]),
+    (x) => enteredValueIds.map((y) => x.enteredValues.x[y]?.[key]),
     _.isEqual
   );
 }
 
-export function useGetManyParamsWithUITypeColId(sectionId, paramInfos, key) {
+export function useGetManyParamsWithUITypeColId(sectionId, paramInfos) {
   const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
   return useStoreState(
-    (x) => paramInfos.map((y) => x.paramInfos.y[uiTypeColId]?.[y.id]?.[key]),
+    (x) => paramInfos.map((y) => x.paramInfos.y[uiTypeColId]?.[y.id]),
     _.isEqual
   );
 }
