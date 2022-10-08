@@ -7,12 +7,27 @@ export function createAllInfo(packages) {
   return { allObjInfo, allCollections };
 }
 
-function findAllDescendants(allCodeInfo, collectionId, rcType) {
+function defaultCondition(currInfo, rcType) {
+  return currInfo.rcType === rcType;
+}
+
+function findAllDescendants(
+  allCodeInfo,
+  collectionIds,
+  rcType,
+  condition = defaultCondition
+) {
   const output = [];
-  const idStack = [collectionId];
+  const idStack = [...collectionIds];
+  const visited = new Set();
   while (idStack.length > 0) {
-    const currInfo = allCodeInfo[idStack.pop()];
-    if (currInfo.rcType === rcType) {
+    const id = idStack.pop();
+    if (!id || visited.has(id)) {
+      continue;
+    }
+    visited.add(id);
+    const currInfo = allCodeInfo[id];
+    if (condition(currInfo, rcType)) {
       output.push(currInfo);
     }
     idStack.push(...currInfo.children);
@@ -20,10 +35,21 @@ function findAllDescendants(allCodeInfo, collectionId, rcType) {
   return output;
 }
 
-export function findAllCallables(allCodeInfo, collectionId) {
-  return findAllDescendants(allCodeInfo, collectionId, CALLABLE);
+export function findAllCallables(allCodeInfo, collectionIds) {
+  return findAllDescendants(allCodeInfo, collectionIds, CALLABLE);
 }
 
-export function findAllParameters(allCodeInfo, collectionId) {
-  return findAllDescendants(allCodeInfo, collectionId, PARAMETER);
+export function findAllParameters(allCodeInfo, collectionIds) {
+  return findAllDescendants(allCodeInfo, collectionIds, PARAMETER);
+}
+
+export function findAllParameterCollections(allCodeInfo, collectionIds) {
+  function condition(currInfo, rcType) {
+    return (
+      defaultCondition(currInfo, rcType) &&
+      allCodeInfo[currInfo.parentId].rcType === COLLECTION
+    );
+  }
+
+  return findAllDescendants(allCodeInfo, collectionIds, PARAMETER, condition);
 }

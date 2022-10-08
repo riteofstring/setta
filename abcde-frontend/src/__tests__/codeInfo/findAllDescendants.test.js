@@ -5,7 +5,7 @@ import { loadTestData } from "__tests__utils/loadTestData";
 test("find all callable descendants", () => {
   const { codeInfo } = loadTestData();
   const collectionId = _.filter(codeInfo, (x) => x.name === "torch")[0].id;
-  const callables = findAllCallables(codeInfo, collectionId);
+  const callables = findAllCallables(codeInfo, [collectionId]);
   expect(new Set(callables.map((x) => x.name))).toEqual(
     new Set(["SGD", "Adam", "Adadelta"])
   );
@@ -14,7 +14,7 @@ test("find all callable descendants", () => {
 test("find all parameter descendants", () => {
   const { codeInfo } = loadTestData();
   const objId = _.filter(codeInfo, (x) => x.name === "resnet101")[0].id;
-  const parameters = findAllParameters(codeInfo, objId);
+  const parameters = findAllParameters(codeInfo, [objId]);
   expect(new Set(parameters.map((x) => x.name))).toEqual(
     new Set(["pretrained", "progress", "kwargs"])
   );

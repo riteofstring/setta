@@ -5,7 +5,10 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "f3e7cdba-7139-4478-98ec-fd3125e0cf55",
+      collections: [
+        "0671b39c-8479-4831-8627-8b37f12ef635",
+        "bb751616-d554-4ec8-84c1-8760078956d3",
+      ],
       uiTypeCollectionId: "b5778288-2163-4212-8f0f-4744644c62b5",
     },
     originInfoId: {
@@ -18,7 +21,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "a2f859d9-e045-4268-9ac7-0525fa4133c7",
+      collections: ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
       uiTypeCollectionId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
     },
     originInfoId: {
@@ -31,7 +34,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "40b907eb-fcad-4c91-b0e1-7918d2b81356",
+      collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
       uiTypeCollectionId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
     },
     originInfoId: {
@@ -44,7 +47,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "00e600d1-cab5-423b-aa14-586ac58afd49",
+      collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
       uiTypeCollectionId: "76e6a946-446b-4fcb-a803-db01482ed97e",
     },
     originInfoId: {
@@ -57,7 +60,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "8bd06117-42fb-4bb1-93d2-a004d091d04a",
+      collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
       uiTypeCollectionId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
     },
     originInfoId: {
@@ -70,7 +73,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "5f3c872f-8571-4b19-93d6-0a661f4a1db7",
+      collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
       uiTypeCollectionId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     },
     originInfoId: {
@@ -83,7 +86,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "06c70ee6-aa44-4161-b644-ccda0fba126e",
+      collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
       uiTypeCollectionId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     },
     originInfoId: {
@@ -96,7 +99,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collection: "f3d5d19d-cd73-4bc6-b613-5cc4f4b82df6",
+      collections: ["f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86"],
       uiTypeCollectionId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
     },
     originInfoId: {
@@ -108,7 +111,7 @@ export default {
     type: "SECTION",
     name: "torchvision transforms",
     config: {
-      collection: "0c10f773-2f86-4779-9069-b6c6065bf594",
+      collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
       uiTypeCollectionId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
       childUITypeId: null,
       subType: "LIST",
