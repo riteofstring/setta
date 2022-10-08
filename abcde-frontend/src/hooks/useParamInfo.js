@@ -39,7 +39,7 @@ export function useParamEnteredValueId(sectionId) {
 }
 
 export function useGetParamChildId(sectionId, paramInfoId) {
-  return useStoreState((x) => x.paramInfos.childId(sectionId, paramInfoId));
+  return useStoreState((x) => x.paramInfos.evInfo(sectionId, paramInfoId, "childId"));
 }
 
 export function useParamUITypeId(sectionId) {

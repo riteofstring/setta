@@ -1,6 +1,6 @@
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
-import memoizeOne from "memoize-one";
+import memoizerific from "memoizerific";
 import { setToDefault } from "./utils";
 
 const paramInfos = {
@@ -30,17 +30,28 @@ const paramInfos = {
     state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
   }),
 
-  childId: computed(
+  evInfo: computed(
+    [
+      (state) => state.enteredValueId,
+      (state, storeState) => storeState.enteredValues.x,
+    ],
+    (enteredValueIdFn, enteredValues) => {
+      return memoizerific(1000)((sectionId, paramInfoId, key) => {
+        const enteredValueId = enteredValueIdFn(sectionId, paramInfoId);
+        return enteredValues[enteredValueId]?.[key];
+      });
+    }
+  ),
+
+  enteredValueId: computed(
     [
       (state) => state.x,
       (state, storeState) => storeState.sectionInfos.sectionConfig,
-      (state, storeState) => storeState.enteredValues.x,
     ],
-    (x, sectionConfigFn, enteredValues) => {
-      return memoizeOne((sectionId, paramInfoId) => {
+    (x, sectionConfigFn) => {
+      return memoizerific(1000)((sectionId, paramInfoId) => {
         const paramCollectionId = sectionConfigFn(sectionId).paramCollectionId;
-        const enteredValueId = x[paramCollectionId]?.[paramInfoId];
-        return enteredValues[enteredValueId]?.childId;
+        return x[paramCollectionId]?.[paramInfoId];
       });
     }
   ),

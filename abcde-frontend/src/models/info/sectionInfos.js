@@ -5,6 +5,7 @@ import _ from "lodash";
 import memoizeOne from "memoize-one";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
 import { defaultState } from "utils/utils";
+import memoizerific from "memoizerific"
 
 function setDefaultIdsOverview(state, sectionId) {
   if (!(sectionId in state.idsOverview)) {
@@ -66,7 +67,7 @@ const sectionInfos = {
   sectionConfig: computed(
     [(state) => state.x, (state, storeState) => storeState.sectionConfigs.x],
     (infos, configs) => {
-      return memoizeOne((sectionId) => {
+      return memoizerific(1000)((sectionId) => {
         const configId = infos[sectionId]?.configId;
         return defaultState(configs[configId], {});
       });
