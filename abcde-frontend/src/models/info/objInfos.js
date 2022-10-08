@@ -12,10 +12,6 @@ const objInfos = {
     }
     currState[objInfoId] = newStateFn(currState[objInfoId]);
   }),
-
-  export() {
-    return this.x;
-  },
 };
 
 export default objInfos;

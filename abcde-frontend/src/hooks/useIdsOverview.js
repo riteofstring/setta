@@ -14,7 +14,7 @@ import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 export function useGetAllChildren(sectionId) {
   return defaultState(
     useStoreState((x) => x.sectionInfos.idsOverview[sectionId]),
-    () => []
+    []
   );
 }
 

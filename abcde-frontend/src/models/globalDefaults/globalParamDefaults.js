@@ -24,10 +24,6 @@ const globalParamDefaults = {
       (v, k) => (setParamTypeInfo(state, k).uiTypeId = v.uiTypeId)
     );
   }),
-
-  export() {
-    return this.x;
-  },
 };
 
 export default globalParamDefaults;

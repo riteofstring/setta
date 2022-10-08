@@ -38,23 +38,8 @@ export function useParamEnteredValueId(sectionId) {
   );
 }
 
-export function useParamChildId(sectionId) {
-  const { paramCollectionId } = useGetSectionConfig(sectionId);
-
-  return (paramInfoId) => {
-    const enteredValueId = useStoreState(
-      (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
-    );
-
-    const setX = curryAction(
-      useStoreActions((x) => x.enteredValues.setChildId),
-      { enteredValueId },
-      "childId"
-    );
-    const x = useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
-
-    return [x, setX];
-  };
+export function useGetParamChildId(sectionId, paramInfoId) {
+  return useStoreState((x) => x.paramInfos.childId(sectionId, paramInfoId));
 }
 
 export function useParamUITypeId(sectionId) {

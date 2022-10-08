@@ -1,8 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { createNewId, curryAction, defaultState } from "utils/utils";
-
 import { useParamEnteredValueId } from "./useParamInfo";
-import { getInfo } from "./utils";
 
 export function useInitializeEnteredValue(sectionId) {
   const enteredValueIdFn = useParamEnteredValueId(sectionId);
@@ -26,8 +24,8 @@ export function useParamEnteredValue(sectionId) {
   return (paramInfoId) => {
     const enteredValueId = enteredValueIdFn(paramInfoId)[0];
     const enteredValue = defaultState(
-      useStoreState((x) => getInfo(x.enteredValues)[enteredValueId]?.value),
-      () => ""
+      useStoreState((x) => x.enteredValues.x[enteredValueId]?.value),
+      ""
     );
     const setEnteredValue = curryAction(
       useStoreActions((x) => x.enteredValues.setEnteredValue),

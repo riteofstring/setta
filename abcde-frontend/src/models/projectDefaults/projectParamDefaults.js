@@ -26,10 +26,6 @@ const projectParamDefaults = {
       (v, k) => (setMutableParamUITypeInfo(state, k).uiTypeId = v.uiTypeId)
     );
   }),
-
-  export() {
-    return this.x;
-  },
 };
 
 export default projectParamDefaults;

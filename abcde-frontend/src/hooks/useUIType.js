@@ -1,7 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { createNewId, defaultState } from "utils/utils";
-
 import {
   DEFAULT_BASE_UI_TYPE_ID,
   rootTypeToChildType,
@@ -12,15 +11,14 @@ import { createOriginInfoId } from "./usePresetUIType";
 import { useSetSectionConfigAttr } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
 import { getFnSetUIType } from "./useUITypeCoreFunctions";
-import { getInfo } from "./utils";
 
 export function useGetParamUIType(sectionId) {
   const uiTypeIdFn = useParamUITypeId(sectionId);
   return (paramInfoId) => {
     const uiTypeId = uiTypeIdFn(paramInfoId)[0];
     return defaultState(
-      useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
-      () => ({})
+      useStoreState((x) => x.uiTypes.x[uiTypeId]),
+      {}
     );
   };
 }

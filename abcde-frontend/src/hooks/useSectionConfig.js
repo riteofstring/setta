@@ -1,7 +1,5 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { defaultState } from "utils/utils";
 import { useGetSectionInfo } from "./useSectionInfo";
-import { getInfo } from "./utils";
 
 export function getFnSetSectionConfigAttr(
   configId,
@@ -12,11 +10,7 @@ export function getFnSetSectionConfigAttr(
 }
 
 export function useGetSectionConfig(sectionId) {
-  const configId = useGetSectionInfo(sectionId).configId;
-  return defaultState(
-    useStoreState((x) => getInfo(x.sectionConfigs)[configId]),
-    () => ({})
-  );
+  return useStoreState((x) => x.sectionInfos.sectionConfig(sectionId));
 }
 
 export function useSetSectionConfigAttr(sectionId, attr) {

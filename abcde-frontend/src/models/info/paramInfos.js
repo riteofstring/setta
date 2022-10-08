@@ -1,5 +1,6 @@
-import { action, thunk } from "easy-peasy";
+import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
+import memoizeOne from "memoize-one";
 import { setToDefault } from "./utils";
 
 const paramInfos = {
@@ -18,6 +19,32 @@ const paramInfos = {
     }
   }),
 
+  setEnteredValueId: action((state, payload) => {
+    const { collectionId, paramInfoId, enteredValueId } = payload;
+    setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;
+  }),
+
+  deleteParamInfo: action((state, payload) => {
+    const { paramCollectionId, uiTypeColId, ids } = payload;
+    state.x[paramCollectionId] = _.omit(state.x[paramCollectionId], ids);
+    state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
+  }),
+
+  childId: computed(
+    [
+      (state) => state.x,
+      (state, storeState) => storeState.sectionInfos.sectionConfig,
+      (state, storeState) => storeState.enteredValues.x,
+    ],
+    (x, sectionConfigFn, enteredValues) => {
+      return memoizeOne((sectionId, paramInfoId) => {
+        const paramCollectionId = sectionConfigFn(sectionId).paramCollectionId;
+        const enteredValueId = x[paramCollectionId]?.[paramInfoId];
+        return enteredValues[enteredValueId]?.childId;
+      });
+    }
+  ),
+
   overrideUITypeIds: thunk((action, payload, helpers) => {
     const uiTypes = helpers.getStoreState().uiTypes.x;
     action.overrideUITypeIdsHelper({ ...payload, uiTypes });
@@ -35,21 +62,6 @@ const paramInfos = {
       }
     }
   }),
-
-  setEnteredValueId: action((state, payload) => {
-    const { collectionId, paramInfoId, enteredValueId } = payload;
-    setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;
-  }),
-
-  deleteParamInfo: action((state, payload) => {
-    const { paramCollectionId, uiTypeColId, ids } = payload;
-    state.x[paramCollectionId] = _.omit(state.x[paramCollectionId], ids);
-    state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
-  }),
-
-  export() {
-    return { paramCollections: this.x, uiTypeCollections: this.y };
-  },
 };
 
 export default paramInfos;

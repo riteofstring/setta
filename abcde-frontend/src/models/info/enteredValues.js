@@ -20,10 +20,6 @@ const enteredValues = {
     const { enteredValueId, childId } = payload;
     getEVInfo(state, enteredValueId).childId = childId;
   }),
-
-  export() {
-    return this.x;
-  },
 };
 
 export default enteredValues;

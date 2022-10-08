@@ -8,7 +8,7 @@ export function useSectionSiblingNames(sectionId) {
   const topLevelSections = useTopLevelSectionInfo();
   const siblingIds = defaultState(
     useStoreState((x) => x.sectionInfos.currChildren[sectionInfo.parentId]),
-    () => []
+    []
   );
   const siblingNames = useStoreState(
     (x) => siblingIds.map((y) => x.sectionInfos.idNames[y]),
