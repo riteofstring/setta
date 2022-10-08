@@ -1,6 +1,4 @@
 import { FormControl, HStack, Spacer } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
-import { useGetParamUIType } from "hooks/useParamInfo";
 import { useEffect } from "react";
 import { requiresNestedSection } from "utils/constants";
 
@@ -8,16 +6,22 @@ import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramInfo, getInitEnteredValueFn } = props;
-  const initializeParamUIType = useStoreActions(
-    (x) => x.thunks.initializeParamUIType
-  );
-  const uiType = useGetParamUIType(sectionId, paramInfo.id);
+  const {
+    sectionId,
+    paramInfo,
+    childIdFn,
+    getUITypeFn,
+    enteredValueFn,
+    getInitUITypeFn,
+    getInitEnteredValueFn,
+  } = props;
+  const uiType = getUITypeFn(paramInfo.id);
+  const initUITypeFn = getInitUITypeFn(paramInfo);
   const initEnteredValueFn = getInitEnteredValueFn(paramInfo.id);
   const uiTypeConfig = uiType.config;
 
   useEffect(() => {
-    initializeParamUIType({ sectionId, paramInfo });
+    initUITypeFn();
     initEnteredValueFn();
   }, [paramInfo.id]);
 
@@ -37,11 +41,11 @@ export default function ParamContainer(props) {
           {props.children}
           <Spacer />
           <ParamInput
-            sectionId={sectionId}
             paramInfoId={paramInfo.id}
             defaultVal={paramInfo.defaultVal}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
+            enteredValueFn={enteredValueFn}
             isDisabled={!paramInfo.name}
           />
         </HStack>
@@ -53,6 +57,7 @@ export default function ParamContainer(props) {
       paramName={paramInfo.name}
       uiTypeId={uiType.id}
       parentParamInfoId={paramInfo.id}
+      childIdFn={childIdFn}
     />
   );
 }

@@ -7,7 +7,7 @@ import { defaultState } from "utils/utils";
 
 import {
   useGetManyParamsWithParamCollectionId,
-  useGetManyParamsWithUITypeColId,
+  useGetManyParamsWithUITypeCollectionId,
 } from "./useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
@@ -20,13 +20,21 @@ export function useGetAllChildren(sectionId) {
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
+  const setIdsOverview = useSetIdsOverview(sectionId);
   const setCurrChildren = useStoreActions(
     (x) => x.sectionInfos.setCurrChildren
   );
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren: idsOverview });
   }, [idsOverview]);
-  return idsOverview;
+  return [idsOverview, setIdsOverview];
+}
+
+export function useSetIdsOverview(sectionId) {
+  const fn = useStoreActions((x) => x.sectionInfos.setIdsOverview);
+  return (newStateFn) => {
+    return fn({ sectionId, newStateFn });
+  };
 }
 
 function useGetIdsOverview(sectionId) {
@@ -45,7 +53,11 @@ function useGetCurrChildrenIds(sectionId) {
 }
 
 function useChildIdHelper(infos, sectionId) {
-  const uiTypeIds = useGetManyParamsWithUITypeColId(sectionId, infos);
+  const uiTypeIds = useGetManyParamsWithUITypeCollectionId(
+    sectionId,
+    infos,
+    "uiTypeId"
+  );
   const hasNested = useStoreState(
     (x) =>
       infos.filter((y, i) =>

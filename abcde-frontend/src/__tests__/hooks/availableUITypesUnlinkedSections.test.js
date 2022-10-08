@@ -13,7 +13,7 @@ import {
 
 // exclude the X section since that's our "other" section to test on in this particular test
 test.each(testSectionNamesParamNames({ excludeSections: ["X"] }))(
-  "Sections that use the same parameters, but with different uiTypeColIds, should not see each other's forked non-presets",
+  "Sections that use the same parameters, but with different uiTypeCollectionIds, should not see each other's forked non-presets",
   ({ sectionName, paramName }) => {
     testUnlinkedSections(sectionName, paramName);
   }
