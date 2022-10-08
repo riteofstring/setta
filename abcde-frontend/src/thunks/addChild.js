@@ -1,5 +1,5 @@
 import { thunk } from "easy-peasy";
-import { insertIntoArrayOrXpend } from "utils/utils";
+import { createNewId, insertIntoArrayOrXpend } from "utils/utils";
 
 function getNewStateFn(startId, newIds) {
   return (x) => {
@@ -39,9 +39,19 @@ export const addChild = thunk((action, payload, helpers) => {
     const { paramCollectionId: collectionId } =
       helpers.getStoreState().sectionConfigs.x[configId];
 
-    helpers.getStoreActions().paramInfos.setChildId({
+    let enteredValueId =
+      helpers.getStoreState().paramInfos.x[collectionId]?.[parentParamInfoId];
+
+    enteredValueId = createNewId();
+
+    helpers.getStoreActions().paramInfos.setEnteredValueId({
       collectionId,
       paramInfoId: parentParamInfoId,
+      enteredValueId,
+    });
+
+    helpers.getStoreActions().enteredValues.setChildId({
+      enteredValueId,
       childId: newIds[0],
     });
   }

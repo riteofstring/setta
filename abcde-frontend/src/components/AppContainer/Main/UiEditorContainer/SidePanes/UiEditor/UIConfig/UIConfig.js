@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
-import { useParamChildId } from "hooks/useParamInfo";
+import { useGetParamChildId } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
 import React from "react";
@@ -59,9 +59,8 @@ function UIConfigFunc() {
 }
 
 function UIElement({ sectionId, paramInfo, getUITypeFn }) {
-  const childIdFn = useParamChildId(sectionId);
   const paramInfoId = paramInfo.id;
-  const paramChildId = childIdFn(paramInfoId)[0];
+  const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = getUITypeFn(paramInfoId);
   const [setUITypeId, setConfig] = useSetUIType({
     sectionId,

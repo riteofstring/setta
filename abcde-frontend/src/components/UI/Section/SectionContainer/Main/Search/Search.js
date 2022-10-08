@@ -1,4 +1,4 @@
-import { useGetCollections } from "hooks/useSectionContents";
+import { useFindAllCallables } from "hooks/useSectionContents";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export default function SectionSearch({
@@ -6,7 +6,7 @@ export default function SectionSearch({
   onSelectedItemChange,
   initialSelection,
 }) {
-  const searchableItems = useGetCollections(sectionId, true);
+  const searchableItems = useFindAllCallables(sectionId);
   return (
     searchableItems.length > 0 && (
       <IdNameCombobox
