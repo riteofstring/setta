@@ -12,6 +12,8 @@ import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
 import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
 import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
+import { renameKeys } from '../utils/utils';
+import _ = require('lodash');
 
 @Injectable()
 export class ProjectsService {
@@ -75,9 +77,31 @@ export class ProjectsService {
     const baseUITypes = {};
     for (const x of configs) {
       const { id, ...config } = x;
-      baseUITypes[id.id] = { ...id, config };
+      const newConfig = renameKeys(config, CONFIG_KEYMAP);
+      baseUITypes[id.id] = { ...id, config: newConfig };
     }
+
+    _.forEach(baseUITypes, (v, k) => {
+      baseUITypes[k] = reshapeOriginInfoId(v);
+    });
 
     return { baseUITypes };
   }
 }
+
+function reshapeOriginInfoId(uiType) {
+  const originInfoId = {
+    sectionId: uiType.originSection,
+    uiTypeColId: uiType.originUITypeCol,
+    paramInfoId: uiType.originCodeInfo,
+  };
+  uiType.originInfoId = _.pickBy(originInfoId, (x) => x);
+  return _.omitBy(uiType, (v, k) =>
+    ['originSection', 'originUITypeCol', 'originCodeInfo'].includes(k),
+  );
+}
+
+const CONFIG_KEYMAP = {
+  uiTypeCol: 'uiTypeColId',
+  childUIType: 'childUITypeId',
+};

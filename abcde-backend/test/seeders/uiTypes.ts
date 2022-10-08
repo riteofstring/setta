@@ -19,7 +19,7 @@ async function createSectionUIType(em, x) {
   const {
     config: {
       collections,
-      uiTypeCollectionId: xUITypeCol,
+      uiTypeColId: xUITypeCol,
       childUITypeId: xChildUITypeId,
       subType,
     },
