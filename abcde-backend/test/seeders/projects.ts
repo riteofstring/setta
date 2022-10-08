@@ -7,7 +7,7 @@ import { ProjectConfigs } from '../../src/entities/projects/projectConfigs.entit
 
 export class ProjectsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
-    for (const x of projectsData) {
+    for (const x of Object.values(projectsData)) {
       const currProject = em.create(Projects, {
         id: x.id,
         name: x.name,
