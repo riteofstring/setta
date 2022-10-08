@@ -1,6 +1,5 @@
 import { FormControl } from "@chakra-ui/react";
 import { useInitializeEnteredValue } from "hooks/useEnteredValue";
-import { useInitializeUIType } from "hooks/useUIType";
 
 import ParamSwitch from "./ParamSwitch";
 
@@ -10,7 +9,6 @@ export default function GetParamSwitch({
   isKwarg = false,
   objInfoId,
 }) {
-  const getInitUITypeFn = useInitializeUIType(sectionId);
   const getInitEnteredValueFn = useInitializeEnteredValue(sectionId);
   return (
     infos.length > 0 && (
@@ -21,7 +19,6 @@ export default function GetParamSwitch({
             sectionId={sectionId}
             objInfoId={objInfoId}
             paramInfo={e}
-            getInitUITypeFn={getInitUITypeFn}
             getInitEnteredValueFn={getInitEnteredValueFn}
             isKwarg={isKwarg}
           />

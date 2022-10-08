@@ -46,40 +46,6 @@ export function useSetUIType({
   });
 }
 
-function useProjectDefaultUIType(paramInfoId) {
-  const uiTypeId = useStoreState(
-    (x) => x.projectParamDefaults.x[paramInfoId]?.uiTypeId
-  );
-  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
-}
-
-function useGlobalDefaultUIType(paramType) {
-  const uiTypeId = useStoreState(
-    (x) => x.globalParamDefaults.x[paramType]?.uiTypeId
-  );
-  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
-}
-
-export function useInitializeUIType(sectionId) {
-  const uiTypeFn = useParamUITypeId(sectionId);
-  return (paramInfo) => {
-    const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
-    const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
-    const globalDefaultUIType = useGlobalDefaultUIType(paramInfo.type);
-    return () => {
-      if (uiTypeId) {
-        return;
-      } else if (projectDefaultUIType) {
-        setUITypeId(projectDefaultUIType.id);
-      } else if (globalDefaultUIType) {
-        setUITypeId(globalDefaultUIType.id);
-      } else {
-        setUITypeId(DEFAULT_BASE_UI_TYPE_ID);
-      }
-    };
-  };
-}
-
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
