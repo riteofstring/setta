@@ -1,63 +1,59 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { curryAction, defaultState } from "utils/utils";
+import { curryAction } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-function useParamInfoState(collectionId, setStateFn, key, attr) {
+function useParamInfoState(collectionId, stateName, setStateFn, key, attr) {
   return (paramInfoId) => {
     const setX = curryAction(
       useStoreActions((x) => x.paramInfos[setStateFn]),
       { collectionId }
     );
     const x = useStoreState(
-      (x) => x.paramInfos[attr][collectionId]?.[paramInfoId]
+      (x) => x.paramInfos[attr][collectionId]?.[paramInfoId]?.[stateName]
     );
     const setX_ = curryAction(setX, { paramInfoId }, key);
     return [x, setX_];
   };
 }
 
-function useParamWithParamCollectionId(sectionId, setStateFn, key) {
+function useParamWithParamCollectionId(sectionId, stateName, setStateFn, key) {
   const { paramCollectionId } = useGetSectionConfig(sectionId);
-  return useParamInfoState(paramCollectionId, setStateFn, key, "x");
+  return useParamInfoState(paramCollectionId, stateName, setStateFn, key, "x");
 }
 
-function useParamWithUITypeColId(sectionId, setStateFn, key) {
-  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
-  return useParamInfoState(uiTypeColId, setStateFn, key, "y");
+function useParamWithUITypeCollectionId(sectionId, stateName, setStateFn, key) {
+  const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
+  return useParamInfoState(uiTypeCollectionId, stateName, setStateFn, key, "y");
 }
 
 export function useParamEnteredValueId(sectionId) {
   return useParamWithParamCollectionId(
     sectionId,
+    "enteredValueId",
     "setEnteredValueId",
     "enteredValueId"
   );
 }
 
-export function useGetParamChildId(sectionId, paramInfoId) {
-  const { paramCollectionId } = useGetSectionConfig(sectionId);
-  const enteredValueId = useStoreState(
-    (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
-  );
-  return useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
-}
-
-export function useGetParamUIType(sectionId, paramInfoId) {
-  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
-  const uiTypeId = useStoreState(
-    (x) => x.paramInfos.y[uiTypeColId]?.[paramInfoId]
-  );
-  return defaultState(
-    useStoreState((x) => x.uiTypes.x[uiTypeId]),
-    () => ({})
+export function useParamChildId(sectionId) {
+  return useParamWithParamCollectionId(
+    sectionId,
+    "childId",
+    "setChildId",
+    "childId"
   );
 }
 
 export function useParamUITypeId(sectionId) {
-  return useParamWithUITypeColId(sectionId, "setUITypeId", "uiTypeId");
+  return useParamWithUITypeCollectionId(
+    sectionId,
+    "uiTypeId",
+    "setUITypeId",
+    "uiTypeId"
+  );
 }
 
 export function useGetManyParamsWithParamCollectionId(
@@ -66,20 +62,22 @@ export function useGetManyParamsWithParamCollectionId(
   key
 ) {
   const { paramCollectionId } = useGetSectionConfig(sectionId);
-  const enteredValueIds = useStoreState(
-    (x) => paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]),
-    _.isEqual
-  );
   return useStoreState(
-    (x) => enteredValueIds.map((y) => x.enteredValues.x[y]?.[key]),
+    (x) =>
+      paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]?.[key]),
     _.isEqual
   );
 }
 
-export function useGetManyParamsWithUITypeColId(sectionId, paramInfos) {
-  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
+export function useGetManyParamsWithUITypeCollectionId(
+  sectionId,
+  paramInfos,
+  key
+) {
+  const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
   return useStoreState(
-    (x) => paramInfos.map((y) => x.paramInfos.y[uiTypeColId]?.[y.id]),
+    (x) =>
+      paramInfos.map((y) => x.paramInfos.y[uiTypeCollectionId]?.[y.id]?.[key]),
     _.isEqual
   );
 }

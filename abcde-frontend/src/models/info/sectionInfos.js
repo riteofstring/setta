@@ -50,10 +50,10 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
-  deleteSections: thunk((action, payload, helpers) => {
+  deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     for (let sid of sectionIds) {
-      deleteSectionFn(helpers, sid);
+      deleteSectionFn(state, sid);
     }
   }),
 
@@ -122,19 +122,16 @@ const sectionInfos = {
 
 export default sectionInfos;
 
-function deleteSectionFn(helpers, sectionId) {
-  const childIds = helpers.getState().idsOverview[sectionId];
+function deleteSectionFn(state, sectionId) {
+  const childIds = state.idsOverview[sectionId];
   if (childIds) {
     for (let child of childIds) {
-      deleteSectionFn(helpers, child);
+      deleteSectionFn(state, child);
     }
   }
-  if (helpers.getStoreState().master.activeSection === sectionId) {
-    helpers.getStoreActions().master.setActiveSection(null);
-  }
-  delete helpers.getState().x[sectionId];
-  delete helpers.getState().idsOverview[sectionId];
-  delete helpers.getState().currChildren[sectionId];
+  delete state.x[sectionId];
+  delete state.idsOverview[sectionId];
+  delete state.currChildren[sectionId];
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {

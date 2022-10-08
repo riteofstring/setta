@@ -36,11 +36,11 @@ export function addUIType(store, props = {}) {
 }
 
 export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
-  const [uiTypeColId, paramInfoId] = [createNewId(), createNewId()];
+  const [uiTypeCollectionId, paramInfoId] = [createNewId(), createNewId()];
   const setUITypeId = store.getActions().paramInfos.setUITypeId;
   waitFor(() => {
     setUITypeId({
-      collectionId: uiTypeColId,
+      collectionId: uiTypeCollectionId,
       paramInfoId,
       uiTypeId: uiType.id,
     });
@@ -52,7 +52,7 @@ export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
       parentParamInfoId: paramInfoId,
     });
   }
-  return { uiTypeColId, paramInfoId };
+  return { uiTypeCollectionId, paramInfoId };
 }
 
 export function getStoreProviderWrapper(store) {

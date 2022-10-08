@@ -1,6 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { createNewId } from "utils/utils";
+import { createNewId, defaultState } from "utils/utils";
 
 import {
   DEFAULT_BASE_UI_TYPE_ID,
@@ -12,6 +12,18 @@ import { createOriginInfoId } from "./usePresetUIType";
 import { useSetSectionConfigAttr } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
 import { getFnSetUIType } from "./useUITypeCoreFunctions";
+import { getInfo } from "./utils";
+
+export function useGetParamUIType(sectionId) {
+  const uiTypeIdFn = useParamUITypeId(sectionId);
+  return (paramInfoId) => {
+    const uiTypeId = uiTypeIdFn(paramInfoId)[0];
+    return defaultState(
+      useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
+      () => ({})
+    );
+  };
+}
 
 export function useSetUIType({
   sectionId,
@@ -84,7 +96,7 @@ function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
-  uiType.config.uiTypeColId = createNewId();
+  uiType.config.uiTypeCollectionId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.presetType = null;
   uiType.originInfoId = createOriginInfoId({
@@ -119,6 +131,18 @@ export function getChildUITypeId(
   return id;
 }
 
+export function useGetChildUITypeId() {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
+
+  return (uiTypeId, parentUIType, parentId) => {
+    if (uiTypeId) {
+      return uiTypeId;
+    }
+    return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
+  };
+}
+
 // Root sections and child behavior:
 
 // ##### Root controlling children #####
@@ -148,7 +172,7 @@ export function getChildUITypeId(
 // The check is:
 // (originInfoIdMatches && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoIdMatches && isForChildOfOriginInfoId=true)
 
-// originInfoId format: {uiTypeColId, paramInfoId} or {sectionId}
-// When changing a param's uitype, the uiTypeColId is from the section's uiType, and paramInfoId is from the param.
-// When changing a nested param's uitype, the uiTypeColId is from the PARENT section's uiType, and paramInfoId is from the param.
+// originInfoId format: {uiTypeCollectionId, paramInfoId} or {sectionId}
+// When changing a param's uitype, the uiTypeCollectionId is from the section's uiType, and paramInfoId is from the param.
+// When changing a nested param's uitype, the uiTypeCollectionId is from the PARENT section's uiType, and paramInfoId is from the param.
 // When changing a section not associated with a param, use sectionId
