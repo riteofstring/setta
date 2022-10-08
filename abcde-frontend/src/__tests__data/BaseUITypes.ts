@@ -11,7 +11,7 @@ export default {
     type: "SLIDER",
     name: "",
     presetType: "base",
-    config: {},
+    config: { min: null, max: null, step: null },
   },
   "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
     id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
@@ -36,6 +36,7 @@ export default {
       collections: [],
       uiTypeCollectionId: null,
       subType: null,
+      childUIType: null,
     },
   },
   "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
@@ -46,6 +47,7 @@ export default {
     config: {
       collections: [],
       uiTypeCollectionId: null,
+      subType: null,
       childUITypeId: null,
     },
   },
@@ -57,6 +59,7 @@ export default {
     config: {
       collections: [],
       uiTypeCollectionId: null,
+      subType: null,
       childUITypeId: null,
     },
   },
@@ -68,6 +71,7 @@ export default {
     config: {
       collections: [],
       uiTypeCollectionId: null,
+      subType: null,
       childUITypeId: null,
     },
   },
@@ -80,6 +84,7 @@ export default {
     config: {
       collections: [],
       uiTypeCollectionId: null,
+      subType: null,
       childUITypeId: null,
     },
   },
