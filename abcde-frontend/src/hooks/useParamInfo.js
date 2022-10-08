@@ -18,22 +18,9 @@ function useParamInfoState(collectionId, setStateFn, key, attr) {
   };
 }
 
-function useParamWithParamCollectionId(sectionId, setStateFn, key) {
-  const { paramCollectionId } = useGetSectionConfig(sectionId);
-  return useParamInfoState(paramCollectionId, setStateFn, key, "x");
-}
-
 function useParamWithUITypeColId(sectionId, setStateFn, key) {
   const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
   return useParamInfoState(uiTypeColId, setStateFn, key, "y");
-}
-
-export function useParamEnteredValueId(sectionId) {
-  return useParamWithParamCollectionId(
-    sectionId,
-    "setEnteredValueId",
-    "enteredValueId"
-  );
 }
 
 export function useGetParamEnteredValueId(sectionId, paramInfoId) {
