@@ -2,8 +2,8 @@ import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { Sections } from '../../src/entities/sections/sections.entity';
 import simpleTrainTestUITypes from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
+import simpleTrainTestEV from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/EV';
 import { UITypes } from '../../src/entities/uitypes/uiTypes.entity';
-import { EVColsIds } from '../../src/entities/enteredValues/evColsIds.entity';
 import {
   createIfNotFound,
   loadAllSectionChildren,
@@ -14,6 +14,7 @@ import { SectionConfig } from '../../src/entities/sections/sectionConfig.entity'
 import { SectionConfigColsIds } from '../../src/entities/sections/sectionConfigColsIds.entity';
 import sectionConfigCols from '../../../abcde-frontend/src/__tests__data/SectionConfigCols';
 import { SectionConfigCols } from '../../src/entities/sections/sectionConfigCols.entity';
+import { EV } from '../../src/entities/enteredValues/ev.entity';
 
 export class SectionsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
@@ -28,7 +29,6 @@ export class SectionsSeeder extends Seeder {
 
     const allSectionConfigs = loadAllSectionConfigs();
     for (const x of Object.values(allSectionConfigs)) {
-      await createIfNotFound(em, EVColsIds, { id: x.paramCollectionId });
       await createIfNotFound(em, SectionConfig, {
         id: x.id,
         evCol: x.paramCollectionId,
@@ -70,6 +70,17 @@ export class SectionsSeeder extends Seeder {
       const uiType = await em.findOne(UITypes, { id: x.id });
       uiType.originSection = await em.findOne(Sections, {
         id: x.originInfoId.sectionId,
+      });
+    }
+    // update ev child ids
+    for (const x of Object.keys(simpleTrainTestEV)) {
+      const curr = simpleTrainTestEV[x];
+      if (!curr.childId) {
+        continue;
+      }
+      const ev = await em.findOne(EV, { id: x });
+      ev.child = await em.findOne(Sections, {
+        id: curr.childId,
       });
     }
   }
