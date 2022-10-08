@@ -80,8 +80,8 @@ export default {
   "cacb8f26-108d-4cda-ba1a-a9a68b01fb17": {
     id: "cacb8f26-108d-4cda-ba1a-a9a68b01fb17",
     uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
-    paramCollectionId: "c87d7bdd-f382-4f14-80df-8060b2024a58",
-    kwargCollectionId: "60ee4958-dab1-4a3a-8ca1-7e023513d16b",
+    paramCollectionId: "1411b61a-201a-4674-befa-826f6dbfeb88",
+    kwargCollectionId: "f740f58e-b2bc-414b-8a10-adbb1b0ff433",
     selectedItem: "fe8ec1e4-e978-40b2-8764-146b39e62269",
   },
 };
