@@ -3,19 +3,8 @@ import userEvent from "@testing-library/user-event";
 import MainContainer from "components/AppContainer/Main/MainContainer";
 import { PANEID } from "utils/constants";
 import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
+import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { sectionIdFromName } from "__tests__utils/utils";
-
-class ResizeObserver {
-  observe() {
-    // do nothing
-  }
-  unobserve() {
-    // do nothing
-  }
-  disconnect() {
-    // do nothing
-  }
-}
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;

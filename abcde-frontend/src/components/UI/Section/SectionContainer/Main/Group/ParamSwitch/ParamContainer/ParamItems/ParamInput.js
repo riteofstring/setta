@@ -1,12 +1,20 @@
+import { useParamEnteredValue } from "hooks/useEnteredValue";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 
 import ParamUI from "../ParamUIs/ParamUI";
 
-export default function ParamInput(props) {
-  const { paramInfoId, defaultVal, uiType, enteredValueFn } = props;
-
-  const [enteredValue, setEnteredValue] = enteredValueFn(paramInfoId);
+export default function ParamInput({
+  sectionId,
+  paramInfoId,
+  defaultVal,
+  uiType,
+  isDisabled,
+}) {
+  const [enteredValue, setEnteredValue] = useParamEnteredValue(
+    sectionId,
+    paramInfoId
+  );
   const [value, setValue] = useState("");
 
   const onChange = (v) => {
@@ -30,9 +38,9 @@ export default function ParamInput(props) {
         defaultVal,
         onChange,
         onChangeEnd,
-        isDisabled: props.isDisabled,
+        isDisabled,
         className: "nodrag",
-        ...props.uiTypeConfig,
+        ...uiType.config,
       }}
     />
   );

@@ -19,13 +19,7 @@ import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
-function _SectionContainerCore({
-  sectionId,
-  parentId,
-  nextId,
-  deleteChild,
-  hasNested,
-}) {
+function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const { selectedItem } = useGetSectionConfig(sectionId);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const isList = isListLike(config.subType);
@@ -82,7 +76,6 @@ function _SectionContainerCore({
             nextId={nextId}
             isList={isList}
             isListRoot={isListRoot}
-            deleteChild={deleteChild}
             hasNested={hasNested}
             requiresKeyInput={requiresKeyInput(config.subType)}
           />
@@ -114,7 +107,7 @@ function _SectionContainerCore({
 }
 
 const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["deleteChild", "nextId", "hasNested"];
+  const attrs = ["nextId", "hasNested"];
   for (let k of attrs) {
     if (!_.isEqual(prev[k], next[k])) {
       return false;

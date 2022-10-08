@@ -5,7 +5,7 @@ export class ObjInfo {
     this.version = jsonInput.version;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
-    this.rel = jsonInput.rel;
+    this.rcType = jsonInput.rcType;
     this.description = jsonInput.description;
     this.parentId = jsonInput.parentId;
     this.children = jsonInput.children;
