@@ -1,6 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { curryAction } from "utils/utils";
+import { curryAction, defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 
 import { useGetSectionTypeConfig } from "./useSectionType";
@@ -43,6 +43,17 @@ export function useGetParamChildId(sectionId, paramInfoId) {
     (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
   );
   return useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
+}
+
+export function useGetParamUIType(sectionId, paramInfoId) {
+  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
+  const uiTypeId = useStoreState(
+    (x) => x.paramInfos.y[uiTypeColId]?.[paramInfoId]
+  );
+  return defaultState(
+    useStoreState((x) => x.uiTypes.x[uiTypeId]),
+    () => ({})
+  );
 }
 
 export function useParamUITypeId(sectionId) {

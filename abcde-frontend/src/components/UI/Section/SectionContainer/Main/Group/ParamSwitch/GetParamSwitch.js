@@ -3,7 +3,7 @@ import {
   useInitializeEnteredValue,
   useParamEnteredValue,
 } from "hooks/useEnteredValue";
-import { useGetParamUIType, useInitializeUIType } from "hooks/useUIType";
+import { useInitializeUIType } from "hooks/useUIType";
 
 import ParamSwitch from "./ParamSwitch";
 
@@ -13,7 +13,6 @@ export default function GetParamSwitch({
   isKwarg = false,
   objInfoId,
 }) {
-  const getUITypeFn = useGetParamUIType(sectionId);
   const enteredValueFn = useParamEnteredValue(sectionId);
   const getInitUITypeFn = useInitializeUIType(sectionId);
   const getInitEnteredValueFn = useInitializeEnteredValue(sectionId);
@@ -26,7 +25,6 @@ export default function GetParamSwitch({
             sectionId={sectionId}
             objInfoId={objInfoId}
             paramInfo={e}
-            getUITypeFn={getUITypeFn}
             enteredValueFn={enteredValueFn}
             getInitUITypeFn={getInitUITypeFn}
             getInitEnteredValueFn={getInitEnteredValueFn}

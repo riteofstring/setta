@@ -12,9 +12,9 @@ import {
 } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
-import { useGetParamChildId } from "hooks/useParamInfo";
+import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { useGetParamUIType, useSetUIType } from "hooks/useUIType";
+import { useSetUIType } from "hooks/useUIType";
 import React from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
@@ -25,7 +25,6 @@ export default React.memo(UIConfigFunc);
 function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
-  const getUITypeFn = useGetParamUIType(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
@@ -50,7 +49,6 @@ function UIConfigFunc() {
           <UIElement
             sectionId={sectionId}
             paramInfo={e}
-            getUITypeFn={getUITypeFn}
             key={`${e.name}-${idx}`}
           />
         ))}
@@ -58,10 +56,10 @@ function UIConfigFunc() {
   );
 }
 
-function UIElement({ sectionId, paramInfo, getUITypeFn }) {
+function UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
-  const uiType = getUITypeFn(paramInfoId);
+  const uiType = useGetParamUIType(sectionId, paramInfoId);
   const [setUITypeId, setConfig] = useSetUIType({
     sectionId,
     paramInfoId,
