@@ -14,7 +14,6 @@ export default function ParamContainer(props) {
   );
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
   const initEnteredValueFn = getInitEnteredValueFn(paramInfo.id);
-  const uiTypeConfig = uiType.config;
 
   useEffect(() => {
     initializeParamUIType({ sectionId, paramInfo });
@@ -41,7 +40,6 @@ export default function ParamContainer(props) {
             paramInfoId={paramInfo.id}
             defaultVal={paramInfo.defaultVal}
             uiType={uiType}
-            uiTypeConfig={uiTypeConfig}
             isDisabled={!paramInfo.name}
           />
         </HStack>
