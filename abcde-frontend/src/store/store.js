@@ -1,4 +1,4 @@
-import { action, createStore } from "easy-peasy";
+import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
 import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
@@ -19,32 +19,40 @@ import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
 import thunks from "thunks/thunks";
 
-const store = createStore({
-  master: master,
-  auth: auth,
-  uiInfo: uiInfo,
-  panes: panes,
-  sectionPositions: sectionPositions,
-  sectionInfos: sectionInfos,
-  sectionConfigs: sectionConfigs,
-  objInfos: objInfos,
-  paramInfos: paramInfos,
-  kwargInfos: kwargInfos,
-  enteredValues: enteredValues,
-  uiTypes: uiTypes,
-  userSettings: userSettings,
-  uiEditor: uiEditor,
-  projectParamDefaults: projectParamDefaults,
-  globalParamDefaults: globalParamDefaults,
-  currPage: currPage,
-  currProject: currProject,
-  thunks: thunks,
-  setState: action((state, payload) => payload),
-  setSubState: action((state, payload) => {
-    const { name, value } = payload;
-    state[name] = value;
-  }),
-});
+const store = createStore(
+  persist(
+    {
+      master: master,
+      auth: auth,
+      uiInfo: uiInfo,
+      panes: panes,
+      sectionPositions: sectionPositions,
+      sectionInfos: sectionInfos,
+      sectionConfigs: sectionConfigs,
+      objInfos: objInfos,
+      paramInfos: paramInfos,
+      kwargInfos: kwargInfos,
+      enteredValues: enteredValues,
+      uiTypes: uiTypes,
+      userSettings: userSettings,
+      uiEditor: uiEditor,
+      projectParamDefaults: projectParamDefaults,
+      globalParamDefaults: globalParamDefaults,
+      currPage: currPage,
+      currProject: currProject,
+      thunks: thunks,
+      setState: action((state, payload) => payload),
+      setSubState: action((state, payload) => {
+        const { name, value } = payload;
+        state[name] = value;
+      }),
+    },
+    {
+      deny: ["auth", "setState", "setSubState"],
+      storage: "localStorage",
+    }
+  )
+);
 
 const initialState = store.getState();
 
