@@ -17,5 +17,5 @@ export class SectionConfig {
   selectedItem: CodeInfo;
 
   @ManyToOne()
-  sectionType: UITypes;
+  uiType: UITypes;
 }

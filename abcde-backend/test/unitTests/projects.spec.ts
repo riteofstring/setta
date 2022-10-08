@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import config from '../../src/mikro-orm.config';
 import { AppModule } from '../../src/app.module';
 import projectsData from '../../../abcde-frontend/src/__tests__data/Projects';
+import sectionsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/Sections';
 import sectionChildrenData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionChildren';
 import baseUITypesData from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
 import usersData from '../../../abcde-frontend/src/__tests__data/Users';
@@ -54,8 +55,7 @@ describe('ProjectsService', () => {
       .post(`/projects/${projectId}`)
       .set('Authorization', `Bearer ${access_token}`);
 
-    console.log(project.baseUITypes);
-
+    expect(project.sections).toEqual(sectionsData);
     expect(project.sectionChildren).toEqual(sectionChildrenData);
     expect(project.baseUITypes).toEqual(baseUITypesData);
     // expect(project.project.name).toEqual(projectsData[projectId].name);

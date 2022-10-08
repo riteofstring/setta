@@ -19,7 +19,11 @@ export class SectionsSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
     const allSections = loadAllSections();
     for (const x of Object.values(allSections)) {
-      await createIfNotFound(em, Sections, { id: x.id, name: x.name });
+      await createIfNotFound(em, Sections, {
+        id: x.id,
+        name: x.name,
+        paramInfo: x.paramInfoId,
+      });
     }
 
     const allSectionConfigs = loadAllSectionConfigs();
@@ -29,7 +33,7 @@ export class SectionsSeeder extends Seeder {
         id: x.id,
         evCol: x.paramCollectionId,
         selectedItem: x.selectedItem,
-        sectionType: x.uiTypeId,
+        uiType: x.uiTypeId,
       });
     }
 

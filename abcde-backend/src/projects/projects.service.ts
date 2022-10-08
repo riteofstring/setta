@@ -14,6 +14,7 @@ import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
 import { renameKeys } from '../utils/utils';
 import _ = require('lodash');
+import { SectionConfigCols } from 'src/entities/sections/sectionConfigCols.entity';
 
 @Injectable()
 export class ProjectsService {
@@ -29,15 +30,7 @@ export class ProjectsService {
   }
 
   async loadOne(id: string): Promise<any> {
-    const fullObj = await this.projects.findOne(
-      { id },
-      {
-        populate: [
-          'defaultProjectConfig.sectionConfigCol.sectionConfigCols.section.children',
-          'defaultProjectConfig.sectionConfigCol.sectionConfigCols.config',
-        ],
-      },
-    );
+    const fullObj = await getProject(id, this.projects);
     const {
       defaultProjectConfig: {
         sectionConfigCol: { sectionConfigCols },
@@ -45,48 +38,98 @@ export class ProjectsService {
       ...project
     } = fullObj;
 
-    const sectionChildren = {};
-    for (const col of sectionConfigCols) {
-      const children = col.section.children;
-      if (children.length > 0) {
-        sectionChildren[col.section.id] = children.getItems().map((x) => x.id);
-      }
-    }
+    const sections = getSections(sectionConfigCols);
+    const sectionChildren = getSectionChildren(sectionConfigCols);
+    const sectionConfigs = getSectionConfigs(sectionConfigCols);
+    const baseUITypes = await this.loadBaseUITypes();
 
-    const { baseUITypes } = await this.loadBaseUITypes();
-
-    return { project, sectionChildren, baseUITypes };
+    return { project, sections, sectionChildren, sectionConfigs, baseUITypes };
   }
 
   async loadBaseUITypes(): Promise<any> {
     const uiTypes = await this.em.find(UITypes, { presetType: 'base' });
-
-    const configs = [];
-    for (const table of [
-      SectionUITypes,
-      SliderUITypes,
-      SwitchUITypes,
-      TextUITypes,
-      RefUITypes,
-    ]) {
-      // @ts-ignore
-      const result = await this.em.find(table, { id: { $in: uiTypes } });
-      configs.push(...result);
-    }
-
-    const baseUITypes = {};
-    for (const x of configs) {
-      const { id, ...config } = x;
-      const newConfig = renameKeys(config, CONFIG_KEYMAP);
-      baseUITypes[id.id] = { ...id, config: newConfig };
-    }
-
-    _.forEach(baseUITypes, (v, k) => {
-      baseUITypes[k] = reshapeOriginInfoId(v);
-    });
-
-    return { baseUITypes };
+    return await getUITypeSpecifics(this.em, uiTypes);
   }
+}
+
+async function getProject(id, projects: ProjectsRepository) {
+  return await projects.findOne(
+    { id },
+    {
+      populate: [
+        'defaultProjectConfig.sectionConfigCol.sectionConfigCols.section.children',
+        'defaultProjectConfig.sectionConfigCol.sectionConfigCols.config',
+      ],
+    },
+  );
+}
+
+function getSections(sectionConfigCols) {
+  const sections = {};
+  for (const col of sectionConfigCols) {
+    const { id, name, paramInfo } = col.section;
+    sections[id] = { id, name, paramInfoId: paramInfo ? paramInfo.id : null };
+  }
+  return sections;
+}
+
+function getSectionChildren(sectionConfigCols) {
+  const sectionChildren = {};
+  for (const col of sectionConfigCols) {
+    const children = col.section.children;
+    if (children.length > 0) {
+      sectionChildren[col.section.id] = children.getItems().map((x) => x.id);
+    }
+  }
+  return sectionChildren;
+}
+
+function getSectionConfigs(sectionConfigCols) {
+  const KEYMAP = {
+    uiType: 'uiTypeId',
+  };
+
+  const sectionConfigs = {};
+  for (const col of sectionConfigCols) {
+    const config = _.mapValues(col.config, (v, k) =>
+      k === 'id' || !v ? v : v.id,
+    );
+    sectionConfigs[config.id] = renameKeys(config, KEYMAP);
+  }
+  return sectionConfigs;
+}
+
+async function getUITypeSpecifics(em: EntityManager, uiTypes: UITypes[]) {
+  const configs = [];
+  for (const table of [
+    SectionUITypes,
+    SliderUITypes,
+    SwitchUITypes,
+    TextUITypes,
+    RefUITypes,
+  ]) {
+    // @ts-ignore
+    const result = await em.find(table, { id: { $in: uiTypes } });
+    configs.push(...result);
+  }
+
+  const KEYMAP = {
+    uiTypeCol: 'uiTypeColId',
+    childUIType: 'childUITypeId',
+  };
+
+  const output = {};
+  for (const x of configs) {
+    const { id, ...config } = x;
+    const newConfig = renameKeys(config, KEYMAP);
+    output[id.id] = { ...id, config: newConfig };
+  }
+
+  _.forEach(output, (v, k) => {
+    output[k] = reshapeOriginInfoId(v);
+  });
+
+  return output;
 }
 
 function reshapeOriginInfoId(uiType) {
@@ -100,8 +143,3 @@ function reshapeOriginInfoId(uiType) {
     ['originSection', 'originUITypeCol', 'originCodeInfo'].includes(k),
   );
 }
-
-const CONFIG_KEYMAP = {
-  uiTypeCol: 'uiTypeColId',
-  childUIType: 'childUITypeId',
-};
