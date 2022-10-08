@@ -131,18 +131,6 @@ export function getChildUITypeId(
   return id;
 }
 
-export function useGetChildUITypeId() {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-
-  return (uiTypeId, parentUIType, parentId) => {
-    if (uiTypeId) {
-      return uiTypeId;
-    }
-    return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
-  };
-}
-
 // Root sections and child behavior:
 
 // ##### Root controlling children #####

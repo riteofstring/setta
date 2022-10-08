@@ -20,21 +20,13 @@ export function useGetAllChildren(sectionId) {
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
-  const setIdsOverview = useSetIdsOverview(sectionId);
   const setCurrChildren = useStoreActions(
     (x) => x.sectionInfos.setCurrChildren
   );
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren: idsOverview });
   }, [idsOverview]);
-  return [idsOverview, setIdsOverview];
-}
-
-export function useSetIdsOverview(sectionId) {
-  const fn = useStoreActions((x) => x.sectionInfos.setIdsOverview);
-  return (newStateFn) => {
-    return fn({ sectionId, newStateFn });
-  };
+  return idsOverview;
 }
 
 function useGetIdsOverview(sectionId) {
