@@ -26,7 +26,7 @@ export function useInitializeEnteredValue(sectionId) {
 export function useParamEnteredValue(sectionId, paramInfoId) {
   const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
   const enteredValue = defaultState(
-    useStoreState((x) => x.enteredValues.x[enteredValueId]?.enteredValue),
+    useStoreState((x) => x.enteredValues.x[enteredValueId]?.value),
     () => ""
   );
   const setEnteredValue = curryAction(
