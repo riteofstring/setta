@@ -43,6 +43,7 @@ module.exports = {
           models: "./src/models",
           store: "./src/store",
           styles: "./src/styles",
+          thunks: "./src/thunks",
           utils: "./src/utils",
         },
       },
