@@ -7,7 +7,9 @@ import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
+
 import { useGetSectionType } from "./useSectionType";
+import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = useGetSectionConfig(sectionId);
@@ -50,15 +52,15 @@ function useFindAllParameterCollections(sectionId) {
 function useGetKwargIds(sectionId, objInfo) {
   const { kwargCollectionId } = useGetSectionConfig(sectionId);
   return defaultState(
-    useStoreState((x) => x.objInfos.x[kwargCollectionId]?.[objInfo.id]),
-    []
+    useStoreState((x) => getInfo(x.objInfos)[kwargCollectionId]?.[objInfo.id]),
+    () => []
   );
 }
 
 function useGetKwargInfos(sectionId, objInfo) {
   const kwargIds = useGetKwargIds(sectionId, objInfo);
   const kwargInfoState = useStoreState(
-    (x) => kwargIds.map((y) => x.kwargInfos.x[y]),
+    (x) => kwargIds.map((y) => getInfo(x.kwargInfos)[y]),
     _.isEqual
   );
   return kwargInfoState;

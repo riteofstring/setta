@@ -1,16 +1,12 @@
-import { useParamEnteredValue } from "hooks/useEnteredValue";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 
 import ParamUI from "../ParamUIs/ParamUI";
 
 export default function ParamInput(props) {
-  const { sectionId, paramInfoId, defaultVal, uiType } = props;
+  const { paramInfoId, defaultVal, uiType, enteredValueFn } = props;
 
-  const [enteredValue, setEnteredValue] = useParamEnteredValue(
-    sectionId,
-    paramInfoId
-  );
+  const [enteredValue, setEnteredValue] = enteredValueFn(paramInfoId);
   const [value, setValue] = useState("");
 
   const onChange = (v) => {

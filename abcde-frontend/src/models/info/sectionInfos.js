@@ -2,10 +2,7 @@ import { action, computed, thunk } from "easy-peasy";
 import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
-import memoizeOne from "memoize-one";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
-import { defaultState } from "utils/utils";
-import memoizerific from "memoizerific"
 
 function setDefaultIdsOverview(state, sectionId) {
   if (!(sectionId in state.idsOverview)) {
@@ -53,6 +50,13 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
+  deleteSections: thunk((action, payload, helpers) => {
+    const { sectionIds } = payload;
+    for (let sid of sectionIds) {
+      deleteSectionFn(helpers, sid);
+    }
+  }),
+
   idNames: computed([(state) => state.x], (x) => {
     return _.mapValues(x, (v) => v.name);
   }),
@@ -62,23 +66,6 @@ const sectionInfos = {
       _.filter(x, (v) => v.isTopLevel),
       (y) => ({ id: y.id, initialPosition: y.initialPosition })
     );
-  }),
-
-  sectionConfig: computed(
-    [(state) => state.x, (state, storeState) => storeState.sectionConfigs.x],
-    (infos, configs) => {
-      return memoizerific(1000)((sectionId) => {
-        const configId = infos[sectionId]?.configId;
-        return defaultState(configs[configId], {});
-      });
-    }
-  ),
-
-  deleteSections: thunk((action, payload, helpers) => {
-    const { sectionIds } = payload;
-    for (let sid of sectionIds) {
-      deleteSectionFn(helpers, sid);
-    }
   }),
 
   moveChildThunk: thunk((actions, payload, helpers) => {
