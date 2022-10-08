@@ -18,7 +18,7 @@ import { UI } from "utils/pageNames";
 
 function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
-  const [projects, setProjects] = useState({});
+  const [projects, setProjects] = useState([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -76,7 +76,7 @@ function RightColumn({ projects }) {
         minChildWidth="20rem"
         justifyItems="flex-start"
       >
-        {Object.values(projects).map((x) => (
+        {projects.map((x) => (
           <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
         ))}
       </Grid>

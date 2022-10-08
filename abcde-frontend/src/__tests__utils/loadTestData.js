@@ -1,4 +1,3 @@
-import _ from "lodash";
 import baseUITypes from "__tests__data/BaseUITypes";
 import codeInfo from "__tests__data/CodeInfo";
 import presetUITypes from "__tests__data/PresetUITypes";
@@ -16,8 +15,10 @@ import uiTypes from "__tests__data/simpleTrainTest/UITypes";
 import uiTypesCols from "__tests__data/simpleTrainTest/UITypesCols";
 
 export function loadTestData() {
-  const project = projects["61e089c8-62bf-4e8c-915e-111b4587da81"];
-  const currProjectConfigId = _.filter(project.configs, (v) => v.curr)[0].id;
+  const project = projects.find(
+    (x) => x.id === "61e089c8-62bf-4e8c-915e-111b4587da81"
+  );
+  const currProjectConfigId = project.configs.find((x) => x.curr).id;
   const projectConfig = projectConfigs[currProjectConfigId];
   const sectionConfigCol = sectionConfigCols[projectConfig.sectionConfigCol];
 
