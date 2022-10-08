@@ -42,7 +42,6 @@ export function useGetParamEnteredValueId(sectionId, paramInfoId) {
   return useStoreState((x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]);
 }
 
-
 export function useGetParamChildId(sectionId, paramInfoId) {
   const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
   return useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);

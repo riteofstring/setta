@@ -2,11 +2,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { createNewId } from "utils/utils";
 
-import {
-  DEFAULT_BASE_UI_TYPE_ID,
-  rootTypeToChildType,
-  SECTION,
-} from "../utils/constants";
+import { rootTypeToChildType, SECTION } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
 import { createOriginInfoId } from "./usePresetUIType";
 import { useSetSectionConfigAttr } from "./useSectionConfig";

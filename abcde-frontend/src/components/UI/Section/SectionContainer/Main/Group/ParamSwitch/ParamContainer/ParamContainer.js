@@ -8,16 +8,18 @@ import ParamInput from "./ParamItems/ParamInput";
 import NestedObjectInput from "./ParamUIs/NestedObjectInput";
 
 export default function ParamContainer(props) {
-  const { sectionId, paramInfo, getInitEnteredValueFn } = props;
+  const { sectionId, paramInfo } = props;
   const initializeParamUIType = useStoreActions(
     (x) => x.thunks.initializeParamUIType
   );
+  const initializeEnteredValue = useStoreActions(
+    (x) => x.thunks.initializeEnteredValue
+  );
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
-  const initEnteredValueFn = getInitEnteredValueFn(paramInfo.id);
 
   useEffect(() => {
     initializeParamUIType({ sectionId, paramInfo });
-    initEnteredValueFn();
+    initializeEnteredValue({ sectionId, paramInfo });
   }, [paramInfo.id]);
 
   return !requiresNestedSection(uiType.type) ? (
