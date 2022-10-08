@@ -37,23 +37,12 @@ export function useParamEnteredValueId(sectionId) {
   );
 }
 
-export function useParamChildId(sectionId) {
+export function useGetParamChildId(sectionId, paramInfoId) {
   const { paramCollectionId } = useGetSectionConfig(sectionId);
-
-  return (paramInfoId) => {
-    const enteredValueId = useStoreState(
-      (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
-    );
-
-    const setX = curryAction(
-      useStoreActions((x) => x.enteredValues.setChildId),
-      { enteredValueId },
-      "childId"
-    );
-    const x = useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
-
-    return [x, setX];
-  };
+  const enteredValueId = useStoreState(
+    (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
+  );
+  return useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
 }
 
 export function useParamUITypeId(sectionId) {

@@ -9,7 +9,6 @@ export default function ParamContainer(props) {
   const {
     sectionId,
     paramInfo,
-    childIdFn,
     getUITypeFn,
     enteredValueFn,
     getInitUITypeFn,
@@ -57,7 +56,6 @@ export default function ParamContainer(props) {
       paramName={paramInfo.name}
       uiTypeId={uiType.id}
       parentParamInfoId={paramInfo.id}
-      childIdFn={childIdFn}
     />
   );
 }
