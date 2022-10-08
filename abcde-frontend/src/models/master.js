@@ -70,32 +70,22 @@ const master = {
   }),
 
   initEV: thunk((action, payload, helpers) => {
-    _.forEach(payload, (v, k) =>
-      helpers
-        .getStoreActions()
-        .enteredValues.setEnteredValue({ enteredValueId: k, value: v })
-    );
+    const a = helpers.getStoreActions();
+    _.forEach(payload, (v, k) => {
+      a.enteredValues.setEnteredValue({ enteredValueId: k, value: v.value });
+      a.enteredValues.setChildId({ enteredValueId: k, childId: v.childId });
+    });
   }),
 
   initEVCols: thunk((action, payload, helpers) => {
     const pActions = helpers.getStoreActions().paramInfos;
-    const evActions = helpers.getStoreActions().enteredValues;
     for (const colId of Object.keys(payload)) {
       for (const paramInfo of Object.values(payload[colId])) {
-        const commonProps = {
+        pActions.setEnteredValueId({
           collectionId: colId,
           paramInfoId: paramInfo.id,
-        };
-        pActions.setEnteredValueId({
-          ...commonProps,
           enteredValueId: paramInfo.enteredValueId,
         });
-        if (paramInfo.childId) {
-          evActions.setChildId({
-            enteredValueId: paramInfo.enteredValueId,
-            childId: paramInfo.childId,
-          });
-        }
       }
     }
   }),
