@@ -5,7 +5,6 @@ import { SectionUITypes } from '../../src/entities/uiTypes/sectionUITypes.entity
 import simpleTrainTestUITypes from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
 import baseUITypes from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
 import presetUITypes from '../../../abcde-frontend/src/__tests__data/PresetUITypes';
-import { CodeInfo } from '../../src/entities/codeInfo.entity';
 import { UITypesColsIds } from '../../src/entities/uiTypes/uiTypesColsIds.entity';
 import { createIfNotFound } from '../utils';
 import { SliderUITypes } from '../../src/entities/uiTypes/sliderUITypes.entity';
@@ -15,24 +14,16 @@ import { RefUITypes } from '../../src/entities/uiTypes/refUITypes.entity';
 
 async function createSectionUIType(em, x) {
   const baseType = em.create(UITypes, x);
-  let [collections, uiTypeCol, childUIType] = [null, null, null];
+  let [uiTypeCol, childUIType] = [null, null, null];
 
   const {
     config: {
-      collections: xCollections,
+      collections,
       uiTypeCollectionId: xUITypeCol,
       childUITypeId: xChildUITypeId,
       subType,
     },
   } = x;
-
-  if (xCollections.length > 0) {
-    collections = em.create(CodeInfo, {
-      name: '',
-      type: 'collection',
-      children: xCollections,
-    });
-  }
 
   if (xUITypeCol) {
     uiTypeCol = await createIfNotFound(em, UITypesColsIds, {

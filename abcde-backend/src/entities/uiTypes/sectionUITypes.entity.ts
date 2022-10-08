@@ -1,4 +1,11 @@
-import { Entity, ManyToOne, OneToOne, Property } from '@mikro-orm/core';
+import {
+  Collection,
+  Entity,
+  ManyToMany,
+  ManyToOne,
+  OneToOne,
+  Property,
+} from '@mikro-orm/core';
 import { SectionUITypesRepository } from '../../uiTypes/sectionUITypes.repository';
 import { CodeInfo } from '../codeInfo.entity';
 import { UITypes } from './uiTypes.entity';
@@ -9,8 +16,8 @@ export class SectionUITypes {
   @OneToOne({ primary: true })
   id: UITypes;
 
-  @OneToOne({ nullable: true })
-  collections: CodeInfo;
+  @ManyToMany(() => CodeInfo)
+  collections = new Collection<CodeInfo>(this);
 
   @ManyToOne({ nullable: true })
   uiTypeCol: UITypesColsIds;

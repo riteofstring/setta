@@ -27,7 +27,7 @@ export class CodeInfo {
   type: string;
 
   @Property({ nullable: true })
-  rel?: string;
+  rcType?: string;
 
   @Property({ nullable: true })
   description?: string;
