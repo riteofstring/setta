@@ -20,7 +20,7 @@ export default {
     presetType: "user",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
-      uiTypeCollectionId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
+      uiTypeColId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
       subType: null,
       childUITypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
     },
@@ -32,7 +32,7 @@ export default {
     presetType: "user",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
-      uiTypeCollectionId: "73490d53-e19f-429b-a461-f8a70a687435",
+      uiTypeColId: "73490d53-e19f-429b-a461-f8a70a687435",
       subType: null,
       childUITypeId: null,
     },

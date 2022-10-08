@@ -71,9 +71,9 @@ const paramInfos = {
   }),
 
   deleteParamInfo: action((state, payload) => {
-    const { paramCollectionId, uiTypeCollectionId, ids } = payload;
+    const { paramCollectionId, uiTypeColId, ids } = payload;
     state.x[paramCollectionId] = _.omit(state.x[paramCollectionId], ids);
-    state.y[uiTypeCollectionId] = _.omit(state.y[uiTypeCollectionId], ids);
+    state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
   }),
 
   export() {

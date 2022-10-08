@@ -96,7 +96,7 @@ function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
-  uiType.config.uiTypeCollectionId = createNewId();
+  uiType.config.uiTypeColId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.presetType = null;
   uiType.originInfoId = createOriginInfoId({
@@ -160,7 +160,7 @@ export function getChildUITypeId(
 // The check is:
 // (originInfoIdMatches && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoIdMatches && isForChildOfOriginInfoId=true)
 
-// originInfoId format: {uiTypeCollectionId, paramInfoId} or {sectionId}
-// When changing a param's uitype, the uiTypeCollectionId is from the section's uiType, and paramInfoId is from the param.
-// When changing a nested param's uitype, the uiTypeCollectionId is from the PARENT section's uiType, and paramInfoId is from the param.
+// originInfoId format: {uiTypeColId, paramInfoId} or {sectionId}
+// When changing a param's uitype, the uiTypeColId is from the section's uiType, and paramInfoId is from the param.
+// When changing a nested param's uitype, the uiTypeColId is from the PARENT section's uiType, and paramInfoId is from the param.
 // When changing a section not associated with a param, use sectionId

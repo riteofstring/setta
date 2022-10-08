@@ -23,7 +23,7 @@ export function useAddKwarg(sectionId, objInfoId) {
 export function useDeleteKwarg(sectionId, objInfoId) {
   const { paramCollectionId, kwargCollectionId } =
     useGetSectionConfig(sectionId);
-  const { uiTypeCollectionId } = useGetSectionTypeConfig(sectionId);
+  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
   const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
   const setKwargIds = useStoreActions((x) => x.objInfos.setKwargIds);
   const deleteKwargInfo = useStoreActions((x) => x.kwargInfos.deleteKwargInfo);
@@ -38,7 +38,7 @@ export function useDeleteKwarg(sectionId, objInfoId) {
         newStateFn: (x) => x.filter((y) => y !== id),
       });
       deleteKwargInfo({ ids: [id] });
-      deleteParamInfo({ paramCollectionId, uiTypeCollectionId, ids: [id] });
+      deleteParamInfo({ paramCollectionId, uiTypeColId, ids: [id] });
       if (childId) {
         deleteChild({ sectionId, startId: childId });
       }

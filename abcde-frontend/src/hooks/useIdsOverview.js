@@ -7,7 +7,7 @@ import { defaultState } from "utils/utils";
 
 import {
   useGetManyParamsWithParamCollectionId,
-  useGetManyParamsWithUITypeCollectionId,
+  useGetManyParamsWithUITypeColId,
 } from "./useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
@@ -45,7 +45,7 @@ function useGetCurrChildrenIds(sectionId) {
 }
 
 function useChildIdHelper(infos, sectionId) {
-  const uiTypeIds = useGetManyParamsWithUITypeCollectionId(
+  const uiTypeIds = useGetManyParamsWithUITypeColId(
     sectionId,
     infos,
     "uiTypeId"

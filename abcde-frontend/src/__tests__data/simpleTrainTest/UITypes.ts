@@ -9,7 +9,7 @@ export default {
         "0671b39c-8479-4831-8627-8b37f12ef635",
         "bb751616-d554-4ec8-84c1-8760078956d3",
       ],
-      uiTypeCollectionId: "b5778288-2163-4212-8f0f-4744644c62b5",
+      uiTypeColId: "b5778288-2163-4212-8f0f-4744644c62b5",
     },
     originInfoId: {
       sectionId: "acd83563-2337-44c2-9b4d-db3641fcbc97",
@@ -22,7 +22,7 @@ export default {
     presetType: null,
     config: {
       collections: ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
-      uiTypeCollectionId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
+      uiTypeColId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
     },
     originInfoId: {
       sectionId: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
@@ -35,7 +35,7 @@ export default {
     presetType: null,
     config: {
       collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
-      uiTypeCollectionId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
+      uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
     },
     originInfoId: {
       sectionId: "306550d9-1a80-42c6-b853-512a22e4d796",
@@ -48,7 +48,7 @@ export default {
     presetType: null,
     config: {
       collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
-      uiTypeCollectionId: "76e6a946-446b-4fcb-a803-db01482ed97e",
+      uiTypeColId: "76e6a946-446b-4fcb-a803-db01482ed97e",
     },
     originInfoId: {
       sectionId: "ac23d151-2df2-436f-b146-3893806ffb1d",
@@ -61,7 +61,7 @@ export default {
     presetType: null,
     config: {
       collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
-      uiTypeCollectionId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
+      uiTypeColId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
     },
     originInfoId: {
       sectionId: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
@@ -74,7 +74,7 @@ export default {
     presetType: null,
     config: {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
-      uiTypeCollectionId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
+      uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     },
     originInfoId: {
       sectionId: "3b4bd093-351f-4bec-af52-935d50953ebd",
@@ -87,7 +87,7 @@ export default {
     presetType: null,
     config: {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
-      uiTypeCollectionId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
+      uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     },
     originInfoId: {
       sectionId: "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
@@ -100,7 +100,7 @@ export default {
     presetType: null,
     config: {
       collections: ["f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86"],
-      uiTypeCollectionId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
+      uiTypeColId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
     },
     originInfoId: {
       sectionId: "4e2bf130-390b-4299-8054-aa54b7740a60",
@@ -112,7 +112,7 @@ export default {
     name: "torchvision transforms",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
-      uiTypeCollectionId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
+      uiTypeColId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
       childUITypeId: null,
       subType: "LIST",
     },
