@@ -40,10 +40,10 @@
   "scripts": {
     "start": "next start",
     "dev": "next dev",
-    "sna": "SET REACT_APP_NO_AUTH=true&&yarn start",
-    "snancm": "SET REACT_APP_NO_AUTH=true&&SET REACT_APP_NO_CONTEXT_MENU=true&&yarn start",
-    "snamac": "REACT_APP_NO_AUTH=true yarn start",
-    "snancmmac": "REACT_APP_NO_AUTH=true REACT_APP_NO_CONTEXT_MENU=true yarn start",
+    "sna": "SET REACT_APP_NO_AUTH=true&&yarn dev",
+    "snancm": "SET REACT_APP_NO_AUTH=true&&SET REACT_APP_NO_CONTEXT_MENU=true&&yarn dev",
+    "snamac": "REACT_APP_NO_AUTH=true yarn dev",
+    "snancmmac": "REACT_APP_NO_AUTH=true REACT_APP_NO_CONTEXT_MENU=true yarn dev",
     "build": "next build",
     "test": "SET REACT_APP_NO_AUTH=true&&next test",
     "eject": "next eject"

@@ -1,3 +1,4 @@
+import AppContainer from "components/AppContainer/AppContainer";
 import { Head } from "next/head";
 
 export default function HomePage() {
@@ -6,6 +7,7 @@ export default function HomePage() {
       <Head>
         <title>Your Project</title>
       </Head>
+      <AppContainer />
     </>
   );
 }
