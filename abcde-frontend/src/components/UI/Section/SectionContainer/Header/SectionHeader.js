@@ -16,10 +16,7 @@ function _SectionHeader({
 }) {
   const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
 
-  const onCustomCloseButtonClick = (e) => {
-    // ignore onClick events in parent components
-    // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
-    e.stopPropagation();
+  const onCustomCloseButtonClick = () => {
     deleteChild({ sectionId: parentId, startId: sectionId });
   };
 
@@ -39,7 +36,6 @@ function _SectionHeader({
       <CustomCloseButton
         onClick={onCustomCloseButtonClick}
         aria-label="Delete self"
-        data-testid={`Delete ${sectionId}`}
       />
     </Stack>
   );

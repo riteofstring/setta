@@ -54,11 +54,11 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
 
   // transformSection should have a single child which is the list root
   ({ result } = renderUseIdsOverview(transformSection.id, wrapper));
-  expect(result.current).toEqual([listRootId]);
+  expect(result.current[0]).toEqual([listRootId]);
 
   // the list root shouldn't have any children yet
   ({ result } = renderUseIdsOverview(listRootId, wrapper));
-  expect(result.current).toEqual([]);
+  expect(result.current[0]).toEqual([]);
 
   // add numTransforms children to the list root
   store
@@ -67,7 +67,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
 
   // list root should now have numTransforms children
   ({ result } = renderUseIdsOverview(listRootId, wrapper));
-  const listElementIds = result.current;
+  const listElementIds = result.current[0];
   expect(listElementIds.length).toEqual(numTransforms);
 
   const transformSettings = listOfTransforms();

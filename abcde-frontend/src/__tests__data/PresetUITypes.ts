@@ -20,8 +20,7 @@ export default {
     presetType: "user",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
-      uiTypeColId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
-      subType: null,
+      uiTypeCollectionId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
       childUITypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
     },
   },
@@ -32,8 +31,7 @@ export default {
     presetType: "user",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
-      uiTypeColId: "73490d53-e19f-429b-a461-f8a70a687435",
-      subType: null,
+      uiTypeCollectionId: "73490d53-e19f-429b-a461-f8a70a687435",
       childUITypeId: null,
     },
   },
