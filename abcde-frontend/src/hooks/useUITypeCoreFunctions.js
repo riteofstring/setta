@@ -39,7 +39,7 @@ export function cloneNewUIType({
   if (!_.isNil(config)) {
     newUIType.config = config;
     if (SECTION_TYPE_NAMES.includes(newUIType.type)) {
-      newUIType.config.uiTypeCollectionId = createNewId();
+      newUIType.config.uiTypeColId = createNewId();
     }
   }
   newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;

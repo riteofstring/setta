@@ -10,26 +10,26 @@ export function createSectionInfoWithParam(store, paramIsNested = false) {
   // create a UIType for a random parameter
   const uiType = addUIType(store);
   expect(uiType.id).toBeTruthy();
-  const { uiTypeCollectionId, paramInfoId } = addParamInfo(
+  const { uiTypeColId, paramInfoId } = addParamInfo(
     store,
     si,
     uiType,
     paramIsNested
   );
 
-  // set the section's UIType's config's uiTypeCollectionId
+  // set the section's UIType's config's uiTypeColId
   waitFor(() => {
     store.getActions().uiTypes.setOneConfig({
       uiTypeId: siConfig.uiTypeId,
-      configName: "uiTypeCollectionId",
-      newValueFn: () => uiTypeCollectionId,
+      configName: "uiTypeColId",
+      newValueFn: () => uiTypeColId,
     });
   });
 
   return {
     si,
     uiType,
-    uiTypeCollectionId,
+    uiTypeColId,
     paramInfoId,
   };
 }
