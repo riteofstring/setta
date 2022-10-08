@@ -37,11 +37,14 @@ export function useParamEnteredValueId(sectionId) {
   );
 }
 
-export function useGetParamChildId(sectionId, paramInfoId) {
+export function useGetParamEnteredValueId(sectionId, paramInfoId) {
   const { paramCollectionId } = useGetSectionConfig(sectionId);
-  const enteredValueId = useStoreState(
-    (x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]
-  );
+  return useStoreState((x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]);
+}
+
+
+export function useGetParamChildId(sectionId, paramInfoId) {
+  const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
   return useStoreState((x) => x.enteredValues.x[enteredValueId]?.childId);
 }
 

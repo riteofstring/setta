@@ -10,7 +10,6 @@ export default function ParamContainer(props) {
   const {
     sectionId,
     paramInfo,
-    enteredValueFn,
     getInitUITypeFn,
     getInitEnteredValueFn,
   } = props;
@@ -40,11 +39,11 @@ export default function ParamContainer(props) {
           {props.children}
           <Spacer />
           <ParamInput
+            sectionId={sectionId}
             paramInfoId={paramInfo.id}
             defaultVal={paramInfo.defaultVal}
             uiType={uiType}
             uiTypeConfig={uiTypeConfig}
-            enteredValueFn={enteredValueFn}
             isDisabled={!paramInfo.name}
           />
         </HStack>
