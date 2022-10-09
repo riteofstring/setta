@@ -1,32 +1,55 @@
 import { Stack, VStack } from "@chakra-ui/react";
-import { useGetObjParamKwargInfos } from "hooks/useSectionContents";
+import {
+  useGetAllParamInfos,
+  useGetKwargInfos,
+} from "hooks/useSectionContents";
 import React from "react";
 
 import KwargsControls from "../KwargsControls/KwargsControls";
 import GetParamSwitch from "./ParamSwitch/GetParamSwitch";
 
-function _GroupContainer({ sectionId, objInfoId, isKwarg }) {
-  const { paramInfos, kwargInfos } = useGetObjParamKwargInfos(
-    sectionId,
-    objInfoId
+function _ParamGroupContainer({ sectionId, objInfoId }) {
+  const infos = useGetAllParamInfos(sectionId, objInfoId);
+  return (
+    <GroupContainer
+      sectionId={sectionId}
+      objInfoId={objInfoId}
+      infos={infos}
+      isKwarg={false}
+    />
   );
+}
 
-  const kwargsCondition = paramInfos.length > 0;
+function _KwargGroupContainer({ sectionId, objInfoId }) {
+  const infos = useGetKwargInfos(sectionId, objInfoId);
+  return (
+    <GroupContainer
+      sectionId={sectionId}
+      objInfoId={objInfoId}
+      infos={infos}
+      isKwarg={true}
+    />
+  );
+}
+
+function _GroupContainer({ sectionId, objInfoId, infos, isKwarg }) {
+  const kwargsStyleCondition = isKwarg && infos.length > 0;
+  const kwargsControlCondition = !isKwarg && infos.length > 0;
 
   return (
     <VStack alignItems="stretch">
       <Stack
-        py={kwargInfos.length > 0 && isKwarg && "1rem"}
+        py={kwargsStyleCondition && "1rem"}
         w="auto"
-        mx={kwargInfos.length > 0 && isKwarg && ".75rem"}
+        mx={kwargsStyleCondition && ".75rem"}
       >
         <GetParamSwitch
           sectionId={sectionId}
-          infos={isKwarg ? kwargInfos : paramInfos}
+          infos={infos}
           objInfoId={objInfoId}
           isKwarg={isKwarg}
         />
-        {!isKwarg && kwargsCondition && (
+        {kwargsControlCondition && (
           <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
         )}
       </Stack>
@@ -35,4 +58,5 @@ function _GroupContainer({ sectionId, objInfoId, isKwarg }) {
 }
 
 const GroupContainer = React.memo(_GroupContainer);
-export default GroupContainer;
+export const ParamGroupContainer = React.memo(_ParamGroupContainer);
+export const KwargGroupContainer = React.memo(_KwargGroupContainer);

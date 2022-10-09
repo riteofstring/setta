@@ -8,22 +8,9 @@ import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = useGetSectionConfig(sectionId);
-  return useGetObjParamKwargInfos(sectionId, selectedItem, true);
-}
-
-// TODO: SPLIT UP
-export function useGetObjParamKwargInfos(
-  sectionId,
-  objInfoId,
-  returnAsOneList
-) {
-  const objInfo = useStoreState((x) => x.codeInfo.allObjInfo[objInfoId]);
-  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
-  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
-  if (returnAsOneList) {
-    return [...paramInfos, ...kwargInfos];
-  }
-  return { paramInfos, kwargInfos };
+  const paramInfos = useGetAllParamInfos(sectionId, selectedItem);
+  const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
+  return [...paramInfos, ...kwargInfos];
 }
 
 function useGetCollectionChildren(sectionId, type) {
@@ -45,27 +32,25 @@ function useGetAllParamCollections(sectionId) {
   return useGetCollectionChildren(sectionId, "paramCollections");
 }
 
-function useGetKwargIds(sectionId, objInfo) {
+function useGetKwargIds(sectionId, objInfoId) {
   const { kwargColId } = useGetSectionConfig(sectionId);
-  const objInfoId = maybeUseNullId(objInfo?.id);
   return defaultState(
     useStoreState((x) => getInfo(x.objInfos)[kwargColId]?.[objInfoId]),
     () => []
   );
 }
 
-function useGetKwargInfos(sectionId, objInfo) {
-  const kwargIds = useGetKwargIds(sectionId, objInfo);
-  const kwargInfoState = useStoreState(
+export function useGetKwargInfos(sectionId, objInfoId) {
+  const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
+  return useStoreState(
     (x) => kwargIds.map((y) => x.codeInfo.allObjInfo[y]),
     _.isEqual
   );
-  return kwargInfoState;
 }
 
-function useGetAllParamInfos(sectionId, objInfo) {
+export function useGetAllParamInfos(sectionId, objInfoId) {
   const objParamInfos = useStoreState(
-    (x) => (objInfo ? x.codeInfo.params[objInfo.id] : []),
+    (x) => (objInfoId ? x.codeInfo.params[objInfoId] : []),
     _.isEqual
   );
   const paramCollections = useGetAllParamCollections(sectionId);
