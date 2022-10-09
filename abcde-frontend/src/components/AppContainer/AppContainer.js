@@ -23,7 +23,7 @@ const AppContainer = () => {
     <>
       <HeaderContainer />
       <Grid
-        h="100%"
+        h="calc(100vh - 3.5rem)"
         w="100vw"
         border="1px"
         overflow="hidden"
