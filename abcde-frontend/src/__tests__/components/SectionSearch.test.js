@@ -40,7 +40,7 @@ test("Test SectionSearch", async () => {
   // Get another collection
   const newCollection = _.filter(
     store.getState().master.allCollections,
-    (x) => x.name === "models"
+    (x) => x.name === "Torchvision Models"
   )[0];
 
   // Add collection to section

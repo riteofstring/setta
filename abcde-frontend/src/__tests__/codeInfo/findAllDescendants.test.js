@@ -4,7 +4,10 @@ import { loadTestData } from "__tests__utils/loadTestData";
 
 test("find all callable descendants", () => {
   const { codeInfo } = loadTestData();
-  const collectionId = _.filter(codeInfo, (x) => x.name === "torch")[0].id;
+  const collectionId = _.filter(
+    codeInfo,
+    (x) => x.name === "The Best Optimizers"
+  )[0].id;
   const callables = findAllCallables(codeInfo, [collectionId]);
   expect(new Set(callables.map((x) => x.name))).toEqual(
     new Set(["SGD", "Adam", "Adadelta"])
