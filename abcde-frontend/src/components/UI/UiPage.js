@@ -14,16 +14,20 @@ const UiPage = () => {
   const currProject = useStoreState((x) => x.currProject.id);
   const projectLoader = useProjectLoader();
   const noAuthLoader = useNoAuthLoading();
+  const authLoader = useAuthLoading();
 
   useEffect(() => {
-    if (NO_AUTH) {
+    async function fn() {
       if (isAuthenticated && isNewSession) {
-        noAuthLoader(projectLoader);
+        if (NO_AUTH) {
+          noAuthLoader(projectLoader);
+        } else {
+          const projectInfo = await fetchData(access_token, currProject);
+          authLoader(projectLoader, projectInfo);
+        }
       }
-    } else {
-      const projectInfo = fetchData(access_token, currProject);
-      console.log("projectInfo", projectInfo);
     }
+    fn();
   }, [isAuthenticated, isNewSession]);
 
   return <SectionsPane />;
@@ -39,11 +43,34 @@ function useNoAuthLoading() {
   const stayLoggedIn = useStoreActions((x) => x.auth.stayLoggedIn);
   const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
 
-  return async (projectLoader) => {
+  return (projectLoader) => {
     const testData = loadTestData();
     const rootSection = getRootSectionId(testData.sectionChildren);
     setSectionGroup(rootSection);
     projectLoader(testData);
+    // set isNewSession to false so that loadTestData won't be called again later
+    stayLoggedIn();
+  };
+}
+
+function useAuthLoading() {
+  const stayLoggedIn = useStoreActions((x) => x.auth.stayLoggedIn);
+  const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
+
+  return (projectLoader, projectInfo) => {
+    // TODO remove this
+    const { projectDefaults, globalDefaults, sectionConfigs } = loadTestData();
+    const rootSection = getRootSectionId(projectInfo.sectionChildren);
+    let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
+    uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
+    setSectionGroup(rootSection);
+    projectLoader({
+      projectDefaults,
+      globalDefaults,
+      sectionConfigs,
+      uiTypes,
+      ...theRest,
+    });
     // set isNewSession to false so that loadTestData won't be called again later
     stayLoggedIn();
   };

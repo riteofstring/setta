@@ -5732,7 +5732,7 @@ export default {
   "c947c792-05d5-433c-95e5-2db1919c4b4e": {
     id: "c947c792-05d5-433c-95e5-2db1919c4b4e",
     name: "epochs",
-    defaultVal: 2,
+    defaultVal: "2",
     type: "",
     parentId: "253cd8a8-a95a-4d15-b98b-73318b3632a1",
     children: [],
@@ -5744,7 +5744,7 @@ export default {
   "97e7a459-3b8b-4908-9843-71f4a43b2b2e": {
     id: "97e7a459-3b8b-4908-9843-71f4a43b2b2e",
     name: "test_batch_size",
-    defaultVal: 1000,
+    defaultVal: "1000",
     type: "",
     parentId: "253cd8a8-a95a-4d15-b98b-73318b3632a1",
     children: [],
@@ -5756,7 +5756,7 @@ export default {
   "039be87f-76d9-4e39-979b-ac7cef982937": {
     id: "039be87f-76d9-4e39-979b-ac7cef982937",
     name: "batch_size",
-    defaultVal: 64,
+    defaultVal: "64",
     type: "",
     parentId: "253cd8a8-a95a-4d15-b98b-73318b3632a1",
     children: [],
