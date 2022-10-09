@@ -1,4 +1,16 @@
 export default {
+  "c838c2c2-0a33-4738-8307-dd01179fbeac": {
+    id: "c838c2c2-0a33-4738-8307-dd01179fbeac",
+    name: "",
+    version: "",
+    type: "",
+    children: [],
+    rcType: "callable",
+    defaultVal: null,
+    description: null,
+    parentId: null,
+    path: "",
+  },
   "978f9dd3-f675-47f1-b37a-bae12d45c194": {
     id: "978f9dd3-f675-47f1-b37a-bae12d45c194",
     name: "torchvision",

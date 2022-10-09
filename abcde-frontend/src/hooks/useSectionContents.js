@@ -6,6 +6,7 @@ import {
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
+import { maybeUseNullId } from "./useKwarg";
 import { useGetSectionConfig } from "./useSectionConfig";
 
 import { useGetSectionType } from "./useSectionType";
@@ -51,7 +52,7 @@ function useFindAllParameterCollections(sectionId) {
 
 function useGetKwargIds(sectionId, objInfo) {
   const { kwargCollectionId } = useGetSectionConfig(sectionId);
-  const objInfoId = objInfo ? objInfo.id : null;
+  const objInfoId = maybeUseNullId(objInfo?.id);
   return defaultState(
     useStoreState((x) => getInfo(x.objInfos)[kwargCollectionId]?.[objInfoId]),
     () => []
