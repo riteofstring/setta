@@ -1,6 +1,6 @@
 import _ from "lodash";
+import codeInfo from "__tests__data/AllCodeInfo";
 import baseUITypes from "__tests__data/BaseUITypes";
-import codeInfo from "__tests__data/CodeInfo";
 import presetUITypes from "__tests__data/PresetUITypes";
 import projectConfigs from "__tests__data/ProjectConfigs";
 import projects from "__tests__data/Projects";

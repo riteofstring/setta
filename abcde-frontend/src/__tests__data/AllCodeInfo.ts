@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   "978f9dd3-f675-47f1-b37a-bae12d45c194": {
     id: "978f9dd3-f675-47f1-b37a-bae12d45c194",
     name: "torchvision",
