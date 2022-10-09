@@ -1,9 +1,13 @@
 import { createAllInfo } from "classes/infoFactory";
 import { action } from "easy-peasy";
+import { resetState } from "models/utils";
+
+function getInitialState() {
+  return { allObjInfo: {}, allCollections: {} };
+}
 
 const codeInfo = {
-  allObjInfo: {},
-  allCollections: {},
+  ...getInitialState(),
 
   loadObjInfoAndCollections: action((state, payload) => {
     ({ allObjInfo: state.allObjInfo, allCollections: state.allCollections } =
@@ -23,6 +27,10 @@ const codeInfo = {
   deleteInfos: action((state, payload) => {
     const { ids } = payload;
     state.allObjInfo = _.omit(state.allObjInfo, ids);
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
   }),
 };
 

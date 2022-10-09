@@ -2,10 +2,19 @@ import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
+import { resetState } from "models/utils";
 import { exportSelected } from "utils/exportSelected";
 
+function getInitialState() {
+  return { activeSection: null };
+}
+
 const master = {
-  activeSection: null,
+  ...getInitialState(),
+
+  clearSections: thunk((action, payload, helpers) => {
+    resetProject(helpers.getStoreActions());
+  }),
 
   loadSections: thunk((action, payload, helpers) => {
     const {
@@ -148,6 +157,10 @@ const master = {
   exportSelected: thunk((action, payload, helpers) => {
     return exportSelected(helpers.getStoreState());
   }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default master;
@@ -167,4 +180,19 @@ function omitProjectSectionAndGetTopLevelIds(
     sectionChildren: _.omit(sectionChildren, projectSectionGroup),
     topLevelIds,
   };
+}
+
+function resetProject(a) {
+  a.globalParamDefaults.reset();
+  a.projectParamDefaults.reset();
+  a.codeInfo.reset();
+  a.enteredValues.reset();
+  a.objInfos.reset();
+  a.paramInfos.reset();
+  a.sectionConfigs.reset();
+  a.sectionInfos.reset();
+  a.uiTypes.reset();
+  a.sectionPositions.reset();
+  a.uiEditor.reset();
+  a.master.reset();
 }

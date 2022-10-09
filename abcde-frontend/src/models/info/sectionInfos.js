@@ -2,6 +2,7 @@ import { action, computed, thunk } from "easy-peasy";
 import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
+import { resetState } from "models/utils";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
 
 function setDefaultIdsOverview(state, sectionId) {
@@ -11,10 +12,12 @@ function setDefaultIdsOverview(state, sectionId) {
   return state.idsOverview[sectionId];
 }
 
+function getInitialState() {
+  return { x: {}, idsOverview: {}, currChildren: {} };
+}
+
 const sectionInfos = {
-  x: {},
-  idsOverview: {},
-  currChildren: {},
+  ...getInitialState(),
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -117,6 +120,10 @@ const sectionInfos = {
       state: helpers.getStoreState(),
       actions: helpers.getStoreActions(),
     });
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
   }),
 };
 

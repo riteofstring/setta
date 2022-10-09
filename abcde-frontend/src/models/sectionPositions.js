@@ -1,4 +1,5 @@
 import { action, thunk } from "easy-peasy";
+import { resetState } from "models/utils";
 import { PANEID } from "utils/constants";
 
 function relativePos(sectionPositions, sectionId) {
@@ -7,11 +8,17 @@ function relativePos(sectionPositions, sectionId) {
   return { y: sectionP.y - paneP.y, x: sectionP.x - paneP.x };
 }
 
+function getInitialState() {
+  return {
+    sectionPositions: {},
+    positionUpdateRequested: {},
+    positionUpdated: {},
+    whoRequested: null,
+  };
+}
+
 const sectionPositions = {
-  sectionPositions: {},
-  positionUpdateRequested: {},
-  positionUpdated: {},
-  whoRequested: null,
+  ...getInitialState(),
 
   setSectionPosition: action((state, payload) => {
     const { sectionId, y, x } = payload;
@@ -41,6 +48,10 @@ const sectionPositions = {
 
   setWhoRequested: action((state, payload) => {
     state.whoRequested = payload;
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
   }),
 };
 

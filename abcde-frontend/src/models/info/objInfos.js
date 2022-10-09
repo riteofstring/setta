@@ -1,8 +1,13 @@
 import { action } from "easy-peasy";
+import { resetState } from "models/utils";
 import { setToDefault } from "./utils";
 
+function getInitialState() {
+  return { x: {} };
+}
+
 const objInfos = {
-  x: {},
+  ...getInitialState(),
 
   setKwargIds: action((state, payload) => {
     const { collectionId, objInfoId, newStateFn } = payload;
@@ -13,9 +18,9 @@ const objInfos = {
     currState[objInfoId] = newStateFn(currState[objInfoId]);
   }),
 
-  export() {
-    return this.x;
-  },
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default objInfos;

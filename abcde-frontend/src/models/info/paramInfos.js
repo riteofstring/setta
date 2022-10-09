@@ -1,10 +1,14 @@
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
+import { resetState } from "models/utils";
 import { setToDefault } from "./utils";
 
+function getInitialState() {
+  return { x: {}, y: {} };
+}
+
 const paramInfos = {
-  x: {},
-  y: {},
+  ...getInitialState(),
 
   setUITypeId: action((state, payload) => {
     const { collectionId, paramInfoId, uiTypeId } = payload;
@@ -47,9 +51,9 @@ const paramInfos = {
     state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
   }),
 
-  export() {
-    return { paramCollections: this.x, uiTypeCollections: this.y };
-  },
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default paramInfos;
