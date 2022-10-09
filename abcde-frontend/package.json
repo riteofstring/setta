@@ -42,12 +42,10 @@
   },
   "scripts": {
     "start": "vite",
-    "sna": "SET VITE_NO_AUTH=true&&yarn start",
-    "snancm": "SET VITE_NO_AUTH=true&&SET VITE_NO_CONTEXT_MENU=true&&yarn start",
-    "snamac": "VITE_NO_AUTH=true yarn start",
-    "snancmmac": "VITE_NO_AUTH=true VITE_NO_CONTEXT_MENU=true yarn start",
+    "sna": "vite --mode sna",
+    "snancm": "vite --mode snancm",
     "build": "tsc && vite build",
-    "test": "SET VITE_NO_AUTH=true&&yarn vitest",
+    "test": "yarn vitest --mode sna",
     "serve": "vite preview"
   },
   "eslintConfig": {
