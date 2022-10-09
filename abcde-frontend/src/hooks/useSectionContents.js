@@ -51,10 +51,10 @@ function useFindAllParameterCollections(sectionId) {
 }
 
 function useGetKwargIds(sectionId, objInfo) {
-  const { kwargCollectionId } = useGetSectionConfig(sectionId);
+  const { kwargColId } = useGetSectionConfig(sectionId);
   const objInfoId = maybeUseNullId(objInfo?.id);
   return defaultState(
-    useStoreState((x) => getInfo(x.objInfos)[kwargCollectionId]?.[objInfoId]),
+    useStoreState((x) => getInfo(x.objInfos)[kwargColId]?.[objInfoId]),
     () => []
   );
 }

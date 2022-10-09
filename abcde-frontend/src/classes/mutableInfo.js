@@ -52,19 +52,13 @@ export class SectionInfo extends MutableInfo {
 }
 
 export class SectionConfig extends MutableInfo {
-  constructor({
-    id,
-    uiTypeId,
-    evColId,
-    kwargCollectionId,
-    selectedItem = null,
-  }) {
+  constructor({ id, uiTypeId, evColId, kwargColId, selectedItem = null }) {
     super();
     this.id = maybeNewId(id);
     this.uiTypeId = uiTypeId;
     this.selectedItem = selectedItem;
     this.evColId = maybeNewId(evColId);
-    this.kwargCollectionId = maybeNewId(kwargCollectionId);
+    this.kwargColId = maybeNewId(kwargColId);
   }
 }
 

@@ -63,10 +63,10 @@ function kwargsExportSelected(
   sectionId,
   objInfoId,
   evColId,
-  kwargCollectionId,
+  kwargColId,
   state
 ) {
-  const kwargIds = state.objInfos.x[kwargCollectionId]?.[objInfoId]?.kwargIds;
+  const kwargIds = state.objInfos.x[kwargColId]?.[objInfoId]?.kwargIds;
   if (_.isNil(kwargIds)) {
     return {};
   }
@@ -92,7 +92,7 @@ function sectionExportSelected(section, state) {
     selectedItem,
     uiTypeId,
     evColId,
-    kwargCollectionId,
+    kwargColId,
   } = section;
   const sectionType = state.uiTypes.x[uiTypeId];
 
@@ -113,7 +113,7 @@ function sectionExportSelected(section, state) {
     sectionId,
     selectedItem,
     evColId,
-    kwargCollectionId,
+    kwargColId,
     state
   );
 
