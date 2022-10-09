@@ -10,13 +10,14 @@ function _ParamContainer(props) {
   const { sectionId, paramInfo } = props;
   const initializeParam = useStoreActions((x) => x.thunks.initializeParam);
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
+  const isNested = requiresNestedSection(uiType.type);
 
   useEffect(() => {
     initializeParam({ sectionId, paramInfo });
-  }, [paramInfo.id]);
+  }, [paramInfo.id, isNested]);
 
   return (
-    !requiresNestedSection(uiType.type) && (
+    !isNested && (
       <FormControl as="fieldset">
         <HStack
           px=".75rem"
