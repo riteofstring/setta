@@ -1,21 +1,19 @@
 import { action } from "easy-peasy";
 
 const auth = {
-  // access_token: window.localStorage.getItem("access_token"),
+  access_token: localStorage.getItem("access_token"),
   isAuthenticated: false,
-  isNewSession: true,
 
   loginSuccess: action((state, payload) => {
     console.log("loginSuccess", payload);
-    // window.localStorage.setItem("access_token", payload.access_token);
+    localStorage.setItem("access_token", payload.access_token);
     state.access_token = payload.access_token;
     state.isAuthenticated = true;
-    state.isNewSession = true;
   }),
 
   loginFail: action((state) => {
     console.log("loginFail");
-    // window.localStorage.clear();
+    localStorage.clear();
     sessionStorage.clear();
     state.access_token = null;
     state.isAuthenticated = false;
@@ -23,7 +21,6 @@ const auth = {
 
   stayLoggedIn: action((state) => {
     state.isAuthenticated = true;
-    state.isNewSession = false;
   }),
 };
 

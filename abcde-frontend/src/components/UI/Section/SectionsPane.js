@@ -11,7 +11,7 @@ import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 
-import "./React-flow-css.module.css";
+import "./react-flow-css.css";
 import { ResponsiveControls } from "./ResponsiveControls";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
@@ -89,7 +89,7 @@ function SectionsPane() {
         onPaneClick={closeCtxMenus}
         onMoveStart={closeCtxMenus}
       >
-        {/* <PaneContextMenu
+        <PaneContextMenu
           {...paneCtxMenuDetails}
           closeContextMenu={closePaneCtxMenu}
           reactFlowRef={reactFlowRef}
@@ -102,7 +102,7 @@ function SectionsPane() {
         <NodeContextMenu
           {...nodeCtxMenuDetails}
           closeContextMenu={closeNodeCtxMenu}
-        /> */}
+        />
         <ResponsiveMiniMap />
         <ResponsiveControls />
         <Background color="#b3bfd1" size={0.75} gap={16} />

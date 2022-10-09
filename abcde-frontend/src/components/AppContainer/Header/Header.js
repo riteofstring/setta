@@ -9,7 +9,7 @@ import SubNav from "./SubNav/SubNav";
 export default function HeaderContainer() {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   return (
-    <Flex width="calc(100vw - 5rem)" height="3.5rem" align="center" mx="auto">
+    <Flex width="calc(100vw - 5rem)" height="4rem" align="center">
       <Link
         variant="ghost"
         _hover={{ textDecoration: "none" }}
@@ -22,8 +22,9 @@ export default function HeaderContainer() {
           mr="1rem"
           fontFamily="JetBrains Mono"
         >
+          r
           <Text as="span" color="#00B5D8">
-            run
+            un
           </Text>
           coder
         </Heading>

@@ -1,5 +1,4 @@
 import _ from "lodash";
-
 import { ComboboxSearch } from "./ComboboxSearch";
 
 export function IdNameCombobox({
@@ -20,11 +19,13 @@ export function IdNameCombobox({
     newSelectedItem,
     setSelection
   ) => {
-    if (newSelectedItem) {
-      const sid = newSelectedItem.id;
-      if (sid !== currSelectedItem?.id) {
-        setSelection(newSelectedItem);
-      }
+    // Don't do ?. operator here because I want null, not undefined
+    const sid = newSelectedItem ? newSelectedItem.id : null;
+    const currId = currSelectedItem ? currSelectedItem.id : null;
+    if (sid !== currId) {
+      setSelection(newSelectedItem);
+    }
+    if (sid !== initialSelection) {
       onSelectedItemChange(sid);
     }
   };

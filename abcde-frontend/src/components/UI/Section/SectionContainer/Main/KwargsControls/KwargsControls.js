@@ -16,14 +16,14 @@ export default function KwargsControls({ sectionId, objInfoId }) {
         >
           kwargs
         </Heading>
-        <KwargsButton icon={<MinusIcon w={2} />} />
-        <KwargsButton icon={<AddIcon w={2} />} onClick={addKwarg} />
+        <KwargsButton icon={<MinusIcon w={2} />} type="minus" />
+        <KwargsButton icon={<AddIcon w={2} />} onClick={addKwarg} type="add" />
       </HStack>
     </Stack>
   );
 }
 
-function KwargsButton({ icon, onClick }) {
+function KwargsButton({ icon, onClick, type }) {
   return (
     <IconButton
       icon={icon}
@@ -34,6 +34,7 @@ function KwargsButton({ icon, onClick }) {
       className="nodrag"
       position="inherit"
       ml="0.1rem !important"
+      aria-label={type === "add" ? "Add Kwarg" : "Delete Kwarg"}
     />
   );
 }

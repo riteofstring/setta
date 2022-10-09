@@ -5,13 +5,17 @@ export default {
     name: "",
     presetType: "base",
     config: {},
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "eab8f446-17cc-4512-bab5-42bff8570f1f": {
     id: "eab8f446-17cc-4512-bab5-42bff8570f1f",
     type: "SLIDER",
     name: "",
     presetType: "base",
-    config: {},
+    config: { min: null, max: null, step: null },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
     id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
@@ -19,6 +23,8 @@ export default {
     name: "",
     presetType: "base",
     config: {},
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "0595871f-4506-4bda-b6f1-9a3864e02a68": {
     id: "0595871f-4506-4bda-b6f1-9a3864e02a68",
@@ -26,6 +32,8 @@ export default {
     name: "",
     presetType: "base",
     config: {},
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
     id: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
@@ -34,9 +42,12 @@ export default {
     presetType: "base",
     config: {
       collections: [],
-      uiTypeCollectionId: null,
+      uiTypeColId: null,
       subType: null,
+      childUITypeId: null,
     },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
     id: "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
@@ -45,9 +56,12 @@ export default {
     presetType: "base",
     config: {
       collections: [],
-      uiTypeCollectionId: null,
+      uiTypeColId: null,
+      subType: null,
       childUITypeId: null,
     },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "623a9242-53e9-4b42-b695-431e9754a836": {
     id: "623a9242-53e9-4b42-b695-431e9754a836",
@@ -56,9 +70,12 @@ export default {
     presetType: "base",
     config: {
       collections: [],
-      uiTypeCollectionId: null,
+      uiTypeColId: null,
+      subType: null,
       childUITypeId: null,
     },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   "0e050316-06ca-48f4-92c1-9845abdf85f7": {
     id: "0e050316-06ca-48f4-92c1-9845abdf85f7",
@@ -67,9 +84,12 @@ export default {
     presetType: "base",
     config: {
       collections: [],
-      uiTypeCollectionId: null,
+      uiTypeColId: null,
+      subType: null,
       childUITypeId: null,
     },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
   // To group sections together for a project
   "3e3ed4cb-0f9a-47ea-845a-c2d456a7091c": {
@@ -79,8 +99,11 @@ export default {
     presetType: "base",
     config: {
       collections: [],
-      uiTypeCollectionId: null,
+      uiTypeColId: null,
+      subType: null,
       childUITypeId: null,
     },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
   },
 };

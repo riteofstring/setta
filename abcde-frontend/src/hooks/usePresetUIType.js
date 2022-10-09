@@ -81,8 +81,8 @@ function filterUITypes(
   );
 }
 
-// If paramInfoId is provided, then originInfoId is {uiTypeCollectionId, paramInfoId},
-// where uiTypeCollectionId comes from the section that contains the parameter
+// If paramInfoId is provided, then originInfoId is {uiTypeColId, paramInfoId},
+// where uiTypeColId comes from the section that contains the parameter
 // Otherwise, look for sectionId and maybe parentId
 export function useAvailablePresetUITypes({
   sectionId,
@@ -134,14 +134,14 @@ export function createOriginInfoId({
     return { sectionId: rootId };
   } else if (settingSectionConfig && paramInfoId) {
     return {
-      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
       paramInfoId,
     };
   } else if (settingSectionConfig && !paramInfoId) {
     return { sectionId: childId };
   } else if (paramInfoId) {
     return {
-      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
       paramInfoId,
     };
   } else {

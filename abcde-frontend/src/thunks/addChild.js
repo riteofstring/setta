@@ -36,12 +36,14 @@ export const addChild = thunk((action, payload, helpers) => {
 
   if (parentParamInfoId) {
     const { configId } = helpers.getStoreState().sectionInfos.x[parentId];
-    const { paramCollectionId: collectionId } =
+    const { evColId: collectionId } =
       helpers.getStoreState().sectionConfigs.x[configId];
 
-    helpers.getStoreActions().paramInfos.setChildId({
-      collectionId,
-      paramInfoId: parentParamInfoId,
+    const enteredValueId =
+      helpers.getStoreState().paramInfos.x[collectionId]?.[parentParamInfoId];
+
+    helpers.getStoreActions().enteredValues.setChildId({
+      enteredValueId,
       childId: newIds[0],
     });
   }

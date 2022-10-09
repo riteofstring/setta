@@ -5,23 +5,24 @@ export class ObjInfo {
     this.version = jsonInput.version;
     this.defaultVal = jsonInput.defaultVal;
     this.type = jsonInput.type;
-    this.rel = jsonInput.rel;
+    this.rcType = jsonInput.rcType;
     this.description = jsonInput.description;
     this.parentId = jsonInput.parentId;
     this.children = jsonInput.children;
   }
 }
 
-export function getFullObjPath(allObjInfo, objInfo, skipLast = 0) {
-  let currObjInfo = objInfo;
-  let path = [currObjInfo.name];
-  while (currObjInfo.parentId) {
-    currObjInfo = allObjInfo[currObjInfo.parentId];
-    path.push(currObjInfo.name);
+export function getFullObjPath(objInfo, skipLast = 0) {
+  if (skipLast === 0) {
+    return { path: objInfo.path, version: objInfo.version };
   }
-  if (path.length > skipLast) {
-    path = path.slice(skipLast);
+  const numDots = objInfo.path.match(/\./g);
+  if (!numDots) {
+    return { path: objInfo.path, version: objInfo.version };
   }
-  path = path.reverse().join(".");
-  return { path, version: currObjInfo.version };
+  const regex = new RegExp(`^(?:[^.]*.){${numDots.length - skipLast}}([^.]*)`);
+  return {
+    path: objInfo.path.match(regex)[0],
+    version: objInfo.version,
+  };
 }

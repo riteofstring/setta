@@ -62,7 +62,7 @@ function testUITypeHistory(presetType, inputSectionName, inputParamName) {
   // Check that no value has been entered yet
   ({ result } = renderUseParamEnteredValue(sectionId, paramInfoId, wrapper));
   const [enteredValue, setEnteredValue] = result.current;
-  expect(enteredValue).toEqual(null);
+  expect(enteredValue).toEqual(inputParamName === "dataset_root" ? "70" : null);
 
   // Check that enteredValue gets updated correctly
   const testFolderName = "my/special/folder";
@@ -72,7 +72,7 @@ function testUITypeHistory(presetType, inputSectionName, inputParamName) {
 
   // Current num children should be 0
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  expect(result.current[0]).toEqual([]);
+  expect(result.current).toEqual([]);
 
   // Add a list root ui type
   const listRootUIType = addUIType(store, { type: LIST_ROOT, presetType });
@@ -97,7 +97,7 @@ function testUITypeHistory(presetType, inputSectionName, inputParamName) {
 
   // The only child should be paramChildId
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  expect(result.current[0]).toEqual([paramChildId]);
+  expect(result.current).toEqual([paramChildId]);
 
   // set param to use the initial ui type
   ({ result } = renderUseSetUIType(
@@ -116,7 +116,7 @@ function testUITypeHistory(presetType, inputSectionName, inputParamName) {
 
   // Current num children should be 0 again
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  expect(result.current[0]).toEqual([]);
+  expect(result.current).toEqual([]);
 
   // set param back to be list root
   ({ result } = renderUseSetUIType(
@@ -131,5 +131,5 @@ function testUITypeHistory(presetType, inputSectionName, inputParamName) {
 
   // The only child should be the ORIGINAL paramChildId
   ({ result } = renderUseIdsOverview(sectionId, wrapper));
-  expect(result.current[0]).toEqual([paramChildId]);
+  expect(result.current).toEqual([paramChildId]);
 }

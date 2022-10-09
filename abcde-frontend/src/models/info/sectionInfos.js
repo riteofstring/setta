@@ -2,6 +2,7 @@ import { action, computed, thunk } from "easy-peasy";
 import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
+import { resetState } from "models/utils";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
 
 function setDefaultIdsOverview(state, sectionId) {
@@ -11,10 +12,12 @@ function setDefaultIdsOverview(state, sectionId) {
   return state.idsOverview[sectionId];
 }
 
+function getInitialState() {
+  return { x: {}, idsOverview: {}, currChildren: {} };
+}
+
 const sectionInfos = {
-  x: {},
-  idsOverview: {},
-  currChildren: {},
+  ...getInitialState(),
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -50,10 +53,10 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
-  deleteSections: action((state, payload) => {
+  deleteSections: thunk((action, payload, helpers) => {
     const { sectionIds } = payload;
     for (let sid of sectionIds) {
-      deleteSectionFn(state, sid);
+      deleteSectionFn(helpers, sid);
     }
   }),
 
@@ -118,20 +121,27 @@ const sectionInfos = {
       actions: helpers.getStoreActions(),
     });
   }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default sectionInfos;
 
-function deleteSectionFn(state, sectionId) {
-  const childIds = state.idsOverview[sectionId];
+function deleteSectionFn(helpers, sectionId) {
+  const childIds = helpers.getState().idsOverview[sectionId];
   if (childIds) {
     for (let child of childIds) {
-      deleteSectionFn(state, child);
+      deleteSectionFn(helpers, child);
     }
   }
-  delete state.x[sectionId];
-  delete state.idsOverview[sectionId];
-  delete state.currChildren[sectionId];
+  if (helpers.getStoreState().master.activeSection === sectionId) {
+    helpers.getStoreActions().master.setActiveSection(null);
+  }
+  delete helpers.getState().x[sectionId];
+  delete helpers.getState().idsOverview[sectionId];
+  delete helpers.getState().currChildren[sectionId];
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {

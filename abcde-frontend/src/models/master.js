@@ -1,23 +1,22 @@
-import { createAllInfo } from "classes/infoFactory";
 import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
+import { resetState } from "models/utils";
 import { exportSelected } from "utils/exportSelected";
 
-const master = {
-  allObjInfo: {},
-  allCollections: {},
-  activeSection: null,
+function getInitialState() {
+  return { activeSection: null };
+}
 
-  // actions
-  // Load DATA
-  loadObjInfoAndCollections: action((state, payload) => {
-    ({ allObjInfo: state.allObjInfo, allCollections: state.allCollections } =
-      createAllInfo(payload));
+const master = {
+  ...getInitialState(),
+
+  clearSections: thunk((action, payload, helpers) => {
+    resetProject(helpers.getStoreActions());
   }),
 
-  loadSections: thunk((action, payload) => {
+  loadSections: thunk((action, payload, helpers) => {
     const {
       codeInfo,
       globalDefaults,
@@ -30,9 +29,10 @@ const master = {
       evCols,
       uiTypes,
       uiTypesCols,
+      kwargCols,
     } = payload;
 
-    action.loadObjInfoAndCollections(codeInfo);
+    helpers.getStoreActions().codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
     action.initParamDefaults({
       storeName: "globalParamDefaults",
@@ -44,6 +44,7 @@ const master = {
     });
     action.initEV(ev);
     action.initEVCols(evCols);
+    action.initKwargCols(kwargCols);
     action.initSections({
       sections,
       sectionConfigs,
@@ -70,31 +71,35 @@ const master = {
   }),
 
   initEV: thunk((action, payload, helpers) => {
-    _.forEach(payload, (v, k) =>
-      helpers
-        .getStoreActions()
-        .enteredValues.setEnteredValue({ enteredValueId: k, value: v })
-    );
+    const a = helpers.getStoreActions();
+    _.forEach(payload, (v, k) => {
+      a.enteredValues.setEnteredValue({ enteredValueId: k, value: v.value });
+      a.enteredValues.setChildId({ enteredValueId: k, childId: v.childId });
+    });
   }),
 
   initEVCols: thunk((action, payload, helpers) => {
     const pActions = helpers.getStoreActions().paramInfos;
     for (const colId of Object.keys(payload)) {
       for (const paramInfo of Object.values(payload[colId])) {
-        const commonProps = {
+        pActions.setEnteredValueId({
           collectionId: colId,
           paramInfoId: paramInfo.id,
-        };
-        pActions.setEnteredValueId({
-          ...commonProps,
           enteredValueId: paramInfo.enteredValueId,
         });
-        if (paramInfo.childId) {
-          pActions.setChildId({
-            ...commonProps,
-            childId: paramInfo.childId,
-          });
-        }
+      }
+    }
+  }),
+
+  initKwargCols: thunk((action, payload, helpers) => {
+    const setKwargIds = helpers.getStoreActions().objInfos.setKwargIds;
+    for (const colId of Object.keys(payload)) {
+      for (const objInfoId of Object.keys(payload[colId])) {
+        setKwargIds({
+          collectionId: colId,
+          objInfoId: objInfoId,
+          newStateFn: () => payload[colId][objInfoId],
+        });
       }
     }
   }),
@@ -113,12 +118,15 @@ const master = {
 
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
+      const initialPosition = {
+        x: 500 * (Math.floor(idx / 3) + 0.75),
+        y: 300 * (idx % 3),
+      };
+      const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
       const y = new SectionInfo({
-        initialPosition: {
-          x: 500 * (Math.floor(idx / 3) + 0.75),
-          y: 300 * (idx % 3),
-        },
+        initialPosition,
         ...x,
+        parentId,
         configId: sectionConfigCol[x.id].configId,
         isTopLevel: topLevelIds.includes(x.id),
       });
@@ -149,6 +157,10 @@ const master = {
   exportSelected: thunk((action, payload, helpers) => {
     return exportSelected(helpers.getStoreState());
   }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default master;
@@ -168,4 +180,19 @@ function omitProjectSectionAndGetTopLevelIds(
     sectionChildren: _.omit(sectionChildren, projectSectionGroup),
     topLevelIds,
   };
+}
+
+function resetProject(a) {
+  a.globalParamDefaults.reset();
+  a.projectParamDefaults.reset();
+  a.codeInfo.reset();
+  a.enteredValues.reset();
+  a.objInfos.reset();
+  a.paramInfos.reset();
+  a.sectionConfigs.reset();
+  a.sectionInfos.reset();
+  a.uiTypes.reset();
+  a.sectionPositions.reset();
+  a.uiEditor.reset();
+  a.master.reset();
 }
