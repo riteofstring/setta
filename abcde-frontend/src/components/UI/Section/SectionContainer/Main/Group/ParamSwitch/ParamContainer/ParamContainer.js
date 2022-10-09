@@ -9,12 +9,19 @@ import ParamInput from "./ParamItems/ParamInput";
 function _ParamContainer(props) {
   const { sectionId, paramInfo } = props;
   const initializeParam = useStoreActions((x) => x.thunks.initializeParam);
+  const initializeChild = useStoreActions((x) => x.thunks.initializeChild);
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
   const isNested = requiresNestedSection(uiType.type);
 
   useEffect(() => {
     initializeParam({ sectionId, paramInfo });
-  }, [paramInfo.id, isNested]);
+  }, [paramInfo.id]);
+
+  useEffect(() => {
+    if (isNested) {
+      initializeChild({ sectionId, paramInfo, uiTypeId: uiType.id });
+    }
+  }, [isNested]);
 
   return (
     !isNested && (
