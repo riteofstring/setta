@@ -2,7 +2,7 @@ export default {
   "ea94a05b-6a1a-413b-aa56-e50d28378592": { value: null, childId: null },
   "cf9359b3-cd5d-4138-9d3d-2ac7bacb46ec": { value: null, childId: null },
   "07ef5c09-60ae-4562-ace2-140fd9eadc58": { value: null, childId: null },
-  "4eb4693a-631d-423e-9220-58109cbc62f4": { value: null, childId: null },
+  "4eb4693a-631d-423e-9220-58109cbc62f4": { value: "70", childId: null },
   "9f2b0134-49d5-4eff-8bd3-3e3e7fc9bec6": { value: null, childId: null },
   "2feee425-20fa-4f2e-93e7-8c4be8c675ca": { value: null, childId: null },
   "ef0d794c-9ee1-4a2d-9bfb-df1f1dc4204b": { value: null, childId: null },

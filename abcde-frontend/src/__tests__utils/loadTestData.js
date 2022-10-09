@@ -15,8 +15,10 @@ import sections from "__tests__data/simpleTrainTest/Sections";
 import uiTypes from "__tests__data/simpleTrainTest/UITypes";
 import uiTypesCols from "__tests__data/simpleTrainTest/UITypesCols";
 
-export function loadTestData() {
-  const project = projects["61e089c8-62bf-4e8c-915e-111b4587da81"];
+export function loadTestData(
+  projectId = "61e089c8-62bf-4e8c-915e-111b4587da81"
+) {
+  const project = projects[projectId];
   const currProjectConfigId = _.filter(project.configs, (v) => v.curr)[0].id;
   const projectConfig = projectConfigs[currProjectConfigId];
   const sectionConfigCol = sectionConfigCols[projectConfig.sectionConfigCol];

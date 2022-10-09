@@ -9,7 +9,6 @@ import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
-  const isNewSession = useStoreState((x) => x.auth.isNewSession);
   const access_token = useStoreState((x) => x.auth.access_token);
   const currProject = useStoreState((x) => x.currProject.id);
   const projectLoader = useProjectLoader();
@@ -18,17 +17,15 @@ const UiPage = () => {
 
   useEffect(() => {
     async function fn() {
-      if (isAuthenticated && isNewSession) {
-        if (NO_AUTH) {
-          noAuthLoader(projectLoader);
-        } else {
-          const projectInfo = await fetchData(access_token, currProject);
-          authLoader(projectLoader, projectInfo);
-        }
+      if (NO_AUTH && !currProject) {
+        noAuthLoader(projectLoader);
+      } else if (!NO_AUTH && isAuthenticated && currProject) {
+        const projectInfo = await fetchData(access_token, currProject);
+        authLoader(projectLoader, projectInfo);
       }
     }
     fn();
-  }, [isAuthenticated, isNewSession]);
+  }, [currProject]);
 
   return <SectionsPane />;
 };
@@ -40,21 +37,21 @@ async function fetchData(access_token, id) {
 }
 
 function useNoAuthLoading() {
-  const stayLoggedIn = useStoreActions((x) => x.auth.stayLoggedIn);
+  const setCurrProject = useStoreActions((x) => x.currProject.setId);
   const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
 
   return (projectLoader) => {
-    const testData = loadTestData();
+    const projectId = "61e089c8-62bf-4e8c-915e-111b4587da81";
+    setCurrProject(projectId);
+    const testData = loadTestData(projectId);
+
     const rootSection = getRootSectionId(testData.sectionChildren);
     setSectionGroup(rootSection);
     projectLoader(testData);
-    // set isNewSession to false so that loadTestData won't be called again later
-    stayLoggedIn();
   };
 }
 
 function useAuthLoading() {
-  const stayLoggedIn = useStoreActions((x) => x.auth.stayLoggedIn);
   const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
 
   return (projectLoader, projectInfo) => {
@@ -71,7 +68,5 @@ function useAuthLoading() {
       uiTypes,
       ...theRest,
     });
-    // set isNewSession to false so that loadTestData won't be called again later
-    stayLoggedIn();
   };
 }
