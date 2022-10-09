@@ -180,12 +180,12 @@ async function loadUITypeCols(em, sectionUITypes) {
 
 async function loadCodeInfo(em, sectionUITypes) {
   const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
-  const collectionIds = [].concat(...collectionIdsArray);
+  const collectionIds = new Set([].concat(...collectionIdsArray));
   const connection = em.getConnection();
 
   const childMap = {};
   const allIds = new Set(collectionIds);
-  collectionIds.forEach((x) => (childMap[x] = []));
+  collectionIds.forEach((x) => (childMap[x] = new Set()));
 
   for (const c of collectionIds) {
     const parentChildPairs = await connection.execute(`
@@ -202,9 +202,9 @@ async function loadCodeInfo(em, sectionUITypes) {
 
     parentChildPairs.forEach((x) => {
       const child = x.code_info_2_id;
-      childMap[x.code_info_1_id].push(child);
+      childMap[x.code_info_1_id].add(child);
       if (!(child in childMap)) {
-        childMap[child] = [];
+        childMap[child] = new Set();
       }
       allIds.add(child);
     });
@@ -217,7 +217,7 @@ async function loadCodeInfo(em, sectionUITypes) {
     output[x.id] = {
       ...theRest,
       parentId: returnNullNotUndefined(parent?.id),
-      children: childMap[x.id],
+      children: Array.from(childMap[x.id]),
     };
   });
 

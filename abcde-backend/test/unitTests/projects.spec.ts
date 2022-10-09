@@ -66,6 +66,7 @@ describe('ProjectsService', () => {
 
     expect(project.sections).toEqual(sectionsData);
     expect(project.sectionChildren).toEqual(sectionChildrenData);
+    // expect(project.sectionConfigs).toEqual(sectionConfigsData);
     expect(project.sectionConfigCol).toEqual(
       sectionConfigColData[sectionConfigColId],
     );
@@ -91,7 +92,7 @@ function compareCodeInfo(x, y) {
   for (const k of Object.keys(x)) {
     for (const nestedK of Object.keys(x[k])) {
       if (nestedK === 'children') {
-        expect(new Set(x[k][nestedK])).toEqual(new Set(y[k][nestedK]));
+        expect(x[k][nestedK].sort()).toEqual(y[k][nestedK].sort());
       } else {
         expect(x[k][nestedK]).toEqual(y[k][nestedK]);
       }
