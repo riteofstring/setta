@@ -25,8 +25,8 @@ export function ComboboxSearch({
   });
 
   useEffect(() => {
-    if (initialSelection && !_.isEqual(selection, initialSelection)) {
-      setSelection(initialSelection);
+    if (!_.isEqual(selection, initialSelection)) {
+      onSelectedItemChange(selection, initialSelection, setSelection);
     }
   }, [initialSelection]);
 
