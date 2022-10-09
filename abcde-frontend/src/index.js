@@ -14,8 +14,6 @@ function WaitForStateRehydration({ children }) {
   return isRehydrated ? children : null;
 }
 
-// change to ReactDom.createRoot();
-
 ReactDOM.render(
   <React.StrictMode>
     <ChakraProvider theme={AppTheme}>

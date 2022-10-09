@@ -1,5 +1,5 @@
-export const NO_AUTH = ["sna", "snancm"].includes(import.meta.env.MODE);
-export const NO_CONTEXT_MENU = import.meta.env.MODE === "snancm";
+export const NO_AUTH = process.env.REACT_APP_NO_AUTH;
+export const NO_CONTEXT_MENU = process.env.REACT_APP_NO_CONTEXT_MENU;
 export const BACKEND = "http://localhost:8000/";
 export const SECTIONWIDTH = 450;
 export const PANEID = -1;

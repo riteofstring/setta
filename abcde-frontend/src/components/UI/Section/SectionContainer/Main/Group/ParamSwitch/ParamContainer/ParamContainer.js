@@ -1,11 +1,12 @@
 import { FormControl, HStack, Spacer } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useGetParamUIType } from "hooks/useParamInfo";
-import { useEffect } from "react";
+import _ from "lodash";
+import React, { useEffect } from "react";
 import { requiresNestedSection } from "utils/constants";
 import ParamInput from "./ParamItems/ParamInput";
 
-export default function ParamContainer(props) {
+function _ParamContainer(props) {
   const { sectionId, paramInfo } = props;
   const initializeParam = useStoreActions((x) => x.thunks.initializeParam);
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
@@ -41,3 +42,8 @@ export default function ParamContainer(props) {
     )
   );
 }
+
+export default React.memo(
+  _ParamContainer,
+  (p, n) => p.sectionId === n.sectionId && _.isEqual(p.paramInfo, n.paramInfo)
+);
