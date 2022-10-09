@@ -18,6 +18,7 @@ import { EVCols } from '../entities/enteredValues/evCols.entity';
 import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 import { UITypesColsIds } from '../entities/uitypes/uiTypesColsIds.entity';
 import { CodeInfo } from '../entities/codeInfo.entity';
+import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 
 @Injectable()
 export class ProjectsService {
@@ -48,12 +49,15 @@ export class ProjectsService {
       .getItems()
       .map((x) => x.config);
     const { ev, evCols } = await loadEVCols(this.em, tempSectionConfigs);
+    const { kwargCols, kwargInfos } = await loadKwargCols(
+      this.em,
+      tempSectionConfigs,
+    );
     const sectionUITypes = await getUITypes(this.em, tempSectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
     const presetUITypes = await loadPresetUITypes(this.em);
     const uiTypeCols = await loadUITypeCols(this.em, sectionUITypes);
     const codeInfo = await loadCodeInfo(this.em, sectionUITypes);
-
     const sectionConfigs = processSectionConfigs(tempSectionConfigs);
 
     return {
@@ -68,7 +72,8 @@ export class ProjectsService {
       uiTypes: sectionUITypes,
       presetUITypes,
       uiTypeCols,
-      codeInfo,
+      kwargCols,
+      codeInfo: { ...codeInfo, ...kwargInfos },
     };
   }
 }
@@ -160,6 +165,28 @@ async function loadEVCols(em, sectionConfigs) {
   return { ev, evCols };
 }
 
+async function loadKwargCols(em, sectionConfigs) {
+  const kwargColIds = [].concat(...sectionConfigs.map((x) => x.kwargCol));
+  const kwargColsInDBFormat = await em.find(
+    KwargColsIds,
+    { id: { $in: kwargColIds } },
+    { populate: ['kwargCols.kwargInfos.children'] },
+  );
+  const kwargInfos = {};
+  const kwargCols = {};
+  for (const col of kwargColsInDBFormat) {
+    kwargCols[col.id] = {};
+    for (const colElement of col.kwargCols.getItems()) {
+      const currKwargInfos = colElement.kwargInfos.getItems();
+      currKwargInfos.forEach((x) => (kwargInfos[x.id] = processCodeInfo(x)));
+      kwargCols[col.id][colElement.codeInfo.id] = currKwargInfos.map(
+        (x) => x.id,
+      );
+    }
+  }
+  return { kwargCols, kwargInfos };
+}
+
 async function loadUITypeCols(em, sectionUITypes) {
   const uiTypeColIds = _.map(sectionUITypes, (x) => x.config.uiTypeColId);
   const uiTypeColsInDBFormat = await em.find(
@@ -217,15 +244,22 @@ async function loadCodeInfo(em, sectionUITypes) {
   const codeInfo = await em.find(CodeInfo, { id: { $in: Array.from(allIds) } });
   const output = {};
   codeInfo.forEach((x) => {
-    const { children, parent, ...theRest } = x;
-    output[x.id] = {
-      ...theRest,
-      parentId: returnNullNotUndefined(parent?.id),
-      children: Array.from(childMap[x.id]),
-    };
+    output[x.id] = processCodeInfo(x, childMap);
   });
 
   return output;
+}
+
+function processCodeInfo(codeInfo, childMap = null) {
+  const { children, parent, ...theRest } = codeInfo;
+  const childrenIds = childMap
+    ? Array.from(childMap[codeInfo.id])
+    : children.getItems().map((c) => c.id);
+  return {
+    ...theRest,
+    parentId: returnNullNotUndefined(parent?.id),
+    children: childrenIds,
+  };
 }
 
 async function loadBaseUITypes(em): Promise<any> {
