@@ -43,8 +43,4 @@ export default {
       uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     },
   },
-  "1163ccbb-cffb-4210-9f85-196cc45eab6e": {},
-  "76e6a946-446b-4fcb-a803-db01482ed97e": {},
-  "4a64dce9-07ee-42b9-8d9e-c418c174b499": {},
-  "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524": {},
 };

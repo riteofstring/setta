@@ -83,7 +83,7 @@ const CustomTab = React.forwardRef((props, ref) => {
       fontSize="xl"
       fontWeight={isSelected ? "800" : "300"}
       color={isSelected ? "gray.800" : "gray.500"}
-      data-testid={`UiEditor ${tabProps.name} Button`}
+      aria-label={`UiEditor ${tabProps.name} Button`}
     >
       {tabProps.name}
     </Button>

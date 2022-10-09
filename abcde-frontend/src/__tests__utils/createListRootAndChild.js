@@ -58,7 +58,7 @@ export function createListRootAndChild(
 
   // get list root's child
   ({ result } = renderUseIdsOverview(listRootSectionId, wrapper));
-  const rootChildren = result.current;
+  const rootChildren = result.current[0];
   const rootChildInfo = store.getState().sectionInfos.x[rootChildren[0]];
   expect(rootChildren.length).toEqual(1);
   expect(rootChildInfo.parentId).toEqual(listRootSectionId);

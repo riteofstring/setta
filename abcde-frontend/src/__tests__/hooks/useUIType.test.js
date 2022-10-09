@@ -5,9 +5,9 @@ import { USER } from "utils/uiTypeConstants";
 import { createSectionInfoWithParam } from "__tests__utils/createSectionInfoWithParam";
 import {
   changeUITypeConfig,
-  renderUseGetParamChildId,
   renderUseGetParamUIType,
   renderUseGetSectionType,
+  renderUseParamChildId,
   renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 import {
@@ -90,8 +90,8 @@ function testUseSetUIType(
   expect(_.size(store.getState().uiTypes.x)).toEqual(2);
 
   let result = null;
-  ({ result } = renderUseGetParamChildId(si.id, paramInfoId, wrapper));
-  const childId = result.current;
+  ({ result } = renderUseParamChildId(si.id, paramInfoId, wrapper));
+  const childId = result.current[0];
 
   if (paramIsNested) {
     // child section type should be uiType

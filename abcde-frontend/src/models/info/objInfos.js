@@ -1,26 +1,29 @@
+import { MutableObjInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
-import { resetState } from "models/utils";
+
 import { setToDefault } from "./utils";
 
-function getInitialState() {
-  return { x: {} };
+function setDefaultInfo(state, collectionId, objInfoId) {
+  return setToDefault(
+    state,
+    collectionId,
+    objInfoId,
+    () => new MutableObjInfo({ id: objInfoId })
+  );
 }
 
 const objInfos = {
-  ...getInitialState(),
+  x: {},
 
   setKwargIds: action((state, payload) => {
     const { collectionId, objInfoId, newStateFn } = payload;
-    const currState = setToDefault(state.x, collectionId);
-    if (!(objInfoId in currState)) {
-      currState[objInfoId] = [];
-    }
-    currState[objInfoId] = newStateFn(currState[objInfoId]);
+    const currState = setDefaultInfo(state, collectionId, objInfoId);
+    currState.kwargIds = newStateFn(currState.kwargIds);
   }),
 
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
+  export() {
+    return this.x;
+  },
 };
 
 export default objInfos;

@@ -10,10 +10,12 @@ import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAvailablePresetUITypes,
-  renderUseGetParamChildId,
   renderUseGetParamUIType,
   renderUseGetSectionType,
   renderUseIdsOverview,
+  renderUseInitializeEnteredValue,
+  renderUseInitializeUIType,
+  renderUseParamChildId,
   renderUseSetUIType,
 } from "./renderHooks";
 import { createStore, getStoreProviderWrapper } from "./utils";
@@ -66,11 +68,11 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
-  const evColId = result.current.config.collections[0];
+  const paramCollectionId = result.current.config.collections[0];
 
   // get the param collection that the section contains
-  const allObjInfo = store.getState().codeInfo.allObjInfo;
-  const variousParams = allObjInfo[evColId];
+  const allObjInfo = store.getState().master.allObjInfo;
+  const variousParams = allObjInfo[paramCollectionId];
 
   // get the parameter we are going to test on
   const paramInfo = getParamCollectionParamInfoByName(
@@ -81,14 +83,26 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   return { sectionInfo, paramInfo };
 }
 
-export function callInitializeParamThunk(store, sectionId, paramInfo, wrapper) {
-  // initialize paramInfo's uitype, enteredvalue etc.
+export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
+  let result = null;
+  // initialize paramInfo's uiType
   // This is usually done in ParamContainer when the parameter loads
-  store.getActions().thunks.initializeParam({ sectionId, paramInfo });
+  ({ result } = renderUseInitializeUIType(sectionId, paramInfo, wrapper));
+  waitFor(() => result.current());
 
   // get the param's initial uiType
-  const { result } = renderUseGetParamUIType(sectionId, paramInfo.id, wrapper);
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfo.id, wrapper));
   return result.current;
+}
+
+export function initializeEnteredValueId(sectionId, paramInfoId, wrapper) {
+  let result = null;
+  ({ result } = renderUseInitializeEnteredValue(
+    sectionId,
+    paramInfoId,
+    wrapper
+  ));
+  waitFor(() => result.current());
 }
 
 export function getParameterToTestOnAndInitialUIType(
@@ -106,12 +120,14 @@ export function getParameterToTestOnAndInitialUIType(
   );
 
   // get the param's initial ui type
-  const initialUIType = callInitializeParamThunk(
-    store,
+  const initialUIType = initializeAndReturnUIType(
     sectionInfo.id,
     paramInfo,
     wrapper
   );
+
+  // initialize entered value id for the parameter
+  initializeEnteredValueId(sectionInfo.id, paramInfo.id, wrapper);
 
   return { sectionInfo, paramInfo, initialUIType };
 }
@@ -134,10 +150,10 @@ export function addChildSectionAndGetChildId(
   });
 
   // Get the section id of the new nested section
-  ({ result } = renderUseGetParamChildId(sectionId, paramInfoId, wrapper));
+  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
 
   // return paramChildId
-  return result.current;
+  return result.current[0];
 }
 
 export function setParamToObjectTypeAndAddChildSection(

@@ -18,7 +18,7 @@ test("Test IdNameCombobox", async () => {
     },
   };
 
-  const { rerender } = render(<IdNameCombobox {...props} />);
+  render(<IdNameCombobox {...props} />);
 
   // should have initial selection displayed
   const searchBox = screen.getByRole("textbox");
@@ -67,11 +67,4 @@ test("Test IdNameCombobox", async () => {
   listItems = screen.getAllByTestId("ComboboxListItem");
   await userEvent.click(listItems[2]);
   expect(state.selected).toEqual(allItems[2].id);
-
-  // removing searchable items should set the selected value to be null
-  while (allItems.length > 0) {
-    allItems.pop();
-  }
-  rerender(<IdNameCombobox {...props} />);
-  expect(state.selected).toEqual(null);
 });

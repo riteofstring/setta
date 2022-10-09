@@ -7,12 +7,11 @@ export class MutableInfo {
   [immerable] = true;
 }
 
-// Entered Value
-export class EVInfo extends MutableInfo {
-  constructor({ id, value = "", childId }) {
+export class MutableParamInfo extends MutableInfo {
+  constructor({ id, enteredValueId, childId }) {
     super();
     this.id = id;
-    this.value = value;
+    this.enteredValueId = enteredValueId;
     this.childId = childId;
   }
 }
@@ -22,6 +21,14 @@ export class MutableParamUITypeInfo extends MutableInfo {
     super();
     this.id = id;
     this.uiTypeId = uiTypeId;
+  }
+}
+
+export class MutableObjInfo extends MutableInfo {
+  constructor({ id, kwargIds = [] }) {
+    super();
+    this.id = id;
+    this.kwargIds = kwargIds;
   }
 }
 
@@ -52,13 +59,19 @@ export class SectionInfo extends MutableInfo {
 }
 
 export class SectionConfig extends MutableInfo {
-  constructor({ id, uiTypeId, evColId, kwargColId, selectedItem = null }) {
+  constructor({
+    id,
+    uiTypeId,
+    paramCollectionId,
+    kwargCollectionId,
+    selectedItem = null,
+  }) {
     super();
     this.id = maybeNewId(id);
     this.uiTypeId = uiTypeId;
     this.selectedItem = selectedItem;
-    this.evColId = maybeNewId(evColId);
-    this.kwargColId = maybeNewId(kwargColId);
+    this.paramCollectionId = maybeNewId(paramCollectionId);
+    this.kwargCollectionId = maybeNewId(kwargCollectionId);
   }
 }
 
