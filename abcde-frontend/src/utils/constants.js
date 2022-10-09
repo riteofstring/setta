@@ -1,4 +1,4 @@
-export const NO_AUTH = process.env.REACT_APP_NO_AUTH;
+export const NO_AUTH = process.env.NEXT_PUBLIC_NO_AUTH;
 export const NO_CONTEXT_MENU = process.env.REACT_APP_NO_CONTEXT_MENU;
 export const BACKEND = "http://localhost:8000/";
 export const SECTIONWIDTH = 450;
