@@ -19,8 +19,8 @@ export const initializeParam = thunk((actions, payload, helpers) => {
 function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
   const s = helpers.getStoreState();
   const configId = s.sectionInfos.x[sectionId].configId;
-  const paramCollectionId = s.sectionConfigs.x[configId].paramCollectionId;
-  let enteredValueId = s.paramInfos.x[paramCollectionId]?.[paramInfo.id];
+  const evColId = s.sectionConfigs.x[configId].evColId;
+  let enteredValueId = s.paramInfos.x[evColId]?.[paramInfo.id];
 
   if (!enteredValueId) {
     const a = helpers.getStoreActions();
@@ -28,7 +28,7 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
     const setEnteredValueId = curryAction(
       a.paramInfos.setEnteredValueId,
       {
-        collectionId: paramCollectionId,
+        collectionId: evColId,
         paramInfoId: paramInfo.id,
       },
       "enteredValueId"

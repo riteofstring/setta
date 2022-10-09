@@ -4,14 +4,8 @@ import _ from "lodash";
 import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
 import { DECK, isRoot, LIST_ROOT } from "./constants";
 
-function paramInfoExportSelected(
-  sectionId,
-  paramInfo,
-  paramCollectionId,
-  state
-) {
-  const enteredValueInfo =
-    state.paramInfos.x[paramCollectionId]?.[paramInfo.id];
+function paramInfoExportSelected(sectionId, paramInfo, evColId, state) {
+  const enteredValueInfo = state.paramInfos.x[evColId]?.[paramInfo.id];
   if (!enteredValueInfo) {
     return undefined;
   }
@@ -26,17 +20,12 @@ function paramInfoExportSelected(
 function multipleParamInfoExportSelected(
   sectionId,
   paramInfos,
-  paramCollectionId,
+  evColId,
   state
 ) {
   const output = {};
   for (let p of paramInfos) {
-    let paramSelection = paramInfoExportSelected(
-      sectionId,
-      p,
-      paramCollectionId,
-      state
-    );
+    let paramSelection = paramInfoExportSelected(sectionId, p, evColId, state);
     if (!_.isNil(paramSelection)) {
       paramSelection = maybeStringPrefix(paramSelection);
       output[paramPrefix(p.name)] = paramSelection;
@@ -49,7 +38,7 @@ function paramCollectionExportSelected(
   sectionId,
   sectionType,
   allParamCollections,
-  paramCollectionId,
+  evColId,
   state
 ) {
   const {
@@ -65,7 +54,7 @@ function paramCollectionExportSelected(
   return multipleParamInfoExportSelected(
     sectionId,
     Object.values(currParamCollections),
-    paramCollectionId,
+    evColId,
     state
   );
 }
@@ -73,7 +62,7 @@ function paramCollectionExportSelected(
 function kwargsExportSelected(
   sectionId,
   objInfoId,
-  paramCollectionId,
+  evColId,
   kwargCollectionId,
   state
 ) {
@@ -82,34 +71,27 @@ function kwargsExportSelected(
     return {};
   }
   const kwargInfos = kwargIds.map((y) => state.kwargInfos.x[y]);
-  return multipleParamInfoExportSelected(
-    sectionId,
-    kwargInfos,
-    paramCollectionId,
-    state
-  );
+  return multipleParamInfoExportSelected(sectionId, kwargInfos, evColId, state);
 }
 
-function objInfoExportSelected(sectionId, objInfo, paramCollectionId, state) {
+function objInfoExportSelected(sectionId, objInfo, evColId, state) {
   const { path: fullObjPath } = getFullObjPath(objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
     Object.values(objInfo.children),
-    paramCollectionId,
+    evColId,
     state
   );
   return { [objPrefix(fullObjPath)]: output };
 }
 
 function sectionExportSelected(section, state) {
-  // Confusingly, paramCollectionId is not related to allParamCollections.
-  // Instead, it is used for keeping track of param ui types, entered values etc.
   const { allObjInfo, allParamCollections } = state.master;
   const {
     id: sectionId,
     selectedItem,
     uiTypeId,
-    paramCollectionId,
+    evColId,
     kwargCollectionId,
   } = section;
   const sectionType = state.uiTypes.x[uiTypeId];
@@ -123,14 +105,14 @@ function sectionExportSelected(section, state) {
     sectionId,
     sectionType,
     allParamCollections,
-    paramCollectionId,
+    evColId,
     state
   );
 
   const kwargs = kwargsExportSelected(
     sectionId,
     selectedItem,
-    paramCollectionId,
+    evColId,
     kwargCollectionId,
     state
   );
@@ -140,7 +122,7 @@ function sectionExportSelected(section, state) {
     const objParams = objInfoExportSelected(
       sectionId,
       allObjInfo[selectedItem],
-      paramCollectionId,
+      evColId,
       state
     );
     const key = Object.keys(objParams)[0];

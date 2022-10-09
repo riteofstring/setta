@@ -24,8 +24,8 @@ function useParamWithUITypeColId(sectionId, setStateFn, key) {
 }
 
 export function useGetParamEnteredValueId(sectionId, paramInfoId) {
-  const { paramCollectionId } = useGetSectionConfig(sectionId);
-  return useStoreState((x) => x.paramInfos.x[paramCollectionId]?.[paramInfoId]);
+  const { evColId } = useGetSectionConfig(sectionId);
+  return useStoreState((x) => x.paramInfos.x[evColId]?.[paramInfoId]);
 }
 
 export function useGetParamChildId(sectionId, paramInfoId) {
@@ -53,9 +53,9 @@ export function useGetManyParamsWithParamCollectionId(
   paramInfos,
   key
 ) {
-  const { paramCollectionId } = useGetSectionConfig(sectionId);
+  const { evColId } = useGetSectionConfig(sectionId);
   const enteredValueIds = useStoreState(
-    (x) => paramInfos.map((y) => x.paramInfos.x[paramCollectionId]?.[y.id]),
+    (x) => paramInfos.map((y) => x.paramInfos.x[evColId]?.[y.id]),
     _.isEqual
   );
   return useStoreState(

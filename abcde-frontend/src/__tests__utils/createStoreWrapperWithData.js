@@ -66,11 +66,11 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
-  const paramCollectionId = result.current.config.collections[0];
+  const evColId = result.current.config.collections[0];
 
   // get the param collection that the section contains
   const allObjInfo = store.getState().master.allObjInfo;
-  const variousParams = allObjInfo[paramCollectionId];
+  const variousParams = allObjInfo[evColId];
 
   // get the parameter we are going to test on
   const paramInfo = getParamCollectionParamInfoByName(
