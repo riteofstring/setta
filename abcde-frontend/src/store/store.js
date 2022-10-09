@@ -61,8 +61,4 @@ export const resetEntireState = () => {
   store.persist.clear();
 };
 
-export const resetState = (name) => {
-  store.dispatch.setSubState({ name, value: initialState[name] });
-};
-
 export default store;
