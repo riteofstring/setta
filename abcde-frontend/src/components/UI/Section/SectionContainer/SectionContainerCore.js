@@ -57,6 +57,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
+      data-testid={`${sectionId} section core`}
       // mt="0.5rem"
     >
       <HStack
