@@ -4,7 +4,10 @@ import config from '../../src/mikro-orm.config';
 import { AppModule } from '../../src/app.module';
 import projectsData from '../../../abcde-frontend/src/__tests__data/Projects';
 import sectionsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/Sections';
+import sectionConfigsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionConfigs';
 import sectionChildrenData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionChildren';
+import evData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/EV';
+import evColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/EVCols';
 import baseUITypesData from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
 import usersData from '../../../abcde-frontend/src/__tests__data/Users';
 import { INestApplication } from '@nestjs/common';
@@ -57,7 +60,10 @@ describe('ProjectsService', () => {
 
     expect(project.sections).toEqual(sectionsData);
     expect(project.sectionChildren).toEqual(sectionChildrenData);
+    expect(project.ev).toEqual(evData);
+    expect(project.evCols).toEqual(evColsData);
     expect(project.baseUITypes).toEqual(baseUITypesData);
+    // expect(project.sectionConfigs).toEqual(sectionConfigsData);
     // expect(project.project.name).toEqual(projectsData[projectId].name);
     // expect(project.project.sectionGroup).toEqual(
     //   projectsData[projectId].sectionGroup,

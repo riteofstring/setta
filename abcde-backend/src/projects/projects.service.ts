@@ -14,7 +14,8 @@ import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
 import { renameKeys } from '../utils/utils';
 import _ = require('lodash');
-import { SectionConfigCols } from 'src/entities/sections/sectionConfigCols.entity';
+import { EVCols } from '../entities/enteredValues/evCols.entity';
+import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 
 @Injectable()
 export class ProjectsService {
@@ -41,14 +42,18 @@ export class ProjectsService {
     const sections = getSections(sectionConfigCols);
     const sectionChildren = getSectionChildren(sectionConfigCols);
     const sectionConfigs = getSectionConfigs(sectionConfigCols);
-    const baseUITypes = await this.loadBaseUITypes();
+    const { ev, evCols } = await loadEVCols(this.em, sectionConfigs);
+    const baseUITypes = await loadBaseUITypes(this.em);
 
-    return { project, sections, sectionChildren, sectionConfigs, baseUITypes };
-  }
-
-  async loadBaseUITypes(): Promise<any> {
-    const uiTypes = await this.em.find(UITypes, { presetType: 'base' });
-    return await getUITypeSpecifics(this.em, uiTypes);
+    return {
+      project,
+      sections,
+      sectionChildren,
+      sectionConfigs,
+      ev,
+      evCols,
+      baseUITypes,
+    };
   }
 }
 
@@ -97,6 +102,39 @@ function getSectionConfigs(sectionConfigCols) {
     sectionConfigs[config.id] = renameKeys(config, KEYMAP);
   }
   return sectionConfigs;
+}
+
+async function loadEVCols(em, sectionConfigs) {
+  const evColIds = _.map(sectionConfigs, (x) => x.evCol);
+  const evColsInDBFormat = await em.find(
+    EVColsIds,
+    { id: { $in: evColIds } },
+    { populate: ['evCols.enteredValue'] },
+  );
+  const ev = {};
+  const evCols = {};
+  for (const col of evColsInDBFormat) {
+    evCols[col.id] = {};
+    for (const colElement of col.evCols.getItems()) {
+      const codeInfoId = colElement.codeInfo.id;
+      const currEv = colElement.enteredValue;
+      const evId = currEv.id;
+      ev[evId] = {
+        value: currEv.value,
+        childId: currEv.child ? currEv.child.id : null,
+      };
+      evCols[col.id][codeInfoId] = {
+        id: codeInfoId,
+        enteredValueId: evId,
+      };
+    }
+  }
+  return { ev, evCols };
+}
+
+async function loadBaseUITypes(em): Promise<any> {
+  const uiTypes = await em.find(UITypes, { presetType: 'base' });
+  return await getUITypeSpecifics(em, uiTypes);
 }
 
 async function getUITypeSpecifics(em: EntityManager, uiTypes: UITypes[]) {
