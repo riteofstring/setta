@@ -8,9 +8,9 @@ import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 
 export default function KwargParam(props) {
   const { sectionId, objInfoId, paramInfo: kwargInfo } = props;
-  const setName = useStoreActions((x) => x.kwargInfos.setName);
+  const setName = useStoreActions((x) => x.codeInfo.setName);
   const onBlur = (v) => {
-    setName({ kwargInfoId: kwargInfo.id, name: v });
+    setName({ id: kwargInfo.id, name: v });
   };
   const deleteKwarg = useDeleteKwarg(sectionId, objInfoId, kwargInfo.id);
 

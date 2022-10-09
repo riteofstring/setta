@@ -15,4 +15,20 @@ export default {
     value: null,
     childId: "e304954a-d52d-47fc-8c79-c47c6e53e752",
   },
+  "855d65cd-63c2-41f2-b890-26ec0f41c1b6": {
+    value: "9000",
+    childId: null,
+  },
+  "0cee15eb-a8fb-40b2-9704-f7de0207b2f4": {
+    value: "13",
+    childId: null,
+  },
+  "13385d44-dc86-41b0-8cd7-4271dc53c28f": {
+    value: "red",
+    childId: null,
+  },
+  "3a822ddb-0be1-4abf-a15e-a4abd549ac49": {
+    value: "true",
+    childId: null,
+  },
 };

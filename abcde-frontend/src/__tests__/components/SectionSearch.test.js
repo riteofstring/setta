@@ -39,7 +39,7 @@ test("Test SectionSearch", async () => {
 
   // Get another collection
   const newCollection = _.filter(
-    store.getState().master.allCollections,
+    store.getState().codeInfo.allCollections,
     (x) => x.name === "Torchvision Models"
   )[0];
 

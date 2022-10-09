@@ -70,7 +70,7 @@ function kwargsExportSelected(
   if (_.isNil(kwargIds)) {
     return {};
   }
-  const kwargInfos = kwargIds.map((y) => state.kwargInfos.x[y]);
+  const kwargInfos = kwargIds.map((y) => state.codeInfo.allObjInfo[y]);
   return multipleParamInfoExportSelected(sectionId, kwargInfos, evColId, state);
 }
 

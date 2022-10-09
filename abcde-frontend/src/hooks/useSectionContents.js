@@ -22,7 +22,7 @@ export function useGetObjParamKwargInfos(
   objInfoId,
   returnAsOneList
 ) {
-  const objInfo = useStoreState((x) => x.master.allObjInfo[objInfoId]);
+  const objInfo = useStoreState((x) => x.codeInfo.allObjInfo[objInfoId]);
   const paramInfos = useGetAllParamInfos(sectionId, objInfo);
   const kwargInfos = useGetKwargInfos(sectionId, objInfo);
   if (returnAsOneList) {
@@ -32,7 +32,7 @@ export function useGetObjParamKwargInfos(
 }
 
 function useFindAllDescendants(sectionId, fn) {
-  const allObjInfo = useStoreState((x) => x.master.allObjInfo);
+  const allObjInfo = useStoreState((x) => x.codeInfo.allObjInfo);
   const sectionType = useGetSectionType(sectionId);
   if (sectionId) {
     const collectionIds = sectionType.config.collections;
@@ -61,14 +61,14 @@ function useGetKwargIds(sectionId, objInfo) {
 function useGetKwargInfos(sectionId, objInfo) {
   const kwargIds = useGetKwargIds(sectionId, objInfo);
   const kwargInfoState = useStoreState(
-    (x) => kwargIds.map((y) => getInfo(x.kwargInfos)[y]),
+    (x) => kwargIds.map((y) => x.codeInfo.allObjInfo[y]),
     _.isEqual
   );
   return kwargInfoState;
 }
 
 function useGetAllParamInfos(sectionId, objInfo) {
-  const allObjInfo = useStoreState((x) => x.master.allObjInfo);
+  const allObjInfo = useStoreState((x) => x.codeInfo.allObjInfo);
   const objParamInfos = findAllParameters(allObjInfo, [objInfo?.id]);
   const paramCollections = useFindAllParameterCollections(sectionId);
   return [...objParamInfos, ...paramCollections];

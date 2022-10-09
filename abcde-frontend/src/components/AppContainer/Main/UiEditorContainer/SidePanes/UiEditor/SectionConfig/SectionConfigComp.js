@@ -16,7 +16,7 @@ import _ from "lodash";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ savedConfig, onChange }) {
-  const allCollections = useStoreState((x) => x.master.allCollections);
+  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
 
   return (
     <>

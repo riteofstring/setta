@@ -69,7 +69,7 @@ function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   const evColId = result.current.config.collections[0];
 
   // get the param collection that the section contains
-  const allObjInfo = store.getState().master.allObjInfo;
+  const allObjInfo = store.getState().codeInfo.allObjInfo;
   const variousParams = allObjInfo[evColId];
 
   // get the parameter we are going to test on

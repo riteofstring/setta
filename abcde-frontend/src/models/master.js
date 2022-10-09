@@ -1,4 +1,3 @@
-import { createAllInfo } from "classes/infoFactory";
 import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
@@ -6,18 +5,9 @@ import _ from "lodash";
 import { exportSelected } from "utils/exportSelected";
 
 const master = {
-  allObjInfo: {},
-  allCollections: {},
   activeSection: null,
 
-  // actions
-  // Load DATA
-  loadObjInfoAndCollections: action((state, payload) => {
-    ({ allObjInfo: state.allObjInfo, allCollections: state.allCollections } =
-      createAllInfo(payload));
-  }),
-
-  loadSections: thunk((action, payload) => {
+  loadSections: thunk((action, payload, helpers) => {
     const {
       codeInfo,
       globalDefaults,
@@ -30,9 +20,10 @@ const master = {
       evCols,
       uiTypes,
       uiTypesCols,
+      kwargCols,
     } = payload;
 
-    action.loadObjInfoAndCollections(codeInfo);
+    helpers.getStoreActions().codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
     action.initParamDefaults({
       storeName: "globalParamDefaults",
@@ -44,6 +35,7 @@ const master = {
     });
     action.initEV(ev);
     action.initEVCols(evCols);
+    action.initKwargCols(kwargCols);
     action.initSections({
       sections,
       sectionConfigs,
@@ -85,6 +77,19 @@ const master = {
           collectionId: colId,
           paramInfoId: paramInfo.id,
           enteredValueId: paramInfo.enteredValueId,
+        });
+      }
+    }
+  }),
+
+  initKwargCols: thunk((action, payload, helpers) => {
+    const setKwargIds = helpers.getStoreActions().objInfos.setKwargIds;
+    for (const colId of Object.keys(payload)) {
+      for (const objInfoId of Object.keys(payload[colId])) {
+        setKwargIds({
+          collectionId: colId,
+          objInfoId: objInfoId,
+          newStateFn: () => payload[colId][objInfoId],
         });
       }
     }
