@@ -23,11 +23,14 @@ export class CodeInfo {
   @Property({ nullable: true })
   defaultVal?: string;
 
+  // the type in the code, e.g. bool, int, float, class etc.
   @Property()
   type: string;
 
-  @Property({ nullable: true })
-  rcType?: string;
+  // "runcoder" type, i.e. a label we assign to determine
+  // whether it requires a search box, whether it's a collection etc.
+  @Property()
+  rcType: string;
 
   @Property({ nullable: true })
   description?: string;
@@ -38,4 +41,9 @@ export class CodeInfo {
   // It can have children without being their parent
   @ManyToMany(() => CodeInfo)
   children = new Collection<CodeInfo>(this);
+
+  // path for using in code
+  // e.g. numpy.random.rand is the path for the 'rand' function
+  @Property({ nullable: true })
+  path: string;
 }
