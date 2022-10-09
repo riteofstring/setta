@@ -29,4 +29,7 @@ export class UITypes {
 
   @ManyToOne({ nullable: true })
   originCodeInfo: CodeInfo;
+
+  @Property()
+  isForChildOfOriginInfoId: boolean;
 }

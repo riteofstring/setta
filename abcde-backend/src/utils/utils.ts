@@ -9,3 +9,7 @@ export function renameKeys(x, toRename) {
   }
   return output;
 }
+
+export function returnNullNotUndefined(x) {
+  return x === undefined ? null : x;
+}

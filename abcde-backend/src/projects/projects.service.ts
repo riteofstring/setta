@@ -12,7 +12,7 @@ import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
 import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
 import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
-import { renameKeys } from '../utils/utils';
+import { renameKeys, returnNullNotUndefined } from '../utils/utils';
 import _ = require('lodash');
 import { EVCols } from '../entities/enteredValues/evCols.entity';
 import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
@@ -44,6 +44,7 @@ export class ProjectsService {
     const sectionConfigs = getSectionConfigs(sectionConfigCols);
     const { ev, evCols } = await loadEVCols(this.em, sectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
+    const uiTypes = await getUITypes(this.em, sectionConfigCols);
 
     return {
       project,
@@ -53,6 +54,7 @@ export class ProjectsService {
       ev,
       evCols,
       baseUITypes,
+      uiTypes,
     };
   }
 }
@@ -63,7 +65,7 @@ async function getProject(id, projects: ProjectsRepository) {
     {
       populate: [
         'defaultProjectConfig.sectionConfigCol.sectionConfigCols.section.children',
-        'defaultProjectConfig.sectionConfigCol.sectionConfigCols.config',
+        'defaultProjectConfig.sectionConfigCol.sectionConfigCols.config.uiType',
       ],
     },
   );
@@ -73,7 +75,11 @@ function getSections(sectionConfigCols) {
   const sections = {};
   for (const col of sectionConfigCols) {
     const { id, name, paramInfo } = col.section;
-    sections[id] = { id, name, paramInfoId: paramInfo ? paramInfo.id : null };
+    sections[id] = {
+      id,
+      name,
+      paramInfoId: returnNullNotUndefined(paramInfo?.id),
+    };
   }
   return sections;
 }
@@ -121,7 +127,7 @@ async function loadEVCols(em, sectionConfigs) {
       const evId = currEv.id;
       ev[evId] = {
         value: currEv.value,
-        childId: currEv.child ? currEv.child.id : null,
+        childId: returnNullNotUndefined(currEv.child?.id),
       };
       evCols[col.id][codeInfoId] = {
         id: codeInfoId,
@@ -137,6 +143,14 @@ async function loadBaseUITypes(em): Promise<any> {
   return await getUITypeSpecifics(em, uiTypes);
 }
 
+async function getUITypes(em, sectionConfigCols): Promise<any> {
+  const uiTypes = sectionConfigCols
+    .getItems()
+    .map((x) => x.config.uiType)
+    .filter((x) => !x.presetType);
+  return await getUITypeSpecifics(em, uiTypes);
+}
+
 async function getUITypeSpecifics(em: EntityManager, uiTypes: UITypes[]) {
   const configs = [];
   for (const table of [
@@ -146,8 +160,10 @@ async function getUITypeSpecifics(em: EntityManager, uiTypes: UITypes[]) {
     TextUITypes,
     RefUITypes,
   ]) {
-    // @ts-ignore
-    const result = await em.find(table, { id: { $in: uiTypes } });
+    const result =
+      table === SectionUITypes
+        ? await getSectionUITypeConfig(em, uiTypes)
+        : await em.find(table, { id: { $in: uiTypes } });
     configs.push(...result);
   }
 
@@ -170,11 +186,26 @@ async function getUITypeSpecifics(em: EntityManager, uiTypes: UITypes[]) {
   return output;
 }
 
+async function getSectionUITypeConfig(em, uiTypes) {
+  const result = await em.find(
+    SectionUITypes,
+    { id: { $in: uiTypes } },
+    { populate: ['collections'] },
+  );
+  result.forEach((x) => {
+    x.collections = x.collections.getItems().map((c) => c.id);
+    x.uiTypeCol = returnNullNotUndefined(x.uiTypeCol?.id);
+    x.childUIType = returnNullNotUndefined(x.childUIType?.id);
+  });
+
+  return result;
+}
+
 function reshapeOriginInfoId(uiType) {
   const originInfoId = {
-    sectionId: uiType.originSection,
-    uiTypeColId: uiType.originUITypeCol,
-    paramInfoId: uiType.originCodeInfo,
+    sectionId: returnNullNotUndefined(uiType.originSection?.id),
+    uiTypeColId: returnNullNotUndefined(uiType.originUITypeCol?.id),
+    paramInfoId: returnNullNotUndefined(uiType.originCodeInfo?.id),
   };
   uiType.originInfoId = _.pickBy(originInfoId, (x) => x);
   return _.omitBy(uiType, (v, k) =>
