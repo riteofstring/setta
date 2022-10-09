@@ -89,7 +89,7 @@ function SectionsPane() {
         onPaneClick={closeCtxMenus}
         onMoveStart={closeCtxMenus}
       >
-        <PaneContextMenu
+        {/* <PaneContextMenu
           {...paneCtxMenuDetails}
           closeContextMenu={closePaneCtxMenu}
           reactFlowRef={reactFlowRef}
@@ -102,7 +102,7 @@ function SectionsPane() {
         <NodeContextMenu
           {...nodeCtxMenuDetails}
           closeContextMenu={closeNodeCtxMenu}
-        />
+        /> */}
         <ResponsiveMiniMap />
         <ResponsiveControls />
         <Background color="#b3bfd1" size={0.75} gap={16} />
