@@ -45,6 +45,7 @@ export class ProjectsService {
     const { ev, evCols } = await loadEVCols(this.em, sectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
     const uiTypes = await getUITypes(this.em, sectionConfigCols);
+    const presetUITypes = await loadPresetUITypes(this.em);
 
     return {
       project,
@@ -55,6 +56,7 @@ export class ProjectsService {
       evCols,
       baseUITypes,
       uiTypes,
+      presetUITypes,
     };
   }
 }
@@ -151,6 +153,11 @@ async function getUITypes(em, sectionConfigCols): Promise<any> {
   return await getUITypeSpecifics(em, uiTypes);
 }
 
+async function loadPresetUITypes(em): Promise<any> {
+  const uiTypes = await em.find(UITypes, { presetType: 'user' });
+  return await getUITypeSpecifics(em, uiTypes);
+}
+
 async function getUITypeSpecifics(em: EntityManager, uiTypes: UITypes[]) {
   const configs = [];
   for (const table of [
@@ -192,13 +199,18 @@ async function getSectionUITypeConfig(em, uiTypes) {
     { id: { $in: uiTypes } },
     { populate: ['collections'] },
   );
+  const output = [];
   result.forEach((x) => {
-    x.collections = x.collections.getItems().map((c) => c.id);
-    x.uiTypeCol = returnNullNotUndefined(x.uiTypeCol?.id);
-    x.childUIType = returnNullNotUndefined(x.childUIType?.id);
+    const curr = {};
+    curr['id'] = x.id;
+    curr['collections'] = x.collections.getItems().map((c) => c.id);
+    curr['uiTypeCol'] = returnNullNotUndefined(x.uiTypeCol?.id);
+    curr['childUIType'] = returnNullNotUndefined(x.childUIType?.id);
+    curr['subType'] = x.subType;
+    output.push(curr);
   });
 
-  return result;
+  return output;
 }
 
 function reshapeOriginInfoId(uiType) {
