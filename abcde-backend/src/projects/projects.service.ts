@@ -43,20 +43,24 @@ export class ProjectsService {
 
     const sections = getSections(sectionConfigCols);
     const sectionChildren = getSectionChildren(sectionConfigCols);
-    const sectionConfigs = getSectionConfigs(sectionConfigCols);
     const sectionConfigCol = getSectionConfigCol(sectionConfigCols);
-    const { ev, evCols } = await loadEVCols(this.em, sectionConfigs);
+    const tempSectionConfigs = sectionConfigCols
+      .getItems()
+      .map((x) => x.config);
+    const { ev, evCols } = await loadEVCols(this.em, tempSectionConfigs);
+    const sectionUITypes = await getUITypes(this.em, tempSectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
-    const sectionUITypes = await getUITypes(this.em, sectionConfigCols);
     const presetUITypes = await loadPresetUITypes(this.em);
     const uiTypeCols = await loadUITypeCols(this.em, sectionUITypes);
     const codeInfo = await loadCodeInfo(this.em, sectionUITypes);
+
+    const sectionConfigs = processSectionConfigs(tempSectionConfigs);
 
     return {
       project,
       sections,
       sectionChildren,
-      // sectionConfigs,
+      sectionConfigs,
       sectionConfigCol,
       ev,
       evCols,
@@ -105,19 +109,19 @@ function getSectionChildren(sectionConfigCols) {
   return sectionChildren;
 }
 
-function getSectionConfigs(sectionConfigCols) {
+function processSectionConfigs(sectionConfigs) {
   const KEYMAP = {
     uiType: 'uiTypeId',
+    evCol: 'evColId',
+    kwargCol: 'kwargColId',
   };
 
-  const sectionConfigs = {};
-  for (const col of sectionConfigCols) {
-    const config = _.mapValues(col.config, (v, k) =>
-      k === 'id' || !v ? v : v.id,
-    );
-    sectionConfigs[config.id] = renameKeys(config, KEYMAP);
+  const output = {};
+  for (const c of sectionConfigs) {
+    const config = _.mapValues(c, (v, k) => (k === 'id' || !v ? v : v.id));
+    output[config.id] = renameKeys(config, KEYMAP);
   }
-  return sectionConfigs;
+  return output;
 }
 
 function getSectionConfigCol(sectionConfigCols) {
@@ -129,7 +133,7 @@ function getSectionConfigCol(sectionConfigCols) {
 }
 
 async function loadEVCols(em, sectionConfigs) {
-  const evColIds = _.map(sectionConfigs, (x) => x.evCol);
+  const evColIds = sectionConfigs.map((x) => x.evCol);
   const evColsInDBFormat = await em.find(
     EVColsIds,
     { id: { $in: evColIds } },
@@ -229,10 +233,9 @@ async function loadBaseUITypes(em): Promise<any> {
   return await getUITypeSpecifics(em, uiTypes);
 }
 
-async function getUITypes(em, sectionConfigCols): Promise<any> {
-  const uiTypes = sectionConfigCols
-    .getItems()
-    .map((x) => x.config.uiType)
+async function getUITypes(em, sectionConfigs): Promise<any> {
+  const uiTypes = sectionConfigs
+    .map((x) => x.uiType)
     .filter((x) => !x.presetType);
   return await getUITypeSpecifics(em, uiTypes);
 }

@@ -32,6 +32,7 @@ export class SectionsSeeder extends Seeder {
       await createIfNotFound(em, SectionConfig, {
         id: x.id,
         evCol: x.evColId,
+        kwargCol: x.kwargColId,
         selectedItem: x.selectedItem,
         uiType: x.uiTypeId,
       });
