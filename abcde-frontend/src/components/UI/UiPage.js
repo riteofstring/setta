@@ -56,7 +56,7 @@ function useAuthLoading() {
 
   return (projectLoader, projectInfo) => {
     // TODO remove this
-    const { projectDefaults, globalDefaults, sectionConfigs } = loadTestData();
+    const { projectDefaults, globalDefaults } = loadTestData();
     const rootSection = getRootSectionId(projectInfo.sectionChildren);
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
@@ -64,7 +64,6 @@ function useAuthLoading() {
     projectLoader({
       projectDefaults,
       globalDefaults,
-      sectionConfigs,
       uiTypes,
       ...theRest,
     });
