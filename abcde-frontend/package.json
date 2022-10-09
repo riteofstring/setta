@@ -21,7 +21,6 @@
     "axios": "0.21.0",
     "downshift": "6.1.0",
     "easy-peasy": "5.0.3",
-    "env-cmd": "10.1.0",
     "formik": "2.2.6",
     "framer-motion": "4.1.17",
     "js-yaml": "4.1.0",
@@ -41,10 +40,12 @@
   "scripts": {
     "start": "next start",
     "dev": "next dev",
-    "sna": "env-cmd -f noauth.env yarn dev",
-    "snamac": "env-cmd -f noauth.env yarn dev",
+    "sna": "SET REACT_APP_NO_AUTH=true&&yarn dev",
+    "snancm": "SET REACT_APP_NO_AUTH=true&&SET REACT_APP_NO_CONTEXT_MENU=true&&yarn dev",
+    "snamac": "REACT_APP_NO_AUTH=true yarn dev",
+    "snancmmac": "REACT_APP_NO_AUTH=true REACT_APP_NO_CONTEXT_MENU=true yarn dev",
     "build": "next build",
-    "test": "env-cmd -f noauth.env next test",
+    "test": "SET REACT_APP_NO_AUTH=true&&next test",
     "eject": "next eject"
   },
   "eslintConfig": {
