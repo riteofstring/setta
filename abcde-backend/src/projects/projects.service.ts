@@ -43,6 +43,7 @@ export class ProjectsService {
     const sections = getSections(sectionConfigCols);
     const sectionChildren = getSectionChildren(sectionConfigCols);
     const sectionConfigs = getSectionConfigs(sectionConfigCols);
+    const sectionConfigCol = getSectionConfigCol(sectionConfigCols);
     const { ev, evCols } = await loadEVCols(this.em, sectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
     const sectionUITypes = await getUITypes(this.em, sectionConfigCols);
@@ -54,6 +55,7 @@ export class ProjectsService {
       sections,
       sectionChildren,
       sectionConfigs,
+      sectionConfigCol,
       ev,
       evCols,
       baseUITypes,
@@ -113,6 +115,14 @@ function getSectionConfigs(sectionConfigCols) {
     sectionConfigs[config.id] = renameKeys(config, KEYMAP);
   }
   return sectionConfigs;
+}
+
+function getSectionConfigCol(sectionConfigCols) {
+  const output = {};
+  for (const col of sectionConfigCols) {
+    output[col.section.id] = { id: col.section.id, configId: col.config.id };
+  }
+  return output;
 }
 
 async function loadEVCols(em, sectionConfigs) {

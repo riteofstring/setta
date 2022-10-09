@@ -6,6 +6,7 @@ import projectsData from '../../../abcde-frontend/src/__tests__data/Projects';
 import sectionsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/Sections';
 import sectionConfigsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionConfigs';
 import sectionChildrenData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionChildren';
+import sectionConfigColData from '../../../abcde-frontend/src/__tests__data/SectionConfigCols';
 import evData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/EV';
 import evColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/EVCols';
 import baseUITypesData from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
@@ -57,12 +58,16 @@ describe('ProjectsService', () => {
 
   it('Get a project with nested sections', async () => {
     const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
+    const sectionConfigColId = 'f5cd8865-a15b-4fa3-9410-1ea3aa6933a5';
     const { body: project } = await request(app.getHttpServer())
       .post(`/projects/${projectId}`)
       .set('Authorization', `Bearer ${access_token}`);
 
     expect(project.sections).toEqual(sectionsData);
     expect(project.sectionChildren).toEqual(sectionChildrenData);
+    expect(project.sectionConfigCol).toEqual(
+      sectionConfigColData[sectionConfigColId],
+    );
     expect(project.ev).toEqual(evData);
     expect(project.evCols).toEqual(evColsData);
     expect(project.baseUITypes).toEqual(baseUITypesData);
