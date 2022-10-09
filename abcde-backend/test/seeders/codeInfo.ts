@@ -1,7 +1,7 @@
 import { EntityManager } from '@mikro-orm/core';
 import { Seeder } from '@mikro-orm/seeder';
 import { CodeInfo } from '../../src/entities/codeInfo.entity';
-import data from '../../../abcde-frontend/src/__tests__data/CodeInfo';
+import data from '../../../abcde-frontend/src/__tests__data/AllCodeInfo';
 
 // TODO
 // Add this to package.json when we switch to a monorepo
@@ -13,8 +13,8 @@ export class CodeInfoSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
     for (const x of Object.values(data)) {
       let curr = new CodeInfo();
-      const { children, ...otherProps } = x;
-      curr = Object.assign(curr, otherProps);
+      const { children, parentId: parent, ...otherProps } = x;
+      curr = Object.assign(curr, { parent, ...otherProps });
       em.persist(curr);
     }
     em.flush();

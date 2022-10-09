@@ -17,6 +17,7 @@ import _ = require('lodash');
 import { EVCols } from '../entities/enteredValues/evCols.entity';
 import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 import { UITypesColsIds } from '../entities/uitypes/uiTypesColsIds.entity';
+import { CodeInfo } from '../entities/codeInfo.entity';
 
 @Injectable()
 export class ProjectsService {
@@ -49,6 +50,7 @@ export class ProjectsService {
     const sectionUITypes = await getUITypes(this.em, sectionConfigCols);
     const presetUITypes = await loadPresetUITypes(this.em);
     const uiTypeCols = await loadUITypeCols(this.em, sectionUITypes);
+    const codeInfo = await loadCodeInfo(this.em, sectionUITypes);
 
     return {
       project,
@@ -62,6 +64,7 @@ export class ProjectsService {
       uiTypes: sectionUITypes,
       presetUITypes,
       uiTypeCols,
+      codeInfo,
     };
   }
 }
@@ -173,6 +176,52 @@ async function loadUITypeCols(em, sectionUITypes) {
     }
   }
   return uiTypeCols;
+}
+
+async function loadCodeInfo(em, sectionUITypes) {
+  const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
+  const collectionIds = [].concat(...collectionIdsArray);
+  const connection = em.getConnection();
+
+  const childMap = {};
+  const allIds = new Set(collectionIds);
+  collectionIds.forEach((x) => (childMap[x] = []));
+
+  for (const c of collectionIds) {
+    const parentChildPairs = await connection.execute(`
+      with recursive descendants as (
+          select code_info_1_id, code_info_2_id
+          from code_info_children
+          where code_info_1_id = '${c}'
+        union
+          select x.code_info_1_id, x.code_info_2_id
+          from code_info_children x
+          join descendants on x.code_info_1_id = descendants.code_info_2_id
+      )
+      select * from descendants;`);
+
+    parentChildPairs.forEach((x) => {
+      const child = x.code_info_2_id;
+      childMap[x.code_info_1_id].push(child);
+      if (!(child in childMap)) {
+        childMap[child] = [];
+      }
+      allIds.add(child);
+    });
+  }
+
+  const codeInfo = await em.find(CodeInfo, { id: { $in: Array.from(allIds) } });
+  const output = {};
+  codeInfo.forEach((x) => {
+    const { children, parent, ...theRest } = x;
+    output[x.id] = {
+      ...theRest,
+      parentId: returnNullNotUndefined(parent?.id),
+      children: childMap[x.id],
+    };
+  });
+
+  return output;
 }
 
 async function loadBaseUITypes(em): Promise<any> {

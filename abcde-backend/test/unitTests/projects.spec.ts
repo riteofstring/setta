@@ -13,6 +13,7 @@ import baseUITypesData from '../../../abcde-frontend/src/__tests__data/BaseUITyp
 import presetUITypesData from '../../../abcde-frontend/src/__tests__data/PresetUITypes';
 import uiTypesData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
 import uiTypesColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypesCols';
+import codeInfoData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/CodeInfo';
 import usersData from '../../../abcde-frontend/src/__tests__data/Users';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -74,6 +75,8 @@ describe('ProjectsService', () => {
     expect(project.uiTypes).toEqual(uiTypesData);
     expect(project.presetUITypes).toEqual(presetUITypesData);
     expect(project.uiTypeCols).toEqual(uiTypesColsData);
+    compareCodeInfo(project.codeInfo, codeInfoData);
+    // expect(project.codeInfo).toEqual(codeInfoData);
     // expect(project.sectionConfigs).toEqual(sectionConfigsData);
     // expect(project.project.name).toEqual(projectsData[projectId].name);
     // expect(project.project.sectionGroup).toEqual(
@@ -83,3 +86,15 @@ describe('ProjectsService', () => {
     // expect(project.sections.length).toEqual(12);
   });
 });
+
+function compareCodeInfo(x, y) {
+  for (const k of Object.keys(x)) {
+    for (const nestedK of Object.keys(x[k])) {
+      if (nestedK === 'children') {
+        expect(new Set(x[k][nestedK])).toEqual(new Set(y[k][nestedK]));
+      } else {
+        expect(x[k][nestedK]).toEqual(y[k][nestedK]);
+      }
+    }
+  }
+}
