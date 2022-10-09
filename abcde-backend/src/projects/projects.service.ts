@@ -16,6 +16,7 @@ import { renameKeys, returnNullNotUndefined } from '../utils/utils';
 import _ = require('lodash');
 import { EVCols } from '../entities/enteredValues/evCols.entity';
 import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
+import { UITypesColsIds } from '../entities/uitypes/uiTypesColsIds.entity';
 
 @Injectable()
 export class ProjectsService {
@@ -44,8 +45,9 @@ export class ProjectsService {
     const sectionConfigs = getSectionConfigs(sectionConfigCols);
     const { ev, evCols } = await loadEVCols(this.em, sectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
-    const uiTypes = await getUITypes(this.em, sectionConfigCols);
+    const sectionUITypes = await getUITypes(this.em, sectionConfigCols);
     const presetUITypes = await loadPresetUITypes(this.em);
+    const uiTypeCols = await loadUITypeCols(this.em, sectionUITypes);
 
     return {
       project,
@@ -55,8 +57,9 @@ export class ProjectsService {
       ev,
       evCols,
       baseUITypes,
-      uiTypes,
+      uiTypes: sectionUITypes,
       presetUITypes,
+      uiTypeCols,
     };
   }
 }
@@ -138,6 +141,28 @@ async function loadEVCols(em, sectionConfigs) {
     }
   }
   return { ev, evCols };
+}
+
+async function loadUITypeCols(em, sectionUITypes) {
+  const uiTypeColIds = _.map(sectionUITypes, (x) => x.config.uiTypeColId);
+  const uiTypeColsInDBFormat = await em.find(
+    UITypesColsIds,
+    { id: { $in: uiTypeColIds } },
+    { populate: ['uiTypesCols'] },
+  );
+  const uiTypeCols = {};
+  for (const col of uiTypeColsInDBFormat) {
+    uiTypeCols[col.id] = {};
+    for (const colElement of col.uiTypesCols.getItems()) {
+      const codeInfoId = colElement.codeInfo.id;
+      const uiTypeId = colElement.uiType.id;
+      uiTypeCols[col.id][codeInfoId] = {
+        id: codeInfoId,
+        uiTypeId: uiTypeId,
+      };
+    }
+  }
+  return uiTypeCols;
 }
 
 async function loadBaseUITypes(em): Promise<any> {

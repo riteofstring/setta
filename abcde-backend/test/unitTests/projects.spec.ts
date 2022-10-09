@@ -11,6 +11,7 @@ import evColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTes
 import baseUITypesData from '../../../abcde-frontend/src/__tests__data/BaseUITypes';
 import presetUITypesData from '../../../abcde-frontend/src/__tests__data/PresetUITypes';
 import uiTypesData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
+import uiTypesColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypesCols';
 import usersData from '../../../abcde-frontend/src/__tests__data/Users';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -67,6 +68,7 @@ describe('ProjectsService', () => {
     expect(project.baseUITypes).toEqual(baseUITypesData);
     expect(project.uiTypes).toEqual(uiTypesData);
     expect(project.presetUITypes).toEqual(presetUITypesData);
+    expect(project.uiTypeCols).toEqual(uiTypesColsData);
     // expect(project.sectionConfigs).toEqual(sectionConfigsData);
     // expect(project.project.name).toEqual(projectsData[projectId].name);
     // expect(project.project.sectionGroup).toEqual(
