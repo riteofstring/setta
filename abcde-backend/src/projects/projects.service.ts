@@ -107,9 +107,7 @@ function getSectionChildren(sectionConfigCols) {
   const sectionChildren = {};
   for (const col of sectionConfigCols) {
     const children = col.section.children;
-    if (children.length > 0) {
-      sectionChildren[col.section.id] = children.getItems().map((x) => x.id);
-    }
+    sectionChildren[col.section.id] = children.getItems().map((x) => x.id);
   }
   return sectionChildren;
 }
