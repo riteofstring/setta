@@ -46,7 +46,10 @@
     "snancm": "vite --mode snancm",
     "build": "tsc && vite build",
     "test": "yarn vitest --mode sna",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "l": "yarn eslint src --ext .js,.jsx,.ts --fix",
+    "f": "yarn prettier src --write",
+    "lf": "yarn l && yarn f"
   },
   "eslintConfig": {
     "extends": [
