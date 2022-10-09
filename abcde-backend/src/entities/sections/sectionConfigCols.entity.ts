@@ -16,5 +16,5 @@ export class SectionConfigCols {
   @ManyToOne({ nullable: true })
   config: SectionConfig;
 
-  [PrimaryKeyType]?: [string, number];
+  [PrimaryKeyType]?: [string, string];
 }

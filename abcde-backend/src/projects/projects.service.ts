@@ -56,7 +56,7 @@ export class ProjectsService {
       project,
       sections,
       sectionChildren,
-      sectionConfigs,
+      // sectionConfigs,
       sectionConfigCol,
       ev,
       evCols,

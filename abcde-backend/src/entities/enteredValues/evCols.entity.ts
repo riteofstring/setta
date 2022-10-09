@@ -16,5 +16,5 @@ export class EVCols {
   @ManyToOne()
   enteredValue: EV;
 
-  [PrimaryKeyType]?: [string, number];
+  [PrimaryKeyType]?: [string, string];
 }

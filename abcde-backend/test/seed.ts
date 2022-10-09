@@ -7,6 +7,7 @@ import { SectionsSeeder } from './seeders/sections';
 import { UITypesSeeder } from './seeders/uiTypes';
 import { EVSeeder } from './seeders/ev';
 import { UITypesColsSeeder } from './seeders/uiTypesCols';
+import { KwargColsSeeder } from './seeders/kwargCols';
 
 (async () => {
   const orm = await MikroORM.init(config);
@@ -15,6 +16,7 @@ import { UITypesColsSeeder } from './seeders/uiTypesCols';
   const seeders = [
     UsersSeeder,
     CodeInfoSeeder,
+    KwargColsSeeder,
     EVSeeder,
     UITypesSeeder,
     UITypesColsSeeder,

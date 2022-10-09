@@ -16,5 +16,5 @@ export class UITypesCols {
   @ManyToOne(() => UITypes)
   uiType: UITypes;
 
-  [PrimaryKeyType]?: [string, number];
+  [PrimaryKeyType]?: [string, string];
 }
