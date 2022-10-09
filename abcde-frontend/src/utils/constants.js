@@ -1,5 +1,5 @@
-export const NO_AUTH = process.env.VITE_NO_AUTH;
-export const NO_CONTEXT_MENU = process.env.VITE_NO_CONTEXT_MENU;
+export const NO_AUTH = import.meta.env.VITE_NO_AUTH;
+export const NO_CONTEXT_MENU = import.meta.env.VITE_NO_CONTEXT_MENU;
 export const BACKEND = "http://localhost:8000/";
 export const SECTIONWIDTH = 450;
 export const PANEID = -1;
