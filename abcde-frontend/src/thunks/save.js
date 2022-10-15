@@ -9,7 +9,7 @@ export const saveProject = thunk((actions, payload, helpers) => {
 
   const ev = s.enteredValues.x;
   const evCols = s.paramInfos.x;
-  //   const uiTypes = s.uiTypes.x
+  const uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
   const uiTypeCols = s.paramInfos.y;
   const kwargCols = s.objInfos.x;
 
@@ -25,6 +25,7 @@ export const saveProject = thunk((actions, payload, helpers) => {
   const project = {
     ev,
     evCols,
+    uiTypes,
     uiTypeCols,
     kwargCols,
     sections,
