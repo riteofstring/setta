@@ -5,6 +5,7 @@ import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useGetKwargInfos } from "hooks/useSectionContents";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetUIType } from "hooks/useUIType";
 import { isBasePreset } from "utils/uiTypeConstants";
@@ -55,6 +56,10 @@ export function renderUseGetSectionConfig(sectionId, wrapper) {
   return renderHook(() => useGetSectionConfig(sectionId), {
     wrapper,
   });
+}
+
+export function renderUseGetKwargInfos(sectionId, objInfoId, wrapper) {
+  return renderHook(() => useGetKwargInfos(sectionId, objInfoId), { wrapper });
 }
 
 export function renderUseCreateDefaultSectionInfo(wrapper) {

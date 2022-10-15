@@ -11,8 +11,8 @@ import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContai
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React from "react";
 import { UI_EDITOR } from "utils/constants";
-import SectionConfig from "./SectionConfig/SectionConfig";
-import UIConfig from "./UIConfig/UIConfig";
+import SectionConfig from "./SectionConfig";
+import UIConfig from "./UIConfig";
 
 const paneProps = {
   right: true,
@@ -48,7 +48,7 @@ export default function UiEditor() {
           h="inherit"
           overflowY="auto"
         >
-          <TabPanel p="3px" display="flex" flexDirection="column">
+          <TabPanel p="3px">
             <SectionConfig />
           </TabPanel>
           <TabPanel p="3px">

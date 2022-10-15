@@ -20,9 +20,9 @@ import { SET_FROM_SIDEPANE } from "utils/constants";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
-export default React.memo(UIConfig);
+export default React.memo(UIConfigFunc);
 
-function UIConfig() {
+function UIConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
 

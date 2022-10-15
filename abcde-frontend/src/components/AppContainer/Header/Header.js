@@ -22,8 +22,9 @@ export default function HeaderContainer() {
           mr="1rem"
           fontFamily="JetBrains Mono"
         >
+          r
           <Text as="span" color="#00B5D8">
-            run
+            un
           </Text>
           coder
         </Heading>

@@ -1,76 +1,57 @@
-import {
-  findAllCallables,
-  findAllParameterCollections,
-  findAllParameters,
-} from "classes/infoFactory";
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
 import { maybeUseNullId } from "./useKwarg";
 import { useGetSectionConfig } from "./useSectionConfig";
-
 import { useGetSectionType } from "./useSectionType";
-import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = useGetSectionConfig(sectionId);
-  return useGetObjParamKwargInfos(sectionId, selectedItem, true);
+  const paramInfos = useGetAllParamInfos(sectionId, selectedItem);
+  const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
+  return [...paramInfos, ...kwargInfos];
 }
 
-// TODO: SPLIT UP
-export function useGetObjParamKwargInfos(
-  sectionId,
-  objInfoId,
-  returnAsOneList
-) {
-  const objInfo = useStoreState((x) => x.codeInfo.allObjInfo[objInfoId]);
-  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
-  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
-  if (returnAsOneList) {
-    return [...paramInfos, ...kwargInfos];
-  }
-  return { paramInfos, kwargInfos };
-}
-
-function useFindAllDescendants(sectionId, fn) {
-  const allObjInfo = useStoreState((x) => x.codeInfo.allObjInfo);
+function useGetCollectionChildren(sectionId, type) {
   const sectionType = useGetSectionType(sectionId);
-  if (sectionId) {
-    const collectionIds = sectionType.config.collections;
-    return fn(allObjInfo, collectionIds);
-  }
-  return [];
+  const collectionIds = sectionType.config
+    ? sectionType.config.collections
+    : [];
+  return useStoreState(
+    (x) => [].concat(...collectionIds.map((y) => x.codeInfo[type][y])),
+    _.isEqual
+  );
 }
 
-export function useFindAllCallables(sectionId) {
-  return useFindAllDescendants(sectionId, findAllCallables);
+export function useGetAllCallables(sectionId) {
+  return useGetCollectionChildren(sectionId, "callables");
 }
 
-function useFindAllParameterCollections(sectionId) {
-  return useFindAllDescendants(sectionId, findAllParameterCollections);
+function useGetAllParamCollections(sectionId) {
+  return useGetCollectionChildren(sectionId, "paramCollections");
 }
 
-function useGetKwargIds(sectionId, objInfo) {
+function useGetKwargIds(sectionId, objInfoId) {
   const { kwargColId } = useGetSectionConfig(sectionId);
-  const objInfoId = maybeUseNullId(objInfo?.id);
   return defaultState(
-    useStoreState((x) => getInfo(x.objInfos)[kwargColId]?.[objInfoId]),
+    useStoreState((x) => x.objInfos.x[kwargColId]?.[objInfoId]),
     () => []
   );
 }
 
-function useGetKwargInfos(sectionId, objInfo) {
-  const kwargIds = useGetKwargIds(sectionId, objInfo);
-  const kwargInfoState = useStoreState(
+export function useGetKwargInfos(sectionId, objInfoId) {
+  const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
+  return useStoreState(
     (x) => kwargIds.map((y) => x.codeInfo.allObjInfo[y]),
     _.isEqual
   );
-  return kwargInfoState;
 }
 
-function useGetAllParamInfos(sectionId, objInfo) {
-  const allObjInfo = useStoreState((x) => x.codeInfo.allObjInfo);
-  const objParamInfos = findAllParameters(allObjInfo, [objInfo?.id]);
-  const paramCollections = useFindAllParameterCollections(sectionId);
+export function useGetAllParamInfos(sectionId, objInfoId) {
+  const objParamInfos = useStoreState(
+    (x) => (objInfoId ? x.codeInfo.params[objInfoId] : []),
+    _.isEqual
+  );
+  const paramCollections = useGetAllParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
 }

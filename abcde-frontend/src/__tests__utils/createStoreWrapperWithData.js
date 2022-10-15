@@ -54,7 +54,7 @@ export function getUITypeByName(store, name, type, useBasePreset) {
   )[0];
 }
 
-function getParameterToTestOn(store, wrapper, sectionName, paramName) {
+export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   let result = null;
 
   // get section

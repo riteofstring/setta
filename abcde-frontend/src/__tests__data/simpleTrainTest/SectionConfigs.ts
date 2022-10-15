@@ -84,4 +84,11 @@ export default {
     kwargColId: "f740f58e-b2bc-414b-8a10-adbb1b0ff433",
     selectedItem: "fe8ec1e4-e978-40b2-8764-146b39e62269",
   },
+  "54c330a0-b0bd-4ade-8993-0b3199c6cc4c": {
+    id: "54c330a0-b0bd-4ade-8993-0b3199c6cc4c",
+    uiTypeId: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+    selectedItem: null,
+    evColId: "22993613-9638-4172-a197-3be020a9a603",
+    kwargColId: "e60f0507-7e25-4049-ae2f-16fc33a0a1fa",
+  },
 };

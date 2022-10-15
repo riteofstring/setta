@@ -34,6 +34,7 @@ const master = {
 
     helpers.getStoreActions().codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
+    action.initUITypesCols(uiTypesCols);
     action.initParamDefaults({
       storeName: "globalParamDefaults",
       paramDefaults: globalDefaults.paramDefaults,
@@ -68,6 +69,19 @@ const master = {
     const uiTypes = _.map(payload, (x) => new UIType(x));
     const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
     setManyUITypes({ uiTypes });
+  }),
+
+  initUITypesCols: thunk((action, payload, helpers) => {
+    const pActions = helpers.getStoreActions().paramInfos;
+    for (const colId of Object.keys(payload)) {
+      for (const paramInfo of Object.values(payload[colId])) {
+        pActions.setUITypeId({
+          collectionId: colId,
+          paramInfoId: paramInfo.id,
+          uiTypeId: paramInfo.uiTypeId,
+        });
+      }
+    }
   }),
 
   initEV: thunk((action, payload, helpers) => {

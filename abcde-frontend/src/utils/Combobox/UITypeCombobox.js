@@ -31,7 +31,7 @@ export default function UITypeCombobox({
       allItems={availableUITypes}
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
-      width={comboboxWidth - 0.5}
+      width={comboboxWidth}
       itemStyleGetter={itemStyleGetter}
       {...comboboxProps}
     />
