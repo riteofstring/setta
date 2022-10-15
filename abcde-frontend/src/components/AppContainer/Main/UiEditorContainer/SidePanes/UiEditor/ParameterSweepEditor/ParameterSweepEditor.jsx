@@ -1,3 +1,3 @@
-export default function ParameterSweepEditorFunc() {
+export default function ParameterSweepEditor() {
   return <></>;
 }
