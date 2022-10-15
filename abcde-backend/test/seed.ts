@@ -4,8 +4,6 @@ import { UsersSeeder } from './seeders/users';
 import { ProjectsSeeder } from './seeders/projects';
 import { CodeInfoSeeder } from './seeders/codeInfo';
 import { SectionsSeeder } from './seeders/sections';
-import { UITypesColsSeeder } from './seeders/uiTypesCols';
-import { KwargColsSeeder } from './seeders/kwargCols';
 import { ProjectSeeder } from './seeders/project';
 
 (async () => {

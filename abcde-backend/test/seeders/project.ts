@@ -3,6 +3,7 @@ import { Seeder } from '@mikro-orm/seeder';
 import {
   loadAllEV,
   loadAllEVCols,
+  loadAllKwargCols,
   loadAllSectionChildren,
   loadAllSectionConfigs,
   loadAllSections,
@@ -11,6 +12,7 @@ import {
 } from '../utils';
 import {
   persistSectionChildren,
+  persistSectionConfigs,
   persistSections,
 } from '../../src/sections/savingFunctions';
 import {
@@ -21,6 +23,7 @@ import {
   persistUITypes,
   persistUITypesCols,
 } from '../../src/uiTypes/savingFunctions';
+import { persistKwargCols } from '../../src/kwargs/savingFunctions';
 
 export class ProjectSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
@@ -28,6 +31,9 @@ export class ProjectSeeder extends Seeder {
     const sectionChildren = loadAllSectionChildren();
     await persistSections(em, sections);
     await persistSectionChildren(em, sectionChildren);
+
+    const kwargCols = loadAllKwargCols();
+    await persistKwargCols(em, kwargCols);
 
     const ev = loadAllEV();
     const evCols = loadAllEVCols();
