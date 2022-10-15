@@ -2968,7 +2968,7 @@ js-yaml@^3.13.1:
     argparse "^1.0.7"
     esprima "^4.0.0"
 
-jsdom@^20.0.1:
+jsdom@20.0.1:
   version "20.0.1"
   resolved "https://registry.yarnpkg.com/jsdom/-/jsdom-20.0.1.tgz#d95b4a3b6e1eec6520aa01d9d908eade8c6ba153"
   integrity sha512-pksjj7Rqoa+wdpkKcLzQRHhJCEE42qQhl/xLMUKHgoSejaKOdaXEAnqs6uDNwMl/fciHTzKeR8Wm8cw7N+g98A==
@@ -3516,11 +3516,6 @@ react-error-boundary@^3.1.0:
   integrity sha512-uM9uPzZJTF6wRQORmSrvOIgt4lJ9MC1sNgEOj2XGsDTRE4kmpWxg7ENK9EWNKJRMAOY9z0MuF4yIfl6gp4sotA==
   dependencies:
     "@babel/runtime" "^7.12.5"
-
-react-error-overlay@6.0.9:
-  version "6.0.9"
-  resolved "https://registry.yarnpkg.com/react-error-overlay/-/react-error-overlay-6.0.9.tgz#3c743010c9359608c375ecd6bc76f35d93995b0a"
-  integrity sha512-nQTTcUu+ATDbrSD1BZHr5kgSD4oF8OFjxun8uAaL8RwPBacGBNPf/yAuVVdx17N8XNzRDMrZ9XcKZHCjPW+9ew==
 
 react-fast-compare@3.2.0:
   version "3.2.0"
@@ -4181,7 +4176,7 @@ vite@3.1.7, vite@^3.0.0:
   optionalDependencies:
     fsevents "~2.3.2"
 
-vitest@^0.24.1:
+vitest@0.24.1:
   version "0.24.1"
   resolved "https://registry.yarnpkg.com/vitest/-/vitest-0.24.1.tgz#4b4ceb3d9c6710e8fb7a3b936b740f9c9f9cde10"
   integrity sha512-NKkK1xnDIOOr42pKBfGQQl6b6IWdFVBpG6ZS1T+nUlJuqcOiZ7lxjVwHy9wrtTYpJ0BWww9y6bSGYXubD29Nag==

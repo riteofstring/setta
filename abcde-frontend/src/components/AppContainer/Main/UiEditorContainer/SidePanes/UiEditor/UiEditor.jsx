@@ -48,7 +48,7 @@ export default function UiEditor() {
           h="inherit"
           overflowY="auto"
         >
-          <TabPanel p="3px">
+          <TabPanel p="3px" display="flex" flexDirection="column">
             <SectionConfig />
           </TabPanel>
           <TabPanel p="3px">
