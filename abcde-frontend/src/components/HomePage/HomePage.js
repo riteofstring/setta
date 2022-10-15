@@ -6,6 +6,8 @@ import {
   GridItem,
   Heading,
   HStack,
+  List,
+  ListItem,
   useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
@@ -20,10 +22,11 @@ function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
   const [projects, setProjects] = useState({});
 
+  async function fetchData() {
+    setProjects(await getProjects({ access_token }));
+  }
+
   useEffect(() => {
-    async function fetchData() {
-      setProjects(await getProjects({ access_token }));
-    }
     fetchData();
   }, []);
 
@@ -88,14 +91,15 @@ function RightColumn({ projects, setProjects }) {
         justifyItems="flex-start"
       >
         {Object.values(projects).map((x, i) => (
-          <ProjectItem key={`Project ${i} ${x.name}`} name={x.name} id={x.id} />
+          <ProjectItem key={`Project ${i} ${x.name}`} project={x} />
         ))}
       </Grid>
     </GridItem>
   );
 }
 
-function ProjectItem({ name, id }) {
+function ProjectItem({ project }) {
+  const { name, id, projectConfigs } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   const setCurrProject = useStoreActions((x) => x.currProject.setId);
 
@@ -104,6 +108,11 @@ function ProjectItem({ name, id }) {
     setCurrProject(id);
   }
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  function onClickConfigsButton(e) {
+    e.stopPropagation();
+    onOpen();
+  }
 
   return (
     <Grid
@@ -134,11 +143,15 @@ function ProjectItem({ name, id }) {
           borderRadius="full"
           leftIcon={<BiGitBranch />}
           size="xs"
-          onClick={onOpen}
+          onClick={onClickConfigsButton}
         >
           Configs
         </Button>
-        <ConfigButton onClose={onClose} isOpen={isOpen} />
+        <ConfigButton
+          onClose={onClose}
+          isOpen={isOpen}
+          configs={projectConfigs}
+        />
       </GridItem>
       <GridItem p="1rem" bg="white">
         <Heading as="h3" fontSize="md">
@@ -153,7 +166,7 @@ function ProjectItem({ name, id }) {
   );
 }
 
-function ConfigButton({ onClose, isOpen }) {
+function ConfigButton({ onClose, isOpen, configs }) {
   return (
     <ModalContainer
       onClose={onClose}
@@ -161,7 +174,7 @@ function ConfigButton({ onClose, isOpen }) {
       size={"4xl"}
       header={<Header />}
       overrideFooter={true}
-      body={<Body />}
+      body={<Body configs={configs} />}
       // footer={<Footer />}
     />
   );
@@ -171,8 +184,14 @@ function Header() {
   return <Heading>Configs</Heading>;
 }
 
-function Body() {
-  return <Box />;
+function Body({ configs }) {
+  return (
+    <List>
+      {configs.map((x, idx) => (
+        <ListItem key={`Config ${idx}`}>{x.name}</ListItem>
+      ))}
+    </List>
+  );
 }
 
 function Footer() {
