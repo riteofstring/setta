@@ -19,7 +19,7 @@ import {
   loadUITypeCols,
   processSectionConfigs,
 } from './loadingFunctions';
-import { persistEV, persistEVCols } from './savingFunctions';
+import { persistEV, persistEVCols, persistSections } from './savingFunctions';
 
 @Injectable()
 export class ProjectsService {
@@ -45,9 +45,10 @@ export class ProjectsService {
   }
 
   async save(user, project): Promise<any> {
-    const { ev, evCols } = project;
+    const { ev, evCols, sections } = project;
     persistEV(this.em, ev);
     persistEVCols(this.em, evCols);
+    persistSections(this.em, sections);
     await this.em.flush();
   }
 

@@ -4,6 +4,7 @@ import { EV } from '../entities/enteredValues/ev.entity';
 import { createIfNotFound } from 'test/utils';
 import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 import { EVCols } from '../entities/enteredValues/evCols.entity';
+import { Sections } from '../entities/sections/sections.entity';
 
 export async function persistEV(em, ev) {
   for (const v of _.values(ev)) {
@@ -25,6 +26,15 @@ export async function persistEVCols(em, evCols) {
       y.enteredValue = evCols[evColId][codeInfoId];
       em.persist(y);
     }
+    em.persist(x);
+  }
+}
+
+export async function persistSections(em, sections) {
+  for (const v of _.values(sections)) {
+    const x = await createIfNotFound(em, Sections, { id: v.id });
+    x.name = v.name;
+    x.paramInfoId = v.paramInfoId;
     em.persist(x);
   }
 }
