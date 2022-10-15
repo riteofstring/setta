@@ -2,6 +2,8 @@ import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 import { SectionConfig } from '../entities/sections/sectionConfig.entity';
 import { Sections } from '../entities/sections/sections.entity';
+import { SectionConfigCols } from '../../src/entities/sections/sectionConfigCols.entity';
+import { SectionConfigColsIds } from '../../src/entities/sections/sectionConfigColsIds.entity';
 import { createIfNotFound } from '../utils/utils';
 import _ = require('lodash');
 
@@ -38,5 +40,16 @@ export async function persistSectionConfigs(em, sectionConfigs) {
       uiType: v.uiTypeId,
     };
     await createIfNotFound(em, SectionConfig, findBy, assign);
+  }
+}
+
+export async function persistSectionConfigCols(em, sectionConfigCols) {
+  for (const colId of _.keys(sectionConfigCols)) {
+    em.create(SectionConfigColsIds, { id: colId });
+    for (const curr of _.values(sectionConfigCols[colId])) {
+      const findBy = { id: colId, section: curr.id };
+      const assign = { config: curr.configId };
+      await createIfNotFound(em, SectionConfigCols, findBy, assign);
+    }
   }
 }

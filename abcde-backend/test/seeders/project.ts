@@ -5,6 +5,7 @@ import {
   loadAllEVCols,
   loadAllKwargCols,
   loadAllSectionChildren,
+  loadAllSectionConfigCols,
   loadAllSectionConfigs,
   loadAllSections,
   loadAllUITypes,
@@ -12,6 +13,7 @@ import {
 } from '../utils';
 import {
   persistSectionChildren,
+  persistSectionConfigCols,
   persistSectionConfigs,
   persistSections,
 } from '../../src/sections/savingFunctions';
@@ -45,7 +47,9 @@ export class ProjectSeeder extends Seeder {
     await persistUITypes(em, uiTypes);
     await persistUITypesCols(em, uiTypesCols);
 
-    // const sectionConfigs = loadAllSectionConfigs();
-    // await persistSectionConfigs(em, sectionConfigs);
+    const sectionConfigs = loadAllSectionConfigs();
+    const sectionConfigCols = loadAllSectionConfigCols();
+    await persistSectionConfigs(em, sectionConfigs);
+    await persistSectionConfigCols(em, sectionConfigCols);
   }
 }
