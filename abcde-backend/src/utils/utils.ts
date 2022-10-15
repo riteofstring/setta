@@ -13,3 +13,23 @@ export function renameKeys(x, toRename) {
 export function returnNullNotUndefined(x) {
   return x === undefined ? null : x;
 }
+
+// TODO: delete this and use mikro-orm upsert once it's available in newer version
+export async function createIfNotFound(
+  em,
+  type,
+  findBy,
+  fullProps = null,
+  persist = true,
+) {
+  let x = await em.findOne(type, findBy);
+  if (!x) {
+    x = em.create(type, fullProps ? fullProps : findBy);
+  } else if (fullProps) {
+    em.assign(x, fullProps);
+  }
+  if (persist) {
+    em.persist(x);
+  }
+  return x;
+}

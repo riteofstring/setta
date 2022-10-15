@@ -8,15 +8,6 @@ import s1Children from '../../abcde-frontend/src/__tests__data/simpleTrainTest/S
 import s2Children from '../../abcde-frontend/src/__tests__data/diffusionDrops/SectionChildren';
 import s3Children from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/SectionChildren';
 
-// delete this and use mikro-orm upsert once it's available in newer version
-export async function createIfNotFound(em, type, props) {
-  let x = await em.findOne(type, props);
-  if (!x) {
-    x = em.create(type, props);
-  }
-  return x;
-}
-
 export function loadAllSections() {
   return { ...s1, ...s2, ...s3 };
 }
