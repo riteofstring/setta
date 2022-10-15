@@ -14,6 +14,7 @@ import simpleTrainTestUITypes from '../../abcde-frontend/src/__tests__data/simpl
 import simpleTrainTestUITypesCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypesCols';
 import simpleTrainTestEV from '../../abcde-frontend/src/__tests__data/simpleTrainTest/EV';
 import simpleTrainTestEVCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/EVCols';
+import simpleTrainTestKwargInfos from '../../abcde-frontend/src/__tests__data/simpleTrainTest/KwargInfo';
 import simpleTrainTestKwargCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/KwargCols';
 
 export function loadAllSections() {
@@ -46,6 +47,10 @@ export function loadAllEV() {
 
 export function loadAllEVCols() {
   return { ...simpleTrainTestEVCols };
+}
+
+export function loadAllKwargInfos() {
+  return { ...simpleTrainTestKwargInfos };
 }
 
 export function loadAllKwargCols() {

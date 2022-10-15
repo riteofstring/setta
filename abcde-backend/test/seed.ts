@@ -3,7 +3,6 @@ import config from '../src/mikro-orm.config';
 import { UsersSeeder } from './seeders/users';
 import { ProjectsSeeder } from './seeders/projects';
 import { CodeInfoSeeder } from './seeders/codeInfo';
-import { SectionsSeeder } from './seeders/sections';
 import { ProjectSeeder } from './seeders/project';
 
 (async () => {

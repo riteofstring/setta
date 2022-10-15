@@ -4,6 +4,7 @@ import {
   loadAllEV,
   loadAllEVCols,
   loadAllKwargCols,
+  loadAllKwargInfos,
   loadAllSectionChildren,
   loadAllSectionConfigCols,
   loadAllSectionConfigs,
@@ -26,16 +27,19 @@ import {
   persistUITypesCols,
 } from '../../src/uiTypes/savingFunctions';
 import { persistKwargCols } from '../../src/kwargs/savingFunctions';
+import { persistCodeInfo } from '../../src/codeInfo/savingFunctions';
 
 export class ProjectSeeder extends Seeder {
   async run(em: EntityManager): Promise<void> {
+    const kwargInfos = loadAllKwargInfos();
+    const kwargCols = loadAllKwargCols();
+    await persistCodeInfo(em, kwargInfos);
+    await persistKwargCols(em, kwargCols);
+
     const sections = loadAllSections();
     const sectionChildren = loadAllSectionChildren();
     await persistSections(em, sections);
     await persistSectionChildren(em, sectionChildren);
-
-    const kwargCols = loadAllKwargCols();
-    await persistKwargCols(em, kwargCols);
 
     const ev = loadAllEV();
     const evCols = loadAllEVCols();
