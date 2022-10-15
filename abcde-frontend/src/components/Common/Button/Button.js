@@ -12,21 +12,24 @@ const Button = (props) => {
     size = "lg" ? "text-lg" : "sm" ? "text-sm" : " ",
     as,
     href = "#",
+    classAttrs,
+    children,
+    ...theRest
   } = props;
 
-  const tailwindClasses = `${bg} ${hover} ${text} ${weight} ${py} ${px} ${borderRadius} ${display} ${align} ${size} transition-colors duration-150 focus:shadow-outline ${props.tailwindClasses}`;
+  const tailwindClasses = `${bg} ${hover} ${text} ${weight} ${py} ${px} ${borderRadius} ${display} ${align} ${size} transition-colors duration-150 focus:shadow-outline ${classAttrs}`;
 
   if (as === "link") {
     return (
-      <a href={href} className={tailwindClasses} {...props}>
-        {props.children}
+      <a href={href} className={tailwindClasses} {...theRest}>
+        {children}
       </a>
     );
   }
 
   return (
-    <button className={tailwindClasses} {...props}>
-      {props.children}
+    <button className={tailwindClasses} {...theRest}>
+      {children}
     </button>
   );
 };
