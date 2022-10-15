@@ -7656,16 +7656,4 @@ export default {
     description: null,
     path: "transparency",
   },
-  "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d": {
-    id: "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d",
-    name: "birth_details",
-    defaultVal: "",
-    type: "",
-    parentId: null,
-    children: [],
-    rcType: "parameter",
-    version: null,
-    description: null,
-    path: "birth_details",
-  },
 };

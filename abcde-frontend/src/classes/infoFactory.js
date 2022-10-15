@@ -1,45 +1,10 @@
 import _ from "lodash";
 import { CALLABLE, COLLECTION, PARAMETER } from "utils/constants";
 
-function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
-  const output = {};
-  for (const k of Object.keys(allCollections)) {
-    output[k] = fn(allCodeInfo, [k]);
-  }
-  return output;
-}
-
-function getCallables(allCodeInfo, allCollections) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCollections,
-    findAllCallables
-  );
-}
-
-function getParams(allCodeInfo) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCodeInfo,
-    findAllParameters
-  );
-}
-
-function getParamCollections(allCodeInfo, allCollections) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCollections,
-    findAllParameterCollections
-  );
-}
-
 export function createAllInfo(packages) {
   const allObjInfo = packages;
   const allCollections = _.pickBy(allObjInfo, (v) => v.rcType === COLLECTION);
-  const callables = getCallables(allObjInfo, allCollections);
-  const params = getParams(allObjInfo);
-  const paramCollections = getParamCollections(allObjInfo, allCollections);
-  return { allObjInfo, allCollections, callables, params, paramCollections };
+  return { allObjInfo, allCollections };
 }
 
 function defaultCondition(currInfo, rcType) {
@@ -78,7 +43,7 @@ export function findAllParameters(allCodeInfo, collectionIds) {
   return findAllDescendants(allCodeInfo, collectionIds, PARAMETER);
 }
 
-function findAllParameterCollections(allCodeInfo, collectionIds) {
+export function findAllParameterCollections(allCodeInfo, collectionIds) {
   function condition(currInfo, rcType) {
     return (
       defaultCondition(currInfo, rcType) &&

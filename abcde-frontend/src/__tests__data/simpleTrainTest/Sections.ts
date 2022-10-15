@@ -60,9 +60,4 @@ export default {
     name: "transforms",
     paramInfoId: null,
   },
-  "7394ac29-c8c0-433c-8bee-fa97c617b05d": {
-    id: "7394ac29-c8c0-433c-8bee-fa97c617b05d",
-    name: "birth_details",
-    paramInfoId: "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d",
-  },
 };

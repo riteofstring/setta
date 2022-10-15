@@ -2,6 +2,7 @@ import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
+import { getInfo } from "./utils";
 
 export function useGetSectionTypeConfig(sectionId) {
   const sectionType = useGetSectionType(sectionId);
@@ -14,7 +15,7 @@ export function useGetSectionTypeConfig(sectionId) {
 export function useGetSectionType(sectionId) {
   const uiTypeId = useGetSectionConfig(sectionId).uiTypeId;
   return defaultState(
-    useStoreState((x) => x.uiTypes.x[uiTypeId]),
+    useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
     () => ({})
   );
 }

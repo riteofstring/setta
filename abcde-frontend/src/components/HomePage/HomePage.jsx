@@ -6,12 +6,10 @@ import {
   GridItem,
   Heading,
   HStack,
-  List,
-  ListItem,
   useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { createProject, getProjects } from "dbRequests/projects";
+import { getProjects } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
@@ -22,11 +20,10 @@ function HomePage() {
   const access_token = useStoreState((x) => x.auth.access_token);
   const [projects, setProjects] = useState({});
 
-  async function fetchData() {
-    setProjects(await getProjects({ access_token }));
-  }
-
   useEffect(() => {
+    async function fetchData() {
+      setProjects(await getProjects({ access_token }));
+    }
     fetchData();
   }, []);
 
@@ -37,7 +34,7 @@ function HomePage() {
       backgroundColor="gray.100"
     >
       {/* <LeftColumn /> */}
-      <RightColumn projects={projects} setProjects={setProjects} />
+      <RightColumn projects={projects} />
     </GridWrapper>
   );
 }
@@ -58,17 +55,7 @@ function LeftColumn() {
   );
 }
 
-function RightColumn({ projects, setProjects }) {
-  const access_token = useStoreState((x) => x.auth.access_token);
-
-  async function onClick() {
-    const newProject = await createProject({
-      access_token,
-      name: "amazing project",
-    });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
-  }
-
+function RightColumn({ projects }) {
   return (
     <GridItem overflowY="auto">
       <Button
@@ -77,7 +64,6 @@ function RightColumn({ projects, setProjects }) {
         borderRadius="full"
         leftIcon={<BiAddToQueue />}
         colorScheme="blue"
-        onClick={onClick}
       >
         Create New Project
       </Button>
@@ -90,16 +76,15 @@ function RightColumn({ projects, setProjects }) {
         minChildWidth="20rem"
         justifyItems="flex-start"
       >
-        {Object.values(projects).map((x, i) => (
-          <ProjectItem key={`Project ${i} ${x.name}`} project={x} />
+        {Object.values(projects).map((x) => (
+          <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
         ))}
       </Grid>
     </GridItem>
   );
 }
 
-function ProjectItem({ project }) {
-  const { name, id, projectConfigs } = project;
+function ProjectItem({ name, id }) {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   const setCurrProject = useStoreActions((x) => x.currProject.setId);
 
@@ -108,11 +93,6 @@ function ProjectItem({ project }) {
     setCurrProject(id);
   }
   const { isOpen, onOpen, onClose } = useDisclosure();
-
-  function onClickConfigsButton(e) {
-    e.stopPropagation();
-    onOpen();
-  }
 
   return (
     <Grid
@@ -143,15 +123,11 @@ function ProjectItem({ project }) {
           borderRadius="full"
           leftIcon={<BiGitBranch />}
           size="xs"
-          onClick={onClickConfigsButton}
+          onClick={onOpen}
         >
           Configs
         </Button>
-        <ConfigButton
-          onClose={onClose}
-          isOpen={isOpen}
-          configs={projectConfigs}
-        />
+        <ConfigButton onClose={onClose} isOpen={isOpen} />
       </GridItem>
       <GridItem p="1rem" bg="white">
         <Heading as="h3" fontSize="md">
@@ -166,7 +142,7 @@ function ProjectItem({ project }) {
   );
 }
 
-function ConfigButton({ onClose, isOpen, configs }) {
+function ConfigButton({ onClose, isOpen }) {
   return (
     <ModalContainer
       onClose={onClose}
@@ -174,7 +150,7 @@ function ConfigButton({ onClose, isOpen, configs }) {
       size={"4xl"}
       header={<Header />}
       overrideFooter={true}
-      body={<Body configs={configs} />}
+      body={<Body />}
       // footer={<Footer />}
     />
   );
@@ -184,14 +160,8 @@ function Header() {
   return <Heading>Configs</Heading>;
 }
 
-function Body({ configs }) {
-  return (
-    <List>
-      {configs.map((x, idx) => (
-        <ListItem key={`Config ${idx}`}>{x.name}</ListItem>
-      ))}
-    </List>
-  );
+function Body() {
+  return <Box />;
 }
 
 function Footer() {

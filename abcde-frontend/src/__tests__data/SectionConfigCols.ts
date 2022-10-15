@@ -48,10 +48,6 @@ export default {
       id: "80f921cd-f88f-4612-92f3-219a89834e13",
       configId: "cacb8f26-108d-4cda-ba1a-a9a68b01fb17",
     },
-    "7394ac29-c8c0-433c-8bee-fa97c617b05d": {
-      id: "7394ac29-c8c0-433c-8bee-fa97c617b05d",
-      configId: "54c330a0-b0bd-4ade-8993-0b3199c6cc4c",
-    },
   },
   "ae84529f-b9de-4da8-b808-a0306fb542ab": {
     "309bb421-dfb0-43bc-acbe-6d0450e522ed": {

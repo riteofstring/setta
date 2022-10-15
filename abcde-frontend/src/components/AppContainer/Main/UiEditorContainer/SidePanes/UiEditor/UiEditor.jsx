@@ -11,8 +11,8 @@ import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContai
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React from "react";
 import { UI_EDITOR } from "utils/constants";
-import SectionConfig from "./SectionConfig";
-import UIConfig from "./UIConfig";
+import SectionConfig from "./SectionConfig/SectionConfig";
+import UIConfig from "./UIConfig/UIConfig";
 
 const paneProps = {
   right: true,

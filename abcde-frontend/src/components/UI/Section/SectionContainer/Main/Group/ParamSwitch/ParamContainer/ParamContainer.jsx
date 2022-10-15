@@ -1,30 +1,21 @@
 import { FormControl, HStack, Spacer } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useGetParamUIType } from "hooks/useParamInfo";
-import _ from "lodash";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { requiresNestedSection } from "utils/constants";
 import ParamInput from "./ParamItems/ParamInput";
 
-function _ParamContainer(props) {
+export default function ParamContainer(props) {
   const { sectionId, paramInfo } = props;
   const initializeParam = useStoreActions((x) => x.thunks.initializeParam);
-  const initializeChild = useStoreActions((x) => x.thunks.initializeChild);
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
-  const isNested = requiresNestedSection(uiType.type);
 
   useEffect(() => {
     initializeParam({ sectionId, paramInfo });
   }, [paramInfo.id]);
 
-  useEffect(() => {
-    if (isNested) {
-      initializeChild({ sectionId, paramInfo, uiTypeId: uiType.id });
-    }
-  }, [isNested]);
-
   return (
-    !isNested && (
+    !requiresNestedSection(uiType.type) && (
       <FormControl as="fieldset">
         <HStack
           px=".75rem"
@@ -50,8 +41,3 @@ function _ParamContainer(props) {
     )
   );
 }
-
-export default React.memo(
-  _ParamContainer,
-  (p, n) => p.sectionId === n.sectionId && _.isEqual(p.paramInfo, n.paramInfo)
-);

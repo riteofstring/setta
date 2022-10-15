@@ -13,11 +13,9 @@ import {
   requiresKeyInput,
   SECTIONWIDTH,
 } from "utils/constants";
+
 import { SectionHeader } from "./Header/SectionHeader";
-import {
-  KwargGroupContainer,
-  ParamGroupContainer,
-} from "./Main/Group/GroupContainer";
+import GroupContainer from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
@@ -57,7 +55,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
-      data-testid={`${sectionId} section core`}
       // mt="0.5rem"
     >
       <HStack
@@ -90,15 +87,21 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
                 onSelectedItemChange={setSectionConfigAttr}
               />
               {tempBoolDesc && <SectionDescription />}
-              <ParamGroupContainer
+              <GroupContainer
                 sectionId={sectionId}
                 objInfoId={selectedItem}
+                isKwarg={false}
               />
             </Stack>
           )}
         </Stack>
       </HStack>
-      <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+
+      <GroupContainer
+        sectionId={sectionId}
+        objInfoId={selectedItem}
+        isKwarg={true}
+      />
     </VStack>
   );
 }

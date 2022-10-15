@@ -36,10 +36,6 @@ export default {
       id: "297fbd94-70ca-4e90-81b8-96a603519a85",
       uiTypeId: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
     },
-    "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d": {
-      id: "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d",
-      uiTypeId: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-    },
   },
   "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb": {
     "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f": {
