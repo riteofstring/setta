@@ -20,7 +20,7 @@ export default function HeaderContainer() {
 
 function FlexContainer(props) {
   return (
-    <div className="w-[calc(100vw-5rem)] h-[4rem] items-center flex flex-row">
+    <div className="w-[calc(100vw-5rem)] h-14 items-center flex flex-row">
       {props.children}
     </div>
   );
