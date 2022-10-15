@@ -1,5 +1,5 @@
-import { useStoreState } from "easy-peasy";
-import { UI_EDITOR } from "utils/constants";
+const { useStoreState } = require("easy-peasy");
+const { UI_EDITOR } = require("utils/constants");
 
 export function usePaneComboboxWidth() {
   const paneWidth = useStoreState((x) => x.panes.trueWidth[UI_EDITOR]);

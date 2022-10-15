@@ -1,4 +1,4 @@
-import { useFindAllCallables } from "hooks/useSectionContents";
+import { useGetAllCallables } from "hooks/useSectionContents";
 import { useEffect } from "react";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
@@ -7,7 +7,7 @@ export default function SectionSearch({
   onSelectedItemChange,
   initialSelection,
 }) {
-  const searchableItems = useFindAllCallables(sectionId);
+  const searchableItems = useGetAllCallables(sectionId);
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {

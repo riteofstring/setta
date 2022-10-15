@@ -8,9 +8,9 @@ import React from "react";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
-export default React.memo(SectionConfig);
+export default React.memo(SectionConfigFunc);
 
-function SectionConfig() {
+function SectionConfigFunc() {
   const sectionId = useStoreState((x) => x.master.activeSection);
   const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
   const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
