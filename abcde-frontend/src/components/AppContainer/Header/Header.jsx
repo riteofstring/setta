@@ -1,5 +1,5 @@
-import { Flex, Heading, Link, Spacer, Text } from "@chakra-ui/react";
-import "@fontsource/jetbrains-mono/300.css";
+import { Spacer } from "@chakra-ui/react";
+import "@fontsource/jetbrains-mono/600.css";
 import { useStoreActions } from "easy-peasy";
 import { HOME } from "utils/pageNames";
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
@@ -7,31 +7,34 @@ import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
 import SubNav from "./SubNav/SubNav";
 
 export default function HeaderContainer() {
-  const setCurrPage = useStoreActions((x) => x.currPage.setName);
   return (
-    <Flex width="calc(100vw - 5rem)" height="4rem" align="center">
-      <Link
-        variant="ghost"
-        _hover={{ textDecoration: "none" }}
-        onClick={() => setCurrPage(HOME)}
-      >
-        <Heading
-          fontSize="xl"
-          letterSpacing="-1px"
-          color="gray.600"
-          mr="1rem"
-          fontFamily="JetBrains Mono"
-        >
-          <Text as="span" color="#00B5D8">
-            run
-          </Text>
-          coder
-        </Heading>
-      </Link>
+    <FlexContainer>
+      <SiteLogo />
       <SubNav />
       <Spacer />
       <ColorModeToggle />
       <MainSideDrawer />
-    </Flex>
+    </FlexContainer>
+  );
+}
+
+function FlexContainer(props) {
+  return (
+    <div className="w-[calc(100vw-5rem)] h-14 items-center flex flex-row">
+      {props.children}
+    </div>
+  );
+}
+
+function SiteLogo() {
+  const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  return (
+    <h2
+      className="no-underline select-none cursor-pointer text-gray-600 mr-4 tracking-tight text-lg font-semibold [font-family:JetBrains Mono]"
+      onClick={() => setCurrPage(HOME)}
+    >
+      <span className="text-[#00B5D8]">run</span>
+      coder
+    </h2>
   );
 }

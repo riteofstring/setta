@@ -88,5 +88,4 @@ export default {
       enteredValueId: "3a822ddb-0be1-4abf-a15e-a4abd549ac49",
     },
   },
-  "22993613-9638-4172-a197-3be020a9a603": {},
 };
