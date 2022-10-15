@@ -41,6 +41,12 @@ export class AppController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('projects/save')
+  saveProject(@Request() req) {
+    return this.projectsService.save(req.user, req.body.project);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('projects/createProject')
   createProject(@Request() req) {
     return this.projectsService.createProject(req.user, req.body.name);

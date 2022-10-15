@@ -19,6 +19,9 @@ import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 import { UITypesColsIds } from '../entities/uitypes/uiTypesColsIds.entity';
 import { CodeInfo } from '../entities/codeInfo.entity';
 import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
+import { EV } from '../entities/enteredValues/ev.entity';
+import { wrap } from '@mikro-orm/core';
+import { createIfNotFound } from 'test/utils';
 
 @Injectable()
 export class ProjectsService {
@@ -41,6 +44,17 @@ export class ProjectsService {
     const p = this.projects.create({ owner: user.id, name });
     await this.projects.persistAndFlush(p);
     return p;
+  }
+
+  async save(user, project): Promise<any> {
+    const { ev } = project;
+    for (const v of _.values(ev)) {
+      const x = await createIfNotFound(this.em, EV, { id: v.id });
+      x.value = v.value ? v.value.toString() : null;
+      x.child = returnNullNotUndefined(v.childId);
+      this.em.persist(x);
+    }
+    await this.em.flush();
   }
 
   async loadOne(id: string): Promise<any> {
