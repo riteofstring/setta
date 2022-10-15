@@ -10,6 +10,9 @@ import s3Children from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/
 import baseUITypes from '../../abcde-frontend/src/__tests__data/BaseUITypes';
 import presetUITypes from '../../abcde-frontend/src/__tests__data/PresetUITypes';
 import simpleTrainTestUITypes from '../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
+import simpleTrainTestUITypesCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypesCols';
+import simpleTrainTestEV from '../../abcde-frontend/src/__tests__data/simpleTrainTest/EV';
+import simpleTrainTestEVCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/EVCols';
 
 export function loadAllSections() {
   return { ...s1, ...s2, ...s3 };
@@ -25,4 +28,16 @@ export function loadAllSectionConfigs() {
 
 export function loadAllUITypes() {
   return { ...baseUITypes, ...simpleTrainTestUITypes, ...presetUITypes };
+}
+
+export function loadAllUITypesCols() {
+  return { ...simpleTrainTestUITypesCols };
+}
+
+export function loadAllEV() {
+  return { ...simpleTrainTestEV };
+}
+
+export function loadAllEVCols() {
+  return { ...simpleTrainTestEVCols };
 }

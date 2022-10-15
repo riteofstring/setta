@@ -6,6 +6,7 @@ import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
 import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
 import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
+import { UITypesCols } from '../../src/entities/uiTypes/uiTypesCols.entity';
 import _ = require('lodash');
 
 async function persistUIType(em, x) {
@@ -90,6 +91,17 @@ export async function persistUITypes(em, uiTypes) {
       await persistSwitchUIType(em, x);
     } else if (x.type === 'REF') {
       await persistRefUIType(em, x);
+    }
+  }
+}
+
+export async function persistUITypesCols(em, uiTypesCols) {
+  for (const uiTypeColId of Object.keys(uiTypesCols)) {
+    await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
+    for (const v of _.values(uiTypesCols[uiTypeColId])) {
+      const findBy = { id: uiTypeColId, codeInfo: v.id };
+      const assign = { uiType: v.uiTypeId };
+      await createIfNotFound(em, UITypesCols, findBy, assign);
     }
   }
 }
