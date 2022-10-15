@@ -147,11 +147,7 @@ function ProjectItem({ project }) {
         >
           Configs
         </Button>
-        <ConfigButton
-          onClose={onClose}
-          isOpen={isOpen}
-          configs={configs}
-        />
+        <ConfigButton onClose={onClose} isOpen={isOpen} configs={configs} />
       </GridItem>
       <GridItem p="1rem" bg="white">
         <Heading as="h3" fontSize="md">
