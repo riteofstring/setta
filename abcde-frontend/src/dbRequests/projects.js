@@ -39,3 +39,15 @@ export async function createProject({ access_token, name }) {
       return [];
     });
 }
+
+export async function saveProject({ access_token, project }) {
+  const body = JSON.stringify({ access_token, project });
+  return axios
+    .post(BACKEND + `projects/save`, body, tokenConfig(access_token))
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}

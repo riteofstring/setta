@@ -2,6 +2,7 @@ import { addChild } from "./addChild";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
+import { saveProject } from "./save";
 
 export default {
   addChild,
@@ -9,4 +10,5 @@ export default {
   deleteChild,
   initializeParam,
   initializeChild,
+  saveProject,
 };
