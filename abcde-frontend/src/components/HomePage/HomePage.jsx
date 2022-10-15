@@ -99,7 +99,7 @@ function RightColumn({ projects, setProjects }) {
 }
 
 function ProjectItem({ project }) {
-  const { name, id, projectConfigs } = project;
+  const { name, id, configs } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   const setCurrProject = useStoreActions((x) => x.currProject.setId);
 
@@ -150,7 +150,7 @@ function ProjectItem({ project }) {
         <ConfigButton
           onClose={onClose}
           isOpen={isOpen}
-          configs={projectConfigs}
+          configs={configs}
         />
       </GridItem>
       <GridItem p="1rem" bg="white">
