@@ -4,7 +4,6 @@ import { defaultState } from "utils/utils";
 import { maybeUseNullId } from "./useKwarg";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
-import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = useGetSectionConfig(sectionId);
@@ -35,7 +34,7 @@ function useGetAllParamCollections(sectionId) {
 function useGetKwargIds(sectionId, objInfoId) {
   const { kwargColId } = useGetSectionConfig(sectionId);
   return defaultState(
-    useStoreState((x) => getInfo(x.objInfos)[kwargColId]?.[objInfoId]),
+    useStoreState((x) => x.objInfos.x[kwargColId]?.[objInfoId]),
     () => []
   );
 }
