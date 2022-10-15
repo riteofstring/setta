@@ -19,25 +19,29 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
   const allCollections = useStoreState((x) => x.codeInfo.allCollections);
 
   return (
-    <>
-      <VStack align="stretch" mt="1rem">
-        <Box pt=".25rem">
-          <List spacing={3}>
-            {_.values(allCollections).map((x) => (
-              <SearchItem
-                id={x.id}
-                name={x.name}
-                description={x.description}
-                details={x.children}
-                isChecked={savedConfig?.collections.includes(x.id)}
-                onChange={onChange}
-                key={`SearchItem-${x.id}`}
-              />
-            ))}
-          </List>
-        </Box>
-      </VStack>
-    </>
+    <VStack
+      align="stretch"
+      mt="1rem"
+      flexGrow="1"
+      height="calc(100vh - 26rem)"
+      overflowY="auto"
+    >
+      <Box pt=".25rem" display="flex" flexDirection="column">
+        <List spacing={3} flexGrow="1">
+          {_.values(allCollections).map((x) => (
+            <SearchItem
+              id={x.id}
+              name={x.name}
+              description={x.description}
+              details={x.children}
+              isChecked={savedConfig?.collections.includes(x.id)}
+              onChange={onChange}
+              key={`SearchItem-${x.id}`}
+            />
+          ))}
+        </List>
+      </Box>
+    </VStack>
   );
 }
 

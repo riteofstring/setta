@@ -1,4 +1,4 @@
-const { useReactFlow } = require("react-flow-renderer");
+import { useReactFlow } from "react-flow-renderer";
 
 export function useMouseToReactFlowPosition(reactFlowRef) {
   const { project } = useReactFlow();

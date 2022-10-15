@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import ExportSelectedModal from "./ExportSelectedModal";
 
-const yaml = require("js-yaml");
+// const yaml = require("js-yaml");
 
 export default function ExportSelectedButton({
   exportSelected,
