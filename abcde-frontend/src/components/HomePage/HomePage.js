@@ -34,7 +34,7 @@ function HomePage() {
       backgroundColor="gray.100"
     >
       {/* <LeftColumn /> */}
-      <RightColumn projects={projects} />
+      <RightColumn projects={projects} setProjects={setProjects} />
     </GridWrapper>
   );
 }
@@ -55,11 +55,15 @@ function LeftColumn() {
   );
 }
 
-function RightColumn({ projects }) {
+function RightColumn({ projects, setProjects }) {
   const access_token = useStoreState((x) => x.auth.access_token);
 
-  function onClick() {
-    createProject({ access_token, name: "amazing project" });
+  async function onClick() {
+    const newProject = await createProject({
+      access_token,
+      name: "amazing project",
+    });
+    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
   }
 
   return (
@@ -83,7 +87,7 @@ function RightColumn({ projects }) {
         minChildWidth="20rem"
         justifyItems="flex-start"
       >
-        {Object.values(projects).map((x,i) => (
+        {Object.values(projects).map((x, i) => (
           <ProjectItem key={`Project ${i} ${x.name}`} name={x.name} id={x.id} />
         ))}
       </Grid>

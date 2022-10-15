@@ -33,7 +33,6 @@ export async function createProject({ access_token, name }) {
   return axios
     .post(BACKEND + `projects/createProject`, body, tokenConfig(access_token))
     .then((res) => {
-      console.log(res);
       return res.data;
     })
     .catch(() => {
