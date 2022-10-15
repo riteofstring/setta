@@ -1,14 +1,9 @@
-import { waitFor } from "@testing-library/react";
 import { LIST, LIST_ROOT } from "utils/constants";
 import {
   getUITypeByName,
   setParamToObjectTypeAndAddChildSection,
 } from "./createStoreWrapperWithData";
-import {
-  renderUseAddChild,
-  renderUseGetSectionType,
-  renderUseIdsOverview,
-} from "./renderHooks";
+import { renderUseGetSectionType, renderUseIdsOverview } from "./renderHooks";
 
 export function createListRootAndChild(
   store,
@@ -23,7 +18,7 @@ export function createListRootAndChild(
   // Get a base preset to fork off of
   const listRootType = getUITypeByName(
     store,
-    "torchvision transforms",
+    "my preset for testing",
     LIST_ROOT,
     false
   );
@@ -43,6 +38,7 @@ export function createListRootAndChild(
 
   // set the param to the base preset type, and add a child section
   const listRootSectionId = setParamToObjectTypeAndAddChildSection(
+    store,
     wrapper,
     _propsForSetUIType,
     listRootType
@@ -56,12 +52,13 @@ export function createListRootAndChild(
   expect(result.current).toEqual(listRootType);
 
   // Add child to the root (simulates clicking on incrementer)
-  ({ result } = renderUseAddChild(listRootSectionId, wrapper));
-  waitFor(() => result.current({ numChildren: 1 }));
+  store
+    .getActions()
+    .thunks.addChild({ parentId: listRootSectionId, numChildren: 1 });
 
   // get list root's child
   ({ result } = renderUseIdsOverview(listRootSectionId, wrapper));
-  const rootChildren = result.current[0];
+  const rootChildren = result.current;
   const rootChildInfo = store.getState().sectionInfos.x[rootChildren[0]];
   expect(rootChildren.length).toEqual(1);
   expect(rootChildInfo.parentId).toEqual(listRootSectionId);

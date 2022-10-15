@@ -7,37 +7,26 @@ import { defaultState } from "utils/utils";
 
 import {
   useGetManyParamsWithParamCollectionId,
-  useGetManyParamsWithUITypeCollectionId,
+  useGetManyParamsWithUITypeColId,
 } from "./useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useGetAllChildren(sectionId) {
-  const childrenInfoId = useStoreState(
-    (x) => x.sectionInfos.idsOverview[sectionId]
-  );
   return defaultState(
-    useStoreState((x) => x.sectionInfos.childrenInfo[childrenInfoId]),
+    useStoreState((x) => x.sectionInfos.idsOverview[sectionId]),
     () => []
   );
 }
 
 export function useIdsOverview(sectionId) {
   const idsOverview = useGetIdsOverview(sectionId);
-  const setIdsOverview = useSetIdsOverview(sectionId);
   const setCurrChildren = useStoreActions(
     (x) => x.sectionInfos.setCurrChildren
   );
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren: idsOverview });
   }, [idsOverview]);
-  return [idsOverview, setIdsOverview];
-}
-
-export function useSetIdsOverview(sectionId) {
-  const fn = useStoreActions((x) => x.sectionInfos.setIdsOverviewThunk);
-  return (newStateFn) => {
-    return fn({ sectionId, newStateFn });
-  };
+  return idsOverview;
 }
 
 function useGetIdsOverview(sectionId) {
@@ -51,18 +40,12 @@ function useGetIdsOverview(sectionId) {
 }
 
 function useGetCurrChildrenIds(sectionId) {
-  const { paramInfos, kwargInfos } = useGetCurrObjParamKwargInfos(sectionId);
-  const paramChildIds = useChildIdHelper(paramInfos, sectionId);
-  const kwargChildIds = useChildIdHelper(kwargInfos, sectionId);
-  return [...paramChildIds, ...kwargChildIds];
+  const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
+  return useChildIdHelper(paramInfos, sectionId);
 }
 
 function useChildIdHelper(infos, sectionId) {
-  const uiTypeIds = useGetManyParamsWithUITypeCollectionId(
-    sectionId,
-    infos,
-    "uiTypeId"
-  );
+  const uiTypeIds = useGetManyParamsWithUITypeColId(sectionId, infos);
   const hasNested = useStoreState(
     (x) =>
       infos.filter((y, i) =>

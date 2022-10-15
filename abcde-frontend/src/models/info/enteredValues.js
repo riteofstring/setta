@@ -1,16 +1,34 @@
+import { EVInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
+import { resetState } from "models/utils";
+
+function getEVInfo(state, evId) {
+  if (!(evId in state.x)) {
+    state.x[evId] = new EVInfo({ id: evId });
+  }
+  return state.x[evId];
+}
+
+function getInitialState() {
+  return { x: {} };
+}
 
 const enteredValues = {
-  x: {},
+  ...getInitialState(),
 
   setEnteredValue: action((state, payload) => {
     const { enteredValueId, value } = payload;
-    state.x[enteredValueId] = value;
+    getEVInfo(state, enteredValueId).value = value;
   }),
 
-  export() {
-    return this.x;
-  },
+  setChildId: action((state, payload) => {
+    const { enteredValueId, childId } = payload;
+    getEVInfo(state, enteredValueId).childId = childId;
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default enteredValues;

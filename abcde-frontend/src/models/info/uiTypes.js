@@ -1,9 +1,12 @@
 import { action } from "easy-peasy";
+import { resetState } from "models/utils";
 
-import { exportState } from "./utils";
+function getInitialState() {
+  return { x: {} };
+}
 
 const uiTypes = {
-  x: {},
+  ...getInitialState(),
 
   setUIType: action((state, payload) => {
     const { uiType } = payload;
@@ -39,9 +42,9 @@ const uiTypes = {
     delete state.x[uiTypeId];
   }),
 
-  export() {
-    return exportState(this);
-  },
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default uiTypes;

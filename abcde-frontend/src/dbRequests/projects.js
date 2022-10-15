@@ -1,0 +1,53 @@
+import axios from "axios";
+import { BACKEND, NO_AUTH } from "utils/constants";
+import Projects from "__tests__data/Projects";
+import { tokenConfig } from "./authentication";
+
+export async function getProjects({ access_token }) {
+  if (NO_AUTH) {
+    return Projects;
+  }
+  return axios
+    .post(BACKEND + "projects", null, tokenConfig(access_token))
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}
+
+export async function loadProject({ access_token, id }) {
+  return axios
+    .post(BACKEND + `projects/load/${id}`, null, tokenConfig(access_token))
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}
+
+export async function createProject({ access_token, name }) {
+  const body = JSON.stringify({ name });
+  return axios
+    .post(BACKEND + `projects/createProject`, body, tokenConfig(access_token))
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}
+
+export async function saveProject({ access_token, project }) {
+  const body = JSON.stringify({ access_token, project });
+  return axios
+    .post(BACKEND + `projects/save`, body, tokenConfig(access_token))
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}

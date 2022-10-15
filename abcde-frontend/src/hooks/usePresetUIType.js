@@ -1,11 +1,7 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import {
-  DECK,
-  isRoot,
-  SECTION_TYPE_NAMES,
-  uiTypesToPretty,
-} from "utils/constants";
+import { isRoot, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
+import { isBasePreset, isPreset } from "utils/uiTypeConstants";
 import { useParamUITypeId } from "./useParamInfo";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
@@ -48,10 +44,6 @@ export function isFromSelfAndMatchesType(v, originInfoId, type) {
   return isFromSelf(v, originInfoId) && v.type === type;
 }
 
-function isPreset(v) {
-  return v.isPreset && v.type !== DECK;
-}
-
 function isSectionType(v) {
   return SECTION_TYPE_NAMES.includes(v.type);
 }
@@ -76,20 +68,21 @@ function filterUITypes(
   const presetsFiltered = _.filter(
     presets,
     (v) =>
-      !v.isBasePreset ||
-      (v.isBasePreset && !typesOfMatchesOrigin.includes(v.type))
+      !isBasePreset(v) ||
+      (isBasePreset(v) && !typesOfMatchesOrigin.includes(v.type))
   );
 
   return _.uniq([...presetsFiltered, ...matchesOriginOrIsSelected]).map(
     (v) => ({
       id: v.id,
       name: createName(v),
+      presetType: v.presetType,
     })
   );
 }
 
-// If paramInfoId is provided, then originInfoId is {uiTypeCollectionId, paramInfoId},
-// where uiTypeCollectionId comes from the section that contains the parameter
+// If paramInfoId is provided, then originInfoId is {uiTypeColId, paramInfoId},
+// where uiTypeColId comes from the section that contains the parameter
 // Otherwise, look for sectionId and maybe parentId
 export function useAvailablePresetUITypes({
   sectionId,
@@ -130,7 +123,6 @@ export function useAvailablePresetUITypes({
 }
 
 export function createOriginInfoId({
-  isPreset,
   settingSectionConfig,
   sectionTypeConfig,
   childId,
@@ -138,20 +130,18 @@ export function createOriginInfoId({
   isChildOfRoot,
   rootId,
 }) {
-  if (isPreset) {
-    return {};
-  } else if (isChildOfRoot) {
+  if (isChildOfRoot) {
     return { sectionId: rootId };
   } else if (settingSectionConfig && paramInfoId) {
     return {
-      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
       paramInfoId,
     };
   } else if (settingSectionConfig && !paramInfoId) {
     return { sectionId: childId };
   } else if (paramInfoId) {
     return {
-      uiTypeCollectionId: sectionTypeConfig?.uiTypeCollectionId,
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
       paramInfoId,
     };
   } else {

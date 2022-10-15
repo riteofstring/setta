@@ -1,10 +1,13 @@
 import { action, createStore, persist } from "easy-peasy";
 import auth from "models/auth";
+import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
+import codeInfo from "models/info/codeInfo";
+import currProject from "models/info/currProject";
 import enteredValues from "models/info/enteredValues";
-import kwargInfos from "models/info/kwargInfos";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
+import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
@@ -14,27 +17,30 @@ import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
-import yamlEntry from "models/yamlEntry";
+import thunks from "thunks/thunks";
 
 const store = createStore(
   persist(
     {
       master: master,
-      yamlEntry: yamlEntry,
+      codeInfo: codeInfo,
       auth: auth,
       uiInfo: uiInfo,
       panes: panes,
       sectionPositions: sectionPositions,
       sectionInfos: sectionInfos,
+      sectionConfigs: sectionConfigs,
       objInfos: objInfos,
       paramInfos: paramInfos,
-      kwargInfos: kwargInfos,
       enteredValues: enteredValues,
       uiTypes: uiTypes,
       userSettings: userSettings,
       uiEditor: uiEditor,
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
+      currPage: currPage,
+      currProject: currProject,
+      thunks: thunks,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {
         const { name, value } = payload;
@@ -53,10 +59,6 @@ const initialState = store.getState();
 export const resetEntireState = () => {
   store.dispatch.setState(initialState);
   store.persist.clear();
-};
-
-export const resetState = (name) => {
-  store.dispatch.setSubState({ name, value: initialState[name] });
 };
 
 export default store;

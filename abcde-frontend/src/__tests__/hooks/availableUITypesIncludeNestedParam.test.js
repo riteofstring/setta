@@ -1,4 +1,5 @@
 import { LIST_ROOT, SECTION } from "utils/constants";
+import { isPreset } from "utils/uiTypeConstants";
 import {
   createStoreWrapperWithData,
   getAvailableUITypeIds,
@@ -15,15 +16,15 @@ import {
 
 test.each([
   ["", SECTION, true],
-  ["torchvision transforms", LIST_ROOT, false],
+  ["my preset for testing", LIST_ROOT, false],
 ])(
   "Available uiTypes for nested parameters should be the same when viewed from the section's perspective.",
-  (uiTypeName, uiTypeType, isBasePreset) => {
-    testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset);
+  (uiTypeName, uiTypeType, useBasePreset) => {
+    testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset);
   }
 );
 
-function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
+function testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset) {
   const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
@@ -48,7 +49,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
     store,
     uiTypeName,
     uiTypeType,
-    isBasePreset
+    useBasePreset
   );
 
   // Props that are constant in this test
@@ -64,6 +65,7 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
 
   // set the param to the base preset type, and add a child section
   const paramChildId = setParamToObjectTypeAndAddChildSection(
+    store,
     wrapper,
     propsForSetUIType,
     typeToForkOff
@@ -100,12 +102,12 @@ function testAvailableUITypes(uiTypeName, uiTypeType, isBasePreset) {
   const forkedUIType = result.current;
   expect(forkedUIType.type).toEqual(uiTypeType);
   expect(forkedUIType).not.toEqual(typeToForkOff);
-  expect(forkedUIType.isPreset).toEqual(false);
+  expect(isPreset(forkedUIType)).toEqual(false);
   expect(forkedUIType.config["ATestConfig"]).toEqual(["fruit"]);
 
-  // The originInfoId should be the parent's uiTypeCollectionId + the paramInfoId
+  // The originInfoId should be the parent's uiTypeColId + the paramInfoId
   expect(forkedUIType.originInfoId).toEqual({
-    uiTypeCollectionId: sectionType.config.uiTypeCollectionId,
+    uiTypeColId: sectionType.config.uiTypeColId,
     paramInfoId,
   });
 

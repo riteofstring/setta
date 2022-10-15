@@ -1,34 +1,90 @@
 import _ from "lodash";
+import { CALLABLE, COLLECTION, PARAMETER } from "utils/constants";
 
-import {
-  AllObjCollectionInfo,
-  AllPackageInfo,
-  AllParamCollectionInfo,
-} from "./immutableInfo";
-
-export const createAllInfo = (available) => {
-  const allPackageInfo = Object.freeze(new AllPackageInfo(available.packages));
-  const allModuleInfo = createDirectMapping(allPackageInfo.children);
-  const allObjInfo = createDirectMapping(allModuleInfo);
-  const allObjCollections = Object.freeze(
-    new AllObjCollectionInfo(available.objCollections, allObjInfo)
-  );
-  const allParamCollections = Object.freeze(
-    new AllParamCollectionInfo(available.paramCollections)
-  );
-  return {
-    allPackageInfo,
-    allModuleInfo,
-    allObjInfo,
-    allObjCollections,
-    allParamCollections,
-  };
-};
-
-function createDirectMapping(sourceInfo) {
+function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
   const output = {};
-  _.values(sourceInfo).forEach((x) =>
-    _.values(x.children).forEach((y) => (output[y.id] = y))
-  );
+  for (const k of Object.keys(allCollections)) {
+    output[k] = fn(allCodeInfo, [k]);
+  }
   return output;
+}
+
+function getCallables(allCodeInfo, allCollections) {
+  return getDescendantsOfAllCollections(
+    allCodeInfo,
+    allCollections,
+    findAllCallables
+  );
+}
+
+function getParams(allCodeInfo) {
+  return getDescendantsOfAllCollections(
+    allCodeInfo,
+    allCodeInfo,
+    findAllParameters
+  );
+}
+
+function getParamCollections(allCodeInfo, allCollections) {
+  return getDescendantsOfAllCollections(
+    allCodeInfo,
+    allCollections,
+    findAllParameterCollections
+  );
+}
+
+export function createAllInfo(packages) {
+  const allObjInfo = packages;
+  const allCollections = _.pickBy(allObjInfo, (v) => v.rcType === COLLECTION);
+  const callables = getCallables(allObjInfo, allCollections);
+  const params = getParams(allObjInfo);
+  const paramCollections = getParamCollections(allObjInfo, allCollections);
+  return { allObjInfo, allCollections, callables, params, paramCollections };
+}
+
+function defaultCondition(currInfo, rcType) {
+  return currInfo.rcType === rcType;
+}
+
+function findAllDescendants(
+  allCodeInfo,
+  collectionIds,
+  rcType,
+  condition = defaultCondition
+) {
+  const output = [];
+  const idStack = [...collectionIds];
+  const visited = new Set();
+  while (idStack.length > 0) {
+    const id = idStack.pop();
+    if (!id || visited.has(id)) {
+      continue;
+    }
+    visited.add(id);
+    const currInfo = allCodeInfo[id];
+    if (condition(currInfo, rcType)) {
+      output.push(currInfo);
+    }
+    idStack.push(...currInfo.children);
+  }
+  return output;
+}
+
+export function findAllCallables(allCodeInfo, collectionIds) {
+  return findAllDescendants(allCodeInfo, collectionIds, CALLABLE);
+}
+
+export function findAllParameters(allCodeInfo, collectionIds) {
+  return findAllDescendants(allCodeInfo, collectionIds, PARAMETER);
+}
+
+function findAllParameterCollections(allCodeInfo, collectionIds) {
+  function condition(currInfo, rcType) {
+    return (
+      defaultCondition(currInfo, rcType) &&
+      allCodeInfo[currInfo.parentId].rcType === COLLECTION
+    );
+  }
+
+  return findAllDescendants(allCodeInfo, collectionIds, PARAMETER, condition);
 }

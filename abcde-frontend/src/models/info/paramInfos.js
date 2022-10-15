@@ -1,43 +1,24 @@
-import { MutableParamInfo, MutableParamUITypeInfo } from "classes/mutableInfo";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
-
+import { resetState } from "models/utils";
 import { setToDefault } from "./utils";
 
-function setMutableParamInfo(state, collectionId, paramInfoId) {
-  return setToDefault(
-    state,
-    collectionId,
-    paramInfoId,
-    () => new MutableParamInfo({ id: paramInfoId }),
-    "x"
-  );
-}
-
-function setMutableParamUITypeInfo(state, collectionId, paramInfoId) {
-  return setToDefault(
-    state,
-    collectionId,
-    paramInfoId,
-    () => new MutableParamUITypeInfo({ id: paramInfoId }),
-    "y"
-  );
+function getInitialState() {
+  return { x: {}, y: {} };
 }
 
 const paramInfos = {
-  x: {},
-  y: {},
+  ...getInitialState(),
 
   setUITypeId: action((state, payload) => {
     const { collectionId, paramInfoId, uiTypeId } = payload;
-    setMutableParamUITypeInfo(state, collectionId, paramInfoId).uiTypeId =
-      uiTypeId;
+    setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
   }),
 
   setManyUITypeIds: action((state, payload) => {
     const { collectionId, paramInfoIds, uiTypeIds } = payload;
     for (let z of _.zip(paramInfoIds, uiTypeIds)) {
-      setMutableParamUITypeInfo(state, collectionId, z[0]).uiTypeId = z[1];
+      setToDefault(state.y, collectionId)[z[0]] = z[1];
     }
   }),
 
@@ -61,24 +42,18 @@ const paramInfos = {
 
   setEnteredValueId: action((state, payload) => {
     const { collectionId, paramInfoId, enteredValueId } = payload;
-    setMutableParamInfo(state, collectionId, paramInfoId).enteredValueId =
-      enteredValueId;
-  }),
-
-  setChildId: action((state, payload) => {
-    const { collectionId, paramInfoId, childId } = payload;
-    setMutableParamInfo(state, collectionId, paramInfoId).childId = childId;
+    setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;
   }),
 
   deleteParamInfo: action((state, payload) => {
-    const { paramCollectionId, uiTypeCollectionId, ids } = payload;
-    state.x[paramCollectionId] = _.omit(state.x[paramCollectionId], ids);
-    state.y[uiTypeCollectionId] = _.omit(state.y[uiTypeCollectionId], ids);
+    const { evColId, uiTypeColId, ids } = payload;
+    state.x[evColId] = _.omit(state.x[evColId], ids);
+    state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
   }),
 
-  export() {
-    return { paramCollections: this.x, uiTypeCollections: this.y };
-  },
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default paramInfos;

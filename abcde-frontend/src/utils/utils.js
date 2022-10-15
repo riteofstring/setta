@@ -39,14 +39,6 @@ export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
   }
 }
 
-export function rangeArray(low, high) {
-  return Array.from(new Array(high), (x, i) => i + low);
-}
-
-export function mod(n, m) {
-  return ((n % m) + m) % m;
-}
-
 export function curryAction(action, args, key = null) {
   const fn = (newState) => {
     const asArg = key ? { [key]: newState } : newState;
@@ -91,4 +83,14 @@ export function checkboxChangeFn(e, id) {
 
 export function maybeNewId(x) {
   return x ? x : createNewId();
+}
+
+// Input an object mapping section ids to their children
+// Return the section that has no parents, and is therefore the root
+export function getRootSectionId(x) {
+  const candidates = new Set(Object.keys(x));
+  for (const children of Object.values(x)) {
+    children.forEach((child) => candidates.delete(child));
+  }
+  return candidates.values().next().value;
 }

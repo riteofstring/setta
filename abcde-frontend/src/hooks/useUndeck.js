@@ -9,9 +9,7 @@ import {
 import { useGetAllChildren } from "./useIdsOverview";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
-  const setIdsOverviewThunk = useStoreActions(
-    (x) => x.sectionInfos.setIdsOverviewThunk
-  );
+  const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
   const setSectionInfoAttrObjInput = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttrObjInput
   );
@@ -23,7 +21,7 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
     _.forEach(coords, function (value, key) {
       newValues[key] = { initialPosition: project(value), isTopLevel: true };
     });
-    setIdsOverviewThunk({ sectionId: deckId, newStateFn: () => [] });
+    setIdsOverview({ sectionId: deckId, newStateFn: () => [] });
     setSectionInfoAttrObjInput({ newValues });
     deleteSections({ sectionIds: [deckId] });
   }

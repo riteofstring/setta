@@ -1,29 +1,13 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { createNewId, defaultState } from "utils/utils";
+import { createNewId } from "utils/utils";
 
-import {
-  DEFAULT_DEFAULT_UI_TYPE_ID,
-  rootTypeToChildType,
-  SECTION,
-} from "../utils/constants";
+import { rootTypeToChildType, SECTION } from "../utils/constants";
 import { useParamUITypeId } from "./useParamInfo";
 import { createOriginInfoId } from "./usePresetUIType";
-import { useSetSectionUITypeId } from "./useSectionInfo";
+import { useSetSectionConfigAttr } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
 import { getFnSetUIType } from "./useUITypeCoreFunctions";
-import { getInfo } from "./utils";
-
-export function useGetParamUIType(sectionId) {
-  const uiTypeIdFn = useParamUITypeId(sectionId);
-  return (paramInfoId) => {
-    const uiTypeId = uiTypeIdFn(paramInfoId)[0];
-    return defaultState(
-      useStoreState((x) => getInfo(x.uiTypes)[uiTypeId]),
-      () => ({})
-    );
-  };
-}
 
 export function useSetUIType({
   sectionId,
@@ -36,7 +20,7 @@ export function useSetUIType({
 }) {
   const { config: sectionTypeConfig } = useGetSectionType(sectionId);
   const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  const setSectionUITypeId = useSetSectionUITypeId(childId);
+  const setSectionUITypeId = useSetSectionConfigAttr(childId, "uiTypeId");
   const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const possibleMatchWrapperFn = (fn) =>
@@ -58,48 +42,13 @@ export function useSetUIType({
   });
 }
 
-function useProjectDefaultUIType(paramInfoId) {
-  const uiTypeId = useStoreState(
-    (x) => x.projectParamDefaults.x[paramInfoId]?.uiTypeId
-  );
-  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
-}
-
-function useGlobalDefaultUIType(paramType) {
-  const uiTypeId = useStoreState(
-    (x) => x.globalParamDefaults.x[paramType]?.uiTypeId
-  );
-  return useStoreState((x) => x.uiTypes.x[uiTypeId]);
-}
-
-export function useInitializeUIType(sectionId) {
-  const uiTypeFn = useParamUITypeId(sectionId);
-  return (paramInfo) => {
-    const [uiTypeId, setUITypeId] = uiTypeFn(paramInfo.id);
-    const projectDefaultUIType = useProjectDefaultUIType(paramInfo.id);
-    const globalDefaultUIType = useGlobalDefaultUIType(paramInfo.type);
-    return () => {
-      if (uiTypeId) {
-        return;
-      } else if (projectDefaultUIType) {
-        setUITypeId(projectDefaultUIType.id);
-      } else if (globalDefaultUIType) {
-        setUITypeId(globalDefaultUIType.id);
-      } else {
-        setUITypeId(DEFAULT_DEFAULT_UI_TYPE_ID);
-      }
-    };
-  };
-}
-
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
   uiType.type = SECTION;
-  uiType.config.uiTypeCollectionId = createNewId();
+  uiType.config.uiTypeColId = createNewId();
   uiType.config.subType = rootTypeToChildType[parentUIType.type];
-  uiType.isPreset = false;
-  uiType.isBasePreset = false;
+  uiType.presetType = null;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,
     rootId: parentId,
@@ -108,7 +57,12 @@ function cloneRootUIType(parentUIType, parentId) {
   return uiType;
 }
 
-function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
+export function getChildUITypeId(
+  parentUIType,
+  parentId,
+  setUIType,
+  setOneConfig
+) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
@@ -125,18 +79,6 @@ function getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig) {
   });
   setUIType({ uiType: newUIType });
   return id;
-}
-
-export function useGetChildUITypeId() {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const setOneConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-
-  return (uiTypeId, parentUIType, parentId) => {
-    if (uiTypeId) {
-      return uiTypeId;
-    }
-    return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
-  };
 }
 
 // Root sections and child behavior:
@@ -168,7 +110,7 @@ export function useGetChildUITypeId() {
 // The check is:
 // (originInfoIdMatches && isForChildOfOriginInfoId=false) || (parentIsRoot && originInfoIdMatches && isForChildOfOriginInfoId=true)
 
-// originInfoId format: {uiTypeCollectionId, paramInfoId} or {sectionId}
-// When changing a param's uitype, the uiTypeCollectionId is from the section's uiType, and paramInfoId is from the param.
-// When changing a nested param's uitype, the uiTypeCollectionId is from the PARENT section's uiType, and paramInfoId is from the param.
+// originInfoId format: {uiTypeColId, paramInfoId} or {sectionId}
+// When changing a param's uitype, the uiTypeColId is from the section's uiType, and paramInfoId is from the param.
+// When changing a nested param's uitype, the uiTypeColId is from the PARENT section's uiType, and paramInfoId is from the param.
 // When changing a section not associated with a param, use sectionId
