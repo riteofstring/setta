@@ -18,8 +18,8 @@ export async function getProject(id, projects: ProjectsRepository) {
     { id },
     {
       populate: [
-        'defaultProjectConfig.sectionConfigCol.sectionConfigCols.section.children',
-        'defaultProjectConfig.sectionConfigCol.sectionConfigCols.config.uiType',
+        'defaultConfig.sectionConfigCol.sectionConfigCols.section.children',
+        'defaultConfig.sectionConfigCol.sectionConfigCols.config.uiType',
       ],
     },
   );

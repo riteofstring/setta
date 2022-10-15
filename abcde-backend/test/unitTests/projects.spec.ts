@@ -15,6 +15,7 @@ import uiTypesData from '../../../abcde-frontend/src/__tests__data/simpleTrainTe
 import uiTypesColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypesCols';
 import kwargColsData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/KwargCols';
 import codeInfoData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/CodeInfo';
+import kwargInfoData from '../../../abcde-frontend/src/__tests__data/simpleTrainTest/KwargInfo';
 import usersData from '../../../abcde-frontend/src/__tests__data/Users';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -78,7 +79,7 @@ describe('ProjectsService', () => {
     expect(project.presetUITypes).toEqual(presetUITypesData);
     expect(project.uiTypeCols).toEqual(uiTypesColsData);
     expect(project.kwargCols).toEqual(kwargColsData);
-    compareCodeInfo(project.codeInfo, codeInfoData);
+    compareCodeInfo(project.codeInfo, { ...codeInfoData, ...kwargInfoData });
   });
 });
 
