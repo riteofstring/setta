@@ -43,6 +43,6 @@ export class AppController {
   @UseGuards(JwtAuthGuard)
   @Post('projects/createProject')
   createProject(@Request() req) {
-    return this.projectsService.createProject(req.user.id, req.body.name);
+    return this.projectsService.createProject(req.user, req.body.name);
   }
 }

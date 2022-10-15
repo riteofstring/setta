@@ -30,13 +30,17 @@ export class ProjectsService {
   ) {}
 
   async getAllByOwner(user: Users): Promise<any> {
-    return this.projects.find({ owner: user });
+    const ps = await this.projects.find(
+      { owner: user },
+      { populate: ['projectConfigs'] },
+    );
+    return _.keyBy(ps, (x) => x.id);
   }
 
-  async createProject(userId, name: string): Promise<any> {
-    const p = this.projects.create({ owner: userId, name });
+  async createProject(user, name: string): Promise<any> {
+    const p = this.projects.create({ owner: user.id, name });
     await this.projects.persistAndFlush(p);
-    return p.id;
+    return p;
   }
 
   async loadOne(id: string): Promise<any> {
