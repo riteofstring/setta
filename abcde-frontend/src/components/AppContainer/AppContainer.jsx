@@ -30,9 +30,9 @@ const AppContainer = () => {
 
 function GridContainer(props) {
   return (
-    <div className="h-full w-screen border border-gray-200 overflow-hidden grid [grid-template-columns:1fr] [grid-template-rows:min-content 1fr]">
+    <main className="h-full w-screen border border-gray-200 overflow-hidden grid [grid-template-columns:1fr] [grid-template-rows:min-content 1fr]">
       {props.children}
-    </div>
+    </main>
   );
 }
 

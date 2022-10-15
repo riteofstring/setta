@@ -29,11 +29,12 @@ function FlexContainer(props) {
 function SiteLogo() {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   return (
-    <a className="no-underline" onClick={() => setCurrPage(HOME)}>
-      <h2 className="text-gray-600 mr-4 tracking-tight text-lg font-semibold [font-family:JetBrains Mono]">
-        <span className="text-[#00B5D8]">run</span>
-        coder
-      </h2>
-    </a>
+    <h2
+      className="no-underline select-none cursor-pointer text-gray-600 mr-4 tracking-tight text-lg font-semibold [font-family:JetBrains Mono]"
+      onClick={() => setCurrPage(HOME)}
+    >
+      <span className="text-[#00B5D8]">run</span>
+      coder
+    </h2>
   );
 }
