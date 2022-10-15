@@ -19,7 +19,6 @@ import {
   loadUITypeCols,
   processSectionConfigs,
 } from './loadingFunctions';
-import { persistEV, persistEVCols, persistSections } from './savingFunctions';
 
 @Injectable()
 export class ProjectsService {
@@ -33,7 +32,7 @@ export class ProjectsService {
   async getAllByOwner(user: Users): Promise<any> {
     const ps = await this.projects.find(
       { owner: user },
-      { populate: ['projectConfigs'] },
+      { populate: ['configs'] },
     );
     return _.keyBy(ps, (x) => x.id);
   }
@@ -47,8 +46,8 @@ export class ProjectsService {
   async save(user, project): Promise<any> {
     const { ev, evCols, uiTypes, sections, sectionChildren, sectionConfigs } =
       project;
-    persistEV(this.em, ev);
-    persistEVCols(this.em, evCols);
+    // persistEV(this.em, ev);
+    // persistEVCols(this.em, evCols);
     // persistSections(this.em, sections, sectionChildren);
     await this.em.flush();
   }
@@ -56,7 +55,7 @@ export class ProjectsService {
   async loadOne(id: string): Promise<any> {
     const fullObj = await getProject(id, this.projects);
     const {
-      defaultProjectConfig: {
+      defaultConfig: {
         sectionConfigCol: { sectionConfigCols },
       },
       ...project

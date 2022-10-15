@@ -12,7 +12,7 @@ export class ProjectConfigs {
   @Property()
   name: string;
 
-  @ManyToOne(() => Projects)
+  @ManyToOne(() => Projects, { nullable: true })
   project: Projects;
 
   @ManyToOne()

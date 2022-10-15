@@ -7,7 +7,7 @@ import s3Config from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/Se
 import s1Children from '../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionChildren';
 import s2Children from '../../abcde-frontend/src/__tests__data/diffusionDrops/SectionChildren';
 import s3Children from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/SectionChildren';
-import s1ConfigCols from '../../abcde-frontend/src/__tests__data/SectionConfigCols';
+import sectionConfigCols from '../../abcde-frontend/src/__tests__data/SectionConfigCols';
 import baseUITypes from '../../abcde-frontend/src/__tests__data/BaseUITypes';
 import presetUITypes from '../../abcde-frontend/src/__tests__data/PresetUITypes';
 import simpleTrainTestUITypes from '../../abcde-frontend/src/__tests__data/simpleTrainTest/UITypes';
@@ -16,6 +16,8 @@ import simpleTrainTestEV from '../../abcde-frontend/src/__tests__data/simpleTrai
 import simpleTrainTestEVCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/EVCols';
 import simpleTrainTestKwargInfos from '../../abcde-frontend/src/__tests__data/simpleTrainTest/KwargInfo';
 import simpleTrainTestKwargCols from '../../abcde-frontend/src/__tests__data/simpleTrainTest/KwargCols';
+import projects from '../../abcde-frontend/src/__tests__data/Projects';
+import projectConfigs from '../../abcde-frontend/src/__tests__data/ProjectConfigs';
 
 export function loadAllSections() {
   return { ...s1, ...s2, ...s3 };
@@ -30,7 +32,7 @@ export function loadAllSectionConfigs() {
 }
 
 export function loadAllSectionConfigCols() {
-  return { ...s1ConfigCols };
+  return { ...sectionConfigCols };
 }
 
 export function loadAllUITypes() {
@@ -55,4 +57,12 @@ export function loadAllKwargInfos() {
 
 export function loadAllKwargCols() {
   return { ...simpleTrainTestKwargCols };
+}
+
+export function loadAllProjects() {
+  return { ...projects };
+}
+
+export function loadAllProjectConfigs() {
+  return { ...projectConfigs };
 }

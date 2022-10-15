@@ -79,14 +79,6 @@ describe('ProjectsService', () => {
     expect(project.uiTypeCols).toEqual(uiTypesColsData);
     expect(project.kwargCols).toEqual(kwargColsData);
     compareCodeInfo(project.codeInfo, codeInfoData);
-    // expect(project.codeInfo).toEqual(codeInfoData);
-    // expect(project.sectionConfigs).toEqual(sectionConfigsData);
-    // expect(project.project.name).toEqual(projectsData[projectId].name);
-    // expect(project.project.sectionGroup).toEqual(
-    //   projectsData[projectId].sectionGroup,
-    // );
-
-    // expect(project.sections.length).toEqual(12);
   });
 });
 

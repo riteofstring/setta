@@ -23,8 +23,8 @@ export class Projects {
   owner: Users;
 
   @OneToMany(() => ProjectConfigs, (e) => e.project)
-  projectConfigs: ProjectConfigs;
+  configs: ProjectConfigs;
 
   @OneToOne({ entity: () => ProjectConfigs, nullable: true })
-  defaultProjectConfig: ProjectConfigs;
+  defaultConfig: ProjectConfigs;
 }
