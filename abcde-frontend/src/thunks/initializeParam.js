@@ -13,22 +13,14 @@ export const initializeParam = thunk((actions, payload, helpers) => {
     helpers
   );
   const uiTypeId = initializeParamUIType(sectionId, paramInfo, helpers);
-  fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId, helpers);
+  initializeChild(sectionId, paramInfo, uiTypeId, enteredValueId, helpers);
 });
 
-function getEnteredValueId(sectionId, paramInfo, helpers) {
+function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
   const s = helpers.getStoreState();
   const configId = s.sectionInfos.x[sectionId].configId;
   const evColId = s.sectionConfigs.x[configId].evColId;
-  return { enteredValueId: s.paramInfos.x[evColId]?.[paramInfo.id], evColId };
-}
-
-function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
-  let { enteredValueId, evColId } = getEnteredValueId(
-    sectionId,
-    paramInfo,
-    helpers
-  );
+  let enteredValueId = s.paramInfos.x[evColId]?.[paramInfo.id];
 
   if (!enteredValueId) {
     const a = helpers.getStoreActions();
@@ -89,7 +81,7 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
   return uiTypeId;
 }
 
-function fnInitializeChild(
+function initializeChild(
   sectionId,
   paramInfo,
   uiTypeId,
@@ -111,9 +103,3 @@ function fnInitializeChild(
     });
   }
 }
-
-export const initializeChild = thunk((actions, payload, helpers) => {
-  const { sectionId, paramInfo, uiTypeId } = payload;
-  const { enteredValueId } = getEnteredValueId(sectionId, paramInfo, helpers);
-  fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId, helpers);
-});
