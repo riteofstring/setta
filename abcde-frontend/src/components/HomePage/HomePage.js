@@ -9,7 +9,7 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { getProjects } from "dbRequests/projects";
+import { createProject, getProjects } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
@@ -56,6 +56,12 @@ function LeftColumn() {
 }
 
 function RightColumn({ projects }) {
+  const access_token = useStoreState((x) => x.auth.access_token);
+
+  function onClick() {
+    createProject({ access_token, name: "amazing project" });
+  }
+
   return (
     <GridItem overflowY="auto">
       <Button
@@ -64,6 +70,7 @@ function RightColumn({ projects }) {
         borderRadius="full"
         leftIcon={<BiAddToQueue />}
         colorScheme="blue"
+        onClick={onClick}
       >
         Create New Project
       </Button>
@@ -76,8 +83,8 @@ function RightColumn({ projects }) {
         minChildWidth="20rem"
         justifyItems="flex-start"
       >
-        {Object.values(projects).map((x) => (
-          <ProjectItem key={`Project ${x.name}`} name={x.name} id={x.id} />
+        {Object.values(projects).map((x,i) => (
+          <ProjectItem key={`Project ${i} ${x.name}`} name={x.name} id={x.id} />
         ))}
       </Grid>
     </GridItem>

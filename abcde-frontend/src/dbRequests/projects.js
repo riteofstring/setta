@@ -19,8 +19,21 @@ export async function getProjects({ access_token }) {
 
 export async function loadProject({ access_token, id }) {
   return axios
-    .post(BACKEND + `projects/${id}`, null, tokenConfig(access_token))
+    .post(BACKEND + `projects/load/${id}`, null, tokenConfig(access_token))
     .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}
+
+export async function createProject({ access_token, name }) {
+  const body = JSON.stringify({ name });
+  return axios
+    .post(BACKEND + `projects/createProject`, body, tokenConfig(access_token))
+    .then((res) => {
+      console.log(res);
       return res.data;
     })
     .catch(() => {
