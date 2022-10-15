@@ -1,6 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
-  "entryFile": "abcde-backend/src/main.js"
+  "sourceRoot": "src"
 }

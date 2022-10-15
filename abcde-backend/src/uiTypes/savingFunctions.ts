@@ -6,7 +6,7 @@ import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
 import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
 import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
-import { UITypesCols } from '../../src/entities/uiTypes/uiTypesCols.entity';
+import { UITypesCols } from '../entities/uiTypes/uiTypesCols.entity';
 import _ = require('lodash');
 
 async function persistUIType(em, x) {

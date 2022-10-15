@@ -16,9 +16,10 @@ import {
   loadEVCols,
   loadKwargCols,
   loadPresetUITypes,
-  loadUITypeCols,
+  loadUITypesCols,
   processSectionConfigs,
 } from './loadingFunctions';
+import { persistAllProjectDetails } from './savingFunctions';
 
 @Injectable()
 export class ProjectsService {
@@ -43,12 +44,8 @@ export class ProjectsService {
     return p;
   }
 
-  async save(user, project): Promise<any> {
-    const { ev, evCols, uiTypes, sections, sectionChildren, sectionConfigs } =
-      project;
-    // persistEV(this.em, ev);
-    // persistEVCols(this.em, evCols);
-    // persistSections(this.em, sections, sectionChildren);
+  async save(projects): Promise<any> {
+    await persistAllProjectDetails(this.em, projects);
     await this.em.flush();
   }
 
@@ -75,7 +72,7 @@ export class ProjectsService {
     const sectionUITypes = await getUITypes(this.em, tempSectionConfigs);
     const baseUITypes = await loadBaseUITypes(this.em);
     const presetUITypes = await loadPresetUITypes(this.em);
-    const uiTypeCols = await loadUITypeCols(this.em, sectionUITypes);
+    const uiTypesCols = await loadUITypesCols(this.em, sectionUITypes);
     const codeInfo = await loadCodeInfo(this.em, sectionUITypes);
     const sectionConfigs = processSectionConfigs(tempSectionConfigs);
 
@@ -90,7 +87,7 @@ export class ProjectsService {
       baseUITypes,
       uiTypes: sectionUITypes,
       presetUITypes,
-      uiTypeCols,
+      uiTypesCols,
       kwargCols,
       codeInfo: { ...codeInfo, ...kwargInfos },
     };

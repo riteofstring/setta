@@ -120,7 +120,7 @@ export async function loadKwargCols(em, sectionConfigs) {
   return { kwargCols, kwargInfos };
 }
 
-export async function loadUITypeCols(em, sectionUITypes) {
+export async function loadUITypesCols(em, sectionUITypes) {
   const uiTypeColIds = _.map(sectionUITypes, (x) => x.config.uiTypeColId);
   const uiTypeColsInDBFormat = await em.find(
     UITypesColsIds,

@@ -25,7 +25,7 @@ export class CodeInfo {
 
   // the type in the code, e.g. bool, int, float, class etc.
   @Property()
-  type: string;
+  type: string = '';
 
   // "runcoder" type, i.e. a label we assign to determine
   // whether it requires a search box, whether it's a collection etc.

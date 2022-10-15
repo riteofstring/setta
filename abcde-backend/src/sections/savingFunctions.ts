@@ -2,8 +2,8 @@ import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
 import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 import { SectionConfig } from '../entities/sections/sectionConfig.entity';
 import { Sections } from '../entities/sections/sections.entity';
-import { SectionConfigCols } from '../../src/entities/sections/sectionConfigCols.entity';
-import { SectionConfigColsIds } from '../../src/entities/sections/sectionConfigColsIds.entity';
+import { SectionConfigCols } from '../entities/sections/sectionConfigCols.entity';
+import { SectionConfigColsIds } from '../entities/sections/sectionConfigColsIds.entity';
 import { createIfNotFound } from '../utils/utils';
 import _ = require('lodash');
 

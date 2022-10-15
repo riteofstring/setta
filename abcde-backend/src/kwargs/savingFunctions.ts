@@ -1,7 +1,7 @@
 import _ = require('lodash');
 import { createIfNotFound } from '../utils/utils';
-import { KwargColsIds } from '../../src/entities/kwargs/kwargColsIds.entity';
-import { KwargCols } from '../../src/entities/kwargs/kwargCols.entity';
+import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
+import { KwargCols } from '../entities/kwargs/kwargCols.entity';
 
 export async function persistKwargCols(em, kwargsCols) {
   for (const kwargColId of Object.keys(kwargsCols)) {

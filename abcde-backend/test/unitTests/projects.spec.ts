@@ -77,7 +77,7 @@ describe('ProjectsService', () => {
     expect(project.baseUITypes).toEqual(baseUITypesData);
     expect(project.uiTypes).toEqual(uiTypesData);
     expect(project.presetUITypes).toEqual(presetUITypesData);
-    expect(project.uiTypeCols).toEqual(uiTypesColsData);
+    expect(project.uiTypesCols).toEqual(uiTypesColsData);
     expect(project.kwargCols).toEqual(kwargColsData);
     compareCodeInfo(project.codeInfo, { ...codeInfoData, ...kwargInfoData });
   });
