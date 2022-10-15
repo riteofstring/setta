@@ -33,6 +33,12 @@ export class ProjectsService {
     return this.projects.find({ owner: user });
   }
 
+  async createProject(userId, name: string): Promise<any> {
+    const p = this.projects.create({ owner: userId, name });
+    await this.projects.persistAndFlush(p);
+    return p.id;
+  }
+
   async loadOne(id: string): Promise<any> {
     const fullObj = await getProject(id, this.projects);
     const {
