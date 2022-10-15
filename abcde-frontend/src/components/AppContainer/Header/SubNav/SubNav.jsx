@@ -1,4 +1,4 @@
-import { Button } from "@chakra-ui/react";
+import { Button, Divider, Flex, HStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 
@@ -11,10 +11,12 @@ import UiConfigButton from "./UiConfigButton/UiConfigButton";
 
 export default function SubNav() {
   return (
-    <div className="flex space-x-2">
-      <VerticalDivider />
-      <NavSwitch />
-    </div>
+    <Flex>
+      <HStack spacing={2}>
+        <Divider orientation="vertical" pr=".5rem" />
+        <NavSwitch />
+      </HStack>
+    </Flex>
   );
 }
 
@@ -40,11 +42,11 @@ function UiEditorSubNav() {
       <FileMenu />
       {/* <EcoSysButton /> */}
       <ClearHistoryButton />
-      <VerticalDivider />
+      <Divider orientation="vertical" pr=".5rem" />
       <CreateSectionButton />
       <CreateGroupButton />
       <UiConfigButton />
-      <VerticalDivider />
+      <Divider orientation="vertical" pr=".5rem" />
 
       <RunButton />
     </>
@@ -62,8 +64,4 @@ function LoggedOutNav({ setCurrPage }) {
       <Button onClick={() => setCurrPage(SIGN_UP)}>Sign Up</Button>
     </>
   );
-}
-
-function VerticalDivider() {
-  return <div className="border-r border-gray-200" />;
 }
