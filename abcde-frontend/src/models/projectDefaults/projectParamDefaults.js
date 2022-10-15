@@ -1,7 +1,6 @@
 import { MutableParamUITypeInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
 import _ from "lodash";
-import { resetState } from "models/utils";
 
 function setMutableParamUITypeInfo(state, paramInfoId) {
   if (!(paramInfoId in state.x)) {
@@ -12,12 +11,8 @@ function setMutableParamUITypeInfo(state, paramInfoId) {
   return state.x[paramInfoId];
 }
 
-function getInitialState() {
-  return { x: {} };
-}
-
 const projectParamDefaults = {
-  ...getInitialState(),
+  x: {},
 
   setUITypeId: action((state, payload) => {
     const { paramInfoId, uiTypeId } = payload;
@@ -32,9 +27,9 @@ const projectParamDefaults = {
     );
   }),
 
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
+  export() {
+    return this.x;
+  },
 };
 
 export default projectParamDefaults;

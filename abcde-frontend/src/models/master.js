@@ -1,212 +1,137 @@
-import { SectionConfig, SectionInfo } from "classes/mutableInfo";
+import { createAllInfo } from "classes/infoFactory";
+import { SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
-import { resetState } from "models/utils";
+import {
+  DEFAULT_DEFAULT,
+  GLOBAL_DEFAULT,
+  PROJECT_DEFAULT,
+} from "utils/constants";
 import { exportSelected } from "utils/exportSelected";
 
-function getInitialState() {
-  return { activeSection: null };
-}
-
 const master = {
-  ...getInitialState(),
+  available: {},
+  allPackageInfo: null,
+  allModuleInfo: null,
+  allObjInfo: null,
+  allObjCollections: null,
+  allParamCollections: null,
+  activeSection: null,
 
-  clearSections: thunk((action, payload, helpers) => {
-    resetProject(helpers.getStoreActions());
+  // actions
+  // Load DATA
+  _loadSections: action((state, payload) => {
+    ({
+      allPackageInfo: state.allPackageInfo,
+      allModuleInfo: state.allModuleInfo,
+      allObjInfo: state.allObjInfo,
+      allObjCollections: state.allObjCollections,
+      allParamCollections: state.allParamCollections,
+    } = createAllInfo(payload));
   }),
 
-  loadSections: thunk((action, payload, helpers) => {
+  loadSections: thunk((action, payload) => {
     const {
-      codeInfo,
+      packages,
+      objCollections,
+      paramCollections,
+      defaultDefaults,
       globalDefaults,
       projectDefaults,
-      sections,
-      sectionConfigs,
-      sectionConfigCol,
-      sectionChildren,
-      ev,
-      evCols,
-      uiTypes,
-      uiTypesCols,
-      kwargCols,
+      uiData,
     } = payload;
 
-    helpers.getStoreActions().codeInfo.loadObjInfoAndCollections(codeInfo);
-    action.initUITypes(uiTypes);
-    action.initUITypesCols(uiTypesCols);
-    action.initParamDefaults({
-      storeName: "globalParamDefaults",
-      paramDefaults: globalDefaults.paramDefaults,
+    action._loadSections({
+      packages,
+      objCollections,
+      paramCollections,
     });
-    action.initParamDefaults({
-      storeName: "projectParamDefaults",
-      paramDefaults: projectDefaults.paramDefaults,
-    });
-    action.initEV(ev);
-    action.initEVCols(evCols);
-    action.initKwargCols(kwargCols);
-    action.initSections({
-      sections,
-      sectionConfigs,
-      sectionConfigCol,
-      sectionChildren,
-    });
+    action.initDefaultDefaults(defaultDefaults);
+    action.initGlobalDefaults(globalDefaults);
+    action.initProjectDefaults(projectDefaults);
+    action.initSectionUITypes(uiData.uiTypes);
+    action.initSections(uiData.sections);
   }),
 
   setActiveSection: action((state, payload) => {
     state.activeSection = payload;
   }),
 
-  initParamDefaults: thunk((action, payload, helpers) => {
-    const { storeName, paramDefaults } = payload;
-    const setManyUITypeIds =
-      helpers.getStoreActions()[storeName].setManyUITypeIds;
-    setManyUITypeIds({ toUITypeId: paramDefaults });
+  initDefaultDefaults: thunk((action, payload, helpers) => {
+    initDefaultHelper(
+      payload,
+      helpers.getStoreActions(),
+      null,
+      DEFAULT_DEFAULT
+    );
   }),
 
-  initUITypes: thunk((action, payload, helpers) => {
+  initGlobalDefaults: thunk((action, payload, helpers) => {
+    initDefaultHelper(
+      payload,
+      helpers.getStoreActions(),
+      "globalParamDefaults",
+      GLOBAL_DEFAULT
+    );
+  }),
+
+  initProjectDefaults: thunk((action, payload, helpers) => {
+    initDefaultHelper(
+      payload,
+      helpers.getStoreActions(),
+      "projectParamDefaults",
+      PROJECT_DEFAULT
+    );
+  }),
+
+  initSectionUITypes: thunk((action, payload, helpers) => {
     const uiTypes = _.map(payload, (x) => new UIType(x));
     const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
     setManyUITypes({ uiTypes });
   }),
 
-  initUITypesCols: thunk((action, payload, helpers) => {
-    const pActions = helpers.getStoreActions().paramInfos;
-    for (const colId of Object.keys(payload)) {
-      for (const paramInfo of Object.values(payload[colId])) {
-        pActions.setUITypeId({
-          collectionId: colId,
-          paramInfoId: paramInfo.id,
-          uiTypeId: paramInfo.uiTypeId,
-        });
-      }
-    }
-  }),
-
-  initEV: thunk((action, payload, helpers) => {
-    const a = helpers.getStoreActions();
-    _.forEach(payload, (v, k) => {
-      a.enteredValues.setEnteredValue({ enteredValueId: k, value: v.value });
-      a.enteredValues.setChildId({ enteredValueId: k, childId: v.childId });
-    });
-  }),
-
-  initEVCols: thunk((action, payload, helpers) => {
-    const pActions = helpers.getStoreActions().paramInfos;
-    for (const colId of Object.keys(payload)) {
-      for (const paramInfo of Object.values(payload[colId])) {
-        pActions.setEnteredValueId({
-          collectionId: colId,
-          paramInfoId: paramInfo.id,
-          enteredValueId: paramInfo.enteredValueId,
-        });
-      }
-    }
-  }),
-
-  initKwargCols: thunk((action, payload, helpers) => {
-    const setKwargIds = helpers.getStoreActions().objInfos.setKwargIds;
-    for (const colId of Object.keys(payload)) {
-      for (const objInfoId of Object.keys(payload[colId])) {
-        setKwargIds({
-          collectionId: colId,
-          objInfoId: objInfoId,
-          newStateFn: () => payload[colId][objInfoId],
-        });
-      }
-    }
-  }),
-
   initSections: thunk((action, payload, helpers) => {
-    let { sections, sectionConfigs, sectionConfigCol, sectionChildren } =
-      payload;
-    let topLevelIds = null;
-    ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
-      omitProjectSectionAndGetTopLevelIds(
-        helpers.getStoreState(),
-        sections,
-        sectionConfigs,
-        sectionChildren
-      ));
-
     let idx = 0;
-    const sectionInfos = _.mapValues(sections, (x) => {
-      const initialPosition = {
-        x: 500 * (Math.floor(idx / 3) + 0.75),
-        y: 300 * (idx % 3),
-      };
-      const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
+    const sectionInfos = _.mapValues(payload, (x) => {
       const y = new SectionInfo({
-        initialPosition,
+        isTopLevel: true,
+        initialPosition: {
+          x: 500 * (Math.floor(idx / 3) + 0.75),
+          y: 300 * (idx % 3),
+        },
         ...x,
-        parentId,
-        configId: sectionConfigCol[x.id].configId,
-        isTopLevel: topLevelIds.includes(x.id),
       });
       idx += 1;
       return y;
     });
-
-    const sectionConfigInfos = _.mapValues(
-      sectionConfigs,
-      (x) => new SectionConfig(x)
-    );
-
     const setSectionInfo =
       helpers.getStoreActions().sectionInfos.setSectionInfo;
-    const setSectionConfig =
-      helpers.getStoreActions().sectionConfigs.setSectionConfig;
-    const setIdsOverview =
-      helpers.getStoreActions().sectionInfos.setIdsOverview;
-
     setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-    setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
-
-    _.forEach(sectionChildren, (x, id) => {
-      setIdsOverview({ sectionId: id, newStateFn: () => x });
-    });
+    return _.keys(sectionInfos);
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
     return exportSelected(helpers.getStoreState());
   }),
-
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
 };
 
 export default master;
 
-function omitProjectSectionAndGetTopLevelIds(
-  state,
-  sections,
-  sectionConfigs,
-  sectionChildren
-) {
-  const projectSectionGroup = state.currProject.sectionGroup;
-  const topLevelIds = sectionChildren[projectSectionGroup];
-  const projectSectionConfigId = sections[projectSectionGroup].configId;
-  return {
-    sections: _.omit(sections, projectSectionGroup),
-    sectionConfigs: _.omit(sectionConfigs, projectSectionConfigId),
-    sectionChildren: _.omit(sectionChildren, projectSectionGroup),
-    topLevelIds,
-  };
-}
+function initDefaultHelper(payload, storeActions, storeName, origin) {
+  const setManyUITypes = storeActions.uiTypes.setManyUITypes;
+  const uiTypes = _.map(
+    payload.uiTypes,
+    (x) =>
+      new UIType({
+        ...x,
+        origin,
+      })
+  );
+  setManyUITypes({ uiTypes });
 
-function resetProject(a) {
-  a.globalParamDefaults.reset();
-  a.projectParamDefaults.reset();
-  a.codeInfo.reset();
-  a.enteredValues.reset();
-  a.objInfos.reset();
-  a.paramInfos.reset();
-  a.sectionConfigs.reset();
-  a.sectionInfos.reset();
-  a.uiTypes.reset();
-  a.sectionPositions.reset();
-  a.uiEditor.reset();
-  a.master.reset();
+  if (storeName) {
+    const setManyUITypeIds = storeActions[storeName].setManyUITypeIds;
+    setManyUITypeIds({ toUITypeId: payload.paramDefaults });
+  }
 }

@@ -1,57 +1,101 @@
+import { NULL_OBJ_INFO } from "classes/immutableInfo";
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState } from "utils/utils";
-import { maybeUseNullId } from "./useKwarg";
-import { useGetSectionConfig } from "./useSectionConfig";
+
+import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
+import { getInfo } from "./utils";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
-  const { selectedItem } = useGetSectionConfig(sectionId);
-  const paramInfos = useGetAllParamInfos(sectionId, selectedItem);
-  const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
-  return [...paramInfos, ...kwargInfos];
+  const { selectedItem } = useGetSectionInfo(sectionId);
+  return useGetObjParamKwargInfos(sectionId, selectedItem);
 }
 
-function useGetCollectionChildren(sectionId, type) {
+// TODO: SPLIT UP
+export function useGetObjParamKwargInfos(sectionId, objInfoId) {
+  const objInfo = useGetObjInfos(sectionId, objInfoId);
+  const paramInfos = useGetAllParamInfos(sectionId, objInfo);
+  const kwargInfos = useGetKwargInfos(sectionId, objInfo);
+  return { objInfo, paramInfos, kwargInfos };
+}
+
+function getXInfos(collectionIds, allCollections, infoId) {
+  const collections = collectionIds.map((x) => allCollections.children[x]);
+  const output = _.merge({}, ...collections.map((x) => x.children));
+  if (infoId) {
+    return output[infoId];
+  }
+  return Object.values(output);
+}
+
+function useGetXInfosFromSection(
+  collectionName,
+  allCollectionName,
+  sectionId,
+  infoId
+) {
+  const allCollections = useStoreState((x) => x.master[allCollectionName]);
   const sectionType = useGetSectionType(sectionId);
-  const collectionIds = sectionType.config
-    ? sectionType.config.collections
-    : [];
-  return useStoreState(
-    (x) => [].concat(...collectionIds.map((y) => x.codeInfo[type][y])),
-    _.isEqual
+  if (sectionId) {
+    const collectionIds = sectionType.config[collectionName];
+    return getXInfos(collectionIds, allCollections, infoId);
+  }
+  return [];
+}
+
+export function useGetObjInfos(sectionId, infoId) {
+  const objs = useGetXInfosFromSection(
+    "objects",
+    "allObjCollections",
+    sectionId,
+    infoId
+  );
+  if (infoId === null) {
+    return NULL_OBJ_INFO;
+  }
+  return objs;
+}
+
+function useGetParamCollections(sectionId, infoId) {
+  return useGetXInfosFromSection(
+    "parameters",
+    "allParamCollections",
+    sectionId,
+    infoId
   );
 }
 
-export function useGetAllCallables(sectionId) {
-  return useGetCollectionChildren(sectionId, "callables");
-}
-
-function useGetAllParamCollections(sectionId) {
-  return useGetCollectionChildren(sectionId, "paramCollections");
-}
-
-function useGetKwargIds(sectionId, objInfoId) {
-  const { kwargColId } = useGetSectionConfig(sectionId);
+function useGetKwargIds(sectionId, objInfo) {
+  const { kwargCollectionId } = useGetSectionInfo(sectionId);
   return defaultState(
-    useStoreState((x) => x.objInfos.x[kwargColId]?.[objInfoId]),
+    useStoreState(
+      (x) => getInfo(x.objInfos)[kwargCollectionId]?.[objInfo.id]?.kwargIds
+    ),
     () => []
   );
 }
 
-export function useGetKwargInfos(sectionId, objInfoId) {
-  const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
-  return useStoreState(
-    (x) => kwargIds.map((y) => x.codeInfo.allObjInfo[y]),
+function useGetKwargInfos(sectionId, objInfo) {
+  const kwargIds = useGetKwargIds(sectionId, objInfo);
+  const kwargInfoState = useStoreState(
+    (x) => kwargIds.map((y) => getInfo(x.kwargInfos)[y]),
     _.isEqual
   );
+  return kwargInfoState;
 }
 
-export function useGetAllParamInfos(sectionId, objInfoId) {
-  const objParamInfos = useStoreState(
-    (x) => (objInfoId ? x.codeInfo.params[objInfoId] : []),
-    _.isEqual
-  );
-  const paramCollections = useGetAllParamCollections(sectionId);
+function useGetAllParamInfos(sectionId, objInfo) {
+  const objParamInfos = objInfo?.children
+    ? Object.values(objInfo.children)
+    : [];
+  const paramCollections = useGetParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
+}
+
+export function useGetAllParamAndKwargInfos(sectionId, objInfo) {
+  return [
+    ...useGetAllParamInfos(sectionId, objInfo),
+    ...useGetKwargInfos(sectionId, objInfo),
+  ];
 }

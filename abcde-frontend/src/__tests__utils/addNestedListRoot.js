@@ -1,12 +1,13 @@
 import { waitFor } from "@testing-library/react";
 import {
   addChildSectionAndGetChildId,
-  callInitializeParamThunk,
   getParamInfoByFullPath,
   getSectionByName,
   initializeAndReturnUIType,
+  initializeEnteredValueId,
 } from "./createStoreWrapperWithData";
 import {
+  renderUseAddChild,
   renderUseIdsOverview,
   renderUseParamEnteredValue,
 } from "./renderHooks";
@@ -18,7 +19,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
   let result = null;
 
   const paramInfo = getParamInfoByFullPath(
-    store.getState().codeInfo.allObjInfo,
+    store.getState().master.allPackageInfo,
     "torchvision",
     "transforms",
     "Compose",
@@ -54,20 +55,19 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
 
   // transformSection should have a single child which is the list root
   ({ result } = renderUseIdsOverview(transformSection.id, wrapper));
-  expect(result.current).toEqual([listRootId]);
+  expect(result.current[0]).toEqual([listRootId]);
 
   // the list root shouldn't have any children yet
   ({ result } = renderUseIdsOverview(listRootId, wrapper));
-  expect(result.current).toEqual([]);
+  expect(result.current[0]).toEqual([]);
 
   // add numTransforms children to the list root
-  store
-    .getActions()
-    .thunks.addChild({ parentId: listRootId, numChildren: numTransforms });
+  ({ result } = renderUseAddChild(listRootId, wrapper));
+  result.current({ numChildren: numTransforms });
 
   // list root should now have numTransforms children
   ({ result } = renderUseIdsOverview(listRootId, wrapper));
-  const listElementIds = result.current;
+  const listElementIds = result.current[0];
   expect(listElementIds.length).toEqual(numTransforms);
 
   const transformSettings = listOfTransforms();
@@ -77,7 +77,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
     const [objName, paramSettings] = transformSettings[i];
     for (let paramName of Object.keys(paramSettings)) {
       const paramInfo = getParamInfoByFullPath(
-        store.getState().codeInfo.allObjInfo,
+        store.getState().master.allPackageInfo,
         "torchvision",
         "transforms",
         objName,
@@ -92,7 +92,7 @@ export function selectComposeTransform(store, wrapper, numTransforms) {
       });
 
       // initialize enteredValueId
-      callInitializeParamThunk(store, listElementIds[i], paramInfo.id, wrapper);
+      initializeEnteredValueId(listElementIds[i], paramInfo.id, wrapper);
 
       ({ result } = renderUseParamEnteredValue(
         listElementIds[i],

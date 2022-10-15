@@ -5,25 +5,23 @@ import {
   requiresNestedSection,
   SECTION_TYPE_NAMES,
 } from "utils/constants";
-import { isBasePreset } from "utils/uiTypeConstants";
-import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "./loadTestData";
 import {
+  renderUseAddChild,
   renderUseAvailablePresetUITypes,
-  renderUseGetParamChildId,
   renderUseGetParamUIType,
   renderUseGetSectionType,
   renderUseIdsOverview,
+  renderUseInitializeEnteredValue,
+  renderUseInitializeUIType,
+  renderUseParamChildId,
   renderUseSetUIType,
 } from "./renderHooks";
 import { createStore, getStoreProviderWrapper } from "./utils";
 
 export function createStoreWrapperWithData() {
   const store = createStore();
-  const testData = loadTestData();
-  const rootSection = getRootSectionId(testData.sectionChildren);
-  store.getActions().currProject.setSectionGroup(rootSection);
-  store.getActions().master.loadSections(testData);
+  store.getActions().master.loadSections(loadTestData());
   return { store, wrapper: getStoreProviderWrapper(store) };
 }
 
@@ -31,64 +29,74 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-export function getParamInfoByFullPath(allObjInfo, ...pathAsName) {
-  let curr = null;
-  let currChildren = Object.values(allObjInfo);
-  for (const name of pathAsName) {
-    curr = currChildren.filter((x) => x.name === name)[0];
-    currChildren = curr.children.map((x) => allObjInfo[x]);
-  }
-  return curr;
+export function getParamInfoByFullPath(
+  allPackageInfo,
+  packageName,
+  moduleName,
+  objName,
+  paramName
+) {
+  const pkg = _.filter(
+    allPackageInfo.children,
+    (x) => x.name === packageName
+  )[0];
+  const module = _.filter(pkg.children, (x) => x.name === moduleName)[0];
+  const obj = _.filter(module.children, (x) => x.name === objName)[0];
+  return _.filter(obj.children, (x) => x.name === paramName)[0];
 }
 
-function getParamCollectionParamInfoByName(allObjInfo, paramCollection, name) {
-  const childrenInfo = paramCollection.children.map((x) => allObjInfo[x]);
-  return _.filter(childrenInfo, (v) => v.name === name)[0];
+function getParamCollectionParamInfoByName(paramCollection, name) {
+  return _.filter(paramCollection.children, (v) => v.name === name)[0];
 }
 
-export function getUITypeByName(store, name, type, useBasePreset) {
+export function getUITypeByName(store, name, type, isBasePreset) {
   return _.filter(
     store.getState().uiTypes.x,
-    (v) =>
-      v.name === name && v.type === type && isBasePreset(v) === useBasePreset
+    (v) => v.name === name && v.type === type && v.isBasePreset === isBasePreset
   )[0];
 }
 
-export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
+function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   let result = null;
 
   // get section
   const sectionInfo = getSectionByName(store, sectionName);
 
-  const { id: sectionId, configId } = sectionInfo;
-  const { uiTypeId: sectionTypeId } =
-    store.getState().sectionConfigs.x[configId];
+  const { id: sectionId, uiTypeId: sectionTypeId } = sectionInfo;
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
   expect(result.current.id).toEqual(sectionTypeId);
-  const evColId = result.current.config.collections[0];
+  const paramCollectionId = result.current.config.parameters[0];
 
   // get the param collection that the section contains
-  const allObjInfo = store.getState().codeInfo.allObjInfo;
-  const variousParams = allObjInfo[evColId];
+  const variousParams =
+    store.getState().master.allParamCollections.children[paramCollectionId];
 
   // get the parameter we are going to test on
-  const paramInfo = getParamCollectionParamInfoByName(
-    allObjInfo,
-    variousParams,
-    paramName
-  );
+  const paramInfo = getParamCollectionParamInfoByName(variousParams, paramName);
   return { sectionInfo, paramInfo };
 }
 
-export function callInitializeParamThunk(store, sectionId, paramInfo, wrapper) {
-  // initialize paramInfo's uitype, enteredvalue etc.
+export function initializeAndReturnUIType(sectionId, paramInfo, wrapper) {
+  let result = null;
+  // initialize paramInfo's uiType
   // This is usually done in ParamContainer when the parameter loads
-  store.getActions().thunks.initializeParam({ sectionId, paramInfo });
+  ({ result } = renderUseInitializeUIType(sectionId, paramInfo, wrapper));
+  waitFor(() => result.current());
 
   // get the param's initial uiType
-  const { result } = renderUseGetParamUIType(sectionId, paramInfo.id, wrapper);
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfo.id, wrapper));
   return result.current;
+}
+
+export function initializeEnteredValueId(sectionId, paramInfoId, wrapper) {
+  let result = null;
+  ({ result } = renderUseInitializeEnteredValue(
+    sectionId,
+    paramInfoId,
+    wrapper
+  ));
+  waitFor(() => result.current());
 }
 
 export function getParameterToTestOnAndInitialUIType(
@@ -106,12 +114,14 @@ export function getParameterToTestOnAndInitialUIType(
   );
 
   // get the param's initial ui type
-  const initialUIType = callInitializeParamThunk(
-    store,
+  const initialUIType = initializeAndReturnUIType(
     sectionInfo.id,
     paramInfo,
     wrapper
   );
+
+  // initialize entered value id for the parameter
+  initializeEnteredValueId(sectionInfo.id, paramInfo.id, wrapper);
 
   return { sectionInfo, paramInfo, initialUIType };
 }
@@ -121,27 +131,27 @@ export function addChildSectionAndGetChildId(
   paramInfoId,
   defaultName,
   uiTypeId,
-  store,
   wrapper
 ) {
   let result = null;
   // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
-  store.getActions().thunks.addChild({
-    parentId: sectionId,
-    name: defaultName,
-    uiTypeId,
-    parentParamInfoId: paramInfoId,
-  });
+  ({ result } = renderUseAddChild(sectionId, wrapper));
+  waitFor(() =>
+    result.current({
+      name: defaultName,
+      uiTypeId,
+      parentParamInfoId: paramInfoId,
+    })
+  );
 
   // Get the section id of the new nested section
-  ({ result } = renderUseGetParamChildId(sectionId, paramInfoId, wrapper));
+  ({ result } = renderUseParamChildId(sectionId, paramInfoId, wrapper));
 
   // return paramChildId
-  return result.current;
+  return result.current[0];
 }
 
 export function setParamToObjectTypeAndAddChildSection(
-  store,
   wrapper,
   setUITypeProps,
   objectUIType
@@ -166,7 +176,6 @@ export function setParamToObjectTypeAndAddChildSection(
     paramInfoId,
     defaultName,
     objectUIType.id,
-    store,
     wrapper
   );
 }

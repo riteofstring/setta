@@ -1,0 +1,27 @@
+import { usePaneComboboxWidth } from "hooks/usePaneComboboxWidth";
+import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
+import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+
+export default function SectionConfigTypeSelection({
+  onDropdownSelect,
+  selectedId,
+  sectionId,
+  simpleSearch,
+}) {
+  const availableUITypes = useAvailablePresetUITypes({
+    sectionId,
+    settingSectionConfig: true,
+  });
+
+  const comboboxWidth = usePaneComboboxWidth();
+
+  return (
+    <IdNameCombobox
+      allItems={availableUITypes}
+      initialSelection={selectedId}
+      onSelectedItemChange={onDropdownSelect}
+      simpleSearch={simpleSearch}
+      width={comboboxWidth}
+    />
+  );
+}

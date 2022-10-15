@@ -1,23 +1,24 @@
 import { action, computed, thunk } from "easy-peasy";
-import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
+import { getFnSetSectionUITypeId } from "hooks/useSectionInfo";
 import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
-import { resetState } from "models/utils";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
+import { createNewId } from "utils/utils";
 
-function setDefaultIdsOverview(state, sectionId) {
-  if (!(sectionId in state.idsOverview)) {
-    state.idsOverview[sectionId] = [];
+import { exportState } from "./utils";
+
+function setDefaultChildrenInfo(state, childrenInfoId) {
+  if (!(childrenInfoId in state.childrenInfo)) {
+    state.childrenInfo[childrenInfoId] = [];
   }
-  return state.idsOverview[sectionId];
-}
-
-function getInitialState() {
-  return { x: {}, idsOverview: {}, currChildren: {} };
+  return state.childrenInfo[childrenInfoId];
 }
 
 const sectionInfos = {
-  ...getInitialState(),
+  x: {},
+  idsOverview: {},
+  childrenInfo: {},
+  currChildren: {},
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -43,9 +44,14 @@ const sectionInfos = {
   }),
 
   setIdsOverview: action((state, payload) => {
-    const { sectionId, newStateFn } = payload;
-    const currState = setDefaultIdsOverview(state, sectionId);
-    state.idsOverview[sectionId] = newStateFn(currState);
+    const { sectionId, childrenInfoId } = payload;
+    state.idsOverview[sectionId] = childrenInfoId;
+  }),
+
+  setChildrenInfo: action((state, payload) => {
+    const { childrenInfoId, newStateFn } = payload;
+    const currState = setDefaultChildrenInfo(state, childrenInfoId);
+    state.childrenInfo[childrenInfoId] = newStateFn(currState);
   }),
 
   setCurrChildren: action((state, payload) => {
@@ -53,10 +59,10 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
-  deleteSections: thunk((action, payload, helpers) => {
+  deleteSections: action((state, payload) => {
     const { sectionIds } = payload;
     for (let sid of sectionIds) {
-      deleteSectionFn(helpers, sid);
+      deleteSectionFn(state, sid);
     }
   }),
 
@@ -71,12 +77,22 @@ const sectionInfos = {
     );
   }),
 
+  setIdsOverviewThunk: thunk((actions, payload, helpers) => {
+    const { sectionId, newStateFn } = payload;
+    let childrenInfoId = helpers.getState().idsOverview[sectionId];
+    if (!childrenInfoId) {
+      childrenInfoId = createNewId();
+      actions.setIdsOverview({ sectionId, childrenInfoId });
+    }
+    actions.setChildrenInfo({ childrenInfoId, newStateFn });
+  }),
+
   moveChildThunk: thunk((actions, payload, helpers) => {
     const { oldParentId, newParentId, childId, newIndex } = payload;
 
     // Remove child from old parent's list
     if (oldParentId) {
-      actions.setIdsOverview({
+      actions.setIdsOverviewThunk({
         sectionId: oldParentId,
         newStateFn: (x) => x.filter((y) => y !== childId),
       });
@@ -97,7 +113,7 @@ const sectionInfos = {
       });
     } else {
       // Add child to new parent's list
-      actions.setIdsOverview({
+      actions.setIdsOverviewThunk({
         sectionId: newParentId,
         newStateFn: (x) => [
           ...x.slice(0, newIndex),
@@ -122,46 +138,46 @@ const sectionInfos = {
     });
   }),
 
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
+  export() {
+    return {
+      sectionInfos: exportState(this),
+      idsOverview: this.idsOverview,
+      childrenInfo: this.childrenInfo,
+    };
+  },
 };
 
 export default sectionInfos;
 
-function deleteSectionFn(helpers, sectionId) {
-  const childIds = helpers.getState().idsOverview[sectionId];
+function deleteSectionFn(state, sectionId) {
+  const childrenInfoId = state.idsOverview[sectionId];
+  const childIds = state.childrenInfo[childrenInfoId];
   if (childIds) {
     for (let child of childIds) {
-      deleteSectionFn(helpers, child);
+      deleteSectionFn(state, child);
     }
   }
-  if (helpers.getStoreState().master.activeSection === sectionId) {
-    helpers.getStoreActions().master.setActiveSection(null);
-  }
-  delete helpers.getState().x[sectionId];
-  delete helpers.getState().idsOverview[sectionId];
-  delete helpers.getState().currChildren[sectionId];
+  delete state.x[sectionId];
+  delete state.idsOverview[sectionId];
+  delete state.childrenInfo[childrenInfoId];
+  delete state.currChildren[sectionId];
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
-  const newParentConfigId = state.sectionInfos.x[newParentId]?.configId;
-  const newParentUITypeId = state.sectionConfigs.x[newParentConfigId]?.uiTypeId;
+  const newParentUITypeId = state.sectionInfos.x[newParentId]?.uiTypeId;
   const newParentUIType = state.uiTypes.x[newParentUITypeId];
   const {
+    uiTypeId: childUITypeId,
     name: childSectionName,
     paramInfoId,
-    configId: childConfigId,
   } = state.sectionInfos.x[childId];
-  const childUITypeId = state.sectionConfigs.x[childConfigId].uiTypeId;
   const childUIType = state.uiTypes.x[childUITypeId];
   const setConfig = actions.uiTypes.setOneConfig;
   const setUIType = actions.uiTypes.setUIType;
   const setParamUITypeId = () => null; //TODO: determine best course of action here
-  const setSectionUITypeId = getFnSetSectionConfigAttr(
-    childConfigId,
-    "uiTypeId",
-    actions.sectionConfigs.setSectionConfigAttr
+  const setSectionUITypeId = getFnSetSectionUITypeId(
+    childId,
+    actions.sectionInfos.setSectionInfoAttr
   );
   const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
 

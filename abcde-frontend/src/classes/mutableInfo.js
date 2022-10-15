@@ -1,19 +1,27 @@
 import { immerable } from "immer";
 import { maybeNewId } from "utils/utils";
 
-import { ObjInfo } from "./immutableInfo";
+import { ParameterInfo } from "./immutableInfo";
+
+export function exportInfo(cls) {
+  const output = {};
+  for (let k of cls.exportable) {
+    output[k] = cls[k];
+  }
+  return output;
+}
 
 export class MutableInfo {
   [immerable] = true;
 }
 
-// Entered Value
-export class EVInfo extends MutableInfo {
-  constructor({ id, value = "", childId }) {
+export class MutableParamInfo extends MutableInfo {
+  constructor({ id, enteredValueId, childId }) {
     super();
     this.id = id;
-    this.value = value;
+    this.enteredValueId = enteredValueId;
     this.childId = childId;
+    this.exportable = ["id", "enteredValueId", "childId"];
   }
 }
 
@@ -22,48 +30,66 @@ export class MutableParamUITypeInfo extends MutableInfo {
     super();
     this.id = id;
     this.uiTypeId = uiTypeId;
+    this.exportable = ["id", "uiTypeId"];
   }
 }
 
-function initName(name, parentName) {
-  return name ? name : parentName;
+export class MutableObjInfo extends MutableInfo {
+  constructor({ id, kwargIds = [] }) {
+    super();
+    this.id = id;
+    this.kwargIds = kwargIds;
+    this.exportable = ["id", "kwargIds"];
+  }
+}
+
+function initName(name, parentSectionInfo) {
+  if (name) {
+    return name;
+  } else if (parentSectionInfo) {
+    return parentSectionInfo.name;
+  }
 }
 
 export class SectionInfo extends MutableInfo {
   constructor({
     id,
     name,
-    configId,
+    uiTypeId,
+    parentSectionInfo,
+    paramCollectionId,
+    kwargCollectionId,
     paramInfoId,
+    selectedItem = null,
     isTopLevel = false,
     initialPosition = { x: 0, y: 0 },
-    parentId = null,
-    parentName = "",
   }) {
     super();
     this.id = maybeNewId(id);
-    this.name = initName(name, parentName);
-    this.configId = maybeNewId(configId);
-    this.parentId = parentId;
+    this.uiTypeId = uiTypeId;
+    this.name = initName(name, parentSectionInfo);
+    this.selectedItem = selectedItem;
+    this.paramCollectionId = maybeNewId(paramCollectionId);
+    this.kwargCollectionId = maybeNewId(kwargCollectionId);
+    this.parentId = parentSectionInfo?.id;
     this.paramInfoId = paramInfoId;
     this.isTopLevel = isTopLevel;
     this.initialPosition = initialPosition;
+    this.exportable = [
+      "id",
+      "name",
+      "uiTypeId",
+      "name",
+      "selectedItem",
+      "paramCollectionId",
+      "kwargCollectionId",
+    ];
   }
 }
 
-export class SectionConfig extends MutableInfo {
-  constructor({ id, uiTypeId, evColId, kwargColId, selectedItem = null }) {
-    super();
-    this.id = maybeNewId(id);
-    this.uiTypeId = uiTypeId;
-    this.selectedItem = selectedItem;
-    this.evColId = maybeNewId(evColId);
-    this.kwargColId = maybeNewId(kwargColId);
-  }
-}
-
-export class KwargInfo extends ObjInfo {
+export class KwargInfo extends ParameterInfo {
   [immerable] = true;
+  exportable = ["id", "name"];
 }
 
 export class ParamTypeInfo extends MutableInfo {
@@ -71,5 +97,6 @@ export class ParamTypeInfo extends MutableInfo {
     super();
     this.type = type;
     this.uiTypeId = uiTypeId;
+    this.exportable = ["type", "uiTypeId"];
   }
 }

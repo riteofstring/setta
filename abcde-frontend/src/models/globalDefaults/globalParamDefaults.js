@@ -1,7 +1,6 @@
 import { ParamTypeInfo } from "classes/mutableInfo";
 import { action } from "easy-peasy";
 import _ from "lodash";
-import { resetState } from "models/utils";
 
 function setParamTypeInfo(state, type) {
   if (!(type in state.x)) {
@@ -10,12 +9,8 @@ function setParamTypeInfo(state, type) {
   return state.x[type];
 }
 
-function getInitialState() {
-  return { x: {} };
-}
-
 const globalParamDefaults = {
-  ...getInitialState(),
+  x: {},
 
   setUITypeId: action((state, payload) => {
     const { type, uiTypeId } = payload;
@@ -30,9 +25,9 @@ const globalParamDefaults = {
     );
   }),
 
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
+  export() {
+    return this.x;
+  },
 };
 
 export default globalParamDefaults;

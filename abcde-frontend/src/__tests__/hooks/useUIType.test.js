@@ -1,13 +1,12 @@
 import { waitFor } from "@testing-library/react";
 import _ from "lodash";
 import { SLIDER } from "utils/constants";
-import { USER } from "utils/uiTypeConstants";
 import { createSectionInfoWithParam } from "__tests__utils/createSectionInfoWithParam";
 import {
   changeUITypeConfig,
-  renderUseGetParamChildId,
   renderUseGetParamUIType,
   renderUseGetSectionType,
+  renderUseParamChildId,
   renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 import {
@@ -19,7 +18,10 @@ import {
 test("Create a section with a parameter that has a UI type. Then useGetParamUIType should return the correct uiType for that parameter.", () => {
   const store = createStore();
   const wrapper = getStoreProviderWrapper(store);
-  const { si, uiType, paramInfoId } = createSectionInfoWithParam(store);
+  const { si, uiType, paramInfoId } = createSectionInfoWithParam(
+    store,
+    wrapper
+  );
 
   const { result } = renderUseGetParamUIType(si.id, paramInfoId, wrapper);
   expect(result.current).toEqual(uiType);
@@ -38,12 +40,12 @@ test.each(useSetUITypeTestCases())(
 9. Otherwise, if "uiType2" is a preset but settingPreset is false, then it does not have the new config.
 10. If step 9 is true, then there is a new uiType ("uiType3") with a default name "SomeParam".
 11. If the param is nested, it's section type should be either uiType2 or uiType3, but not uiType1.
-Trying setting: presetType=%s, settingPreset=%s, paramIsNested=%s, settingSectionConfig=%s
+Trying setting: isPreset=%s, settingPreset=%s, paramIsNested=%s, settingSectionConfig=%s
 
 `,
-  (presetType, settingPreset, paramIsNested, settingSectionConfig) => {
+  (isPreset, settingPreset, paramIsNested, settingSectionConfig) => {
     testUseSetUIType(
-      presetType,
+      isPreset,
       settingPreset,
       paramIsNested,
       settingSectionConfig
@@ -53,7 +55,7 @@ Trying setting: presetType=%s, settingPreset=%s, paramIsNested=%s, settingSectio
 
 function useSetUITypeTestCases() {
   const output = [];
-  for (let presetType of [USER, null]) {
+  for (let isPreset of [true, false]) {
     for (let settingPreset of [true, false]) {
       for (let paramIsNested of [true, false]) {
         for (let settingSectionConfig of [true, false]) {
@@ -61,7 +63,7 @@ function useSetUITypeTestCases() {
             continue;
           }
           output.push([
-            presetType,
+            isPreset,
             settingPreset,
             paramIsNested,
             settingSectionConfig,
@@ -74,7 +76,7 @@ function useSetUITypeTestCases() {
 }
 
 function testUseSetUIType(
-  presetType,
+  newUITypeIsPreset,
   settingPreset,
   paramIsNested,
   settingSectionConfig
@@ -83,6 +85,7 @@ function testUseSetUIType(
   const wrapper = getStoreProviderWrapper(store);
   const { si, uiType, paramInfoId } = createSectionInfoWithParam(
     store,
+    wrapper,
     paramIsNested
   );
 
@@ -90,8 +93,8 @@ function testUseSetUIType(
   expect(_.size(store.getState().uiTypes.x)).toEqual(2);
 
   let result = null;
-  ({ result } = renderUseGetParamChildId(si.id, paramInfoId, wrapper));
-  const childId = result.current;
+  ({ result } = renderUseParamChildId(si.id, paramInfoId, wrapper));
+  const childId = result.current[0];
 
   if (paramIsNested) {
     // child section type should be uiType
@@ -116,7 +119,7 @@ function testUseSetUIType(
   // create new ui type
   const newUITypeName = "TheBestSlider";
   const newUIType = addUIType(store, {
-    presetType,
+    isPreset: newUITypeIsPreset,
     name: newUITypeName,
     type: SLIDER,
   });
@@ -151,10 +154,12 @@ function testUseSetUIType(
   const newUITypeConfig = store.getState().uiTypes.x[newUIType.id].config;
   // check if newUIType.config is changed
   expect(newUITypeConfig).toEqual(
-    (presetType && settingPreset) || !presetType ? { maxValue: 634 } : {}
+    (newUITypeIsPreset && settingPreset) || !newUITypeIsPreset
+      ? { maxValue: 634 }
+      : {}
   );
 
-  const isPresetNotSettingPreset = presetType && !settingPreset;
+  const isPresetNotSettingPreset = newUITypeIsPreset && !settingPreset;
 
   // If newUIType is preset and we're not setting preset
   // then a new ui type *with a unique id* should have been created

@@ -1,28 +1,6 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
 
-export function accessPage({
-  address,
-  access_token,
-  actionStayLoggedIn,
-  actionLoginFail,
-}) {
-  if (NO_AUTH) {
-    actionStayLoggedIn();
-    return true;
-  }
-  return axios
-    .post(BACKEND + address, null, tokenConfig(access_token))
-    .then(() => {
-      actionStayLoggedIn();
-      return true;
-    })
-    .catch(() => {
-      actionLoginFail();
-      return false;
-    });
-}
-
 // LOGIN USER
 export const login = ({
   username,
@@ -43,7 +21,7 @@ export const login = ({
       return true;
     })
     .catch(() => {
-      actionLoginFail();
+      actionLoginFail(null);
       return false;
     });
 };
@@ -57,29 +35,30 @@ export const logout = ({ actionLoginFail, access_token }) => {
   axios
     .post(BACKEND + "api/auth/logout", null, tokenConfig(access_token))
     .then(() => {
-      actionLoginFail();
+      actionLoginFail(null);
     })
     .catch(() => {
-      actionLoginFail();
+      actionLoginFail(null);
     });
 };
 
 // REGISTER USER
 export const register = ({
   username,
+  email,
   password,
   actionLoginSuccess,
   actionLoginFail,
 }) => {
   console.log("attempting register");
-  const body = JSON.stringify({ username, password });
+  const body = JSON.stringify({ username, email, password });
   axios
-    .post(BACKEND + "auth/register", body, tokenConfig(null))
+    .post(BACKEND + "api/auth/register", body, tokenConfig(null))
     .then((res) => {
       actionLoginSuccess(res.data);
     })
     .catch(() => {
-      actionLoginFail();
+      actionLoginFail(null);
     });
 };
 
@@ -93,7 +72,7 @@ export const tokenConfig = (access_token) => {
 
   // If token, add to headers config
   if (access_token) {
-    config.headers["Authorization"] = `Bearer ${access_token}`;
+    config.headers["Authorization"] = `Token ${access_token}`;
   }
 
   return config;
