@@ -30,11 +30,20 @@ export async function persistEVCols(em, evCols) {
   }
 }
 
-export async function persistSections(em, sections) {
+export async function persistSections(em, sections, sectionChildren) {
+  const persisted = {};
   for (const v of _.values(sections)) {
     const x = await createIfNotFound(em, Sections, { id: v.id });
-    x.name = v.name;
-    x.paramInfoId = v.paramInfoId;
+    em.assign(x, {
+      name: v.name,
+      paramInfo: v.paramInfoId,
+    });
     em.persist(x);
+    persisted[x.id] = x;
+  }
+  for (const sid of _.keys(sectionChildren)) {
+    em.assign(persisted[sid], {
+      children: sectionChildren[sid],
+    });
   }
 }

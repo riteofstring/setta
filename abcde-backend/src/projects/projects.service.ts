@@ -45,10 +45,11 @@ export class ProjectsService {
   }
 
   async save(user, project): Promise<any> {
-    const { ev, evCols, sections } = project;
+    const { ev, evCols, uiTypes, sections, sectionChildren, sectionConfigs } =
+      project;
     persistEV(this.em, ev);
     persistEVCols(this.em, evCols);
-    persistSections(this.em, sections);
+    // persistSections(this.em, sections, sectionChildren);
     await this.em.flush();
   }
 
