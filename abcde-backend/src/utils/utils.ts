@@ -19,14 +19,15 @@ export async function createIfNotFound(
   em,
   type,
   findBy,
-  fullProps = null,
+  assign = null,
   persist = true,
 ) {
   let x = await em.findOne(type, findBy);
   if (!x) {
-    x = em.create(type, fullProps ? fullProps : findBy);
-  } else if (fullProps) {
-    em.assign(x, fullProps);
+    x = em.create(type, findBy);
+  }
+  if (assign) {
+    em.assign(x, assign);
   }
   if (persist) {
     em.persist(x);
