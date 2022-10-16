@@ -2,12 +2,6 @@ import { CodeInfo } from '../entities/codeInfo.entity';
 import _ = require('lodash');
 import { createIfNotFound } from '../utils/utils';
 
-// TODO
-// Add this to package.json when we switch to a monorepo
-// "imports": {
-//   "#abcde-data/*": "abcde-frontend/src/__tests__data/*"
-// }
-
 export async function persistCodeInfo(em, codeInfo) {
   for (const v of _.values(codeInfo)) {
     const { parent, children, ...assign } = v;
