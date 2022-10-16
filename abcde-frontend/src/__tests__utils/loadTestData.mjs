@@ -3,16 +3,17 @@ import _ from "lodash";
 export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
+  forNode = false,
   forBackend = false,
 }) {
   const loaded = await loadOneProjectMetadata({
     projectName,
     subFolderName,
-    forBackend,
+    forNode,
   });
 
   for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
-    loaded[k] = await loadSpecificTestData({ name: k, forBackend });
+    loaded[k] = await loadSpecificTestData({ name: k, forNode });
   }
 
   for (const k of [
@@ -34,7 +35,7 @@ export async function loadOneProject({
       name: k,
       projectName,
       subFolderName,
-      forBackend,
+      forNode,
     });
   }
 
@@ -50,7 +51,7 @@ export async function loadOneProject({
   const _codeInfo = { ...codeInfo, ...kwargInfo };
   const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
 
-  // When sending to the backend, we send just kwargInfo
+  // When, we send just kwargInfo
   // instead of both kwargInfo and codeInfo
   if (forBackend) {
     return {
@@ -71,7 +72,7 @@ export async function loadSpecificTestData({
   name,
   projectName = "",
   subFolderName = "",
-  forBackend = false,
+  forNode = false,
 }) {
   const ext = ".ts";
 
@@ -81,18 +82,18 @@ export async function loadSpecificTestData({
         /* @vite-ignore */ `../__tests__data/${projectName}/${subFolderName}/${name}${ext}`
       )
     ).default;
-    return forBackend ? output.default : output;
+    return forNode ? output.default : output;
   } catch (e) {
     return {};
   }
 }
 
-export async function loadAllProjects({ forBackend = false }) {
+export async function loadAllProjects({ forNode = false }) {
   const output = [];
   for (const p of projectNames()) {
     for (const subFolderName of projectSubFolderNames(p)) {
       output.push(
-        await loadOneProject({ projectName: p, subFolderName, forBackend })
+        await loadOneProject({ projectName: p, subFolderName, forNode })
       );
     }
   }
@@ -102,20 +103,20 @@ export async function loadAllProjects({ forBackend = false }) {
 export async function loadOneProjectMetadata({
   projectName,
   subFolderName,
-  forBackend,
+  forNode,
 }) {
   const loaded = {};
 
   loaded["project"] = await loadSpecificTestData({
     name: "project",
     projectName,
-    forBackend,
+    forNode,
   });
   loaded["projectConfig"] = await loadSpecificTestData({
     name: "projectConfig",
     projectName,
     subFolderName,
-    forBackend,
+    forNode,
   });
 
   return loaded;
