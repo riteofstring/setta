@@ -18,6 +18,7 @@ export async function getProject(id, projects: ProjectsRepository) {
     { id },
     {
       populate: [
+        'defaultConfig.children.sectionChildren',
         'defaultConfig.sectionConfigCol.sectionConfigCols.section.children.sectionChildren',
         'defaultConfig.sectionConfigCol.sectionConfigCols.config.uiType',
       ],
@@ -49,13 +50,16 @@ export function getSectionChildrenIds(sectionConfigCols) {
 export function getSectionChildren(sectionConfigCols) {
   const sectionChildren = {};
   for (const col of sectionConfigCols) {
-    const children = col.section.children.sectionChildren.getItems();
-    const orderedChildren = _.orderBy(children, (v) => v.order).map(
-      (x) => x.section.id,
-    );
-    sectionChildren[col.section.id] = orderedChildren;
+    const children = col.section.children.sectionChildren;
+    sectionChildren[col.section.id] = getOrderedChildren(children);
   }
   return sectionChildren;
+}
+
+export function getOrderedChildren(children) {
+  return _.orderBy(children.getItems(), (v) => v.order).map(
+    (x) => x.section.id,
+  );
 }
 
 export function processSectionConfigs(sectionConfigs) {

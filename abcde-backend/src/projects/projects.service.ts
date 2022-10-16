@@ -6,6 +6,7 @@ import { SectionsRepository } from '../sections/sections.repository';
 import { SectionConfigColsRepository } from '../sections/sectionConfigCols.repository';
 import _ = require('lodash');
 import {
+  getOrderedChildren,
   getProject,
   getSectionChildren,
   getSectionChildrenIds,
@@ -52,14 +53,13 @@ export class ProjectsService {
 
   async loadOne(id: string): Promise<any> {
     const fullObj = await getProject(id, this.projects);
+    const { defaultConfig: projectConfig, ...project } = fullObj;
     const {
-      defaultConfig: {
-        id: projectConfigId,
-        sectionConfigCol: { id: sectionConfigColId, sectionConfigCols },
-      },
-      ...project
-    } = fullObj;
+      children,
+      sectionConfigCol: { sectionConfigCols },
+    } = projectConfig;
 
+    const projectChildren = getOrderedChildren(children.sectionChildren);
     const sections = getSections(sectionConfigCols);
     const sectionChildrenIds = getSectionChildrenIds(sectionConfigCols);
     const sectionChildren = getSectionChildren(sectionConfigCols);
@@ -80,7 +80,19 @@ export class ProjectsService {
     const sectionConfigs = processSectionConfigs(tempSectionConfigs);
 
     return {
-      project: { ...project, configId: projectConfigId, sectionConfigColId },
+      project: {
+        id: project.id,
+        name: project.name,
+        owner: project.owner.id,
+        defaultConfig: projectConfig.id,
+      },
+      projectConfig: {
+        id: projectConfig.id,
+        name: projectConfig.name,
+        sectionConfigCol: projectConfig.sectionConfigCol.id,
+        childrenId: projectConfig.children.id,
+        children: projectChildren,
+      },
       sections,
       sectionChildren,
       sectionChildrenIds,

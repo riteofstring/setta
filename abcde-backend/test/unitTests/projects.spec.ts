@@ -50,17 +50,18 @@ describe('ProjectsService', () => {
 
   it('Get a project with nested sections', async () => {
     const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
-    const { body: project } = await request(app.getHttpServer())
+    const { body: retrieved } = await request(app.getHttpServer())
       .post(`/projects/load/${projectId}`)
       .set('Authorization', `Bearer ${access_token}`);
 
     const allProjects = await loadAllProjects({});
     const {
+      project,
+      projectConfig,
       codeInfo,
       ev,
       evCols,
       kwargCols,
-      projectDefaults,
       sectionChildren,
       sectionChildrenIds,
       sectionConfigCol,
@@ -70,17 +71,19 @@ describe('ProjectsService', () => {
       uiTypesCols,
     } = allProjects.filter((x) => x.project.id === projectId)[0];
 
-    expect(project.sections).toEqual(sections);
-    expect(project.sectionChildren).toEqual(sectionChildren);
-    expect(project.sectionConfigs).toEqual(sectionConfigs);
-    expect(project.sectionConfigCol).toEqual(sectionConfigCol);
-    expect(project.ev).toEqual(ev);
-    expect(project.evCols).toEqual(evCols);
-    expect(project.uiTypes).toEqual(uiTypes);
-    expect(project.uiTypesCols).toEqual(uiTypesCols);
-    expect(project.kwargCols).toEqual(kwargCols);
-    expect(project.sectionChildrenIds).toEqual(sectionChildrenIds);
-    compareCodeInfo(project.codeInfo, codeInfo);
+    expect(retrieved.project).toEqual(project);
+    expect(retrieved.projectConfig).toEqual(projectConfig);
+    expect(retrieved.sections).toEqual(sections);
+    expect(retrieved.sectionChildren).toEqual(sectionChildren);
+    expect(retrieved.sectionConfigs).toEqual(sectionConfigs);
+    expect(retrieved.sectionConfigCol).toEqual(sectionConfigCol);
+    expect(retrieved.ev).toEqual(ev);
+    expect(retrieved.evCols).toEqual(evCols);
+    expect(retrieved.uiTypes).toEqual(uiTypes);
+    expect(retrieved.uiTypesCols).toEqual(uiTypesCols);
+    expect(retrieved.kwargCols).toEqual(kwargCols);
+    expect(retrieved.sectionChildrenIds).toEqual(sectionChildrenIds);
+    compareCodeInfo(retrieved.codeInfo, codeInfo);
   });
 });
 
