@@ -1,9 +1,15 @@
-import baseUITypes from "__tests__data/BaseUITypes";
-import globalDefaults from "__tests__data/GlobalDefaults";
-import presetUITypes from "__tests__data/PresetUITypes";
-
 export async function loadTestData(projectName = "simpleTrainTest") {
   const loaded = {};
+  const ext = ".ts";
+
+  for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
+    try {
+      loaded[k] = (await import(`../__tests__data/${k}${ext}`)).default;
+    } catch (e) {
+      loaded[k] = {};
+    }
+  }
+
   for (const k of [
     "codeInfo",
     "ev",
@@ -23,15 +29,23 @@ export async function loadTestData(projectName = "simpleTrainTest") {
   ]) {
     try {
       loaded[k] = (
-        await import(`../__tests__data/${projectName}/${k}`)
+        await import(`../__tests__data/${projectName}/${k}${ext}`)
       ).default;
     } catch (e) {
       loaded[k] = {};
     }
   }
 
-  const { project, projectConfig, codeInfo, kwargInfo, uiTypes, ...theRest } =
-    loaded;
+  const {
+    project,
+    projectConfig,
+    codeInfo,
+    kwargInfo,
+    uiTypes,
+    baseUITypes,
+    presetUITypes,
+    ...theRest
+  } = loaded;
 
   const _project = {
     id: project.id,
@@ -49,7 +63,6 @@ export async function loadTestData(projectName = "simpleTrainTest") {
   return {
     project: _project,
     codeInfo: _codeInfo,
-    globalDefaults,
     uiTypes: _uiTypes,
     ...theRest,
   };

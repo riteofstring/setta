@@ -5,7 +5,8 @@ import { tokenConfig } from "./authentication";
 
 export async function getProjects({ access_token }) {
   if (NO_AUTH) {
-    return [await loadTestData().project];
+    const testData = await loadTestData();
+    return [testData.project];
   }
   return axios
     .post(BACKEND + "projects", null, tokenConfig(access_token))
