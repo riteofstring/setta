@@ -29,15 +29,26 @@ export async function persistSectionChildren(
   sectionChildrenIds,
 ) {
   for (const sectionId of _.keys(sectionChildren)) {
-    const currList = sectionChildren[sectionId];
-    for (let i = 0; i < currList.length; i++) {
-      const findBy = {
-        id: sectionChildrenIds[sectionId],
-        section: currList[i],
-      };
-      const assign = { order: i };
-      await createIfNotFound(em, SectionChildren, findBy, assign);
-    }
+    await persistOneSectionChildren(
+      em,
+      sectionChildren[sectionId],
+      sectionChildrenIds[sectionId],
+    );
+  }
+}
+
+export async function persistOneSectionChildren(
+  em,
+  sectionChildren,
+  sectionChildrenId,
+) {
+  for (let i = 0; i < sectionChildren.length; i++) {
+    const findBy = {
+      id: sectionChildrenId,
+      section: sectionChildren[i],
+    };
+    const assign = { order: i };
+    await createIfNotFound(em, SectionChildren, findBy, assign);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Projects } from '../entities/projects/projects.entity';
 import { ProjectConfigs } from '../entities/projects/projectConfigs.entity';
 import {
+  persistOneSectionChildren,
   persistSectionChildren,
   persistSectionConfigCols,
   persistSectionConfigs,
@@ -13,6 +14,7 @@ import { persistCodeInfo } from '../codeInfo/savingFunctions';
 import _ = require('lodash');
 import { createIfNotFound } from '../utils/utils';
 import { SectionConfigColsIds } from '../entities/sections/sectionConfigColsIds.entity';
+import { SectionChildrenIds } from '../entities/sections/sectionChildrenIds.entity';
 
 // em = entityManager
 // p = object that contains project info
@@ -39,13 +41,14 @@ export async function persistProject(em, project) {
 }
 
 export async function persistProjectConfig(em, config) {
-  const { id, name, sectionConfigCol } = config;
+  const { id, name, sectionConfigCol, children, childrenId } = config;
   await createIfNotFound(em, SectionConfigColsIds, {
     id: sectionConfigCol,
   });
-
+  await createIfNotFound(em, SectionChildrenIds, { id: childrenId });
+  await persistOneSectionChildren(em, children, childrenId);
   const findBy = { id };
-  const assign = { name, sectionConfigCol };
+  const assign = { name, sectionConfigCol, children: childrenId };
   await createIfNotFound(em, ProjectConfigs, findBy, assign);
 }
 
