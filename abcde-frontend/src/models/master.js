@@ -98,21 +98,14 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    let {
+    const {
       sections,
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
       sectionChildrenIds,
     } = payload;
-    let topLevelIds = null;
-    ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
-      omitProjectSectionAndGetTopLevelIds(
-        helpers.getStoreState(),
-        sections,
-        sectionConfigs,
-        sectionChildren
-      ));
+    const topLevelIds = helpers.getStoreState().project.children;
 
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
@@ -155,23 +148,6 @@ const master = {
 };
 
 export default master;
-
-function omitProjectSectionAndGetTopLevelIds(
-  state,
-  sections,
-  sectionConfigs,
-  sectionChildren
-) {
-  const projectRootSection = state.project.rootSection;
-  const topLevelIds = sectionChildren[projectRootSection];
-  const projectSectionConfigId = sections[projectRootSection].configId;
-  return {
-    sections: _.omit(sections, projectRootSection),
-    sectionConfigs: _.omit(sectionConfigs, projectSectionConfigId),
-    sectionChildren: _.omit(sectionChildren, projectRootSection),
-    topLevelIds,
-  };
-}
 
 // reset states, except for state.project
 // If you reset state.project, the id will be reset, causing another render in MainContainer

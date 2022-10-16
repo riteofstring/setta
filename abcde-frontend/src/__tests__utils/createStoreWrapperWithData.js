@@ -6,7 +6,6 @@ import {
   SECTION_TYPE_NAMES,
 } from "utils/constants";
 import { isBasePreset } from "utils/uiTypeConstants";
-import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "./loadTestData";
 import {
   renderUseAvailablePresetUITypes,
@@ -21,8 +20,6 @@ import { createStore, getStoreProviderWrapper } from "./utils";
 export function createStoreWrapperWithData() {
   const store = createStore();
   const testData = loadTestData();
-  const rootSection = getRootSectionId(testData.sectionChildren);
-  store.getActions().project.setRootSection(rootSection);
   store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }

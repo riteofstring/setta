@@ -8,7 +8,8 @@ function getInitialState() {
     name: "",
     configId: null,
     sectionConfigColId: null,
-    rootSection: null,
+    childrenId: null,
+    children: [],
   };
 }
 
@@ -25,18 +26,6 @@ const project = {
 
   setId: action((state, payload) => {
     state.id = payload;
-  }),
-
-  setName: action((state, payload) => {
-    state.name = payload;
-  }),
-
-  setConfigId: action((state, payload) => {
-    state.configId = payload;
-  }),
-
-  setRootSection: action((state, payload) => {
-    state.rootSection = payload;
   }),
 
   reset: action((state) => {

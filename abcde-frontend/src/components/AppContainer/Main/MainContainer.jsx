@@ -5,7 +5,6 @@ import { useProjectLoader } from "hooks/useProjectLoader";
 import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { NO_AUTH } from "utils/constants";
-import { getRootSectionId } from "utils/utils";
 import { loadTestData } from "__tests__utils/loadTestData";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
@@ -57,19 +56,14 @@ async function fetchData(access_token, id) {
 }
 
 function useNoAuthLoading() {
-  const setRootSection = useStoreActions((x) => x.project.setRootSection);
-
   return (projectLoader) => {
     const testData = loadTestData();
-    const rootSection = getRootSectionId(testData.sectionChildren);
-    setRootSection(rootSection);
     projectLoader(testData);
     return true;
   };
 }
 
 function useAuthLoading() {
-  const setRootSection = useStoreActions((x) => x.project.setRootSection);
   const clearSections = useStoreActions((x) => x.master.clearSections);
   const access_token = useStoreState((x) => x.auth.access_token);
 
@@ -78,10 +72,8 @@ function useAuthLoading() {
     const projectInfo = await fetchData(access_token, projectId);
     const { projectDefaults, globalDefaults } = loadTestData();
     clearSections();
-    const rootSection = getRootSectionId(projectInfo.sectionChildren);
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
-    setRootSection(rootSection);
     projectLoader({
       projectDefaults,
       globalDefaults,
