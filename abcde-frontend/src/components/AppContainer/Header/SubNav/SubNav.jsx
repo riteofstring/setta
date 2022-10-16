@@ -1,7 +1,7 @@
-import { Button } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import VerticalLine from "utils/atoms/dividers/verticalLine";
 import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
 import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
@@ -53,8 +53,10 @@ function UiEditorSubNav() {
 function LoggedOutNav({ setCurrPage }) {
   return (
     <>
-      <Button onClick={() => setCurrPage(LOGIN)}>Login</Button>
-      <Button onClick={() => setCurrPage(SIGN_UP)}>Sign Up</Button>
+      <MenuBarButton onClick={() => setCurrPage(LOGIN)}>Login</MenuBarButton>
+      <MenuBarButton onClick={() => setCurrPage(SIGN_UP)}>
+        Sign Up
+      </MenuBarButton>
     </>
   );
 }
