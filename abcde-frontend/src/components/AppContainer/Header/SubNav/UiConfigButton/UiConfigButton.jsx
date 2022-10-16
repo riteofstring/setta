@@ -1,6 +1,6 @@
 import { useDisclosure } from "@chakra-ui/react";
-import MenuBarButton from "components/Common/Button/MenuBarButton";
 import { BiCodeBlock } from "react-icons/bi";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 
 import UiEditorModal from "./UiConfigModal";
 
