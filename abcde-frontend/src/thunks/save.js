@@ -25,6 +25,13 @@ export const saveProject = thunk((actions, payload, helpers) => {
   const sectionChildren = s.sectionInfos.idsOverview;
   const sectionConfigs = s.sectionConfigs.x;
 
+  const sectionConfigCols = {
+    [s.project.sectionConfigColId]: _.mapValues(
+      s.sectionInfos.x,
+      (v) => v.configId
+    ),
+  };
+
   const project = {
     ev,
     evCols,
@@ -35,6 +42,7 @@ export const saveProject = thunk((actions, payload, helpers) => {
     sections,
     sectionChildren,
     sectionConfigs,
+    sectionConfigCols,
   };
 
   saveProjectDb({ access_token, project });

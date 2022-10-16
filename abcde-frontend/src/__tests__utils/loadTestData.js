@@ -20,11 +20,17 @@ export function loadTestData(
   projectId = "61e089c8-62bf-4e8c-915e-111b4587da81"
 ) {
   let project = projects[projectId];
-  const projectConfigId = project.defaultConfig;
-  const projectConfig = projectConfigs[projectConfigId];
-  const sectionConfigCol = sectionConfigCols[projectConfig.sectionConfigCol];
+  const configId = project.defaultConfig;
+  const config = projectConfigs[configId];
+  const sectionConfigColId = config.sectionConfigCol;
+  const sectionConfigCol = sectionConfigCols[sectionConfigColId];
 
-  project = { id: project.id, name: project.name, configId: projectConfigId };
+  project = {
+    id: project.id,
+    name: project.name,
+    configId,
+    sectionConfigColId,
+  };
 
   return {
     project,

@@ -118,7 +118,7 @@ const master = {
         initialPosition,
         ...x,
         parentId,
-        configId: sectionConfigCol[x.id].configId,
+        configId: sectionConfigCol[x.id],
         isTopLevel: topLevelIds.includes(x.id),
       });
       idx += 1;
@@ -173,6 +173,8 @@ function omitProjectSectionAndGetTopLevelIds(
   };
 }
 
+// reset states, except for state.project
+// If you reset state.project, the id will be reset, causing another render in MainContainer
 function resetProject(a) {
   a.globalParamDefaults.reset();
   a.projectParamDefaults.reset();

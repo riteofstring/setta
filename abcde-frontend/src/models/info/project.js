@@ -1,14 +1,26 @@
 import { action } from "easy-peasy";
 import _ from "lodash";
+import { resetState } from "models/utils";
+
+function getInitialState() {
+  return {
+    id: null,
+    name: "",
+    configId: null,
+    sectionConfigColId: null,
+    rootSection: null,
+  };
+}
 
 const project = {
-  id: null,
-  name: "",
-  configId: null,
-  rootSection: null,
+  ...getInitialState(),
 
   setAllProjectDetails: action((state, payload) => {
-    _.forEach(payload, (v, k) => (state[k] = v));
+    for (const k of _.keys(getInitialState())) {
+      if (k in payload) {
+        state[k] = payload[k];
+      }
+    }
   }),
 
   setId: action((state, payload) => {
@@ -25,6 +37,10 @@ const project = {
 
   setRootSection: action((state, payload) => {
     state.rootSection = payload;
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
   }),
 };
 
