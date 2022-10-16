@@ -30,7 +30,7 @@ export const saveProject = thunk((actions, payload, helpers) => {
   const sectionConfigs = s.sectionConfigs.x;
 
   const sectionConfigCols = {
-    [s.project.sectionConfigColId]: _.mapValues(
+    [s.projectConfig.sectionConfigColId]: _.mapValues(
       s.sectionInfos.x,
       (v) => v.configId
     ),

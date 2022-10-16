@@ -40,8 +40,6 @@ export async function loadOneProject({
   }
 
   const {
-    project,
-    projectConfig,
     codeInfo,
     kwargInfo,
     uiTypes,
@@ -50,31 +48,19 @@ export async function loadOneProject({
     ...theRest
   } = loaded;
 
-  const _project = {
-    id: project.id,
-    name: project.name,
-    configId: projectConfig.id,
-    sectionConfigColId: projectConfig.sectionConfigCol,
-    childrenId: projectConfig.childrenId,
-    children: projectConfig.children,
-  };
-
   const _codeInfo = { ...codeInfo, ...kwargInfo };
-
   const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
 
   // When sending to the backend, we send just kwargInfo
   // instead of both kwargInfo and codeInfo
   if (forBackend) {
     return {
-      project: _project,
       kwargInfo,
       uiTypes: _uiTypes,
       ...theRest,
     };
   } else {
     return {
-      project: _project,
       codeInfo: _codeInfo,
       uiTypes: _uiTypes,
       ...theRest,

@@ -19,6 +19,7 @@ const master = {
   loadSections: thunk((action, payload, helpers) => {
     const {
       project,
+      projectConfig,
       codeInfo,
       globalDefaults,
       projectDefaults,
@@ -35,7 +36,8 @@ const master = {
     } = payload;
 
     const a = helpers.getStoreActions();
-    a.project.setAllProjectDetails(project);
+    a.project.setAll(project);
+    a.projectConfig.setAll(projectConfig);
     a.codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
     a.paramInfos.setAllUITypeIds({ ...uiTypesCols });
@@ -105,7 +107,7 @@ const master = {
       sectionChildren,
       sectionChildrenIds,
     } = payload;
-    const topLevelIds = helpers.getStoreState().project.children;
+    const topLevelIds = helpers.getStoreState().projectConfig.children;
 
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
