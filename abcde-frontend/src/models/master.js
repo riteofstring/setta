@@ -58,6 +58,7 @@ const master = {
       sectionConfigCol,
       sectionChildren,
       sectionChildrenIds,
+      topLevelIds: projectConfig.children,
     });
   }),
 
@@ -93,9 +94,8 @@ const master = {
       sectionConfigCol,
       sectionChildren,
       sectionChildrenIds,
+      topLevelIds,
     } = payload;
-    const topLevelIds = helpers.getStoreState().projectConfig.children;
-
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
       const initialPosition = {

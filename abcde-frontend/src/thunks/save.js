@@ -9,9 +9,11 @@ export function getProjectData(s) {
     "id",
     "name",
     "sectionConfigCol",
-    "children",
     "childrenId",
   ]);
+  projectConfig.children = s.sectionInfos.topLevelSectionPositions.map(
+    (x) => x.id
+  );
 
   const ev = _.mapValues(s.enteredValues.x, (v) =>
     _.pick(v, ["value", "childId"])
