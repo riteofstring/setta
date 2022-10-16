@@ -1,13 +1,8 @@
 export async function loadTestData(projectName = "simpleTrainTest") {
   const loaded = {};
-  const ext = ".ts";
 
   for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
-    try {
-      loaded[k] = (await import(/* @vite-ignore */ `../__tests__data/${k}${ext}`)).default;
-    } catch (e) {
-      loaded[k] = {};
-    }
+    loaded[k] = await loadSpecificTestData({ name: k });
   }
 
   for (const k of [
@@ -27,13 +22,7 @@ export async function loadTestData(projectName = "simpleTrainTest") {
     "uiTypes",
     "uiTypesCols",
   ]) {
-    try {
-      loaded[k] = (
-        await import(/* @vite-ignore */ `../__tests__data/${projectName}/${k}${ext}`)
-      ).default;
-    } catch (e) {
-      loaded[k] = {};
-    }
+    loaded[k] = await loadSpecificTestData({ name: k, projectName });
   }
 
   const {
@@ -66,4 +55,18 @@ export async function loadTestData(projectName = "simpleTrainTest") {
     uiTypes: _uiTypes,
     ...theRest,
   };
+}
+
+export async function loadSpecificTestData({ name, projectName = "" }) {
+  const ext = ".ts";
+
+  try {
+    return (
+      await import(
+        /* @vite-ignore */ `../__tests__data/${projectName}/${name}${ext}`
+      )
+    ).default;
+  } catch (e) {
+    return {};
+  }
 }
