@@ -101,7 +101,7 @@ function RightColumn({ projects, setProjects }) {
 function ProjectItem({ project }) {
   const { name, id, configs } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
-  const setCurrProject = useStoreActions((x) => x.currProject.setId);
+  const setCurrProject = useStoreActions((x) => x.project.setId);
 
   function onClick() {
     setCurrPage(UI);

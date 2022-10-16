@@ -22,7 +22,7 @@ export function createStoreWrapperWithData() {
   const store = createStore();
   const testData = loadTestData();
   const rootSection = getRootSectionId(testData.sectionChildren);
-  store.getActions().currProject.setSectionGroup(rootSection);
+  store.getActions().project.setRootSection(rootSection);
   store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }

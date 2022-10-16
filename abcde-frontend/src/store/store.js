@@ -3,10 +3,10 @@ import auth from "models/auth";
 import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
 import codeInfo from "models/info/codeInfo";
-import currProject from "models/info/currProject";
 import enteredValues from "models/info/enteredValues";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
+import project from "models/info/project";
 import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
@@ -39,7 +39,7 @@ const store = createStore(
       projectParamDefaults: projectParamDefaults,
       globalParamDefaults: globalParamDefaults,
       currPage: currPage,
-      currProject: currProject,
+      project: project,
       thunks: thunks,
       setState: action((state, payload) => payload),
       setSubState: action((state, payload) => {

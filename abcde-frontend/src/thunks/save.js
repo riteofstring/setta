@@ -6,12 +6,12 @@ export const saveProject = thunk((actions, payload, helpers) => {
   const s = helpers.getStoreState();
   const access_token = s.auth.access_token;
 
-  const projectId = s.currProject.id;
+  const projectId = s.project.id;
 
   const ev = s.enteredValues.x;
   const evCols = s.paramInfos.x;
   const uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
-  const uiTypeCols = s.paramInfos.y;
+  const uiTypesCols = s.paramInfos.y;
 
   const kwargCols = s.objInfos.x;
   const kwargInfos = getKwargInfos(s, kwargCols);
@@ -29,7 +29,7 @@ export const saveProject = thunk((actions, payload, helpers) => {
     ev,
     evCols,
     uiTypes,
-    uiTypeCols,
+    uiTypesCols,
     kwargInfos,
     kwargCols,
     sections,

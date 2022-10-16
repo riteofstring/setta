@@ -18,6 +18,7 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     const {
+      project,
       codeInfo,
       globalDefaults,
       projectDefaults,
@@ -32,9 +33,11 @@ const master = {
       kwargCols,
     } = payload;
 
-    helpers.getStoreActions().codeInfo.loadObjInfoAndCollections(codeInfo);
+    const a = helpers.getStoreActions();
+    a.project.setAllProjectDetails(project);
+    a.codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
-    action.initUITypesCols(uiTypesCols);
+    a.paramInfos.setAllUITypeIds({ ...uiTypesCols });
     action.initParamDefaults({
       storeName: "globalParamDefaults",
       paramDefaults: globalDefaults.paramDefaults,
@@ -44,7 +47,7 @@ const master = {
       paramDefaults: projectDefaults.paramDefaults,
     });
     action.initEV(ev);
-    action.initEVCols(evCols);
+    a.paramInfos.setAllEnteredValueIds({ ...evCols });
     action.initKwargCols(kwargCols);
     action.initSections({
       sections,
@@ -71,20 +74,12 @@ const master = {
     setManyUITypes({ uiTypes });
   }),
 
-  initUITypesCols: thunk((action, payload, helpers) => {
-    helpers.getStoreActions().paramInfos.setAllUITypeIds({ ...payload });
-  }),
-
   initEV: thunk((action, payload, helpers) => {
     const a = helpers.getStoreActions();
     _.forEach(payload, (v, k) => {
       a.enteredValues.setEnteredValue({ enteredValueId: k, value: v.value });
       a.enteredValues.setChildId({ enteredValueId: k, childId: v.childId });
     });
-  }),
-
-  initEVCols: thunk((action, payload, helpers) => {
-    helpers.getStoreActions().paramInfos.setAllEnteredValueIds({ ...payload });
   }),
 
   initKwargCols: thunk((action, payload, helpers) => {
@@ -167,13 +162,13 @@ function omitProjectSectionAndGetTopLevelIds(
   sectionConfigs,
   sectionChildren
 ) {
-  const projectSectionGroup = state.currProject.sectionGroup;
-  const topLevelIds = sectionChildren[projectSectionGroup];
-  const projectSectionConfigId = sections[projectSectionGroup].configId;
+  const projectRootSection = state.project.rootSection;
+  const topLevelIds = sectionChildren[projectRootSection];
+  const projectSectionConfigId = sections[projectRootSection].configId;
   return {
-    sections: _.omit(sections, projectSectionGroup),
+    sections: _.omit(sections, projectRootSection),
     sectionConfigs: _.omit(sectionConfigs, projectSectionConfigId),
-    sectionChildren: _.omit(sectionChildren, projectSectionGroup),
+    sectionChildren: _.omit(sectionChildren, projectRootSection),
     topLevelIds,
   };
 }

@@ -14,8 +14,7 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
-  const access_token = useStoreState((x) => x.auth.access_token);
-  const currProject = useStoreState((x) => x.currProject.id);
+  const projectId = useStoreState((x) => x.project.id);
   const projectLoader = useProjectLoader();
   const noAuthLoader = useNoAuthLoading();
   const authLoader = useAuthLoading();
@@ -23,19 +22,18 @@ export default function MainContainer() {
 
   useEffect(() => {
     async function fn() {
-      if (NO_AUTH && !currProject) {
+      if (NO_AUTH && !projectId) {
         setDoneLoading(false);
         setDoneLoading(noAuthLoader(projectLoader));
-      } else if (!NO_AUTH && isAuthenticated && currProject) {
+      } else if (!NO_AUTH && isAuthenticated && projectId) {
         setDoneLoading(false);
-        const projectInfo = await fetchData(access_token, currProject);
-        setDoneLoading(authLoader(projectLoader, projectInfo));
+        setDoneLoading(await authLoader(projectLoader, projectId));
       } else {
         setDoneLoading(true);
       }
     }
     fn();
-  }, [currProject]);
+  }, [projectId]);
 
   return (
     doneLoading && (
@@ -59,33 +57,31 @@ async function fetchData(access_token, id) {
 }
 
 function useNoAuthLoading() {
-  const setCurrProject = useStoreActions((x) => x.currProject.setId);
-  const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
+  const setRootSection = useStoreActions((x) => x.project.setRootSection);
 
   return (projectLoader) => {
-    const projectId = "61e089c8-62bf-4e8c-915e-111b4587da81";
-    setCurrProject(projectId);
-    const testData = loadTestData(projectId);
-
+    const testData = loadTestData();
     const rootSection = getRootSectionId(testData.sectionChildren);
-    setSectionGroup(rootSection);
+    setRootSection(rootSection);
     projectLoader(testData);
     return true;
   };
 }
 
 function useAuthLoading() {
-  const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
+  const setRootSection = useStoreActions((x) => x.project.setRootSection);
   const clearSections = useStoreActions((x) => x.master.clearSections);
+  const access_token = useStoreState((x) => x.auth.access_token);
 
-  return (projectLoader, projectInfo) => {
+  return async (projectLoader, projectId) => {
     // TODO remove this
+    const projectInfo = await fetchData(access_token, projectId);
     const { projectDefaults, globalDefaults } = loadTestData();
     clearSections();
     const rootSection = getRootSectionId(projectInfo.sectionChildren);
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
-    setSectionGroup(rootSection);
+    setRootSection(rootSection);
     projectLoader({
       projectDefaults,
       globalDefaults,

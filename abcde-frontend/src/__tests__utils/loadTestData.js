@@ -19,12 +19,15 @@ import uiTypesCols from "__tests__data/simpleTrainTest/UITypesCols";
 export function loadTestData(
   projectId = "61e089c8-62bf-4e8c-915e-111b4587da81"
 ) {
-  const project = projects[projectId];
-  const currProjectConfigId = project.defaultConfig;
-  const projectConfig = projectConfigs[currProjectConfigId];
+  let project = projects[projectId];
+  const projectConfigId = project.defaultConfig;
+  const projectConfig = projectConfigs[projectConfigId];
   const sectionConfigCol = sectionConfigCols[projectConfig.sectionConfigCol];
 
+  project = { id: project.id, name: project.name, configId: projectConfigId };
+
   return {
+    project,
     codeInfo: { ...codeInfo, ...kwargInfo },
     globalDefaults,
     projectDefaults,
