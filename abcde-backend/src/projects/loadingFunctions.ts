@@ -89,10 +89,7 @@ export async function loadEVCols(em, sectionConfigs) {
         value: currEv.value,
         childId: returnNullNotUndefined(currEv.child?.id),
       };
-      evCols[col.id][codeInfoId] = {
-        id: codeInfoId,
-        enteredValueId: evId,
-      };
+      evCols[col.id][codeInfoId] = evId;
     }
   }
   return { ev, evCols };
@@ -133,10 +130,7 @@ export async function loadUITypesCols(em, sectionUITypes) {
     for (const colElement of col.uiTypesCols.getItems()) {
       const codeInfoId = colElement.codeInfo.id;
       const uiTypeId = colElement.uiType.id;
-      uiTypeCols[col.id][codeInfoId] = {
-        id: codeInfoId,
-        uiTypeId: uiTypeId,
-      };
+      uiTypeCols[col.id][codeInfoId] = uiTypeId;
     }
   }
   return uiTypeCols;

@@ -98,9 +98,9 @@ export async function persistUITypes(em, uiTypes) {
 export async function persistUITypesCols(em, uiTypesCols) {
   for (const uiTypeColId of Object.keys(uiTypesCols)) {
     await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
-    for (const v of _.values(uiTypesCols[uiTypeColId])) {
-      const findBy = { id: uiTypeColId, codeInfo: v.id };
-      const assign = { uiType: v.uiTypeId };
+    for (const codeInfoId of _.keys(uiTypesCols[uiTypeColId])) {
+      const findBy = { id: uiTypeColId, codeInfo: codeInfoId };
+      const assign = { uiType: uiTypesCols[uiTypeColId][codeInfoId] };
       await createIfNotFound(em, UITypesCols, findBy, assign);
     }
   }

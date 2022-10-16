@@ -25,7 +25,7 @@ export async function persistEVCols(em, evCols) {
         codeInfo: codeInfoId,
       };
       const assign = {
-        enteredValue: evCols[evColId][codeInfoId].enteredValueId,
+        enteredValue: evCols[evColId][codeInfoId],
       };
       await createIfNotFound(em, EVCols, findBy, assign);
     }
