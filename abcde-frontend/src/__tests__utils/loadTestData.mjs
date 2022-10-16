@@ -5,7 +5,7 @@ export async function loadOneProject({
   const loaded = {};
 
   for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
-    loaded[k] = await loadSpecificTestData({ name: k });
+    loaded[k] = await loadSpecificTestData({ name: k, forBackend });
   }
 
   for (const k of [
@@ -25,7 +25,11 @@ export async function loadOneProject({
     "uiTypes",
     "uiTypesCols",
   ]) {
-    loaded[k] = await loadSpecificTestData({ name: k, projectName });
+    loaded[k] = await loadSpecificTestData({
+      name: k,
+      projectName,
+      forBackend,
+    });
   }
 
   const {
@@ -71,15 +75,20 @@ export async function loadOneProject({
   }
 }
 
-export async function loadSpecificTestData({ name, projectName = "" }) {
+export async function loadSpecificTestData({
+  name,
+  projectName = "",
+  forBackend = false,
+}) {
   const ext = ".ts";
 
   try {
-    return (
+    const output = (
       await import(
         /* @vite-ignore */ `../__tests__data/${projectName}/${name}${ext}`
       )
     ).default;
+    return forBackend ? output.default : output;
   } catch (e) {
     return {};
   }
@@ -91,9 +100,9 @@ export async function loadAllProjects({ forBackend = false }) {
     "appleOrchardFarm",
     "diffusionDrops",
   ];
-  const output = {};
+  const output = [];
   for (const p of projectNames) {
-    output[p] = await loadOneProject({ projectName: p, forBackend });
+    output.push(await loadOneProject({ projectName: p, forBackend }));
   }
   return output;
 }
