@@ -130,19 +130,11 @@ const master = {
       (x) => new SectionConfig(x)
     );
 
-    const setSectionInfo =
-      helpers.getStoreActions().sectionInfos.setSectionInfo;
-    const setSectionConfig =
-      helpers.getStoreActions().sectionConfigs.setSectionConfig;
-    const setIdsOverview =
-      helpers.getStoreActions().sectionInfos.setIdsOverview;
+    const a = helpers.getStoreActions();
 
-    setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-    setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
-
-    _.forEach(sectionChildren, (x, id) => {
-      setIdsOverview({ sectionId: id, newStateFn: () => x });
-    });
+    a.sectionInfos.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
+    a.sectionConfigs.setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
+    a.sectionInfos.setAllIdsOverview({ ...sectionChildren });
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
