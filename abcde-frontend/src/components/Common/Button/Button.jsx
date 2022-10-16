@@ -1,23 +1,27 @@
 const Button = (props) => {
   const {
     bg = "bg-gray-500",
-    hover = "bg-blue-700",
-    text = "text-white",
+    hover = "hover:bg-gray-700",
+    text = "white",
     weight = "font-bold",
     py = "py-2",
     px = "px-4",
     borderRadius = "rounded-full",
     display = "inline-flex",
     align = "items-center",
-    size = "lg" ? "text-lg" : "sm" ? "text-sm" : " ",
+    gap = "gap-1",
+    size,
     as,
     href = "#",
-    classAttrs,
+    classAttrs = "",
     children,
     ...theRest
   } = props;
 
-  const tailwindClasses = `${bg} ${hover} ${text} ${weight} ${py} ${px} ${borderRadius} ${display} ${align} ${size} transition-colors duration-150 focus:shadow-outline ${classAttrs}`;
+  const textSize =
+    size === "lg" ? "lg" : size === "sm" ? "sm" : size === "xs" ? "xs" : " ";
+
+  const tailwindClasses = `${bg} ${hover} ${text} ${weight} ${py} ${px} ${borderRadius} ${display} ${align} text-${textSize} ${gap} transition-colors duration-150 focus:shadow-outline ${classAttrs}`;
 
   if (as === "link") {
     return (
