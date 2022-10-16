@@ -3,7 +3,7 @@ import { ProjectConfigs } from '../entities/projects/projectConfigs.entity';
 import {
   persistOneSectionChildren,
   persistSectionChildren,
-  persistSectionConfigCols,
+  persistSectionConfigCol,
   persistSectionConfigs,
   persistSections,
 } from '../sections/savingFunctions';
@@ -27,11 +27,15 @@ export async function persistAllProjectDetails(em, p) {
   await persistEVCols(em, p.evCols);
   await persistUITypes(em, p.uiTypes);
   await persistUITypesCols(em, p.uiTypesCols);
-  await persistSectionConfigs(em, p.sectionConfigs);
-  await persistSectionConfigCols(em, p.sectionConfigCols);
   await persistProjectConfig(em, p.projectConfig);
   await persistProject(em, p.project);
   await connectProjectToProjectConfig(em, p.project, p.projectConfig);
+  await persistSectionConfigs(em, p.sectionConfigs);
+  await persistSectionConfigCol(
+    em,
+    p.sectionConfigCol,
+    p.projectConfig.sectionConfigCol,
+  );
 }
 
 export async function persistProject(em, project) {

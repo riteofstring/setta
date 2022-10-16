@@ -50,7 +50,6 @@ describe('ProjectsService', () => {
 
   it('Get a project with nested sections', async () => {
     const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
-    const sectionConfigColId = 'f5cd8865-a15b-4fa3-9410-1ea3aa6933a5';
     const { body: project } = await request(app.getHttpServer())
       .post(`/projects/load/${projectId}`)
       .set('Authorization', `Bearer ${access_token}`);
@@ -71,21 +70,17 @@ describe('ProjectsService', () => {
       uiTypesCols,
     } = allProjects.filter((x) => x.project.id === projectId)[0];
 
-    console.log(project);
-
-    // expect(project.sections).toEqual(sections);
-    // expect(project.sectionChildren).toEqual(sectionChildren);
-    // expect(project.sectionConfigs).toEqual(sectionConfigs);
-    // expect(project.sectionConfigCol).toEqual(
-    //   sectionConfigCol[sectionConfigColId],
-    // );
-    // expect(project.ev).toEqual(ev);
-    // expect(project.evCols).toEqual(evCols);
-    // expect(project.uiTypes).toEqual(uiTypes);
-    // expect(project.uiTypesCols).toEqual(uiTypesCols);
-    // expect(project.kwargCols).toEqual(kwargCols);
-    // expect(project.sectionChildrenIds).toEqual(sectionChildrenIds);
-    // compareCodeInfo(project.codeInfo, codeInfo);
+    expect(project.sections).toEqual(sections);
+    expect(project.sectionChildren).toEqual(sectionChildren);
+    expect(project.sectionConfigs).toEqual(sectionConfigs);
+    expect(project.sectionConfigCol).toEqual(sectionConfigCol);
+    expect(project.ev).toEqual(ev);
+    expect(project.evCols).toEqual(evCols);
+    expect(project.uiTypes).toEqual(uiTypes);
+    expect(project.uiTypesCols).toEqual(uiTypesCols);
+    expect(project.kwargCols).toEqual(kwargCols);
+    expect(project.sectionChildrenIds).toEqual(sectionChildrenIds);
+    compareCodeInfo(project.codeInfo, codeInfo);
   });
 });
 
