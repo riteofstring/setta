@@ -72,16 +72,7 @@ const master = {
   }),
 
   initUITypesCols: thunk((action, payload, helpers) => {
-    const pActions = helpers.getStoreActions().paramInfos;
-    for (const colId of Object.keys(payload)) {
-      for (const paramInfo of Object.values(payload[colId])) {
-        pActions.setUITypeId({
-          collectionId: colId,
-          paramInfoId: paramInfo.id,
-          uiTypeId: paramInfo.uiTypeId,
-        });
-      }
-    }
+    helpers.getStoreActions().paramInfos.setAllUITypeIds({ ...payload });
   }),
 
   initEV: thunk((action, payload, helpers) => {
