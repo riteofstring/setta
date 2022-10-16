@@ -6,7 +6,7 @@ import {
   SECTION_TYPE_NAMES,
 } from "utils/constants";
 import { isBasePreset } from "utils/uiTypeConstants";
-import { loadTestData } from "./loadTestData";
+import { loadOneProject } from "./loadTestData";
 import {
   renderUseAvailablePresetUITypes,
   renderUseGetParamChildId,
@@ -19,7 +19,7 @@ import { createStore, getStoreProviderWrapper } from "./utils";
 
 export async function createStoreWrapperWithData() {
   const store = createStore();
-  const testData = await loadTestData();
+  const testData = await loadOneProject({});
   store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }

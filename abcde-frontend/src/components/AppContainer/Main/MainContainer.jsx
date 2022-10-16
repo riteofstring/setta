@@ -5,7 +5,7 @@ import { useProjectLoader } from "hooks/useProjectLoader";
 import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { NO_AUTH } from "utils/constants";
-import { loadTestData } from "__tests__utils/loadTestData";
+import { loadOneProject } from "__tests__utils/loadTestData";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
@@ -57,7 +57,7 @@ async function fetchData(access_token, id) {
 
 function useNoAuthLoading() {
   return async (projectLoader) => {
-    const testData = await loadTestData();
+    const testData = await loadOneProject({});
     projectLoader(testData);
     return true;
   };
@@ -70,7 +70,7 @@ function useAuthLoading() {
   return async (projectLoader, projectId) => {
     // TODO remove this
     const projectInfo = await fetchData(access_token, projectId);
-    const { projectDefaults, globalDefaults } = await loadTestData();
+    const { projectDefaults, globalDefaults } = await loadOneProject({});
     clearSections();
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };

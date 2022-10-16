@@ -1,4 +1,7 @@
-export async function loadTestData(projectName = "simpleTrainTest") {
+export async function loadOneProject({
+  projectName = "simpleTrainTest",
+  forBackend = false,
+}) {
   const loaded = {};
 
   for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
@@ -49,12 +52,23 @@ export async function loadTestData(projectName = "simpleTrainTest") {
 
   const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
 
-  return {
-    project: _project,
-    codeInfo: _codeInfo,
-    uiTypes: _uiTypes,
-    ...theRest,
-  };
+  // When sending to the backend, we send just kwargInfo
+  // instead of both kwargInfo and codeInfo
+  if (forBackend) {
+    return {
+      project: _project,
+      kwargInfo,
+      uiTypes: _uiTypes,
+      ...theRest,
+    };
+  } else {
+    return {
+      project: _project,
+      codeInfo: _codeInfo,
+      uiTypes: _uiTypes,
+      ...theRest,
+    };
+  }
 }
 
 export async function loadSpecificTestData({ name, projectName = "" }) {
@@ -69,4 +83,17 @@ export async function loadSpecificTestData({ name, projectName = "" }) {
   } catch (e) {
     return {};
   }
+}
+
+export async function loadAllProjects({ forBackend = false }) {
+  const projectNames = [
+    "simpleTrainTest",
+    "appleOrchardFarm",
+    "diffusionDrops",
+  ];
+  const output = {};
+  for (const p of projectNames) {
+    output[p] = await loadOneProject({ projectName: p, forBackend });
+  }
+  return output;
 }

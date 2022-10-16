@@ -1,11 +1,11 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
-import { loadTestData } from "__tests__utils/loadTestData";
+import { loadOneProject } from "__tests__utils/loadTestData";
 import { tokenConfig } from "./authentication";
 
 export async function getProjects({ access_token }) {
   if (NO_AUTH) {
-    const testData = await loadTestData();
+    const testData = await loadOneProject({});
     return [testData.project];
   }
   return axios
