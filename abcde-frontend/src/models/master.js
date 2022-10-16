@@ -26,6 +26,7 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
+      sectionChildrenIds,
       ev,
       evCols,
       uiTypes,
@@ -54,6 +55,7 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
+      sectionChildrenIds,
     });
   }),
 
@@ -96,8 +98,13 @@ const master = {
   }),
 
   initSections: thunk((action, payload, helpers) => {
-    let { sections, sectionConfigs, sectionConfigCol, sectionChildren } =
-      payload;
+    let {
+      sections,
+      sectionConfigs,
+      sectionConfigCol,
+      sectionChildren,
+      sectionChildrenIds,
+    } = payload;
     let topLevelIds = null;
     ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
       omitProjectSectionAndGetTopLevelIds(
@@ -119,6 +126,7 @@ const master = {
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],
+        sectionChildrenId: sectionChildrenIds[x.id],
         isTopLevel: topLevelIds.includes(x.id),
       });
       idx += 1;

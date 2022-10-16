@@ -22,6 +22,10 @@ export const saveProject = thunk((actions, payload, helpers) => {
     paramInfoId: x.paramInfoId,
   }));
 
+  const sectionChildrenIds = _.mapValues(
+    s.sectionInfos.x,
+    (x) => x.sectionChildrenId
+  );
   const sectionChildren = s.sectionInfos.idsOverview;
   const sectionConfigs = s.sectionConfigs.x;
 
@@ -41,6 +45,7 @@ export const saveProject = thunk((actions, payload, helpers) => {
     kwargCols,
     sections,
     sectionChildren,
+    sectionChildrenIds,
     sectionConfigs,
     sectionConfigCols,
   };

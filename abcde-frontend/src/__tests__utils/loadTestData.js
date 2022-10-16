@@ -11,6 +11,7 @@ import kwargCols from "__tests__data/simpleTrainTest/KwargCols";
 import kwargInfo from "__tests__data/simpleTrainTest/KwargInfo";
 import projectDefaults from "__tests__data/simpleTrainTest/ProjectDefaults";
 import sectionChildren from "__tests__data/simpleTrainTest/SectionChildren";
+import sectionChildrenIds from "__tests__data/simpleTrainTest/SectionChildrenIds";
 import sectionConfigs from "__tests__data/simpleTrainTest/SectionConfigs";
 import sections from "__tests__data/simpleTrainTest/Sections";
 import uiTypes from "__tests__data/simpleTrainTest/UITypes";
@@ -41,6 +42,7 @@ export function loadTestData(
     sectionConfigs,
     sectionConfigCol,
     sectionChildren,
+    sectionChildrenIds,
     ev,
     evCols,
     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
