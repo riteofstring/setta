@@ -1,1 +1,1 @@
-SET PGPASSWORD=123&&psql -U postgres -c "drop database abcde"
+SET PGPASSWORD=123&&psql -U postgres -c "drop database abcde" -c "drop database test"

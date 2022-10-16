@@ -1,1 +1,2 @@
 SET PGPASSWORD=123&&psql -U postgres --dbname=abcde -c "CREATE EXTENSION IF NOT EXISTS ""uuid-ossp"""
+SET PGPASSWORD=123&&psql -U postgres --dbname=test -c "CREATE EXTENSION IF NOT EXISTS ""uuid-ossp"""
