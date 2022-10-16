@@ -4,7 +4,7 @@ export async function loadTestData(projectName = "simpleTrainTest") {
 
   for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
     try {
-      loaded[k] = (await import(`../__tests__data/${k}${ext}`)).default;
+      loaded[k] = (await import(/* @vite-ignore */ `../__tests__data/${k}${ext}`)).default;
     } catch (e) {
       loaded[k] = {};
     }
@@ -29,7 +29,7 @@ export async function loadTestData(projectName = "simpleTrainTest") {
   ]) {
     try {
       loaded[k] = (
-        await import(`../__tests__data/${projectName}/${k}${ext}`)
+        await import(/* @vite-ignore */ `../__tests__data/${projectName}/${k}${ext}`)
       ).default;
     } catch (e) {
       loaded[k] = {};
