@@ -88,12 +88,17 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadAllProjects({ forNode = false }) {
+export async function loadAllProjects({ forNode = false, forBackend = false }) {
   const output = [];
   for (const p of projectNames()) {
     for (const subFolderName of projectSubFolderNames(p)) {
       output.push(
-        await loadOneProject({ projectName: p, subFolderName, forNode })
+        await loadOneProject({
+          projectName: p,
+          subFolderName,
+          forNode,
+          forBackend,
+        })
       );
     }
   }
