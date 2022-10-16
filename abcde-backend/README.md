@@ -14,6 +14,13 @@ psql -U postgres
 # enter the password that you entered during installation
 ```
 
+### Link abcde-frontend
+To use the same test dataloaders, we need access to some functions in abcde-frontend.
+
+In abcde-frontend do `yarn link`.
+
+Then in abcde-backend do `yarn link abcde-frontend`.
+
 ### Create db, create tables, add data
 ```bash
 ./db/blankSlate.bat
@@ -34,12 +41,18 @@ psql -U postgres
 ./db/login.bat
 ```
 
-### Seed just a single class without clearing existing data
+### Just seed the database
 
-For example, use just the SectionsSeeder:
+Seed all the tables
 ```bash
-./db/oneSeed.bat SectionsSeeder
+./db/seed.bat
 ```
+
+Seed specific tables
+```bash
+./db/seed.bat UsersSeeder CodeInfoSeeder
+```
+
 
 
 

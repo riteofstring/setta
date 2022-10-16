@@ -1,1 +1,0 @@
-call npx mikro-orm seeder:run --class=%1
