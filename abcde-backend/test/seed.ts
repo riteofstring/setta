@@ -6,10 +6,15 @@ import { ProjectSeeder } from './seeders/project';
 import _ from 'lodash';
 
 (async () => {
-  let allSeeders = [UsersSeeder, CodeInfoSeeder];
+  let allSeeders = [UsersSeeder, CodeInfoSeeder, ProjectSeeder];
   const onlyUseThese = [];
+  let doRefreshDatabase = true;
   process.argv.slice(2).forEach(function (val) {
-    onlyUseThese.push(val);
+    if (val === 'NO_REFRESH') {
+      doRefreshDatabase = false;
+    } else {
+      onlyUseThese.push(val);
+    }
   });
   if (onlyUseThese.length > 0) {
     allSeeders = allSeeders.filter((x) => onlyUseThese.includes(x.name));
@@ -17,7 +22,9 @@ import _ from 'lodash';
 
   const orm = await MikroORM.init(config);
   const seeder = orm.getSeeder();
-  await orm.getSchemaGenerator().refreshDatabase();
+  if (doRefreshDatabase) {
+    await orm.getSchemaGenerator().refreshDatabase();
+  }
   for (const x of allSeeders) {
     await seeder.seed(x);
   }

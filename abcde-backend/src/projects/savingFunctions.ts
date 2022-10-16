@@ -16,23 +16,18 @@ import { createIfNotFound } from '../utils/utils';
 // em = entityManager
 // p = object that contains project info
 export async function persistAllProjectDetails(em, p) {
-  await persistCodeInfo(em, p.kwargInfos);
+  await persistCodeInfo(em, p.kwargInfo);
   await persistKwargCols(em, p.kwargCols);
-
-  await persistSections(em, p.sections);
-  await persistSectionChildren(em, p.sectionChildren);
-
+  await persistSections(em, p.sections, p.sectionChildrenIds);
+  await persistSectionChildren(em, p.sectionChildren, p.sectionChildrenIds);
   await persistEV(em, p.ev);
   await persistEVCols(em, p.evCols);
-
   await persistUITypes(em, p.uiTypes);
   await persistUITypesCols(em, p.uiTypesCols);
-
   await persistSectionConfigs(em, p.sectionConfigs);
   await persistSectionConfigCols(em, p.sectionConfigCols);
-
-  await persistProjectConfigs(em, p.projectConfigs);
-  await persistProjects(em, p.projects);
+  // await persistProjectConfigs(em, p.projectConfig);
+  // await persistProjects(em, p.projects);
 }
 
 export async function persistProjects(em, projects) {
