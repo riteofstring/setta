@@ -69,7 +69,7 @@ function testUnlinkedSections(inputSectionName, inputParamName) {
       settingPreset: false,
       currUIType: xSectionInitialUIType,
     },
-    "collections",
+    "parameters",
     (x) => [...x, "253cd8a8-a95a-4d15-b98b-73318b3632a1"],
     wrapper
   );

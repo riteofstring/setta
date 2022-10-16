@@ -40,10 +40,6 @@ const paramInfos = {
     }
   }),
 
-  setAllEnteredValueIds: action((state, payload) => {
-    state.x = payload;
-  }),
-
   setEnteredValueId: action((state, payload) => {
     const { collectionId, paramInfoId, enteredValueId } = payload;
     setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;

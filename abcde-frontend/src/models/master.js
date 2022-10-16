@@ -93,7 +93,16 @@ const master = {
   }),
 
   initEVCols: thunk((action, payload, helpers) => {
-    helpers.getStoreActions().paramInfos.setAllEnteredValueIds({ ...payload });
+    const pActions = helpers.getStoreActions().paramInfos;
+    for (const colId of Object.keys(payload)) {
+      for (const paramInfo of Object.values(payload[colId])) {
+        pActions.setEnteredValueId({
+          collectionId: colId,
+          paramInfoId: paramInfo.id,
+          enteredValueId: paramInfo.enteredValueId,
+        });
+      }
+    }
   }),
 
   initKwargCols: thunk((action, payload, helpers) => {
