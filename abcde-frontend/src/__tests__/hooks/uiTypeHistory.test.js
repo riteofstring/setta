@@ -27,8 +27,8 @@ This test goes through these steps:
 Trying setting: presetType=$presetType, sectionName=$sectionName, paramName=$paramName
 
 `,
-  ({ presetType, sectionName, paramName }) => {
-    testUITypeHistory(presetType, sectionName, paramName);
+  async ({ presetType, sectionName, paramName }) => {
+    await testUITypeHistory(presetType, sectionName, paramName);
   }
 );
 
@@ -42,8 +42,8 @@ function testCases() {
   return output;
 }
 
-function testUITypeHistory(presetType, inputSectionName, inputParamName) {
-  const { store, wrapper } = createStoreWrapperWithData();
+async function testUITypeHistory(presetType, inputSectionName, inputParamName) {
+  const { store, wrapper } = await createStoreWrapperWithData();
 
   let result = null;
 

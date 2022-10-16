@@ -2,8 +2,8 @@ import { findAllCallables, findAllParameters } from "classes/infoFactory";
 import _ from "lodash";
 import { loadTestData } from "__tests__utils/loadTestData";
 
-test("find all callable descendants", () => {
-  const { codeInfo } = loadTestData();
+test("find all callable descendants", async () => {
+  const { codeInfo } = await loadTestData();
   const collectionId = _.filter(
     codeInfo,
     (x) => x.name === "The Best Optimizers"
@@ -14,8 +14,8 @@ test("find all callable descendants", () => {
   );
 });
 
-test("find all parameter descendants", () => {
-  const { codeInfo } = loadTestData();
+test("find all parameter descendants", async () => {
+  const { codeInfo } = await loadTestData();
   const objId = _.filter(codeInfo, (x) => x.name === "resnet101")[0].id;
   const parameters = findAllParameters(codeInfo, [objId]);
   expect(new Set(parameters.map((x) => x.name))).toEqual(

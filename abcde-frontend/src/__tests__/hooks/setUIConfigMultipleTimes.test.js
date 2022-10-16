@@ -16,7 +16,7 @@ test.each(testSectionNamesParamNames({}))(
 );
 
 async function testSetUIConfigMultipleTimes(inputSectionName, inputParamName) {
-  const { store, wrapper } = createStoreWrapperWithData();
+  const { store, wrapper } = await createStoreWrapperWithData();
 
   let result = null;
 

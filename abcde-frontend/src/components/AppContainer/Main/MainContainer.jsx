@@ -23,7 +23,7 @@ export default function MainContainer() {
     async function fn() {
       if (NO_AUTH && !projectId) {
         setDoneLoading(false);
-        setDoneLoading(noAuthLoader(projectLoader));
+        setDoneLoading(await noAuthLoader(projectLoader));
       } else if (!NO_AUTH && isAuthenticated && projectId) {
         setDoneLoading(false);
         setDoneLoading(await authLoader(projectLoader, projectId));
@@ -56,8 +56,8 @@ async function fetchData(access_token, id) {
 }
 
 function useNoAuthLoading() {
-  return (projectLoader) => {
-    const testData = loadTestData();
+  return async (projectLoader) => {
+    const testData = await loadTestData();
     projectLoader(testData);
     return true;
   };
@@ -70,7 +70,7 @@ function useAuthLoading() {
   return async (projectLoader, projectId) => {
     // TODO remove this
     const projectInfo = await fetchData(access_token, projectId);
-    const { projectDefaults, globalDefaults } = loadTestData();
+    const { projectDefaults, globalDefaults } = await loadTestData();
     clearSections();
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };

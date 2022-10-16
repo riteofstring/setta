@@ -17,9 +17,9 @@ import {
 } from "./renderHooks";
 import { createStore, getStoreProviderWrapper } from "./utils";
 
-export function createStoreWrapperWithData() {
+export async function createStoreWrapperWithData() {
   const store = createStore();
-  const testData = loadTestData();
+  const testData = await loadTestData();
   store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }

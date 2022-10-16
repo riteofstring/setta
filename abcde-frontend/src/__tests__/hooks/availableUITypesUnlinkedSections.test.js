@@ -14,13 +14,13 @@ import {
 // exclude the X section since that's our "other" section to test on in this particular test
 test.each(testSectionNamesParamNames({ excludeSections: ["X"] }))(
   "Sections that use the same parameters, but with different uiTypeColIds, should not see each other's forked non-presets",
-  ({ sectionName, paramName }) => {
-    testUnlinkedSections(sectionName, paramName);
+  async ({ sectionName, paramName }) => {
+    await testUnlinkedSections(sectionName, paramName);
   }
 );
 
-function testUnlinkedSections(inputSectionName, inputParamName) {
-  const { store, wrapper } = createStoreWrapperWithData();
+async function testUnlinkedSections(inputSectionName, inputParamName) {
+  const { store, wrapper } = await createStoreWrapperWithData();
 
   let result = null;
 
