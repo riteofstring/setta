@@ -9,5 +9,5 @@ export async function loadAllProjects() {
 
 export async function loadSpecificTestData(props) {
   const { loadSpecificTestData: _loadTestData } = await importLoadTestData();
-  return await _loadTestData(props);
+  return await _loadTestData({ forBackend: true, ...props });
 }
