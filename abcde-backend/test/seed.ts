@@ -6,7 +6,7 @@ import { ProjectSeeder } from './seeders/project';
 import _ from 'lodash';
 
 (async () => {
-  let allSeeders = [CodeInfoSeeder];
+  let allSeeders = [UsersSeeder, CodeInfoSeeder];
   const onlyUseThese = [];
   process.argv.slice(2).forEach(function (val) {
     onlyUseThese.push(val);
