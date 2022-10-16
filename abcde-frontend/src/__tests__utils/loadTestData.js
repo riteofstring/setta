@@ -1,7 +1,6 @@
 import baseUITypes from "__tests__data/BaseUITypes";
 import globalDefaults from "__tests__data/GlobalDefaults";
 import presetUITypes from "__tests__data/PresetUITypes";
-import sectionConfigCols from "__tests__data/SectionConfigCols";
 import codeInfo from "__tests__data/simpleTrainTest/CodeInfo";
 import ev from "__tests__data/simpleTrainTest/EV";
 import evCols from "__tests__data/simpleTrainTest/EVCols";
@@ -12,20 +11,18 @@ import projectConfig from "__tests__data/simpleTrainTest/ProjectConfig";
 import projectDefaults from "__tests__data/simpleTrainTest/ProjectDefaults";
 import sectionChildren from "__tests__data/simpleTrainTest/SectionChildren";
 import sectionChildrenIds from "__tests__data/simpleTrainTest/SectionChildrenIds";
+import sectionConfigCol from "__tests__data/simpleTrainTest/SectionConfigCol";
 import sectionConfigs from "__tests__data/simpleTrainTest/SectionConfigs";
 import sections from "__tests__data/simpleTrainTest/Sections";
 import uiTypes from "__tests__data/simpleTrainTest/UITypes";
 import uiTypesCols from "__tests__data/simpleTrainTest/UITypesCols";
 
 export function loadTestData() {
-  const sectionConfigColId = projectConfig.sectionConfigCol;
-  const sectionConfigCol = sectionConfigCols[sectionConfigColId];
-
   const _project = {
     id: project.id,
     name: project.name,
     configId: projectConfig.id,
-    sectionConfigColId,
+    sectionConfigColId: projectConfig.sectionConfigCol,
     childrenId: projectConfig.childrenId,
     children: projectConfig.children,
   };
