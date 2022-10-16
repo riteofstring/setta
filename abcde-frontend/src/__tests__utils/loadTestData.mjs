@@ -1,19 +1,19 @@
+import _ from "lodash";
+
 export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
   forBackend = false,
 }) {
-  const loaded = {};
+  const loaded = await loadOneProjectMetadata({
+    projectName,
+    subFolderName,
+    forBackend,
+  });
 
   for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
     loaded[k] = await loadSpecificTestData({ name: k, forBackend });
   }
-
-  loaded["project"] = await loadSpecificTestData({
-    name: "project",
-    projectName,
-    forBackend,
-  });
 
   for (const k of [
     "codeInfo",
@@ -21,7 +21,6 @@ export async function loadOneProject({
     "evCols",
     "kwargCols",
     "kwargInfo",
-    "projectConfig",
     "projectDefaults",
     "sectionChildren",
     "sectionChildrenIds",
@@ -89,19 +88,62 @@ export async function loadSpecificTestData({
 }
 
 export async function loadAllProjects({ forBackend = false }) {
-  const projectNames = [
-    "simpleTrainTest",
-    "appleOrchardFarm",
-    "diffusionDrops",
-  ];
   const output = [];
-  for (const p of projectNames) {
-    const subFolderName = projectSubFolderNames(p);
-    output.push(
-      await loadOneProject({ projectName: p, subFolderName, forBackend })
-    );
+  for (const p of projectNames()) {
+    for (const subFolderName of projectSubFolderNames(p)) {
+      output.push(
+        await loadOneProject({ projectName: p, subFolderName, forBackend })
+      );
+    }
   }
   return output;
+}
+
+export async function loadOneProjectMetadata({
+  projectName,
+  subFolderName,
+  forBackend,
+}) {
+  const loaded = {};
+
+  loaded["project"] = await loadSpecificTestData({
+    name: "project",
+    projectName,
+    forBackend,
+  });
+  loaded["projectConfig"] = await loadSpecificTestData({
+    name: "projectConfig",
+    projectName,
+    subFolderName,
+    forBackend,
+  });
+
+  return loaded;
+}
+
+export async function loadAllProjectsMetadata() {
+  let output = [];
+  for (const p of projectNames()) {
+    for (const subFolderName of projectSubFolderNames(p)) {
+      const loaded = await loadOneProjectMetadata({
+        projectName: p,
+        subFolderName,
+      });
+      output.push(loaded);
+    }
+  }
+
+  // groupby project id, and put configs into a list for each project
+  output = _.groupBy(output, (v) => v.project.id);
+  for (const k of _.keys(output)) {
+    const v = output[k];
+    output[k] = { ...v[0].project, configs: v.map((x) => x.projectConfig) };
+  }
+  return output;
+}
+
+function projectNames() {
+  return ["simpleTrainTest", "appleOrchardFarm", "diffusionDrops"];
 }
 
 function projectSubFolderNames(projectName) {
