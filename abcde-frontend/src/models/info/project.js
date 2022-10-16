@@ -5,6 +5,8 @@ function getInitialState() {
   return {
     id: null,
     name: "",
+    owner: null,
+    defaultConfig: null,
   };
 }
 

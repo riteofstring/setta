@@ -2,19 +2,29 @@ import { saveProject as saveProjectDb } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
 
-export const saveProject = thunk((actions, payload, helpers) => {
-  const s = helpers.getStoreState();
-  const access_token = s.auth.access_token;
+// s is the easy-peasy store
+export function getProjectData(s) {
+  const project = _.pick(s.project, ["id", "name", "owner", "defaultConfig"]);
+  const projectConfig = _.pick(s.projectConfig, [
+    "id",
+    "name",
+    "sectionConfigCol",
+    "children",
+    "childrenId",
+  ]);
 
-  const projectId = s.project.id;
-
-  const ev = s.enteredValues.x;
+  const ev = _.mapValues(s.enteredValues.x, (v) =>
+    _.pick(v, ["value", "childId"])
+  );
   const evCols = s.paramInfos.x;
-  const uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
+  let uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
+  uiTypes = _.mapValues(uiTypes, (v) =>
+    _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
+  );
   const uiTypesCols = s.paramInfos.y;
 
   const kwargCols = s.objInfos.x;
-  const kwargInfos = getKwargInfos(s, kwargCols);
+  const kwargInfo = getKwargInfos(s, kwargCols);
 
   const sections = _.mapValues(s.sectionInfos.x, (x) => ({
     id: x.id,
@@ -27,30 +37,33 @@ export const saveProject = thunk((actions, payload, helpers) => {
     (x) => x.sectionChildrenId
   );
   const sectionChildren = s.sectionInfos.idsOverview;
-  const sectionConfigs = s.sectionConfigs.x;
+  const sectionConfigs = _.mapValues(s.sectionConfigs.x, (v) =>
+    Object.fromEntries(Object.entries(v))
+  );
+  const sectionConfigCol = _.mapValues(s.sectionInfos.x, (v) => v.configId);
 
-  const sectionConfigCols = {
-    [s.projectConfig.sectionConfigColId]: _.mapValues(
-      s.sectionInfos.x,
-      (v) => v.configId
-    ),
-  };
-
-  const project = {
+  return {
+    project,
+    projectConfig,
     ev,
     evCols,
     uiTypes,
     uiTypesCols,
-    kwargInfos,
+    kwargInfo,
     kwargCols,
     sections,
     sectionChildren,
     sectionChildrenIds,
     sectionConfigs,
-    sectionConfigCols,
+    sectionConfigCol,
   };
+}
 
-  saveProjectDb({ access_token, project });
+export const saveProject = thunk((actions, payload, helpers) => {
+  const s = helpers.getStoreState();
+  const access_token = s.auth.access_token;
+  const output = getProjectData(s);
+  saveProjectDb({ access_token, project: output });
 });
 
 function getKwargInfos(s, kwargCols) {

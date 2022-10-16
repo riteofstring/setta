@@ -51,7 +51,7 @@ const master = {
     });
     action.initEV(ev);
     a.paramInfos.setAllEnteredValueIds({ ...evCols });
-    action.initKwargCols(kwargCols);
+    a.objInfos.setAllKwargIds({ ...kwargCols });
     action.initSections({
       sections,
       sectionConfigs,
@@ -84,19 +84,6 @@ const master = {
       a.enteredValues.setEnteredValue({ enteredValueId: k, value: v.value });
       a.enteredValues.setChildId({ enteredValueId: k, childId: v.childId });
     });
-  }),
-
-  initKwargCols: thunk((action, payload, helpers) => {
-    const setKwargIds = helpers.getStoreActions().objInfos.setKwargIds;
-    for (const colId of Object.keys(payload)) {
-      for (const objInfoId of Object.keys(payload[colId])) {
-        setKwargIds({
-          collectionId: colId,
-          objInfoId: objInfoId,
-          newStateFn: () => payload[colId][objInfoId],
-        });
-      }
-    }
   }),
 
   initSections: thunk((action, payload, helpers) => {

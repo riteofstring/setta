@@ -4,7 +4,8 @@ export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
   forNode = false,
-  forBackend = false,
+  forSeeding = false,
+  forSavingToBackend = false,
 }) {
   const loaded = await loadOneProjectMetadata({
     projectName,
@@ -48,18 +49,25 @@ export async function loadOneProject({
     ...theRest
   } = loaded;
 
-  const _codeInfo = { ...codeInfo, ...kwargInfo };
-  const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
-
-  // When, we send just kwargInfo
-  // instead of both kwargInfo and codeInfo
-  if (forBackend) {
+  if (forSeeding) {
+    // For seeding a project we need kwargInfo
+    // instead of both kwargInfo and codeInfo
     return {
       kwargInfo,
       uiTypes: _uiTypes,
       ...theRest,
     };
+  } else if (forSavingToBackend) {
+    // For saving a project, we don't need preset or base uitypes
+    return {
+      kwargInfo,
+      uiTypes,
+      ...theRest,
+    };
   } else {
+    // This means we're testing the frontend, so we need everything
+    const _codeInfo = { ...codeInfo, ...kwargInfo };
+    const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
     return {
       codeInfo: _codeInfo,
       uiTypes: _uiTypes,
@@ -88,7 +96,7 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadAllProjects({ forNode = false, forBackend = false }) {
+export async function loadAllProjects({ forNode = false, forSeeding = false }) {
   const output = [];
   for (const p of projectNames()) {
     for (const subFolderName of projectSubFolderNames(p)) {
@@ -97,7 +105,7 @@ export async function loadAllProjects({ forNode = false, forBackend = false }) {
           projectName: p,
           subFolderName,
           forNode,
-          forBackend,
+          forSeeding,
         })
       );
     }

@@ -9,6 +9,10 @@ function getInitialState() {
 const objInfos = {
   ...getInitialState(),
 
+  setAllKwargIds: action((state, payload) => {
+    state.x = payload;
+  }),
+
   setKwargIds: action((state, payload) => {
     const { collectionId, objInfoId, newStateFn } = payload;
     const currState = setToDefault(state.x, collectionId);
