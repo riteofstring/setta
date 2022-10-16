@@ -8,6 +8,7 @@ import {
   loadAllProjectConfigs,
   loadAllProjects,
   loadAllSectionChildren,
+  loadAllSectionChildrenIds,
   loadAllSectionConfigCols,
   loadAllSectionConfigs,
   loadAllSections,
@@ -23,6 +24,7 @@ export class ProjectSeeder extends Seeder {
 
     const sections = loadAllSections();
     const sectionChildren = loadAllSectionChildren();
+    const sectionChildrenIds = loadAllSectionChildrenIds();
 
     const ev = loadAllEV();
     const evCols = loadAllEVCols();
@@ -41,6 +43,7 @@ export class ProjectSeeder extends Seeder {
       kwargCols,
       sections,
       sectionChildren,
+      sectionChildrenIds,
       ev,
       evCols,
       uiTypes,

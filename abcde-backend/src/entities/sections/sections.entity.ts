@@ -1,13 +1,7 @@
-import {
-  Collection,
-  Entity,
-  ManyToMany,
-  ManyToOne,
-  PrimaryKey,
-  Property,
-} from '@mikro-orm/core';
+import { Entity, ManyToOne, PrimaryKey, Property } from '@mikro-orm/core';
 import { SectionsRepository } from '../../sections/sections.repository';
 import { CodeInfo } from '../codeInfo.entity';
+import { SectionChildrenIds } from './sectionChildrenIds.entity';
 
 @Entity({ customRepository: () => SectionsRepository })
 export class Sections {
@@ -21,6 +15,6 @@ export class Sections {
   @ManyToOne({ nullable: true })
   paramInfo: CodeInfo;
 
-  @ManyToMany(() => Sections)
-  children = new Collection<Sections>(this);
+  @ManyToOne()
+  children: SectionChildrenIds;
 }

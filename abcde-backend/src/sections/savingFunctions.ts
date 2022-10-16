@@ -6,24 +6,38 @@ import { SectionConfigCols } from '../entities/sections/sectionConfigCols.entity
 import { SectionConfigColsIds } from '../entities/sections/sectionConfigColsIds.entity';
 import { createIfNotFound } from '../utils/utils';
 import _ = require('lodash');
+import { SectionChildrenIds } from '../entities/sections/sectionChildrenIds.entity';
+import { SectionChildren } from '../entities/sections/sectionChildren.entity';
 
-export async function persistSections(em, sections) {
+export async function persistSections(em, sections, sectionChildrenIds) {
   for (const v of _.values(sections)) {
+    const scid = sectionChildrenIds[v.id];
+    await createIfNotFound(em, SectionChildrenIds, { id: scid });
     const findBy = { id: v.id };
     const assign = {
       name: v.name,
       paramInfo: v.paramInfoId,
+      children: scid,
     };
     await createIfNotFound(em, Sections, findBy, assign);
   }
 }
 
-export async function persistSectionChildren(em, sectionChildren) {
-  for (const sid of _.keys(sectionChildren)) {
-    const x = await em.findOne(Sections, { id: sid });
-    em.assign(x, {
-      children: sectionChildren[sid],
-    });
+export async function persistSectionChildren(
+  em,
+  sectionChildren,
+  sectionChildrenIds,
+) {
+  for (const sectionId of _.keys(sectionChildren)) {
+    const currList = sectionChildren[sectionId];
+    for (let i = 0; i < currList.length; i++) {
+      const findBy = {
+        id: sectionChildrenIds[sectionId],
+        section: currList[i],
+      };
+      const assign = { order: i };
+      await createIfNotFound(em, SectionChildren, findBy, assign);
+    }
   }
 }
 

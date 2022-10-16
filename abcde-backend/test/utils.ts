@@ -7,6 +7,9 @@ import s3Config from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/Se
 import s1Children from '../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionChildren';
 import s2Children from '../../abcde-frontend/src/__tests__data/diffusionDrops/SectionChildren';
 import s3Children from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/SectionChildren';
+import s1ChildrenIds from '../../abcde-frontend/src/__tests__data/simpleTrainTest/SectionChildrenIds';
+import s2ChildrenIds from '../../abcde-frontend/src/__tests__data/diffusionDrops/SectionChildrenIds';
+import s3ChildrenIds from '../../abcde-frontend/src/__tests__data/appleOrchardFarm/SectionChildrenIds';
 import sectionConfigCols from '../../abcde-frontend/src/__tests__data/SectionConfigCols';
 import baseUITypes from '../../abcde-frontend/src/__tests__data/BaseUITypes';
 import presetUITypes from '../../abcde-frontend/src/__tests__data/PresetUITypes';
@@ -25,6 +28,10 @@ export function loadAllSections() {
 
 export function loadAllSectionChildren() {
   return { ...s1Children, ...s2Children, ...s3Children };
+}
+
+export function loadAllSectionChildrenIds() {
+  return { ...s1ChildrenIds, ...s2ChildrenIds, ...s3ChildrenIds };
 }
 
 export function loadAllSectionConfigs() {
