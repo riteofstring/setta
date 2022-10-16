@@ -1,14 +1,22 @@
+import { Button, Icon, useDisclosure } from "@chakra-ui/react";
 import { CgCommunity } from "react-icons/cg";
-import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
+
+import EcoSysModal from "./EcoSysModal";
 
 export default function EcoSysButton() {
+  const { isOpen, onOpen, onClose } = useDisclosure();
   return (
     <>
-      <MenuBarButton onClick={onOpen}>
-        <CgCommunity />
+      <Button
+        leftIcon={<Icon as={CgCommunity} />}
+        size="xs"
+        mr="-px"
+        onClick={onOpen}
+        variant="ghost"
+      >
         Templates
-      </MenuBarButton>
-      {/* <EcoSysModal /> */}
+      </Button>
+      <EcoSysModal isOpen={isOpen} onClose={onClose} />
     </>
   );
 }
