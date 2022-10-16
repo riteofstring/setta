@@ -49,6 +49,8 @@ export async function loadOneProject({
     ...theRest
   } = loaded;
 
+  const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
   if (forSeeding) {
     // For seeding a project we need kwargInfo
     // instead of both kwargInfo and codeInfo
@@ -67,7 +69,6 @@ export async function loadOneProject({
   } else {
     // This means we're testing the frontend, so we need everything
     const _codeInfo = { ...codeInfo, ...kwargInfo };
-    const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
     return {
       codeInfo: _codeInfo,
       uiTypes: _uiTypes,
