@@ -8,6 +8,7 @@ import _ = require('lodash');
 import {
   getProject,
   getSectionChildren,
+  getSectionChildrenIds,
   getSectionConfigCol,
   getSections,
   getUITypes,
@@ -60,6 +61,7 @@ export class ProjectsService {
     } = fullObj;
 
     const sections = getSections(sectionConfigCols);
+    const sectionChildrenIds = getSectionChildrenIds(sectionConfigCols);
     const sectionChildren = getSectionChildren(sectionConfigCols);
     const sectionConfigCol = getSectionConfigCol(sectionConfigCols);
     const tempSectionConfigs = sectionConfigCols
@@ -81,6 +83,7 @@ export class ProjectsService {
       project: { ...project, configId: projectConfigId, sectionConfigColId },
       sections,
       sectionChildren,
+      sectionChildrenIds,
       sectionConfigs,
       sectionConfigCol,
       ev,

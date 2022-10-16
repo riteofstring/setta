@@ -14,11 +14,11 @@ import { CodeInfo } from '../entities/codeInfo.entity';
 import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 
 export async function getProject(id, projects: ProjectsRepository) {
-  return await projects.findOne(
+  return await projects.findOne<any>(
     { id },
     {
       populate: [
-        'defaultConfig.sectionConfigCol.sectionConfigCols.section.children',
+        'defaultConfig.sectionConfigCol.sectionConfigCols.section.children.sectionChildren',
         'defaultConfig.sectionConfigCol.sectionConfigCols.config.uiType',
       ],
     },
@@ -38,11 +38,22 @@ export function getSections(sectionConfigCols) {
   return sections;
 }
 
+export function getSectionChildrenIds(sectionConfigCols) {
+  const sectionChildrenIds = {};
+  for (const col of sectionConfigCols) {
+    sectionChildrenIds[col.section.id] = col.section.children.id;
+  }
+  return sectionChildrenIds;
+}
+
 export function getSectionChildren(sectionConfigCols) {
   const sectionChildren = {};
   for (const col of sectionConfigCols) {
-    const children = col.section.children;
-    sectionChildren[col.section.id] = children.getItems().map((x) => x.id);
+    const children = col.section.children.sectionChildren.getItems();
+    const orderedChildren = _.orderBy(children, (v) => v.order).map(
+      (x) => x.section.id,
+    );
+    sectionChildren[col.section.id] = orderedChildren;
   }
   return sectionChildren;
 }
