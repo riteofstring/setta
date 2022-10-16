@@ -45,10 +45,10 @@ export async function persistSectionConfigs(em, sectionConfigs) {
 
 export async function persistSectionConfigCols(em, sectionConfigCols) {
   for (const colId of _.keys(sectionConfigCols)) {
-    em.create(SectionConfigColsIds, { id: colId });
-    for (const curr of _.values(sectionConfigCols[colId])) {
-      const findBy = { id: colId, section: curr.id };
-      const assign = { config: curr.configId };
+    await createIfNotFound(em, SectionConfigColsIds, { id: colId });
+    for (const sectionId of _.keys(sectionConfigCols[colId])) {
+      const findBy = { id: colId, section: sectionId };
+      const assign = { config: sectionConfigCols[colId][sectionId] };
       await createIfNotFound(em, SectionConfigCols, findBy, assign);
     }
   }

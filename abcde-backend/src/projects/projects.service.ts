@@ -53,7 +53,8 @@ export class ProjectsService {
     const fullObj = await getProject(id, this.projects);
     const {
       defaultConfig: {
-        sectionConfigCol: { sectionConfigCols },
+        id: projectConfigId,
+        sectionConfigCol: { id: sectionConfigColId, sectionConfigCols },
       },
       ...project
     } = fullObj;
@@ -77,7 +78,7 @@ export class ProjectsService {
     const sectionConfigs = processSectionConfigs(tempSectionConfigs);
 
     return {
-      project,
+      project: { ...project, configId: projectConfigId, sectionConfigColId },
       sections,
       sectionChildren,
       sectionConfigs,

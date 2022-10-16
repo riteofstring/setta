@@ -65,7 +65,7 @@ export function processSectionConfigs(sectionConfigs) {
 export function getSectionConfigCol(sectionConfigCols) {
   const output = {};
   for (const col of sectionConfigCols) {
-    output[col.section.id] = { id: col.section.id, configId: col.config.id };
+    output[col.section.id] = col.config.id;
   }
   return output;
 }
