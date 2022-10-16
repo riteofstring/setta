@@ -55,35 +55,17 @@ describe('ProjectsService', () => {
       .set('Authorization', `Bearer ${access_token}`);
 
     const allProjects = await loadAllProjects({});
-    const {
-      project,
-      projectConfig,
-      codeInfo,
-      ev,
-      evCols,
-      kwargCols,
-      sectionChildren,
-      sectionChildrenIds,
-      sectionConfigCol,
-      sectionConfigs,
-      sections,
-      uiTypes,
-      uiTypesCols,
-    } = allProjects.filter((x) => x.project.id === projectId)[0];
+    const correctOutput = allProjects.filter(
+      (x) => x.project.id === projectId,
+    )[0];
 
-    expect(retrieved.project).toEqual(project);
-    expect(retrieved.projectConfig).toEqual(projectConfig);
-    expect(retrieved.sections).toEqual(sections);
-    expect(retrieved.sectionChildren).toEqual(sectionChildren);
-    expect(retrieved.sectionConfigs).toEqual(sectionConfigs);
-    expect(retrieved.sectionConfigCol).toEqual(sectionConfigCol);
-    expect(retrieved.ev).toEqual(ev);
-    expect(retrieved.evCols).toEqual(evCols);
-    expect(retrieved.uiTypes).toEqual(uiTypes);
-    expect(retrieved.uiTypesCols).toEqual(uiTypesCols);
-    expect(retrieved.kwargCols).toEqual(kwargCols);
-    expect(retrieved.sectionChildrenIds).toEqual(sectionChildrenIds);
-    compareCodeInfo(retrieved.codeInfo, codeInfo);
+    // TODO: figure out globalDefaults and projectDefaults
+    const { codeInfo: retrievedCodeInfo, ...theRest } = retrieved;
+    const { codeInfo, globalDefaults, projectDefaults, ...correctRest } =
+      correctOutput;
+
+    expect(theRest).toEqual(correctRest);
+    compareCodeInfo(retrievedCodeInfo, codeInfo);
   });
 });
 
