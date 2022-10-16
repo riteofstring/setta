@@ -7,7 +7,6 @@ import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
 import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";
 import FileMenu from "./FileMenu/FileMenu";
 import RunButton from "./RunButton/RunButton";
-import UiConfigButton from "./UiConfigButton/UiConfigButton";
 
 export default function SubNav() {
   return (
@@ -43,7 +42,7 @@ function UiEditorSubNav() {
       <VerticalDivider />
       <CreateSectionButton />
       <CreateGroupButton />
-      <UiConfigButton />
+      {/* <UiConfigButton /> */}
       <VerticalDivider />
 
       <RunButton />
