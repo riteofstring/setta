@@ -1,5 +1,6 @@
 import { saveProject as saveProjectDb } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
+import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 
 // s is the easy-peasy store
@@ -11,7 +12,7 @@ export function getProjectData(s) {
     "sectionConfigCol",
     "childrenId",
   ]);
-  projectConfig.children = s.sectionInfos.topLevelSectionPositions.map(
+  projectConfig.children = topLevelSectionInfo(s.sectionInfos.x).map(
     (x) => x.id
   );
 

@@ -68,13 +68,6 @@ const sectionInfos = {
     return _.mapValues(x, (v) => v.name);
   }),
 
-  topLevelSectionPositions: computed([(state) => state.x], (x) => {
-    return _.map(
-      _.filter(x, (v) => v.isTopLevel),
-      (y) => ({ id: y.id, initialPosition: y.initialPosition })
-    );
-  }),
-
   moveChildThunk: thunk((actions, payload, helpers) => {
     const { oldParentId, newParentId, childId, newIndex } = payload;
 
