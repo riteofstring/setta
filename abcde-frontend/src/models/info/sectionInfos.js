@@ -42,10 +42,6 @@ const sectionInfos = {
     }
   }),
 
-  setAllIdsOverview: action((state, payload) => {
-    state.idsOverview = payload;
-  }),
-
   setIdsOverview: action((state, payload) => {
     const { sectionId, newStateFn } = payload;
     const currState = setDefaultIdsOverview(state, sectionId);

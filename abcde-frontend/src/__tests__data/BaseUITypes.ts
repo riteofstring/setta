@@ -91,4 +91,19 @@ export default {
     originInfoId: {},
     isForChildOfOriginInfoId: false,
   },
+  // To group sections together for a project
+  "3e3ed4cb-0f9a-47ea-845a-c2d456a7091c": {
+    id: "3e3ed4cb-0f9a-47ea-845a-c2d456a7091c",
+    type: "GROUP",
+    name: "",
+    presetType: "base",
+    config: {
+      collections: [],
+      uiTypeColId: null,
+      subType: null,
+      childUITypeId: null,
+    },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
+  },
 };

@@ -17,7 +17,7 @@ import { sectionIdFromName } from "__tests__utils/utils";
 global.ResizeObserver = ResizeObserver;
 
 test("A nested section should appear when a parameter uitype becomes section", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = createStoreWrapperWithData();
   const sectionName = "The2ndOtherParameters";
   const sectionId = sectionIdFromName(store, sectionName);
   const props = { sectionId, parentId: null, depth: 0 };

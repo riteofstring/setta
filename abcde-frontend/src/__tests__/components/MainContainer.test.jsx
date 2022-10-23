@@ -10,7 +10,7 @@ import { sectionIdFromName } from "__tests__utils/utils";
 global.ResizeObserver = ResizeObserver;
 
 test("Tabbing away from Overview should focus onto a section when UI config is closed", async () => {
-  await createMainContainer();
+  createMainContainer();
   const overviewSearch = getOverviewSearch();
   overviewSearch.focus();
   await userEvent.tab();
@@ -20,7 +20,7 @@ test("Tabbing away from Overview should focus onto a section when UI config is c
 });
 
 test("Overview listing should be filtered by text in search bar", async () => {
-  const { store } = await createMainContainer();
+  const { store } = createMainContainer();
   const overviewSearch = getOverviewSearch();
 
   // First check that the listings match the existing sections
@@ -43,7 +43,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
 });
 
 test("Jump to section", async () => {
-  const { store } = await createMainContainer();
+  const { store } = createMainContainer();
   const modelSectionId = sectionIdFromName(store, "Model");
   const modelListing = screen.getByTestId(`Overview Listing ${modelSectionId}`);
   await userEvent.click(modelListing);
@@ -59,7 +59,7 @@ test("Jump to section", async () => {
 });
 
 test("Section names should be unique among siblings.", async () => {
-  await createMainContainer();
+  createMainContainer();
   let sectionTitle = screen.getByDisplayValue("Optimizer");
   await userEvent.clear(sectionTitle);
   await userEvent.type(sectionTitle, "Optim");
@@ -80,8 +80,8 @@ function getOverviewSearch() {
   });
 }
 
-async function createMainContainer() {
-  const { store, wrapper } = await createStoreWrapperWithData();
+function createMainContainer() {
+  const { store, wrapper } = createStoreWrapperWithData();
   render(<MainContainer />, {
     wrapper,
   });

@@ -1,14 +1,5 @@
-import { Button } from "@chakra-ui/react";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 
 export default function CreateGroupButton() {
-  return (
-    <Button
-      // leftIcon={<Icon as={AiOutlineGroup} />}
-      size="xs"
-      mr="-px"
-      variant="ghost"
-    >
-      Create Deck
-    </Button>
-  );
+  return <MenuBarButton>Create Deck</MenuBarButton>;
 }

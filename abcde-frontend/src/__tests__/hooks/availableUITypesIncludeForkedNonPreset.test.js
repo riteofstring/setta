@@ -14,12 +14,12 @@ import {
 
 test.each(testSectionNamesParamNames({}))(
   "Forked non-presets should always appear, sectionName=$sectionName, paramName=$paramName",
-  async ({ sectionName, paramName }) =>
-    await testAvailableForkedNonPreset(sectionName, paramName)
+  ({ sectionName, paramName }) =>
+    testAvailableForkedNonPreset(sectionName, paramName)
 );
 
-async function testAvailableForkedNonPreset(inputSectionName, inputParamName) {
-  const { store, wrapper } = await createStoreWrapperWithData();
+function testAvailableForkedNonPreset(inputSectionName, inputParamName) {
+  const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
 

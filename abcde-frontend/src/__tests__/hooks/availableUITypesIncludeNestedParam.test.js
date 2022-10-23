@@ -19,13 +19,13 @@ test.each([
   ["my preset for testing", LIST_ROOT, false],
 ])(
   "Available uiTypes for nested parameters should be the same when viewed from the section's perspective.",
-  async (uiTypeName, uiTypeType, useBasePreset) => {
-    await testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset);
+  (uiTypeName, uiTypeType, useBasePreset) => {
+    testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset);
   }
 );
 
-async function testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset) {
-  const { store, wrapper } = await createStoreWrapperWithData();
+function testAvailableUITypes(uiTypeName, uiTypeType, useBasePreset) {
+  const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
 

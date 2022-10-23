@@ -15,13 +15,13 @@ import {
 
 test.each(testSectionNamesParamNames({}))(
   "A list/dict root shouldn't see the non-preset uitype of its children, and vice versa",
-  async ({ sectionName, paramName }) => {
-    await testRootAndChild(sectionName, paramName);
+  ({ sectionName, paramName }) => {
+    testRootAndChild(sectionName, paramName);
   }
 );
 
-async function testRootAndChild(inputSectionName, inputParamName) {
-  const { store, wrapper } = await createStoreWrapperWithData();
+function testRootAndChild(inputSectionName, inputParamName) {
+  const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
 

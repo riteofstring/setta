@@ -6,7 +6,8 @@ import {
   SECTION_TYPE_NAMES,
 } from "utils/constants";
 import { isBasePreset } from "utils/uiTypeConstants";
-import { loadOneProject } from "./loadTestData";
+import { getRootSectionId } from "utils/utils";
+import { loadTestData } from "./loadTestData";
 import {
   renderUseAvailablePresetUITypes,
   renderUseGetParamChildId,
@@ -17,9 +18,11 @@ import {
 } from "./renderHooks";
 import { createStore, getStoreProviderWrapper } from "./utils";
 
-export async function createStoreWrapperWithData() {
+export function createStoreWrapperWithData() {
   const store = createStore();
-  const testData = await loadOneProject({});
+  const testData = loadTestData();
+  const rootSection = getRootSectionId(testData.sectionChildren);
+  store.getActions().currProject.setSectionGroup(rootSection);
   store.getActions().master.loadSections(testData);
   return { store, wrapper: getStoreProviderWrapper(store) };
 }

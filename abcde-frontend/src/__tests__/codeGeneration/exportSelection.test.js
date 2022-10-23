@@ -50,7 +50,7 @@ async function singleParameter(
   numTransforms,
   putDeckInTransforms
 ) {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
   // get section, param, and ui type to test on
@@ -114,7 +114,7 @@ async function multipleParameters(
   numTransforms,
   putDeckInTransforms
 ) {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = createStoreWrapperWithData();
   let result = null;
 
   const sectionIds = [];

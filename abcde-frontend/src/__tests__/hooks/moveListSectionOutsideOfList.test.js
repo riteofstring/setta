@@ -7,12 +7,12 @@ import {
 } from "__tests__utils/createStoreWrapperWithData";
 import { renderUseGetSectionType } from "__tests__utils/renderHooks";
 
-test("Moving a list section outside of a list should change its subtype", async () => {
-  await testMovingListSection();
+test("Moving a list section outside of a list should change its subtype", () => {
+  testMovingListSection();
 });
 
-async function testMovingListSection() {
-  const { store, wrapper } = await createStoreWrapperWithData();
+function testMovingListSection() {
+  const { store, wrapper } = createStoreWrapperWithData();
 
   let result = null;
 

@@ -9,7 +9,7 @@ import { sectionIdFromName } from "__tests__utils/utils";
 global.ResizeObserver = ResizeObserver;
 
 test("Delete active section while ui config pane is open", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = createStoreWrapperWithData();
   render(<MainContainer />, {
     wrapper,
   });

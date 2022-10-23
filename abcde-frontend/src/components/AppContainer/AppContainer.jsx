@@ -1,4 +1,3 @@
-import { Grid } from "@chakra-ui/react";
 import { accessPage } from "dbRequests/authentication";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
@@ -22,19 +21,19 @@ const AppContainer = () => {
   return (
     <>
       <HeaderContainer />
-      <Grid
-        h="100%"
-        w="100vw"
-        border="1px"
-        overflow="hidden"
-        templateRows="min-content 1fr"
-        templateColumns="1fr"
-        borderColor="gray.200"
-      >
+      <GridContainer>
         <SwitchContainer />
-      </Grid>
+      </GridContainer>
     </>
   );
 };
+
+function GridContainer(props) {
+  return (
+    <main className="h-full w-screen border border-gray-200 overflow-hidden grid [grid-template-columns:1fr] [grid-template-rows:min-content 1fr]">
+      {props.children}
+    </main>
+  );
+}
 
 export default React.memo(AppContainer);

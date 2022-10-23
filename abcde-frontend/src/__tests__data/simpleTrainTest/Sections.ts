@@ -1,4 +1,10 @@
 export default {
+  // the "root" section for the project
+  "5184caec-eef4-4798-9613-a11aafa8c2ff": {
+    id: "5184caec-eef4-4798-9613-a11aafa8c2ff",
+    name: "",
+    paramInfoId: null,
+  },
   "acd83563-2337-44c2-9b4d-db3641fcbc97": {
     id: "acd83563-2337-44c2-9b4d-db3641fcbc97",
     name: "Model",
