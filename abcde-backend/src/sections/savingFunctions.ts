@@ -42,14 +42,19 @@ export async function persistOneSectionChildren(
   sectionChildren,
   sectionChildrenId,
 ) {
+  const col = await createIfNotFound(em, SectionChildrenIds, {
+    id: sectionChildrenId,
+  });
+  const childEntities = [];
   for (let i = 0; i < sectionChildren.length; i++) {
-    const findBy = {
-      id: sectionChildrenId,
-      section: sectionChildren[i],
-    };
+    const findBy = { id: sectionChildrenId, section: sectionChildren[i] };
     const assign = { order: i };
-    await createIfNotFound(em, SectionChildren, findBy, assign);
+    const newOne = await createIfNotFound(em, SectionChildren, findBy, assign);
+    childEntities.push(newOne);
   }
+  console.log('childEntities', childEntities);
+  col.sectionChildren.set(childEntities);
+  em.persist(col);
 }
 
 export async function persistSectionConfigs(em, sectionConfigs) {
