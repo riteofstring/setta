@@ -1,6 +1,7 @@
 import { UITypes } from '../entities/uitypes/uiTypes.entity';
 import { SectionUITypes } from '../entities/uiTypes/sectionUITypes.entity';
 import { UITypesColsIds } from '../entities/uiTypes/uiTypesColsIds.entity';
+import { createIfNotFound } from '../utils/utils';
 import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
 import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
 import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
@@ -9,8 +10,8 @@ import { UITypesCols } from '../entities/uiTypes/uiTypesCols.entity';
 import _ = require('lodash');
 
 async function persistUIType(em, x) {
+  const findBy = { id: x.id };
   const assign = {
-    id: x.id,
     type: x.type,
     name: x.name,
     presetType: x.presetType,
@@ -19,7 +20,7 @@ async function persistUIType(em, x) {
     originCodeInfo: x.originInfoId.paramInfoId,
     isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
   };
-  await em.upsert(UITypes, assign);
+  await createIfNotFound(em, UITypes, findBy, assign);
 }
 
 async function persistSectionUIType(em, x) {
@@ -28,41 +29,45 @@ async function persistSectionUIType(em, x) {
   } = x;
 
   if (uiTypeColId) {
-    await em.upsert(UITypesColsIds, { id: uiTypeColId });
+    await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
   }
 
   if (childUITypeId) {
-    await em.upsert(UITypes, { id: childUITypeId });
+    await createIfNotFound(em, UITypes, { id: childUITypeId });
   }
 
+  const findBy = { id: x.id };
   const assign = {
-    id: x.id,
     collections,
     uiTypeCol: uiTypeColId,
     childUIType: childUITypeId,
     subType,
   };
-  await em.upsert(SectionUITypes, assign);
+  await createIfNotFound(em, SectionUITypes, findBy, assign);
 }
 
 async function persistSliderUIType(em, x) {
-  const assign = { id: x.id, ...x.config };
-  await em.upsert(SliderUITypes, assign);
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, SliderUITypes, findBy, assign);
 }
 
 async function persistTextUIType(em, x) {
-  const assign = { id: x.id, ...x.config };
-  await em.upsert(TextUITypes, assign);
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, TextUITypes, findBy, assign);
 }
 
 async function persistSwitchUIType(em, x) {
-  const assign = { id: x.id, ...x.config };
-  await em.upsert(SwitchUITypes, assign);
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, SwitchUITypes, findBy, assign);
 }
 
 async function persistRefUIType(em, x) {
-  const assign = { id: x.id, ...x.config };
-  await em.upsert(RefUITypes, assign);
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, RefUITypes, findBy, assign);
 }
 
 export async function persistUITypes(em, uiTypes) {
@@ -92,14 +97,11 @@ export async function persistUITypes(em, uiTypes) {
 
 export async function persistUITypesCols(em, uiTypesCols) {
   for (const uiTypeColId of Object.keys(uiTypesCols)) {
-    await em.upsert(UITypesColsIds, { id: uiTypeColId });
+    await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
     for (const codeInfoId of _.keys(uiTypesCols[uiTypeColId])) {
-      const assign = {
-        id: uiTypeColId,
-        codeInfo: codeInfoId,
-        uiType: uiTypesCols[uiTypeColId][codeInfoId],
-      };
-      await em.upsert(UITypesCols, assign);
+      const findBy = { id: uiTypeColId, codeInfo: codeInfoId };
+      const assign = { uiType: uiTypesCols[uiTypeColId][codeInfoId] };
+      await createIfNotFound(em, UITypesCols, findBy, assign);
     }
   }
 }

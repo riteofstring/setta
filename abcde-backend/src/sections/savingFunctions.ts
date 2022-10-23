@@ -4,6 +4,7 @@ import { SectionConfig } from '../entities/sections/sectionConfig.entity';
 import { Sections } from '../entities/sections/sections.entity';
 import { SectionConfigCols } from '../entities/sections/sectionConfigCols.entity';
 import { SectionConfigColsIds } from '../entities/sections/sectionConfigColsIds.entity';
+import { createIfNotFound } from '../utils/utils';
 import _ = require('lodash');
 import { SectionChildrenIds } from '../entities/sections/sectionChildrenIds.entity';
 import { SectionChildren } from '../entities/sections/sectionChildren.entity';
@@ -11,14 +12,14 @@ import { SectionChildren } from '../entities/sections/sectionChildren.entity';
 export async function persistSections(em, sections, sectionChildrenIds) {
   for (const v of _.values(sections)) {
     const scid = sectionChildrenIds[v.id];
-    await em.upsert(SectionChildrenIds, { id: scid });
+    await createIfNotFound(em, SectionChildrenIds, { id: scid });
+    const findBy = { id: v.id };
     const assign = {
-      id: v.id,
       name: v.name,
       paramInfo: v.paramInfoId,
       children: scid,
     };
-    await em.upsert(Sections, assign);
+    await createIfNotFound(em, Sections, findBy, assign);
   }
 }
 
@@ -41,46 +42,37 @@ export async function persistOneSectionChildren(
   sectionChildren,
   sectionChildrenId,
 ) {
-  const col = await em.upsert(SectionChildrenIds, {
-    id: sectionChildrenId,
-  });
-  const childEntities = [];
   for (let i = 0; i < sectionChildren.length; i++) {
-    const assign = {
+    const findBy = {
       id: sectionChildrenId,
       section: sectionChildren[i],
-      order: i,
     };
-    childEntities.push(await em.upsert(SectionChildren, assign));
+    const assign = { order: i };
+    await createIfNotFound(em, SectionChildren, findBy, assign);
   }
-  col.sectionChildren.set(childEntities);
-  em.persist(col);
 }
 
 export async function persistSectionConfigs(em, sectionConfigs) {
   for (const v of _.values(sectionConfigs)) {
-    await em.upsert(EVColsIds, { id: v.evColId });
-    await em.upsert(KwargColsIds, { id: v.kwargColId });
+    await createIfNotFound(em, EVColsIds, { id: v.evColId });
+    await createIfNotFound(em, KwargColsIds, { id: v.kwargColId });
 
+    const findBy = { id: v.id };
     const assign = {
-      id: v.id,
       evCol: v.evColId,
       kwargCol: v.kwargColId,
       selectedItem: v.selectedItem,
       uiType: v.uiTypeId,
     };
-    await em.upsert(SectionConfig, assign);
+    await createIfNotFound(em, SectionConfig, findBy, assign);
   }
 }
 
 export async function persistSectionConfigCol(em, sectionConfigCol, colId) {
-  await em.upsert(SectionConfigColsIds, { id: colId });
+  await createIfNotFound(em, SectionConfigColsIds, { id: colId });
   for (const sectionId of _.keys(sectionConfigCol)) {
-    const assign = {
-      id: colId,
-      section: sectionId,
-      config: sectionConfigCol[sectionId],
-    };
-    await em.upsert(SectionConfigCols, assign);
+    const findBy = { id: colId, section: sectionId };
+    const assign = { config: sectionConfigCol[sectionId] };
+    await createIfNotFound(em, SectionConfigCols, findBy, assign);
   }
 }

@@ -15,6 +15,6 @@ export class Sections {
   @ManyToOne({ nullable: true })
   paramInfo: CodeInfo;
 
-  @ManyToOne({ entity: 'SectionChildrenIds', nullable: true })
+  @ManyToOne({ entity: 'SectionChildrenIds' })
   children: SectionChildrenIds;
 }
