@@ -1,4 +1,14 @@
-import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
+import { Button } from "@chakra-ui/react";
+
 export default function CreateSectionButton() {
-  return <MenuBarButton>New Card</MenuBarButton>;
+  return (
+    <Button
+      // leftIcon={<Icon as={BsCardHeading} />}
+      size="xs"
+      mr="-px"
+      variant="ghost"
+    >
+      New Card
+    </Button>
+  );
 }

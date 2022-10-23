@@ -1,12 +1,4 @@
 export default {
-  // the "root" section for the project
-  "ac22dea2-6824-4c37-bcee-eeb5e349b2f6": {
-    id: "ac22dea2-6824-4c37-bcee-eeb5e349b2f6",
-    uiTypeId: "3e3ed4cb-0f9a-47ea-845a-c2d456a7091c",
-    evColId: null,
-    kwargColId: null,
-    selectedItem: null,
-  },
   "6a85496e-a377-4618-ac06-0ab492406ca0": {
     id: "6a85496e-a377-4618-ac06-0ab492406ca0",
     uiTypeId: "ad41e56e-0c81-413d-8a63-ccfa59107c79",

@@ -18,6 +18,8 @@ const master = {
 
   loadSections: thunk((action, payload, helpers) => {
     const {
+      project,
+      projectConfig,
       codeInfo,
       globalDefaults,
       projectDefaults,
@@ -25,6 +27,7 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
+      sectionChildrenIds,
       ev,
       evCols,
       uiTypes,
@@ -32,9 +35,12 @@ const master = {
       kwargCols,
     } = payload;
 
-    helpers.getStoreActions().codeInfo.loadObjInfoAndCollections(codeInfo);
+    const a = helpers.getStoreActions();
+    a.project.setAll(project);
+    a.projectConfig.setAll(projectConfig);
+    a.codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
-    action.initUITypesCols(uiTypesCols);
+    a.paramInfos.setAllUITypeIds({ ...uiTypesCols });
     action.initParamDefaults({
       storeName: "globalParamDefaults",
       paramDefaults: globalDefaults.paramDefaults,
@@ -44,13 +50,15 @@ const master = {
       paramDefaults: projectDefaults.paramDefaults,
     });
     action.initEV(ev);
-    action.initEVCols(evCols);
-    action.initKwargCols(kwargCols);
+    a.paramInfos.setAllEnteredValueIds({ ...evCols });
+    a.objInfos.setAllKwargIds({ ...kwargCols });
     action.initSections({
       sections,
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
+      sectionChildrenIds,
+      topLevelIds: projectConfig.children,
     });
   }),
 
@@ -71,19 +79,6 @@ const master = {
     setManyUITypes({ uiTypes });
   }),
 
-  initUITypesCols: thunk((action, payload, helpers) => {
-    const pActions = helpers.getStoreActions().paramInfos;
-    for (const colId of Object.keys(payload)) {
-      for (const paramInfo of Object.values(payload[colId])) {
-        pActions.setUITypeId({
-          collectionId: colId,
-          paramInfoId: paramInfo.id,
-          uiTypeId: paramInfo.uiTypeId,
-        });
-      }
-    }
-  }),
-
   initEV: thunk((action, payload, helpers) => {
     const a = helpers.getStoreActions();
     _.forEach(payload, (v, k) => {
@@ -92,44 +87,15 @@ const master = {
     });
   }),
 
-  initEVCols: thunk((action, payload, helpers) => {
-    const pActions = helpers.getStoreActions().paramInfos;
-    for (const colId of Object.keys(payload)) {
-      for (const paramInfo of Object.values(payload[colId])) {
-        pActions.setEnteredValueId({
-          collectionId: colId,
-          paramInfoId: paramInfo.id,
-          enteredValueId: paramInfo.enteredValueId,
-        });
-      }
-    }
-  }),
-
-  initKwargCols: thunk((action, payload, helpers) => {
-    const setKwargIds = helpers.getStoreActions().objInfos.setKwargIds;
-    for (const colId of Object.keys(payload)) {
-      for (const objInfoId of Object.keys(payload[colId])) {
-        setKwargIds({
-          collectionId: colId,
-          objInfoId: objInfoId,
-          newStateFn: () => payload[colId][objInfoId],
-        });
-      }
-    }
-  }),
-
   initSections: thunk((action, payload, helpers) => {
-    let { sections, sectionConfigs, sectionConfigCol, sectionChildren } =
-      payload;
-    let topLevelIds = null;
-    ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
-      omitProjectSectionAndGetTopLevelIds(
-        helpers.getStoreState(),
-        sections,
-        sectionConfigs,
-        sectionChildren
-      ));
-
+    const {
+      sections,
+      sectionConfigs,
+      sectionConfigCol,
+      sectionChildren,
+      sectionChildrenIds,
+      topLevelIds,
+    } = payload;
     let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
       const initialPosition = {
@@ -141,7 +107,8 @@ const master = {
         initialPosition,
         ...x,
         parentId,
-        configId: sectionConfigCol[x.id].configId,
+        configId: sectionConfigCol[x.id],
+        sectionChildrenId: sectionChildrenIds[x.id],
         isTopLevel: topLevelIds.includes(x.id),
       });
       idx += 1;
@@ -153,19 +120,11 @@ const master = {
       (x) => new SectionConfig(x)
     );
 
-    const setSectionInfo =
-      helpers.getStoreActions().sectionInfos.setSectionInfo;
-    const setSectionConfig =
-      helpers.getStoreActions().sectionConfigs.setSectionConfig;
-    const setIdsOverview =
-      helpers.getStoreActions().sectionInfos.setIdsOverview;
+    const a = helpers.getStoreActions();
 
-    setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-    setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
-
-    _.forEach(sectionChildren, (x, id) => {
-      setIdsOverview({ sectionId: id, newStateFn: () => x });
-    });
+    a.sectionInfos.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
+    a.sectionConfigs.setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
+    a.sectionInfos.setAllIdsOverview({ ...sectionChildren });
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
@@ -179,23 +138,8 @@ const master = {
 
 export default master;
 
-function omitProjectSectionAndGetTopLevelIds(
-  state,
-  sections,
-  sectionConfigs,
-  sectionChildren
-) {
-  const projectSectionGroup = state.currProject.sectionGroup;
-  const topLevelIds = sectionChildren[projectSectionGroup];
-  const projectSectionConfigId = sections[projectSectionGroup].configId;
-  return {
-    sections: _.omit(sections, projectSectionGroup),
-    sectionConfigs: _.omit(sectionConfigs, projectSectionConfigId),
-    sectionChildren: _.omit(sectionChildren, projectSectionGroup),
-    topLevelIds,
-  };
-}
-
+// reset states, except for state.project
+// If you reset state.project, the id will be reset, causing another render in MainContainer
 function resetProject(a) {
   a.globalParamDefaults.reset();
   a.projectParamDefaults.reset();

@@ -10,6 +10,10 @@ function getInitialState() {
 const paramInfos = {
   ...getInitialState(),
 
+  setAllUITypeIds: action((state, payload) => {
+    state.y = payload;
+  }),
+
   setUITypeId: action((state, payload) => {
     const { collectionId, paramInfoId, uiTypeId } = payload;
     setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
@@ -38,6 +42,10 @@ const paramInfos = {
         }
       }
     }
+  }),
+
+  setAllEnteredValueIds: action((state, payload) => {
+    state.x = payload;
   }),
 
   setEnteredValueId: action((state, payload) => {

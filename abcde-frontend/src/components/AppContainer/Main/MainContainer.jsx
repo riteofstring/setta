@@ -5,8 +5,7 @@ import { useProjectLoader } from "hooks/useProjectLoader";
 import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { NO_AUTH } from "utils/constants";
-import { getRootSectionId } from "utils/utils";
-import { loadTestData } from "__tests__utils/loadTestData";
+import { loadOneProject } from "__tests__utils/loadTestData";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
@@ -14,8 +13,7 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
-  const access_token = useStoreState((x) => x.auth.access_token);
-  const currProject = useStoreState((x) => x.currProject.id);
+  const projectId = useStoreState((x) => x.project.id);
   const projectLoader = useProjectLoader();
   const noAuthLoader = useNoAuthLoading();
   const authLoader = useAuthLoading();
@@ -23,19 +21,18 @@ export default function MainContainer() {
 
   useEffect(() => {
     async function fn() {
-      if (NO_AUTH && !currProject) {
+      if (NO_AUTH && !projectId) {
         setDoneLoading(false);
-        setDoneLoading(noAuthLoader(projectLoader));
-      } else if (!NO_AUTH && isAuthenticated && currProject) {
+        setDoneLoading(await noAuthLoader(projectLoader));
+      } else if (!NO_AUTH && isAuthenticated && projectId) {
         setDoneLoading(false);
-        const projectInfo = await fetchData(access_token, currProject);
-        setDoneLoading(authLoader(projectLoader, projectInfo));
+        setDoneLoading(await authLoader(projectLoader, projectId));
       } else {
         setDoneLoading(true);
       }
     }
     fn();
-  }, [currProject]);
+  }, [projectId]);
 
   return (
     doneLoading && (
@@ -59,33 +56,24 @@ async function fetchData(access_token, id) {
 }
 
 function useNoAuthLoading() {
-  const setCurrProject = useStoreActions((x) => x.currProject.setId);
-  const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
-
-  return (projectLoader) => {
-    const projectId = "61e089c8-62bf-4e8c-915e-111b4587da81";
-    setCurrProject(projectId);
-    const testData = loadTestData(projectId);
-
-    const rootSection = getRootSectionId(testData.sectionChildren);
-    setSectionGroup(rootSection);
+  return async (projectLoader) => {
+    const testData = await loadOneProject({});
     projectLoader(testData);
     return true;
   };
 }
 
 function useAuthLoading() {
-  const setSectionGroup = useStoreActions((x) => x.currProject.setSectionGroup);
   const clearSections = useStoreActions((x) => x.master.clearSections);
+  const access_token = useStoreState((x) => x.auth.access_token);
 
-  return (projectLoader, projectInfo) => {
+  return async (projectLoader, projectId) => {
     // TODO remove this
-    const { projectDefaults, globalDefaults } = loadTestData();
+    const projectInfo = await fetchData(access_token, projectId);
+    const { projectDefaults, globalDefaults } = await loadOneProject({});
     clearSections();
-    const rootSection = getRootSectionId(projectInfo.sectionChildren);
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
-    setSectionGroup(rootSection);
     projectLoader({
       projectDefaults,
       globalDefaults,
