@@ -1,12 +1,10 @@
 import { MikroORM } from '@mikro-orm/core';
 import { SectionChildrenIds } from '../../src/entities/sections/sectionChildrenIds.entity';
 import config from '../../src/mikro-orm.config';
-import { v4 as uuidv4 } from 'uuid';
 import { SectionChildren } from '../../src/entities/sections/sectionChildren.entity';
 import { Sections } from '../../src/entities/sections/sections.entity';
 import _ from 'lodash';
 import { persistOneSectionChildren } from '../../src/sections/savingFunctions';
-import { persistAllProjectDetails } from '../../src/projects/savingFunctions';
 
 describe('Orphan Removal', () => {
   let orm;
@@ -25,7 +23,7 @@ describe('Orphan Removal', () => {
   });
 
   afterAll(async () => {
-    // await orm.schema.dropSchema({ dropDb: true });
+    await orm.schema.dropSchema({ dropDb: true });
     await orm.close(true);
   });
 
@@ -37,18 +35,6 @@ describe('Orphan Removal', () => {
     const s3 = em.create(Sections, { name: 'test3' });
     [scid1, scid2, s1, s2, s3].forEach((x) => em.persist(x));
     await em.flush();
-    // await persistAllProjectDetails(em, {
-    //   project: {}
-    //   projectConfig: {
-    //     id: uuidv4(),
-    //     name: 'test project',
-    //     sectionConfigCol: uuidv4(),
-    //     childrenId: scid,
-    //     children: [s1.id, s2.id, s3.id],
-    //   },
-    // });
-    // let projectChildren = await em.find(SectionChildren, { id: scid });
-    // expect(projectChildren.length).toEqual(3);
 
     await persistOneSectionChildren(em, [s2], scid1);
     let s1Children = await em.find(SectionChildren, { id: scid1 });

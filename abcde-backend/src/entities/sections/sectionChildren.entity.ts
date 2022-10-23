@@ -5,7 +5,7 @@ import { Sections } from './sections.entity';
 
 @Entity({ customRepository: () => SectionChildrenRepository })
 export class SectionChildren {
-  @ManyToOne(() => SectionChildrenIds, { primary: true })
+  @ManyToOne({ entity: 'SectionChildrenIds', primary: true })
   id: SectionChildrenIds;
 
   @ManyToOne({ primary: true, entity: 'Sections' })

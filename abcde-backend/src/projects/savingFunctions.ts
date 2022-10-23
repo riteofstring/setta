@@ -11,8 +11,6 @@ import { persistEV, persistEVCols } from '../enteredValues/savingFunctions';
 import { persistUITypes, persistUITypesCols } from '../uiTypes/savingFunctions';
 import { persistKwargCols } from '../kwargs/savingFunctions';
 import { persistCodeInfo } from '../codeInfo/savingFunctions';
-import _ = require('lodash');
-import { createIfNotFound } from '../utils/utils';
 import { SectionConfigColsIds } from '../entities/sections/sectionConfigColsIds.entity';
 import { SectionChildrenIds } from '../entities/sections/sectionChildrenIds.entity';
 
@@ -21,39 +19,36 @@ import { SectionChildrenIds } from '../entities/sections/sectionChildrenIds.enti
 export async function persistAllProjectDetails(em, p) {
   await persistCodeInfo(em, p.kwargInfo);
   await persistKwargCols(em, p.kwargCols);
-  await persistSections(em, p.sections, p.sectionChildrenIds);
-  await persistSectionChildren(em, p.sectionChildren, p.sectionChildrenIds);
-  await persistEV(em, p.ev);
-  await persistEVCols(em, p.evCols);
-  await persistUITypes(em, p.uiTypes);
-  await persistUITypesCols(em, p.uiTypesCols);
-  await persistProjectConfig(em, p.projectConfig);
-  await persistProject(em, p.project);
-  await connectProjectToProjectConfig(em, p.project, p.projectConfig);
-  await persistSectionConfigs(em, p.sectionConfigs);
-  await persistSectionConfigCol(
-    em,
-    p.sectionConfigCol,
-    p.projectConfig.sectionConfigCol,
-  );
+  // await persistSections(em, p.sections, p.sectionChildrenIds);
+  // await persistSectionChildren(em, p.sectionChildren, p.sectionChildrenIds);
+  // await persistEV(em, p.ev);
+  // await persistEVCols(em, p.evCols);
+  // await persistUITypes(em, p.uiTypes);
+  // await persistUITypesCols(em, p.uiTypesCols);
+  // await persistProjectConfig(em, p.projectConfig);
+  // await persistProject(em, p.project);
+  // await connectProjectToProjectConfig(em, p.project, p.projectConfig);
+  // await persistSectionConfigs(em, p.sectionConfigs);
+  // await persistSectionConfigCol(
+  //   em,
+  //   p.sectionConfigCol,
+  //   p.projectConfig.sectionConfigCol,
+  // );
 }
 
 export async function persistProject(em, project) {
-  const { id, ...assign } = project;
-  const findBy = { id };
-  await createIfNotFound(em, Projects, findBy, assign);
+  await em.upsert(Projects, project);
 }
 
 export async function persistProjectConfig(em, config) {
   const { id, name, sectionConfigCol, children, childrenId } = config;
-  await createIfNotFound(em, SectionConfigColsIds, {
+  await em.upsert(SectionConfigColsIds, {
     id: sectionConfigCol,
   });
-  await createIfNotFound(em, SectionChildrenIds, { id: childrenId });
+  await em.upsert(SectionChildrenIds, { id: childrenId });
   await persistOneSectionChildren(em, children, childrenId);
-  const findBy = { id };
-  const assign = { name, sectionConfigCol, children: childrenId };
-  await createIfNotFound(em, ProjectConfigs, findBy, assign);
+  const assign = { id, name, sectionConfigCol, children: childrenId };
+  await em.upsert(ProjectConfigs, assign);
 }
 
 export async function connectProjectToProjectConfig(

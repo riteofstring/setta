@@ -1,7 +1,7 @@
 import _ = require('lodash');
-import { createIfNotFound } from '../utils/utils';
 import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 import { KwargCols } from '../entities/kwargs/kwargCols.entity';
+import { createIfNotFound } from '../utils/utils';
 
 export async function persistKwargCols(em, kwargsCols) {
   for (const kwargColId of Object.keys(kwargsCols)) {
@@ -9,14 +9,13 @@ export async function persistKwargCols(em, kwargsCols) {
       id: kwargColId,
     });
     for (const codeInfoId of _.keys(kwargsCols[kwargColId])) {
-      const findBy = {
+      const assign = {
         id: kwargColId,
         codeInfo: codeInfoId === 'null' ? null : codeInfoId,
-      };
-      const assign = {
         kwargInfos: kwargsCols[kwargColId][codeInfoId],
       };
-      await createIfNotFound(em, KwargCols, findBy, assign);
+      console.log(assign);
+      await em.upsert(KwargCols, assign);
     }
   }
 }
