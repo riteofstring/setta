@@ -19,10 +19,11 @@ model CodeInfo {
   children           CodeInfo[] @relation("Children")
   parents            CodeInfo[] @relation("Children")
   sections           Section[] // Section.paramInfo
-  kwargsOwner        KwargCol[] @relation("kwargsOwner") // KwargCol.codeInfo
+  kwargOwner         KwargCol[] @relation("KwargOwner") // KwargCol.codeInfo
   kwargCol           KwargCol?  @relation(fields: [kwargColIdid, kwargColCodeInfoId], references: [idid, codeInfoId]) //KwargCol.kwargs
   kwargColIdid       String?    @db.Uuid
   kwargColCodeInfoId String?    @db.Uuid
+  evOwner            EVCol[]
 }
 
 model User {
@@ -39,6 +40,7 @@ model Section {
   children    SectionChildrenId @relation(fields: [childrenId], references: [id])
   childrenId  String            @db.Uuid
   siblings    SectionChildren[] //SectionChildren.section
+  evChild     EV[] //EV.child
 }
 
 model SectionChildrenId {
@@ -65,9 +67,33 @@ model KwargColId {
 model KwargCol {
   id         KwargColId @relation(fields: [idid], references: [id])
   idid       String     @db.Uuid
-  codeInfo   CodeInfo   @relation("kwargsOwner", fields: [codeInfoId], references: [id])
+  codeInfo   CodeInfo   @relation("KwargOwner", fields: [codeInfoId], references: [id])
   codeInfoId String     @db.Uuid
   kwargs     CodeInfo[]
 
   @@id([idid, codeInfoId]) // composite key
+}
+
+model EVColId {
+  id    String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  EVCol EVCol[]
+}
+
+model EVCol {
+  id         EVColId  @relation(fields: [idid], references: [id])
+  idid       String   @db.Uuid
+  codeInfo   CodeInfo @relation(fields: [codeInfoId], references: [id])
+  codeInfoId String   @db.Uuid
+  ev         EV       @relation(fields: [evId], references: [id])
+  evId       String   @db.Uuid
+
+  @@id([idid, codeInfoId]) // composite key
+}
+
+model EV {
+  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value   String  @db.VarChar(255)
+  child   Section @relation(fields: [childId], references: [id])
+  childId String  @db.Uuid
+  evCol   EVCol[] //EVCol.ev
 }
