@@ -10,12 +10,17 @@ import {
   useDisclosure,
   VStack,
 } from "@chakra-ui/react";
+import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import _ from "lodash";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ savedConfig, onChange, results }) {
-  // const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+  const selectedCollections = _.pickBy(allCollections, (x) =>
+    isSelected(x.id, savedConfig)
+  );
+  const allResults = { ...selectedCollections, ...results };
 
   return (
     <VStack
@@ -27,13 +32,13 @@ export default function SectionConfigComp({ savedConfig, onChange, results }) {
     >
       <Box pt=".25rem" display="flex" flexDirection="column">
         <List spacing={3} flexGrow="1">
-          {_.values(results).map((x) => (
+          {_.values(allResults).map((x) => (
             <SearchItem
               id={x.id}
               name={x.name}
               description={x.description}
               details={x.children}
-              isChecked={savedConfig?.collections.includes(x.id)}
+              isChecked={isSelected(x.id, savedConfig)}
               onChange={onChange}
               key={`SearchItem-${x.id}`}
             />
@@ -127,4 +132,8 @@ function ObjListText({ objList }) {
       <Text>{x.name}</Text>
     </div>
   ));
+}
+
+function isSelected(id, savedConfig) {
+  return savedConfig?.collections.includes(id);
 }
