@@ -1,9 +1,10 @@
 import { action } from "easy-peasy";
+import { MIN_PANE_WIDTH } from "utils/constants";
 
 const panes = {
   vis: { overview: true, uiEditor: false },
   width: { overview: 320, uiEditor: 500 },
-  trueWidth: { overview: 320, uiEditor: 40 },
+  trueWidth: { overview: 320, uiEditor: MIN_PANE_WIDTH },
 
   setVis: action((state, payload) => {
     const { paneName, vis } = payload;

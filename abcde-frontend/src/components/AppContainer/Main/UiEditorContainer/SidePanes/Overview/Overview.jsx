@@ -4,6 +4,7 @@ import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContai
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useTopLevelSectionInfo } from "hooks/useSectionInfo";
+import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
@@ -32,8 +33,14 @@ export default function Overview() {
     );
   }, [topLevelSectionIds, currChildren, idNames]);
 
+  const onResizeStop = useUpdateMapPosition();
+
   return (
-    <PaneContainer paneProps={paneProps} paneTitle="Overview">
+    <PaneContainer
+      paneProps={paneProps}
+      paneTitle="Overview"
+      onResizeStop={onResizeStop}
+    >
       <InputGroup pb="1rem">
         <InputLeftElement pointerEvents="none">
           <SearchIcon color="gray.300" />

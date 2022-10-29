@@ -80,3 +80,5 @@ export function compatibleName(type) {
     [DICT_ROOT]: LIST_ROOT + DICT_ROOT,
   }[type];
 }
+
+export const MIN_PANE_WIDTH = 40;
