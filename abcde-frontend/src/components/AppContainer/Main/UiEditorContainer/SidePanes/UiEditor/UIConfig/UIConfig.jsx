@@ -65,6 +65,7 @@ function UIConfig() {
 
 function UIElement({ sectionId, paramInfo }) {
   const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
+  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
@@ -94,6 +95,10 @@ function UIElement({ sectionId, paramInfo }) {
     });
     setUIType({ uiType: newUIType });
     setUITypeId(newUIType.id);
+    // delete old uitype if its a non-preset
+    if (!uiType.presetType) {
+      deleteUIType({ uiTypeId: uiType.id });
+    }
   }
 
   return (
