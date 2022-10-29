@@ -8,17 +8,21 @@ datasource db {
 }
 
 model CodeInfo {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String     @db.VarChar(255)
-  version     String?    @db.VarChar(255)
-  defaultVal  String?    @db.VarChar(255)
-  type        String     @db.VarChar(255)
-  rcType      String     @db.VarChar(255)
-  description String?    @db.VarChar(255)
-  path        String?    @db.VarChar(255)
-  children    CodeInfo[] @relation("Children")
-  parents     CodeInfo[] @relation("Children")
-  sections    Section[] // Section.paramInfo
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String     @db.VarChar(255)
+  version            String?    @db.VarChar(255)
+  defaultVal         String?    @db.VarChar(255)
+  type               String     @db.VarChar(255)
+  rcType             String     @db.VarChar(255)
+  description        String?    @db.VarChar(255)
+  path               String?    @db.VarChar(255)
+  children           CodeInfo[] @relation("Children")
+  parents            CodeInfo[] @relation("Children")
+  sections           Section[] // Section.paramInfo
+  kwargsOwner        KwargCol[] @relation("kwargsOwner") // KwargCol.codeInfo
+  kwargCol           KwargCol?  @relation(fields: [kwargColIdid, kwargColCodeInfoId], references: [idid, codeInfoId]) //KwargCol.kwargs
+  kwargColIdid       String?    @db.Uuid
+  kwargColCodeInfoId String?    @db.Uuid
 }
 
 model User {
@@ -51,4 +55,19 @@ model SectionChildren {
   order     Int
 
   @@id([idid, sectionId]) // composite key
+}
+
+model KwargColId {
+  id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  KwargCol KwargCol[]
+}
+
+model KwargCol {
+  id         KwargColId @relation(fields: [idid], references: [id])
+  idid       String     @db.Uuid
+  codeInfo   CodeInfo   @relation("kwargsOwner", fields: [codeInfoId], references: [id])
+  codeInfoId String     @db.Uuid
+  kwargs     CodeInfo[]
+
+  @@id([idid, codeInfoId]) // composite key
 }
