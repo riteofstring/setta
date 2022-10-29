@@ -16,10 +16,8 @@ import { useFormik } from "formik";
 import React, { useState } from "react";
 
 const LoginPage = () => {
-  const actionLoginSuccess = useStoreActions(
-    (actions) => actions.auth.loginSuccess
-  );
-  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
+  const actionLoginSuccess = useStoreActions((x) => x.auth.loginSuccess);
+  const actionLoginFail = useStoreActions((x) => x.auth.loginFail);
 
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);

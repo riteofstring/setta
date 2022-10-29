@@ -24,9 +24,9 @@ function Header() {
 }
 
 function Body() {
-  const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
-  const access_token = useStoreState((state) => state.auth.access_token);
-  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
+  const saveDraftUI = useStoreActions((x) => x.uiInfo.saveDraftUI);
+  const access_token = useStoreState((x) => x.auth.access_token);
+  const actionLoginFail = useStoreActions((x) => x.auth.loginFail);
 
   const doLogout = () => {
     logout({ actionLoginFail, access_token });

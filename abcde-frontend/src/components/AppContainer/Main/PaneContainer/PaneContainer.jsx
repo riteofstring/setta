@@ -26,9 +26,9 @@ export default function PaneContainer(props) {
   } = props;
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
-  const vis = useStoreState((state) => state.panes.vis[paneName]);
-  const setVis = useStoreActions((actions) => actions.panes.setVis);
-  const setTrueWidth = useStoreActions((actions) => actions.panes.setTrueWidth);
+  const vis = useStoreState((x) => x.panes.vis[paneName]);
+  const setVis = useStoreActions((x) => x.panes.setVis);
+  const setTrueWidth = useStoreActions((x) => x.panes.setTrueWidth);
   function uiToggle() {
     const newVis = !vis;
     setVis({ paneName, vis: newVis });
@@ -67,8 +67,8 @@ export default function PaneContainer(props) {
     }
   }, [vis, size.winWidth]);
 
-  const width = useStoreState((state) => state.panes.width[paneName]);
-  const setWidth = useStoreActions((actions) => actions.panes.setWidth);
+  const width = useStoreState((x) => x.panes.width[paneName]);
+  const setWidth = useStoreActions((x) => x.panes.setWidth);
   const height = "100%";
 
   const variants = {
