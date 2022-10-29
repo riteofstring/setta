@@ -6,6 +6,11 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
   Spacer,
   Stack,
   VStack,
@@ -15,8 +20,10 @@ import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import { useSetUIType } from "hooks/useUIType";
-import React from "react";
+import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
+import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
+import { USER } from "utils/uiTypeConstants";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -78,6 +85,14 @@ function UIElement({ sectionId, paramInfo }) {
     setConfig({ configName, newValueFn });
   };
 
+  function onSaveAsSubmit(presetName) {
+    const newUIType = cloneNewUIType({
+      uiType,
+      name: presetName,
+      presetType: USER,
+    });
+  }
+
   return (
     <VStack
       align="stretch"
@@ -112,25 +127,54 @@ function UIElement({ sectionId, paramInfo }) {
         paramChildId={paramChildId}
         origin={SET_FROM_SIDEPANE}
       />
-      <SaveLoadButtons />
+      <SaveLoadButtons onSubmit={onSaveAsSubmit} />
     </VStack>
   );
 }
 
-function SaveLoadButtons() {
+function SaveLoadButtons({ onSubmit }) {
   return (
     <Stack spacing={3} direction="row" pb="1.5rem">
       <Spacer />
-      <Button
-        variant="outline"
-        size="xs"
-        color="gray.500"
-        className="uiconfig-param-save-as"
-        visibility="hidden"
-        opacity="0"
-      >
-        Save As
-      </Button>
+      <Popover>
+        <PopoverTrigger>
+          <Button
+            variant="outline"
+            size="xs"
+            color="gray.500"
+            className="uiconfig-param-save-as"
+            visibility="hidden"
+            opacity="0"
+          >
+            Save As
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent>
+          <PopoverArrow />
+          <PopoverBody>
+            <SubmitAsPreset onSubmit={onSubmit} />
+          </PopoverBody>
+        </PopoverContent>
+      </Popover>
     </Stack>
+  );
+}
+
+function SubmitAsPreset({ onSubmit }) {
+  const [presetName, setPresetName] = useState("");
+
+  function onChange(e) {
+    setPresetName(e.target.value);
+  }
+
+  function localOnSubmit() {
+    onSubmit(presetName);
+  }
+
+  return (
+    <>
+      <Input placeholder="Preset Name" onChange={onChange} value={presetName} />
+      <Button onClick={localOnSubmit}>Done</Button>
+    </>
   );
 }
