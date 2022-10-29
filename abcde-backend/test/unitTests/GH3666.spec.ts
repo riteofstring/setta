@@ -6,7 +6,6 @@ import {
   Collection,
   OneToMany,
 } from '@mikro-orm/core';
-import config from '../../src/mikro-orm.config';
 
 @Entity()
 class Competition {
@@ -43,11 +42,10 @@ describe('GH issue 3666', () => {
 
   beforeAll(async () => {
     orm = await MikroORM.init({
-      ...config,
+      type: 'postgresql',
       dbName: 'test',
       allowGlobalContext: true,
       entities: [Competition, User, Registration],
-      entitiesTs: [],
     });
     await orm.schema.ensureDatabase();
     await orm.schema.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');

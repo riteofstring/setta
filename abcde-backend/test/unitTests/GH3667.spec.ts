@@ -1,5 +1,4 @@
 import { Entity, PrimaryKey, MikroORM, Property } from '@mikro-orm/core';
-import config from '../../src/mikro-orm.config';
 
 @Entity()
 class User {
@@ -16,11 +15,10 @@ describe('GH issue 3667', () => {
 
   beforeAll(async () => {
     orm = await MikroORM.init({
-      ...config,
+      type: 'postgresql',
       dbName: 'test',
       allowGlobalContext: true,
       entities: [User],
-      entitiesTs: [],
     });
     await orm.schema.ensureDatabase();
     await orm.schema.dropSchema();
@@ -37,8 +35,7 @@ describe('GH issue 3667', () => {
     em.persist(user1);
     await em.flush();
 
-    const updated = await em.upsert(User, { id: 1, name: 'john' });
-    await em.persist(updated);
+    await em.upsert(User, { id: 1, name: 'john' });
     await em.flush();
     const x = await em.findOne(User, { id: 1 });
     expect(x.name).toEqual('john'); //x.name is undefined
