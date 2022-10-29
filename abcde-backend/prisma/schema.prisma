@@ -29,9 +29,10 @@ model CodeInfo {
 }
 
 model User {
-  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name     String @db.VarChar(255)
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String    @db.VarChar(255)
   password String
+  projects Project[] //Project.owner
 }
 
 model Section {
@@ -48,9 +49,10 @@ model Section {
 }
 
 model SectionChildrenId {
-  id       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  children SectionChildren[]
-  parents  Section[] //Section.children
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  children       SectionChildren[]
+  parents        Section[] //Section.children
+  projectConfigs ProjectConfig[] //ProjectConfig.children
 }
 
 model SectionChildren {
@@ -107,8 +109,9 @@ model EV {
 }
 
 model SectionConfigColId {
-  id       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  children SectionConfigCol[]
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  children       SectionConfigCol[]
+  projectConfigs ProjectConfig[] //ProjectConfig.sectionConfigCol
 }
 
 model SectionConfigCol {
@@ -217,4 +220,26 @@ model RefUIType {
   idid String @db.Uuid
 
   @@id([idid])
+}
+
+model Project {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String          @db.VarChar(255)
+  owner           User            @relation(fields: [ownerId], references: [id])
+  ownerId         String          @db.Uuid
+  configs         ProjectConfig[] @relation("configs") //ProjectConfig.project
+  defaultConfig   ProjectConfig   @relation(fields: [defaultConfigId], references: [id])
+  defaultConfigId String          @unique @db.Uuid
+}
+
+model ProjectConfig {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String             @db.VarChar(255)
+  sectionConfigCol   SectionConfigColId @relation(fields: [sectionConfigColId], references: [id])
+  sectionConfigColId String             @db.Uuid
+  sectionChildren    SectionChildrenId  @relation(fields: [sectionChildrenId], references: [id])
+  sectionChildrenId  String             @db.Uuid
+  project            Project            @relation("configs", fields: [projectId], references: [id])
+  projectId          String             @db.Uuid
+  defaultFor         Project? //Project.defaultConfig 
 }
