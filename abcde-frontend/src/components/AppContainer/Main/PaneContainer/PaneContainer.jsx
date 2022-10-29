@@ -65,10 +65,6 @@ export default function PaneContainer(props) {
   const setWidth = useStoreActions((actions) => actions.panes.setWidth);
   const [height, setHeight] = useState("100%");
 
-  const setIsDragging = useStoreActions(
-    (actions) => actions.panes.setIsDragging
-  );
-
   const variants = {
     open: { x: "0rem" },
     closed: { x: `${!right ? `-` : ``}${width / 16 - 2.5}rem` },
@@ -96,9 +92,6 @@ export default function PaneContainer(props) {
       >
         <Resizable
           size={{ width, height }}
-          onResizeStart={() => {
-            setIsDragging({ paneName, isDragging: true });
-          }}
           onResizeStop={(e, direction, ref, d) => {
             const newWidth = clamp(width + d.width, vMin, vMax);
             setWidth({ paneName, width: newWidth });
@@ -107,7 +100,6 @@ export default function PaneContainer(props) {
               trueWidth: vis ? newWidth : 40,
             });
             setHeight(height);
-            setIsDragging({ paneName, isDragging: false });
           }}
           maxWidth={vMax}
           minWidth={vMin}
