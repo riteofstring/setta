@@ -33,9 +33,13 @@ function getParamCollections(allCodeInfo, allCollections) {
   );
 }
 
+export function getCollections(allCodeInfo) {
+  return _.pickBy(allCodeInfo, (v) => v.rcType === COLLECTION);
+}
+
 export function createAllInfo(packages) {
   const allObjInfo = packages;
-  const allCollections = _.pickBy(allObjInfo, (v) => v.rcType === COLLECTION);
+  const allCollections = getCollections(allObjInfo);
   const callables = getCallables(allObjInfo, allCollections);
   const params = getParams(allObjInfo);
   const paramCollections = getParamCollections(allObjInfo, allCollections);

@@ -10,13 +10,12 @@ import {
   useDisclosure,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import _ from "lodash";
 import { checkboxChangeFn } from "utils/utils";
 
-export default function SectionConfigComp({ savedConfig, onChange }) {
-  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+export default function SectionConfigComp({ savedConfig, onChange, results }) {
+  // const allCollections = useStoreState((x) => x.codeInfo.allCollections);
 
   return (
     <VStack
@@ -28,7 +27,7 @@ export default function SectionConfigComp({ savedConfig, onChange }) {
     >
       <Box pt=".25rem" display="flex" flexDirection="column">
         <List spacing={3} flexGrow="1">
-          {_.values(allCollections).map((x) => (
+          {_.values(results).map((x) => (
             <SearchItem
               id={x.id}
               name={x.name}
@@ -100,7 +99,7 @@ function SearchItem({ id, name, description, details, isChecked, onChange }) {
           </Text>
         </VStack>
       </HStack>
-      <ObjCollectionDetails isOpen={isOpen} details={details} />
+      {/* <ObjCollectionDetails isOpen={isOpen} details={details} /> */}
     </ListItem>
   );
 }
