@@ -8,22 +8,20 @@ datasource db {
 }
 
 model CodeInfo {
-  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String     @db.VarChar(255)
-  version            String?    @db.VarChar(255)
-  defaultVal         String?    @db.VarChar(255)
-  type               String     @db.VarChar(255)
-  rcType             String     @db.VarChar(255)
-  description        String?    @db.VarChar(255)
-  path               String?    @db.VarChar(255)
-  children           CodeInfo[] @relation("Children")
-  parents            CodeInfo[] @relation("Children")
-  sections           Section[] // Section.paramInfo
-  kwargOwner         KwargCol[] @relation("KwargOwner") // KwargCol.codeInfo
-  kwargCol           KwargCol?  @relation(fields: [kwargColIdid, kwargColCodeInfoId], references: [idid, codeInfoId]) //KwargCol.kwargs
-  kwargColIdid       String?    @db.Uuid
-  kwargColCodeInfoId String?    @db.Uuid
-  evOwner            EVCol[]
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String     @db.VarChar(255)
+  version     String?    @db.VarChar(255)
+  defaultVal  String?    @db.VarChar(255)
+  type        String     @db.VarChar(255)
+  rcType      String     @db.VarChar(255)
+  description String?    @db.VarChar(255)
+  path        String?    @db.VarChar(255)
+  children    CodeInfo[] @relation("Children")
+  parents     CodeInfo[] @relation("Children")
+  sections    Section[] // Section.paramInfo
+  kwargOwner  KwargCol[] @relation("KwargOwner") // KwargCol.codeInfo
+  kwarg       KwargCol[] @relation("Kwarg") // KwargCol.kwargInfo
+  evOwner     EVCol[] // EV.codeInfo
 }
 
 model User {
@@ -65,13 +63,15 @@ model KwargColId {
 }
 
 model KwargCol {
-  id         KwargColId @relation(fields: [idid], references: [id])
-  idid       String     @db.Uuid
-  codeInfo   CodeInfo   @relation("KwargOwner", fields: [codeInfoId], references: [id])
-  codeInfoId String     @db.Uuid
-  kwargs     CodeInfo[]
+  id          KwargColId @relation(fields: [idid], references: [id])
+  idid        String     @db.Uuid
+  codeInfo    CodeInfo   @relation("KwargOwner", fields: [codeInfoId], references: [id])
+  codeInfoId  String     @db.Uuid
+  kwargInfo   CodeInfo   @relation("Kwarg", fields: [kwargInfoId], references: [id])
+  kwargInfoId String     @db.Uuid
+  order       Int
 
-  @@id([idid, codeInfoId]) // composite key
+  @@id([idid, codeInfoId, kwargInfoId]) // composite key
 }
 
 model EVColId {
