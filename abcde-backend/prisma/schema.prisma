@@ -25,6 +25,7 @@ model CodeInfo {
   sectionConfigs SectionConfig[] //SectionConfig.selectedItem
   uiTypeOrigins  UIType[] //UIType.originCodeInfo
   uiTypeCols     UITypeCol[] //UITypeCol.codeInfo
+  sectionUITypes SectionUIType[] //SectionUIType.collections
 }
 
 model User {
@@ -148,12 +149,18 @@ model UIType {
   isForChildOfOriginInfoId Boolean
   sectionConfigs           SectionConfig[] //SectionConfig.uiType
   uiTypeCols               UITypeCol[] //UITypeCol.uiType
+  sectionUITypes           SectionUIType[] //SectionUIType.id
+  sliderUITypes            SliderUIType[] //SliderUIType.id
+  textUITypes              TextUIType[] //TextUIType.id
+  switchUITYpes            SwitchUIType[] //SwitchUIType.id
+  refUITypes               RefUIType[] //RefUIType.id
 }
 
 model UITypeColId {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   children      UITypeCol[]
   uiTypeOrigins UIType[] //UIType.originUITypeCol
+  sectionUIType SectionUIType[] //SectionUIType.uiTypeCol
 }
 
 model UITypeCol {
@@ -165,4 +172,49 @@ model UITypeCol {
   uiTypeId   String      @db.Uuid
 
   @@id([idid, codeInfoId]) // composite key
+}
+
+model SectionUIType {
+  id            UIType         @relation(fields: [idid], references: [id])
+  idid          String         @db.Uuid
+  collections   CodeInfo[]
+  uiTypeCol     UITypeColId    @relation(fields: [uiTypeColId], references: [id])
+  uiTypeColId   String         @db.Uuid
+  subType       String         @db.VarChar(255)
+  childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
+  childUITypeId String         @unique @db.Uuid
+  parentUIType  SectionUIType? @relation("ChildUIType")
+
+  @@id([idid])
+}
+
+model SliderUIType {
+  id   UIType @relation(fields: [idid], references: [id])
+  idid String @db.Uuid
+  min  Float
+  max  Float
+  step Float
+
+  @@id([idid])
+}
+
+model TextUIType {
+  id   UIType @relation(fields: [idid], references: [id])
+  idid String @db.Uuid
+
+  @@id([idid])
+}
+
+model SwitchUIType {
+  id   UIType @relation(fields: [idid], references: [id])
+  idid String @db.Uuid
+
+  @@id([idid])
+}
+
+model RefUIType {
+  id   UIType @relation(fields: [idid], references: [id])
+  idid String @db.Uuid
+
+  @@id([idid])
 }
