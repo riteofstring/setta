@@ -6,24 +6,17 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
-  Popover,
-  PopoverArrow,
-  PopoverBody,
-  PopoverContent,
-  PopoverTrigger,
   Spacer,
   Stack,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import { useSetUIType } from "hooks/useUIType";
-import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
-import React, { useState } from "react";
+import React from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
-import { USER } from "utils/uiTypeConstants";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -64,8 +57,6 @@ function UIConfig() {
 }
 
 function UIElement({ sectionId, paramInfo }) {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
@@ -86,20 +77,6 @@ function UIElement({ sectionId, paramInfo }) {
   const onChange = (configName, newValueFn) => {
     setConfig({ configName, newValueFn });
   };
-
-  function onSaveAsSubmit(presetName) {
-    const newUIType = cloneNewUIType({
-      uiType,
-      name: presetName,
-      presetType: USER,
-    });
-    setUIType({ uiType: newUIType });
-    setUITypeId(newUIType.id);
-    // delete old uitype if its a non-preset
-    if (!uiType.presetType) {
-      deleteUIType({ uiTypeId: uiType.id });
-    }
-  }
 
   return (
     <VStack
@@ -135,54 +112,25 @@ function UIElement({ sectionId, paramInfo }) {
         paramChildId={paramChildId}
         origin={SET_FROM_SIDEPANE}
       />
-      <SaveLoadButtons onSubmit={onSaveAsSubmit} />
+      <SaveLoadButtons />
     </VStack>
   );
 }
 
-function SaveLoadButtons({ onSubmit }) {
+function SaveLoadButtons() {
   return (
     <Stack spacing={3} direction="row" pb="1.5rem">
       <Spacer />
-      <Popover>
-        <PopoverTrigger>
-          <Button
-            variant="outline"
-            size="xs"
-            color="gray.500"
-            className="uiconfig-param-save-as"
-            visibility="hidden"
-            opacity="0"
-          >
-            Save As
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent>
-          <PopoverArrow />
-          <PopoverBody>
-            <SubmitAsPreset onSubmit={onSubmit} />
-          </PopoverBody>
-        </PopoverContent>
-      </Popover>
+      <Button
+        variant="outline"
+        size="xs"
+        color="gray.500"
+        className="uiconfig-param-save-as"
+        visibility="hidden"
+        opacity="0"
+      >
+        Save As
+      </Button>
     </Stack>
-  );
-}
-
-function SubmitAsPreset({ onSubmit }) {
-  const [presetName, setPresetName] = useState("");
-
-  function onChange(e) {
-    setPresetName(e.target.value);
-  }
-
-  function localOnSubmit() {
-    onSubmit(presetName);
-  }
-
-  return (
-    <>
-      <Input placeholder="Preset Name" onChange={onChange} value={presetName} />
-      <Button onClick={localOnSubmit}>Done</Button>
-    </>
   );
 }

@@ -13,7 +13,6 @@ export default function UiConfigButton() {
         mr="-px"
         onClick={onOpen}
         variant="ghost"
-        disabled={true}
       >
         UI Config
       </Button>
