@@ -51,29 +51,30 @@ describe('Orphan Removal', () => {
     // let projectChildren = await em.find(SectionChildren, { id: scid });
     // expect(projectChildren.length).toEqual(3);
 
-    await persistOneSectionChildren(em, [s2], scid1);
+    await persistOneSectionChildren(em, [s2.id], scid1);
     await em.flush();
     let s1Children = await em.find(SectionChildren, { id: scid1 });
     expect(s1Children.length).toEqual(1);
 
-    await persistOneSectionChildren(em, [s2, s3], scid1);
+    await persistOneSectionChildren(em, [s2.id, s3.id], scid1);
     await em.flush();
     s1Children = await em.find(SectionChildren, { id: scid1 });
     expect(s1Children.length).toEqual(2);
 
-    await persistOneSectionChildren(em, [s2], scid1);
+    await persistOneSectionChildren(em, [s2.id], scid1);
     await em.flush();
-    // s1Children = await em.find(SectionChildren, { id: scid1 });
-    // expect(s1Children.length).toEqual(1);
-    // let s2Children = await em.find(SectionChildren, { id: scid2 });
-    // expect(s2Children.length).toEqual(0);
+    s1Children = await em.find(SectionChildren, { id: scid1 });
+    expect(s1Children.length).toEqual(1);
+    let s2Children = await em.find(SectionChildren, { id: scid2 });
+    expect(s2Children.length).toEqual(0);
 
-    // await persistOneSectionChildren(em, [s3], scid2);
-    // await persistOneSectionChildren(em, [], scid1);
-    // await em.flush();
-    // s1Children = await em.find(SectionChildren, { id: scid1 });
-    // expect(s1Children.length).toEqual(0);
-    // s2Children = await em.find(SectionChildren, { id: scid2 });
-    // expect(s2Children.length).toEqual(1);
+    await persistOneSectionChildren(em, [s3], scid2);
+    await persistOneSectionChildren(em, [], scid1);
+    await em.flush();
+    console.log(await em.find(SectionChildren));
+    s1Children = await em.find(SectionChildren, { id: scid1 });
+    expect(s1Children.length).toEqual(0);
+    s2Children = await em.find(SectionChildren, { id: scid2 });
+    expect(s2Children.length).toEqual(1);
   });
 });

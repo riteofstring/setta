@@ -7,6 +7,6 @@ export class SectionChildrenIds {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'uuid_generate_v4()' })
   id: string;
 
-  @OneToMany(() => SectionChildren, (e) => e.id)
+  @OneToMany(() => SectionChildren, (e) => e.id, { orphanRemoval: true })
   sectionChildren = new Collection<SectionChildren>(this);
 }
