@@ -22,3 +22,9 @@ model CodeInfo {
   ancestor    CodeInfo?  @relation("Ancestor", fields: [ancestorId], references: [id])
   descendants CodeInfo[] @relation("Ancestor")
 }
+
+model Users {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String @db.VarChar(255)
+  password String
+}
