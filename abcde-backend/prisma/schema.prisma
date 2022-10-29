@@ -18,37 +18,37 @@ model CodeInfo {
   path        String?    @db.VarChar(255)
   children    CodeInfo[] @relation("Children")
   parents     CodeInfo[] @relation("Children")
-  sections    Sections[] // Sections.paramInfo
+  sections    Section[] // Section.paramInfo
 }
 
-model Users {
+model User {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name     String @db.VarChar(255)
   password String
 }
 
-model Sections {
-  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String             @db.VarChar(255)
-  paramInfo   CodeInfo?          @relation(fields: [paramInfoId], references: [id])
-  paramInfoId String             @db.Uuid
-  children    SectionChildrenIds @relation(fields: [childrenId], references: [id])
-  childrenId  String             @db.Uuid
+model Section {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String            @db.VarChar(255)
+  paramInfo   CodeInfo?         @relation(fields: [paramInfoId], references: [id])
+  paramInfoId String            @db.Uuid
+  children    SectionChildrenId @relation(fields: [childrenId], references: [id])
+  childrenId  String            @db.Uuid
   siblings    SectionChildren[] //SectionChildren.section
 }
 
-model SectionChildrenIds {
+model SectionChildrenId {
   id       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   children SectionChildren[]
-  parents  Sections[] //Sections.children
+  parents  Section[] //Section.children
 }
 
 model SectionChildren {
-  sectionChildrenId    SectionChildrenIds @relation(fields: [sectionChildrenIdsId], references: [id])
-  sectionChildrenIdsId String             @db.Uuid
-  section              Sections           @relation(fields: [sectionId], references: [id])
-  sectionId            String             @db.Uuid
-  order                Int
+  id        SectionChildrenId @relation(fields: [idid], references: [id])
+  idid      String            @db.Uuid
+  section   Section           @relation(fields: [sectionId], references: [id])
+  sectionId String            @db.Uuid
+  order     Int
 
-  @@id([sectionChildrenIdsId, sectionId]) // composite key
+  @@id([idid, sectionId]) // composite key
 }
