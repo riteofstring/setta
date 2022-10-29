@@ -15,7 +15,7 @@ import {
   Stack,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
@@ -64,6 +64,7 @@ function UIConfig() {
 }
 
 function UIElement({ sectionId, paramInfo }) {
+  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
@@ -91,6 +92,8 @@ function UIElement({ sectionId, paramInfo }) {
       name: presetName,
       presetType: USER,
     });
+    setUIType({ uiType: newUIType });
+    setUITypeId(newUIType.id);
   }
 
   return (
