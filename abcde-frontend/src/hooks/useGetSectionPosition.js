@@ -1,6 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { useReactFlow, useStore } from "react-flow-renderer";
+import { useReactFlow, useStoreApi } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW, PANEID } from "utils/constants";
 
@@ -66,11 +66,12 @@ export function useGetSectionPosition(
 
 function useSetGoToCoordinates(sectionId, requesterName) {
   const { project, setCenter } = useReactFlow();
-  const { width, height } = useStore(); // height and width of the react flow container
+  const store = useStoreApi(); // height and width of the react flow container
   const overviewWidth = useStoreState((x) => x.panes.trueWidth[OVERVIEW]);
   const margin = 20;
 
   function onCoordsReceived(coords) {
+    const { width, height } = store.getState();
     const { x, y } = project(coords[sectionId]);
     const newX = x + width / 2 - overviewWidth - margin;
     const newY = y + height / 2 - margin;
