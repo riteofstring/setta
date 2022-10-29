@@ -71,7 +71,6 @@ describe('Orphan Removal', () => {
     await persistOneSectionChildren(em, [s3], scid2);
     await persistOneSectionChildren(em, [], scid1);
     await em.flush();
-    console.log(await em.find(SectionChildren));
     s1Children = await em.find(SectionChildren, { id: scid1 });
     expect(s1Children.length).toEqual(0);
     s2Children = await em.find(SectionChildren, { id: scid2 });
