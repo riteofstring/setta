@@ -50,7 +50,7 @@ function defaultCondition(currInfo, rcType) {
   return currInfo.rcType === rcType;
 }
 
-function findAllDescendants(
+export function findAllDescendants(
   allCodeInfo,
   collectionIds,
   rcType,

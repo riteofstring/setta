@@ -16,7 +16,10 @@ import { useGetSectionType } from "hooks/useSectionType";
 import { useSetUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 
-import { getCollectionsAndModules } from "dbRequests/sectionConfig";
+import {
+  getCollectionDetails,
+  getCollectionsAndModules,
+} from "dbRequests/sectionConfig";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
@@ -61,7 +64,7 @@ function SectionConfig() {
     }
   };
 
-  const onConfigChange = (newValueFn) => {
+  const onConfigChange = ({ newValueFn }) => {
     setUITypeConfig({ configName: "collections", newValueFn });
   };
 
@@ -87,12 +90,23 @@ function SectionConfigCore({
   onConfigChange,
 }) {
   const [results, setResults] = useState({});
+  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+  const updateCodeInfos = useStoreActions((x) => x.codeInfo.updateInfos);
 
   async function onSubmit(searchTerm) {
     if (searchTerm) {
       const x = await getCollectionsAndModules({ searchTerm });
       setResults(x);
     }
+  }
+
+  async function onChange({ newValueFn, id }) {
+    // collection needs to be retrieved from db
+    if (!(id in allCollections)) {
+      const collectionDetails = await getCollectionDetails(id);
+      updateCodeInfos(collectionDetails);
+    }
+    onConfigChange({ newValueFn });
   }
 
   return (
@@ -125,7 +139,8 @@ function SectionConfigCore({
         <Search onSubmit={onSubmit} />
         <SectionConfigComp
           savedConfig={savedConfig}
-          onChange={onConfigChange}
+          onChange={onChange}
+          allCollections={allCollections}
           results={results}
         />
       </Box>

@@ -10,13 +10,16 @@ import {
   useDisclosure,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import _ from "lodash";
 import { checkboxChangeFn } from "utils/utils";
 
-export default function SectionConfigComp({ savedConfig, onChange, results }) {
-  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+export default function SectionConfigComp({
+  savedConfig,
+  onChange,
+  allCollections,
+  results,
+}) {
   const selectedCollections = _.pickBy(allCollections, (x) =>
     isSelected(x.id, savedConfig)
   );
@@ -53,7 +56,7 @@ function SearchItem({ id, name, description, details, isChecked, onChange }) {
   const { isOpen, onToggle } = useDisclosure();
 
   function onCheckboxChange(e) {
-    onChange(checkboxChangeFn(e, id));
+    onChange({ newValueFn: checkboxChangeFn(e.target.checked, id), id });
   }
 
   return (

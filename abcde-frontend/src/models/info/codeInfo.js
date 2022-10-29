@@ -43,6 +43,13 @@ const codeInfo = {
     state.allObjInfo = _.omit(state.allObjInfo, ids);
   }),
 
+  updateInfos: action((state, payload) => {
+    const allInfo = createAllInfo(payload);
+    for (const k of Object.keys(getInitialState())) {
+      state[k] = { ...state[k], ...allInfo[k] };
+    }
+  }),
+
   reset: action((state) => {
     resetState(state, getInitialState());
   }),
