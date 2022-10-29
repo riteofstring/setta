@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CodeInfo {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String     @db.VarChar(255)
+  version     String?    @db.VarChar(255)
+  defaultVal  String?    @db.VarChar(255)
+  type        String     @db.VarChar(255)
+  rcType      String     @db.VarChar(255)
+  description String?    @db.VarChar(255)
+  path        String?    @db.VarChar(255)
+  children    CodeInfo[] @relation("Children")
+  parents     CodeInfo[] @relation("Children")
+  ancestorId  String
+  ancestor    CodeInfo?  @relation("Ancestor", fields: [ancestorId], references: [id])
+  descendants CodeInfo[] @relation("Ancestor")
+}
