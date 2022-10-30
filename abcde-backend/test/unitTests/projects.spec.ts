@@ -1,6 +1,4 @@
-import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Test, TestingModule } from '@nestjs/testing';
-import config from '../../src/mikro-orm.config';
 import { AppModule } from '../../src/app.module';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -16,14 +14,7 @@ describe('ProjectsService', () => {
     testUser = allUsers['25961114-6655-4e2c-b70f-e2e3aaa84131'];
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        MikroOrmModule.forRoot({
-          ...config,
-          allowGlobalContext: true,
-          debug: false,
-        }),
-        AppModule,
-      ],
+      imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
