@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { saveKwargInfo } from '../codeInfo/savingFunctions';
 import { saveKwargCols } from '../kwargs/savingFunctions';
 import { saveSectionChildren, saveSections } from '../sections/savingFunctions';
-import { saveEV } from '../enteredValues/savingFunctions';
+import { saveEV, saveEVCols } from '../enteredValues/savingFunctions';
 
 export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveKwargInfo(prisma, p.kwargInfo);
@@ -11,7 +11,7 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveSections(prisma, p.sections, p.sectionChildrenIds);
   await saveSectionChildren(prisma, p.sectionChildren, p.sectionChildrenIds);
   await saveEV(prisma, p.ev);
-  // await persistEVCols(em, p.evCols);
+  await saveEVCols(prisma, p.evCols);
   // await persistUITypes(em, p.uiTypes);
   // await persistUITypesCols(em, p.uiTypesCols);
   // await persistProjectConfig(em, p.projectConfig);
