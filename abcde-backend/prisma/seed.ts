@@ -13,16 +13,19 @@ async function main() {
 }
 
 async function seedUsers() {
+  console.log('seedUsers');
   const data = await loadSpecificTestData({ name: 'Users' });
   await saveUsers(prisma, data);
 }
 
 async function seedCodeInfo() {
+  console.log('seedCodeInfo');
   const data = await loadSpecificTestData({ name: 'AllCodeInfo' });
   await saveCodeInfo(prisma, data);
 }
 
 async function seedProjects() {
+  console.log('seedProjects');
   const allProjects = await loadAllProjects({ forSeeding: true });
   for (const p of allProjects) {
     await saveAllProjectDetails(prisma, p);

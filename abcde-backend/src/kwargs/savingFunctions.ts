@@ -22,5 +22,20 @@ export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
       order += 1;
     }
   }
-  await prisma.kwargCol.createMany({ data: inDbFormat, skipDuplicates: true });
+
+  await prisma.$transaction(
+    inDbFormat.map((v) =>
+      prisma.kwargCol.upsert({
+        where: {
+          idid_codeInfoId_kwargInfoId: {
+            idid: v.idid,
+            codeInfoId: v.codeInfoId,
+            kwargInfoId: v.kwargInfoId,
+          },
+        },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
 }

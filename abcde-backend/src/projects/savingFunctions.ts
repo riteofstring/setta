@@ -1,12 +1,13 @@
 import _ = require('lodash');
 import { PrismaClient } from '@prisma/client';
-import { saveCodeInfo } from '../codeInfo/savingFunctions';
+import { saveKwargInfo } from '../codeInfo/savingFunctions';
 import { saveKwargCols } from '../kwargs/savingFunctions';
+import { saveSections } from '../sections/savingFunctions';
 
 export async function saveAllProjectDetails(prisma: PrismaClient, p) {
-  await saveCodeInfo(prisma, p.kwargInfo);
+  await saveKwargInfo(prisma, p.kwargInfo);
   await saveKwargCols(prisma, p.kwargCols);
-  // await persistKwargCols(em, p.kwargCols);
+  await saveSections(prisma, p.sections, p.sectionChildrenIds);
   // await persistSections(em, p.sections, p.sectionChildrenIds);
   // await persistSectionChildren(em, p.sectionChildren, p.sectionChildrenIds);
   // await persistEV(em, p.ev);
