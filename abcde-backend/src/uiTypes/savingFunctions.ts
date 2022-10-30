@@ -1,6 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
-import { nullNotUndefined, prismaNullOrConnect } from '../utils/utils';
+import {
+  deleteThenCreateCol,
+  nullNotUndefined,
+  prismaNullOrConnect,
+} from '../utils/utils';
 
 async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
   const data = _.values(uiTypes).map((x) => ({
@@ -102,13 +106,22 @@ export async function saveUITypes(prisma: PrismaClient, uiTypes) {
   );
 }
 
-// export async function persistUITypesCols(em, uiTypesCols) {
-//   for (const uiTypeColId of Object.keys(uiTypesCols)) {
-//     await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
-//     for (const codeInfoId of _.keys(uiTypesCols[uiTypeColId])) {
-//       const findBy = { id: uiTypeColId, codeInfo: codeInfoId };
-//       const assign = { uiType: uiTypesCols[uiTypeColId][codeInfoId] };
-//       await createIfNotFound(em, UITypesCols, findBy, assign);
-//     }
-//   }
-// }
+export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
+  const ids = _.keys(uiTypeCols);
+  await prisma.uITypeColId.createMany({
+    data: ids.map((x) => ({ id: x })),
+    skipDuplicates: true,
+  });
+
+  const inDbFormat = [];
+  for (const idid of Object.keys(uiTypeCols)) {
+    for (const codeInfoId of _.keys(uiTypeCols[idid])) {
+      inDbFormat.push({
+        idid,
+        codeInfoId,
+        uiTypeId: uiTypeCols[idid][codeInfoId],
+      });
+    }
+  }
+  deleteThenCreateCol(prisma, prisma.uITypeCol, inDbFormat);
+}
