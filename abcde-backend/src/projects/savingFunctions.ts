@@ -27,16 +27,9 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
     p.projectConfig.sectionConfigCol,
   );
   await saveProjectConfig(prisma, p.projectConfig);
-
-  // await persistProject(em, p.project);
-  // await connectProjectToProjectConfig(em, p.project, p.projectConfig);
+  await saveProject(prisma, p.project);
+  await connectProjectToProjectConfig(prisma, p.project, p.projectConfig);
 }
-
-// export async function persistProject(em, project) {
-//   const { id, ...assign } = project;
-//   const findBy = { id };
-//   await createIfNotFound(em, Projects, findBy, assign);
-// }
 
 export async function saveProjectConfig(prisma: PrismaClient, config) {
   const { id, name, sectionConfigCol, children, childrenId } = config;
@@ -59,12 +52,27 @@ export async function saveProjectConfig(prisma: PrismaClient, config) {
   });
 }
 
-// export async function connectProjectToProjectConfig(
-//   em,
-//   project,
-//   projectConfig,
-// ) {
-//   const x = await em.findOne(ProjectConfigs, { id: projectConfig.id });
-//   x.project = project.id;
-//   em.persist(x);
-// }
+export async function saveProject(prisma: PrismaClient, project) {
+  const data = {
+    id: project.id,
+    name: project.name,
+    ownerId: project.owner,
+    defaultConfigId: project.defaultConfig,
+  };
+  await prisma.project.upsert({
+    where: { id: data.id },
+    create: data,
+    update: data,
+  });
+}
+
+export async function connectProjectToProjectConfig(
+  prisma: PrismaClient,
+  project,
+  projectConfig,
+) {
+  await prisma.projectConfig.update({
+    where: { id: projectConfig.id },
+    data: { projectId: project.id },
+  });
+}
