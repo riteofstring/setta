@@ -1,19 +1,7 @@
-import { ProjectsRepository } from './projects.repository';
-import { EntityManager } from '@mikro-orm/postgresql';
-import { UITypes } from '../entities/uitypes/uiTypes.entity';
-import { SectionUITypes } from '../entities/uiTypes/sectionUITypes.entity';
-import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
-import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
-import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
-import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
-import { renameKeys, returnNullNotUndefined } from '../utils/utils';
+import { renameKeys, nullNotUndefined } from '../utils/utils';
 import _ = require('lodash');
-import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
-import { UITypesColsIds } from '../entities/uitypes/uiTypesColsIds.entity';
-import { CodeInfo } from '../entities/codeInfo.entity';
-import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 
-export async function getProject(id, projects: ProjectsRepository) {
+export async function getProject(prisma, id) {
   return await projects.findOne<any>(
     { id },
     {

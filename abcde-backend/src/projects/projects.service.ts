@@ -17,28 +17,28 @@ import {
   loadUITypesCols,
   processSectionConfigs,
 } from './loadingFunctions';
+import { saveAllProjectDetails } from './savingFunctions';
 
 @Injectable()
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  async getAllByOwner(user: Users): Promise<any> {
-    const ps = await this.projects.find(
-      { owner: user },
-      { populate: ['configs'] },
-    );
+  async getAllByOwner(user): Promise<any> {
+    const ps = await this.prisma.project.findMany({
+      where: { ownerId: user.id },
+      include: { configs: true },
+    });
     return _.keyBy(ps, (x) => x.id);
   }
 
   async createProject(user, name: string): Promise<any> {
-    const p = this.projects.create({ owner: user.id, name });
-    await this.projects.persistAndFlush(p);
-    return p;
+    return await this.prisma.project.create({
+      data: { owner: user.id, name },
+    });
   }
 
   async save(projects): Promise<any> {
-    await persistAllProjectDetails(this.em, projects);
-    await this.em.flush();
+    await saveAllProjectDetails(this.prisma, projects);
   }
 
   async loadOne(id: string): Promise<any> {
