@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import _ = require('lodash');
-import { prismaNullOrConnect } from '../utils/utils';
+import { deleteThenCreateCol, prismaNullOrConnect } from '../utils/utils';
 
 export async function saveSections(
   prisma: PrismaClient,
@@ -53,12 +53,7 @@ export async function saveSectionChildren(
       order += 1;
     }
   }
-
-  await prisma.sectionChildren.deleteMany({
-    where: { idid: { in: inDbFormat.map((x) => x.idid) } },
-  });
-
-  await prisma.sectionChildren.createMany({ data: inDbFormat });
+  deleteThenCreateCol(prisma, prisma.sectionChildren, inDbFormat);
 }
 
 // export async function persistSectionConfigs(em, sectionConfigs) {

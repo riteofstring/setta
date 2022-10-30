@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import _ = require('lodash');
-import { prismaNullOrConnect } from '../utils/utils';
+import { deleteThenCreateCol, prismaNullOrConnect } from '../utils/utils';
 
 export async function saveEV(prisma: PrismaClient, ev) {
   const inDbFormat = [];
@@ -40,9 +40,5 @@ export async function saveEVCols(prisma: PrismaClient, evCols) {
     }
   }
 
-  await prisma.eVCol.deleteMany({
-    where: { idid: { in: inDbFormat.map((x) => x.idid) } },
-  });
-
-  await prisma.eVCol.createMany({ data: inDbFormat });
+  deleteThenCreateCol(prisma, prisma.eVCol, inDbFormat);
 }

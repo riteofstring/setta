@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
+import { deleteThenCreateCol } from '../utils/utils';
 
 export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
   const ids = _.keys(kwargCols);
@@ -24,9 +25,5 @@ export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
     }
   }
 
-  await prisma.kwargCol.deleteMany({
-    where: { idid: { in: inDbFormat.map((x) => x.idid) } },
-  });
-
-  await prisma.kwargCol.createMany({ data: inDbFormat });
+  deleteThenCreateCol(prisma, prisma.kwargCol, inDbFormat);
 }
