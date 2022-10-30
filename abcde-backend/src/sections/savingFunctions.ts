@@ -1,24 +1,23 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
 import { deleteThenCreateCol, prismaNullOrConnect } from '../utils/utils';
 
 export async function saveSections(
   prisma: PrismaClient,
   sections,
-  sectionChildrenIds,
+  sectionChildren,
 ) {
   await prisma.sectionChildrenId.createMany({
-    data: _.values(sectionChildrenIds).map((x) => ({ id: x })),
+    data: _.values(sections).map((x) => ({ id: x.sectionChildrenId })),
     skipDuplicates: true,
   });
 
   const inDbFormat = [];
   for (const v of _.values(sections)) {
-    const scid = sectionChildrenIds[v.id];
     const curr = {
       id: v.id,
       name: v.name,
-      children: { connect: { id: scid } },
+      children: { connect: { id: v.sectionChildrenId } },
     };
     curr['paramInfo'] = prismaNullOrConnect(v.paramInfoId);
     inDbFormat.push(curr);
@@ -32,6 +31,12 @@ export async function saveSections(
         update: v,
       }),
     ),
+  );
+
+  await saveSectionChildren(
+    prisma,
+    sectionChildren,
+    _.mapValues(sections, (v) => v.sectionChildrenId),
   );
 }
 

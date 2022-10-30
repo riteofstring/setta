@@ -14,8 +14,7 @@ import { saveUITypeCols, saveUITypes } from '../uiTypes/savingFunctions';
 export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveKwargInfo(prisma, p.kwargInfo);
   await saveKwargCols(prisma, p.kwargCols);
-  await saveSections(prisma, p.sections, p.sectionChildrenIds);
-  await saveSectionChildren(prisma, p.sectionChildren, p.sectionChildrenIds);
+  await saveSections(prisma, p.sections, p.sectionChildren);
   await saveEV(prisma, p.ev);
   await saveEVCols(prisma, p.evCols);
   await saveUITypes(prisma, p.uiTypes);
