@@ -56,14 +56,14 @@ async function saveSectionUITypes(prisma: PrismaClient, sectionUITypes) {
   );
 }
 
-async function saveSliderUITypes(prisma: PrismaClient, sliderUITypes) {
+async function saveRegularUIType(prisma: PrismaClient, db, sliderUITypes) {
   const data = sliderUITypes.map((x) => ({
     idid: x.id,
     ...x.config,
   }));
   await prisma.$transaction(
     data.map((v) =>
-      prisma.sliderUIType.upsert({
+      db.upsert({
         where: { idid: v.idid },
         create: v,
         update: v,
@@ -80,54 +80,27 @@ export async function saveUITypes(prisma: PrismaClient, uiTypes) {
       ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
     ),
   );
-  await saveSliderUITypes(
+  await saveRegularUIType(
     prisma,
+    prisma.sliderUIType,
     _.filter(uiTypes, (v) => v.type === 'SLIDER'),
   );
+  await saveRegularUIType(
+    prisma,
+    prisma.textUIType,
+    _.filter(uiTypes, (v) => v.type === 'TEXT'),
+  );
+  await saveRegularUIType(
+    prisma,
+    prisma.switchUIType,
+    _.filter(uiTypes, (v) => v.type === 'SWITCH'),
+  );
+  await saveRegularUIType(
+    prisma,
+    prisma.refUIType,
+    _.filter(uiTypes, (v) => v.type === 'REF'),
+  );
 }
-
-// async function persistTextUIType(em, x) {
-//   const findBy = { id: x.id };
-//   const assign = x.config;
-//   await createIfNotFound(em, TextUITypes, findBy, assign);
-// }
-
-// async function persistSwitchUIType(em, x) {
-//   const findBy = { id: x.id };
-//   const assign = x.config;
-//   await createIfNotFound(em, SwitchUITypes, findBy, assign);
-// }
-
-// async function persistRefUIType(em, x) {
-//   const findBy = { id: x.id };
-//   const assign = x.config;
-//   await createIfNotFound(em, RefUITypes, findBy, assign);
-// }
-
-// export async function saveUITypes(em, uiTypes) {
-//   // first do all uitypes with the base uitypes entity
-//   for (const x of _.values(uiTypes)) {
-//     await persistUIType(em, x);
-//   }
-
-//   // Then go through them again, but this time create/update the specific types
-//   // This is because the specific types might have a config that refers to another uitype.
-//   for (const x of _.values(uiTypes)) {
-//     if (
-//       ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(x.type)
-//     ) {
-//       await persistSectionUIType(em, x);
-//     } else if (x.type === 'SLIDER') {
-//       await persistSliderUIType(em, x);
-//     } else if (x.type === 'TEXT') {
-//       await persistTextUIType(em, x);
-//     } else if (x.type === 'SWITCH') {
-//       await persistSwitchUIType(em, x);
-//     } else if (x.type === 'REF') {
-//       await persistRefUIType(em, x);
-//     }
-//   }
-// }
 
 // export async function persistUITypesCols(em, uiTypesCols) {
 //   for (const uiTypeColId of Object.keys(uiTypesCols)) {
