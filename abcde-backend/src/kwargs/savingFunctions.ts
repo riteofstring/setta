@@ -12,30 +12,21 @@ export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
   for (const idid of Object.keys(kwargCols)) {
     for (const codeInfoId of _.keys(kwargCols[idid])) {
       let order = 0;
-      for (const kwargInfoId of kwargCols[idid][codeInfoId])
+      for (const kwargInfoId of kwargCols[idid][codeInfoId]) {
         inDbFormat.push({
           idid,
           codeInfoId,
           kwargInfoId,
           order,
         });
-      order += 1;
+        order += 1;
+      }
     }
   }
 
-  await prisma.$transaction(
-    inDbFormat.map((v) =>
-      prisma.kwargCol.upsert({
-        where: {
-          idid_codeInfoId_kwargInfoId: {
-            idid: v.idid,
-            codeInfoId: v.codeInfoId,
-            kwargInfoId: v.kwargInfoId,
-          },
-        },
-        create: v,
-        update: v,
-      }),
-    ),
-  );
+  await prisma.kwargCol.deleteMany({
+    where: { idid: { in: inDbFormat.map((x) => x.idid) } },
+  });
+
+  await prisma.kwargCol.createMany({ data: inDbFormat });
 }
