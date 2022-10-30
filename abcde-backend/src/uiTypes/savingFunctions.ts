@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
-import { prismaNullOrConnect } from '../utils/utils';
+import { nullNotUndefined, prismaNullOrConnect } from '../utils/utils';
 
 async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
   const data = _.values(uiTypes).map((x) => ({
@@ -25,32 +25,46 @@ async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
   );
 }
 
-export async function saveUITypes(prisma: PrismaClient, uiTypes) {
-  await saveCoreUITypes(prisma, uiTypes);
+async function saveSectionUITypes(prisma: PrismaClient, sectionUITypes) {
+  const uiTypeCols = sectionUITypes
+    .filter((x) => x.config.uiTypeColId)
+    .map((x) => ({ id: x.config.uiTypeColId }));
+
+  await prisma.uITypeColId.createMany({
+    data: uiTypeCols,
+    skipDuplicates: true,
+  });
+
+  const data = sectionUITypes.map((x) => ({
+    idid: x.id,
+    uiTypeColId: nullNotUndefined(x.config.uiTypeColId),
+    childUITypeId: nullNotUndefined(x.config.childUITypeId),
+    subType: x.config.subType,
+  }));
+
+  await prisma.sectionUIType.createMany({ data, skipDuplicates: true });
+
+  await prisma.$transaction(
+    sectionUITypes.map((v) =>
+      prisma.sectionUIType.update({
+        where: { idid: v.id },
+        data: {
+          collections: { set: v.config.collections.map((x) => ({ id: x })) },
+        },
+      }),
+    ),
+  );
 }
 
-// async function persistSectionUIType(em, x) {
-//   const {
-//     config: { collections, uiTypeColId, childUITypeId, subType },
-//   } = x;
-
-//   if (uiTypeColId) {
-//     await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
-//   }
-
-//   if (childUITypeId) {
-//     await createIfNotFound(em, UITypes, { id: childUITypeId });
-//   }
-
-//   const findBy = { id: x.id };
-//   const assign = {
-//     collections,
-//     uiTypeCol: uiTypeColId,
-//     childUIType: childUITypeId,
-//     subType,
-//   };
-//   await createIfNotFound(em, SectionUITypes, findBy, assign);
-// }
+export async function saveUITypes(prisma: PrismaClient, uiTypes) {
+  await saveCoreUITypes(prisma, uiTypes);
+  await saveSectionUITypes(
+    prisma,
+    _.filter(uiTypes, (v) =>
+      ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
+    ),
+  );
+}
 
 // async function persistSliderUIType(em, x) {
 //   const findBy = { id: x.id };

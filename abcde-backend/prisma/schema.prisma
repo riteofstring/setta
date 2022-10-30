@@ -184,11 +184,11 @@ model SectionUIType {
   id            UIType         @relation(fields: [idid], references: [id])
   idid          String         @db.Uuid
   collections   CodeInfo[]
-  uiTypeCol     UITypeColId    @relation(fields: [uiTypeColId], references: [id])
-  uiTypeColId   String         @db.Uuid
-  subType       String         @db.VarChar(255)
+  uiTypeCol     UITypeColId?   @relation(fields: [uiTypeColId], references: [id])
+  uiTypeColId   String?        @db.Uuid
+  subType       String?        @db.VarChar(255)
   childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
-  childUITypeId String         @unique @db.Uuid
+  childUITypeId String?        @unique @db.Uuid
   parentUIType  SectionUIType? @relation("ChildUIType")
 
   @@id([idid])
