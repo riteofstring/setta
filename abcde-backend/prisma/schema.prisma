@@ -145,13 +145,13 @@ model UIType {
   id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                     String          @db.VarChar(255)
   type                     String          @db.VarChar(255)
-  presetType               String          @db.VarChar(255)
-  originSection            Section         @relation(fields: [originSectionId], references: [id])
-  originSectionId          String          @db.Uuid
-  originUITypeCol          UITypeColId     @relation(fields: [originUITypeColId], references: [id])
-  originUITypeColId        String          @db.Uuid
-  originCodeInfo           CodeInfo        @relation(fields: [originCodeInfoId], references: [id])
-  originCodeInfoId         String          @db.Uuid
+  presetType               String?         @db.VarChar(255)
+  originSection            Section?        @relation(fields: [originSectionId], references: [id])
+  originSectionId          String?         @db.Uuid
+  originUITypeCol          UITypeColId?    @relation(fields: [originUITypeColId], references: [id])
+  originUITypeColId        String?         @db.Uuid
+  originCodeInfo           CodeInfo?       @relation(fields: [originCodeInfoId], references: [id])
+  originCodeInfoId         String?         @db.Uuid
   isForChildOfOriginInfoId Boolean
   sectionConfigs           SectionConfig[] //SectionConfig.uiType
   uiTypeCols               UITypeCol[] //UITypeCol.uiType

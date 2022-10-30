@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import _ = require('lodash');
+import { prismaNullOrConnect } from '../utils/utils';
 
 export async function saveSections(
   prisma: PrismaClient,
@@ -19,11 +20,7 @@ export async function saveSections(
       name: v.name,
       children: { connect: { id: scid } },
     };
-    curr['paramInfo'] = v.paramInfoId
-      ? {
-          connect: { id: v.paramInfoId },
-        }
-      : Prisma.DbNull;
+    curr['paramInfo'] = prismaNullOrConnect(v.paramInfoId);
     inDbFormat.push(curr);
   }
 

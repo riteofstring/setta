@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 export function renameKeys(x, toRename) {
   const output = { ...x };
   for (const oldK of Object.keys(toRename)) {
@@ -12,6 +14,10 @@ export function renameKeys(x, toRename) {
 
 export function returnNullNotUndefined(x) {
   return x === undefined ? null : x;
+}
+
+export function prismaNullOrConnect(x) {
+  return !x ? Prisma.DbNull : { connect: { id: x } };
 }
 
 // TODO: delete this and use mikro-orm upsert once it's available in newer version

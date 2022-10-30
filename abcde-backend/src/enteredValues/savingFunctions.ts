@@ -1,16 +1,13 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import _ = require('lodash');
+import { prismaNullOrConnect } from '../utils/utils';
 
 export async function saveEV(prisma: PrismaClient, ev) {
   const inDbFormat = [];
   for (const id of _.keys(ev)) {
     const v = ev[id];
     const curr = { id, value: v.value ? v.value.toString() : null };
-    curr['child'] = v.childId
-      ? {
-          connect: { id: v.childId },
-        }
-      : Prisma.DbNull;
+    curr['child'] = prismaNullOrConnect(v.childId);
     inDbFormat.push(curr);
   }
 
