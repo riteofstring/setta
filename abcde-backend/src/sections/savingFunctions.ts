@@ -79,27 +79,23 @@ export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
   );
 }
 
-// export async function persistSectionConfigs(em, sectionConfigs) {
-//   for (const v of _.values(sectionConfigs)) {
-//     await createIfNotFound(em, EVColsIds, { id: v.evColId });
-//     await createIfNotFound(em, KwargColsIds, { id: v.kwargColId });
+export async function saveSectionConfigCol(
+  prisma: PrismaClient,
+  sectionConfigCol,
+  colId,
+) {
+  await prisma.sectionConfigColId.createMany({
+    data: [{ id: colId }],
+    skipDuplicates: true,
+  });
 
-//     const findBy = { id: v.id };
-//     const assign = {
-//       evCol: v.evColId,
-//       kwargCol: v.kwargColId,
-//       selectedItem: v.selectedItem,
-//       uiType: v.uiTypeId,
-//     };
-//     await createIfNotFound(em, SectionConfig, findBy, assign);
-//   }
-// }
-
-// export async function persistSectionConfigCol(em, sectionConfigCol, colId) {
-//   await createIfNotFound(em, SectionConfigColsIds, { id: colId });
-//   for (const sectionId of _.keys(sectionConfigCol)) {
-//     const findBy = { id: colId, section: sectionId };
-//     const assign = { config: sectionConfigCol[sectionId] };
-//     await createIfNotFound(em, SectionConfigCols, findBy, assign);
-//   }
-// }
+  const inDbFormat = [];
+  for (const sectionId of _.keys(sectionConfigCol)) {
+    inDbFormat.push({
+      idid: colId,
+      sectionId,
+      configId: sectionConfigCol[sectionId],
+    });
+  }
+  deleteThenCreateCol(prisma, prisma.sectionConfigCol, inDbFormat);
+}

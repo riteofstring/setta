@@ -6,6 +6,7 @@ import {
   saveSectionChildren,
   saveSections,
   saveSectionConfigs,
+  saveSectionConfigCol,
 } from '../sections/savingFunctions';
 import { saveEV, saveEVCols } from '../enteredValues/savingFunctions';
 import { saveUITypeCols, saveUITypes } from '../uiTypes/savingFunctions';
@@ -20,11 +21,11 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveUITypes(prisma, p.uiTypes);
   await saveUITypeCols(prisma, p.uiTypesCols);
   await saveSectionConfigs(prisma, p.sectionConfigs);
-  // await persistSectionConfigCol(
-  //   em,
-  //   p.sectionConfigCol,
-  //   p.projectConfig.sectionConfigCol,
-  // );
+  await saveSectionConfigCol(
+    prisma,
+    p.sectionConfigCol,
+    p.projectConfig.sectionConfigCol,
+  );
 
   // await persistProjectConfig(em, p.projectConfig);
   // await persistProject(em, p.project);
