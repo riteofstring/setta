@@ -242,7 +242,7 @@ model ProjectConfig {
   sectionConfigColId String             @db.Uuid
   sectionChildren    SectionChildrenId  @relation(fields: [sectionChildrenId], references: [id])
   sectionChildrenId  String             @db.Uuid
-  project            Project            @relation("configs", fields: [projectId], references: [id])
-  projectId          String             @db.Uuid
+  project            Project?           @relation("configs", fields: [projectId], references: [id])
+  projectId          String?            @db.Uuid
   defaultFor         Project? //Project.defaultConfig 
 }
