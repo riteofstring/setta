@@ -25,7 +25,6 @@ export async function loadOneProject({
     "kwargInfo",
     "projectDefaults",
     "sectionChildren",
-    "sectionChildrenIds",
     "sectionConfigCol",
     "sectionConfigs",
     "sections",

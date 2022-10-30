@@ -29,16 +29,10 @@ export function getProjectData(s) {
   const kwargCols = s.objInfos.x;
   const kwargInfo = getKwargInfos(s, kwargCols);
 
-  const sections = _.mapValues(s.sectionInfos.x, (x) => ({
-    id: x.id,
-    name: x.name,
-    paramInfoId: x.paramInfoId,
-  }));
-
-  const sectionChildrenIds = _.mapValues(
-    s.sectionInfos.x,
-    (x) => x.sectionChildrenId
+  const sections = _.mapValues(s.sectionInfos.x, (x) =>
+    _.pick(x, ["id", "name", "paramInfoId", "sectionChildrenId"])
   );
+
   const sectionChildren = s.sectionInfos.idsOverview;
   const sectionConfigs = _.mapValues(s.sectionConfigs.x, (v) =>
     Object.fromEntries(Object.entries(v))
@@ -56,7 +50,6 @@ export function getProjectData(s) {
     kwargCols,
     sections,
     sectionChildren,
-    sectionChildrenIds,
     sectionConfigs,
     sectionConfigCol,
   };

@@ -27,7 +27,6 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
-      sectionChildrenIds,
       ev,
       evCols,
       uiTypes,
@@ -57,7 +56,6 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
-      sectionChildrenIds,
       topLevelIds: projectConfig.children,
     });
   }),
@@ -93,7 +91,6 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
-      sectionChildrenIds,
       topLevelIds,
     } = payload;
     let idx = 0;
@@ -108,7 +105,6 @@ const master = {
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],
-        sectionChildrenId: sectionChildrenIds[x.id],
         isTopLevel: topLevelIds.includes(x.id),
       });
       idx += 1;
