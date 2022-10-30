@@ -60,5 +60,3 @@ Seed specific tables
 ### References
 
 - https://docs.nestjs.com/
-- https://github.com/mikro-orm/nestjs-realworld-example-app
-- https://github.com/mikro-orm/nestjs
