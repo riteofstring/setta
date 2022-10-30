@@ -3,6 +3,7 @@ import { saveCodeInfo } from '../src/codeInfo/savingFunctions';
 import { loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
 import _ = require('lodash');
+import { saveUsers } from '../src/users/savingFunctions';
 
 async function main() {
   await seedUsers();
@@ -11,16 +12,7 @@ async function main() {
 
 async function seedUsers() {
   const data = await loadSpecificTestData({ name: 'Users' });
-  await Promise.all(
-    _.values(data).map(
-      async (v) =>
-        await prisma.user.upsert({
-          where: { id: v.id },
-          create: v,
-          update: v,
-        }),
-    ),
-  );
+  await saveUsers(prisma, data);
 }
 
 async function seedCodeInfo() {
