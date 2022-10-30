@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import _ = require('lodash');
 
 export async function saveSections(
@@ -23,6 +23,8 @@ export async function saveSections(
       curr['paramInfo'] = {
         connect: { id: v.paramInfoId },
       };
+    } else {
+      curr['paramInfo'] = Prisma.DbNull;
     }
     inDbFormat.push(curr);
   }

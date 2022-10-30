@@ -104,10 +104,10 @@ model EVCol {
 }
 
 model EV {
-  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  value   String  @db.VarChar(255)
-  child   Section @relation(fields: [childId], references: [id])
-  childId String  @db.Uuid
+  id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value   String?  @db.VarChar(255)
+  child   Section? @relation(fields: [childId], references: [id])
+  childId String?  @db.Uuid
   evCol   EVCol[] //EVCol.ev
 }
 
