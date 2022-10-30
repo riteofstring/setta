@@ -58,13 +58,10 @@ export async function saveSectionChildren(
   }
 
   await prisma.sectionChildren.deleteMany({
-    where: { idid: { in: _.values(sectionChildrenIds) } },
+    where: { idid: { in: inDbFormat.map((x) => x.idid) } },
   });
 
-  //
-  await prisma.$transaction(
-    inDbFormat.map((v) => prisma.sectionChildren.createMany({ data: v })),
-  );
+  await prisma.sectionChildren.createMany({ data: inDbFormat });
 }
 
 // export async function persistSectionConfigs(em, sectionConfigs) {
