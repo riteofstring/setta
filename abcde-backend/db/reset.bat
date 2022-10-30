@@ -1,1 +1,1 @@
-npx prisma migrate reset -f
+npx prisma migrate reset -f %*

@@ -27,6 +27,7 @@ export async function saveCodeInfo(prisma: PrismaClient, codeInfo) {
               id: x,
             })),
           },
+          inCodeParentId: v.parentId,
         },
       });
     }),

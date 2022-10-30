@@ -16,8 +16,11 @@ model CodeInfo {
   rcType         String          @db.VarChar(255)
   description    String?         @db.VarChar(255)
   path           String?         @db.VarChar(255)
-  children       CodeInfo[]      @relation("Children")
-  parents        CodeInfo[]      @relation("Children")
+  children       CodeInfo[]      @relation("CodeInfoChildren")
+  parents        CodeInfo[]      @relation("CodeInfoChildren")
+  inCodeParent   CodeInfo?       @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
+  inCodeChildren CodeInfo[]      @relation("InCodeDirectParent")
+  inCodeParentId String?         @db.Uuid
   sections       Section[] // Section.paramInfo
   kwargOwner     KwargCol[]      @relation("KwargOwner") // KwargCol.codeInfo
   kwarg          KwargCol[]      @relation("Kwarg") // KwargCol.kwargInfo
