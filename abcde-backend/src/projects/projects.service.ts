@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import _ = require('lodash');
 import { PrismaService } from '../prisma.service';
-import { getProject, getProjectConfig } from './loadingFunctions';
+import {
+  getProject,
+  getProjectConfig,
+  getSectionConfigCol,
+} from './loadingFunctions';
 import { saveAllProjectDetails } from './savingFunctions';
 
 @Injectable()
@@ -32,8 +36,12 @@ export class ProjectsService {
       this.prisma,
       project.defaultConfig,
     );
+    const sectionConfigCol = await getSectionConfigCol(
+      this.prisma,
+      projectConfig.sectionConfigColId,
+    );
 
-    return { project, projectConfig };
+    return { project, projectConfig, sectionConfigCol };
 
     // const fullObj = await getProject(id, this.projects);
     // const { defaultConfig: projectConfig, ...project } = fullObj;

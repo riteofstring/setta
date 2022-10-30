@@ -57,6 +57,7 @@ describe('ProjectsService', () => {
 
     expect(theRest.project).toEqual(correctRest.project);
     expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
+    expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
 
     // expect(theRest).toEqual(correctRest);
     // compareCodeInfo(retrievedCodeInfo, codeInfo);
