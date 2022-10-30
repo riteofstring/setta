@@ -11,17 +11,31 @@ export async function saveSections(
     skipDuplicates: true,
   });
 
-  // const inDbFormat = [];
-  // for (const v of _.values(sections)) {
-  //   const scid = sectionChildrenIds[v.id];
-  //   inDbFormat.push({
-  //     id: v.id,
-  //     name: v.name,
-  //     paramInfo: v.paramInfoId,
-  //     children: scid,
-  //   });
-  // }
-  // await prisma.section.createMany({ data: inDbFormat, skipDuplicates: true });
+  const inDbFormat = [];
+  for (const v of _.values(sections)) {
+    const scid = sectionChildrenIds[v.id];
+    const curr = {
+      id: v.id,
+      name: v.name,
+      children: { connect: { id: scid } },
+    };
+    if (v.paramInfoId) {
+      curr['paramInfo'] = {
+        connect: { id: v.paramInfoId },
+      };
+    }
+    inDbFormat.push(curr);
+  }
+
+  await prisma.$transaction(
+    inDbFormat.map((v) =>
+      prisma.section.upsert({
+        where: { id: v.id },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
 }
 
 // export async function persistSections(em, sections, sectionChildrenIds) {

@@ -42,7 +42,7 @@ model Section {
   id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String             @db.VarChar(255)
   paramInfo      CodeInfo?          @relation(fields: [paramInfoId], references: [id])
-  paramInfoId    String             @db.Uuid
+  paramInfoId    String?            @db.Uuid
   children       SectionChildrenId  @relation(fields: [childrenId], references: [id])
   childrenId     String             @db.Uuid
   siblings       SectionChildren[] //SectionChildren.section
