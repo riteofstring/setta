@@ -13,23 +13,26 @@ async function main() {
 }
 
 async function seedUsers() {
-  console.log('seedUsers');
   const data = await loadSpecificTestData({ name: 'Users' });
+  console.log('seedUsers');
   await saveUsers(prisma, data);
+  console.log('done');
 }
 
 async function seedCodeInfo() {
-  console.log('seedCodeInfo');
   const data = await loadSpecificTestData({ name: 'AllCodeInfo' });
+  console.log('seedCodeInfo');
   await saveCodeInfo(prisma, data);
+  console.log('done');
 }
 
 async function seedProjects() {
-  console.log('seedProjects');
   const allProjects = await loadAllProjects({ forSeeding: true });
+  console.log('seedProjects');
   for (const p of allProjects) {
     await saveAllProjectDetails(prisma, p);
   }
+  console.log('done');
 }
 
 main()
