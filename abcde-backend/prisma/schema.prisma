@@ -197,9 +197,9 @@ model SectionUIType {
 model SliderUIType {
   id   UIType @relation(fields: [idid], references: [id])
   idid String @db.Uuid
-  min  Float
-  max  Float
-  step Float
+  min  Float?
+  max  Float?
+  step Float?
 
   @@id([idid])
 }

@@ -56,6 +56,22 @@ async function saveSectionUITypes(prisma: PrismaClient, sectionUITypes) {
   );
 }
 
+async function saveSliderUITypes(prisma: PrismaClient, sliderUITypes) {
+  const data = sliderUITypes.map((x) => ({
+    idid: x.id,
+    ...x.config,
+  }));
+  await prisma.$transaction(
+    data.map((v) =>
+      prisma.sliderUIType.upsert({
+        where: { idid: v.idid },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
+}
+
 export async function saveUITypes(prisma: PrismaClient, uiTypes) {
   await saveCoreUITypes(prisma, uiTypes);
   await saveSectionUITypes(
@@ -64,13 +80,11 @@ export async function saveUITypes(prisma: PrismaClient, uiTypes) {
       ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
     ),
   );
+  await saveSliderUITypes(
+    prisma,
+    _.filter(uiTypes, (v) => v.type === 'SLIDER'),
+  );
 }
-
-// async function persistSliderUIType(em, x) {
-//   const findBy = { id: x.id };
-//   const assign = x.config;
-//   await createIfNotFound(em, SliderUITypes, findBy, assign);
-// }
 
 // async function persistTextUIType(em, x) {
 //   const findBy = { id: x.id };
