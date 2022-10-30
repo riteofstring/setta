@@ -19,13 +19,11 @@ export async function saveSections(
       name: v.name,
       children: { connect: { id: scid } },
     };
-    if (v.paramInfoId) {
-      curr['paramInfo'] = {
-        connect: { id: v.paramInfoId },
-      };
-    } else {
-      curr['paramInfo'] = Prisma.DbNull;
-    }
+    curr['paramInfo'] = v.paramInfoId
+      ? {
+          connect: { id: v.paramInfoId },
+        }
+      : Prisma.DbNull;
     inDbFormat.push(curr);
   }
 

@@ -6,13 +6,11 @@ export async function saveEV(prisma: PrismaClient, ev) {
   for (const id of _.keys(ev)) {
     const v = ev[id];
     const curr = { id, value: v.value ? v.value.toString() : null };
-    if (v.childId) {
-      curr['child'] = {
-        connect: { id: v.childId },
-      };
-    } else {
-      curr['child'] = Prisma.DbNull;
-    }
+    curr['child'] = v.childId
+      ? {
+          connect: { id: v.childId },
+        }
+      : Prisma.DbNull;
     inDbFormat.push(curr);
   }
 
