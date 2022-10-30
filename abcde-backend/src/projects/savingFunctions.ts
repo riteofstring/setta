@@ -2,7 +2,11 @@ import _ = require('lodash');
 import { PrismaClient } from '@prisma/client';
 import { saveKwargInfo } from '../codeInfo/savingFunctions';
 import { saveKwargCols } from '../kwargs/savingFunctions';
-import { saveSectionChildren, saveSections } from '../sections/savingFunctions';
+import {
+  saveSectionChildren,
+  saveSections,
+  saveSectionConfigs,
+} from '../sections/savingFunctions';
 import { saveEV, saveEVCols } from '../enteredValues/savingFunctions';
 import { saveUITypeCols, saveUITypes } from '../uiTypes/savingFunctions';
 
@@ -15,15 +19,16 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveEVCols(prisma, p.evCols);
   await saveUITypes(prisma, p.uiTypes);
   await saveUITypeCols(prisma, p.uiTypesCols);
-  // await persistProjectConfig(em, p.projectConfig);
-  // await persistProject(em, p.project);
-  // await connectProjectToProjectConfig(em, p.project, p.projectConfig);
-  // await persistSectionConfigs(em, p.sectionConfigs);
+  await saveSectionConfigs(prisma, p.sectionConfigs);
   // await persistSectionConfigCol(
   //   em,
   //   p.sectionConfigCol,
   //   p.projectConfig.sectionConfigCol,
   // );
+
+  // await persistProjectConfig(em, p.projectConfig);
+  // await persistProject(em, p.project);
+  // await connectProjectToProjectConfig(em, p.project, p.projectConfig);
 }
 
 // export async function persistProject(em, project) {

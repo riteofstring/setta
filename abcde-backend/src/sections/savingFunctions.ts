@@ -56,6 +56,29 @@ export async function saveSectionChildren(
   deleteThenCreateCol(prisma, prisma.sectionChildren, inDbFormat);
 }
 
+export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
+  const inDbFormat = [];
+  for (const v of _.values(sectionConfigs)) {
+    const curr = {
+      id: v.id,
+      evColId: v.evColId,
+      kwargColId: v.kwargColId,
+      selectedItemId: v.selectedItem,
+      uiTypeId: v.uiTypeId,
+    };
+    inDbFormat.push(curr);
+  }
+  await prisma.$transaction(
+    inDbFormat.map((v) =>
+      prisma.sectionConfig.upsert({
+        where: { id: v.id },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
+}
+
 // export async function persistSectionConfigs(em, sectionConfigs) {
 //   for (const v of _.values(sectionConfigs)) {
 //     await createIfNotFound(em, EVColsIds, { id: v.evColId });

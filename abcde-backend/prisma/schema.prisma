@@ -134,8 +134,8 @@ model SectionConfig {
   evColId        String             @db.Uuid
   kwargCol       KwargColId         @relation(fields: [kwargColId], references: [id])
   kwargColId     String             @db.Uuid
-  selectedItem   CodeInfo           @relation(fields: [selectedItemId], references: [id])
-  selectedItemId String             @db.Uuid
+  selectedItem   CodeInfo?          @relation(fields: [selectedItemId], references: [id])
+  selectedItemId String?            @db.Uuid
   uiType         UIType             @relation(fields: [uiTypeId], references: [id])
   uiTypeId       String             @db.Uuid
   configCol      SectionConfigCol[] //SectionConfigCol.config
