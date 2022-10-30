@@ -9,6 +9,27 @@ export async function getProject(prisma, id) {
   return renameKeys(p, { ownerId: 'owner', defaultConfigId: 'defaultConfig' });
 }
 
+export async function getProjectConfig(prisma, id) {
+  const p = await prisma.projectConfig.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      sectionConfigColId: true,
+      sectionChildrenId: true,
+      sectionChildren: {
+        select: { children: { select: { sectionId: true, order: true } } },
+      },
+    },
+  });
+  p.children = getOrderedChildren(p.sectionChildren.children, 'sectionId');
+  delete p.sectionChildren;
+  return renameKeys(p, {
+    sectionConfigColId: 'sectionConfigCol',
+    sectionChildrenId: 'childrenId',
+  });
+}
+
 // export function getSections(sectionConfigCols) {
 //   const sections = {};
 //   for (const col of sectionConfigCols) {
@@ -39,11 +60,9 @@ export async function getProject(prisma, id) {
 //   return sectionChildren;
 // }
 
-// export function getOrderedChildren(children) {
-//   return _.orderBy(children.getItems(), (v) => v.order).map(
-//     (x) => x.section.id,
-//   );
-// }
+function getOrderedChildren(children, toReturn) {
+  return _.orderBy(children, (v) => v.order).map((x) => x[toReturn]);
+}
 
 // export function processSectionConfigs(sectionConfigs) {
 //   const KEYMAP = {

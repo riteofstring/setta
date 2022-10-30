@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import _ = require('lodash');
 import { PrismaService } from '../prisma.service';
-import { getProject } from './loadingFunctions';
+import { getProject, getProjectConfig } from './loadingFunctions';
 import { saveAllProjectDetails } from './savingFunctions';
 
 @Injectable()
@@ -28,8 +28,12 @@ export class ProjectsService {
 
   async loadOne(id: string): Promise<any> {
     const project = await getProject(this.prisma, id);
+    const projectConfig = await getProjectConfig(
+      this.prisma,
+      project.defaultConfig,
+    );
 
-    return { project };
+    return { project, projectConfig };
 
     // const fullObj = await getProject(id, this.projects);
     // const { defaultConfig: projectConfig, ...project } = fullObj;
