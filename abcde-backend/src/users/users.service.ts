@@ -1,10 +1,10 @@
 import { Injectable, HttpStatus, HttpException } from '@nestjs/common';
-import { UsersRepository } from './users.repository';
 import { validate } from 'class-validator';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(private prisma: PrismaService) {}
 
   async findOne(username: string): Promise<any> {
     return this.usersRepository.findOne({ name: username });

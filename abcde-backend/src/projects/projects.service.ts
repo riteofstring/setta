@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Users } from '../entities/users.entity';
-import { ProjectsRepository } from './projects.repository';
-import { EntityManager } from '@mikro-orm/postgresql';
-import { SectionsRepository } from '../sections/sections.repository';
-import { SectionConfigColsRepository } from '../sections/sectionConfigCols.repository';
 import _ = require('lodash');
+import { PrismaService } from 'src/prisma.service';
 import {
   getOrderedChildren,
   getProject,
@@ -21,16 +17,10 @@ import {
   loadUITypesCols,
   processSectionConfigs,
 } from './loadingFunctions';
-import { persistAllProjectDetails } from './savingFunctions';
 
 @Injectable()
 export class ProjectsService {
-  constructor(
-    private readonly projects: ProjectsRepository,
-    private readonly sections: SectionsRepository,
-    private readonly sectionConfigCols: SectionConfigColsRepository,
-    private readonly em: EntityManager,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async getAllByOwner(user: Users): Promise<any> {
     const ps = await this.projects.find(
