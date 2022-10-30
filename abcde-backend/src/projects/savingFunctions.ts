@@ -9,7 +9,6 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveKwargCols(prisma, p.kwargCols);
   await saveSections(prisma, p.sections, p.sectionChildrenIds);
   await saveSectionChildren(prisma, p.sectionChildren, p.sectionChildrenIds);
-  // await persistSectionChildren(em, p.sectionChildren, p.sectionChildrenIds);
   // await persistEV(em, p.ev);
   // await persistEVCols(em, p.evCols);
   // await persistUITypes(em, p.uiTypes);

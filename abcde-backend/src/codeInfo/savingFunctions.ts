@@ -40,7 +40,7 @@ export async function saveCodeInfo(
         where: { id: v.id },
         data: {
           children: {
-            connect: v.children.map((x) => ({
+            set: v.children.map((x) => ({
               id: x,
             })),
           },
