@@ -38,53 +38,34 @@ export async function saveSections(
   );
 }
 
-// export async function persistSections(em, sections, sectionChildrenIds) {
-//   for (const v of _.values(sections)) {
-//     const scid = sectionChildrenIds[v.id];
-//     await createIfNotFound(em, SectionChildrenIds, { id: scid });
-//     const findBy = { id: v.id };
-//     const assign = {
-//       name: v.name,
-//       paramInfo: v.paramInfoId,
-//       children: scid,
-//     };
-//     await createIfNotFound(em, Sections, findBy, assign);
-//   }
-// }
+export async function saveSectionChildren(
+  prisma: PrismaClient,
+  sectionChildren,
+  sectionChildrenIds,
+) {
+  const inDbFormat = [];
 
-// export async function persistSectionChildren(
-//   em,
-//   sectionChildren,
-//   sectionChildrenIds,
-// ) {
-//   for (const sectionId of _.keys(sectionChildren)) {
-//     await persistOneSectionChildren(
-//       em,
-//       sectionChildren[sectionId],
-//       sectionChildrenIds[sectionId],
-//     );
-//   }
-// }
-
-// export async function persistOneSectionChildren(
-//   em,
-//   sectionChildren,
-//   sectionChildrenId,
-// ) {
-//   const col = await createIfNotFound(em, SectionChildrenIds, {
-//     id: sectionChildrenId,
-//   });
-//   const childEntities = [];
-//   for (let i = 0; i < sectionChildren.length; i++) {
-//     const findBy = { id: sectionChildrenId, section: sectionChildren[i] };
-//     const assign = { order: i };
-//     const newOne = await createIfNotFound(em, SectionChildren, findBy, assign);
-//     childEntities.push(newOne);
-//   }
-//   console.log('childEntities', childEntities);
-//   col.sectionChildren.set(childEntities);
-//   em.persist(col);
-// }
+  for (const parentSectionId of _.keys(sectionChildren)) {
+    let order = 0;
+    for (const sectionId of sectionChildren[parentSectionId]) {
+      inDbFormat.push({
+        idid: sectionChildrenIds[parentSectionId],
+        sectionId,
+        order,
+      });
+      order += 1;
+    }
+  }
+  await prisma.$transaction(
+    inDbFormat.map((v) =>
+      prisma.sectionChildren.upsert({
+        where: { idid_sectionId: { idid: v.idid, sectionId: v.sectionId } },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
+}
 
 // export async function persistSectionConfigs(em, sectionConfigs) {
 //   for (const v of _.values(sectionConfigs)) {
