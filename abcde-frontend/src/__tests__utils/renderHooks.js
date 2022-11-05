@@ -1,5 +1,4 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import { useParamEnteredValue } from "hooks/useEnteredValue";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
@@ -60,10 +59,6 @@ export function renderUseGetSectionConfig(sectionId, wrapper) {
 
 export function renderUseGetKwargInfos(sectionId, objInfoId, wrapper) {
   return renderHook(() => useGetKwargInfos(sectionId, objInfoId), { wrapper });
-}
-
-export function renderUseCreateDefaultSectionInfo(wrapper) {
-  return renderHook(() => useCreateDefaultSectionInfo(), { wrapper });
 }
 
 export function changeUITypeConfig(hookProps, configName, newValueFn, wrapper) {

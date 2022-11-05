@@ -28,16 +28,6 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-export function getParamInfoByFullPath(allObjInfo, ...pathAsName) {
-  let curr = null;
-  let currChildren = Object.values(allObjInfo);
-  for (const name of pathAsName) {
-    curr = currChildren.filter((x) => x.name === name)[0];
-    currChildren = curr.children.map((x) => allObjInfo[x]);
-  }
-  return curr;
-}
-
 function getParamCollectionParamInfoByName(allObjInfo, paramCollection, name) {
   const childrenInfo = paramCollection.children.map((x) => allObjInfo[x]);
   return _.filter(childrenInfo, (v) => v.name === name)[0];
@@ -78,7 +68,7 @@ export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   return { sectionInfo, paramInfo };
 }
 
-export function callInitializeParamThunk(store, sectionId, paramInfo, wrapper) {
+function callInitializeParamThunk(store, sectionId, paramInfo, wrapper) {
   // initialize paramInfo's uitype, enteredvalue etc.
   // This is usually done in ParamContainer when the parameter loads
   store.getActions().thunks.initializeParam({ sectionId, paramInfo });
@@ -113,7 +103,7 @@ export function getParameterToTestOnAndInitialUIType(
   return { sectionInfo, paramInfo, initialUIType };
 }
 
-export function addChildSectionAndGetChildId(
+function addChildSectionAndGetChildId(
   sectionId,
   paramInfoId,
   defaultName,
@@ -122,7 +112,7 @@ export function addChildSectionAndGetChildId(
   wrapper
 ) {
   let result = null;
-  // Add child. Normally this happens automatically in the conditionally rendered NestedObjectInput component.
+  // Add child.
   store.getActions().thunks.addChild({
     parentId: sectionId,
     name: defaultName,
