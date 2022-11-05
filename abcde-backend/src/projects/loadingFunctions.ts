@@ -1,181 +1,196 @@
-import { ProjectsRepository } from './projects.repository';
-import { EntityManager } from '@mikro-orm/postgresql';
-import { UITypes } from '../entities/uitypes/uiTypes.entity';
-import { SectionUITypes } from '../entities/uiTypes/sectionUITypes.entity';
-import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
-import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
-import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
-import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
-import { renameKeys, returnNullNotUndefined } from '../utils/utils';
+import { renameKeys } from '../utils/utils';
 import _ = require('lodash');
-import { EVColsIds } from '../entities/enteredValues/evColsIds.entity';
-import { UITypesColsIds } from '../entities/uitypes/uiTypesColsIds.entity';
-import { CodeInfo } from '../entities/codeInfo.entity';
-import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
 
-export async function getProject(id, projects: ProjectsRepository) {
-  return await projects.findOne<any>(
-    { id },
-    {
-      populate: [
-        'defaultConfig.children.sectionChildren',
-        'defaultConfig.sectionConfigCol.sectionConfigCols.section.children.sectionChildren',
-        'defaultConfig.sectionConfigCol.sectionConfigCols.config.uiType',
-      ],
+export async function getProject(prisma, id) {
+  const p = await prisma.project.findUnique({
+    where: { id },
+    select: { id: true, ownerId: true, name: true, defaultConfigId: true },
+  });
+  return renameKeys(p, { ownerId: 'owner', defaultConfigId: 'defaultConfig' });
+}
+
+export async function getProjectConfig(prisma, id) {
+  const p = await prisma.projectConfig.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      sectionConfigColId: true,
+      sectionConfigCol: {
+        select: { children: { select: { sectionId: true, configId: true } } },
+      },
+      sectionChildrenId: true,
+      sectionChildren: {
+        select: { children: { select: { sectionId: true, order: true } } },
+      },
     },
+  });
+  const sectionConfigCol = _.mapValues(
+    _.keyBy(p.sectionConfigCol.children, 'sectionId'),
+    (v) => v.configId,
   );
+  delete p.sectionConfigCol;
+
+  p.children = getOrderedChildren(p.sectionChildren.children, 'sectionId');
+  delete p.sectionChildren;
+  const projectConfig = renameKeys(p, {
+    sectionConfigColId: 'sectionConfigCol',
+    sectionChildrenId: 'childrenId',
+  });
+
+  return { projectConfig, sectionConfigCol };
 }
 
-export function getSections(sectionConfigCols) {
-  const sections = {};
-  for (const col of sectionConfigCols) {
-    const { id, name, paramInfo } = col.section;
-    sections[id] = {
-      id,
-      name,
-      paramInfoId: returnNullNotUndefined(paramInfo?.id),
-    };
-  }
-  return sections;
-}
+export async function getSections(prisma, ids) {
+  const s = await prisma.section.findMany({
+    where: { id: { in: ids } },
+    include: {
+      children: {
+        select: { children: { select: { order: true, sectionId: true } } },
+      },
+    },
+  });
+  const idsAsKeys = _.keyBy(s, 'id');
 
-export function getSectionChildrenIds(sectionConfigCols) {
-  const sectionChildrenIds = {};
-  for (const col of sectionConfigCols) {
-    sectionChildrenIds[col.section.id] = col.section.children.id;
-  }
-  return sectionChildrenIds;
-}
+  const sections = _.mapValues(idsAsKeys, (v) => {
+    const { children, ...theRest } = renameKeys(v, {
+      childrenId: 'sectionChildrenId',
+    });
+    return theRest;
+  });
 
-export function getSectionChildren(sectionConfigCols) {
-  const sectionChildren = {};
-  for (const col of sectionConfigCols) {
-    const children = col.section.children.sectionChildren;
-    sectionChildren[col.section.id] = getOrderedChildren(children);
-  }
-  return sectionChildren;
-}
-
-export function getOrderedChildren(children) {
-  return _.orderBy(children.getItems(), (v) => v.order).map(
-    (x) => x.section.id,
+  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
+    getOrderedChildren(v.children.children, 'sectionId'),
   );
+  return { sections, sectionChildren };
 }
 
-export function processSectionConfigs(sectionConfigs) {
-  const KEYMAP = {
-    uiType: 'uiTypeId',
-    evCol: 'evColId',
-    kwargCol: 'kwargColId',
-  };
+export async function getSectionConfigs(prisma, ids) {
+  const s = await prisma.sectionConfig.findMany({
+    where: { id: { in: ids } },
+    include: {
+      evCol: {
+        select: {
+          children: { select: { codeInfoId: true, evId: true, ev: true } },
+        },
+      },
+      kwargCol: {
+        select: {
+          children: {
+            select: { codeInfoId: true, kwargInfoId: true, order: true },
+          },
+        },
+      },
+    },
+  });
 
-  const output = {};
-  for (const c of sectionConfigs) {
-    const config = _.mapValues(c, (v, k) => (k === 'id' || !v ? v : v.id));
-    output[config.id] = renameKeys(config, KEYMAP);
-  }
-  return output;
-}
+  const sectionUITypes = await getUITypesByWhere(prisma, {
+    id: { in: s.map((x) => x.uiTypeId) },
+    presetType: null,
+  });
 
-export function getSectionConfigCol(sectionConfigCols) {
-  const output = {};
-  for (const col of sectionConfigCols) {
-    output[col.section.id] = col.config.id;
-  }
-  return output;
-}
+  const uiTypeCols = await getUITypeCols(prisma, sectionUITypes);
 
-export async function loadEVCols(em, sectionConfigs) {
-  const evColIds = sectionConfigs.map((x) => x.evCol);
-  const evColsInDBFormat = await em.find(
-    EVColsIds,
-    { id: { $in: evColIds } },
-    { populate: ['evCols.enteredValue'] },
+  const sectionConfigs = _.keyBy(
+    _.map(s, (x) => {
+      const { evCol, kwargCol, ...theRest } = renameKeys(x, {
+        selectedItemId: 'selectedItem',
+      });
+      return theRest;
+    }),
+    'id',
   );
-  const ev = {};
+
+  let ev = {};
+  for (const config of s) {
+    const allCurrEvs = [].concat(...config.evCol.children.map((x) => x.ev));
+    const keyByEVId = _.keyBy(allCurrEvs, 'id');
+    const correctFormat = _.mapValues(keyByEVId, (x) =>
+      _.pick(x, ['value', 'childId']),
+    );
+    ev = { ...ev, ...correctFormat };
+  }
+
   const evCols = {};
-  for (const col of evColsInDBFormat) {
-    evCols[col.id] = {};
-    for (const colElement of col.evCols.getItems()) {
-      const codeInfoId = colElement.codeInfo.id;
-      const currEv = colElement.enteredValue;
-      const evId = currEv.id;
-      ev[evId] = {
-        value: currEv.value,
-        childId: returnNullNotUndefined(currEv.child?.id),
-      };
-      evCols[col.id][codeInfoId] = evId;
-    }
+  for (const config of s) {
+    evCols[config.evColId] = _.mapValues(
+      _.keyBy(config.evCol.children, 'codeInfoId'),
+      (x) => x.evId,
+    );
   }
-  return { ev, evCols };
-}
 
-export async function loadKwargCols(em, sectionConfigs) {
-  const kwargColIds = [].concat(...sectionConfigs.map((x) => x.kwargCol));
-  const kwargColsInDBFormat = await em.find(
-    KwargColsIds,
-    { id: { $in: kwargColIds } },
-    { populate: ['kwargCols.kwargInfos.children'] },
-  );
-  const kwargInfos = {};
   const kwargCols = {};
-  for (const col of kwargColsInDBFormat) {
-    kwargCols[col.id] = {};
-    for (const colElement of col.kwargCols.getItems()) {
-      const currKwargInfos = colElement.kwargInfos.getItems();
-      currKwargInfos.forEach((x) => (kwargInfos[x.id] = processCodeInfo(x)));
-      kwargCols[col.id][colElement.codeInfo.id] = currKwargInfos.map(
-        (x) => x.id,
-      );
-    }
+  for (const config of s) {
+    const ordered = getOrderedChildren(config.kwargCol.children);
+    kwargCols[config.kwargColId] = _.mapValues(
+      _.groupBy(ordered, (x) => x.codeInfoId),
+      (y) => y.map((z) => z.kwargInfoId),
+    );
   }
-  return { kwargCols, kwargInfos };
+
+  return { sectionConfigs, ev, evCols, kwargCols, sectionUITypes, uiTypeCols };
 }
 
-export async function loadUITypesCols(em, sectionUITypes) {
-  const uiTypeColIds = _.map(sectionUITypes, (x) => x.config.uiTypeColId);
-  const uiTypeColsInDBFormat = await em.find(
-    UITypesColsIds,
-    { id: { $in: uiTypeColIds } },
-    { populate: ['uiTypesCols'] },
+function getOrderedChildren(children, toReturn = null) {
+  const output = _.orderBy(children, (v) => v.order);
+  if (toReturn) {
+    return output.map((x) => (toReturn ? x[toReturn] : x));
+  }
+  return output;
+}
+
+export async function getUITypeCols(prisma, sectionUITypes) {
+  const ids = _.values(sectionUITypes)
+    .map((x) => x.config.uiTypeColId)
+    .filter((x) => x);
+
+  const uiTypeCols = await prisma.uITypeColId.findMany({
+    where: { id: { in: ids } },
+    include: { children: true },
+  });
+
+  return _.mapValues(_.keyBy(uiTypeCols, 'id'), (x) =>
+    _.mapValues(_.keyBy(x.children, 'codeInfoId'), (y) => y.uiTypeId),
   );
-  const uiTypeCols = {};
-  for (const col of uiTypeColsInDBFormat) {
-    uiTypeCols[col.id] = {};
-    for (const colElement of col.uiTypesCols.getItems()) {
-      const codeInfoId = colElement.codeInfo.id;
-      const uiTypeId = colElement.uiType.id;
-      uiTypeCols[col.id][codeInfoId] = uiTypeId;
-    }
-  }
-  return uiTypeCols;
 }
 
-export async function loadCodeInfo(em, sectionUITypes) {
-  const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
-  const collectionIds = new Set([].concat(...collectionIdsArray));
-  const connection = em.getConnection();
+export async function getCodeInfoForSectionsAndKwargs(
+  prisma,
+  sectionUITypes,
+  kwargCols,
+) {
+  const collectionIds = [].concat(
+    ..._.map(sectionUITypes, (x) => x.config.collections),
+  );
+  const kwargIds = [];
+  _.forEach(kwargCols, (x) =>
+    _.forEach(_.values(x), (y) => kwargIds.push(...y)),
+  );
+  return await getCodeInfo(prisma, [...collectionIds, ...kwargIds]);
+}
 
+export async function getCodeInfo(prisma, ids: string[]) {
+  const collectionIds = new Set(ids);
   const childMap = {};
   const allIds = new Set(collectionIds);
   collectionIds.forEach((x) => (childMap[x] = new Set()));
 
   for (const c of collectionIds) {
-    const parentChildPairs = await connection.execute(`
+    const parentChildPairs = await prisma.$queryRaw`
         with recursive descendants as (
-            select code_info_1_id, code_info_2_id
-            from code_info_children
-            where code_info_1_id = '${c}'
+            select "A", "B"
+            from "_CodeInfoChildren"
+            where "A" = ${c}::uuid
           union
-            select x.code_info_1_id, x.code_info_2_id
-            from code_info_children x
-            join descendants on x.code_info_1_id = descendants.code_info_2_id
+            select x."A", x."B"
+            from "_CodeInfoChildren" x
+            join descendants on x."A" = descendants."B"
         )
-        select * from descendants;`);
+        select * from descendants;`;
 
     parentChildPairs.forEach((x) => {
-      const child = x.code_info_2_id;
-      childMap[x.code_info_1_id].add(child);
+      const child = x.B;
+      childMap[x.A].add(child);
       if (!(child in childMap)) {
         childMap[child] = new Set();
       }
@@ -183,7 +198,9 @@ export async function loadCodeInfo(em, sectionUITypes) {
     });
   }
 
-  const codeInfo = await em.find(CodeInfo, { id: { $in: Array.from(allIds) } });
+  const codeInfo = await prisma.codeInfo.findMany({
+    where: { id: { in: Array.from(allIds) } },
+  });
   const output = {};
   codeInfo.forEach((x) => {
     output[x.id] = processCodeInfo(x, childMap);
@@ -192,101 +209,84 @@ export async function loadCodeInfo(em, sectionUITypes) {
   return output;
 }
 
-export function processCodeInfo(codeInfo, childMap = null) {
-  const { children, parent, ...theRest } = codeInfo;
-  const childrenIds = childMap
-    ? Array.from(childMap[codeInfo.id])
-    : children.getItems().map((c) => c.id);
+export function processCodeInfo(codeInfo, childMap) {
+  const { inCodeParentId, ...theRest } = codeInfo;
+  const childrenIds = Array.from(childMap[codeInfo.id]);
   return {
     ...theRest,
-    parentId: returnNullNotUndefined(parent?.id),
+    parentId: inCodeParentId,
     children: childrenIds,
   };
 }
 
-export async function loadBaseUITypes(em): Promise<any> {
-  const uiTypes = await em.find(UITypes, { presetType: 'base' });
-  return await getUITypeSpecifics(em, uiTypes);
+export async function getBaseUITypes(prisma) {
+  return await getUITypesByWhere(prisma, { presetType: 'base' });
 }
 
-export async function getUITypes(em, sectionConfigs): Promise<any> {
-  const uiTypes = sectionConfigs
-    .map((x) => x.uiType)
-    .filter((x) => !x.presetType);
-  return await getUITypeSpecifics(em, uiTypes);
+export async function getPresetUITypes(prisma) {
+  return await getUITypesByWhere(prisma, { presetType: 'user' });
 }
 
-export async function loadPresetUITypes(em): Promise<any> {
-  const uiTypes = await em.find(UITypes, { presetType: 'user' });
-  return await getUITypeSpecifics(em, uiTypes);
-}
-
-export async function getUITypeSpecifics(
-  em: EntityManager,
-  uiTypes: UITypes[],
-) {
-  const configs = [];
-  for (const table of [
-    SectionUITypes,
-    SliderUITypes,
-    SwitchUITypes,
-    TextUITypes,
-    RefUITypes,
-  ]) {
-    const result =
-      table === SectionUITypes
-        ? await getSectionUITypeConfig(em, uiTypes)
-        : await em.find(table, { id: { $in: uiTypes } });
-    configs.push(...result);
-  }
-
-  const KEYMAP = {
-    uiTypeCol: 'uiTypeColId',
-    childUIType: 'childUITypeId',
-  };
-
+export async function getUITypesByWhere(prisma, where) {
+  const uiTypes = await prisma.uIType.findMany({
+    where,
+    include: {
+      sectionUIType: { include: { collections: { select: { id: true } } } },
+      sliderUIType: true,
+      switchUIType: true,
+      textUIType: true,
+      refUIType: true,
+    },
+  });
   const output = {};
-  for (const x of configs) {
-    const { id, ...config } = x;
-    const newConfig = renameKeys(config, KEYMAP);
-    output[id.id] = { ...id, config: newConfig };
+  for (const u of uiTypes) {
+    output[u.id] = processUIType(u);
   }
-
-  _.forEach(output, (v, k) => {
-    output[k] = reshapeOriginInfoId(v);
-  });
-
   return output;
 }
 
-export async function getSectionUITypeConfig(em, uiTypes) {
-  const result = await em.find(
-    SectionUITypes,
-    { id: { $in: uiTypes } },
-    { populate: ['collections'] },
-  );
-  const output = [];
-  result.forEach((x) => {
-    const curr = {};
-    curr['id'] = x.id;
-    curr['collections'] = x.collections.getItems().map((c) => c.id);
-    curr['uiTypeCol'] = returnNullNotUndefined(x.uiTypeCol?.id);
-    curr['childUIType'] = returnNullNotUndefined(x.childUIType?.id);
-    curr['subType'] = x.subType;
-    output.push(curr);
-  });
+function processUIType(uiType) {
+  let output = {};
+  for (const key of _.keys(uiType)) {
+    const val = uiType[key];
+    if (
+      [
+        'sectionUIType',
+        'sliderUIType',
+        'switchUIType',
+        'textUIType',
+        'refUIType',
+      ].includes(key)
+    ) {
+      output = { ...output, ...processSpecificUITypeConfig(val) };
+    } else {
+      output[key] = val;
+    }
+  }
+  return reshapeOriginInfoId(output);
+}
 
-  return output;
+function processSpecificUITypeConfig(uiTypeConfig) {
+  if (uiTypeConfig) {
+    const { idid, ...config } = uiTypeConfig;
+    if ('collections' in config) {
+      config.collections = config.collections.map((x) => x.id);
+    }
+    return { config };
+  }
+  return {};
 }
 
 export function reshapeOriginInfoId(uiType) {
   const originInfoId = {
-    sectionId: returnNullNotUndefined(uiType.originSection?.id),
-    uiTypeColId: returnNullNotUndefined(uiType.originUITypeCol?.id),
-    paramInfoId: returnNullNotUndefined(uiType.originCodeInfo?.id),
+    sectionId: uiType.originSectionId,
+    uiTypeColId: uiType.originUITypeColId,
+    paramInfoId: uiType.originCodeInfoId,
   };
+  // filter out nulls
   uiType.originInfoId = _.pickBy(originInfoId, (x) => x);
-  return _.omitBy(uiType, (v, k) =>
-    ['originSection', 'originUITypeCol', 'originCodeInfo'].includes(k),
+  ['originSectionId', 'originUITypeColId', 'originCodeInfoId'].forEach(
+    (x) => delete uiType[x],
   );
+  return uiType;
 }

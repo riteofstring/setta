@@ -1,22 +1,29 @@
+import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
-import { createIfNotFound } from '../utils/utils';
-import { KwargColsIds } from '../entities/kwargs/kwargColsIds.entity';
-import { KwargCols } from '../entities/kwargs/kwargCols.entity';
+import { deleteThenCreateCol } from '../utils/utils';
 
-export async function persistKwargCols(em, kwargsCols) {
-  for (const kwargColId of Object.keys(kwargsCols)) {
-    await createIfNotFound(em, KwargColsIds, {
-      id: kwargColId,
-    });
-    for (const codeInfoId of _.keys(kwargsCols[kwargColId])) {
-      const findBy = {
-        id: kwargColId,
-        codeInfo: codeInfoId === 'null' ? null : codeInfoId,
-      };
-      const assign = {
-        kwargInfos: kwargsCols[kwargColId][codeInfoId],
-      };
-      await createIfNotFound(em, KwargCols, findBy, assign);
+export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
+  const ids = _.keys(kwargCols);
+  await prisma.kwargColId.createMany({
+    data: ids.map((x) => ({ id: x })),
+    skipDuplicates: true,
+  });
+
+  const inDbFormat = [];
+  for (const idid of Object.keys(kwargCols)) {
+    for (const codeInfoId of _.keys(kwargCols[idid])) {
+      let order = 0;
+      for (const kwargInfoId of kwargCols[idid][codeInfoId]) {
+        inDbFormat.push({
+          idid,
+          codeInfoId,
+          kwargInfoId,
+          order,
+        });
+        order += 1;
+      }
     }
   }
+
+  deleteThenCreateCol(prisma, prisma.kwargCol, inDbFormat);
 }

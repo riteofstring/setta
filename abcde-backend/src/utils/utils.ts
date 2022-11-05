@@ -1,3 +1,5 @@
+import { Prisma, PrismaClient } from '@prisma/client';
+
 export function renameKeys(x, toRename) {
   const output = { ...x };
   for (const oldK of Object.keys(toRename)) {
@@ -10,27 +12,24 @@ export function renameKeys(x, toRename) {
   return output;
 }
 
-export function returnNullNotUndefined(x) {
+export function nullNotUndefined(x) {
   return x === undefined ? null : x;
 }
 
-// TODO: delete this and use mikro-orm upsert once it's available in newer version
-export async function createIfNotFound(
-  em,
-  type,
-  findBy,
-  assign = null,
-  persist = true,
-) {
-  let x = await em.findOne(type, findBy);
-  if (!x) {
-    x = em.create(type, findBy);
-  }
-  if (assign) {
-    em.assign(x, assign);
-  }
-  if (persist) {
-    em.persist(x);
-  }
-  return x;
+export function prismaNullOrConnect(x) {
+  return !x ? Prisma.DbNull : { connect: { id: x } };
+}
+
+export async function deleteThenCreateCol(prisma: PrismaClient, db, data) {
+  await prisma.$transaction([
+    db.deleteMany({
+      where: { idid: { in: data.map((x) => x.idid) } },
+    }),
+
+    db.createMany({ data }),
+  ]);
+}
+
+export function connectOrCreateColId(x) {
+  return { connectOrCreate: { where: { id: x }, create: { id: x } } };
 }

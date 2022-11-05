@@ -1,17 +1,16 @@
 import { Injectable, HttpStatus, HttpException } from '@nestjs/common';
-import { UsersRepository } from './users.repository';
-import { validate } from 'class-validator';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(private prisma: PrismaService) {}
 
   async findOne(username: string): Promise<any> {
-    return this.usersRepository.findOne({ name: username });
+    return await this.prisma.user.findUnique({ where: { name: username } });
   }
 
   async usernameTaken(username: string): Promise<boolean> {
-    const count = await this.usersRepository.count({ name: username });
+    const count = await this.prisma.user.count({ where: { name: username } });
     return count > 0;
   }
 
@@ -27,21 +26,8 @@ export class UsersService {
       );
     }
 
-    // create new user
-    const user = this.usersRepository.create({ name: username, password });
-    const errors = await validate(user);
-
-    if (errors.length > 0) {
-      throw new HttpException(
-        {
-          message: 'Input data validation failed',
-          errors: { username: 'Userinput is not valid.' },
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    } else {
-      await this.usersRepository.persistAndFlush(user);
-      return user;
-    }
+    return await this.prisma.user.create({
+      data: { name: username, password },
+    });
   }
 }

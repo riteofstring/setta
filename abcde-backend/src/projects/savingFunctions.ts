@@ -1,67 +1,99 @@
-import { Projects } from '../entities/projects/projects.entity';
-import { ProjectConfigs } from '../entities/projects/projectConfigs.entity';
-import {
-  persistOneSectionChildren,
-  persistSectionChildren,
-  persistSectionConfigCol,
-  persistSectionConfigs,
-  persistSections,
-} from '../sections/savingFunctions';
-import { persistEV, persistEVCols } from '../enteredValues/savingFunctions';
-import { persistUITypes, persistUITypesCols } from '../uiTypes/savingFunctions';
-import { persistKwargCols } from '../kwargs/savingFunctions';
-import { persistCodeInfo } from '../codeInfo/savingFunctions';
 import _ = require('lodash');
-import { createIfNotFound } from '../utils/utils';
-import { SectionConfigColsIds } from '../entities/sections/sectionConfigColsIds.entity';
-import { SectionChildrenIds } from '../entities/sections/sectionChildrenIds.entity';
+import { PrismaClient } from '@prisma/client';
+import { saveKwargInfo } from '../codeInfo/savingFunctions';
+import { saveKwargCols } from '../kwargs/savingFunctions';
+import {
+  saveSectionChildren,
+  saveSections,
+  saveSectionConfigs,
+  saveSectionConfigCol,
+} from '../sections/savingFunctions';
+import { saveEV, saveEVCols } from '../enteredValues/savingFunctions';
+import { saveUITypeCols, saveUITypes } from '../uiTypes/savingFunctions';
 
-// em = entityManager
-// p = object that contains project info
-export async function persistAllProjectDetails(em, p) {
-  await persistCodeInfo(em, p.kwargInfo);
-  await persistKwargCols(em, p.kwargCols);
-  await persistSections(em, p.sections, p.sectionChildrenIds);
-  await persistSectionChildren(em, p.sectionChildren, p.sectionChildrenIds);
-  await persistEV(em, p.ev);
-  await persistEVCols(em, p.evCols);
-  await persistUITypes(em, p.uiTypes);
-  await persistUITypesCols(em, p.uiTypesCols);
-  await persistProjectConfig(em, p.projectConfig);
-  await persistProject(em, p.project);
-  await connectProjectToProjectConfig(em, p.project, p.projectConfig);
-  await persistSectionConfigs(em, p.sectionConfigs);
-  await persistSectionConfigCol(
-    em,
+export async function saveAllProjectDetails(prisma: PrismaClient, p) {
+  await saveKwargInfo(prisma, p.kwargInfo);
+  await saveKwargCols(prisma, p.kwargCols);
+  await saveSections(prisma, p.sections, p.sectionChildren);
+  await saveEV(prisma, p.ev);
+  await saveEVCols(prisma, p.evCols);
+  await saveUITypes(prisma, p.uiTypes);
+  await saveUITypeCols(prisma, p.uiTypeCols);
+  await saveSectionConfigs(prisma, p.sectionConfigs);
+  await saveSectionConfigCol(
+    prisma,
     p.sectionConfigCol,
     p.projectConfig.sectionConfigCol,
   );
+  await saveProjectConfig(prisma, p.projectConfig);
+  await saveProject(prisma, p.project);
+  await connectProjectToProjectConfig(prisma, p.project, p.projectConfig);
 }
 
-export async function persistProject(em, project) {
-  const { id, ...assign } = project;
-  const findBy = { id };
-  await createIfNotFound(em, Projects, findBy, assign);
-}
-
-export async function persistProjectConfig(em, config) {
+export async function saveProjectConfig(prisma: PrismaClient, config) {
   const { id, name, sectionConfigCol, children, childrenId } = config;
-  await createIfNotFound(em, SectionConfigColsIds, {
-    id: sectionConfigCol,
+  await prisma.sectionChildrenId.createMany({
+    data: [{ id: childrenId }],
+    skipDuplicates: true,
   });
-  await createIfNotFound(em, SectionChildrenIds, { id: childrenId });
-  await persistOneSectionChildren(em, children, childrenId);
-  const findBy = { id };
-  const assign = { name, sectionConfigCol, children: childrenId };
-  await createIfNotFound(em, ProjectConfigs, findBy, assign);
+  await saveSectionChildren(prisma, { null: children }, { null: childrenId });
+
+  const data = {
+    id,
+    name,
+    sectionConfigColId: sectionConfigCol,
+    sectionChildrenId: childrenId,
+  };
+  await prisma.projectConfig.upsert({
+    where: { id },
+    create: data,
+    update: data,
+  });
+}
+
+export async function saveProject(prisma: PrismaClient, project) {
+  const data = {
+    id: project.id,
+    name: project.name,
+    ownerId: project.owner,
+    defaultConfigId: project.defaultConfig,
+  };
+  await prisma.project.upsert({
+    where: { id: data.id },
+    create: data,
+    update: data,
+  });
 }
 
 export async function connectProjectToProjectConfig(
-  em,
+  prisma: PrismaClient,
   project,
   projectConfig,
 ) {
-  const x = await em.findOne(ProjectConfigs, { id: projectConfig.id });
-  x.project = project.id;
-  em.persist(x);
+  await prisma.projectConfig.update({
+    where: { id: projectConfig.id },
+    data: { projectId: project.id },
+  });
+}
+
+export async function createProject(prisma: PrismaClient, user, name: string) {
+  const defaultConfig = await prisma.projectConfig.create({
+    data: {
+      name: 'config1',
+      sectionConfigCol: { create: {} },
+      sectionChildren: { create: {} },
+    },
+  });
+
+  const project = await prisma.project.create({
+    data: {
+      owner: { connect: { id: user.id } },
+      name,
+      defaultConfig: { connect: { id: defaultConfig.id } },
+      configs: { connect: [{ id: defaultConfig.id }] },
+    },
+    include: { configs: true },
+  });
+
+  return project;
 }

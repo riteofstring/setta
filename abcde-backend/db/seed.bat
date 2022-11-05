@@ -1,1 +1,1 @@
-call node_modules/.bin/ts-node --esm test/seed.ts %*
+npx prisma db seed
