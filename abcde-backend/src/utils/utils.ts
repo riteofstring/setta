@@ -29,3 +29,7 @@ export async function deleteThenCreateCol(prisma: PrismaClient, db, data) {
     db.createMany({ data }),
   ]);
 }
+
+export function connectOrCreateColId(x) {
+  return { connectOrCreate: { where: { id: x }, create: { id: x } } };
+}

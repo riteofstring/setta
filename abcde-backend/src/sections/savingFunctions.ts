@@ -1,6 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
-import { deleteThenCreateCol, prismaNullOrConnect } from '../utils/utils';
+import {
+  connectOrCreateColId,
+  deleteThenCreateCol,
+  prismaNullOrConnect,
+} from '../utils/utils';
 
 export async function saveSections(
   prisma: PrismaClient,
@@ -66,13 +70,14 @@ export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
   for (const v of _.values(sectionConfigs)) {
     const curr = {
       id: v.id,
-      evColId: v.evColId,
-      kwargColId: v.kwargColId,
-      selectedItemId: v.selectedItem,
-      uiTypeId: v.uiTypeId,
+      evCol: connectOrCreateColId(v.evColId),
+      kwargCol: connectOrCreateColId(v.kwargColId),
+      selectedItem: prismaNullOrConnect(v.selectedItem),
+      uiType: prismaNullOrConnect(v.uiTypeId),
     };
     inDbFormat.push(curr);
   }
+
   await prisma.$transaction(
     inDbFormat.map((v) =>
       prisma.sectionConfig.upsert({
