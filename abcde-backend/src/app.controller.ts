@@ -3,12 +3,14 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { LocalAuthGuard } from './auth/local-auth.guard';
 import { AuthService } from './auth/auth.service';
 import { ProjectsService } from './projects/projects.service';
+import { CodeInfoService } from './codeInfo/codeInfo.service';
 
 @Controller()
 export class AppController {
   constructor(
     private authService: AuthService,
     private projectsService: ProjectsService,
+    private codeInfoService: CodeInfoService,
   ) {}
 
   @UseGuards(LocalAuthGuard)
@@ -50,5 +52,10 @@ export class AppController {
   @Post('projects/createProject')
   createProject(@Request() req) {
     return this.projectsService.createProject(req.user, req.body.name);
+  }
+
+  @Post('codeInfo/getCollectionsAndModules')
+  getCollectionsAndModules(@Request() req) {
+    return this.codeInfoService.getCollectionsAndModules(req.body.searchTerm);
   }
 }
