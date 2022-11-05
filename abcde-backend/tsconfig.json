@@ -16,6 +16,21 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "#src/*": ["src/*"],
+      "#auth/*": ["src/auth/*"],
+      "#codeInfo/*": ["src/codeInfo/*"],
+      "#enteredValues/*": ["src/enteredValues/*"],
+      "#kwargs/*": ["src/kwargs/*"],
+      "#projects/*": ["src/projects/*"],
+      "#sections/*": ["src/sections/*"],
+      "#uiTypes/*": ["src/uiTypes/*"],
+      "#users/*": ["src/users/*"],
+      "#utils/*": ["src/utils/*"],
+    }
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
   }
 }

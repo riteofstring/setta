@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import {
   deleteThenCreateCol,
   nullNotUndefined,
   prismaNullOrConnect,
-} from '../utils/utils';
+} from '#utils/utils';
+import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
 
 async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {

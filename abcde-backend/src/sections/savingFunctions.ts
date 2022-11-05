@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import {
   connectOrCreateColId,
   deleteThenCreateCol,
   prismaNullOrConnect,
-} from '../utils/utils';
+} from '#utils/utils';
+import { PrismaClient } from '@prisma/client';
 import _ = require('lodash');
 
 export async function saveSections(
