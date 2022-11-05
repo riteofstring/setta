@@ -33,6 +33,12 @@ export async function getCollectionDetails(id) {
     allDescendants = _.keyBy(allDescendants, "id");
     return { ...allDescendants, [id]: collection };
   }
-
-  //TODO
+  return axios
+    .post(BACKEND + "codeInfo/getCollectionDetails", { codeInfoId: id })
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return {};
+    });
 }
