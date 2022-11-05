@@ -84,9 +84,12 @@ export async function getSectionConfigs(prisma, ids) {
     },
   });
 
-  const uiTypes = await getUITypesByWhere(prisma, {
+  const sectionUITypes = await getUITypesByWhere(prisma, {
     id: { in: s.map((x) => x.uiTypeId) },
+    presetType: null,
   });
+
+  const uiTypeCols = await getUITypesCols(prisma, sectionUITypes);
 
   const sectionConfigs = _.keyBy(
     _.map(s, (x) => {
@@ -125,7 +128,7 @@ export async function getSectionConfigs(prisma, ids) {
     );
   }
 
-  return { sectionConfigs, ev, evCols, kwargCols, uiTypes };
+  return { sectionConfigs, ev, evCols, kwargCols, sectionUITypes, uiTypeCols };
 }
 
 function getOrderedChildren(children, toReturn = null) {
@@ -136,24 +139,20 @@ function getOrderedChildren(children, toReturn = null) {
   return output;
 }
 
-// export async function loadUITypesCols(em, sectionUITypes) {
-//   const uiTypeColIds = _.map(sectionUITypes, (x) => x.config.uiTypeColId);
-//   const uiTypeColsInDBFormat = await em.find(
-//     UITypesColsIds,
-//     { id: { $in: uiTypeColIds } },
-//     { populate: ['uiTypesCols'] },
-//   );
-//   const uiTypeCols = {};
-//   for (const col of uiTypeColsInDBFormat) {
-//     uiTypeCols[col.id] = {};
-//     for (const colElement of col.uiTypesCols.getItems()) {
-//       const codeInfoId = colElement.codeInfo.id;
-//       const uiTypeId = colElement.uiType.id;
-//       uiTypeCols[col.id][codeInfoId] = uiTypeId;
-//     }
-//   }
-//   return uiTypeCols;
-// }
+export async function getUITypesCols(prisma, sectionUITypes) {
+  const ids = _.values(sectionUITypes)
+    .map((x) => x.config.uiTypeColId)
+    .filter((x) => x);
+
+  const uiTypeCols = await prisma.uITypeColId.findMany({
+    where: { id: { in: ids } },
+    include: { children: true },
+  });
+
+  return _.mapValues(_.keyBy(uiTypeCols, 'id'), (x) =>
+    _.mapValues(_.keyBy(x.children, 'codeInfoId'), (y) => y.uiTypeId),
+  );
+}
 
 // export async function loadCodeInfo(em, sectionUITypes) {
 //   const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
