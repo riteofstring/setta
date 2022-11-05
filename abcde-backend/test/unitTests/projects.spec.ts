@@ -1,4 +1,6 @@
+import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Test, TestingModule } from '@nestjs/testing';
+import config from '../../src/mikro-orm.config';
 import { AppModule } from '../../src/app.module';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -14,7 +16,14 @@ describe('ProjectsService', () => {
     testUser = allUsers['25961114-6655-4e2c-b70f-e2e3aaa84131'];
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        MikroOrmModule.forRoot({
+          ...config,
+          allowGlobalContext: true,
+          debug: false,
+        }),
+        AppModule,
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -54,18 +63,6 @@ describe('ProjectsService', () => {
     const { codeInfo: retrievedCodeInfo, ...theRest } = retrieved;
     const { codeInfo, globalDefaults, projectDefaults, ...correctRest } =
       correctOutput;
-
-    // expect(theRest.project).toEqual(correctRest.project);
-    // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
-    // expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
-    // expect(theRest.sections).toEqual(correctRest.sections);
-    // expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
-    // expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
-    // expect(theRest.ev).toEqual(correctRest.ev);
-    // expect(theRest.evCols).toEqual(correctRest.evCols);
-    // expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
-    // expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
-    // expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
 
     expect(theRest).toEqual(correctRest);
     compareCodeInfo(retrievedCodeInfo, codeInfo);

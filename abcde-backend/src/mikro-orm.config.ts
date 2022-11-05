@@ -1,0 +1,22 @@
+import { MikroOrmModuleOptions as Options } from '@mikro-orm/nestjs';
+
+const config: Options = {
+  type: 'postgresql',
+  host: 'localhost',
+  port: 5432,
+  user: 'postgres',
+  password: '123',
+  dbName: 'abcde',
+  entities: ['dist/**/*.entity.js'],
+  entitiesTs: ['src/**/*.entity.ts'],
+  debug: true,
+  migrations: {
+    path: 'dist/abcde-backend/src/migrations',
+    pathTs: 'src/migrations',
+  },
+  seeder: {
+    path: './test/seeders', // path to the folder with seeders
+  },
+};
+
+export default config;

@@ -1,0 +1,1 @@
+SET PGPASSWORD=123&&psql -U postgres -c "create database abcde"

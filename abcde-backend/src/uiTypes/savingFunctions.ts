@@ -1,127 +1,107 @@
-import { PrismaClient } from '@prisma/client';
+import { UITypes } from '../entities/uitypes/uiTypes.entity';
+import { SectionUITypes } from '../entities/uiTypes/sectionUITypes.entity';
+import { UITypesColsIds } from '../entities/uiTypes/uiTypesColsIds.entity';
+import { createIfNotFound } from '../utils/utils';
+import { SliderUITypes } from '../entities/uiTypes/sliderUITypes.entity';
+import { TextUITypes } from '../entities/uiTypes/textUITypes.entity';
+import { SwitchUITypes } from '../entities/uiTypes/switchUITypes.entity';
+import { RefUITypes } from '../entities/uiTypes/refUITypes.entity';
+import { UITypesCols } from '../entities/uiTypes/uiTypesCols.entity';
 import _ = require('lodash');
-import {
-  deleteThenCreateCol,
-  nullNotUndefined,
-  prismaNullOrConnect,
-} from '../utils/utils';
 
-async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
-  const data = _.values(uiTypes).map((x) => ({
-    id: x.id,
+async function persistUIType(em, x) {
+  const findBy = { id: x.id };
+  const assign = {
     type: x.type,
     name: x.name,
     presetType: x.presetType,
-    originSection: prismaNullOrConnect(x.originInfoId.sectionId),
-    originUITypeCol: prismaNullOrConnect(x.originInfoId.uiTypeColId),
-    originCodeInfo: prismaNullOrConnect(x.originInfoId.paramInfoId),
+    originSection: x.originInfoId.sectionId,
+    originUITypeCol: x.originInfoId.uiTypeColId,
+    originCodeInfo: x.originInfoId.paramInfoId,
     isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
-  }));
-
-  await prisma.$transaction(
-    data.map((v) =>
-      prisma.uIType.upsert({
-        where: { id: v.id },
-        create: v,
-        update: v,
-      }),
-    ),
-  );
+  };
+  await createIfNotFound(em, UITypes, findBy, assign);
 }
 
-async function saveSectionUITypes(prisma: PrismaClient, sectionUITypes) {
-  const uiTypeCols = sectionUITypes
-    .filter((x) => x.config.uiTypeColId)
-    .map((x) => ({ id: x.config.uiTypeColId }));
+async function persistSectionUIType(em, x) {
+  const {
+    config: { collections, uiTypeColId, childUITypeId, subType },
+  } = x;
 
-  await prisma.uITypeColId.createMany({
-    data: uiTypeCols,
-    skipDuplicates: true,
-  });
+  if (uiTypeColId) {
+    await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
+  }
 
-  const data = sectionUITypes.map((x) => ({
-    idid: x.id,
-    uiTypeColId: nullNotUndefined(x.config.uiTypeColId),
-    childUITypeId: nullNotUndefined(x.config.childUITypeId),
-    subType: x.config.subType,
-  }));
+  if (childUITypeId) {
+    await createIfNotFound(em, UITypes, { id: childUITypeId });
+  }
 
-  await prisma.sectionUIType.createMany({ data, skipDuplicates: true });
-
-  await prisma.$transaction(
-    sectionUITypes.map((v) =>
-      prisma.sectionUIType.update({
-        where: { idid: v.id },
-        data: {
-          collections: { set: v.config.collections.map((x) => ({ id: x })) },
-        },
-      }),
-    ),
-  );
+  const findBy = { id: x.id };
+  const assign = {
+    collections,
+    uiTypeCol: uiTypeColId,
+    childUIType: childUITypeId,
+    subType,
+  };
+  await createIfNotFound(em, SectionUITypes, findBy, assign);
 }
 
-async function saveRegularUIType(prisma: PrismaClient, db, sliderUITypes) {
-  const data = sliderUITypes.map((x) => ({
-    idid: x.id,
-    ...x.config,
-  }));
-  await prisma.$transaction(
-    data.map((v) =>
-      db.upsert({
-        where: { idid: v.idid },
-        create: v,
-        update: v,
-      }),
-    ),
-  );
+async function persistSliderUIType(em, x) {
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, SliderUITypes, findBy, assign);
 }
 
-export async function saveUITypes(prisma: PrismaClient, uiTypes) {
-  await saveCoreUITypes(prisma, uiTypes);
-  await saveSectionUITypes(
-    prisma,
-    _.filter(uiTypes, (v) =>
-      ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
-    ),
-  );
-  await saveRegularUIType(
-    prisma,
-    prisma.sliderUIType,
-    _.filter(uiTypes, (v) => v.type === 'SLIDER'),
-  );
-  await saveRegularUIType(
-    prisma,
-    prisma.textUIType,
-    _.filter(uiTypes, (v) => v.type === 'TEXT'),
-  );
-  await saveRegularUIType(
-    prisma,
-    prisma.switchUIType,
-    _.filter(uiTypes, (v) => v.type === 'SWITCH'),
-  );
-  await saveRegularUIType(
-    prisma,
-    prisma.refUIType,
-    _.filter(uiTypes, (v) => v.type === 'REF'),
-  );
+async function persistTextUIType(em, x) {
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, TextUITypes, findBy, assign);
 }
 
-export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
-  const ids = _.keys(uiTypeCols);
-  await prisma.uITypeColId.createMany({
-    data: ids.map((x) => ({ id: x })),
-    skipDuplicates: true,
-  });
+async function persistSwitchUIType(em, x) {
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, SwitchUITypes, findBy, assign);
+}
 
-  const inDbFormat = [];
-  for (const idid of Object.keys(uiTypeCols)) {
-    for (const codeInfoId of _.keys(uiTypeCols[idid])) {
-      inDbFormat.push({
-        idid,
-        codeInfoId,
-        uiTypeId: uiTypeCols[idid][codeInfoId],
-      });
+async function persistRefUIType(em, x) {
+  const findBy = { id: x.id };
+  const assign = x.config;
+  await createIfNotFound(em, RefUITypes, findBy, assign);
+}
+
+export async function persistUITypes(em, uiTypes) {
+  // first do all uitypes with the base uitypes entity
+  for (const x of _.values(uiTypes)) {
+    await persistUIType(em, x);
+  }
+
+  // Then go through them again, but this time create/update the specific types
+  // This is because the specific types might have a config that refers to another uitype.
+  for (const x of _.values(uiTypes)) {
+    if (
+      ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(x.type)
+    ) {
+      await persistSectionUIType(em, x);
+    } else if (x.type === 'SLIDER') {
+      await persistSliderUIType(em, x);
+    } else if (x.type === 'TEXT') {
+      await persistTextUIType(em, x);
+    } else if (x.type === 'SWITCH') {
+      await persistSwitchUIType(em, x);
+    } else if (x.type === 'REF') {
+      await persistRefUIType(em, x);
     }
   }
-  deleteThenCreateCol(prisma, prisma.uITypeCol, inDbFormat);
+}
+
+export async function persistUITypesCols(em, uiTypesCols) {
+  for (const uiTypeColId of Object.keys(uiTypesCols)) {
+    await createIfNotFound(em, UITypesColsIds, { id: uiTypeColId });
+    for (const codeInfoId of _.keys(uiTypesCols[uiTypeColId])) {
+      const findBy = { id: uiTypeColId, codeInfo: codeInfoId };
+      const assign = { uiType: uiTypesCols[uiTypeColId][codeInfoId] };
+      await createIfNotFound(em, UITypesCols, findBy, assign);
+    }
+  }
 }
