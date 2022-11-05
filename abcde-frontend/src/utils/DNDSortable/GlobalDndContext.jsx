@@ -7,8 +7,9 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useStoreActions } from "easy-peasy";
 import { useDragActivation } from "hooks/useDragActivation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useReactFlow } from "react-flow-renderer";
 import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
@@ -29,11 +30,12 @@ function getNewIndex(active, over) {
 
 export function GlobalDndContext(props) {
   const [active, setActive] = useState(null);
-
+  const dummyRef = useRef(null);
   const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
   const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
   const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
+  const { project } = useReactFlow();
 
   function onDragStart({ active }) {
     setActive(active);
@@ -67,17 +69,23 @@ export function GlobalDndContext(props) {
       });
     } else if (isMovingFree && activeContainer !== overContainer) {
       let newIndex;
+      let position = null;
       if (overIsSortable) {
         newIndex = getNewIndex(active, over);
       } else {
         // else its a droppable (e.g. an empty deck)
         newIndex = 0;
+        if (dummyRef?.current) {
+          const { x, y } = dummyRef.current.getBoundingClientRect();
+          position = project({ x, y });
+        }
       }
       moveChildThunk({
         oldParentId: activeContainer,
         newParentId: overContainer,
         childId: active.id,
         newIndex,
+        position,
       });
     }
   }
@@ -98,7 +106,9 @@ export function GlobalDndContext(props) {
         active.data.current.depth !== 0 &&
         createPortal(
           <DragOverlay>
-            <DummySection zoom={active.data.current.zoom} />
+            <div ref={dummyRef}>
+              <DummySection zoom={active.data.current.zoom} />
+            </div>
           </DragOverlay>,
           document.body
         )}

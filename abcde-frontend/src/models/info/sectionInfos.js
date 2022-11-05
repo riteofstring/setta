@@ -69,7 +69,7 @@ const sectionInfos = {
   }),
 
   moveChildThunk: thunk((actions, payload, helpers) => {
-    const { oldParentId, newParentId, childId, newIndex } = payload;
+    const { oldParentId, newParentId, childId, newIndex, position } = payload;
 
     // Remove child from old parent's list
     if (oldParentId) {
@@ -117,6 +117,14 @@ const sectionInfos = {
       state: helpers.getStoreState(),
       actions: helpers.getStoreActions(),
     });
+
+    if (newParentId === PANEID && position) {
+      actions.setSectionInfoAttr({
+        sectionId: childId,
+        attr: "initialPosition",
+        value: position,
+      });
+    }
   }),
 
   reset: action((state) => {
