@@ -63,6 +63,7 @@ describe('ProjectsService', () => {
     expect(theRest.sections).toEqual(correctRest.sections);
     expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
     expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
+    expect(theRest.ev).toEqual(correctRest.ev);
     expect(theRest.evCols).toEqual(correctRest.evCols);
     expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
 

@@ -70,7 +70,9 @@ export async function getSectionConfigs(prisma, ids) {
     where: { id: { in: ids } },
     include: {
       evCol: {
-        select: { children: { select: { codeInfoId: true, evId: true } } },
+        select: {
+          children: { select: { codeInfoId: true, evId: true, ev: true } },
+        },
       },
       kwargCol: {
         select: {
@@ -92,6 +94,16 @@ export async function getSectionConfigs(prisma, ids) {
     'id',
   );
 
+  let ev = {};
+  for (const config of s) {
+    const allCurrEvs = [].concat(...config.evCol.children.map((x) => x.ev));
+    const keyByEVId = _.keyBy(allCurrEvs, 'id');
+    const correctFormat = _.mapValues(keyByEVId, (x) =>
+      _.pick(x, ['value', 'childId']),
+    );
+    ev = { ...ev, ...correctFormat };
+  }
+
   const evCols = {};
   for (const config of s) {
     evCols[config.evColId] = _.mapValues(
@@ -109,7 +121,7 @@ export async function getSectionConfigs(prisma, ids) {
     );
   }
 
-  return { sectionConfigs, evCols, kwargCols };
+  return { sectionConfigs, ev, evCols, kwargCols };
 }
 
 function getOrderedChildren(children, toReturn = null) {
@@ -119,53 +131,6 @@ function getOrderedChildren(children, toReturn = null) {
   }
   return output;
 }
-
-// export async function loadEVCols(em, sectionConfigs) {
-//   const evColIds = sectionConfigs.map((x) => x.evCol);
-//   const evColsInDBFormat = await em.find(
-//     EVColsIds,
-//     { id: { $in: evColIds } },
-//     { populate: ['evCols.enteredValue'] },
-//   );
-//   const ev = {};
-//   const evCols = {};
-//   for (const col of evColsInDBFormat) {
-//     evCols[col.id] = {};
-//     for (const colElement of col.evCols.getItems()) {
-//       const codeInfoId = colElement.codeInfo.id;
-//       const currEv = colElement.enteredValue;
-//       const evId = currEv.id;
-//       ev[evId] = {
-//         value: currEv.value,
-//         childId: returnNullNotUndefined(currEv.child?.id),
-//       };
-//       evCols[col.id][codeInfoId] = evId;
-//     }
-//   }
-//   return { ev, evCols };
-// }
-
-// export async function loadKwargCols(em, sectionConfigs) {
-//   const kwargColIds = [].concat(...sectionConfigs.map((x) => x.kwargCol));
-//   const kwargColsInDBFormat = await em.find(
-//     KwargColsIds,
-//     { id: { $in: kwargColIds } },
-//     { populate: ['kwargCols.kwargInfos.children'] },
-//   );
-//   const kwargInfos = {};
-//   const kwargCols = {};
-//   for (const col of kwargColsInDBFormat) {
-//     kwargCols[col.id] = {};
-//     for (const colElement of col.kwargCols.getItems()) {
-//       const currKwargInfos = colElement.kwargInfos.getItems();
-//       currKwargInfos.forEach((x) => (kwargInfos[x.id] = processCodeInfo(x)));
-//       kwargCols[col.id][colElement.codeInfo.id] = currKwargInfos.map(
-//         (x) => x.id,
-//       );
-//     }
-//   }
-//   return { kwargCols, kwargInfos };
-// }
 
 // export async function loadUITypesCols(em, sectionUITypes) {
 //   const uiTypeColIds = _.map(sectionUITypes, (x) => x.config.uiTypeColId);
