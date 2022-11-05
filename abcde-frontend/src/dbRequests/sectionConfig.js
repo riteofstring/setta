@@ -1,6 +1,7 @@
+import axios from "axios";
 import { findAllDescendants, getCollections } from "classes/infoFactory";
 import _ from "lodash";
-import { NO_AUTH } from "utils/constants";
+import { BACKEND, NO_AUTH } from "utils/constants";
 import { loadSpecificTestData } from "__tests__utils/loadTestData";
 
 export async function getCollectionsAndModules({ searchTerm }) {
@@ -9,8 +10,14 @@ export async function getCollectionsAndModules({ searchTerm }) {
     const collections = getCollections(results);
     return _.pickBy(collections, (x) => x.name.includes(searchTerm));
   }
-
-  //TODO
+  return axios
+    .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return {};
+    });
 }
 
 export async function getCollectionDetails(id) {
