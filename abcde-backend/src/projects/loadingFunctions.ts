@@ -70,14 +70,21 @@ export async function getSectionConfigs(prisma, ids) {
     where: { id: { in: ids } },
     include: {
       evCol: {
-        select: { children: { select: { evId: true, codeInfoId: true } } },
+        select: { children: { select: { codeInfoId: true, evId: true } } },
+      },
+      kwargCol: {
+        select: {
+          children: {
+            select: { codeInfoId: true, kwargInfoId: true, order: true },
+          },
+        },
       },
     },
   });
 
   const sectionConfigs = _.keyBy(
     _.map(s, (x) => {
-      const { evCol, ...theRest } = renameKeys(x, {
+      const { evCol, kwargCol, ...theRest } = renameKeys(x, {
         selectedItemId: 'selectedItem',
       });
       return theRest;
@@ -93,11 +100,24 @@ export async function getSectionConfigs(prisma, ids) {
     );
   }
 
-  return { sectionConfigs, evCols };
+  const kwargCols = {};
+  for (const config of s) {
+    const ordered = getOrderedChildren(config.kwargCol.children);
+    kwargCols[config.kwargColId] = _.mapValues(
+      _.groupBy(ordered, (x) => x.codeInfoId),
+      (y) => y.map((z) => z.kwargInfoId),
+    );
+  }
+
+  return { sectionConfigs, evCols, kwargCols };
 }
 
-function getOrderedChildren(children, toReturn) {
-  return _.orderBy(children, (v) => v.order).map((x) => x[toReturn]);
+function getOrderedChildren(children, toReturn = null) {
+  const output = _.orderBy(children, (v) => v.order);
+  if (toReturn) {
+    return output.map((x) => (toReturn ? x[toReturn] : x));
+  }
+  return output;
 }
 
 // export async function loadEVCols(em, sectionConfigs) {
