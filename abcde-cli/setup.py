@@ -1,0 +1,1 @@
+extras_require_dev = ["black", "isort", "flake8", "click", "requests"]
