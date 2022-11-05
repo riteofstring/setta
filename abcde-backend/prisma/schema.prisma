@@ -32,10 +32,11 @@ model CodeInfo {
 }
 
 model User {
-  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name     String    @unique @db.VarChar(255)
-  password String
-  projects Project[] //Project.owner
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String          @unique @db.VarChar(255)
+  password      String
+  projects      Project[] //Project.owner
+  generatedCode GeneratedCode[]
 }
 
 model Section {
@@ -245,4 +246,11 @@ model ProjectConfig {
   project            Project?           @relation("configs", fields: [projectId], references: [id])
   projectId          String?            @db.Uuid
   defaultFor         Project? //Project.defaultConfig 
+}
+
+model GeneratedCode {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id])
+  ownerId String @db.Uuid
+  code    String @db.Text
 }

@@ -223,7 +223,6 @@ export function generateCode(selected) {
 
   // console.log("allVars\n", allVars);
   // console.log("queue\n", queue);
-  console.log(outputStr);
   return outputStr;
 }
 

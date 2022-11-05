@@ -2,6 +2,7 @@ import { Controller, Param, Post, Request, UseGuards } from '@nestjs/common';
 import { AuthService } from 'src/auth/auth.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { LocalAuthGuard } from 'src/auth/local-auth.guard';
+import { CodeGeneratorService } from 'src/codeGenerator/codeGenerator.service';
 import { CodeInfoService } from 'src/codeInfo/codeInfo.service';
 import { ProjectsService } from 'src/projects/projects.service';
 
@@ -11,6 +12,7 @@ export class AppController {
     private authService: AuthService,
     private projectsService: ProjectsService,
     private codeInfoService: CodeInfoService,
+    private codeGeneratorService: CodeGeneratorService,
   ) {}
 
   @UseGuards(LocalAuthGuard)
@@ -62,5 +64,11 @@ export class AppController {
   @Post('codeInfo/getCollectionDetails')
   getCollectionDetails(@Request() req) {
     return this.codeInfoService.getCollectionDetails(req.body.codeInfoId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('codeGenerator/generateCode')
+  generateCode(@Request() req) {
+    return this.codeGeneratorService.generateCode(req.user, req.body.codeJson);
   }
 }
