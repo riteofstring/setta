@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import _ = require('lodash');
 import { PrismaService } from '../prisma.service';
 import {
+  getBaseUITypes,
+  getPresetUITypes,
   getProject,
   getProjectConfig,
   getSectionConfigs,
@@ -46,6 +48,9 @@ export class ProjectsService {
       _.values(sectionConfigCol),
     );
 
+    const baseUITypes = await getBaseUITypes(this.prisma);
+    const presetUITypes = await getPresetUITypes(this.prisma);
+
     return {
       project,
       projectConfig,
@@ -56,6 +61,7 @@ export class ProjectsService {
       ev,
       evCols,
       kwargCols,
+      uiTypes: { ...baseUITypes, ...presetUITypes },
     };
 
     // const fullObj = await getProject(id, this.projects);

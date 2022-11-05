@@ -204,10 +204,18 @@ function getOrderedChildren(children, toReturn = null) {
 //   };
 // }
 
-// export async function loadBaseUITypes(em): Promise<any> {
-//   const uiTypes = await em.find(UITypes, { presetType: 'base' });
-//   return await getUITypeSpecifics(em, uiTypes);
-// }
+export async function getBaseUITypes(prisma) {
+  return await getUITypesByPresetType(prisma, 'base');
+}
+
+export async function getPresetUITypes(prisma) {
+  return await getUITypesByPresetType(prisma, 'user');
+}
+
+export async function getUITypesByPresetType(prisma, presetType) {
+  const uiTypes = await prisma.uIType.findMany({ where: { presetType } });
+  return await getUITypeSpecifics(prisma, uiTypes);
+}
 
 // export async function getUITypes(em, sectionConfigs): Promise<any> {
 //   const uiTypes = sectionConfigs
@@ -216,77 +224,55 @@ function getOrderedChildren(children, toReturn = null) {
 //   return await getUITypeSpecifics(em, uiTypes);
 // }
 
-// export async function loadPresetUITypes(em): Promise<any> {
-//   const uiTypes = await em.find(UITypes, { presetType: 'user' });
-//   return await getUITypeSpecifics(em, uiTypes);
-// }
+export async function getUITypeSpecifics(prisma, uiTypes) {
+  const uiTypeIds = uiTypes.map((x) => x.id);
 
-// export async function getUITypeSpecifics(
-//   em: EntityManager,
-//   uiTypes: UITypes[],
-// ) {
-//   const configs = [];
-//   for (const table of [
-//     SectionUITypes,
-//     SliderUITypes,
-//     SwitchUITypes,
-//     TextUITypes,
-//     RefUITypes,
-//   ]) {
-//     const result =
-//       table === SectionUITypes
-//         ? await getSectionUITypeConfig(em, uiTypes)
-//         : await em.find(table, { id: { $in: uiTypes } });
-//     configs.push(...result);
-//   }
+  // get sectionUIType
+  const configs = await getSectionUITypeConfig(prisma, uiTypeIds);
+  // get the other ui types
+  for (const db of [
+    prisma.sliderUIType,
+    prisma.switchUIType,
+    prisma.textUIType,
+    prisma.refUIType,
+  ]) {
+    const result = await db.findMany({ where: { idid: { in: uiTypeIds } } });
+    configs.push(...result);
+  }
 
-//   const KEYMAP = {
-//     uiTypeCol: 'uiTypeColId',
-//     childUIType: 'childUITypeId',
-//   };
+  const uiTypeKeyById = _.keyBy(uiTypes, 'id');
+  const output = {};
+  for (const x of configs) {
+    const { idid, ...config } = x;
+    output[idid] = reshapeOriginInfoId({ ...uiTypeKeyById[idid], config });
+  }
 
-//   const output = {};
-//   for (const x of configs) {
-//     const { id, ...config } = x;
-//     const newConfig = renameKeys(config, KEYMAP);
-//     output[id.id] = { ...id, config: newConfig };
-//   }
+  return output;
+}
 
-//   _.forEach(output, (v, k) => {
-//     output[k] = reshapeOriginInfoId(v);
-//   });
+export async function getSectionUITypeConfig(prisma, uiTypeIds) {
+  const results = await prisma.sectionUIType.findMany({
+    where: { idid: { in: uiTypeIds } },
+    include: { collections: { select: { id: true } } },
+  });
 
-//   return output;
-// }
+  // reshape collections so that its an array of strings
+  return results.map((x) => ({
+    ...x,
+    collections: x.collections.map((y) => y.id),
+  }));
+}
 
-// export async function getSectionUITypeConfig(em, uiTypes) {
-//   const result = await em.find(
-//     SectionUITypes,
-//     { id: { $in: uiTypes } },
-//     { populate: ['collections'] },
-//   );
-//   const output = [];
-//   result.forEach((x) => {
-//     const curr = {};
-//     curr['id'] = x.id;
-//     curr['collections'] = x.collections.getItems().map((c) => c.id);
-//     curr['uiTypeCol'] = returnNullNotUndefined(x.uiTypeCol?.id);
-//     curr['childUIType'] = returnNullNotUndefined(x.childUIType?.id);
-//     curr['subType'] = x.subType;
-//     output.push(curr);
-//   });
-
-//   return output;
-// }
-
-// export function reshapeOriginInfoId(uiType) {
-//   const originInfoId = {
-//     sectionId: returnNullNotUndefined(uiType.originSection?.id),
-//     uiTypeColId: returnNullNotUndefined(uiType.originUITypeCol?.id),
-//     paramInfoId: returnNullNotUndefined(uiType.originCodeInfo?.id),
-//   };
-//   uiType.originInfoId = _.pickBy(originInfoId, (x) => x);
-//   return _.omitBy(uiType, (v, k) =>
-//     ['originSection', 'originUITypeCol', 'originCodeInfo'].includes(k),
-//   );
-// }
+export function reshapeOriginInfoId(uiType) {
+  const originInfoId = {
+    sectionId: uiType.originSectionId,
+    uiTypeColId: uiType.originUITypeColId,
+    paramInfoId: uiType.originCodeInfoId,
+  };
+  // filter out nulls
+  uiType.originInfoId = _.pickBy(originInfoId, (x) => x);
+  ['originSectionId', 'originUITypeColId', 'originCodeInfoId'].forEach(
+    (x) => delete uiType[x],
+  );
+  return uiType;
+}
