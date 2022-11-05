@@ -3,6 +3,7 @@ import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
 import _ from "lodash";
+import { ReactFlowProvider } from "react-flow-renderer";
 import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
 import { createNewId } from "utils/utils";
@@ -57,7 +58,9 @@ export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
 
 export function getStoreProviderWrapper(store) {
   return ({ children }) => (
-    <StoreProvider store={store}>{children}</StoreProvider>
+    <StoreProvider store={store}>
+      <ReactFlowProvider>{children}</ReactFlowProvider>
+    </StoreProvider>
   );
 }
 

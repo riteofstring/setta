@@ -3,7 +3,6 @@ import { loadProject } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useProjectLoader } from "hooks/useProjectLoader";
 import { useEffect, useState } from "react";
-import { ReactFlowProvider } from "react-flow-renderer";
 import { NO_AUTH } from "utils/constants";
 import { loadOneProject } from "__tests__utils/loadTestData";
 import UIPage from "../../UI/UiPage";
@@ -36,7 +35,7 @@ export default function MainContainer() {
 
   return (
     doneLoading && (
-      <ReactFlowProvider>
+      <>
         <Overview />
         <UiEditor />
         <GridWrapper>
@@ -46,7 +45,7 @@ export default function MainContainer() {
             {/* </Box> */}
           </Box>
         </GridWrapper>
-      </ReactFlowProvider>
+      </>
     )
   );
 }

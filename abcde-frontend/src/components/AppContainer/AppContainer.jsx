@@ -1,6 +1,7 @@
 import { Grid } from "@chakra-ui/react";
 import { useAccessPage } from "hooks/dbRequests/authentication";
 import React, { useEffect } from "react";
+import { ReactFlowProvider } from "react-flow-renderer";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
@@ -12,7 +13,7 @@ const AppContainer = () => {
   }, []);
 
   return (
-    <>
+    <ReactFlowProvider>
       <HeaderContainer />
       <Grid
         h="100%"
@@ -25,7 +26,7 @@ const AppContainer = () => {
       >
         <SwitchContainer />
       </Grid>
-    </>
+    </ReactFlowProvider>
   );
 };
 
