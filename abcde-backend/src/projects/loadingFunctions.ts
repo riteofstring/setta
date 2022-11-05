@@ -32,14 +32,19 @@ export async function getProjectConfig(prisma, id) {
 
 export async function getSectionConfigCol(prisma, id) {
   const col = await prisma.sectionConfigCol.findMany({ where: { id } });
-  const sectionIdsAsKeys = _.keyBy(col, (x) => x.sectionId);
-  return _.mapValues(sectionIdsAsKeys, (v) => v.configId);
+  return _.mapValues(
+    _.keyBy(col, (x) => x.sectionId),
+    (v) => v.configId,
+  );
 }
 
-// export async function getSections(prisma, ids) {
-//   const s = await prisma.section.findMany({ where: { id: { in: ids } } });
-//   return _.keyBy(s, (x) => x.id);
-// }
+export async function getSections(prisma, ids) {
+  const s = await prisma.section.findMany({ where: { id: { in: ids } } });
+  return _.mapValues(
+    _.keyBy(s, (x) => x.id),
+    (v) => renameKeys(v, { childrenId: 'sectionChildrenId' }),
+  );
+}
 
 // export function getSections(sectionConfigCols) {
 //   const sections = {};
