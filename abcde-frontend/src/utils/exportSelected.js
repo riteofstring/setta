@@ -80,7 +80,7 @@ function objInfoExportSelected(sectionId, objInfo, evColId, state) {
   const { path: fullObjPath } = getFullObjPath(objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
-    Object.values(objInfo.children),
+    objInfo.children.map((x) => state.codeInfo.allObjInfo[x]),
     evColId,
     state
   );
