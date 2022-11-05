@@ -43,10 +43,8 @@ export class ProjectsService {
       this.prisma,
       _.keys(sectionConfigCol),
     );
-    const { sectionConfigs, ev, evCols, kwargCols } = await getSectionConfigs(
-      this.prisma,
-      _.values(sectionConfigCol),
-    );
+    const { sectionConfigs, ev, evCols, kwargCols, uiTypes } =
+      await getSectionConfigs(this.prisma, _.values(sectionConfigCol));
 
     const baseUITypes = await getBaseUITypes(this.prisma);
     const presetUITypes = await getPresetUITypes(this.prisma);
@@ -61,7 +59,7 @@ export class ProjectsService {
       ev,
       evCols,
       kwargCols,
-      uiTypes: { ...baseUITypes, ...presetUITypes },
+      uiTypes: { ...baseUITypes, ...presetUITypes, ...uiTypes },
     };
 
     // const fullObj = await getProject(id, this.projects);

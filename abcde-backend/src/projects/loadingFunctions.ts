@@ -84,6 +84,10 @@ export async function getSectionConfigs(prisma, ids) {
     },
   });
 
+  const uiTypes = await getUITypesByWhere(prisma, {
+    id: { in: s.map((x) => x.uiTypeId) },
+  });
+
   const sectionConfigs = _.keyBy(
     _.map(s, (x) => {
       const { evCol, kwargCol, ...theRest } = renameKeys(x, {
@@ -121,7 +125,7 @@ export async function getSectionConfigs(prisma, ids) {
     );
   }
 
-  return { sectionConfigs, ev, evCols, kwargCols };
+  return { sectionConfigs, ev, evCols, kwargCols, uiTypes };
 }
 
 function getOrderedChildren(children, toReturn = null) {
@@ -205,62 +209,61 @@ function getOrderedChildren(children, toReturn = null) {
 // }
 
 export async function getBaseUITypes(prisma) {
-  return await getUITypesByPresetType(prisma, 'base');
+  return await getUITypesByWhere(prisma, { presetType: 'base' });
 }
 
 export async function getPresetUITypes(prisma) {
-  return await getUITypesByPresetType(prisma, 'user');
+  return await getUITypesByWhere(prisma, { presetType: 'user' });
 }
 
-export async function getUITypesByPresetType(prisma, presetType) {
-  const uiTypes = await prisma.uIType.findMany({ where: { presetType } });
-  return await getUITypeSpecifics(prisma, uiTypes);
-}
-
-// export async function getUITypes(em, sectionConfigs): Promise<any> {
-//   const uiTypes = sectionConfigs
-//     .map((x) => x.uiType)
-//     .filter((x) => !x.presetType);
-//   return await getUITypeSpecifics(em, uiTypes);
-// }
-
-export async function getUITypeSpecifics(prisma, uiTypes) {
-  const uiTypeIds = uiTypes.map((x) => x.id);
-
-  // get sectionUIType
-  const configs = await getSectionUITypeConfig(prisma, uiTypeIds);
-  // get the other ui types
-  for (const db of [
-    prisma.sliderUIType,
-    prisma.switchUIType,
-    prisma.textUIType,
-    prisma.refUIType,
-  ]) {
-    const result = await db.findMany({ where: { idid: { in: uiTypeIds } } });
-    configs.push(...result);
-  }
-
-  const uiTypeKeyById = _.keyBy(uiTypes, 'id');
+export async function getUITypesByWhere(prisma, where) {
+  const uiTypes = await prisma.uIType.findMany({
+    where,
+    include: {
+      sectionUIType: { include: { collections: { select: { id: true } } } },
+      sliderUIType: true,
+      switchUIType: true,
+      textUIType: true,
+      refUIType: true,
+    },
+  });
   const output = {};
-  for (const x of configs) {
-    const { idid, ...config } = x;
-    output[idid] = reshapeOriginInfoId({ ...uiTypeKeyById[idid], config });
+  for (const u of uiTypes) {
+    output[u.id] = processUIType(u);
   }
-
   return output;
 }
 
-export async function getSectionUITypeConfig(prisma, uiTypeIds) {
-  const results = await prisma.sectionUIType.findMany({
-    where: { idid: { in: uiTypeIds } },
-    include: { collections: { select: { id: true } } },
-  });
+function processUIType(uiType) {
+  let output = {};
+  for (const key of _.keys(uiType)) {
+    const val = uiType[key];
+    if (
+      [
+        'sectionUIType',
+        'sliderUIType',
+        'switchUIType',
+        'textUIType',
+        'refUIType',
+      ].includes(key)
+    ) {
+      output = { ...output, ...processSpecificUITypeConfig(val) };
+    } else {
+      output[key] = val;
+    }
+  }
+  return reshapeOriginInfoId(output);
+}
 
-  // reshape collections so that its an array of strings
-  return results.map((x) => ({
-    ...x,
-    collections: x.collections.map((y) => y.id),
-  }));
+function processSpecificUITypeConfig(uiTypeConfig) {
+  if (uiTypeConfig) {
+    const { idid, ...config } = uiTypeConfig;
+    if ('collections' in config) {
+      config.collections = config.collections.map((x) => x.id);
+    }
+    return { config };
+  }
+  return {};
 }
 
 export function reshapeOriginInfoId(uiType) {

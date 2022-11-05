@@ -155,11 +155,11 @@ model UIType {
   isForChildOfOriginInfoId Boolean
   sectionConfigs           SectionConfig[] //SectionConfig.uiType
   uiTypeCols               UITypeCol[] //UITypeCol.uiType
-  sectionUITypes           SectionUIType[] //SectionUIType.id
-  sliderUITypes            SliderUIType[] //SliderUIType.id
-  textUITypes              TextUIType[] //TextUIType.id
-  switchUITYpes            SwitchUIType[] //SwitchUIType.id
-  refUITypes               RefUIType[] //RefUIType.id
+  sectionUIType            SectionUIType? //SectionUIType.id
+  sliderUIType             SliderUIType? //SliderUIType.id
+  textUIType               TextUIType? //TextUIType.id
+  switchUIType             SwitchUIType? //SwitchUIType.id
+  refUIType                RefUIType? //RefUIType.id
 }
 
 model UITypeColId {

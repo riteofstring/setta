@@ -66,6 +66,7 @@ describe('ProjectsService', () => {
     expect(theRest.ev).toEqual(correctRest.ev);
     expect(theRest.evCols).toEqual(correctRest.evCols);
     expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
+    expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
 
     // expect(theRest).toEqual(correctRest);
     // compareCodeInfo(retrievedCodeInfo, codeInfo);
