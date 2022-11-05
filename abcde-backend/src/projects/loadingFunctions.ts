@@ -89,7 +89,7 @@ export async function getSectionConfigs(prisma, ids) {
     presetType: null,
   });
 
-  const uiTypeCols = await getUITypesCols(prisma, sectionUITypes);
+  const uiTypeCols = await getUITypeCols(prisma, sectionUITypes);
 
   const sectionConfigs = _.keyBy(
     _.map(s, (x) => {
@@ -139,7 +139,7 @@ function getOrderedChildren(children, toReturn = null) {
   return output;
 }
 
-export async function getUITypesCols(prisma, sectionUITypes) {
+export async function getUITypeCols(prisma, sectionUITypes) {
   const ids = _.values(sectionUITypes)
     .map((x) => x.config.uiTypeColId)
     .filter((x) => x);

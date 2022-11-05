@@ -18,7 +18,7 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
   await saveEV(prisma, p.ev);
   await saveEVCols(prisma, p.evCols);
   await saveUITypes(prisma, p.uiTypes);
-  await saveUITypeCols(prisma, p.uiTypesCols);
+  await saveUITypeCols(prisma, p.uiTypeCols);
   await saveSectionConfigs(prisma, p.sectionConfigs);
   await saveSectionConfigCol(
     prisma,
