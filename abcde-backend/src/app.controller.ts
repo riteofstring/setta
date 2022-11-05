@@ -71,4 +71,10 @@ export class AppController {
   generateCode(@Request() req) {
     return this.codeGeneratorService.generateCode(req.user, req.body.codeJson);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('codeGenerator/getCode')
+  getCode(@Request() req) {
+    return this.codeGeneratorService.getCode(req.user, req.body.codeId);
+  }
 }

@@ -11,7 +11,14 @@ export class CodeGeneratorService {
     const code = fnGenerateCode(codeJson);
     return await this.prisma.generatedCode.create({
       data: { ownerId: user.id, code },
-      select: { id: true, code: true },
+      select: { id: true },
+    });
+  }
+
+  async getCode(user, codeId) {
+    return await this.prisma.generatedCode.findFirst({
+      where: { id: codeId, ownerId: user.id },
+      select: { code: true },
     });
   }
 }
