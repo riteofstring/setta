@@ -1,0 +1,1 @@
+flake8 src tests --count --show-source --statistics
