@@ -1,6 +1,6 @@
-import { Prisma, PrismaClient } from '@prisma/client';
-import _ = require('lodash');
+import { PrismaClient } from '@prisma/client';
 import { deleteThenCreateCol, prismaNullOrConnect } from '../utils/utils';
+import _ = require('lodash');
 
 export async function saveEV(prisma: PrismaClient, ev) {
   const inDbFormat = [];

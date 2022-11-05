@@ -1,9 +1,9 @@
-import { Controller, Request, Post, UseGuards, Param } from '@nestjs/common';
+import { Controller, Param, Post, Request, UseGuards } from '@nestjs/common';
+import { AuthService } from './auth/auth.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { LocalAuthGuard } from './auth/local-auth.guard';
-import { AuthService } from './auth/auth.service';
-import { ProjectsService } from './projects/projects.service';
 import { CodeInfoService } from './codeInfo/codeInfo.service';
+import { ProjectsService } from './projects/projects.service';
 
 @Controller()
 export class AppController {

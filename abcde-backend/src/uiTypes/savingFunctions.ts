@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import _ = require('lodash');
 import {
   deleteThenCreateCol,
   nullNotUndefined,
   prismaNullOrConnect,
 } from '../utils/utils';
+import _ = require('lodash');
 
 async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
   const data = _.values(uiTypes).map((x) => ({

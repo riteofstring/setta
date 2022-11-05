@@ -18,7 +18,8 @@
     "test:watch": "yarn test --watch",
     "test:cov": "yarn test --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "yarn test --config ./test/jest-e2e.json"
+    "test:e2e": "yarn test --config ./test/jest-e2e.json",
+    "f": "yarn prettier src --write"
   },
   "dependencies": {
     "@nestjs/common": "9.0.0",
@@ -51,7 +52,8 @@
     "eslint-config-prettier": "8.3.0",
     "eslint-plugin-prettier": "4.0.0",
     "jest": "28.1.2",
-    "prettier": "2.3.2",
+    "prettier": "2.7.1",
+    "prettier-plugin-organize-imports": "3.1.1",
     "prisma": "4.5.0",
     "source-map-support": "0.5.20",
     "supertest": "6.1.3",

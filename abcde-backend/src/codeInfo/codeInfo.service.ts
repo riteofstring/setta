@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import _ = require('lodash');
 import { getCodeInfo } from './loadingFunctions';
+import _ = require('lodash');
 
 @Injectable()
 export class CodeInfoService {
