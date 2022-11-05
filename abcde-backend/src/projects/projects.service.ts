@@ -1,12 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import _ = require('lodash');
 import { PrismaService } from '../prisma.service';
-import {
-  getProject,
-  getProjectConfig,
-  getSectionConfigCol,
-  getSections,
-} from './loadingFunctions';
+import { getProject, getProjectConfig, getSections } from './loadingFunctions';
 import { saveAllProjectDetails } from './savingFunctions';
 
 @Injectable()
@@ -18,7 +13,7 @@ export class ProjectsService {
       where: { ownerId: user.id },
       include: { configs: true },
     });
-    return _.keyBy(ps, (x) => x.id);
+    return _.keyBy(ps, 'id');
   }
 
   async createProject(user, name: string): Promise<any> {
@@ -33,13 +28,9 @@ export class ProjectsService {
 
   async loadOne(id: string): Promise<any> {
     const project = await getProject(this.prisma, id);
-    const projectConfig = await getProjectConfig(
+    const { projectConfig, sectionConfigCol } = await getProjectConfig(
       this.prisma,
       project.defaultConfig,
-    );
-    const sectionConfigCol = await getSectionConfigCol(
-      this.prisma,
-      projectConfig.sectionConfigColId,
     );
     const { sections, sectionChildren } = await getSections(
       this.prisma,

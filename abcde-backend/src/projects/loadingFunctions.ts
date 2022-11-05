@@ -16,26 +16,29 @@ export async function getProjectConfig(prisma, id) {
       id: true,
       name: true,
       sectionConfigColId: true,
+      sectionConfigCol: {
+        select: { children: { select: { sectionId: true, configId: true } } },
+      },
       sectionChildrenId: true,
       sectionChildren: {
         select: { children: { select: { sectionId: true, order: true } } },
       },
     },
   });
+  const sectionConfigCol = _.mapValues(
+    _.keyBy(p.sectionConfigCol.children, 'sectionId'),
+    (v) => v.configId,
+  );
+  delete p.sectionConfigCol;
+
   p.children = getOrderedChildren(p.sectionChildren.children, 'sectionId');
   delete p.sectionChildren;
-  return renameKeys(p, {
+  const projectConfig = renameKeys(p, {
     sectionConfigColId: 'sectionConfigCol',
     sectionChildrenId: 'childrenId',
   });
-}
 
-export async function getSectionConfigCol(prisma, id) {
-  const col = await prisma.sectionConfigCol.findMany({ where: { id } });
-  return _.mapValues(
-    _.keyBy(col, (x) => x.sectionId),
-    (v) => v.configId,
-  );
+  return { projectConfig, sectionConfigCol };
 }
 
 export async function getSections(prisma, ids) {
@@ -47,7 +50,7 @@ export async function getSections(prisma, ids) {
       },
     },
   });
-  const idsAsKeys = _.keyBy(s, (x) => x.id);
+  const idsAsKeys = _.keyBy(s, 'id');
 
   const sections = _.mapValues(idsAsKeys, (v) => {
     const { children, ...theRest } = renameKeys(v, {
