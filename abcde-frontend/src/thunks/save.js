@@ -27,10 +27,16 @@ export function getProjectData(s) {
   const uiTypeCols = s.paramInfos.y;
 
   const kwargCols = s.objInfos.x;
-  const kwargInfo = getKwargInfos(s, kwargCols);
+  const kwargInfo = assembleKwargInfos(s, kwargCols);
 
   const sections = _.mapValues(s.sectionInfos.x, (x) =>
-    _.pick(x, ["id", "name", "paramInfoId", "sectionChildrenId"])
+    _.pick(x, [
+      "id",
+      "name",
+      "paramInfoId",
+      "sectionChildrenId",
+      "initialPosition",
+    ])
   );
 
   const sectionChildren = s.sectionInfos.idsOverview;
@@ -56,13 +62,22 @@ export function getProjectData(s) {
 }
 
 export const saveProject = thunk((actions, payload, helpers) => {
+  const { reactFlowStore } = payload;
   const s = helpers.getStoreState();
+  updateInitialPositions(s, reactFlowStore);
   const access_token = s.auth.access_token;
   const output = getProjectData(s);
   saveProjectDb({ access_token, project: output });
 });
 
-function getKwargInfos(s, kwargCols) {
+function updateInitialPositions(s, reactFlowStore) {
+  const rfState = reactFlowStore.getState();
+  for (const [key, value] of rfState.nodeInternals) {
+    s.sectionInfos.x[key].initialPosition = { ...value.position };
+  }
+}
+
+function assembleKwargInfos(s, kwargCols) {
   let kwargInfos = {};
   for (const kwargColId of _.keys(kwargCols)) {
     for (const objInfoId of _.keys(kwargCols[kwargColId])) {

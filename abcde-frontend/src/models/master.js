@@ -93,21 +93,14 @@ const master = {
       sectionChildren,
       topLevelIds,
     } = payload;
-    let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
-      const initialPosition = {
-        x: 500 * (Math.floor(idx / 3) + 0.75),
-        y: 300 * (idx % 3),
-      };
       const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
       const y = new SectionInfo({
-        initialPosition,
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],
         isTopLevel: topLevelIds.includes(x.id),
       });
-      idx += 1;
       return y;
     });
 
