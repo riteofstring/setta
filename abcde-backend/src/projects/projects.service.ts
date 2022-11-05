@@ -3,13 +3,13 @@ import _ = require('lodash');
 import { PrismaService } from '../prisma.service';
 import {
   getBaseUITypes,
-  getCodeInfoForSectionsAndKwargs,
   getPresetUITypes,
   getProject,
   getProjectConfig,
   getSectionConfigs,
   getSections,
 } from './loadingFunctions';
+import { getCodeInfoForSectionsAndKwargs } from '../codeInfo/loadingFunctions';
 import { createProject, saveAllProjectDetails } from './savingFunctions';
 
 @Injectable()

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import _ = require('lodash');
+import { getCodeInfo } from './loadingFunctions';
 
 @Injectable()
 export class CodeInfoService {
@@ -11,5 +12,9 @@ export class CodeInfoService {
       where: { name: { contains: searchTerm }, rcType: 'collection' },
     });
     return _.keyBy(results, 'id');
+  }
+
+  async getCollectionDetails(id: string) {
+    return await getCodeInfo(this.prisma, [id]);
   }
 }

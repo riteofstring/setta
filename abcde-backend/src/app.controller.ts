@@ -58,4 +58,9 @@ export class AppController {
   getCollectionsAndModules(@Request() req) {
     return this.codeInfoService.getCollectionsAndModules(req.body.searchTerm);
   }
+
+  @Post('codeInfo/getCollectionDetails')
+  getCollectionDetails(@Request() req) {
+    return this.codeInfoService.getCollectionDetails(req.body.codeInfoId);
+  }
 }
