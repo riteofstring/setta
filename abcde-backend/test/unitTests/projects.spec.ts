@@ -55,21 +55,19 @@ describe('ProjectsService', () => {
     const { codeInfo, globalDefaults, projectDefaults, ...correctRest } =
       correctOutput;
 
-    console.log(Object.keys(correctRest));
+    // expect(theRest.project).toEqual(correctRest.project);
+    // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
+    // expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
+    // expect(theRest.sections).toEqual(correctRest.sections);
+    // expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
+    // expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
+    // expect(theRest.ev).toEqual(correctRest.ev);
+    // expect(theRest.evCols).toEqual(correctRest.evCols);
+    // expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
+    // expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
+    // expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
 
-    expect(theRest.project).toEqual(correctRest.project);
-    expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
-    expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
-    expect(theRest.sections).toEqual(correctRest.sections);
-    expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
-    expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
-    expect(theRest.ev).toEqual(correctRest.ev);
-    expect(theRest.evCols).toEqual(correctRest.evCols);
-    expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
-    expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
-    expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
-
-    // expect(theRest).toEqual(correctRest);
+    expect(theRest).toEqual(correctRest);
     compareCodeInfo(retrievedCodeInfo, codeInfo);
   });
 });

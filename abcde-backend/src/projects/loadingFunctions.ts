@@ -154,10 +154,23 @@ export async function getUITypesCols(prisma, sectionUITypes) {
   );
 }
 
-export async function getCodeInfo(prisma, sectionUITypes) {
-  const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
-  const collectionIds = new Set([].concat(...collectionIdsArray));
+export async function getCodeInfoForSectionsAndKwargs(
+  prisma,
+  sectionUITypes,
+  kwargCols,
+) {
+  const collectionIds = [].concat(
+    ..._.map(sectionUITypes, (x) => x.config.collections),
+  );
+  const kwargIds = [];
+  _.forEach(kwargCols, (x) =>
+    _.forEach(_.values(x), (y) => kwargIds.push(...y)),
+  );
+  return await getCodeInfo(prisma, [...collectionIds, ...kwargIds]);
+}
 
+export async function getCodeInfo(prisma, ids: string[]) {
+  const collectionIds = new Set(ids);
   const childMap = {};
   const allIds = new Set(collectionIds);
   collectionIds.forEach((x) => (childMap[x] = new Set()));
@@ -196,11 +209,9 @@ export async function getCodeInfo(prisma, sectionUITypes) {
   return output;
 }
 
-export function processCodeInfo(codeInfo, childMap = null) {
-  const { children, inCodeParentId, ...theRest } = codeInfo;
-  const childrenIds = childMap
-    ? Array.from(childMap[codeInfo.id])
-    : children.getItems().map((c) => c.id);
+export function processCodeInfo(codeInfo, childMap) {
+  const { inCodeParentId, ...theRest } = codeInfo;
+  const childrenIds = Array.from(childMap[codeInfo.id]);
   return {
     ...theRest,
     parentId: inCodeParentId,
