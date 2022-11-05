@@ -10,7 +10,7 @@ import { useDragActivation } from "hooks/useDragActivation";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReactFlow } from "react-flow-renderer";
-import { PANEID } from "utils/constants";
+import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
 
@@ -77,7 +77,7 @@ export function GlobalDndContext(props) {
         newIndex = 0;
         if (dummyRef?.current) {
           const { x, y } = dummyRef.current.getBoundingClientRect();
-          position = project({ x, y });
+          position = project({ x, y: y - NAVBAR_HEIGHT });
         }
       }
       moveChildThunk({
@@ -106,9 +106,7 @@ export function GlobalDndContext(props) {
         active.data.current.depth !== 0 &&
         createPortal(
           <DragOverlay>
-            <div ref={dummyRef}>
-              <DummySection zoom={active.data.current.zoom} />
-            </div>
+            <DummySection zoom={active.data.current.zoom} ref={dummyRef} />
           </DragOverlay>,
           document.body
         )}

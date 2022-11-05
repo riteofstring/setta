@@ -2,6 +2,7 @@ export const NO_AUTH = ["sna", "snancm"].includes(import.meta.env.MODE);
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "snancm";
 export const BACKEND = "http://localhost:8000/";
 export const SECTIONWIDTH = 450;
+export const NAVBAR_HEIGHT = 64;
 export const PANEID = -1;
 export const DEFAULT_ENTERED_TEXT = "// write your code here";
 export const OVERVIEW = "overview";
