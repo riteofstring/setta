@@ -41,9 +41,18 @@ export class ProjectsService {
       this.prisma,
       projectConfig.sectionConfigColId,
     );
-    const sections = await getSections(this.prisma, _.keys(sectionConfigCol));
+    const { sections, sectionChildren } = await getSections(
+      this.prisma,
+      _.keys(sectionConfigCol),
+    );
 
-    return { project, projectConfig, sectionConfigCol, sections };
+    return {
+      project,
+      projectConfig,
+      sectionConfigCol,
+      sections,
+      sectionChildren,
+    };
 
     // const fullObj = await getProject(id, this.projects);
     // const { defaultConfig: projectConfig, ...project } = fullObj;

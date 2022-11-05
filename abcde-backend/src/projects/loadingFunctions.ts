@@ -39,35 +39,33 @@ export async function getSectionConfigCol(prisma, id) {
 }
 
 export async function getSections(prisma, ids) {
-  const s = await prisma.section.findMany({ where: { id: { in: ids } } });
-  return _.mapValues(
-    _.keyBy(s, (x) => x.id),
-    (v) => renameKeys(v, { childrenId: 'sectionChildrenId' }),
+  const s = await prisma.section.findMany({
+    where: { id: { in: ids } },
+    include: {
+      children: {
+        select: { children: { select: { order: true, sectionId: true } } },
+      },
+    },
+  });
+  const idsAsKeys = _.keyBy(s, (x) => x.id);
+
+  const sections = _.mapValues(idsAsKeys, (v) => {
+    const { children, ...theRest } = renameKeys(v, {
+      childrenId: 'sectionChildrenId',
+    });
+    return theRest;
+  });
+
+  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
+    getOrderedChildren(v.children.children, 'sectionId'),
   );
+  return { sections, sectionChildren };
 }
 
-// export function getSections(sectionConfigCols) {
-//   const sections = {};
-//   for (const col of sectionConfigCols) {
-//     const { id, name, paramInfo } = col.section;
-//     sections[id] = {
-//       id,
-//       name,
-//       paramInfoId: returnNullNotUndefined(paramInfo?.id),
-//     };
-//   }
-//   return sections;
-// }
+// export async function getSectionChildren(prisma, sectionChildrenIds) {
+//   sectionChildrenIds
+//   const sectionChildren = await prisma.sectionChildren.findMany({where: {}})
 
-// export function getSectionChildrenIds(sectionConfigCols) {
-//   const sectionChildrenIds = {};
-//   for (const col of sectionConfigCols) {
-//     sectionChildrenIds[col.section.id] = col.section.children.id;
-//   }
-//   return sectionChildrenIds;
-// }
-
-// export function getSectionChildren(sectionConfigCols) {
 //   const sectionChildren = {};
 //   for (const col of sectionConfigCols) {
 //     const children = col.section.children.sectionChildren;
