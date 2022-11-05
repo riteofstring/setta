@@ -26,8 +26,8 @@ import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 export default React.memo(SectionConfig);
 
 function SectionConfig() {
-  const sectionId = useStoreState((x) => x.master.activeSection);
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const sectionId = useStoreState((x) => x.activeSection.id);
+  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
   const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
   const setCameFromUIConfig = useStoreActions(
     (x) => x.uiEditor.setCameFromUIConfig

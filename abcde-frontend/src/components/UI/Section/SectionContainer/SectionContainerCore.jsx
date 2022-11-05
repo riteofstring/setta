@@ -30,9 +30,9 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     sectionId,
     "selectedItem"
   );
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
   const isActiveSection =
-    useStoreState((x) => x.master.activeSection) === sectionId;
+    useStoreState((x) => x.activeSection.id) === sectionId;
   const [isActive, setIsActive] = useState(false);
 
   // // temp_

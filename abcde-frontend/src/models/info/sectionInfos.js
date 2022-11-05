@@ -133,8 +133,8 @@ function deleteSectionFn(helpers, sectionId) {
       deleteSectionFn(helpers, child);
     }
   }
-  if (helpers.getStoreState().master.activeSection === sectionId) {
-    helpers.getStoreActions().master.setActiveSection(null);
+  if (helpers.getStoreState().activeSection.id === sectionId) {
+    helpers.getStoreActions().activeSection.setId(null);
   }
   delete helpers.getState().x[sectionId];
   delete helpers.getState().idsOverview[sectionId];

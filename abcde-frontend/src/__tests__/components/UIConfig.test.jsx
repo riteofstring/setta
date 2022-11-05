@@ -20,7 +20,7 @@ test("Delete active section while ui config pane is open", async () => {
 
   // set activeSection to sectionId
   const sectionId = sectionIdFromName(store, "Optimizer");
-  await waitFor(() => store.getActions().master.setActiveSection(sectionId));
+  await waitFor(() => store.getActions().activeSection.setId(sectionId));
 
   // should run without error
   const deleteButton = screen.getByTestId(`Delete ${sectionId}`);

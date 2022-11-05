@@ -30,7 +30,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 export default React.memo(UIConfig);
 
 function UIConfig() {
-  const sectionId = useStoreState((x) => x.master.activeSection);
+  const sectionId = useStoreState((x) => x.activeSection.id);
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(

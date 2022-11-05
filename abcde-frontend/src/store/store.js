@@ -1,4 +1,5 @@
 import { action, createStore } from "easy-peasy";
+import activeSection from "models/activeSection";
 import auth from "models/auth";
 import currPage from "models/currPage";
 import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
@@ -38,6 +39,7 @@ const store = createStore({
   currPage: currPage,
   project: project,
   projectConfig: projectConfig,
+  activeSection: activeSection,
   thunks: thunks,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {
