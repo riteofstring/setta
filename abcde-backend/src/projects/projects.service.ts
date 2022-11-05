@@ -3,6 +3,7 @@ import _ = require('lodash');
 import { PrismaService } from '../prisma.service';
 import {
   getBaseUITypes,
+  getCodeInfo,
   getPresetUITypes,
   getProject,
   getProjectConfig,
@@ -54,6 +55,7 @@ export class ProjectsService {
 
     const baseUITypes = await getBaseUITypes(this.prisma);
     const presetUITypes = await getPresetUITypes(this.prisma);
+    const codeInfo = await getCodeInfo(this.prisma, sectionUITypes);
 
     return {
       project,
@@ -67,6 +69,7 @@ export class ProjectsService {
       kwargCols,
       uiTypes: { ...baseUITypes, ...presetUITypes, ...sectionUITypes },
       uiTypeCols,
+      codeInfo,
     };
 
     // const fullObj = await getProject(id, this.projects);

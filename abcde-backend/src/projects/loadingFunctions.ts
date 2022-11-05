@@ -1,4 +1,4 @@
-import { renameKeys, nullNotUndefined } from '../utils/utils';
+import { renameKeys } from '../utils/utils';
 import _ = require('lodash');
 
 export async function getProject(prisma, id) {
@@ -154,58 +154,59 @@ export async function getUITypesCols(prisma, sectionUITypes) {
   );
 }
 
-// export async function loadCodeInfo(em, sectionUITypes) {
-//   const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
-//   const collectionIds = new Set([].concat(...collectionIdsArray));
-//   const connection = em.getConnection();
+export async function getCodeInfo(prisma, sectionUITypes) {
+  const collectionIdsArray = _.map(sectionUITypes, (x) => x.config.collections);
+  const collectionIds = new Set([].concat(...collectionIdsArray));
 
-//   const childMap = {};
-//   const allIds = new Set(collectionIds);
-//   collectionIds.forEach((x) => (childMap[x] = new Set()));
+  const childMap = {};
+  const allIds = new Set(collectionIds);
+  collectionIds.forEach((x) => (childMap[x] = new Set()));
 
-//   for (const c of collectionIds) {
-//     const parentChildPairs = await connection.execute(`
-//         with recursive descendants as (
-//             select code_info_1_id, code_info_2_id
-//             from code_info_children
-//             where code_info_1_id = '${c}'
-//           union
-//             select x.code_info_1_id, x.code_info_2_id
-//             from code_info_children x
-//             join descendants on x.code_info_1_id = descendants.code_info_2_id
-//         )
-//         select * from descendants;`);
+  for (const c of collectionIds) {
+    const parentChildPairs = await prisma.$queryRaw`
+        with recursive descendants as (
+            select "A", "B"
+            from "_CodeInfoChildren"
+            where "A" = ${c}::uuid
+          union
+            select x."A", x."B"
+            from "_CodeInfoChildren" x
+            join descendants on x."A" = descendants."B"
+        )
+        select * from descendants;`;
 
-//     parentChildPairs.forEach((x) => {
-//       const child = x.code_info_2_id;
-//       childMap[x.code_info_1_id].add(child);
-//       if (!(child in childMap)) {
-//         childMap[child] = new Set();
-//       }
-//       allIds.add(child);
-//     });
-//   }
+    parentChildPairs.forEach((x) => {
+      const child = x.B;
+      childMap[x.A].add(child);
+      if (!(child in childMap)) {
+        childMap[child] = new Set();
+      }
+      allIds.add(child);
+    });
+  }
 
-//   const codeInfo = await em.find(CodeInfo, { id: { $in: Array.from(allIds) } });
-//   const output = {};
-//   codeInfo.forEach((x) => {
-//     output[x.id] = processCodeInfo(x, childMap);
-//   });
+  const codeInfo = await prisma.codeInfo.findMany({
+    where: { id: { in: Array.from(allIds) } },
+  });
+  const output = {};
+  codeInfo.forEach((x) => {
+    output[x.id] = processCodeInfo(x, childMap);
+  });
 
-//   return output;
-// }
+  return output;
+}
 
-// export function processCodeInfo(codeInfo, childMap = null) {
-//   const { children, parent, ...theRest } = codeInfo;
-//   const childrenIds = childMap
-//     ? Array.from(childMap[codeInfo.id])
-//     : children.getItems().map((c) => c.id);
-//   return {
-//     ...theRest,
-//     parentId: returnNullNotUndefined(parent?.id),
-//     children: childrenIds,
-//   };
-// }
+export function processCodeInfo(codeInfo, childMap = null) {
+  const { children, inCodeParentId, ...theRest } = codeInfo;
+  const childrenIds = childMap
+    ? Array.from(childMap[codeInfo.id])
+    : children.getItems().map((c) => c.id);
+  return {
+    ...theRest,
+    parentId: inCodeParentId,
+    children: childrenIds,
+  };
+}
 
 export async function getBaseUITypes(prisma) {
   return await getUITypesByWhere(prisma, { presetType: 'base' });

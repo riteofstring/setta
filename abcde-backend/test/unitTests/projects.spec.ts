@@ -70,7 +70,7 @@ describe('ProjectsService', () => {
     expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
 
     // expect(theRest).toEqual(correctRest);
-    // compareCodeInfo(retrievedCodeInfo, codeInfo);
+    compareCodeInfo(retrievedCodeInfo, codeInfo);
   });
 });
 
