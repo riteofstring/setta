@@ -16,7 +16,6 @@ import panes from "models/panes";
 import projectParamDefaults from "models/projectDefaults/projectParamDefaults";
 import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
-import uiInfo from "models/uiInfo";
 import userSettings from "models/userSettings";
 import thunks from "thunks/thunks";
 
@@ -24,7 +23,6 @@ const store = createStore({
   master: master,
   codeInfo: codeInfo,
   auth: auth,
-  uiInfo: uiInfo,
   panes: panes,
   sectionPositions: sectionPositions,
   sectionInfos: sectionInfos,
