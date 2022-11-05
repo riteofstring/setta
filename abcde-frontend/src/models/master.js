@@ -30,7 +30,7 @@ const master = {
       ev,
       evCols,
       uiTypes,
-      uiTypesCols,
+      uiTypeCols,
       kwargCols,
     } = payload;
 
@@ -39,7 +39,7 @@ const master = {
     a.projectConfig.setAll(projectConfig);
     a.codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
-    a.paramInfos.setAllUITypeIds({ ...uiTypesCols });
+    a.paramInfos.setAllUITypeIds({ ...uiTypeCols });
     action.initParamDefaults({
       storeName: "globalParamDefaults",
       paramDefaults: globalDefaults.paramDefaults,

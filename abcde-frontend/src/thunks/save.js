@@ -24,7 +24,7 @@ export function getProjectData(s) {
   uiTypes = _.mapValues(uiTypes, (v) =>
     _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
   );
-  const uiTypesCols = s.paramInfos.y;
+  const uiTypeCols = s.paramInfos.y;
 
   const kwargCols = s.objInfos.x;
   const kwargInfo = getKwargInfos(s, kwargCols);
@@ -45,7 +45,7 @@ export function getProjectData(s) {
     ev,
     evCols,
     uiTypes,
-    uiTypesCols,
+    uiTypeCols,
     kwargInfo,
     kwargCols,
     sections,

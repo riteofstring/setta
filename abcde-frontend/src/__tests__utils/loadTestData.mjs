@@ -29,7 +29,7 @@ export async function loadOneProject({
     "sectionConfigs",
     "sections",
     "uiTypes",
-    "uiTypesCols",
+    "uiTypeCols",
   ]) {
     loaded[k] = await loadSpecificTestData({
       name: k,
