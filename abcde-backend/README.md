@@ -48,15 +48,10 @@ Seed all the tables
 ./db/seed.bat
 ```
 
-Seed specific tables
-```bash
-./db/seed.bat UsersSeeder CodeInfoSeeder
-```
-
-
 
 
 
 ### References
 
 - https://docs.nestjs.com/
+- https://github.com/prisma/prisma/discussions/7200

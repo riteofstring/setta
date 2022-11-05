@@ -75,3 +75,25 @@ export async function connectProjectToProjectConfig(
     data: { projectId: project.id },
   });
 }
+
+export async function createProject(prisma: PrismaClient, user, name: string) {
+  const defaultConfig = await prisma.projectConfig.create({
+    data: {
+      name: 'config1',
+      sectionConfigCol: { create: {} },
+      sectionChildren: { create: {} },
+    },
+  });
+
+  const project = await prisma.project.create({
+    data: {
+      owner: { connect: { id: user.id } },
+      name,
+      defaultConfig: { connect: { id: defaultConfig.id } },
+      configs: { connect: [{ id: defaultConfig.id }] },
+    },
+    include: { configs: true },
+  });
+
+  return project;
+}

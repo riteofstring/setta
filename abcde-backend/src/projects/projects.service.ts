@@ -10,7 +10,7 @@ import {
   getSectionConfigs,
   getSections,
 } from './loadingFunctions';
-import { saveAllProjectDetails } from './savingFunctions';
+import { createProject, saveAllProjectDetails } from './savingFunctions';
 
 @Injectable()
 export class ProjectsService {
@@ -25,9 +25,7 @@ export class ProjectsService {
   }
 
   async createProject(user, name: string): Promise<any> {
-    return await this.prisma.project.create({
-      data: { owner: user.id, name },
-    });
+    return await createProject(this.prisma, user, name);
   }
 
   async save(projects): Promise<any> {
