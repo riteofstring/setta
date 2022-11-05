@@ -55,12 +55,15 @@ describe('ProjectsService', () => {
     const { codeInfo, globalDefaults, projectDefaults, ...correctRest } =
       correctOutput;
 
+    console.log(Object.keys(correctRest));
+
     expect(theRest.project).toEqual(correctRest.project);
     expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
     expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
     expect(theRest.sections).toEqual(correctRest.sections);
     expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
     expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
+    expect(theRest.evCols).toEqual(correctRest.evCols);
 
     // expect(theRest).toEqual(correctRest);
     // compareCodeInfo(retrievedCodeInfo, codeInfo);

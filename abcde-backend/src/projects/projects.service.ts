@@ -41,7 +41,7 @@ export class ProjectsService {
       this.prisma,
       _.keys(sectionConfigCol),
     );
-    const { sectionConfigs } = await getSectionConfigs(
+    const { sectionConfigs, evCols } = await getSectionConfigs(
       this.prisma,
       _.values(sectionConfigCol),
     );
@@ -53,6 +53,7 @@ export class ProjectsService {
       sections,
       sectionChildren,
       sectionConfigs,
+      evCols,
     };
 
     // const fullObj = await getProject(id, this.projects);

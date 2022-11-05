@@ -66,12 +66,34 @@ export async function getSections(prisma, ids) {
 }
 
 export async function getSectionConfigs(prisma, ids) {
-  const s = await prisma.sectionConfig.findMany({ where: { id: { in: ids } } });
+  const s = await prisma.sectionConfig.findMany({
+    where: { id: { in: ids } },
+    include: {
+      evCol: {
+        select: { children: { select: { evId: true, codeInfoId: true } } },
+      },
+    },
+  });
+
   const sectionConfigs = _.keyBy(
-    _.map(s, (x) => renameKeys(x, { selectedItemId: 'selectedItem' })),
+    _.map(s, (x) => {
+      const { evCol, ...theRest } = renameKeys(x, {
+        selectedItemId: 'selectedItem',
+      });
+      return theRest;
+    }),
     'id',
   );
-  return { sectionConfigs };
+
+  const evCols = {};
+  for (const config of s) {
+    evCols[config.evColId] = _.mapValues(
+      _.keyBy(config.evCol.children, 'codeInfoId'),
+      (x) => x.evId,
+    );
+  }
+
+  return { sectionConfigs, evCols };
 }
 
 function getOrderedChildren(children, toReturn) {
