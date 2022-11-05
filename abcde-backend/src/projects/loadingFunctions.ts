@@ -65,44 +65,18 @@ export async function getSections(prisma, ids) {
   return { sections, sectionChildren };
 }
 
-// export async function getSectionChildren(prisma, sectionChildrenIds) {
-//   sectionChildrenIds
-//   const sectionChildren = await prisma.sectionChildren.findMany({where: {}})
-
-//   const sectionChildren = {};
-//   for (const col of sectionConfigCols) {
-//     const children = col.section.children.sectionChildren;
-//     sectionChildren[col.section.id] = getOrderedChildren(children);
-//   }
-//   return sectionChildren;
-// }
+export async function getSectionConfigs(prisma, ids) {
+  const s = await prisma.sectionConfig.findMany({ where: { id: { in: ids } } });
+  const sectionConfigs = _.keyBy(
+    _.map(s, (x) => renameKeys(x, { selectedItemId: 'selectedItem' })),
+    'id',
+  );
+  return { sectionConfigs };
+}
 
 function getOrderedChildren(children, toReturn) {
   return _.orderBy(children, (v) => v.order).map((x) => x[toReturn]);
 }
-
-// export function processSectionConfigs(sectionConfigs) {
-//   const KEYMAP = {
-//     uiType: 'uiTypeId',
-//     evCol: 'evColId',
-//     kwargCol: 'kwargColId',
-//   };
-
-//   const output = {};
-//   for (const c of sectionConfigs) {
-//     const config = _.mapValues(c, (v, k) => (k === 'id' || !v ? v : v.id));
-//     output[config.id] = renameKeys(config, KEYMAP);
-//   }
-//   return output;
-// }
-
-// export function getSectionConfigCol(sectionConfigCols) {
-//   const output = {};
-//   for (const col of sectionConfigCols) {
-//     output[col.section.id] = col.config.id;
-//   }
-//   return output;
-// }
 
 // export async function loadEVCols(em, sectionConfigs) {
 //   const evColIds = sectionConfigs.map((x) => x.evCol);
