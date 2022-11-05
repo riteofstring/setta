@@ -14,15 +14,16 @@ import {
   PopoverTrigger,
   Portal,
 } from "@chakra-ui/react";
+import { useStoreActions } from "easy-peasy";
 import { RiPlayMiniFill } from "react-icons/ri";
 
 import ExportSelectedButton from "./ExportSelectedButton";
 
 export default function RunButton() {
   // const runSelected = useStoreActions((actions) => actions.master.runSelected);
-  // const exportSelected = useStoreActions((x) => x.master.exportSelected);
+  const exportSelected = useStoreActions((x) => x.master.exportSelected);
   const runExport = () => {
-    // const selected = exportSelected();
+    const selected = exportSelected();
     // runSelected({ selected });
   };
 
@@ -51,14 +52,17 @@ export default function RunButton() {
             <PopoverCloseButton />
             <PopoverBody>
               <ExportSelectedButton
+                exportSelected={exportSelected}
                 outputAs="code"
                 buttonText="Generate Code"
               />
               <ExportSelectedButton
+                exportSelected={exportSelected}
                 outputAs="json"
                 buttonText="Export Selected as JSON"
               />
               <ExportSelectedButton
+                exportSelected={exportSelected}
                 outputAs="yaml"
                 buttonText="Export Selected as YAML"
               />

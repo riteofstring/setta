@@ -3,6 +3,7 @@ import { UIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
+import { exportSelected } from "utils/exportSelected";
 
 function getInitialState() {
   return { activeSection: null };
@@ -120,6 +121,10 @@ const master = {
     a.sectionInfos.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
     a.sectionConfigs.setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
     a.sectionInfos.setAllIdsOverview({ ...sectionChildren });
+  }),
+
+  exportSelected: thunk((action, payload, helpers) => {
+    return exportSelected(helpers.getStoreState());
   }),
 
   reset: action((state) => {
