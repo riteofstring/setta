@@ -21,7 +21,11 @@ export async function getProjectConfig(prisma, id) {
       },
       sectionChildrenId: true,
       sectionChildren: {
-        select: { children: { select: { sectionId: true, order: true } } },
+        select: {
+          children: {
+            select: { sectionId: true, order: true, x: true, y: true },
+          },
+        },
       },
     },
   });
@@ -32,13 +36,14 @@ export async function getProjectConfig(prisma, id) {
   delete p.sectionConfigCol;
 
   p.children = getOrderedChildren(p.sectionChildren.children, 'sectionId');
+  const sectionPositions = getSectionPositions(p.sectionChildren.children);
   delete p.sectionChildren;
   const projectConfig = renameKeys(p, {
     sectionConfigColId: 'sectionConfigCol',
     sectionChildrenId: 'childrenId',
   });
 
-  return { projectConfig, sectionConfigCol };
+  return { projectConfig, sectionConfigCol, sectionPositions };
 }
 
 export async function getSections(prisma, ids) {
@@ -46,7 +51,11 @@ export async function getSections(prisma, ids) {
     where: { id: { in: ids } },
     include: {
       children: {
-        select: { children: { select: { order: true, sectionId: true } } },
+        select: {
+          children: {
+            select: { order: true, sectionId: true, x: true, y: true },
+          },
+        },
       },
     },
   });
@@ -62,6 +71,14 @@ export async function getSections(prisma, ids) {
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>
     getOrderedChildren(v.children.children, 'sectionId'),
   );
+  const sectionPositions = {};
+
+  _.forEach(idsAsKeys, (v) => {
+    const s = getSectionPositions(v.children.children);
+    Object.assign(sectionPositions, s);
+  });
+  _.merge(sections, sectionPositions);
+
   return { sections, sectionChildren };
 }
 
@@ -129,6 +146,13 @@ export async function getSectionConfigs(prisma, ids) {
   }
 
   return { sectionConfigs, ev, evCols, kwargCols, sectionUITypes, uiTypeCols };
+}
+
+function getSectionPositions(children) {
+  const byId = _.keyBy(children, (s) => s.sectionId);
+  return _.mapValues(byId, (s) => ({
+    initialPosition: { x: s.x, y: s.y },
+  }));
 }
 
 function getOrderedChildren(children, toReturn = null) {

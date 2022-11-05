@@ -25,18 +25,28 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
     p.sectionConfigCol,
     p.projectConfig.sectionConfigCol,
   );
-  await saveProjectConfig(prisma, p.projectConfig);
+  await saveProjectConfig(prisma, p.projectConfig, p.sections);
   await saveProject(prisma, p.project);
   await connectProjectToProjectConfig(prisma, p.project, p.projectConfig);
 }
 
-export async function saveProjectConfig(prisma: PrismaClient, config) {
+export async function saveProjectConfig(
+  prisma: PrismaClient,
+  config,
+  sections,
+) {
   const { id, name, sectionConfigCol, children, childrenId } = config;
+  const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
   await prisma.sectionChildrenId.createMany({
     data: [{ id: childrenId }],
     skipDuplicates: true,
   });
-  await saveSectionChildren(prisma, { null: children }, { null: childrenId });
+  await saveSectionChildren(
+    prisma,
+    { null: children },
+    { null: childrenId },
+    { null: sectionPositions },
+  );
 
   const data = {
     id,

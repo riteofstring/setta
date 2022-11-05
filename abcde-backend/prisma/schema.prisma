@@ -65,6 +65,8 @@ model SectionChildren {
   section   Section           @relation(fields: [sectionId], references: [id])
   sectionId String            @db.Uuid
   order     Int
+  x         Float             @default(0)
+  y         Float             @default(0)
 
   @@id([idid, sectionId]) // composite key
 }

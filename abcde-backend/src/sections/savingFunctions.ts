@@ -48,16 +48,20 @@ export async function saveSectionChildren(
   prisma: PrismaClient,
   sectionChildren,
   sectionChildrenIds,
+  sectionPositions = {},
 ) {
   const inDbFormat = [];
 
   for (const parentSectionId of _.keys(sectionChildren)) {
     let order = 0;
     for (const sectionId of sectionChildren[parentSectionId]) {
+      const position = sectionPositions[parentSectionId]?.[sectionId];
       inDbFormat.push({
         idid: sectionChildrenIds[parentSectionId],
         sectionId,
         order,
+        x: position?.x,
+        y: position?.y,
       });
       order += 1;
     }

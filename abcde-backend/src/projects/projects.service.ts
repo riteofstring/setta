@@ -34,10 +34,8 @@ export class ProjectsService {
 
   async loadOne(id: string): Promise<any> {
     const project = await getProject(this.prisma, id);
-    const { projectConfig, sectionConfigCol } = await getProjectConfig(
-      this.prisma,
-      project.defaultConfig,
-    );
+    const { projectConfig, sectionConfigCol, sectionPositions } =
+      await getProjectConfig(this.prisma, project.defaultConfig);
     const { sections, sectionChildren } = await getSections(
       this.prisma,
       _.keys(sectionConfigCol),
@@ -58,6 +56,9 @@ export class ProjectsService {
       sectionUITypes,
       kwargCols,
     );
+
+    // put top-level initialPosition into sections
+    _.merge(sections, sectionPositions);
 
     return {
       project,
