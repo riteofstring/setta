@@ -1,7 +1,7 @@
-import { saveCodeInfo } from '#codeInfo/savingFunctions';
-import { saveAllProjectDetails } from '#projects/savingFunctions';
-import { saveUsers } from '#users/savingFunctions';
 import { PrismaClient } from '@prisma/client';
+import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
+import { saveAllProjectDetails } from 'src/projects/savingFunctions';
+import { saveUsers } from 'src/users/savingFunctions';
 import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
 import _ = require('lodash');

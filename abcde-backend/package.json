@@ -78,7 +78,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "modulePaths": [
+      "<rootDir>"
+    ]
   },
   "prisma": {
     "seed": "node_modules/.bin/ts-node --esm prisma/seed.ts"

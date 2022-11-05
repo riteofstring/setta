@@ -1,6 +1,6 @@
-import { getCodeInfoForSectionsAndKwargs } from '#codeInfo/loadingFunctions';
-import { PrismaService } from '#src/prisma.service';
 import { Injectable } from '@nestjs/common';
+import { getCodeInfoForSectionsAndKwargs } from 'src/codeInfo/loadingFunctions';
+import { PrismaService } from 'src/prisma.service';
 import {
   getBaseUITypes,
   getPresetUITypes,

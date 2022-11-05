@@ -1,8 +1,8 @@
-import { AuthModule } from '#auth/auth.module';
-import { CodeInfoModule } from '#codeInfo/codeInfo.module';
-import { ProjectsModule } from '#projects/projects.module';
-import { UsersModule } from '#users/users.module';
 import { Module } from '@nestjs/common';
+import { AuthModule } from 'src/auth/auth.module';
+import { CodeInfoModule } from 'src/codeInfo/codeInfo.module';
+import { ProjectsModule } from 'src/projects/projects.module';
+import { UsersModule } from 'src/users/users.module';
 import { AppController } from './app.controller';
 
 @Module({
