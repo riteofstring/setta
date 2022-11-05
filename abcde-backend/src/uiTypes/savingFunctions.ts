@@ -3,7 +3,7 @@ import {
   deleteThenCreateCol,
   nullNotUndefined,
   prismaNullOrConnect,
-} from '../utils/utils';
+} from 'src/utils/utils';
 import _ = require('lodash');
 
 async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {

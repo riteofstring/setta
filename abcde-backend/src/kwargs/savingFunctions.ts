@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { deleteThenCreateCol } from '../utils/utils';
+import { deleteThenCreateCol } from 'src/utils/utils';
 import _ = require('lodash');
 
 export async function saveKwargCols(prisma: PrismaClient, kwargCols) {

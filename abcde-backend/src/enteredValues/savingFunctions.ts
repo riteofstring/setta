@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { deleteThenCreateCol, prismaNullOrConnect } from '../utils/utils';
+import { deleteThenCreateCol, prismaNullOrConnect } from 'src/utils/utils';
 import _ = require('lodash');
 
 export async function saveEV(prisma: PrismaClient, ev) {

@@ -1,4 +1,4 @@
-import { renameKeys } from '../utils/utils';
+import { renameKeys } from 'src/utils/utils';
 import _ = require('lodash');
 
 export async function getProject(prisma, id) {
