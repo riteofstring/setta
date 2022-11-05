@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
-import { saveAllProjectDetails } from 'src/projects/savingFunctions';
-import { saveUsers } from 'src/users/savingFunctions';
+import { saveCodeInfo } from '../src/codeInfo/savingFunctions';
 import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
 import _ = require('lodash');
+import { saveUsers } from '../src/users/savingFunctions';
+import { saveAllProjectDetails } from '../src/projects/savingFunctions';
 
 async function main() {
   await seedUsers();

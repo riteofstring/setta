@@ -3,7 +3,7 @@ import {
   connectOrCreateColId,
   deleteThenCreateCol,
   prismaNullOrConnect,
-} from 'src/utils/utils';
+} from '../utils/utils';
 import _ = require('lodash');
 
 export async function saveSections(

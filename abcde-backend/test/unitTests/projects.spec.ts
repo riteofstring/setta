@@ -1,8 +1,8 @@
-import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from 'src/app.module';
+import { AppModule } from '../../src/app.module';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { loadAllProjects, loadSpecificTestData } from '../utils';
+import { loadSpecificTestData, loadAllProjects } from '../utils';
 
 describe('ProjectsService', () => {
   let app: INestApplication;
