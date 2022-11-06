@@ -1,17 +1,11 @@
 import "@chakra-ui/react";
-import { Box, Grid, Stack } from "@chakra-ui/react";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useDndSortableProps } from "hooks/useDndSortableProps";
-import { useHighlightDroppable } from "hooks/useDndUtils";
-import { useDragActivation } from "hooks/useDragActivation";
+import { Box } from "@chakra-ui/react";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import { DECK } from "utils/constants";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
-import SectionTitle from "./Header/Title/SectionTitle";
-import SectionContainerCore from "./SectionContainerCore";
+import { TopLevelOrNested } from "./Wrappers/TopLevelOrNested";
 
 function SectionContainer({ sectionId, parentId, nextId, depth }) {
   const isDeck = useGetSectionType(sectionId).type === DECK;
@@ -19,7 +13,7 @@ function SectionContainer({ sectionId, parentId, nextId, depth }) {
   const hasNested = idsOverview.length > 0;
 
   return (
-    <Wrapper
+    <TopLevelOrNested
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
@@ -37,161 +31,33 @@ function SectionContainer({ sectionId, parentId, nextId, depth }) {
           />
         </Box>
       )}
-    </Wrapper>
+    </TopLevelOrNested>
   );
 }
 export default React.memo(SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });
 
-function TopLevelSectionWrapper({ children, ...props }) {
-  const { sectionId, isDeck } = props;
-  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
-  const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
-    useDraggable({
-      id: sectionId,
-      data: { depth: 0 },
-    });
-  const refForPosition = useSetSectionPosition(sectionId);
-  const { isMovingFree } = useDragActivation();
-  const trueDragListeners = isMovingFree ? topLevelDragListeners : {};
+// // A section that has nested needs to be a droppable itself
+// // Decks are excluded
+// function HasNested({ children, ...props }) {
+//   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
 
-  function totalRef(e) {
-    refForPosition.current = e;
-    droppableRef(e);
-    draggableRef(e);
-  }
-  const dragDropProps = { ref: totalRef, ...trueDragListeners };
-  const { insertionLineStyle, contextStyle } = useHighlightDroppable({
-    sectionId,
-    sectionIsSameAsContext: isDeck,
-  });
-
-  return (
-    <DeckOrNot
-      {...props}
-      insertionLineStyle={insertionLineStyle}
-      contextStyle={contextStyle}
-      dragDropProps={dragDropProps}
-    >
-      {children}
-    </DeckOrNot>
-  );
-}
-
-function NestedSectionWrapper({ children, ...props }) {
-  const { sectionId, isDeck } = props;
-  const {
-    dragListeners,
-    ref: sortableRef,
-    style: sortableStyle,
-  } = useDndSortableProps(sectionId);
-  const refForPosition = useSetSectionPosition(sectionId);
-  const { isSorting, isMovingFree } = useDragActivation();
-  const inDraggingMode = isSorting || isMovingFree;
-  const trueDragListeners = inDraggingMode ? dragListeners : {};
-
-  function totalRef(e) {
-    refForPosition.current = e;
-    sortableRef(e);
-  }
-
-  // Don't want the react-flow node (which contains this child)
-  // to move when sorting
-  const className = inDraggingMode ? "nodrag" : "";
-  const dragDropProps = { ref: totalRef, ...trueDragListeners, className };
-  const { insertionLineStyle, contextStyle } = useHighlightDroppable({
-    sectionId,
-    sectionIsSameAsContext: isDeck,
-  });
-
-  return (
-    <DeckOrNot
-      {...props}
-      sectionStyle={sortableStyle}
-      insertionLineStyle={insertionLineStyle}
-      contextStyle={contextStyle}
-      dragDropProps={dragDropProps}
-    >
-      {children}
-    </DeckOrNot>
-  );
-}
-
-function DeckOrNot({
-  isDeck,
-  sectionId,
-  parentId,
-  nextId,
-  hasNested,
-  sectionStyle,
-  insertionLineStyle,
-  contextStyle,
-  dragDropProps,
-  children,
-}) {
-  if (isDeck) {
-    return (
-      <Box {...sectionStyle} {...dragDropProps}>
-        <Stack
-          bg="hsla(212, 22%, 50%, 0.2)"
-          pt=".75rem"
-          px="2rem"
-          pb="1.5rem"
-          borderRadius="3xl"
-          className="STACK"
-        >
-          <DeckSectionTitle sectionId={sectionId} />
-          {children}
-        </Stack>
-      </Box>
-    );
-  }
-  return (
-    <Grid gap={2}>
-      <Stack {...contextStyle} {...sectionStyle} {...dragDropProps}>
-        <SectionContainerCore
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          hasNested={hasNested}
-        />
-        {children}
-      </Stack>
-      <div style={insertionLineStyle} />
-    </Grid>
-  );
-}
-
-function Wrapper({ depth, children, ...props }) {
-  if (depth === 0) {
-    return (
-      <TopLevelSectionWrapper {...props}>{children}</TopLevelSectionWrapper>
-    );
-  }
-  return <NestedSectionWrapper {...props}>{children}</NestedSectionWrapper>;
-}
-
-function DeckSectionTitle({ sectionId }) {
-  const editableProps = {
-    fontFamily: "Work Sans",
-    fontWeight: "bold",
-    color: "gray.100",
-    fontSize: "4xl",
-    mb: "-.5rem",
-    letterSpacing: "tighter",
-  };
-
-  const inputProps = {
-    className: "nodrag",
-    w: "450px",
-    letterSpacing: "tighter",
-  };
-  return (
-    <SectionTitle
-      sectionId={sectionId}
-      editableProps={editableProps}
-      inputProps={inputProps}
-    />
-  );
-}
+//   return (
+//     <Grid gap={2}>
+//       <Stack {...contextStyle} {...sectionStyle} {...dragDropProps}>
+//         <Box ref={droppableRef}>
+//           <SectionContainerCore
+//             sectionId={sectionId}
+//             parentId={parentId}
+//             nextId={nextId}
+//             hasNested={hasNested}
+//           />
+//         </Box>
+//         <div style={insertionLineStyle} />
+//         {children}
+//       </Stack>
+//       <div style={insertionLineStyle} />
+//     </Grid>
+//   );
+// }
