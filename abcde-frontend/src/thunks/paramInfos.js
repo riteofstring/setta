@@ -1,4 +1,3 @@
-import { thunk } from "easy-peasy";
 import { getSectionConfig } from "./sections";
 
 export function getParamChildId(s, sectionId, paramInfoId) {
