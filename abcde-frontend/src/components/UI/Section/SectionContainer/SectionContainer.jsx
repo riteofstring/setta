@@ -70,37 +70,18 @@ function TopLevelSectionWrapper({
   const dragDropProps = { ref: totalRef, ...trueDragListeners };
   const style = useHighlightDroppable(sectionId);
 
-  if (isDeck) {
-    return (
-      <Box {...style}>
-        <Stack
-          bg="hsla(212, 22%, 50%, 0.2)"
-          pt=".75rem"
-          px="2rem"
-          pb="1.5rem"
-          borderRadius="3xl"
-          {...dragDropProps}
-          className="STACK"
-        >
-          <DeckSectionTitle sectionId={sectionId} />
-          {children}
-        </Stack>
-      </Box>
-    );
-  }
-
   return (
-    <Stack>
-      <Box {...style} {...dragDropProps}>
-        <SectionContainerCore
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          hasNested={hasNested}
-        />
-      </Box>
+    <IsDeckSwitch
+      isDeck={isDeck}
+      sectionId={sectionId}
+      parentId={parentId}
+      nextId={nextId}
+      hasNested={hasNested}
+      style={style}
+      dragDropProps={dragDropProps}
+    >
       {children}
-    </Stack>
+    </IsDeckSwitch>
   );
 }
 
@@ -116,9 +97,7 @@ function NestedSectionWrapper({
     dragListeners,
     ref: sortableRef,
     style: sortableStyle,
-    attributes: sortableAttributes,
   } = useDndSortableProps(sectionId);
-  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const refForPosition = useSetSectionPosition(sectionId);
   const { isSorting, isMovingFree } = useDragActivation();
   const inDraggingMode = isSorting || isMovingFree;
@@ -126,7 +105,6 @@ function NestedSectionWrapper({
 
   function totalRef(e) {
     refForPosition.current = e;
-    droppableRef(e);
     sortableRef(e);
   }
 
@@ -137,9 +115,33 @@ function NestedSectionWrapper({
   const style = {
     ...useHighlightDroppable(sectionId),
     ...sortableStyle,
-    ...sortableAttributes,
   };
 
+  return (
+    <IsDeckSwitch
+      isDeck={isDeck}
+      sectionId={sectionId}
+      parentId={parentId}
+      nextId={nextId}
+      hasNested={hasNested}
+      style={style}
+      dragDropProps={dragDropProps}
+    >
+      {children}
+    </IsDeckSwitch>
+  );
+}
+
+function IsDeckSwitch({
+  isDeck,
+  sectionId,
+  parentId,
+  nextId,
+  hasNested,
+  style,
+  dragDropProps,
+  children,
+}) {
   if (isDeck) {
     return (
       <Box {...style} {...dragDropProps}>
@@ -149,6 +151,7 @@ function NestedSectionWrapper({
           px="2rem"
           pb="1.5rem"
           borderRadius="3xl"
+          className="STACK"
         >
           <DeckSectionTitle sectionId={sectionId} />
           {children}

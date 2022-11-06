@@ -35,9 +35,8 @@ export function useDndSortableProps(sectionId) {
   };
 
   return {
-    style,
+    style: { ...style, ...attributes },
     ref: setNodeRef,
-    attributes,
     dragListeners: listeners,
   };
 }
