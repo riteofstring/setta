@@ -2,32 +2,7 @@ import { useDndMonitor } from "@dnd-kit/core";
 import { useState } from "react";
 import { useDragActivation } from "./useDragActivation";
 
-export function useHighlightDroppable(sectionId) {
-  const { isMovingFree } = useDragActivation();
-  const [highlight, setHighlight] = useState(false);
-
-  function onDragDone() {
-    setHighlight(false);
-  }
-
-  function highlightArea({ active, over }) {
-    if (
-      isMovingFree &&
-      over?.data?.current?.sortable?.containerId === sectionId &&
-      active.id !== sectionId // Can't drop a deck into itself
-    ) {
-      setHighlight(true);
-    } else {
-      setHighlight(false);
-    }
-  }
-
-  useDndMonitor({
-    onDragOver: highlightArea,
-    onDragEnd: onDragDone,
-    onDragCancel: onDragDone,
-  });
-
+function highlightStyle(highlight) {
   return {
     backgroundColor: highlight ? "hsla(95, 100%, 0%, 0.1)" : "",
     borderRadius: "3xl",
@@ -44,6 +19,50 @@ export function useHighlightDroppable(sectionId) {
     px: "0.75rem",
     mx: "-0.75rem",
     my: "-0.75rem",
+  };
+}
+
+export function useHighlightDroppable({
+  sectionId,
+  sectionIsSameAsContext = false,
+}) {
+  const { isMovingFree } = useDragActivation();
+  const [highlight, setHighlight] = useState(false);
+  const [highlightContext, setHighlightContext] = useState(false);
+
+  function onDragDone() {
+    setHighlight(false);
+    setHighlightContext(false);
+  }
+
+  function highlightArea({ active, over }) {
+    if (isMovingFree && over?.id === sectionId && active.id !== sectionId) {
+      setHighlight(true);
+    } else {
+      setHighlight(false);
+    }
+    if (
+      isMovingFree &&
+      over?.data.current?.sortable.containerId === sectionId
+    ) {
+      setHighlightContext(true);
+    } else {
+      setHighlightContext(false);
+    }
+  }
+
+  useDndMonitor({
+    onDragOver: highlightArea,
+    onDragEnd: onDragDone,
+    onDragCancel: onDragDone,
+  });
+
+  if (sectionIsSameAsContext) {
+    return { sectionStyle: highlightStyle(highlight || highlightContext) };
+  }
+  return {
+    sectionStyle: highlightStyle(highlight),
+    contextStyle: highlightStyle(highlightContext),
   };
 }
 

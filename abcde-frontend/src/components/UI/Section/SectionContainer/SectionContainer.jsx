@@ -68,20 +68,24 @@ function TopLevelSectionWrapper({
     draggableRef(e);
   }
   const dragDropProps = { ref: totalRef, ...trueDragListeners };
-  const style = useHighlightDroppable(sectionId);
+  const { sectionStyle, contextStyle } = useHighlightDroppable({
+    sectionId,
+    sectionIsSameAsContext: isDeck,
+  });
 
   return (
-    <IsDeckSwitch
+    <DeckOrNot
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
       nextId={nextId}
       hasNested={hasNested}
-      style={style}
+      sectionStyle={sectionStyle}
+      contextStyle={contextStyle}
       dragDropProps={dragDropProps}
     >
       {children}
-    </IsDeckSwitch>
+    </DeckOrNot>
   );
 }
 
@@ -112,39 +116,45 @@ function NestedSectionWrapper({
   // to move when sorting
   const className = inDraggingMode ? "nodrag" : "";
   const dragDropProps = { ref: totalRef, ...trueDragListeners, className };
+  const { sectionStyle, contextStyle } = useHighlightDroppable({
+    sectionId,
+    sectionIsSameAsContext: isDeck,
+  });
   const style = {
-    ...useHighlightDroppable(sectionId),
+    ...sectionStyle,
     ...sortableStyle,
   };
 
   return (
-    <IsDeckSwitch
+    <DeckOrNot
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
       nextId={nextId}
       hasNested={hasNested}
-      style={style}
+      sectionStyle={style}
+      contextStyle={contextStyle}
       dragDropProps={dragDropProps}
     >
       {children}
-    </IsDeckSwitch>
+    </DeckOrNot>
   );
 }
 
-function IsDeckSwitch({
+function DeckOrNot({
   isDeck,
   sectionId,
   parentId,
   nextId,
   hasNested,
-  style,
+  sectionStyle,
+  contextStyle,
   dragDropProps,
   children,
 }) {
   if (isDeck) {
     return (
-      <Box {...style} {...dragDropProps}>
+      <Box {...sectionStyle} {...dragDropProps}>
         <Stack
           bg="hsla(212, 22%, 50%, 0.2)"
           pt=".75rem"
@@ -161,8 +171,8 @@ function IsDeckSwitch({
   }
   return (
     <Grid gap={2}>
-      <Stack>
-        <Box {...style} {...dragDropProps}>
+      <Stack {...contextStyle}>
+        <Box {...sectionStyle} {...dragDropProps}>
           <SectionContainerCore
             sectionId={sectionId}
             parentId={parentId}
