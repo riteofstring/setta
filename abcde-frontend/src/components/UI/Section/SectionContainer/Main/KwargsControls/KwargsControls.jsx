@@ -1,9 +1,12 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { Heading, HStack, IconButton, Stack } from "@chakra-ui/react";
-import { useAddKwarg } from "hooks/useKwarg";
+import { useStoreActions } from "easy-peasy";
 
 export default function KwargsControls({ sectionId, objInfoId }) {
-  const addKwarg = useAddKwarg(sectionId, objInfoId);
+  const addKwarg = useStoreActions((x) => x.thunks.addKwarg);
+  function onClick() {
+    addKwarg({ sectionId, objInfoId });
+  }
   return (
     <Stack>
       <HStack pt="1rem" pl=".75rem">
@@ -17,7 +20,7 @@ export default function KwargsControls({ sectionId, objInfoId }) {
           kwargs
         </Heading>
         <KwargsButton icon={<MinusIcon w={2} />} type="minus" />
-        <KwargsButton icon={<AddIcon w={2} />} onClick={addKwarg} type="add" />
+        <KwargsButton icon={<AddIcon w={2} />} onClick={onClick} type="add" />
       </HStack>
     </Stack>
   );

@@ -5,7 +5,7 @@ import {
 } from "hooks/usePresetUIType";
 import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
-import { getSectionConfig, getSectionType } from "thunks/sections";
+import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isListLike } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
 import { getParamChildId, getParamUIType } from "./paramInfos";
@@ -32,7 +32,7 @@ export const setParamUITypeId = thunk((action, payload, helpers) => {
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
   const childId = getParamChildId(s, sectionId, paramInfoId);
-  const { uiTypeColId } = getSectionConfig(s, sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
 
   a.paramInfos.setUITypeId({
     collectionId: uiTypeColId,
@@ -60,7 +60,7 @@ export const setSectionUITypeConfig = thunk((action, payload, helpers) => {
   } = s.sectionInfos.x[sectionId];
   const currUIType = getSectionType(s, sectionId);
   const parentSectionTypeConfig = paramInfoId
-    ? getSectionConfig(s, parentId)
+    ? getSectionTypeConfig(s, parentId)
     : null;
 
   const originInfoId = createOriginInfoId({
@@ -94,7 +94,7 @@ export const setParamUITypeConfig = thunk((action, payload, helpers) => {
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
   const defaultName = s.codeInfo.allObjInfo[paramInfoId].name;
-  const sectionTypeConfig = getSectionConfig(s, sectionId);
+  const sectionTypeConfig = getSectionTypeConfig(s, sectionId);
   const currUIType = getParamUIType(s, sectionId, paramInfoId);
 
   const originInfoId = createOriginInfoId({

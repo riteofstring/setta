@@ -1,7 +1,7 @@
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
-import { getSectionConfig, getSectionType } from "thunks/sections";
+import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
 
 function setDefaultIdsOverview(state, sectionId) {
@@ -151,7 +151,7 @@ function deleteSectionFn(helpers, sectionId) {
 function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(state, newParentId);
-  const sectionUITypeConfig = getSectionConfig(state, sectionId);
+  const sectionUITypeConfig = getSectionTypeConfig(state, sectionId);
   const parentIsRoot = isRoot(newParentUIType?.type);
   const sectionIsListLike = isListLike(sectionUITypeConfig.subType);
 

@@ -3,6 +3,7 @@ import { addToDeck } from "./addToDeck";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
+import { addKwarg, deleteKwarg } from "./kwargs";
 import { saveProject } from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
@@ -28,4 +29,6 @@ export default {
   setUITypeConfigAndMaybeClone,
   addToDeck,
   createDefaultSectionInfo,
+  addKwarg,
+  deleteKwarg,
 };

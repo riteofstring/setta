@@ -1,4 +1,4 @@
-import { getSectionConfig } from "./sections";
+import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
 export function getParamChildId(s, sectionId, paramInfoId) {
   const { evColId } = getSectionConfig(s, sectionId);
@@ -10,7 +10,7 @@ export function getParamChildId(s, sectionId, paramInfoId) {
 }
 
 export function getParamUITypeId(s, sectionId, paramInfoId) {
-  const { uiTypeColId } = getSectionConfig(s, sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
   return s.paramInfos.y[uiTypeColId]?.[paramInfoId];
 }
 

@@ -6,13 +6,18 @@ function getSectionConfigId(s, sectionId) {
   return s.sectionInfos.x[sectionId]?.configId;
 }
 
-export function getSectionType(s, sectionId) {
+export function getSectionConfig(s, sectionId) {
   const configId = getSectionConfigId(s, sectionId);
-  const sectionTypeId = s.sectionConfigs.x[configId].uiTypeId;
+  return s.sectionConfigs.x[configId];
+}
+
+export function getSectionType(s, sectionId) {
+  const config = getSectionConfig(s, sectionId);
+  const sectionTypeId = config.uiTypeId;
   return s.uiTypes.x[sectionTypeId];
 }
 
-export function getSectionConfig(s, sectionId) {
+export function getSectionTypeConfig(s, sectionId) {
   return getSectionType(s, sectionId).config;
 }
 
