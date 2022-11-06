@@ -18,6 +18,7 @@ import { useStoreActions } from "easy-peasy";
 import { useCodeGenerator } from "hooks/dbRequests/codeGenerator";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
+import { createNewId } from "utils/utils";
 import ExportSelectedButton from "./ExportSelectedButton";
 
 export default function RunButton() {
@@ -27,10 +28,13 @@ export default function RunButton() {
   const generateCode = useCodeGenerator();
   const exportSelected = useStoreActions((x) => x.master.exportSelected);
   const runExport = async () => {
-    const codeJson = exportSelected();
-    const { id } = await generateCode({ codeJson });
-    setCommand(`runcoder run ${id}`);
+    const codeId = createNewId();
+    const command = `runcoder run ${codeId}`;
+    setCommand(command);
     setDescription("Paste this into your command line:");
+    navigator.clipboard.writeText(command);
+    const codeJson = exportSelected();
+    const ready = await generateCode({ codeId, codeJson });
   };
 
   return (
