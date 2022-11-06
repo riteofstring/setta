@@ -1,6 +1,7 @@
 import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useDndSortableProps } from "hooks/useDndSortableProps";
 import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useIdsOverview } from "hooks/useIdsOverview";
@@ -12,13 +13,7 @@ import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionTitle from "./Header/Title/SectionTitle";
 import SectionContainerCore from "./SectionContainerCore";
 
-function SectionContainer({
-  sectionId,
-  parentId,
-  nextId,
-  depth,
-  dragListeners,
-}) {
+function SectionContainer({ sectionId, parentId, nextId, depth }) {
   const isDeck = useGetSectionType(sectionId).type === DECK;
   const idsOverview = useIdsOverview(sectionId);
   const hasNested = idsOverview.length > 0;
@@ -30,7 +25,6 @@ function SectionContainer({
       parentId={parentId}
       nextId={nextId}
       hasNested={hasNested}
-      dragListeners={dragListeners}
       depth={depth}
     >
       {hasNested && (
@@ -116,9 +110,14 @@ function NestedSectionWrapper({
   parentId,
   nextId,
   hasNested,
-  dragListeners,
   children,
 }) {
+  const {
+    dragListeners,
+    ref: sortableRef,
+    style: sortableStyle,
+    attributes: sortableAttributes,
+  } = useDndSortableProps(sectionId);
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const refForPosition = useSetSectionPosition(sectionId);
   const { isSorting, isMovingFree } = useDragActivation();
@@ -128,24 +127,28 @@ function NestedSectionWrapper({
   function totalRef(e) {
     refForPosition.current = e;
     droppableRef(e);
+    sortableRef(e);
   }
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
   const className = inDraggingMode ? "nodrag" : "";
   const dragDropProps = { ref: totalRef, ...trueDragListeners, className };
-  const style = useHighlightDroppable(sectionId);
+  const style = {
+    ...useHighlightDroppable(sectionId),
+    ...sortableStyle,
+    ...sortableAttributes,
+  };
 
   if (isDeck) {
     return (
-      <Box {...style}>
+      <Box {...style} {...dragDropProps}>
         <Stack
           bg="hsla(212, 22%, 50%, 0.2)"
           pt=".75rem"
           px="2rem"
           pb="1.5rem"
           borderRadius="3xl"
-          {...dragDropProps}
         >
           <DeckSectionTitle sectionId={sectionId} />
           {children}
@@ -173,7 +176,6 @@ function Wrapper({
   sectionId,
   parentId,
   nextId,
-  dragListeners,
   hasNested,
   depth,
   children,
@@ -198,7 +200,6 @@ function Wrapper({
       parentId={parentId}
       nextId={nextId}
       hasNested={hasNested}
-      dragListeners={dragListeners}
     >
       {children}
     </NestedSectionWrapper>

@@ -1,12 +1,11 @@
 import { Grid } from "@chakra-ui/react";
 import React from "react";
-
-import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
+import SectionContainer from "../SectionContainer/SectionContainer";
 
 function _NestedSection({ parentId, sectionId, nextId, depth }) {
   return (
     <Grid gap={2}>
-      <SortableSectionContainer
+      <SectionContainer
         sectionId={sectionId}
         parentId={parentId}
         nextId={nextId}

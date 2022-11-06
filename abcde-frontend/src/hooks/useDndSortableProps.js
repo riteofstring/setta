@@ -1,11 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React from "react";
 import { useStore } from "react-flow-renderer";
 
-import SectionContainer from "./SectionContainer";
-
-function _SortableSectionContainer({ sectionId, ...props }) {
+export function useDndSortableProps(sectionId) {
   const zoom = useStore((x) => x.transform[2]);
 
   function transformWithZoom(transform) {
@@ -36,17 +33,11 @@ function _SortableSectionContainer({ sectionId, ...props }) {
     transform: CSS.Translate.toString(scaledTransform),
     transition,
   };
-  const stackProps = { style, ref: setNodeRef, ...attributes };
 
-  return (
-    <div {...stackProps}>
-      <SectionContainer
-        sectionId={sectionId}
-        {...props}
-        dragListeners={listeners}
-      />
-    </div>
-  );
+  return {
+    style,
+    ref: setNodeRef,
+    attributes,
+    dragListeners: listeners,
+  };
 }
-
-export const SortableSectionContainer = React.memo(_SortableSectionContainer);
