@@ -3,15 +3,15 @@ import userEvent from "@testing-library/user-event";
 import MainContainer from "components/AppContainer/Main/MainContainer";
 import { SECTION } from "utils/constants";
 import {
-  createStoreWrapperWithData,
-  getParameterToTestOn,
-} from "__tests__utils/createStoreWrapperWithData";
-import {
   renderUseGetParamChildId,
   renderUseGetParamUIType,
 } from "__tests__utils/renderHooks";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { sectionIdFromName } from "__tests__utils/utils";
+import {
+  createStoreWrapperWithData,
+  getParameterToTestOn,
+  sectionIdFromName,
+} from "__tests__utils/utils";
 
 global.ResizeObserver = ResizeObserver;
 

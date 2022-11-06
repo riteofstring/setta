@@ -2,12 +2,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
-import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import {
   renderUseGetSectionConfig,
   renderUseGetSectionType,
 } from "__tests__utils/renderHooks";
-import { sectionIdFromName } from "__tests__utils/utils";
+import {
+  createStoreWrapperWithData,
+  sectionIdFromName,
+} from "__tests__utils/utils";
 
 test("Test SectionSearch", async () => {
   const { store, wrapper } = await createStoreWrapperWithData();
