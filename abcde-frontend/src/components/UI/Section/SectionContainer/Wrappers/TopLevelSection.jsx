@@ -28,11 +28,10 @@ export function TopLevelSection({
     draggableRef(e);
   }
   const dragDropProps = { ref: totalRef, ...trueDragListeners };
-  const { insertionLineStyle, contextStyle, highlightContext } =
-    useHighlightDroppable({
-      sectionId,
-      sectionIsSameAsContext: isDeck,
-    });
+  const { contextStyle, highlightContext } = useHighlightDroppable({
+    sectionId,
+    sectionIsSameAsContext: isDeck,
+  });
 
   return (
     <DeckOrSection
@@ -42,7 +41,6 @@ export function TopLevelSection({
       nextId={nextId}
       hasNested={hasNested}
       highlightContext={highlightContext}
-      insertionLineStyle={insertionLineStyle}
       contextStyle={contextStyle}
       dragDropProps={dragDropProps}
     >
