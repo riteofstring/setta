@@ -52,10 +52,10 @@ export function defaultState(state, valueFn) {
   return state === undefined ? valueFn() : state;
 }
 
-export function updateWithArrayMove(active, over) {
+export function updateWithArrayMove(activeId, overId) {
   return (x) => {
-    const activeIndex = x.indexOf(active.id);
-    const overIndex = x.indexOf(over.id);
+    const activeIndex = x.indexOf(activeId);
+    const overIndex = x.indexOf(overId);
     return arrayMove(x, activeIndex, overIndex);
   };
 }

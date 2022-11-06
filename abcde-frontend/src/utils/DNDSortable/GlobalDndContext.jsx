@@ -8,13 +8,34 @@ import { useReactFlow } from "react-flow-renderer";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { customCollisionDetection } from "./collisionDetection";
+import { ITSELF_SUFFIX } from "./constants";
 import { DummySection } from "./DummySection";
 
 import { useDNDSensors } from "./useDNDSensors";
 
-function getNewIndex(over) {
+function getNewIndex(over, overId) {
   const overItems = over.data.current.sortable.items;
-  return overItems.indexOf(over.id) + 1;
+  return overItems.indexOf(overId) + 1;
+}
+
+function getActiveAndOverContainers(active, over, overId) {
+  const activeContainer = active.data.current.sortable?.containerId;
+  let overContainer = over?.data.current?.sortable.containerId;
+  const overIsSortable = !!overContainer;
+  if (!overContainer) {
+    overContainer = overId;
+  }
+  return { activeContainer, overContainer, overIsSortable };
+}
+
+function getOverId(over) {
+  if (over) {
+    if (over.id.includes(ITSELF_SUFFIX)) {
+      return { id: over.id.replace(ITSELF_SUFFIX, "") };
+    }
+    return { id: over.id };
+  }
+  return { id: PANEID };
 }
 
 export function GlobalDndContext(props) {
@@ -37,32 +58,27 @@ export function GlobalDndContext(props) {
       return;
     }
 
-    const activeContainer = active.data.current.sortable?.containerId;
-    let overContainer = over?.data.current?.sortable.containerId;
-    const overIsSortable = !!overContainer;
-    if (!overContainer) {
-      overContainer = over ? over.id : PANEID;
-    }
+    const activeId = active.id;
+    const { id: overId } = getOverId(over);
+
+    const { activeContainer, overContainer, overIsSortable } =
+      getActiveAndOverContainers(active, over, overId);
 
     // can't drop section into itself
-    if (active.id === overContainer) {
+    if (activeId === overContainer) {
       return;
     }
 
-    if (
-      isSorting &&
-      activeContainer === overContainer &&
-      active.id !== over.id
-    ) {
+    if (isSorting && activeContainer === overContainer && activeId !== overId) {
       setIdsOverview({
         sectionId: activeContainer,
-        newStateFn: updateWithArrayMove(active, over),
+        newStateFn: updateWithArrayMove(activeId, overId),
       });
     } else if (isMovingFree && activeContainer !== overContainer) {
       let newIndex;
       let position = null;
       if (overIsSortable) {
-        newIndex = getNewIndex(over);
+        newIndex = getNewIndex(over, overId);
       } else {
         newIndex = 0;
         if (overContainer === PANEID && dummyRef?.current) {
@@ -73,7 +89,7 @@ export function GlobalDndContext(props) {
       moveSectionThunk({
         oldParentId: activeContainer,
         newParentId: overContainer,
-        sectionId: active.id,
+        sectionId: activeId,
         newIndex,
         position,
       });

@@ -1,6 +1,7 @@
 import { Box, Grid, Stack } from "@chakra-ui/react";
 import { useDroppable } from "@dnd-kit/core";
 import { useHighlightDroppable } from "hooks/useDndUtils";
+import { ITSELF_SUFFIX } from "utils/DNDSortable/constants";
 import SectionContainerCore from "../SectionContainerCore";
 
 export function SectionWithChildren({
@@ -14,7 +15,7 @@ export function SectionWithChildren({
   insertionLineStyle,
   children,
 }) {
-  const id = `${sectionId}-itself`;
+  const id = `${sectionId}${ITSELF_SUFFIX}`;
 
   const { setNodeRef: droppableRef } = useDroppable({ id });
   const {
