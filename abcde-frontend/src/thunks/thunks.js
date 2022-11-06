@@ -1,4 +1,5 @@
 import { addChild } from "./addChild";
+import { addToDeck } from "./addToDeck";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
@@ -25,4 +26,5 @@ export default {
   setSectionUITypeConfig,
   setParamUITypeConfig,
   setUITypeConfigAndMaybeClone,
+  addToDeck,
 };

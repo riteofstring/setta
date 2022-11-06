@@ -1,6 +1,5 @@
 import { MenuItem, MenuList } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import { useAddToDeck } from "hooks/useAddToDeck";
 
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
@@ -8,9 +7,9 @@ import { useOnClickAddSection } from "./utils";
 export function SelectionContextMenu(props) {
   const { nodeIds, closeContextMenu } = props;
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
-  const addToDeck = useAddToDeck();
+  const addToDeck = useStoreActions((x) => x.thunks.addToDeck);
   function afterAddSection(deckId) {
-    addToDeck(deckId, nodeIds);
+    addToDeck({ deckId, idsToAdd: nodeIds });
   }
 
   const onClickCreateDeck = useOnClickAddSection({ ...props, afterAddSection });
