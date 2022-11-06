@@ -32,15 +32,14 @@ function SectionConfig() {
     (x) => x.uiEditor.setCameFromUIConfig
   );
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
-  const setUITypeId = useStoreActions((x) => x.thunks.setUITypeId);
-  const setUITypeConfig = useStoreActions((x) => x.thunks.setUITypeConfig);
+  const setSectionUITypeId = useStoreActions(
+    (x) => x.thunks.setSectionUITypeId
+  );
+  const setSectionUITypeConfig = useStoreActions(
+    (x) => x.thunks.setSectionUITypeConfig
+  );
 
-  const {
-    name: sectionName,
-    parentId,
-    paramInfoId,
-  } = useGetSectionInfo(sectionId);
-
+  const { parentId } = useGetSectionInfo(sectionId);
   const currUIType = useGetSectionType(sectionId);
   const currTypeId = currUIType.id;
 
@@ -52,22 +51,13 @@ function SectionConfig() {
 
   const onSectionTypeChange = (e) => {
     if (e && e !== currTypeId) {
-      setUITypeId({
-        uiTypeId: e,
-        settingSectionConfig: true,
-        sectionId: parentId,
-        paramInfoId,
-      });
+      setSectionUITypeId({ uiTypeId: e, sectionId });
     }
   };
 
   const onConfigChange = ({ newValueFn }) => {
-    setUITypeConfig({
-      settingSectionConfig: true,
-      sectionId: parentId,
-      paramInfoId,
-      defaultName: sectionName,
-      currUIType,
+    setSectionUITypeConfig({
+      sectionId,
       configProps: { configName: "collections", newValueFn },
     });
   };

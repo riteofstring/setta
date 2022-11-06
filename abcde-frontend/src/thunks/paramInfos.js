@@ -10,19 +10,6 @@ export function getParamChildId(s, sectionId, paramInfoId) {
   return undefined;
 }
 
-export const setParamUITypeId = thunk((action, payload, helpers) => {
-  const { sectionId, paramInfoId, uiTypeId } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-
-  const { uiTypeColId } = getSectionConfig(s, sectionId);
-  a.paramInfos.setUITypeId({
-    collectionId: uiTypeColId,
-    paramInfoId,
-    uiTypeId,
-  });
-});
-
 export function getParamUITypeId(s, sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionConfig(s, sectionId);
   return s.paramInfos.y[uiTypeColId]?.[paramInfoId];

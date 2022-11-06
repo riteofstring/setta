@@ -2,10 +2,15 @@ import { addChild } from "./addChild";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
-import { setParamUITypeId } from "./paramInfos";
 import { saveProject } from "./save";
 import { setSectionConfigAttr } from "./sections";
-import { setUITypeConfig, setUITypeId } from "./uiTypes";
+import {
+  setParamUITypeConfig,
+  setParamUITypeId,
+  setSectionUITypeConfig,
+  setSectionUITypeId,
+  setUITypeConfigAndMaybeClone,
+} from "./uiTypes";
 
 export default {
   addChild,
@@ -14,8 +19,10 @@ export default {
   initializeParam,
   initializeChild,
   saveProject,
-  setUITypeId,
-  setUITypeConfig,
   setParamUITypeId,
+  setSectionUITypeId,
   setSectionConfigAttr,
+  setSectionUITypeConfig,
+  setParamUITypeConfig,
+  setUITypeConfigAndMaybeClone,
 };

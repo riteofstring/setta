@@ -1,8 +1,6 @@
 import { thunk } from "easy-peasy";
 
 function getSectionConfigId(s, sectionId) {
-  console.log("sectionId", sectionId);
-  console.log("s.sectionInfos.x[sectionId]", s.sectionInfos.x[sectionId]);
   return s.sectionInfos.x[sectionId]?.configId;
 }
 

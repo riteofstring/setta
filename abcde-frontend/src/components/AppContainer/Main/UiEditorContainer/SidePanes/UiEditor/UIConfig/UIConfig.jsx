@@ -68,25 +68,24 @@ function UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const setUITypeId = useStoreActions((x) => x.thunks.setUITypeId);
-  const setUITypeConfig = useStoreActions((x) => x.thunks.setUITypeConfig);
+  const setParamUITypeId = useStoreActions((x) => x.thunks.setParamUITypeId);
+  const setParamUITypeConfig = useStoreActions(
+    (x) => x.thunks.setParamUITypeConfig
+  );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    setUITypeId({
+    setParamUITypeId({
       uiTypeId: e,
       sectionId,
       paramInfoId,
-      settingSectionConfig: false,
     });
   };
 
   const onChange = (configName, newValueFn) => {
-    setUITypeConfig({
+    setParamUITypeConfig({
       sectionId,
       paramInfoId,
-      defaultName: paramInfo.name,
-      settingSectionConfig: false,
       configProps: { configName, newValueFn },
     });
   };
@@ -98,11 +97,10 @@ function UIElement({ sectionId, paramInfo }) {
       presetType: USER,
     });
     setUIType({ uiType: newUIType });
-    setUITypeId({
+    setParamUITypeId({
       uiTypeId: newUIType.id,
       sectionId,
       paramInfoId,
-      settingSectionConfig: false,
     });
     // delete old uitype if its a non-preset
     if (!uiType.presetType) {

@@ -148,21 +148,12 @@ function deleteSectionFn(helpers, sectionId) {
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
-  const { name: childSectionName, paramInfoId } = state.sectionInfos.x[childId];
-
-  const commonProps = {
-    settingSectionConfig: true,
-    sectionId: newParentId,
-    paramInfoId,
-    defaultName: childSectionName,
-  };
+  const parentIsRoot = isRoot(newParentUIType?.type);
+  const childIsListLike = isListLike(childUIType.config.subType);
 
   let configProps = {
     configName: "subType",
   };
-
-  const parentIsRoot = isRoot(newParentUIType?.type);
-  const childIsListLike = isListLike(childUIType.config.subType);
 
   if (parentIsRoot && !childIsListLike) {
     configProps = { ...configProps, newValueFn: () => LIST };
@@ -170,5 +161,8 @@ function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
     configProps = { ...configProps, newValueFn: () => null };
   }
 
-  actions.thunks.setUITypeConfig({ ...commonProps, configProps });
+  actions.thunks.setSectionUITypeConfig({
+    sectionId: childId,
+    configProps,
+  });
 }

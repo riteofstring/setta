@@ -10,73 +10,158 @@ import { isListLike } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
 import { getParamChildId, getParamUIType } from "./paramInfos";
 
-export const setUITypeId = thunk((action, payload, helpers) => {
-  const { uiTypeId, settingSectionConfig, sectionId, paramInfoId } = payload;
+export const setSectionUITypeId = thunk((action, payload, helpers) => {
+  const { uiTypeId, sectionId } = payload;
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
-  const childId = getParamChildId(s, sectionId, paramInfoId);
+  const { parentId, paramInfoId } = s.sectionInfos.x[sectionId];
 
-  if (settingSectionConfig || (!settingSectionConfig && childId)) {
-    a.thunks.setSectionConfigAttr({ sectionId, attr: "uiTypeId", value });
-  }
-  if ((settingSectionConfig && paramInfoId) || !settingSectionConfig) {
-    a.thunks.setParamUITypeId({ sectionId, paramInfoId, uiTypeId });
+  a.thunks.setSectionConfigAttr({
+    sectionId,
+    attr: "uiTypeId",
+    value: uiTypeId,
+  });
+
+  if (paramInfoId) {
+    a.thunks.setParamUITypeId({ sectionId: parentId, paramInfoId, uiTypeId });
   }
 });
 
-export const setUITypeConfig = thunk((action, payload, helpers) => {
+export const setParamUITypeId = thunk((action, payload, helpers) => {
+  const { uiTypeId, sectionId, paramInfoId } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
+  const childId = getParamChildId(s, sectionId, paramInfoId);
+  const { uiTypeColId } = getSectionConfig(s, sectionId);
+
+  a.paramInfos.setUITypeId({
+    collectionId: uiTypeColId,
+    paramInfoId,
+    uiTypeId,
+  });
+
+  if (childId) {
+    a.thunks.setSectionConfigAttr({
+      sectionId: childId,
+      attr: "uiTypeId",
+      value: uiTypeId,
+    });
+  }
+});
+
+export const setSectionUITypeConfig = thunk((action, payload, helpers) => {
+  const { sectionId, settingPreset = false, configProps } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
   const {
-    settingSectionConfig,
+    name: defaultName,
+    parentId,
+    paramInfoId,
+  } = s.sectionInfos.x[sectionId];
+  const currUIType = getSectionType(s, sectionId);
+  const parentSectionTypeConfig = paramInfoId
+    ? getSectionConfig(s, parentId)
+    : null;
+
+  const originInfoId = createOriginInfoId({
+    settingSectionConfig: true,
+    sectionTypeConfig: parentSectionTypeConfig,
+    paramInfoId,
+    childId: sectionId,
+  });
+
+  const setUITypeId = (uiTypeId) =>
+    a.thunks.setSectionUITypeId({ uiTypeId, sectionId });
+
+  a.thunks.setUITypeConfigAndMaybeClone({
+    defaultName,
+    currUIType,
+    settingPreset,
+    originInfoId,
+    setUITypeId,
+    configProps,
+  });
+});
+
+export const setParamUITypeConfig = thunk((action, payload, helpers) => {
+  const {
     sectionId,
     paramInfoId,
-    defaultName,
     settingPreset = false,
     configProps,
   } = payload;
 
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
-  const childId = getParamChildId(s, sectionId, paramInfoId);
+  const defaultName = s.codeInfo.allObjInfo[paramInfoId].name;
   const sectionTypeConfig = getSectionConfig(s, sectionId);
-  const currUIType = settingSectionConfig
-    ? getSectionType(s, sectionId)
-    : getParamUIType(s, sectionId, paramInfoId);
+  const currUIType = getParamUIType(s, sectionId, paramInfoId);
 
   const originInfoId = createOriginInfoId({
-    settingSectionConfig,
+    settingSectionConfig: false,
     sectionTypeConfig,
     paramInfoId,
-    childId,
   });
+  const setUITypeId = (uiTypeId) =>
+    a.thunks.setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
 
-  // Try using existing non-preset (uiType with same originInfoId and type)
-  const possibleMatch = existingNonPresetMatchingType(
-    s.uiTypes.x,
-    currUIType,
-    originInfoId
-  );
-  const _setUITypeId = (uiTypeId) =>
-    a.thunks.setUITypeId({
-      uiTypeId,
-      settingSectionConfig,
-      sectionId,
-      paramInfoId,
-    });
-  const setConfig = a.uiTypes.setOneConfig;
-  const setUIType = a.uiTypes.setUIType;
-
-  getFnSetUITypeConfigAndMaybeClone({
+  a.thunks.setUITypeConfigAndMaybeClone({
     defaultName,
     currUIType,
     settingPreset,
     originInfoId,
-    setUITypeId: _setUITypeId,
-    setConfig,
-    setUIType,
-    possibleMatch,
+    setUITypeId,
     configProps,
   });
 });
+
+export const setUITypeConfigAndMaybeClone = thunk(
+  (action, payload, helpers) => {
+    const {
+      defaultName,
+      currUIType,
+      settingPreset,
+      originInfoId,
+      setUITypeId,
+      configProps,
+    } = payload;
+    const s = helpers.getStoreState();
+    const a = helpers.getStoreActions();
+    const setConfig = a.uiTypes.setOneConfig;
+    const setUIType = a.uiTypes.setUIType;
+
+    // If it's a preset but we're not "saving as",
+    // then use existing non-preset, or copy into a new non-preset ui type.
+    let maybeNewUIType = currUIType;
+    if (shouldCloneUIType(currUIType, settingPreset)) {
+      // Try using existing non-preset (uiType with same originInfoId and type)
+      const possibleMatch = existingNonPresetMatchingType(
+        s.uiTypes.x,
+        currUIType,
+        originInfoId
+      );
+
+      // There's no match, so clone the preset into a non-preset
+      if (!possibleMatch) {
+        maybeNewUIType = cloneNewUIType({
+          uiType: currUIType,
+          name: defaultName,
+          originInfoId,
+        });
+        setUIType({ uiType: maybeNewUIType });
+      } else {
+        maybeNewUIType = possibleMatch;
+      }
+      // In both cases, make the section or param to use the new or existing id
+      setUITypeId(maybeNewUIType.id);
+    }
+
+    setConfig({ uiTypeId: maybeNewUIType.id, ...configProps });
+
+    // Changing a root config should also change its child config
+    setChildUITypeConfig(maybeNewUIType, configProps, setConfig);
+  }
+);
 
 function existingNonPresetMatchingType(allUITypes, uiType, originInfoId) {
   const matches = _.filter(allUITypes, (v) =>
@@ -100,40 +185,4 @@ function setChildUITypeConfig(uiType, props, setConfig) {
   if (childUITypeId) {
     setConfig({ uiTypeId: childUITypeId, ...props });
   }
-}
-
-function getFnSetUITypeConfigAndMaybeClone({
-  defaultName,
-  currUIType,
-  settingPreset,
-  originInfoId,
-  setUITypeId,
-  setConfig,
-  setUIType,
-  possibleMatch,
-  configProps,
-}) {
-  // If it's a preset but we're not "saving as",
-  // then use existing non-preset, or copy into a new non-preset ui type.
-  let maybeNewUIType = currUIType;
-  if (shouldCloneUIType(currUIType, settingPreset)) {
-    // There's no match, so clone the preset into a non-preset
-    if (!possibleMatch) {
-      maybeNewUIType = cloneNewUIType({
-        uiType: currUIType,
-        name: defaultName,
-        originInfoId,
-      });
-      setUIType({ uiType: maybeNewUIType });
-    } else {
-      maybeNewUIType = possibleMatch;
-    }
-    // In both cases, make the section or param to use the new or existing id
-    setUITypeId(maybeNewUIType.id);
-  }
-
-  setConfig({ uiTypeId: maybeNewUIType.id, ...configProps });
-
-  // Changing a root config should also change its child config
-  setChildUITypeConfig(maybeNewUIType, configProps, setConfig);
 }
