@@ -134,7 +134,8 @@ const sectionInfos = {
 export default sectionInfos;
 
 function deleteSectionFn(helpers, sectionId) {
-  const childIds = helpers.getState().idsOverview[sectionId];
+  const localState = helpers.getState();
+  const childIds = localState.idsOverview[sectionId];
   if (childIds) {
     for (let child of childIds) {
       deleteSectionFn(helpers, child);
@@ -143,9 +144,9 @@ function deleteSectionFn(helpers, sectionId) {
   if (helpers.getStoreState().activeSection.id === sectionId) {
     helpers.getStoreActions().activeSection.setId(null);
   }
-  delete helpers.getState().x[sectionId];
-  delete helpers.getState().idsOverview[sectionId];
-  delete helpers.getState().currChildren[sectionId];
+  delete localState.x[sectionId];
+  delete localState.idsOverview[sectionId];
+  delete localState.currChildren[sectionId];
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {

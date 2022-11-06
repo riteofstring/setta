@@ -18,24 +18,21 @@ function getNewStateFn(deletedChildren, numChildren, startId) {
 
 export const deleteChild = thunk((action, payload, helpers) => {
   const { sectionId, numChildren = 1, startId = null } = payload;
+  const a = helpers.getStoreActions();
 
   // For deleting root sections, in which case the parent (sectionid) is "null"
   if (_.isNil(sectionId)) {
-    helpers
-      .getStoreActions()
-      .sectionInfos.deleteSections({ sectionIds: [startId] });
+    a.sectionInfos.deleteSections({ sectionIds: [startId] });
     return;
   }
 
   // deletedChildren is a list so that it can be operated on by reference
   // deletedChildren[0] is set to be the list of the children to delete
   let deletedChildren = [null];
-  helpers.getStoreActions().sectionInfos.setIdsOverview({
+  a.sectionInfos.setIdsOverview({
     sectionId,
     newStateFn: getNewStateFn(deletedChildren, numChildren, startId),
   });
 
-  helpers
-    .getStoreActions()
-    .sectionInfos.deleteSections({ sectionIds: deletedChildren[0] });
+  a.sectionInfos.deleteSections({ sectionIds: deletedChildren[0] });
 });

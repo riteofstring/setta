@@ -18,15 +18,13 @@ function maybeGetChildUITypeId(
 
 export const createChildSectionInfo = thunk((action, payload, helpers) => {
   const { parentId, numChildren, ...sectionInfoProps } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
 
-  const { name: parentName, configId } =
-    helpers.getStoreState().sectionInfos.x[parentId];
-
-  const { uiTypeId: parentUITypeId } =
-    helpers.getStoreState().sectionConfigs.x[configId];
-
-  const parentUIType = helpers.getStoreState().uiTypes.x[parentUITypeId];
-  const { setUIType, setOneConfig } = helpers.getStoreActions().uiTypes;
+  const { name: parentName, configId } = s.sectionInfos.x[parentId];
+  const { uiTypeId: parentUITypeId } = s.sectionConfigs.x[configId];
+  const parentUIType = s.uiTypes.x[parentUITypeId];
+  const { setUIType, setOneConfig } = a.uiTypes;
 
   const uiTypeId = maybeGetChildUITypeId(
     sectionInfoProps.uiTypeId,
@@ -42,13 +40,8 @@ export const createChildSectionInfo = thunk((action, payload, helpers) => {
     numChildren,
   });
 
-  helpers
-    .getStoreActions()
-    .sectionInfos.setSectionInfo((x) => ({ ...x, ...newInfos }));
-
-  helpers
-    .getStoreActions()
-    .sectionConfigs.setSectionConfig((x) => ({ ...x, ...newConfigs }));
+  a.sectionInfos.setSectionInfo((x) => ({ ...x, ...newInfos }));
+  a.sectionConfigs.setSectionConfig((x) => ({ ...x, ...newConfigs }));
 
   return _.keys(newInfos);
 });
