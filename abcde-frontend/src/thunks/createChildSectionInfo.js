@@ -1,7 +1,7 @@
 import { thunk } from "easy-peasy";
-import { getChildUITypeId } from "hooks/useUIType";
 import _ from "lodash";
 import { createManySectionInfo } from "thunks/sections";
+import { getChildUITypeId } from "utils/uiTypeUtils";
 
 function maybeGetChildUITypeId(
   uiTypeId,

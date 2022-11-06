@@ -1,8 +1,11 @@
 import _ from "lodash";
-import { createNewId } from "utils/utils";
-
-import { rootTypeToChildType, SECTION } from "../utils/constants";
-import { createOriginInfoId } from "./usePresetUIType";
+import {
+  rootTypeToChildType,
+  SECTION,
+  SECTION_TYPE_NAMES,
+  SET_FROM_SIDEPANE,
+} from "./constants";
+import { createNewId } from "./utils";
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
@@ -41,6 +44,58 @@ export function getChildUITypeId(
   });
   setUIType({ uiType: newUIType });
   return id;
+}
+
+export function createOriginInfoId({
+  settingSectionConfig,
+  sectionTypeConfig,
+  childId,
+  paramInfoId,
+  isChildOfRoot,
+  rootId,
+}) {
+  if (isChildOfRoot) {
+    return { sectionId: rootId };
+  } else if (settingSectionConfig && paramInfoId) {
+    return {
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
+      paramInfoId,
+    };
+  } else if (settingSectionConfig && !paramInfoId) {
+    return { sectionId: childId };
+  } else if (paramInfoId) {
+    return {
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
+      paramInfoId,
+    };
+  } else {
+    return {};
+  }
+}
+
+export function cloneNewUIType({
+  uiType,
+  name = "",
+  config,
+  origin = SET_FROM_SIDEPANE,
+  presetType = null,
+  originInfoId,
+  isForChildOfOriginInfoId = false,
+}) {
+  const newUIType = _.cloneDeep(uiType);
+  newUIType.id = createNewId();
+  newUIType.name = name;
+  newUIType.origin = origin;
+  newUIType.presetType = presetType;
+  newUIType.originInfoId = originInfoId;
+  if (!_.isNil(config)) {
+    newUIType.config = config;
+    if (SECTION_TYPE_NAMES.includes(newUIType.type)) {
+      newUIType.config.uiTypeColId = createNewId();
+    }
+  }
+  newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
+  return newUIType;
 }
 
 // Root sections and child behavior:

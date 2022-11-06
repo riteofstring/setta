@@ -1,13 +1,10 @@
 import { thunk } from "easy-peasy";
-import {
-  createOriginInfoId,
-  isFromSelfAndMatchesType,
-} from "hooks/usePresetUIType";
-import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
+import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isListLike } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
+import { cloneNewUIType, createOriginInfoId } from "utils/uiTypeUtils";
 import { getParamChildId, getParamUIType } from "./paramInfos";
 
 export const setSectionUITypeId = thunk((action, payload, helpers) => {

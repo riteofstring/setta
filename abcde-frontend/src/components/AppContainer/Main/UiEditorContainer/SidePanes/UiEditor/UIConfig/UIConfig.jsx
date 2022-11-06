@@ -19,10 +19,10 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { USER } from "utils/uiTypeConstants";
+import { cloneNewUIType } from "utils/uiTypeUtils";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
