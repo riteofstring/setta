@@ -4,7 +4,7 @@ import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
 import { saveProject } from "./save";
-import { setSectionConfigAttr } from "./sections";
+import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
   setParamUITypeConfig,
   setParamUITypeId,
@@ -27,4 +27,5 @@ export default {
   setParamUITypeConfig,
   setUITypeConfigAndMaybeClone,
   addToDeck,
+  createDefaultSectionInfo,
 };

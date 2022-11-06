@@ -1,9 +1,9 @@
 import { thunk } from "easy-peasy";
 
-export const addToDeck = thunk((actions, payload, helper) => {
+export const addToDeck = thunk((actions, payload, helpers) => {
   const { deckId, idsToAdd } = payload;
-  const a = helper.getStoreActions();
-  
+  const a = helpers.getStoreActions();
+
   a.sectionInfos.setIdsOverview({
     sectionId: deckId,
     newStateFn: (x) => [...x, ...idsToAdd],
