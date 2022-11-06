@@ -1,7 +1,6 @@
 import { Box } from "@chakra-ui/react";
 import { loadProject } from "dbRequests/projects";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useProjectLoader } from "hooks/useProjectLoader";
 import { useEffect, useState } from "react";
 import { NO_AUTH } from "utils/constants";
 import { loadOneProject } from "__tests__utils/loadTestData";
@@ -13,7 +12,6 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 export default function MainContainer() {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
   const projectId = useStoreState((x) => x.project.id);
-  const projectLoader = useProjectLoader();
   const noAuthLoader = useNoAuthLoading();
   const authLoader = useAuthLoading();
   const [doneLoading, setDoneLoading] = useState(false);
@@ -22,10 +20,10 @@ export default function MainContainer() {
     async function fn() {
       if (NO_AUTH && !projectId) {
         setDoneLoading(false);
-        setDoneLoading(await noAuthLoader(projectLoader));
+        setDoneLoading(await noAuthLoader());
       } else if (!NO_AUTH && isAuthenticated && projectId) {
         setDoneLoading(false);
-        setDoneLoading(await authLoader(projectLoader, projectId));
+        setDoneLoading(await authLoader(projectId));
       } else {
         setDoneLoading(true);
       }
@@ -55,25 +53,27 @@ async function fetchData(access_token, id) {
 }
 
 function useNoAuthLoading() {
-  return async (projectLoader) => {
+  const loadSections = useStoreActions((x) => x.master.loadSections);
+  return async () => {
     const testData = await loadOneProject({});
-    projectLoader(testData);
+    loadSections(testData);
     return true;
   };
 }
 
 function useAuthLoading() {
+  const loadSections = useStoreActions((x) => x.master.loadSections);
   const clearSections = useStoreActions((x) => x.master.clearSections);
   const access_token = useStoreState((x) => x.auth.access_token);
 
-  return async (projectLoader, projectId) => {
+  return async (projectId) => {
     // TODO remove this
     const projectInfo = await fetchData(access_token, projectId);
     const { projectDefaults, globalDefaults } = await loadOneProject({});
     clearSections();
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
     uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
-    projectLoader({
+    loadSections({
       projectDefaults,
       globalDefaults,
       uiTypes,
