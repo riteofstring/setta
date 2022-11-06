@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
@@ -6,7 +5,6 @@ import _ from "lodash";
 import { ReactFlowProvider } from "react-flow-renderer";
 import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
-import { createNewId } from "utils/utils";
 
 export function createStore() {
   resetEntireState();
@@ -34,26 +32,6 @@ export function addUIType(store, props = {}) {
   const uiType = new UIType(props);
   store.getActions().uiTypes.setUIType({ uiType });
   return uiType;
-}
-
-export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
-  const [uiTypeColId, paramInfoId] = [createNewId(), createNewId()];
-  const setUITypeId = store.getActions().paramInfos.setUITypeId;
-  waitFor(() => {
-    setUITypeId({
-      collectionId: uiTypeColId,
-      paramInfoId,
-      uiTypeId: uiType.id,
-    });
-  });
-  if (isNested) {
-    store.getActions().thunks.addChild({
-      parentId: sectionInfo.id,
-      uiTypeId: uiType.id,
-      parentParamInfoId: paramInfoId,
-    });
-  }
-  return { uiTypeColId, paramInfoId };
 }
 
 export function getStoreProviderWrapper(store) {
