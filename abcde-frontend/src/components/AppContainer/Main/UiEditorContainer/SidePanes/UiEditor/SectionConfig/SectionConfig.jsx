@@ -13,7 +13,6 @@ import { SearchIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useSetUIType } from "hooks/useUIType";
 import React, { useState } from "react";
 
 import {
@@ -33,6 +32,8 @@ function SectionConfig() {
     (x) => x.uiEditor.setCameFromUIConfig
   );
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const setUITypeId = useStoreActions((x) => x.thunks.setUITypeId);
+  const setUITypeConfig = useStoreActions((x) => x.thunks.setUITypeConfig);
 
   const {
     name: sectionName,
@@ -43,15 +44,6 @@ function SectionConfig() {
   const currUIType = useGetSectionType(sectionId);
   const currTypeId = currUIType.id;
 
-  const [setUITypeId, setUITypeConfig] = useSetUIType({
-    sectionId: parentId,
-    paramInfoId,
-    defaultName: sectionName,
-    childId: sectionId,
-    currUIType,
-    settingSectionConfig: true,
-  });
-
   const onGoBackClick = () => {
     setActiveSection(parentId);
     setCameFromUIConfig(false);
@@ -60,12 +52,24 @@ function SectionConfig() {
 
   const onSectionTypeChange = (e) => {
     if (e && e !== currTypeId) {
-      setUITypeId(e);
+      setUITypeId({
+        uiTypeId: e,
+        settingSectionConfig: true,
+        sectionId: parentId,
+        paramInfoId,
+      });
     }
   };
 
   const onConfigChange = ({ newValueFn }) => {
-    setUITypeConfig({ configName: "collections", newValueFn });
+    setUITypeConfig({
+      settingSectionConfig: true,
+      sectionId: parentId,
+      paramInfoId,
+      defaultName: sectionName,
+      currUIType,
+      configProps: { configName: "collections", newValueFn },
+    });
   };
 
   return (

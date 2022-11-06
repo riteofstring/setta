@@ -1,46 +1,8 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { createNewId } from "utils/utils";
 
 import { rootTypeToChildType, SECTION } from "../utils/constants";
-import { useParamUITypeId } from "./useParamInfo";
 import { createOriginInfoId } from "./usePresetUIType";
-import { useSetSectionConfigAttr } from "./useSectionConfig";
-import { useGetSectionType } from "./useSectionType";
-import { getFnSetUIType } from "./useUITypeCoreFunctions";
-
-export function useSetUIType({
-  sectionId,
-  paramInfoId,
-  defaultName,
-  childId,
-  currUIType,
-  settingPreset = false,
-  settingSectionConfig,
-}) {
-  const { config: sectionTypeConfig } = useGetSectionType(sectionId);
-  const setParamUITypeId = useParamUITypeId(sectionId)(paramInfoId)[1];
-  const setSectionUITypeId = useSetSectionConfigAttr(childId, "uiTypeId");
-  const setConfig = useStoreActions((x) => x.uiTypes.setOneConfig);
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const possibleMatchWrapperFn = (fn) =>
-    useStoreState((x) => fn(x.uiTypes.x), _.isEqual);
-
-  return getFnSetUIType({
-    paramInfoId,
-    defaultName,
-    childId,
-    currUIType,
-    settingPreset,
-    settingSectionConfig,
-    sectionTypeConfig,
-    setParamUITypeId,
-    setSectionUITypeId,
-    setConfig,
-    setUIType,
-    possibleMatchWrapperFn,
-  });
-}
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);

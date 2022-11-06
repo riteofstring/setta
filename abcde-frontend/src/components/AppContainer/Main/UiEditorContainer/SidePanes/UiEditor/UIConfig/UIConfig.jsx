@@ -19,7 +19,6 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { useSetUIType } from "hooks/useUIType";
 import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
@@ -69,22 +68,27 @@ function UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const [setUITypeId, setConfig] = useSetUIType({
-    sectionId,
-    paramInfoId,
-    defaultName: paramInfo.name,
-    childId: paramChildId,
-    currUIType: uiType,
-    settingSectionConfig: false,
-  });
+  const setUITypeId = useStoreActions((x) => x.thunks.setUITypeId);
+  const setUITypeConfig = useStoreActions((x) => x.thunks.setUITypeConfig);
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    setUITypeId(e);
+    setUITypeId({
+      uiTypeId: e,
+      sectionId,
+      paramInfoId,
+      settingSectionConfig: false,
+    });
   };
 
   const onChange = (configName, newValueFn) => {
-    setConfig({ configName, newValueFn });
+    setUITypeConfig({
+      sectionId,
+      paramInfoId,
+      defaultName: paramInfo.name,
+      settingSectionConfig: false,
+      configProps: { configName, newValueFn },
+    });
   };
 
   function onSaveAsSubmit(presetName) {
@@ -94,7 +98,12 @@ function UIElement({ sectionId, paramInfo }) {
       presetType: USER,
     });
     setUIType({ uiType: newUIType });
-    setUITypeId(newUIType.id);
+    setUITypeId({
+      uiTypeId: newUIType.id,
+      sectionId,
+      paramInfoId,
+      settingSectionConfig: false,
+    });
     // delete old uitype if its a non-preset
     if (!uiType.presetType) {
       deleteUIType({ uiTypeId: uiType.id });

@@ -1,6 +1,4 @@
 import { action, computed, thunk } from "easy-peasy";
-import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
-import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
 import { resetState } from "models/utils";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
@@ -150,42 +148,16 @@ function deleteSectionFn(helpers, sectionId) {
 }
 
 function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
-  const newParentConfigId = state.sectionInfos.x[newParentId]?.configId;
-  const newParentUITypeId = state.sectionConfigs.x[newParentConfigId]?.uiTypeId;
-  const newParentUIType = state.uiTypes.x[newParentUITypeId];
-  const {
-    name: childSectionName,
-    paramInfoId,
-    configId: childConfigId,
-  } = state.sectionInfos.x[childId];
-  const childUITypeId = state.sectionConfigs.x[childConfigId].uiTypeId;
-  const childUIType = state.uiTypes.x[childUITypeId];
-  const setConfig = actions.uiTypes.setOneConfig;
-  const setUIType = actions.uiTypes.setUIType;
-  const setParamUITypeId = () => null; //TODO: determine best course of action here
-  const setSectionUITypeId = getFnSetSectionConfigAttr(
-    childConfigId,
-    "uiTypeId",
-    actions.sectionConfigs.setSectionConfigAttr
-  );
-  const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
+  const { name: childSectionName, paramInfoId } = state.sectionInfos.x[childId];
 
-  const configChangeFn = getFnSetUIType({
+  const commonProps = {
+    settingSectionConfig: true,
+    sectionId: newParentId,
     paramInfoId,
     defaultName: childSectionName,
-    childId,
-    currUIType: childUIType,
-    settingPreset: false,
-    settingSectionConfig: true,
-    sectionTypeConfig: newParentUIType?.config,
-    setParamUITypeId,
-    setSectionUITypeId,
-    setConfig,
-    setUIType,
-    possibleMatchWrapperFn,
-  })[1];
+  };
 
-  const configProps = {
+  let configProps = {
     configName: "subType",
   };
 
@@ -193,8 +165,10 @@ function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
   const childIsListLike = isListLike(childUIType.config.subType);
 
   if (parentIsRoot && !childIsListLike) {
-    configChangeFn({ ...configProps, newValueFn: () => LIST });
+    configProps = { ...configProps, newValueFn: () => LIST };
   } else if (!parentIsRoot && childIsListLike) {
-    configChangeFn({ ...configProps, newValueFn: () => null });
+    configProps = { ...configProps, newValueFn: () => null };
   }
+
+  actions.thunks.setUITypeConfig({ ...commonProps, configProps });
 }
