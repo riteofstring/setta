@@ -4,9 +4,14 @@ import { useStoreActions } from "easy-peasy";
 
 export default function KwargsControls({ sectionId, objInfoId }) {
   const addKwarg = useStoreActions((x) => x.thunks.addKwarg);
-  function onClick() {
+  const deleteKwarg = useStoreActions((x) => x.thunks.deleteKwarg);
+  function onClickAddKwarg() {
     addKwarg({ sectionId, objInfoId });
   }
+  function onClickDeleteKwarg() {
+    deleteKwarg({ sectionId, objInfoId, deleteLast: true });
+  }
+
   return (
     <Stack>
       <HStack pt="1rem" pl=".75rem">
@@ -19,8 +24,16 @@ export default function KwargsControls({ sectionId, objInfoId }) {
         >
           kwargs
         </Heading>
-        <KwargsButton icon={<MinusIcon w={2} />} type="minus" />
-        <KwargsButton icon={<AddIcon w={2} />} onClick={onClick} type="add" />
+        <KwargsButton
+          icon={<MinusIcon w={2} />}
+          type="minus"
+          onClick={onClickDeleteKwarg}
+        />
+        <KwargsButton
+          icon={<AddIcon w={2} />}
+          onClick={onClickAddKwarg}
+          type="add"
+        />
       </HStack>
     </Stack>
   );
