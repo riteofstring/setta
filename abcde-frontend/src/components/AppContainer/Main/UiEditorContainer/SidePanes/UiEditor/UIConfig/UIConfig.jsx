@@ -118,6 +118,7 @@ function UIElement({ sectionId, paramInfo }) {
           transitionDuration: "opacity 0.5s",
         },
       }}
+      data-testid={`UIElement ${paramName}`}
     >
       <Box flex="1" textAlign="left">
         <Heading
