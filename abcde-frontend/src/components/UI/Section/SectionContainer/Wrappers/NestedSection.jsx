@@ -31,10 +31,11 @@ export function NestedSection({
   // to move when sorting
   const className = inDraggingMode ? "nodrag" : "";
   const dragDropProps = { ref: totalRef, ...trueDragListeners, className };
-  const { insertionLineStyle, contextStyle } = useHighlightDroppable({
-    sectionId,
-    sectionIsSameAsContext: isDeck,
-  });
+  const { insertionLineStyle, contextStyle, highlightContext } =
+    useHighlightDroppable({
+      sectionId,
+      sectionIsSameAsContext: isDeck,
+    });
 
   return (
     <DeckOrSection
@@ -43,6 +44,7 @@ export function NestedSection({
       parentId={parentId}
       nextId={nextId}
       hasNested={hasNested}
+      highlightContext={highlightContext}
       sectionStyle={sortableStyle}
       insertionLineStyle={insertionLineStyle}
       contextStyle={contextStyle}

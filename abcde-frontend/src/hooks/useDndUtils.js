@@ -69,11 +69,17 @@ export function useHighlightDroppable({
   });
 
   if (sectionIsSameAsContext) {
-    return { contextStyle: highlightBoxStyle(highlight || highlightContext) };
+    const condition = highlight || highlightContext;
+    return {
+      insertionLineStyle: highlightLineStyle(condition),
+      contextStyle: highlightBoxStyle(condition),
+      highlightContext: condition,
+    };
   }
   return {
     insertionLineStyle: highlightLineStyle(highlight),
     contextStyle: highlightBoxStyle(highlightContext),
+    highlightContext,
   };
 }
 

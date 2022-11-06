@@ -8,6 +8,7 @@ export function SectionWithChildren({
   parentId,
   nextId,
   dragDropProps,
+  highlightContext,
   contextStyle,
   sectionStyle,
   insertionLineStyle,
@@ -16,14 +17,21 @@ export function SectionWithChildren({
   const id = `${sectionId}-itself`;
 
   const { setNodeRef: droppableRef } = useDroppable({ id });
-  const { insertionLineStyle: lineStyleForItself } = useHighlightDroppable({
+  const {
+    insertionLineStyle: lineStyleForItself,
+    contextStyle: contextStyleForItself,
+  } = useHighlightDroppable({
     sectionId: id,
-    sectionIsSameAsContext: false,
+    sectionIsSameAsContext: true,
   });
+
+  const trueContextStyle = highlightContext
+    ? contextStyle
+    : contextStyleForItself;
 
   return (
     <Grid gap={2}>
-      <Stack {...contextStyle} {...sectionStyle} {...dragDropProps}>
+      <Stack {...trueContextStyle} {...sectionStyle} {...dragDropProps}>
         <Box ref={droppableRef}>
           <SectionContainerCore
             sectionId={sectionId}

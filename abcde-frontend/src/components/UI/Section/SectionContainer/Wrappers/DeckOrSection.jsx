@@ -8,6 +8,7 @@ export function DeckOrSection({
   parentId,
   nextId,
   hasNested,
+  highlightContext,
   contextStyle,
   sectionStyle,
   insertionLineStyle,
@@ -32,6 +33,7 @@ export function DeckOrSection({
         parentId={parentId}
         nextId={nextId}
         dragDropProps={dragDropProps}
+        highlightContext={highlightContext}
         contextStyle={contextStyle}
         sectionStyle={sectionStyle}
         insertionLineStyle={insertionLineStyle}
