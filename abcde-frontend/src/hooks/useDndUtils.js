@@ -27,7 +27,7 @@ function highlightLineStyle(highlight) {
   return {
     width: "100%",
     height: "0",
-    margin: "0px",
+    margin: "5px",
     display: "inline-block",
     border: `1px solid ${color}`,
   };
@@ -69,10 +69,10 @@ export function useHighlightDroppable({
   });
 
   if (sectionIsSameAsContext) {
-    return { sectionStyle: highlightBoxStyle(highlight || highlightContext) };
+    return { contextStyle: highlightBoxStyle(highlight || highlightContext) };
   }
   return {
-    sectionStyle: highlightLineStyle(highlight),
+    insertionLineStyle: highlightLineStyle(highlight),
     contextStyle: highlightBoxStyle(highlightContext),
   };
 }
