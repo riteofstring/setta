@@ -172,13 +172,14 @@ function DeckOrNot({
   return (
     <Grid gap={2}>
       <Stack {...contextStyle}>
-        <Box {...sectionStyle} {...dragDropProps}>
+        <Box {...dragDropProps}>
           <SectionContainerCore
             sectionId={sectionId}
             parentId={parentId}
             nextId={nextId}
             hasNested={hasNested}
           />
+          <div style={sectionStyle} />
         </Box>
         {children}
       </Stack>

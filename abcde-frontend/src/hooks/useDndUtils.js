@@ -2,7 +2,7 @@ import { useDndMonitor } from "@dnd-kit/core";
 import { useState } from "react";
 import { useDragActivation } from "./useDragActivation";
 
-function highlightStyle(highlight) {
+function highlightBoxStyle(highlight) {
   return {
     backgroundColor: highlight ? "hsla(95, 100%, 0%, 0.1)" : "",
     borderRadius: "3xl",
@@ -19,6 +19,17 @@ function highlightStyle(highlight) {
     px: "0.75rem",
     mx: "-0.75rem",
     my: "-0.75rem",
+  };
+}
+
+function highlightLineStyle(highlight) {
+  const color = highlight ? "hsla(95, 100%, 50%, 1)" : "rgba(0, 0, 0, 0)";
+  return {
+    width: "100%",
+    height: "0",
+    margin: "0px",
+    display: "inline-block",
+    border: `1px solid ${color}`,
   };
 }
 
@@ -58,11 +69,11 @@ export function useHighlightDroppable({
   });
 
   if (sectionIsSameAsContext) {
-    return { sectionStyle: highlightStyle(highlight || highlightContext) };
+    return { sectionStyle: highlightBoxStyle(highlight || highlightContext) };
   }
   return {
-    sectionStyle: highlightStyle(highlight),
-    contextStyle: highlightStyle(highlightContext),
+    sectionStyle: highlightLineStyle(highlight),
+    contextStyle: highlightBoxStyle(highlightContext),
   };
 }
 
