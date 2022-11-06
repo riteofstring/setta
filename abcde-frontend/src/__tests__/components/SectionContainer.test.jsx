@@ -20,7 +20,7 @@ test("A nested section should appear when a parameter uitype becomes section", a
   const sectionName = "The2ndOtherParameters";
   const sectionId = sectionIdFromName(store, sectionName);
   const props = { sectionId, parentId: null, depth: 0 };
-  const { rerender } = render(<MainContainer {...props} />, { wrapper });
+  render(<MainContainer {...props} />, { wrapper });
 
   const {
     paramInfo: { id: paramInfoId },
@@ -39,6 +39,7 @@ test("A nested section should appear when a parameter uitype becomes section", a
   const parameterPaneButton = screen.getByTestId("UiEditor Parameters Button");
   await userEvent.click(parameterPaneButton);
 
+  // set the parameter to be an object
   const uiElement = screen.getByTestId("UIElement dataset_root");
   const inputFields = within(uiElement).getAllByRole("textbox", {
     hidden: true,
@@ -52,8 +53,6 @@ test("A nested section should appear when a parameter uitype becomes section", a
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
   expect(result.current.type).toEqual(SECTION);
   expect(result.current.presetType).toEqual("base");
-
-  rerender(<MainContainer {...props} />, { wrapper });
 
   ({ result } = renderUseGetParamChildId(sectionId, paramInfoId, wrapper));
   expect(result.current).toBeTruthy();

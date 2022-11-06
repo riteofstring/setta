@@ -129,6 +129,7 @@ function SectionConfigCore({
         mb="2.5rem"
         display="flex"
         flexDirection="column"
+        data-testid={`SectionConfig ${sectionId}`}
       >
         <Search onSubmit={onSubmit} />
         <SectionConfigComp
