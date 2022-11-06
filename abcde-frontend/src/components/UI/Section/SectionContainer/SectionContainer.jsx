@@ -1,6 +1,7 @@
 import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useIdsOverview } from "hooks/useIdsOverview";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -27,19 +28,11 @@ function SectionContainer({
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
+      nextId={nextId}
       hasNested={hasNested}
       dragListeners={dragListeners}
       depth={depth}
     >
-      {!isDeck && (
-        <SectionContainerCore
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          hasNested={hasNested}
-        />
-      )}
-
       {hasNested && (
         <Box flexDirection="column" display="flex">
           <ManyNestedSections
@@ -57,65 +50,14 @@ export default React.memo(SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });
 
-function Container(props) {
-  const { isDeck, sectionId, parentId, dragListeners, hasNested, depth } =
-    props;
-  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
-  const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
-    useDraggable({
-      id: sectionId,
-      data: { depth },
-    });
-  const refForPosition = useSetSectionPosition(sectionId);
-  const { isSorting, isMovingFree } = useDragActivation();
-  const isDraggingSortable = parentId && (isSorting || isMovingFree);
-  const isDraggingTopLevel = depth === 0 && isMovingFree;
-  let trueDragListeners = {};
-  if (isDraggingSortable) {
-    trueDragListeners = dragListeners;
-  } else if (isDraggingTopLevel) {
-    trueDragListeners = topLevelDragListeners;
-  }
-
-  // Don't want the react-flow node (which contains this child)
-  // to move when sorting
-  const className = isDraggingSortable ? "nodrag" : "";
-
-  function totalRef(e) {
-    refForPosition.current = e;
-    if (isDeck && !hasNested && !isSorting) {
-      droppableRef(e);
-    }
-    if (depth === 0) {
-      draggableRef(e);
-    }
-  }
-
-  const commonProps = { ref: totalRef, ...trueDragListeners, className };
-
-  return (
-    <>
-      {isDeck ? (
-        <Stack
-          bg="hsla(212, 22%, 50%, 0.2)"
-          pt=".75rem"
-          px="2rem"
-          pb="1.5rem"
-          borderRadius="3xl"
-          {...commonProps}
-          className="STACK"
-        >
-          <DeckSectionTitle sectionId={sectionId} />
-          {props.children}
-        </Stack>
-      ) : (
-        <Stack {...commonProps}>{props.children}</Stack>
-      )}
-    </>
-  );
-}
-
-function TopLevelDeck({ sectionId, children }) {
+function TopLevelSectionWrapper({
+  isDeck,
+  sectionId,
+  parentId,
+  nextId,
+  hasNested,
+  children,
+}) {
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
     useDraggable({
@@ -131,26 +73,52 @@ function TopLevelDeck({ sectionId, children }) {
     droppableRef(e);
     draggableRef(e);
   }
+  const dragDropProps = { ref: totalRef, ...trueDragListeners };
+  const style = useHighlightDroppable(sectionId);
 
-  const stackProps = { ref: totalRef, ...trueDragListeners };
+  if (isDeck) {
+    return (
+      <Box {...style}>
+        <Stack
+          bg="hsla(212, 22%, 50%, 0.2)"
+          pt=".75rem"
+          px="2rem"
+          pb="1.5rem"
+          borderRadius="3xl"
+          {...dragDropProps}
+          className="STACK"
+        >
+          <DeckSectionTitle sectionId={sectionId} />
+          {children}
+        </Stack>
+      </Box>
+    );
+  }
 
   return (
-    <Stack
-      bg="hsla(212, 22%, 50%, 0.2)"
-      pt=".75rem"
-      px="2rem"
-      pb="1.5rem"
-      borderRadius="3xl"
-      {...stackProps}
-      className="STACK"
-    >
-      <DeckSectionTitle sectionId={sectionId} />
+    <Stack>
+      <Box {...style} {...dragDropProps}>
+        <SectionContainerCore
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          hasNested={hasNested}
+        />
+      </Box>
       {children}
     </Stack>
   );
 }
 
-function NestedDeck({ sectionId, dragListeners, children }) {
+function NestedSectionWrapper({
+  isDeck,
+  sectionId,
+  parentId,
+  nextId,
+  hasNested,
+  dragListeners,
+  children,
+}) {
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const refForPosition = useSetSectionPosition(sectionId);
   const { isSorting, isMovingFree } = useDragActivation();
@@ -165,18 +133,36 @@ function NestedDeck({ sectionId, dragListeners, children }) {
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
   const className = inDraggingMode ? "nodrag" : "";
-  const stackProps = { ref: totalRef, ...trueDragListeners, className };
+  const dragDropProps = { ref: totalRef, ...trueDragListeners, className };
+  const style = useHighlightDroppable(sectionId);
 
+  if (isDeck) {
+    return (
+      <Box {...style}>
+        <Stack
+          bg="hsla(212, 22%, 50%, 0.2)"
+          pt=".75rem"
+          px="2rem"
+          pb="1.5rem"
+          borderRadius="3xl"
+          {...dragDropProps}
+        >
+          <DeckSectionTitle sectionId={sectionId} />
+          {children}
+        </Stack>
+      </Box>
+    );
+  }
   return (
-    <Stack
-      bg="hsla(212, 22%, 50%, 0.2)"
-      pt=".75rem"
-      px="2rem"
-      pb="1.5rem"
-      borderRadius="3xl"
-      {...stackProps}
-    >
-      <DeckSectionTitle sectionId={sectionId} />
+    <Stack>
+      <Box {...style} {...dragDropProps}>
+        <SectionContainerCore
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          hasNested={hasNested}
+        />
+      </Box>
       {children}
     </Stack>
   );
@@ -186,32 +172,36 @@ function Wrapper({
   isDeck,
   sectionId,
   parentId,
+  nextId,
   dragListeners,
   hasNested,
   depth,
   children,
 }) {
-  if (isDeck) {
-    if (depth === 0) {
-      return <TopLevelDeck sectionId={sectionId}>{children}</TopLevelDeck>;
-    }
+  if (depth === 0) {
     return (
-      <NestedDeck sectionId={sectionId} dragListeners={dragListeners}>
+      <TopLevelSectionWrapper
+        isDeck={isDeck}
+        sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
+        hasNested={hasNested}
+      >
         {children}
-      </NestedDeck>
+      </TopLevelSectionWrapper>
     );
   }
   return (
-    <Container
+    <NestedSectionWrapper
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
-      dragListeners={dragListeners}
+      nextId={nextId}
       hasNested={hasNested}
-      depth={depth}
+      dragListeners={dragListeners}
     >
       {children}
-    </Container>
+    </NestedSectionWrapper>
   );
 }
 
