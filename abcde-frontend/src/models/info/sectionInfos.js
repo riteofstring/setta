@@ -3,6 +3,7 @@ import _ from "lodash";
 import { resetState } from "models/utils";
 import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
+import { REF_ID } from "utils/uiTypeConstants";
 
 function setDefaultIdsOverview(state, sectionId) {
   if (!(sectionId in state.idsOverview)) {
@@ -69,52 +70,22 @@ const sectionInfos = {
 
   moveSectionThunk: thunk((actions, payload, helpers) => {
     const { oldParentId, newParentId, sectionId, newIndex, position } = payload;
-
-    // Remove child from old parent's list
-    if (oldParentId) {
-      actions.setIdsOverview({
-        sectionId: oldParentId,
-        newStateFn: (x) => x.filter((y) => y !== sectionId),
-      });
-    } else {
-      // This means it was a top level section
-      actions.setSectionInfoAttr({
-        sectionId,
-        attr: "isTopLevel",
-        value: false,
-      });
-    }
-    if (newParentId === PANEID) {
-      // This means it's becoming a top level section
-      actions.setSectionInfoAttr({
-        sectionId,
-        attr: "isTopLevel",
-        value: true,
-      });
-    } else {
-      // Add child to new parent's list
-      actions.setIdsOverview({
-        sectionId: newParentId,
-        newStateFn: (x) => [
-          ...x.slice(0, newIndex),
-          sectionId,
-          ...x.slice(newIndex, x.length),
-        ],
-      });
-    }
-
-    // Set sectionInfo's parentId
-    actions.setSectionInfoAttr({
-      sectionId,
-      attr: "parentId",
-      value: newParentId === PANEID ? undefined : newParentId,
-    });
+    const s = helpers.getStoreState();
+    const a = helpers.getStoreActions();
 
     maybeChangeSectionSubtype({
       newParentId,
       sectionId,
-      state: helpers.getStoreState(),
-      actions: helpers.getStoreActions(),
+      state: s,
+      actions: a,
+    });
+
+    setSectionAttrBasedOnNewParent({
+      oldParentId,
+      newParentId,
+      sectionId,
+      newIndex,
+      actions,
     });
 
     if (newParentId === PANEID && position) {
@@ -124,6 +95,8 @@ const sectionInfos = {
         value: position,
       });
     }
+
+    maybeChangeOldParamUIType({ oldParentId, sectionId, s, a });
   }),
 
   reset: action((state) => {
@@ -149,6 +122,54 @@ function deleteSectionFn(helpers, sectionId) {
   delete localState.currChildren[sectionId];
 }
 
+function setSectionAttrBasedOnNewParent({
+  oldParentId,
+  newParentId,
+  sectionId,
+  newIndex,
+  actions,
+}) {
+  // Remove child from old parent's list
+  if (oldParentId) {
+    actions.setIdsOverview({
+      sectionId: oldParentId,
+      newStateFn: (x) => x.filter((y) => y !== sectionId),
+    });
+  } else {
+    // This means it was a top level section
+    actions.setSectionInfoAttr({
+      sectionId,
+      attr: "isTopLevel",
+      value: false,
+    });
+  }
+  if (newParentId === PANEID) {
+    // This means it's becoming a top level section
+    actions.setSectionInfoAttr({
+      sectionId,
+      attr: "isTopLevel",
+      value: true,
+    });
+  } else {
+    // Add child to new parent's list
+    actions.setIdsOverview({
+      sectionId: newParentId,
+      newStateFn: (x) => [
+        ...x.slice(0, newIndex),
+        sectionId,
+        ...x.slice(newIndex, x.length),
+      ],
+    });
+  }
+
+  // Set sectionInfo's parentId
+  actions.setSectionInfoAttr({
+    sectionId,
+    attr: "parentId",
+    value: newParentId === PANEID ? undefined : newParentId,
+  });
+}
+
 function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(state, newParentId);
@@ -168,4 +189,28 @@ function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
   }
 
   actions.thunks.setSectionUITypeConfig({ sectionId, configProps });
+}
+
+function maybeChangeOldParamUIType({ oldParentId, sectionId, s, a }) {
+  const { paramInfoId } = s.sectionInfos.x[sectionId];
+  if (!paramInfoId) {
+    return;
+  }
+  a.thunks.setParamChildId({
+    sectionId: oldParentId,
+    paramInfoId,
+    childId: null,
+  });
+
+  a.thunks.setParamUITypeId({
+    uiTypeId: REF_ID,
+    sectionId: oldParentId,
+    paramInfoId,
+  });
+
+  a.thunks.setParamEnteredValue({
+    sectionId: oldParentId,
+    paramInfoId,
+    value: sectionId,
+  });
 }

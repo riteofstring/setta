@@ -4,6 +4,7 @@ import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
 import { addKwarg, deleteKwarg } from "./kwargs";
+import { setParamChildId, setParamEnteredValue } from "./paramInfos";
 import { saveProject } from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
@@ -31,4 +32,6 @@ export default {
   createDefaultSectionInfo,
   addKwarg,
   deleteKwarg,
+  setParamChildId,
+  setParamEnteredValue,
 };
