@@ -1,4 +1,5 @@
 import { Deck } from "./Deck";
+import { SectionWithChildren } from "./SectionWithChildren";
 import { SectionWithoutChildren } from "./SectionWithoutChildren";
 
 export function DeckOrSection({
@@ -24,12 +25,26 @@ export function DeckOrSection({
       </Deck>
     );
   }
+  if (hasNested) {
+    return (
+      <SectionWithChildren
+        sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
+        dragDropProps={dragDropProps}
+        contextStyle={contextStyle}
+        sectionStyle={sectionStyle}
+        insertionLineStyle={insertionLineStyle}
+      >
+        {children}
+      </SectionWithChildren>
+    );
+  }
   return (
     <SectionWithoutChildren
       sectionId={sectionId}
       parentId={parentId}
       nextId={nextId}
-      hasNested={hasNested}
       dragDropProps={dragDropProps}
       contextStyle={contextStyle}
       sectionStyle={sectionStyle}

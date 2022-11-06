@@ -37,27 +37,3 @@ function SectionContainer({ sectionId, parentId, nextId, depth }) {
 export default React.memo(SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });
-
-// // A section that has nested needs to be a droppable itself
-// // Decks are excluded
-// function HasNested({ children, ...props }) {
-//   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
-
-//   return (
-//     <Grid gap={2}>
-//       <Stack {...contextStyle} {...sectionStyle} {...dragDropProps}>
-//         <Box ref={droppableRef}>
-//           <SectionContainerCore
-//             sectionId={sectionId}
-//             parentId={parentId}
-//             nextId={nextId}
-//             hasNested={hasNested}
-//           />
-//         </Box>
-//         <div style={insertionLineStyle} />
-//         {children}
-//       </Stack>
-//       <div style={insertionLineStyle} />
-//     </Grid>
-//   );
-// }

@@ -5,7 +5,6 @@ export function SectionWithoutChildren({
   sectionId,
   parentId,
   nextId,
-  hasNested,
   dragDropProps,
   contextStyle,
   sectionStyle,
@@ -19,7 +18,7 @@ export function SectionWithoutChildren({
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          hasNested={hasNested}
+          hasNested={false}
         />
         {children}
       </Stack>
