@@ -1,9 +1,4 @@
-import {
-  closestCorners,
-  DndContext,
-  DragOverlay,
-  rectIntersection,
-} from "@dnd-kit/core";
+import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useStoreActions } from "easy-peasy";
 import { useDragActivation } from "hooks/useDragActivation";
@@ -12,20 +7,14 @@ import { createPortal } from "react-dom";
 import { useReactFlow } from "react-flow-renderer";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
+import { customCollisionDetection } from "./collisionDetection";
 import { DummySection } from "./DummySection";
 
 import { useDNDSensors } from "./useDNDSensors";
 
-function getNewIndex(active, over) {
-  const isBelowOverItem =
-    over &&
-    active.rect.current.translated &&
-    active.rect.current.translated.top > over.rect.top + over.rect.height / 2;
-
-  const modifier = isBelowOverItem ? 1 : 0;
+function getNewIndex(over) {
   const overItems = over.data.current.sortable.items;
-  const overIndex = overItems.indexOf(over.id);
-  return overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
+  return overItems.indexOf(over.id) + 1;
 }
 
 export function GlobalDndContext(props) {
@@ -73,11 +62,10 @@ export function GlobalDndContext(props) {
       let newIndex;
       let position = null;
       if (overIsSortable) {
-        newIndex = getNewIndex(active, over);
+        newIndex = getNewIndex(over);
       } else {
-        // else its a droppable (e.g. an empty deck)
         newIndex = 0;
-        if (dummyRef?.current) {
+        if (overContainer === PANEID && dummyRef?.current) {
           const { x, y } = dummyRef.current.getBoundingClientRect();
           position = project({ x, y: y - NAVBAR_HEIGHT });
         }
@@ -93,7 +81,9 @@ export function GlobalDndContext(props) {
   }
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
-  const collisionDetection = isMovingFree ? rectIntersection : closestCorners;
+  const collisionDetection = isMovingFree
+    ? customCollisionDetection
+    : closestCorners;
 
   return (
     <DndContext
