@@ -44,14 +44,8 @@ export default React.memo(SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });
 
-function TopLevelSectionWrapper({
-  isDeck,
-  sectionId,
-  parentId,
-  nextId,
-  hasNested,
-  children,
-}) {
+function TopLevelSectionWrapper({ children, ...props }) {
+  const { sectionId, isDeck } = props;
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
     useDraggable({
@@ -75,11 +69,7 @@ function TopLevelSectionWrapper({
 
   return (
     <DeckOrNot
-      isDeck={isDeck}
-      sectionId={sectionId}
-      parentId={parentId}
-      nextId={nextId}
-      hasNested={hasNested}
+      {...props}
       insertionLineStyle={insertionLineStyle}
       contextStyle={contextStyle}
       dragDropProps={dragDropProps}
@@ -89,14 +79,8 @@ function TopLevelSectionWrapper({
   );
 }
 
-function NestedSectionWrapper({
-  isDeck,
-  sectionId,
-  parentId,
-  nextId,
-  hasNested,
-  children,
-}) {
+function NestedSectionWrapper({ children, ...props }) {
+  const { sectionId, isDeck } = props;
   const {
     dragListeners,
     ref: sortableRef,
@@ -123,11 +107,7 @@ function NestedSectionWrapper({
 
   return (
     <DeckOrNot
-      isDeck={isDeck}
-      sectionId={sectionId}
-      parentId={parentId}
-      nextId={nextId}
-      hasNested={hasNested}
+      {...props}
       sectionStyle={sortableStyle}
       insertionLineStyle={insertionLineStyle}
       contextStyle={contextStyle}
@@ -183,39 +163,13 @@ function DeckOrNot({
   );
 }
 
-function Wrapper({
-  isDeck,
-  sectionId,
-  parentId,
-  nextId,
-  hasNested,
-  depth,
-  children,
-}) {
+function Wrapper({ depth, children, ...props }) {
   if (depth === 0) {
     return (
-      <TopLevelSectionWrapper
-        isDeck={isDeck}
-        sectionId={sectionId}
-        parentId={parentId}
-        nextId={nextId}
-        hasNested={hasNested}
-      >
-        {children}
-      </TopLevelSectionWrapper>
+      <TopLevelSectionWrapper {...props}>{children}</TopLevelSectionWrapper>
     );
   }
-  return (
-    <NestedSectionWrapper
-      isDeck={isDeck}
-      sectionId={sectionId}
-      parentId={parentId}
-      nextId={nextId}
-      hasNested={hasNested}
-    >
-      {children}
-    </NestedSectionWrapper>
-  );
+  return <NestedSectionWrapper {...props}>{children}</NestedSectionWrapper>;
 }
 
 function DeckSectionTitle({ sectionId }) {
