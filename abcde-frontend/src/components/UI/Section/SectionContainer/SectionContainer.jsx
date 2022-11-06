@@ -23,7 +23,7 @@ function SectionContainer({
   const hasNested = idsOverview.length > 0;
 
   return (
-    <Container
+    <Wrapper
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
@@ -50,7 +50,7 @@ function SectionContainer({
           />
         </Box>
       )}
-    </Container>
+    </Wrapper>
   );
 }
 export default React.memo(SectionContainer, (p, n) => {
@@ -112,6 +112,106 @@ function Container(props) {
         <Stack {...commonProps}>{props.children}</Stack>
       )}
     </>
+  );
+}
+
+function TopLevelDeck({ sectionId, children }) {
+  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
+  const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
+    useDraggable({
+      id: sectionId,
+      data: { depth: 0 },
+    });
+  const refForPosition = useSetSectionPosition(sectionId);
+  const { isMovingFree } = useDragActivation();
+  const trueDragListeners = isMovingFree ? topLevelDragListeners : {};
+
+  function totalRef(e) {
+    refForPosition.current = e;
+    droppableRef(e);
+    draggableRef(e);
+  }
+
+  const stackProps = { ref: totalRef, ...trueDragListeners };
+
+  return (
+    <Stack
+      bg="hsla(212, 22%, 50%, 0.2)"
+      pt=".75rem"
+      px="2rem"
+      pb="1.5rem"
+      borderRadius="3xl"
+      {...stackProps}
+      className="STACK"
+    >
+      <DeckSectionTitle sectionId={sectionId} />
+      {children}
+    </Stack>
+  );
+}
+
+function NestedDeck({ sectionId, dragListeners, children }) {
+  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
+  const refForPosition = useSetSectionPosition(sectionId);
+  const { isSorting, isMovingFree } = useDragActivation();
+  const inDraggingMode = isSorting || isMovingFree;
+  const trueDragListeners = inDraggingMode ? dragListeners : {};
+
+  function totalRef(e) {
+    refForPosition.current = e;
+    droppableRef(e);
+  }
+
+  // Don't want the react-flow node (which contains this child)
+  // to move when sorting
+  const className = inDraggingMode ? "nodrag" : "";
+  const stackProps = { ref: totalRef, ...trueDragListeners, className };
+
+  return (
+    <Stack
+      bg="hsla(212, 22%, 50%, 0.2)"
+      pt=".75rem"
+      px="2rem"
+      pb="1.5rem"
+      borderRadius="3xl"
+      {...stackProps}
+    >
+      <DeckSectionTitle sectionId={sectionId} />
+      {children}
+    </Stack>
+  );
+}
+
+function Wrapper({
+  isDeck,
+  sectionId,
+  parentId,
+  dragListeners,
+  hasNested,
+  depth,
+  children,
+}) {
+  if (isDeck) {
+    if (depth === 0) {
+      return <TopLevelDeck sectionId={sectionId}>{children}</TopLevelDeck>;
+    }
+    return (
+      <NestedDeck sectionId={sectionId} dragListeners={dragListeners}>
+        {children}
+      </NestedDeck>
+    );
+  }
+  return (
+    <Container
+      isDeck={isDeck}
+      sectionId={sectionId}
+      parentId={parentId}
+      dragListeners={dragListeners}
+      hasNested={hasNested}
+      depth={depth}
+    >
+      {children}
+    </Container>
   );
 }
 
