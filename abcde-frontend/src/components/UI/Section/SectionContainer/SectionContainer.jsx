@@ -1,5 +1,5 @@
 import "@chakra-ui/react";
-import { Box, Stack } from "@chakra-ui/react";
+import { Box, Grid, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useDndSortableProps } from "hooks/useDndSortableProps";
 import { useHighlightDroppable } from "hooks/useDndUtils";
@@ -160,17 +160,19 @@ function IsDeckSwitch({
     );
   }
   return (
-    <Stack>
-      <Box {...style} {...dragDropProps}>
-        <SectionContainerCore
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          hasNested={hasNested}
-        />
-      </Box>
-      {children}
-    </Stack>
+    <Grid gap={2}>
+      <Stack>
+        <Box {...style} {...dragDropProps}>
+          <SectionContainerCore
+            sectionId={sectionId}
+            parentId={parentId}
+            nextId={nextId}
+            hasNested={hasNested}
+          />
+        </Box>
+        {children}
+      </Stack>
+    </Grid>
   );
 }
 
