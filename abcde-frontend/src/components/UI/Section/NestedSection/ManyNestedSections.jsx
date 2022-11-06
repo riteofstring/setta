@@ -2,7 +2,8 @@ import { Box, HStack, Stack } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { INDICATOR_GOTO_PARENT } from "utils/constants";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
-import SectionContainer from "../SectionContainer/SectionContainer";
+
+import { NestedSection } from "./NestedSection";
 
 export default function ManyNestedSections({
   childIds,
@@ -34,7 +35,7 @@ export default function ManyNestedSections({
 
         <Stack spacing="0.5rem" alignItems="flex-start">
           {childIds.map((e, idx) => (
-            <SectionContainer
+            <NestedSection
               parentId={sectionId}
               sectionId={e}
               nextId={childIds[idx + 1]}
