@@ -1,26 +1,14 @@
-import { maybeNewId } from "utils/utils";
-
 export class ObjInfo {
-  constructor({
-    id,
-    name = "",
-    version = null,
-    defaultVal = null,
-    type = "",
-    description = "",
-    rcType,
-    parentId = null,
-    children = [],
-  }) {
-    this.id = maybeNewId(id);
-    this.name = name;
-    this.version = version;
-    this.defaultVal = defaultVal;
-    this.type = type;
-    this.rcType = rcType;
-    this.description = description;
-    this.parentId = parentId;
-    this.children = children;
+  constructor(jsonInput) {
+    this.id = jsonInput.id;
+    this.name = jsonInput.name;
+    this.version = jsonInput.version;
+    this.defaultVal = jsonInput.defaultVal;
+    this.type = jsonInput.type;
+    this.rcType = jsonInput.rcType;
+    this.description = jsonInput.description;
+    this.parentId = jsonInput.parentId;
+    this.children = jsonInput.children;
   }
 }
 

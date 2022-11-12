@@ -4,30 +4,20 @@ import _ from "lodash";
 import { BACKEND, NO_AUTH } from "utils/constants";
 import { loadSpecificTestData } from "__tests__utils/loadTestData";
 
-function searchCollectionsInMemory({ allCollections, searchTerm }) {
-  return _.pickBy(allCollections, (x) => x.name.includes(searchTerm));
-}
-
-export async function getCollectionsAndModules({ allCollections, searchTerm }) {
-  let searchResults = null;
+export async function getCollectionsAndModules({ searchTerm }) {
   if (NO_AUTH) {
-    const testData = await loadSpecificTestData({ name: "AllCodeInfo" });
-    const collections = getCollections(testData);
-    searchResults = _.pickBy(collections, (x) => x.name.includes(searchTerm));
-  } else {
-    searchResults = axios
-      .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
-      .then((res) => {
-        return res.data;
-      })
-      .catch(() => {
-        return {};
-      });
+    const results = await loadSpecificTestData({ name: "AllCodeInfo" });
+    const collections = getCollections(results);
+    return _.pickBy(collections, (x) => x.name.includes(searchTerm));
   }
-  return {
-    ...searchResults,
-    ...searchCollectionsInMemory({ allCollections, searchTerm }),
-  };
+  return axios
+    .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return {};
+    });
 }
 
 export async function getCollectionDetails(id) {
