@@ -9,8 +9,9 @@ export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
     skipDuplicates: true,
   });
 
+  const allColIds = Object.keys(kwargCols);
   const inDbFormat = [];
-  for (const idid of Object.keys(kwargCols)) {
+  for (const idid of allColIds) {
     for (const codeInfoId of _.keys(kwargCols[idid])) {
       let order = 0;
       for (const kwargInfoId of kwargCols[idid][codeInfoId]) {
@@ -25,5 +26,5 @@ export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
     }
   }
 
-  deleteThenCreateCol(prisma, prisma.kwargCol, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.kwargCol, allColIds, inDbFormat);
 }

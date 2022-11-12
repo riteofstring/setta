@@ -113,8 +113,9 @@ export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
     skipDuplicates: true,
   });
 
+  const allColIds = Object.keys(uiTypeCols);
   const inDbFormat = [];
-  for (const idid of Object.keys(uiTypeCols)) {
+  for (const idid of allColIds) {
     for (const codeInfoId of _.keys(uiTypeCols[idid])) {
       inDbFormat.push({
         idid,
@@ -123,5 +124,5 @@ export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
       });
     }
   }
-  deleteThenCreateCol(prisma, prisma.uITypeCol, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.uITypeCol, allColIds, inDbFormat);
 }

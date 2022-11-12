@@ -29,8 +29,10 @@ export async function saveEVCols(prisma: PrismaClient, evCols) {
     skipDuplicates: true,
   });
 
+  const allColIds = Object.keys(evCols);
   const inDbFormat = [];
-  for (const idid of Object.keys(evCols)) {
+
+  for (const idid of allColIds) {
     for (const codeInfoId of _.keys(evCols[idid])) {
       inDbFormat.push({
         idid,
@@ -40,5 +42,5 @@ export async function saveEVCols(prisma: PrismaClient, evCols) {
     }
   }
 
-  deleteThenCreateCol(prisma, prisma.eVCol, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.eVCol, allColIds, inDbFormat);
 }

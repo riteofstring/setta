@@ -21,10 +21,15 @@ export function prismaNullOrConnect(x) {
   return !x ? Prisma.DbNull : { connect: { id: x } };
 }
 
-export async function deleteThenCreateCol(prisma: PrismaClient, db, data) {
+export async function deleteThenCreateCol(
+  prisma: PrismaClient,
+  db,
+  allColIds,
+  data,
+) {
   await prisma.$transaction([
     db.deleteMany({
-      where: { idid: { in: data.map((x) => x.idid) } },
+      where: { idid: { in: allColIds } },
     }),
 
     db.createMany({ data }),

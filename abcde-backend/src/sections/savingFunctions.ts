@@ -50,8 +50,8 @@ export async function saveSectionChildren(
   sectionChildrenIds,
   sectionPositions = {},
 ) {
+  const allColIds = _.values(sectionChildrenIds);
   const inDbFormat = [];
-
   for (const parentSectionId of _.keys(sectionChildren)) {
     let order = 0;
     for (const sectionId of sectionChildren[parentSectionId]) {
@@ -66,7 +66,7 @@ export async function saveSectionChildren(
       order += 1;
     }
   }
-  deleteThenCreateCol(prisma, prisma.sectionChildren, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.sectionChildren, allColIds, inDbFormat);
 }
 
 export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
@@ -111,5 +111,5 @@ export async function saveSectionConfigCol(
       configId: sectionConfigCol[sectionId],
     });
   }
-  deleteThenCreateCol(prisma, prisma.sectionConfigCol, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.sectionConfigCol, [colId], inDbFormat);
 }
