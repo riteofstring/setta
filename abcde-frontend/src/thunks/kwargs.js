@@ -2,7 +2,7 @@ import { ObjInfo } from "classes/immutableInfo";
 import { KwargInfo } from "classes/mutableInfo";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
-import { createNewId, maybeUseNullId } from "utils/utils";
+import { maybeUseNullId } from "utils/utils";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
@@ -12,7 +12,6 @@ export const addKwarg = thunk((actions, payload, helpers) => {
   const a = helpers.getStoreActions();
   const { kwargColId } = getSectionConfig(s, sectionId);
   const kwargInfo = new KwargInfo({
-    id: createNewId(),
     name: "",
     rcType: "parameter",
   });
@@ -59,7 +58,6 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   const { kwargColId } = getSectionConfig(s, sectionId);
   const kwargIds = s.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
   const collection = new ObjInfo({
-    id: createNewId(),
     name,
     rcType: "collection",
     children: kwargIds,
