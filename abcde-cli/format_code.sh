@@ -1,2 +1,2 @@
-black setup.py src tests
-isort setup.py src tests --profile black
+black src tests
+isort src tests --profile black

@@ -1,1 +1,1 @@
-flake8 setup.py src tests --count --show-source --statistics
+flake8 src tests --count --show-source --statistics
