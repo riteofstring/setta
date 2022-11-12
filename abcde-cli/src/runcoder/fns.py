@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from subprocess import PIPE, Popen
 
 import click
 import requests
@@ -61,3 +62,8 @@ def _run(access_token, code_id):
     code_file_path = code_folder_path / f"{code_id}.py"
     with open(code_file_path, "w") as f:
         f.write(code)
+
+    cmd = f'python "{code_file_path}"'
+    with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+        for line in p.stdout:
+            print(line, end="")  # process line here
