@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import _ = require('lodash');
 
 export function renameKeys(x, toRename) {
   const output = { ...x };
@@ -32,4 +33,12 @@ export async function deleteThenCreateCol(prisma: PrismaClient, db, data) {
 
 export function connectOrCreateColId(x) {
   return { connectOrCreate: { where: { id: x }, create: { id: x } } };
+}
+
+export function getOrderedChildren(children, toReturn = null) {
+  const output = _.orderBy(children, (v) => v.order);
+  if (toReturn) {
+    return output.map((x) => (toReturn ? x[toReturn] : x));
+  }
+  return output;
 }

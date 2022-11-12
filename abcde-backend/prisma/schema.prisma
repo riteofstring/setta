@@ -8,27 +8,37 @@ datasource db {
 }
 
 model CodeInfo {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name           String          @db.VarChar(255)
-  version        String?         @db.VarChar(255)
-  defaultVal     String?         @db.VarChar(255)
-  type           String          @db.VarChar(255)
-  rcType         String          @db.VarChar(255)
-  description    String?         @db.VarChar(255)
-  path           String?         @db.VarChar(255)
-  children       CodeInfo[]      @relation("CodeInfoChildren")
-  parents        CodeInfo[]      @relation("CodeInfoChildren")
-  inCodeParent   CodeInfo?       @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
-  inCodeChildren CodeInfo[]      @relation("InCodeDirectParent")
-  inCodeParentId String?         @db.Uuid
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String             @db.VarChar(255)
+  version        String?            @db.VarChar(255)
+  defaultVal     String?            @db.VarChar(255)
+  type           String             @db.VarChar(255)
+  rcType         String             @db.VarChar(255)
+  description    String?            @db.VarChar(255)
+  path           String?            @db.VarChar(255)
+  inCodeParent   CodeInfo?          @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
+  inCodeChildren CodeInfo[]         @relation("InCodeDirectParent")
+  inCodeParentId String?            @db.Uuid
   sections       Section[] // Section.paramInfo
-  kwargOwner     KwargCol[]      @relation("KwargOwner") // KwargCol.codeInfo
-  kwarg          KwargCol[]      @relation("Kwarg") // KwargCol.kwargInfo
+  kwargOwner     KwargCol[]         @relation("KwargOwner") // KwargCol.codeInfo
+  kwarg          KwargCol[]         @relation("Kwarg") // KwargCol.kwargInfo
   evOwner        EVCol[] // EV.codeInfo
   sectionConfigs SectionConfig[] //SectionConfig.selectedItem
   uiTypeOrigins  UIType[] //UIType.originCodeInfo
   uiTypeCols     UITypeCol[] //UITypeCol.codeInfo
   sectionUITypes SectionUIType[] //SectionUIType.collections
+  asParent       CodeInfoChildren[] @relation("CodeInfoParent") // CodeInfoChildren.parent
+  asChild        CodeInfoChildren[] @relation("CodeInfoChildren") // CodeInfoChildren.child
+}
+
+model CodeInfoChildren {
+  parent   CodeInfo @relation("CodeInfoParent", fields: [parentId], references: [id])
+  parentId String   @db.Uuid
+  child    CodeInfo @relation("CodeInfoChildren", fields: [childId], references: [id])
+  childId  String   @db.Uuid
+  order    Int
+
+  @@id([parentId, childId]) // composite key
 }
 
 model User {

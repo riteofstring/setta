@@ -34,16 +34,18 @@ export async function saveCodeInfo(
     await prisma.codeInfo.createMany({ data, skipDuplicates: true });
   }
 
+  await prisma.codeInfoChildren.deleteMany({
+    where: { parentId: { in: vals.map((v) => v.id) } },
+  });
+  await prisma.codeInfoChildren.createMany({
+    data: assembleCodeInfoChildren(vals),
+  });
+
   await prisma.$transaction(
     vals.map((v) =>
       prisma.codeInfo.update({
         where: { id: v.id },
         data: {
-          children: {
-            set: v.children.map((x) => ({
-              id: x,
-            })),
-          },
           inCodeParentId: v.parentId,
         },
       }),
@@ -53,4 +55,16 @@ export async function saveCodeInfo(
 
 export async function saveKwargInfo(prisma, kwargInfo) {
   await saveCodeInfo(prisma, kwargInfo, true);
+}
+
+function assembleCodeInfoChildren(codeInfoVals) {
+  const output = [];
+  for (const c of codeInfoVals) {
+    let order = 0;
+    for (const child of c.children) {
+      output.push({ parentId: c.id, childId: child, order });
+      order += 1;
+    }
+  }
+  return output;
 }

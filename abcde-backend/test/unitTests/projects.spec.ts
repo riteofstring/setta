@@ -51,9 +51,8 @@ describe('ProjectsService', () => {
     )[0];
 
     // TODO: figure out globalDefaults and projectDefaults
-    const { codeInfo: retrievedCodeInfo, ...theRest } = retrieved;
-    const { codeInfo, globalDefaults, projectDefaults, ...correctRest } =
-      correctOutput;
+    const { ...theRest } = retrieved;
+    const { globalDefaults, projectDefaults, ...correctRest } = correctOutput;
 
     // expect(theRest.project).toEqual(correctRest.project);
     // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
@@ -68,19 +67,5 @@ describe('ProjectsService', () => {
     // expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
 
     expect(theRest).toEqual(correctRest);
-    compareCodeInfo(retrievedCodeInfo, codeInfo);
   });
 });
-
-function compareCodeInfo(x, y) {
-  expect(Object.keys(x).sort()).toEqual(Object.keys(y).sort());
-  for (const k of Object.keys(x)) {
-    for (const nestedK of Object.keys(x[k])) {
-      if (nestedK === 'children') {
-        expect(x[k][nestedK].sort()).toEqual(y[k][nestedK].sort());
-      } else {
-        expect(x[k][nestedK]).toEqual(y[k][nestedK]);
-      }
-    }
-  }
-}

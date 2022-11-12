@@ -1,4 +1,5 @@
 import _ = require('lodash');
+import { getOrderedChildren } from 'src/utils/utils';
 
 export async function getCodeInfoForSectionsAndKwargs(
   prisma,
@@ -17,31 +18,25 @@ export async function getCodeInfoForSectionsAndKwargs(
 
 export async function getCodeInfo(prisma, ids: string[]) {
   const collectionIds = new Set(ids);
-  const childMap = {};
+  let childMap = {};
   const allIds = new Set(collectionIds);
-  collectionIds.forEach((x) => (childMap[x] = new Set()));
 
   for (const c of collectionIds) {
     const parentChildPairs = await prisma.$queryRaw`
           with recursive descendants as (
-              select "A", "B"
-              from "_CodeInfoChildren"
-              where "A" = ${c}::uuid
+              select "parentId", "childId", "order"
+              from "CodeInfoChildren"
+              where "parentId" = ${c}::uuid
             union
-              select x."A", x."B"
-              from "_CodeInfoChildren" x
-              join descendants on x."A" = descendants."B"
+              select x."parentId", x."childId", x."order"
+              from "CodeInfoChildren" x
+              join descendants on x."parentId" = descendants."childId"
           )
           select * from descendants;`;
 
-    parentChildPairs.forEach((x) => {
-      const child = x.B;
-      childMap[x.A].add(child);
-      if (!(child in childMap)) {
-        childMap[child] = new Set();
-      }
-      allIds.add(child);
-    });
+    const currChildMap = _.groupBy(parentChildPairs, (v) => v.parentId);
+    childMap = { ...childMap, ...currChildMap };
+    parentChildPairs.forEach((x) => allIds.add(x.childId));
   }
 
   const codeInfo = await prisma.codeInfo.findMany({
@@ -57,10 +52,13 @@ export async function getCodeInfo(prisma, ids: string[]) {
 
 export function processCodeInfo(codeInfo, childMap) {
   const { inCodeParentId, ...theRest } = codeInfo;
-  const childrenIds = Array.from(childMap[codeInfo.id]);
+  let children = [];
+  if (codeInfo.id in childMap) {
+    children = getOrderedChildren(childMap[codeInfo.id], 'childId');
+  }
   return {
     ...theRest,
     parentId: inCodeParentId,
-    children: childrenIds,
+    children,
   };
 }

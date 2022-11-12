@@ -1,4 +1,4 @@
-import { renameKeys } from 'src/utils/utils';
+import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 import _ = require('lodash');
 
 export async function getProject(prisma, id) {
@@ -153,14 +153,6 @@ function getSectionPositions(children) {
   return _.mapValues(byId, (s) => ({
     initialPosition: { x: s.x, y: s.y },
   }));
-}
-
-function getOrderedChildren(children, toReturn = null) {
-  const output = _.orderBy(children, (v) => v.order);
-  if (toReturn) {
-    return output.map((x) => (toReturn ? x[toReturn] : x));
-  }
-  return output;
 }
 
 export async function getUITypeCols(prisma, sectionUITypes) {
