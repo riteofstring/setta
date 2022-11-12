@@ -37,7 +37,7 @@ def _run(access_token, code_id):
 def login(username, password):
     access_token = _login(username, password)
     while True:
-        c = click.prompt("Enter command", type=str)
+        c = click.prompt(">", type=str, prompt_suffix="")
         c = c.strip()
         c = c.strip().split()
         if (c[0]) != "runcoder":
