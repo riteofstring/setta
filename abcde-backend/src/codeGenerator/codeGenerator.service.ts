@@ -7,10 +7,10 @@ import _ = require('lodash');
 export class CodeGeneratorService {
   constructor(private prisma: PrismaService) {}
 
-  async generateCode(user, codeJson) {
+  async generateCode(user, codeId, codeJson) {
     const code = fnGenerateCode(codeJson);
     return await this.prisma.generatedCode.create({
-      data: { ownerId: user.id, code },
+      data: { id: codeId, ownerId: user.id, code },
       select: { id: true },
     });
   }
