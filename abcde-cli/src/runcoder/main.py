@@ -1,10 +1,22 @@
 import sys
+from pathlib import Path
 
 import click
 import requests
+import yaml
 
-BACKEND = "http://localhost:8000/"
-VALID_COMMANDS = ["run"]
+from .constants import BACKEND, CONFIG_FILENAME, CONFIG_FOLDER
+
+
+def _setup_config_file(username):
+    home_config = Path.home() / ".config"
+    config_folder_path = home_config / CONFIG_FOLDER
+    Path(config_folder_path).mkdir(parents=True, exist_ok=True)
+
+    config_file_path = config_folder_path / CONFIG_FILENAME
+    to_save = {"username": username}
+    with open(config_file_path, "w") as f:
+        yaml.dump(to_save, f)
 
 
 def _login(username, password):
@@ -18,6 +30,8 @@ def _login(username, password):
         sys.exit()
     else:
         click.echo("Login success")
+
+    _setup_config_file(username)
     return r.json()["access_token"]
 
 
