@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -5,7 +6,7 @@ import click
 import requests
 import yaml
 
-from .constants import BACKEND, CONFIG_FILENAME, CONFIG_FOLDER
+from .constants import BACKEND, CODE_FOLDER, CONFIG_FILENAME, CONFIG_FOLDER
 
 
 def _get_config_path():
@@ -17,7 +18,7 @@ def _get_config_path():
 
 def _setup_config_file(username):
     config_folder_path, config_file_path = _get_config_path()
-    Path(config_folder_path).mkdir(parents=True, exist_ok=True)
+    config_folder_path.mkdir(parents=True, exist_ok=True)
     to_save = {"username": username}
     with open(config_file_path, "w") as f:
         yaml.dump(to_save, f)
@@ -52,3 +53,11 @@ def _run(access_token, code_id):
     )
     click.echo("Received code")
     code = r.json()["code"]
+
+    cwd = os.getcwd()
+    code_folder_path = Path(cwd) / CODE_FOLDER
+    code_folder_path.mkdir(parents=True, exist_ok=True)
+
+    code_file_path = code_folder_path / f"{code_id}.py"
+    with open(code_file_path, "w") as f:
+        f.write(code)
