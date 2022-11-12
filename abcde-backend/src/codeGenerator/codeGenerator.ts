@@ -93,7 +93,10 @@ class Variable {
 
   addImport(allImports) {
     if (this.datatype === 'callable') {
-      allImports.push(`import ${this.originalName}`);
+      const splitName = this.originalName.split('.');
+      splitName.pop();
+      const moduleName = splitName.join('.');
+      allImports.push(`import ${moduleName}`);
     }
   }
 }
