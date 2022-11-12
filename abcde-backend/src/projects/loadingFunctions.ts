@@ -6,7 +6,7 @@ export async function getProject(prisma, id) {
     where: { id },
     select: { id: true, ownerId: true, name: true, defaultConfigId: true },
   });
-  return renameKeys(p, { ownerId: 'owner', defaultConfigId: 'defaultConfig' });
+  return renameKeys(p, { defaultConfigId: 'defaultConfig' });
 }
 
 export async function getProjectConfig(prisma, id) {
@@ -174,8 +174,8 @@ export async function getBaseUITypes(prisma) {
   return await getUITypesByWhere(prisma, { presetType: 'base' });
 }
 
-export async function getPresetUITypes(prisma) {
-  return await getUITypesByWhere(prisma, { presetType: 'user' });
+export async function getPresetUITypes(prisma, ownerId) {
+  return await getUITypesByWhere(prisma, { presetType: 'user', ownerId });
 }
 
 export async function getUITypesByWhere(prisma, where) {

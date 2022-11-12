@@ -40,8 +40,8 @@ export class AppController {
 
   @UseGuards(JwtAuthGuard)
   @Post('projects/load/:id')
-  loadProject(@Param('id') id: string) {
-    return this.projectsService.loadOne(id);
+  loadProject(@Request() req, @Param('id') id: string) {
+    return this.projectsService.loadOne(req.user, id);
   }
 
   @UseGuards(JwtAuthGuard)

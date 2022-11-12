@@ -32,7 +32,7 @@ export class ProjectsService {
     await saveAllProjectDetails(this.prisma, projects);
   }
 
-  async loadOne(id: string): Promise<any> {
+  async loadOne(user, id: string): Promise<any> {
     const project = await getProject(this.prisma, id);
     const { projectConfig, sectionConfigCol, sectionPositions } =
       await getProjectConfig(this.prisma, project.defaultConfig);
@@ -50,7 +50,7 @@ export class ProjectsService {
     } = await getSectionConfigs(this.prisma, _.values(sectionConfigCol));
 
     const baseUITypes = await getBaseUITypes(this.prisma);
-    const presetUITypes = await getPresetUITypes(this.prisma);
+    const presetUITypes = await getPresetUITypes(this.prisma, user.id);
     const codeInfo = await getCodeInfoForSectionsAndKwargs(
       this.prisma,
       sectionUITypes,

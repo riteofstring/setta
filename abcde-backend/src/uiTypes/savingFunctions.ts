@@ -11,6 +11,7 @@ async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
     id: x.id,
     type: x.type,
     name: x.name,
+    owner: prismaNullOrConnect(x.ownerId),
     presetType: x.presetType,
     originSection: prismaNullOrConnect(x.originInfoId.sectionId),
     originUITypeCol: prismaNullOrConnect(x.originInfoId.uiTypeColId),

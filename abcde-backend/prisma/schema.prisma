@@ -46,7 +46,8 @@ model User {
   name          String          @unique @db.VarChar(255)
   password      String
   projects      Project[] //Project.owner
-  generatedCode GeneratedCode[]
+  generatedCode GeneratedCode[] //GeneratedCode.owner
+  uiTypes       UIType[] //UIType.owner
 }
 
 model Section {
@@ -157,6 +158,8 @@ model SectionConfig {
 model UIType {
   id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                     String          @db.VarChar(255)
+  owner                    User?           @relation(fields: [ownerId], references: [id])
+  ownerId                  String?         @db.Uuid
   type                     String          @db.VarChar(255)
   presetType               String?         @db.VarChar(255)
   originSection            Section?        @relation(fields: [originSectionId], references: [id])
