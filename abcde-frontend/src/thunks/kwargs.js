@@ -1,5 +1,7 @@
+import { ObjInfo } from "classes/immutableInfo";
 import { KwargInfo } from "classes/mutableInfo";
 import { thunk } from "easy-peasy";
+import _ from "lodash";
 import { createNewId, maybeUseNullId } from "utils/utils";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
@@ -14,7 +16,7 @@ export const addKwarg = thunk((actions, payload, helpers) => {
     name: "",
     rcType: "parameter",
   });
-  a.codeInfo.setCodeInfo({ id: kwargInfo.id, info: kwargInfo });
+  a.codeInfo.setCodeInfo({ info: kwargInfo });
   a.objInfos.setKwargIds({
     collectionId: kwargColId,
     objInfoId: maybeUseNullId(objInfoId),
@@ -40,7 +42,7 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
   const childId = getParamChildId(s, sectionId, kwargId);
   a.objInfos.setKwargIds({
     collectionId: kwargColId,
-    objInfoId: maybeUseNullId(objInfoId),
+    objInfoId,
     newStateFn: (x) => x.filter((y) => y !== kwargId),
   });
   a.codeInfo.deleteInfos({ ids: [kwargId] });
@@ -48,4 +50,28 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
   if (childId) {
     a.thunks.deleteChild({ sectionId, startId: childId });
   }
+});
+
+export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
+  const { sectionId, objInfoId, name = "test" } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
+  const { kwargColId } = getSectionConfig(s, sectionId);
+  const kwargIds = s.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
+  const collection = new ObjInfo({
+    id: createNewId(),
+    name,
+    rcType: "collection",
+    children: kwargIds,
+  });
+
+  // copy kwargInfos and set parentId to collection.id
+  const paramInfos = _.keyBy(
+    kwargIds.map((x) => ({
+      ...s.codeInfo.allObjInfo[x],
+      parentId: collection.id,
+    })),
+    "id"
+  );
+  a.codeInfo.updateInfos({ [collection.id]: collection, ...paramInfos });
 });
