@@ -1,6 +1,5 @@
 import {
   Badge,
-  Box,
   Button,
   Grid,
   GridItem,
@@ -9,14 +8,12 @@ import {
   Input,
   List,
   ListItem,
-  useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
 import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
@@ -109,11 +106,9 @@ function ProjectItem({ project }) {
     setCurrPage(UI);
     setCurrProject(id);
   }
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
   function onClickConfigsButton(e) {
     e.stopPropagation();
-    onOpen();
   }
 
   return (
@@ -140,16 +135,21 @@ function ProjectItem({ project }) {
         backgroundImage="https://via.placeholder.com/400"
         backgroundPosition="center"
       >
-        <Button
-          placeSelf="flex-start flex-end"
-          borderRadius="full"
-          leftIcon={<BiGitBranch />}
-          size="xs"
-          onClick={onClickConfigsButton}
-        >
-          Configs
-        </Button>
-        <ConfigButton onClose={onClose} isOpen={isOpen} configs={configs} />
+        <PopoverWrapper
+          trigger={
+            <Button
+              placeSelf="flex-start flex-end"
+              borderRadius="full"
+              leftIcon={<BiGitBranch />}
+              size="xs"
+              onClick={onClickConfigsButton}
+            >
+              Configs
+            </Button>
+          }
+          body={<Body configs={configs} />}
+          header="Configs"
+        />
       </GridItem>
       <GridItem p="1rem" bg="white">
         <Heading as="h3" fontSize="md">
@@ -164,24 +164,6 @@ function ProjectItem({ project }) {
   );
 }
 
-function ConfigButton({ onClose, isOpen, configs }) {
-  return (
-    <ModalContainer
-      onClose={onClose}
-      isOpen={isOpen}
-      size={"4xl"}
-      header={<Header />}
-      overrideFooter={true}
-      body={<Body configs={configs} />}
-      // footer={<Footer />}
-    />
-  );
-}
-
-function Header() {
-  return <Heading>Configs</Heading>;
-}
-
 function Body({ configs }) {
   return (
     <List>
@@ -190,10 +172,6 @@ function Body({ configs }) {
       ))}
     </List>
   );
-}
-
-function Footer() {
-  return <Box />;
 }
 
 function ProjectNameSetter({ onClick }) {
