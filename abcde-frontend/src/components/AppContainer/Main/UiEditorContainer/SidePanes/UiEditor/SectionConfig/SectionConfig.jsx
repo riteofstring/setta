@@ -13,7 +13,7 @@ import { SearchIcon } from "@chakra-ui/icons";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 import {
   getCollectionDetails,
@@ -144,12 +144,9 @@ function SectionConfigCore({
 }
 
 function Search({ onSubmit }) {
-  const [text, setText] = useState("");
-  function onChange(e) {
-    setText(e.target.value);
-  }
+  const searchTermRef = useRef();
   function onClick() {
-    onSubmit(text);
+    onSubmit(searchTermRef.current.value);
   }
 
   return (
@@ -157,7 +154,7 @@ function Search({ onSubmit }) {
       <InputLeftElement pointerEvents="none">
         <SearchIcon color="gray.300" />
       </InputLeftElement>
-      <Input variant="flushed" placeholder="Search" onChange={onChange} />
+      <Input variant="flushed" placeholder="Search" ref={searchTermRef} />
       <InputRightElement width="4.5rem">
         <Button h="1.75rem" size="sm" onClick={onClick} />
       </InputRightElement>
