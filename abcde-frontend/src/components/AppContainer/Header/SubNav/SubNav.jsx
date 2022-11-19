@@ -1,23 +1,20 @@
-import { Button, Divider, Flex, HStack } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
+import VerticalLine from "utils/atoms/dividers/verticalLine";
 import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
 import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
 import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";
 import FileMenu from "./FileMenu/FileMenu";
 import { ProjectName } from "./ProjectName/ProjectName";
 import RunButton from "./RunButton/RunButton";
-import UiConfigButton from "./UiConfigButton/UiConfigButton";
-
 export default function SubNav() {
   return (
-    <Flex>
-      <HStack spacing={2}>
-        <Divider orientation="vertical" pr=".5rem" />
-        <NavSwitch />
-      </HStack>
-    </Flex>
+    <div className="flex space-x-2">
+      <VerticalLine />
+      <NavSwitch />
+    </div>
   );
 }
 
@@ -43,26 +40,25 @@ function UiEditorSubNav() {
       <FileMenu />
       {/* <EcoSysButton /> */}
       <ClearHistoryButton />
-      <Divider orientation="vertical" pr=".5rem" />
+      <VerticalLine />
       <CreateSectionButton />
       <CreateGroupButton />
-      <UiConfigButton />
-      <Divider orientation="vertical" pr=".5rem" />
+      {/* <UiConfigButton /> */}
+      <VerticalLine />
+
       <RunButton />
       <ProjectName />
     </>
   );
 }
 
-function HomePageSubNav() {
-  return <>{/* <HomeButton /> */}</>;
-}
-
 function LoggedOutNav({ setCurrPage }) {
   return (
     <>
-      <Button onClick={() => setCurrPage(LOGIN)}>Login</Button>
-      <Button onClick={() => setCurrPage(SIGN_UP)}>Sign Up</Button>
+      <MenuBarButton onClick={() => setCurrPage(LOGIN)}>Login</MenuBarButton>
+      <MenuBarButton onClick={() => setCurrPage(SIGN_UP)}>
+        Sign Up
+      </MenuBarButton>
     </>
   );
 }
