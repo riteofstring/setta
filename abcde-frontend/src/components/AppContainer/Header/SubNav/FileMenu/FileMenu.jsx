@@ -10,18 +10,30 @@ import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarBu
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
   const saveProject = useStoreActions((x) => x.thunks.saveProject);
+  const setCurrProject = useStoreActions((x) => x.project.setId);
+  const setCurrProjectConfig = useStoreActions((x) => x.projectConfig.setId);
 
-  function onSaveButtonClick() {
+  function onClose() {
+    closeModal();
+  }
+
+  function onClickSaveButton() {
     saveProject({ reactFlowStore });
   }
 
-  function onLoadClick() {
+  function onClickLoad() {
     getProjects();
-    onOpen();
+    openModal();
+  }
+
+  function onClickLoadProject(selected) {
+    setCurrProject(selected.project);
+    setCurrProjectConfig(selected.projectConfig);
+    closeModal();
   }
 
   return (
@@ -42,14 +54,14 @@ export default function FileMenu() {
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className="text-sm flex flex-row gap-1"
-              onClick={onLoadClick}
+              onClick={onClickLoad}
             >
               <GrDocumentDownload />
               Load
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className="text-sm flex flex-row gap-1"
-              onClick={onSaveButtonClick}
+              onClick={onClickSaveButton}
             >
               <VscSave />
               Save
@@ -66,6 +78,7 @@ export default function FileMenu() {
         isOpen={isOpen}
         buttonText={"SaveLoadModal"}
         files={projects}
+        onClickLoadProject={onClickLoadProject}
       />
     </>
   );

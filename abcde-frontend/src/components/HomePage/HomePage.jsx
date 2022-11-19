@@ -162,9 +162,7 @@ function Body({ configs, defaultConfigId, onClick }) {
       {configs.map((x, idx) => (
         <HStack key={`Config ${idx}`} onClick={(e) => onClick(e, x.id)}>
           <ListItem>{x.name}</ListItem>
-          {x.id === defaultConfigId && (
-            <Badge colorScheme="green">Default</Badge>
-          )}
+          <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
         </HStack>
       ))}
     </List>
@@ -190,5 +188,11 @@ function ProjectNameSetter({ onClick }) {
       />
       <Button onClick={localOnClick}>Create</Button>
     </>
+  );
+}
+
+export function DefaultConfigBadge({ config, defaultConfigId }) {
+  return (
+    config.id === defaultConfigId && <Badge colorScheme="green">Default</Badge>
   );
 }

@@ -1,12 +1,24 @@
-import { Button, Flex, Spacer } from "@chakra-ui/react";
+import { Button, Flex, Spacer, useRadioGroup } from "@chakra-ui/react";
 import _ from "lodash";
+import { useEffect } from "react";
 
 import FileListContainer from "./FileListContainer";
-import ListItem from "./ListItem";
+import { FileListItem, SelectableFileListItem } from "./FileListItem";
 
-export default function FileExplorer({ files }) {
+export default function FileExplorer({ files, setSelected }) {
+  const { value, getRootProps, getRadioProps } = useRadioGroup({
+    name: "fileExplorer",
+  });
+  const radioGroup = getRootProps();
+
+  useEffect(() => {
+    if (value) {
+      setSelected(JSON.parse(value));
+    }
+  }, [value]);
+
   return (
-    <FileListContainer>
+    <FileListContainer radioGroup={radioGroup}>
       <Flex
         py={0}
         px={0}
@@ -23,19 +35,33 @@ export default function FileExplorer({ files }) {
         </Button>
       </Flex>
       {_.map(files, (x, idx) => (
-        <ProjectListing project={x} key={`File ${idx}`} />
+        <ProjectListing
+          project={x}
+          key={`File ${idx}`}
+          getRadioProps={getRadioProps}
+        />
       ))}
     </FileListContainer>
   );
 }
 
-function ProjectListing({ project }) {
+function ProjectListing({ project, getRadioProps }) {
   return (
     <>
-      <ListItem>{project.name}</ListItem>
+      <FileListItem isProject={true}>{project.name}</FileListItem>
       {project.configs.map((x, idx) => (
         <div style={{ marginLeft: "20px" }} key={`File config ${idx}`}>
-          <ListItem>{x.name}</ListItem>
+          <SelectableFileListItem
+            isProject={false}
+            radioProps={getRadioProps({
+              value: JSON.stringify({
+                project: project.id,
+                projectConfig: x.id,
+              }),
+            })}
+          >
+            {x.name}
+          </SelectableFileListItem>
         </div>
       ))}
     </>
