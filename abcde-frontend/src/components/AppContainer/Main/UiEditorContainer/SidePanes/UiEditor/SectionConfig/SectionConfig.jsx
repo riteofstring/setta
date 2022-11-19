@@ -1,53 +1,47 @@
 import {
   Box,
   Button,
-  Flex,
   Heading,
-  IconButton,
+  Input,
   InputGroup,
   InputLeftElement,
   InputRightElement,
 } from "@chakra-ui/react";
 
-import { ChevronDownIcon, SearchIcon } from "@chakra-ui/icons";
+import { SearchIcon } from "@chakra-ui/icons";
 
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useSetUIType } from "hooks/useUIType";
-import React from "react";
+import React, { useState } from "react";
 
+import {
+  getCollectionDetails,
+  getCollectionsAndModules,
+} from "dbRequests/sectionConfig";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
 export default React.memo(SectionConfig);
 
 function SectionConfig() {
-  const sectionId = useStoreState((x) => x.master.activeSection);
-  const setActiveSection = useStoreActions((x) => x.master.setActiveSection);
+  const sectionId = useStoreState((x) => x.activeSection.id);
+  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
   const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
   const setCameFromUIConfig = useStoreActions(
     (x) => x.uiEditor.setCameFromUIConfig
   );
   const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const setSectionUITypeId = useStoreActions(
+    (x) => x.thunks.setSectionUITypeId
+  );
+  const setSectionUITypeConfig = useStoreActions(
+    (x) => x.thunks.setSectionUITypeConfig
+  );
 
-  const {
-    name: sectionName,
-    parentId,
-    paramInfoId,
-  } = useGetSectionInfo(sectionId);
-
+  const { parentId } = useGetSectionInfo(sectionId);
   const currUIType = useGetSectionType(sectionId);
   const currTypeId = currUIType.id;
-
-  const [setUITypeId, setUITypeConfig] = useSetUIType({
-    sectionId: parentId,
-    paramInfoId,
-    defaultName: sectionName,
-    childId: sectionId,
-    currUIType,
-    settingSectionConfig: true,
-  });
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
@@ -57,12 +51,15 @@ function SectionConfig() {
 
   const onSectionTypeChange = (e) => {
     if (e && e !== currTypeId) {
-      setUITypeId(e);
+      setSectionUITypeId({ uiTypeId: e, sectionId });
     }
   };
 
-  const onConfigChange = (newValueFn) => {
-    setUITypeConfig({ configName: "collections", newValueFn });
+  const onConfigChange = ({ newValueFn }) => {
+    setSectionUITypeConfig({
+      sectionId,
+      configProps: { configName: "collections", newValueFn },
+    });
   };
 
   return (
@@ -86,12 +83,37 @@ function SectionConfigCore({
   savedConfig,
   onConfigChange,
 }) {
+  const [results, setResults] = useState({});
+  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+  const updateCodeInfos = useStoreActions((x) => x.codeInfo.updateInfos);
+
+  async function onSubmit(searchTerm) {
+    if (searchTerm) {
+      const x = await getCollectionsAndModules({ searchTerm });
+      setResults(x);
+    }
+  }
+
+  async function onChange({ newValueFn, id }) {
+    // collection needs to be retrieved from db
+    if (!(id in allCollections)) {
+      const collectionDetails = await getCollectionDetails(id);
+      updateCodeInfos(collectionDetails);
+    }
+    onConfigChange({ newValueFn });
+  }
+
   return (
     <>
       <Heading as="h3" size="xs" textTransform="uppercase" color="gray.400">
         Card Types
       </Heading>
-      <ComboboxPlaceholder />
+      <SectionConfigTypeSelection
+        onDropdownSelect={onSectionTypeChange}
+        selectedId={currTypeId}
+        sectionId={sectionId}
+      />
+
       <Heading as="h3" size="xs" textTransform="uppercase" color="gray.400">
         Contents
       </Heading>
@@ -107,57 +129,78 @@ function SectionConfigCore({
         mb="2.5rem"
         display="flex"
         flexDirection="column"
+        data-testid={`SectionConfig ${sectionId}`}
       >
-        <SectionConfigTypeSelection
-          onDropdownSelect={onSectionTypeChange}
-          selectedId={currTypeId}
-          sectionId={sectionId}
-        />
+        <Search onSubmit={onSubmit} />
         <SectionConfigComp
           savedConfig={savedConfig}
-          onChange={onConfigChange}
+          onChange={onChange}
+          allCollections={allCollections}
+          results={results}
         />
       </Box>
     </>
   );
 }
 
-function ComboboxPlaceholder() {
-  return (
-    <Flex
-      direction="column"
-      align="stretch"
-      overflow="visible"
-      h="2.5rem"
-      w="100%"
-      backgroundColor="white"
-      borderRadius="full"
-      mb="1rem"
-      boxShadow="sm"
-    >
-      <InputGroup
-        // width="100%"
-        className="nodrag"
-      >
-        <InputLeftElement pointerEvents="none">
-          <SearchIcon color="gray.300" />
-        </InputLeftElement>
-        <InputRightElement>
-          <IconButton
-            aria-label={"toggle menu"}
-            borderRadius="full"
-            bg="white"
-            icon={<ChevronDownIcon />}
-          />
-        </InputRightElement>
-      </InputGroup>
+function Search({ onSubmit }) {
+  const [text, setText] = useState("");
+  function onChange(e) {
+    setText(e.target.value);
+  }
+  function onClick() {
+    onSubmit(text);
+  }
 
-      <Flex
-        direction="column"
-        w="100%"
-        alignItems="stretch"
-        transitionDuration="0.25s"
-      ></Flex>
-    </Flex>
+  return (
+    <InputGroup pb="1rem">
+      <InputLeftElement pointerEvents="none">
+        <SearchIcon color="gray.300" />
+      </InputLeftElement>
+      <Input variant="flushed" placeholder="Search" onChange={onChange} />
+      <InputRightElement width="4.5rem">
+        <Button h="1.75rem" size="sm" onClick={onClick} />
+      </InputRightElement>
+    </InputGroup>
   );
 }
+
+// function ComboboxPlaceholder() {
+//   return (
+//     <Flex
+//       direction="column"
+//       align="stretch"
+//       overflow="visible"
+//       h="2.5rem"
+//       w="100%"
+//       backgroundColor="white"
+//       borderRadius="full"
+//       mb="1rem"
+//       boxShadow="sm"
+//     >
+//       <InputGroup
+//         // width="100%"
+//         className="nodrag"
+//       >
+//         <InputLeftElement pointerEvents="none">
+//           <SearchIcon color="gray.300" />
+//         </InputLeftElement>
+//         <InputRightElement>
+//           <IconButton
+//             aria-label={"toggle menu"}
+//             borderRadius="full"
+//             bg="white"
+//             icon={<ChevronDownIcon />}
+//           />
+//         </InputRightElement>
+//       </InputGroup>
+
+//       <Flex
+//         direction="column"
+//         w="100%"
+//         alignItems="stretch"
+//         transitionDuration="0.25s"
+//       ></Flex>
+//     </Flex>
+//   );
+// }

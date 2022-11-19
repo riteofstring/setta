@@ -5,6 +5,7 @@ import useWindowSize from "hooks/useWindowSize";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { MIN_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
 const Pane = motion(GridItem);
@@ -21,17 +22,22 @@ export default function PaneContainer(props) {
     boxPx = "2.66rem",
     boxBg = "gray.50",
     paneTitle = null,
+    onResizeStop = null,
   } = props;
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
-  const vis = useStoreState((state) => state.panes.vis[paneName]);
-  const setVis = useStoreActions((actions) => actions.panes.setVis);
-  const setTrueWidth = useStoreActions((actions) => actions.panes.setTrueWidth);
+  const vis = useStoreState((x) => x.panes.vis[paneName]);
+  const setVis = useStoreActions((x) => x.panes.setVis);
+  const setTrueWidth = useStoreActions((x) => x.panes.setTrueWidth);
   function uiToggle() {
     const newVis = !vis;
     setVis({ paneName, vis: newVis });
     btnDirFlip();
-    setTrueWidth({ paneName, trueWidth: newVis ? width : 40 });
+    setTrueWidth({ paneName, trueWidth: newVis ? width : MIN_PANE_WIDTH });
+    if (onResizeStop) {
+      const widthDiff = width - MIN_PANE_WIDTH;
+      onResizeStop(newVis ? widthDiff : -widthDiff);
+    }
   }
   const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
@@ -54,25 +60,36 @@ export default function PaneContainer(props) {
     setVMin(newVMin);
     if (width > newVMax) {
       setWidth({ paneName, width: newVMax });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMax : 40 });
+      setTrueWidth({ paneName, trueWidth: vis ? newVMax : MIN_PANE_WIDTH });
     } else if (width < newVMin) {
       setWidth({ paneName, width: newVMin });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMin : 40 });
+      setTrueWidth({ paneName, trueWidth: vis ? newVMin : MIN_PANE_WIDTH });
     }
   }, [vis, size.winWidth]);
 
-  const width = useStoreState((state) => state.panes.width[paneName]);
-  const setWidth = useStoreActions((actions) => actions.panes.setWidth);
-  const [height, setHeight] = useState("100%");
-
-  const setIsDragging = useStoreActions(
-    (actions) => actions.panes.setIsDragging
-  );
+  const width = useStoreState((x) => x.panes.width[paneName]);
+  const setWidth = useStoreActions((x) => x.panes.setWidth);
+  const height = "100%";
 
   const variants = {
     open: { x: "0rem" },
     closed: { x: `${!right ? `-` : ``}${width / 16 - 2.5}rem` },
   };
+
+  function localOnResizeStop(e, direction, ref, d) {
+    const newWidth = clamp(width + d.width, vMin, vMax);
+    if (newWidth === width) {
+      return;
+    }
+    setWidth({ paneName, width: newWidth });
+    setTrueWidth({
+      paneName,
+      trueWidth: vis ? newWidth : MIN_PANE_WIDTH,
+    });
+    if (onResizeStop) {
+      onResizeStop(d.width);
+    }
+  }
 
   if (props && vMin && vMax) {
     return (
@@ -96,19 +113,7 @@ export default function PaneContainer(props) {
       >
         <Resizable
           size={{ width, height }}
-          onResizeStart={() => {
-            setIsDragging({ paneName, isDragging: true });
-          }}
-          onResizeStop={(e, direction, ref, d) => {
-            const newWidth = clamp(width + d.width, vMin, vMax);
-            setWidth({ paneName, width: newWidth });
-            setTrueWidth({
-              paneName,
-              trueWidth: vis ? newWidth : 40,
-            });
-            setHeight(height);
-            setIsDragging({ paneName, isDragging: false });
-          }}
+          onResizeStop={localOnResizeStop}
           maxWidth={vMax}
           minWidth={vMin}
           enable={{
