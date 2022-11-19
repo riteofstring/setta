@@ -2,7 +2,6 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { isRoot, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
 import { isBasePreset, isPreset } from "utils/uiTypeConstants";
-import { createOriginInfoId } from "utils/uiTypeUtils";
 import { useParamUITypeId } from "./useParamInfo";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
@@ -121,4 +120,31 @@ export function useAvailablePresetUITypes({
       ),
     _.isEqual
   );
+}
+
+export function createOriginInfoId({
+  settingSectionConfig,
+  sectionTypeConfig,
+  childId,
+  paramInfoId,
+  isChildOfRoot,
+  rootId,
+}) {
+  if (isChildOfRoot) {
+    return { sectionId: rootId };
+  } else if (settingSectionConfig && paramInfoId) {
+    return {
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
+      paramInfoId,
+    };
+  } else if (settingSectionConfig && !paramInfoId) {
+    return { sectionId: childId };
+  } else if (paramInfoId) {
+    return {
+      uiTypeColId: sectionTypeConfig?.uiTypeColId,
+      paramInfoId,
+    };
+  } else {
+    return {};
+  }
 }

@@ -19,10 +19,11 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
+import { useSetUIType } from "hooks/useUIType";
+import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { USER } from "utils/uiTypeConstants";
-import { cloneNewUIType } from "utils/uiTypeUtils";
 
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -68,26 +69,22 @@ function UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const setParamUITypeId = useStoreActions((x) => x.thunks.setParamUITypeId);
-  const setParamUITypeConfig = useStoreActions(
-    (x) => x.thunks.setParamUITypeConfig
-  );
+  const [setUITypeId, setConfig] = useSetUIType({
+    sectionId,
+    paramInfoId,
+    defaultName: paramInfo.name,
+    childId: paramChildId,
+    currUIType: uiType,
+    settingSectionConfig: false,
+  });
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    setParamUITypeId({
-      uiTypeId: e,
-      sectionId,
-      paramInfoId,
-    });
+    setUITypeId(e);
   };
 
   const onChange = (configName, newValueFn) => {
-    setParamUITypeConfig({
-      sectionId,
-      paramInfoId,
-      configProps: { configName, newValueFn },
-    });
+    setConfig({ configName, newValueFn });
   };
 
   function onSaveAsSubmit(presetName) {
@@ -97,11 +94,7 @@ function UIElement({ sectionId, paramInfo }) {
       presetType: USER,
     });
     setUIType({ uiType: newUIType });
-    setParamUITypeId({
-      uiTypeId: newUIType.id,
-      sectionId,
-      paramInfoId,
-    });
+    setUITypeId(newUIType.id);
     // delete old uitype if its a non-preset
     if (!uiType.presetType) {
       deleteUIType({ uiTypeId: uiType.id });
@@ -118,7 +111,6 @@ function UIElement({ sectionId, paramInfo }) {
           transitionDuration: "opacity 0.5s",
         },
       }}
-      data-testid={`UIElement ${paramName}`}
     >
       <Box flex="1" textAlign="left">
         <Heading

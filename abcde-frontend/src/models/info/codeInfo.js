@@ -1,6 +1,5 @@
 import { createAllInfo } from "classes/infoFactory";
 import { action } from "easy-peasy";
-import _ from "lodash";
 import { resetState } from "models/utils";
 
 // allObjInfo maps from every objInfo key to its objInfo

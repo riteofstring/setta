@@ -6,7 +6,6 @@ import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
 import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
 import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";
 import FileMenu from "./FileMenu/FileMenu";
-import { ProjectName } from "./ProjectName/ProjectName";
 import RunButton from "./RunButton/RunButton";
 import UiConfigButton from "./UiConfigButton/UiConfigButton";
 
@@ -48,8 +47,8 @@ function UiEditorSubNav() {
       <CreateGroupButton />
       <UiConfigButton />
       <Divider orientation="vertical" pr=".5rem" />
+
       <RunButton />
-      <ProjectName />
     </>
   );
 }

@@ -71,7 +71,7 @@ export function findAllDescendants(
     }
     idStack.push(...currInfo.children);
   }
-  return output.reverse();
+  return output;
 }
 
 export function findAllCallables(allCodeInfo, collectionIds) {

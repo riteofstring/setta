@@ -1,9 +1,9 @@
 import { action, computed, thunk } from "easy-peasy";
+import { getFnSetSectionConfigAttr } from "hooks/useSectionConfig";
+import { getFnSetUIType } from "hooks/useUITypeCoreFunctions";
 import _ from "lodash";
 import { resetState } from "models/utils";
-import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
-import { REF_ID } from "utils/uiTypeConstants";
 
 function setDefaultIdsOverview(state, sectionId) {
   if (!(sectionId in state.idsOverview)) {
@@ -68,35 +68,63 @@ const sectionInfos = {
     return _.mapValues(x, (v) => v.name);
   }),
 
-  moveSectionThunk: thunk((actions, payload, helpers) => {
-    const { oldParentId, newParentId, sectionId, newIndex, position } = payload;
-    const s = helpers.getStoreState();
-    const a = helpers.getStoreActions();
+  moveChildThunk: thunk((actions, payload, helpers) => {
+    const { oldParentId, newParentId, childId, newIndex, position } = payload;
+
+    // Remove child from old parent's list
+    if (oldParentId) {
+      actions.setIdsOverview({
+        sectionId: oldParentId,
+        newStateFn: (x) => x.filter((y) => y !== childId),
+      });
+    } else {
+      // This means it was a top level section
+      actions.setSectionInfoAttr({
+        sectionId: childId,
+        attr: "isTopLevel",
+        value: false,
+      });
+    }
+    if (newParentId === PANEID) {
+      // This means it's becoming a top level section
+      actions.setSectionInfoAttr({
+        sectionId: childId,
+        attr: "isTopLevel",
+        value: true,
+      });
+    } else {
+      // Add child to new parent's list
+      actions.setIdsOverview({
+        sectionId: newParentId,
+        newStateFn: (x) => [
+          ...x.slice(0, newIndex),
+          childId,
+          ...x.slice(newIndex, x.length),
+        ],
+      });
+    }
+
+    // Set sectionInfo's parentId
+    actions.setSectionInfoAttr({
+      sectionId: childId,
+      attr: "parentId",
+      value: newParentId === PANEID ? undefined : newParentId,
+    });
 
     maybeChangeSectionSubtype({
       newParentId,
-      sectionId,
-      state: s,
-      actions: a,
-    });
-
-    setSectionAttrBasedOnNewParent({
-      oldParentId,
-      newParentId,
-      sectionId,
-      newIndex,
-      actions,
+      childId,
+      state: helpers.getStoreState(),
+      actions: helpers.getStoreActions(),
     });
 
     if (newParentId === PANEID && position) {
       actions.setSectionInfoAttr({
-        sectionId,
+        sectionId: childId,
         attr: "initialPosition",
         value: position,
       });
     }
-
-    maybeChangeOldParamUIType({ oldParentId, sectionId, s, a });
   }),
 
   reset: action((state) => {
@@ -107,8 +135,7 @@ const sectionInfos = {
 export default sectionInfos;
 
 function deleteSectionFn(helpers, sectionId) {
-  const localState = helpers.getState();
-  const childIds = localState.idsOverview[sectionId];
+  const childIds = helpers.getState().idsOverview[sectionId];
   if (childIds) {
     for (let child of childIds) {
       deleteSectionFn(helpers, child);
@@ -117,100 +144,57 @@ function deleteSectionFn(helpers, sectionId) {
   if (helpers.getStoreState().activeSection.id === sectionId) {
     helpers.getStoreActions().activeSection.setId(null);
   }
-  delete localState.x[sectionId];
-  delete localState.idsOverview[sectionId];
-  delete localState.currChildren[sectionId];
+  delete helpers.getState().x[sectionId];
+  delete helpers.getState().idsOverview[sectionId];
+  delete helpers.getState().currChildren[sectionId];
 }
 
-function setSectionAttrBasedOnNewParent({
-  oldParentId,
-  newParentId,
-  sectionId,
-  newIndex,
-  actions,
-}) {
-  // Remove child from old parent's list
-  if (oldParentId) {
-    actions.setIdsOverview({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== sectionId),
-    });
-  } else {
-    // This means it was a top level section
-    actions.setSectionInfoAttr({
-      sectionId,
-      attr: "isTopLevel",
-      value: false,
-    });
-  }
-  if (newParentId === PANEID) {
-    // This means it's becoming a top level section
-    actions.setSectionInfoAttr({
-      sectionId,
-      attr: "isTopLevel",
-      value: true,
-    });
-  } else {
-    // Add child to new parent's list
-    actions.setIdsOverview({
-      sectionId: newParentId,
-      newStateFn: (x) => [
-        ...x.slice(0, newIndex),
-        sectionId,
-        ...x.slice(newIndex, x.length),
-      ],
-    });
-  }
+function maybeChangeSectionSubtype({ newParentId, childId, state, actions }) {
+  const newParentConfigId = state.sectionInfos.x[newParentId]?.configId;
+  const newParentUITypeId = state.sectionConfigs.x[newParentConfigId]?.uiTypeId;
+  const newParentUIType = state.uiTypes.x[newParentUITypeId];
+  const {
+    name: childSectionName,
+    paramInfoId,
+    configId: childConfigId,
+  } = state.sectionInfos.x[childId];
+  const childUITypeId = state.sectionConfigs.x[childConfigId].uiTypeId;
+  const childUIType = state.uiTypes.x[childUITypeId];
+  const setConfig = actions.uiTypes.setOneConfig;
+  const setUIType = actions.uiTypes.setUIType;
+  const setParamUITypeId = () => null; //TODO: determine best course of action here
+  const setSectionUITypeId = getFnSetSectionConfigAttr(
+    childConfigId,
+    "uiTypeId",
+    actions.sectionConfigs.setSectionConfigAttr
+  );
+  const possibleMatchWrapperFn = (fn) => fn(state.uiTypes.x);
 
-  // Set sectionInfo's parentId
-  actions.setSectionInfoAttr({
-    sectionId,
-    attr: "parentId",
-    value: newParentId === PANEID ? undefined : newParentId,
-  });
-}
+  const configChangeFn = getFnSetUIType({
+    paramInfoId,
+    defaultName: childSectionName,
+    childId,
+    currUIType: childUIType,
+    settingPreset: false,
+    settingSectionConfig: true,
+    sectionTypeConfig: newParentUIType?.config,
+    setParamUITypeId,
+    setSectionUITypeId,
+    setConfig,
+    setUIType,
+    possibleMatchWrapperFn,
+  })[1];
 
-function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
-  const newParentUIType =
-    newParentId === PANEID ? null : getSectionType(state, newParentId);
-  const sectionUITypeConfig = getSectionTypeConfig(state, sectionId);
-  const parentIsRoot = isRoot(newParentUIType?.type);
-  const sectionIsListLike = isListLike(sectionUITypeConfig.subType);
-
-  let configProps = {
+  const configProps = {
     configName: "subType",
-    newValueFn: (x) => x,
   };
 
-  if (parentIsRoot && !sectionIsListLike) {
-    configProps = { ...configProps, newValueFn: () => LIST };
-  } else if (!parentIsRoot && sectionIsListLike) {
-    configProps = { ...configProps, newValueFn: () => null };
+  const parentIsRoot = isRoot(newParentUIType?.type);
+  const childIsListLike = isListLike(childUIType.config.subType);
+
+  if (parentIsRoot && !childIsListLike) {
+    configChangeFn({ ...configProps, newValueFn: () => LIST });
+  } else if (!parentIsRoot && childIsListLike) {
+    configChangeFn({ ...configProps, newValueFn: () => null });
   }
-
-  actions.thunks.setSectionUITypeConfig({ sectionId, configProps });
-}
-
-function maybeChangeOldParamUIType({ oldParentId, sectionId, s, a }) {
-  const { paramInfoId } = s.sectionInfos.x[sectionId];
-  if (!paramInfoId) {
-    return;
-  }
-  a.thunks.setParamChildId({
-    sectionId: oldParentId,
-    paramInfoId,
-    childId: null,
-  });
-
-  a.thunks.setParamUITypeId({
-    uiTypeId: REF_ID,
-    sectionId: oldParentId,
-    paramInfoId,
-  });
-
-  a.thunks.setParamEnteredValue({
-    sectionId: oldParentId,
-    paramInfoId,
-    value: sectionId,
-  });
 }

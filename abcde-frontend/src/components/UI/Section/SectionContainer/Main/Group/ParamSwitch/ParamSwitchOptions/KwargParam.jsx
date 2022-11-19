@@ -1,6 +1,8 @@
 import { CloseIcon } from "@chakra-ui/icons";
 import { HStack, IconButton } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
+import { useDeleteKwarg } from "hooks/useKwarg";
+
 import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 
@@ -10,10 +12,10 @@ export default function KwargParam(props) {
   const onBlur = (v) => {
     setName({ id: kwargInfo.id, name: v });
   };
-  const deleteKwarg = useStoreActions((x) => x.thunks.deleteKwarg);
+  const deleteKwarg = useDeleteKwarg(sectionId, objInfoId, kwargInfo.id);
 
   const onClick = () => {
-    deleteKwarg({ sectionId, objInfoId, kwargId: kwargInfo.id });
+    deleteKwarg();
   };
 
   return (

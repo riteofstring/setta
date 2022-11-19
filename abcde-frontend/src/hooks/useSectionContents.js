@@ -1,6 +1,7 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { defaultState, maybeUseNullId } from "utils/utils";
+import { defaultState } from "utils/utils";
+import { maybeUseNullId } from "./useKwarg";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionType } from "./useSectionType";
 

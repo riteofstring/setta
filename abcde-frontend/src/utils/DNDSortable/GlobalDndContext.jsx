@@ -32,9 +32,7 @@ export function GlobalDndContext(props) {
   const [active, setActive] = useState(null);
   const dummyRef = useRef(null);
   const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
-  const moveSectionThunk = useStoreActions(
-    (x) => x.sectionInfos.moveSectionThunk
-  );
+  const moveChildThunk = useStoreActions((x) => x.sectionInfos.moveChildThunk);
   const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
   const { project } = useReactFlow();
@@ -82,10 +80,10 @@ export function GlobalDndContext(props) {
           position = project({ x, y: y - NAVBAR_HEIGHT });
         }
       }
-      moveSectionThunk({
+      moveChildThunk({
         oldParentId: activeContainer,
         newParentId: overContainer,
-        sectionId: active.id,
+        childId: active.id,
         newIndex,
         position,
       });
