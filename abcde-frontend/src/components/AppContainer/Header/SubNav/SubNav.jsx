@@ -2,7 +2,7 @@ import { useStoreActions, useStoreState } from "easy-peasy";
 import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 
 import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
-import VerticalLine from "utils/atoms/dividers/verticalLine";
+import VerticalLine from "utils/atoms/dividers/VerticalLine";
 import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
 import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
 import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";

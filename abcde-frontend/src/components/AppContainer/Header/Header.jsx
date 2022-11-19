@@ -1,7 +1,6 @@
 import { Spacer } from "@chakra-ui/react";
 import "@fontsource/jetbrains-mono/600.css";
 import { useStoreActions } from "easy-peasy";
-import { NAVBAR_HEIGHT } from "utils/constants";
 import { HOME } from "utils/pageNames";
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
@@ -19,6 +18,7 @@ export default function HeaderContainer() {
   );
 }
 
+// TODO try to use the NAVBAR_HEIGHT constant here
 function FlexContainer(props) {
   return (
     <div className="w-[calc(100vw-5rem)] h-14 items-center flex flex-row">
