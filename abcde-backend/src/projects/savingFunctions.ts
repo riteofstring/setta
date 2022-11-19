@@ -66,7 +66,7 @@ export async function saveProject(prisma: PrismaClient, project) {
     id: project.id,
     name: project.name,
     ownerId: project.ownerId,
-    defaultConfigId: project.defaultConfig,
+    defaultConfigId: project.defaultConfigId,
   };
   await prisma.project.upsert({
     where: { id: data.id },

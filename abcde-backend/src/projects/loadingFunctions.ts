@@ -2,11 +2,10 @@ import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 import _ = require('lodash');
 
 export async function getProject(prisma, id) {
-  const p = await prisma.project.findUnique({
+  return await prisma.project.findUnique({
     where: { id },
     select: { id: true, ownerId: true, name: true, defaultConfigId: true },
   });
-  return renameKeys(p, { defaultConfigId: 'defaultConfig' });
 }
 
 export async function getProjectConfig(prisma, id) {

@@ -32,10 +32,10 @@ export class ProjectsService {
     await saveAllProjectDetails(this.prisma, projects);
   }
 
-  async loadOne(user, id: string): Promise<any> {
+  async loadOne(user, id: string, configId: string): Promise<any> {
     const project = await getProject(this.prisma, id);
     const { projectConfig, sectionConfigCol, sectionPositions } =
-      await getProjectConfig(this.prisma, project.defaultConfig);
+      await getProjectConfig(this.prisma, configId);
     const { sections, sectionChildren } = await getSections(
       this.prisma,
       _.keys(sectionConfigCol),
