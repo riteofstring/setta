@@ -164,6 +164,6 @@ function projectSubFolderNames(projectName) {
   return {
     simpleTrainTest: ["simpleConfig1"],
     appleOrchardFarm: ["appleConfig1"],
-    diffusionDrops: ["diffusionConfig1"],
+    diffusionDrops: ["diffusionConfig1", "diffusionConfig2"],
   }[projectName];
 }
