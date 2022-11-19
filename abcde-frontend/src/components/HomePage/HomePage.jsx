@@ -12,7 +12,7 @@ import {
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
 import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import { UI } from "utils/pageNames";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
@@ -163,22 +163,15 @@ function Body({ configs, defaultConfig }) {
 }
 
 function ProjectNameSetter({ onClick }) {
-  const [presetName, setPresetName] = useState("");
+  const presetNameRef = useRef();
 
-  function onChange(e) {
-    setPresetName(e.target.value);
-  }
   function localOnClick() {
-    onClick(presetName);
+    onClick(presetNameRef.current.value);
   }
 
   return (
     <>
-      <Input
-        placeholder="Project Name"
-        onChange={onChange}
-        value={presetName}
-      />
+      <Input placeholder="Project Name" ref={presetNameRef} />
       <Button onClick={localOnClick}>Create</Button>
     </>
   );
