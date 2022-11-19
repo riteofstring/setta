@@ -83,17 +83,26 @@ function RightColumn({ projects, setProjects }) {
 }
 
 function ProjectItem({ project }) {
-  const { name, id, configs, defaultConfig } = project;
+  const { name, id, configs, defaultConfigId } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   const setCurrProject = useStoreActions((x) => x.project.setId);
+  const setCurrProjectConfig = useStoreActions((x) => x.projectConfig.setId);
 
   function onClick() {
     setCurrPage(UI);
     setCurrProject(id);
+    setCurrProjectConfig(defaultConfigId);
   }
 
   function onClickConfigsButton(e) {
     e.stopPropagation();
+  }
+
+  function onConfigClick(e, configId) {
+    e.stopPropagation();
+    setCurrPage(UI);
+    setCurrProject(id);
+    setCurrProjectConfig(configId);
   }
 
   return (
@@ -132,7 +141,13 @@ function ProjectItem({ project }) {
               Configs
             </Button>
           }
-          body={<Body configs={configs} defaultConfig={defaultConfig} />}
+          body={
+            <Body
+              configs={configs}
+              defaultConfigId={defaultConfigId}
+              onClick={onConfigClick}
+            />
+          }
           header="Configs"
         />
       </GridItem>
@@ -149,13 +164,15 @@ function ProjectItem({ project }) {
   );
 }
 
-function Body({ configs, defaultConfig }) {
+function Body({ configs, defaultConfigId, onClick }) {
   return (
     <List>
       {configs.map((x, idx) => (
-        <HStack key={`Config ${idx}`}>
+        <HStack key={`Config ${idx}`} onClick={(e) => onClick(e, x.id)}>
           <ListItem>{x.name}</ListItem>
-          {x.id === defaultConfig && <Badge colorScheme="green">Default</Badge>}
+          {x.id === defaultConfigId && (
+            <Badge colorScheme="green">Default</Badge>
+          )}
         </HStack>
       ))}
     </List>

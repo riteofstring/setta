@@ -5,7 +5,12 @@ import _ from "lodash";
 
 // s is the easy-peasy store
 export function getProjectData(s) {
-  const project = _.pick(s.project, ["id", "name", "ownerId", "defaultConfig"]);
+  const project = _.pick(s.project, [
+    "id",
+    "name",
+    "ownerId",
+    "defaultConfigId",
+  ]);
   const projectConfig = _.pick(s.projectConfig, [
     "id",
     "name",
