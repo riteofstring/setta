@@ -9,7 +9,7 @@ import {
   getSectionConfigs,
   getSections,
 } from './loadingFunctions';
-import { createProject, saveAllProjectDetails } from './savingFunctions';
+import { createProject, saveProjectDetails } from './savingFunctions';
 import _ = require('lodash');
 
 @Injectable()
@@ -28,8 +28,8 @@ export class ProjectsService {
     return await createProject(this.prisma, user, name);
   }
 
-  async save(projects): Promise<any> {
-    await saveAllProjectDetails(this.prisma, projects);
+  async save(project): Promise<any> {
+    await saveProjectDetails(this.prisma, project);
   }
 
   async loadOne(user, id: string, configId: string): Promise<any> {

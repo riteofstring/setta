@@ -41,8 +41,9 @@ describe('ProjectsService', () => {
 
   it('Get a project with nested sections', async () => {
     const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
+    const configId = '439f5590-fa98-4564-8f63-ec75b6dc89b2';
     const { body: retrieved } = await request(app.getHttpServer())
-      .post(`/projects/load/${projectId}`)
+      .post(`/projects/load/${projectId}/${configId}`)
       .set('Authorization', `Bearer ${access_token}`);
 
     const allProjects = await loadAllProjects({});

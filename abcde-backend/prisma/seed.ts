@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
-import { saveAllProjectDetails } from 'src/projects/savingFunctions';
+import { saveMultipleProjectDetails } from 'src/projects/savingFunctions';
 import { saveUsers } from 'src/users/savingFunctions';
 import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
@@ -29,9 +29,7 @@ async function seedCodeInfo() {
 async function seedProjects() {
   const allProjects = await loadAllProjects({ forSeeding: true });
   console.log('seedProjects');
-  for (const p of allProjects) {
-    await saveAllProjectDetails(prisma, p);
-  }
+  await saveMultipleProjectDetails(prisma, allProjects);
   console.log('done');
 }
 

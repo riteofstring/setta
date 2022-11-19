@@ -11,7 +11,24 @@ import {
 } from 'src/sections/savingFunctions';
 import { saveUITypeCols, saveUITypes } from 'src/uiTypes/savingFunctions';
 
-export async function saveAllProjectDetails(prisma: PrismaClient, p) {
+export async function saveMultipleProjectDetails(
+  prisma: PrismaClient,
+  projects,
+) {
+  for (const p of projects) {
+    await saveProjectDetails(prisma, p, false);
+  }
+  // save project info afterward, to ensure defaultconfigid is a valid foreign key
+  for (const p of projects) {
+    await saveProject(prisma, p.project, p.projectConfig);
+  }
+}
+
+export async function saveProjectDetails(
+  prisma: PrismaClient,
+  p,
+  saveProjectInfo = true,
+) {
   await saveKwargInfo(prisma, p.kwargInfo);
   await saveKwargCols(prisma, p.kwargCols);
   await saveSections(prisma, p.sections, p.sectionChildren);
@@ -26,8 +43,9 @@ export async function saveAllProjectDetails(prisma: PrismaClient, p) {
     p.projectConfig.sectionConfigCol,
   );
   await saveProjectConfig(prisma, p.projectConfig, p.sections);
-  await saveProject(prisma, p.project);
-  await connectProjectToProjectConfig(prisma, p.project, p.projectConfig);
+  if (saveProjectInfo) {
+    await saveProject(prisma, p.project, p.projectConfig);
+  }
 }
 
 export async function saveProjectConfig(
@@ -61,7 +79,11 @@ export async function saveProjectConfig(
   });
 }
 
-export async function saveProject(prisma: PrismaClient, project) {
+export async function saveProject(
+  prisma: PrismaClient,
+  project,
+  projectConfig,
+) {
   const data = {
     id: project.id,
     name: project.name,
@@ -73,13 +95,6 @@ export async function saveProject(prisma: PrismaClient, project) {
     create: data,
     update: data,
   });
-}
-
-export async function connectProjectToProjectConfig(
-  prisma: PrismaClient,
-  project,
-  projectConfig,
-) {
   await prisma.projectConfig.update({
     where: { id: projectConfig.id },
     data: { projectId: project.id },
