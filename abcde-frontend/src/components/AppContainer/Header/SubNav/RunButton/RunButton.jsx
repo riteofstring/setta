@@ -1,10 +1,23 @@
 import { ChevronDownIcon } from "@chakra-ui/icons";
-import { Button, ButtonGroup, Icon, IconButton } from "@chakra-ui/react";
+import {
+  Button,
+  ButtonGroup,
+  Icon,
+  IconButton,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverCloseButton,
+  PopoverContent,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverTrigger,
+  Portal,
+} from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useCodeGenerator } from "hooks/dbRequests/codeGenerator";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { createNewId } from "utils/utils";
 import ExportSelectedButton from "./ExportSelectedButton";
 
@@ -26,8 +39,8 @@ export default function RunButton() {
 
   return (
     <ButtonGroup variant="outline" size="xs" isAttached mr=".25rem">
-      <PopoverWrapper
-        trigger={
+      <Popover>
+        <PopoverTrigger>
           <Button
             bg="whiteAlpha"
             leftIcon={<Icon as={RiPlayMiniFill} />}
@@ -36,41 +49,51 @@ export default function RunButton() {
           >
             Generate
           </Button>
-        }
-        body={command}
-        header={description}
-        closeButton={true}
-      />
-      <PopoverWrapper
-        trigger={
+        </PopoverTrigger>
+        <Portal>
+          <PopoverContent>
+            <PopoverArrow />
+            <PopoverHeader>{description}</PopoverHeader>
+            <PopoverCloseButton />
+            <PopoverBody>{command}</PopoverBody>
+          </PopoverContent>
+        </Portal>
+      </Popover>
+
+      <Popover>
+        <PopoverTrigger>
           <IconButton
             bg="whiteAlpha"
             aria-label="Run Options"
             icon={<ChevronDownIcon />}
           />
-        }
-        body={
-          <>
-            <ExportSelectedButton
-              exportSelected={exportSelected}
-              outputAs="code"
-              buttonText="Generate Code"
-            />
-            <ExportSelectedButton
-              exportSelected={exportSelected}
-              outputAs="json"
-              buttonText="Export Selected as JSON"
-            />
-            <ExportSelectedButton
-              exportSelected={exportSelected}
-              outputAs="yaml"
-              buttonText="Export Selected as YAML"
-            />
-          </>
-        }
-        header={"Generate Options"}
-        closeButton={true}
-      />
+        </PopoverTrigger>
+        <Portal>
+          <PopoverContent>
+            <PopoverArrow />
+            <PopoverHeader>Generate Options</PopoverHeader>
+            <PopoverCloseButton />
+            <PopoverBody>
+              <ExportSelectedButton
+                exportSelected={exportSelected}
+                outputAs="code"
+                buttonText="Generate Code"
+              />
+              <ExportSelectedButton
+                exportSelected={exportSelected}
+                outputAs="json"
+                buttonText="Export Selected as JSON"
+              />
+              <ExportSelectedButton
+                exportSelected={exportSelected}
+                outputAs="yaml"
+                buttonText="Export Selected as YAML"
+              />
+            </PopoverBody>
+            <PopoverFooter>This is the footer</PopoverFooter>
+          </PopoverContent>
+        </Portal>
+      </Popover>
     </ButtonGroup>
   );
 }

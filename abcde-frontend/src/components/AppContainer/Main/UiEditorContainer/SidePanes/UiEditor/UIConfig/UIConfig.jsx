@@ -6,6 +6,11 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
   Spacer,
   Stack,
   VStack,
@@ -16,7 +21,6 @@ import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
-import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { USER } from "utils/uiTypeConstants";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 
@@ -148,8 +152,8 @@ function SaveLoadButtons({ onSubmit }) {
   return (
     <Stack spacing={3} direction="row" pb="1.5rem">
       <Spacer />
-      <PopoverWrapper
-        trigger={
+      <Popover>
+        <PopoverTrigger>
           <Button
             variant="outline"
             size="xs"
@@ -160,9 +164,14 @@ function SaveLoadButtons({ onSubmit }) {
           >
             Save As
           </Button>
-        }
-        body={<SubmitAsPreset onSubmit={onSubmit} />}
-      />
+        </PopoverTrigger>
+        <PopoverContent>
+          <PopoverArrow />
+          <PopoverBody>
+            <SubmitAsPreset onSubmit={onSubmit} />
+          </PopoverBody>
+        </PopoverContent>
+      </Popover>
     </Stack>
   );
 }

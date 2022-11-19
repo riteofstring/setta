@@ -34,7 +34,7 @@ function _KwargGroupContainer({ sectionId, objInfoId }) {
 
 function _GroupContainer({ sectionId, objInfoId, infos, isKwarg }) {
   const kwargsStyleCondition = isKwarg && infos.length > 0;
-  const kwargsControlCondition = !isKwarg;
+  const kwargsControlCondition = !isKwarg && infos.length > 0;
 
   return (
     <VStack alignItems="stretch">

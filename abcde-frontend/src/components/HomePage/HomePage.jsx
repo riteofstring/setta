@@ -6,7 +6,6 @@ import {
   GridItem,
   Heading,
   HStack,
-  Input,
   List,
   ListItem,
   useDisclosure,
@@ -18,7 +17,6 @@ import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
-import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
 function HomePage() {
   const getProjects = useGetProjects();
@@ -63,27 +61,24 @@ function LeftColumn() {
 function RightColumn({ projects, setProjects }) {
   const createProject = useCreateProject();
 
-  async function onClick(name) {
-    const newProject = await createProject({ name });
+  async function onClick() {
+    const newProject = await createProject({ name: "amazing project" });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
   }
 
   return (
     <GridItem overflowY="auto">
-      <PopoverWrapper
-        trigger={
-          <Button
-            mt="2.5rem"
-            mx="2.5rem"
-            borderRadius="full"
-            leftIcon={<BiAddToQueue />}
-            colorScheme="blue"
-          >
-            Create New Project
-          </Button>
-        }
-        body={<ProjectNameSetter onClick={onClick} />}
-      />
+      <Button
+        mt="2.5rem"
+        mx="2.5rem"
+        borderRadius="full"
+        leftIcon={<BiAddToQueue />}
+        colorScheme="blue"
+        onClick={onClick}
+      >
+        Create New Project
+      </Button>
+
       <Grid
         gridTemplateColumns="repeat(auto-fit, 20rem)"
         gap="2rem"
@@ -194,26 +189,4 @@ function Body({ configs }) {
 
 function Footer() {
   return <Box />;
-}
-
-function ProjectNameSetter({ onClick }) {
-  const [presetName, setPresetName] = useState("");
-
-  function onChange(e) {
-    setPresetName(e.target.value);
-  }
-  function localOnClick() {
-    onClick(presetName);
-  }
-
-  return (
-    <>
-      <Input
-        placeholder="Project Name"
-        onChange={onChange}
-        value={presetName}
-      />
-      <Button onClick={localOnClick}>Create</Button>
-    </>
-  );
 }
