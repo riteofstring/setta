@@ -30,8 +30,8 @@ const codeInfo = {
   }),
 
   setCodeInfo: action((state, payload) => {
-    const { info } = payload;
-    state.allObjInfo[info.id] = info;
+    const { id, info } = payload;
+    state.allObjInfo[id] = info;
   }),
 
   setName: action((state, payload) => {

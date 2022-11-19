@@ -89,7 +89,7 @@ function SectionConfigCore({
 
   async function onSubmit(searchTerm) {
     if (searchTerm) {
-      const x = await getCollectionsAndModules({ allCollections, searchTerm });
+      const x = await getCollectionsAndModules({ searchTerm });
       setResults(x);
     }
   }
