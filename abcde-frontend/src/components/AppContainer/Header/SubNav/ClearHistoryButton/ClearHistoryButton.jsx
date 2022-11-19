@@ -1,15 +1,11 @@
-import { Button, Icon } from "@chakra-ui/react";
 import { BiHistory } from "react-icons/bi";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 
 export default function ClearHistoryButton() {
   return (
-    <Button
-      leftIcon={<Icon as={BiHistory} />}
-      size="xs"
-      mr="-px"
-      variant="ghost"
-    >
+    <MenuBarButton>
+      <BiHistory />
       Clear History
-    </Button>
+    </MenuBarButton>
   );
 }
