@@ -11,22 +11,17 @@ import {
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
-import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
+import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import { UI } from "utils/pageNames";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
 function HomePage() {
-  const getProjects = useGetProjects();
-  const [projects, setProjects] = useState({});
-
-  async function fetchData() {
-    setProjects(await getProjects());
-  }
+  const { projects, getProjects, createProject } = useGetOrCreateProjects();
 
   useEffect(() => {
-    fetchData();
+    getProjects();
   }, []);
 
   return (
@@ -35,19 +30,16 @@ function HomePage() {
       display="grid"
       backgroundColor="gray.100"
     >
-      <RightColumn projects={projects} setProjects={setProjects} />
+      <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
 }
 
 export default React.memo(HomePage);
 
-function RightColumn({ projects, setProjects }) {
-  const createProject = useCreateProject();
-
-  async function onClick(name) {
-    const newProject = await createProject({ name });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
+function RightColumn({ projects, createProject }) {
+  function onClick(name) {
+    createProject({ name });
   }
 
   return (
