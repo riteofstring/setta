@@ -1,18 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import MainContainer from "components/AppContainer/Main/MainContainer";
 import { SECTION } from "utils/constants";
 import {
-  createStoreWrapperWithData,
-  getParameterToTestOn,
-  getUITypeByName,
-} from "__tests__utils/createStoreWrapperWithData";
-import {
   renderUseGetParamChildId,
   renderUseGetParamUIType,
-  renderUseSetUIType,
 } from "__tests__utils/renderHooks";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { sectionIdFromName } from "__tests__utils/utils";
+import {
+  createStoreWrapperWithData,
+  getParameterToTestOn,
+  sectionIdFromName,
+} from "__tests__utils/utils";
 
 global.ResizeObserver = ResizeObserver;
 
@@ -21,7 +20,7 @@ test("A nested section should appear when a parameter uitype becomes section", a
   const sectionName = "The2ndOtherParameters";
   const sectionId = sectionIdFromName(store, sectionName);
   const props = { sectionId, parentId: null, depth: 0 };
-  const { rerender } = render(<MainContainer {...props} />, { wrapper });
+  render(<MainContainer {...props} />, { wrapper });
 
   const {
     paramInfo: { id: paramInfoId },
@@ -32,25 +31,32 @@ test("A nested section should appear when a parameter uitype becomes section", a
 
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
 
-  const hookProps = {
-    sectionId,
-    paramInfoId,
-    currUIType: result.current,
-  };
-  ({ result } = renderUseSetUIType(hookProps, wrapper));
+  // make section active
+  const section = screen.getByTestId(`${sectionId} section core`);
+  await userEvent.click(section);
 
-  const newUIType = getUITypeByName(store, "", SECTION, true);
-  waitFor(() => result.current[0](newUIType.id));
+  // go to the parameter config pane
+  const parameterPaneButton = screen.getByTestId("UiEditor Parameters Button");
+  await userEvent.click(parameterPaneButton);
+
+  // set the parameter to be an object
+  const uiElement = screen.getByTestId("UIElement dataset_root");
+  const inputFields = within(uiElement).getAllByRole("textbox", {
+    hidden: true,
+  });
+  const combobox = inputFields[0]; //combobox is the first textbox within uiElement
+  await userEvent.clear(combobox);
+  await userEvent.type(combobox, "Object");
+  await userEvent.type(combobox, "{arrowdown}");
+  await userEvent.tab();
 
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
-  expect(result.current).toEqual(newUIType);
-
-  rerender(<MainContainer {...props} />, { wrapper });
+  expect(result.current.type).toEqual(SECTION);
+  expect(result.current.presetType).toEqual("base");
 
   ({ result } = renderUseGetParamChildId(sectionId, paramInfoId, wrapper));
   expect(result.current).toBeTruthy();
   const childId = result.current;
-
   const nestedSection = screen.getByTestId(`${childId} section core`);
   expect(nestedSection).toBeTruthy();
 });

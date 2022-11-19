@@ -1,9 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MainContainer from "components/AppContainer/Main/MainContainer";
-import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { sectionIdFromName } from "__tests__utils/utils";
+import {
+  createStoreWrapperWithData,
+  sectionIdFromName,
+} from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;

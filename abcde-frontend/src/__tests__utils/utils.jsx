@@ -1,4 +1,3 @@
-import { waitFor } from "@testing-library/react";
 import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
@@ -6,7 +5,51 @@ import _ from "lodash";
 import { ReactFlowProvider } from "react-flow-renderer";
 import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
-import { createNewId } from "utils/utils";
+import { loadOneProject } from "./loadTestData";
+import { renderUseGetSectionType } from "./renderHooks";
+
+export async function createStoreWrapperWithData() {
+  const store = createStore();
+  const testData = await loadOneProject({});
+  store.getActions().master.loadSections(testData);
+  return { store, wrapper: getStoreProviderWrapper(store) };
+}
+
+export function getSectionByName(store, name) {
+  return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
+}
+
+function getParamCollectionParamInfoByName(allObjInfo, paramCollection, name) {
+  const childrenInfo = paramCollection.children.map((x) => allObjInfo[x]);
+  return _.filter(childrenInfo, (v) => v.name === name)[0];
+}
+
+export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
+  let result = null;
+
+  // get section
+  const sectionInfo = getSectionByName(store, sectionName);
+
+  const { id: sectionId, configId } = sectionInfo;
+  const { uiTypeId: sectionTypeId } =
+    store.getState().sectionConfigs.x[configId];
+  // get sectionType
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
+  expect(result.current.id).toEqual(sectionTypeId);
+  const evColId = result.current.config.collections[0];
+
+  // get the param collection that the section contains
+  const allObjInfo = store.getState().codeInfo.allObjInfo;
+  const variousParams = allObjInfo[evColId];
+
+  // get the parameter we are going to test on
+  const paramInfo = getParamCollectionParamInfoByName(
+    allObjInfo,
+    variousParams,
+    paramName
+  );
+  return { sectionInfo, paramInfo };
+}
 
 export function createStore() {
   resetEntireState();
@@ -34,26 +77,6 @@ export function addUIType(store, props = {}) {
   const uiType = new UIType(props);
   store.getActions().uiTypes.setUIType({ uiType });
   return uiType;
-}
-
-export function addParamInfo(store, sectionInfo, uiType, isNested = false) {
-  const [uiTypeColId, paramInfoId] = [createNewId(), createNewId()];
-  const setUITypeId = store.getActions().paramInfos.setUITypeId;
-  waitFor(() => {
-    setUITypeId({
-      collectionId: uiTypeColId,
-      paramInfoId,
-      uiTypeId: uiType.id,
-    });
-  });
-  if (isNested) {
-    store.getActions().thunks.addChild({
-      parentId: sectionInfo.id,
-      uiTypeId: uiType.id,
-      parentParamInfoId: paramInfoId,
-    });
-  }
-  return { uiTypeColId, paramInfoId };
 }
 
 export function getStoreProviderWrapper(store) {

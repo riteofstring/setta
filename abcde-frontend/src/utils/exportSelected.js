@@ -1,10 +1,9 @@
 import { getFullObjPath } from "classes/immutableInfo";
-import { maybeUseNullId } from "hooks/useKwarg";
 import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
-
 import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
 import { DECK, isRoot, LIST_ROOT } from "./constants";
+import { maybeUseNullId } from "./utils";
 
 function paramInfoExportSelected(sectionId, paramInfo, evColId, state) {
   const evId = state.paramInfos.x[evColId]?.[paramInfo.id];
