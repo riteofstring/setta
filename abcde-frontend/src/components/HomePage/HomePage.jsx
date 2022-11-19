@@ -35,27 +35,12 @@ function HomePage() {
       display="grid"
       backgroundColor="gray.100"
     >
-      {/* <LeftColumn /> */}
       <RightColumn projects={projects} setProjects={setProjects} />
     </GridWrapper>
   );
 }
 
 export default React.memo(HomePage);
-
-function LeftColumn() {
-  return (
-    <GridItem
-      p="2.5rem"
-      borderRightStyle="solid"
-      borderRightColor="gray.100"
-      borderRightWidth="1px"
-      overflowY="auto"
-    >
-      LEFT COLUMN
-    </GridItem>
-  );
-}
 
 function RightColumn({ projects, setProjects }) {
   const createProject = useCreateProject();
@@ -98,7 +83,7 @@ function RightColumn({ projects, setProjects }) {
 }
 
 function ProjectItem({ project }) {
-  const { name, id, configs } = project;
+  const { name, id, configs, defaultConfig } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   const setCurrProject = useStoreActions((x) => x.project.setId);
 
@@ -147,7 +132,7 @@ function ProjectItem({ project }) {
               Configs
             </Button>
           }
-          body={<Body configs={configs} />}
+          body={<Body configs={configs} defaultConfig={defaultConfig} />}
           header="Configs"
         />
       </GridItem>
@@ -164,11 +149,14 @@ function ProjectItem({ project }) {
   );
 }
 
-function Body({ configs }) {
+function Body({ configs, defaultConfig }) {
   return (
     <List>
       {configs.map((x, idx) => (
-        <ListItem key={`Config ${idx}`}>{x.name}</ListItem>
+        <HStack key={`Config ${idx}`}>
+          <ListItem>{x.name}</ListItem>
+          {x.id === defaultConfig && <Badge colorScheme="green">Default</Badge>}
+        </HStack>
       ))}
     </List>
   );
