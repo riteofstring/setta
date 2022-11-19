@@ -1,3 +1,4 @@
+import { Grid } from "@chakra-ui/react";
 import { useAccessPage } from "hooks/dbRequests/authentication";
 import React, { useEffect } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
@@ -14,19 +15,19 @@ const AppContainer = () => {
   return (
     <ReactFlowProvider>
       <HeaderContainer />
-      <GridContainer>
+      <Grid
+        h="100%"
+        w="100vw"
+        border="1px"
+        overflow="hidden"
+        templateRows="min-content 1fr"
+        templateColumns="1fr"
+        borderColor="gray.200"
+      >
         <SwitchContainer />
-      </GridContainer>
+      </Grid>
     </ReactFlowProvider>
   );
 };
-
-function GridContainer(props) {
-  return (
-    <main className="h-full w-screen border border-gray-200 overflow-hidden grid [grid-template-columns:1fr] [grid-template-rows:min-content 1fr]">
-      {props.children}
-    </main>
-  );
-}
 
 export default React.memo(AppContainer);
