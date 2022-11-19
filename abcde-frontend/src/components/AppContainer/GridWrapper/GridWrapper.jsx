@@ -1,5 +1,3 @@
-import { Flex, GridItem } from "@chakra-ui/react";
-
 export default function GridWrapper(props) {
   return (
     <StandardGrid {...props}>
@@ -9,60 +7,20 @@ export default function GridWrapper(props) {
 }
 
 function StandardGrid(props) {
-  const {
-    colStart = "1",
-    colEnd = "2",
-    rowStart = "2",
-    rowEnd = "3",
-    minH = "0",
-    minW = "0",
-    height = "100%",
-    display = null,
-    gridTemplateColumns = null,
-    gridTemplateRows = null,
-    backgroundColor = "auto",
-  } = props;
   return (
-    <GridItem
-      colStart={colStart}
-      colEnd={colEnd}
-      rowStart={rowStart}
-      rowEnd={rowEnd}
-      minH={minH}
-      minW={minW}
-      h={height}
-      display={display}
-      gridTemplateColumns={gridTemplateColumns}
-      gridTemplateRows={gridTemplateRows}
-      backgroundColor={backgroundColor}
-    >
+    <div className="col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 h-full">
       {props.children}
-    </GridItem>
+    </div>
   );
 }
 
 function FlexForm(props) {
-  const {
-    flexDirection = "column",
-    width = "100%",
-    minHeight = "200px",
-    marginTop = "20vh",
-    justifyContent = "center",
-    alignItems = "center",
-    flexFormWrap = false,
-  } = props;
+  const { flexFormWrap = false } = props;
   if (flexFormWrap) {
     return (
-      <Flex
-        flexDirection={flexDirection}
-        width={width}
-        minHeight={minHeight}
-        mt={marginTop}
-        justifyContent={justifyContent}
-        alignItems={alignItems}
-      >
+      <div className="flex flex-col w-full min-h-[200px] mt-[20vh] justify-center items-center">
         {props.children}
-      </Flex>
+      </div>
     );
   } else {
     return <>{props.children}</>;

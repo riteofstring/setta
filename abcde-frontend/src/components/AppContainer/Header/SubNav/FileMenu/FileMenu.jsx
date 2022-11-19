@@ -32,26 +32,47 @@ export default function FileMenu() {
             align="start"
             className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
           >
-            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
-              <IoDocumentTextOutline />
-              New Project
-            </DropdownMenu.Item>
-            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
-              <GrDocumentDownload />
-              Load
-            </DropdownMenu.Item>
-            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
-              <VscSave />
-              Save
-            </DropdownMenu.Item>
-            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
-              <VscSaveAs />
-              Save As
-            </DropdownMenu.Item>
+            <Items />
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      {/* <Menu>
+    </>
+  );
+}
+
+function Item(props) {
+  return (
+    <DropdownMenu.Item className="text-sm flex flex-row gap-1">
+      {props.children}
+    </DropdownMenu.Item>
+  );
+}
+
+function Items() {
+  return (
+    <>
+      <Item>
+        <IoDocumentTextOutline />
+        New Project
+      </Item>
+      <Item>
+        <GrDocumentDownload />
+        Load
+      </Item>
+      <Item>
+        <VscSave />
+        Save
+      </Item>
+      <Item>
+        <VscSaveAs />
+        Save As
+      </Item>
+    </>
+  );
+}
+
+{
+  /* <Menu>
         <MenuButton size="xs" variant="ghost" as={Button}>
           File <ChevronDownIcon />
         </MenuButton>
@@ -70,7 +91,5 @@ export default function FileMenu() {
         onClose={onClose}
         isOpen={isOpen}
         buttonText={"SaveLoadModal"}
-      /> */}
-    </>
-  );
+      /> */
 }
