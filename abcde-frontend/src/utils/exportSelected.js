@@ -1,21 +1,20 @@
 import { getFullObjPath } from "classes/immutableInfo";
-import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
+
 import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
 import { DECK, isRoot, LIST_ROOT } from "./constants";
-import { maybeUseNullId } from "./utils";
 
 function paramInfoExportSelected(sectionId, paramInfo, evColId, state) {
-  const evId = state.paramInfos.x[evColId]?.[paramInfo.id];
-  if (!evId) {
+  const enteredValueInfo = state.paramInfos.x[evColId]?.[paramInfo.id];
+  if (!enteredValueInfo) {
     return undefined;
   }
-  const { value, childId } = state.enteredValues.x[evId];
+  const { enteredValueId, childId } = enteredValueInfo;
   const sectionChildren = state.sectionInfos.currChildren[sectionId];
   if (sectionChildren && sectionChildren.includes(childId)) {
     return sectionExportSelected(state.sectionInfos.x[childId], state);
   }
-  return value;
+  return state.enteredValues.x[enteredValueId];
 }
 
 function multipleParamInfoExportSelected(
@@ -38,23 +37,23 @@ function multipleParamInfoExportSelected(
 function paramCollectionExportSelected(
   sectionId,
   sectionType,
-  allObjInfo,
-  paramCollections,
+  allParamCollections,
   evColId,
   state
 ) {
   const {
-    config: { collections },
+    config: { parameters },
   } = sectionType;
-  let currParamCollections = [];
-  for (let c of collections) {
-    if (c in paramCollections) {
-      currParamCollections = [...currParamCollections, ...paramCollections[c]];
-    }
+  let currParamCollections = {};
+  for (let p of parameters) {
+    currParamCollections = {
+      ...currParamCollections,
+      ...allParamCollections.children[p].children,
+    };
   }
   return multipleParamInfoExportSelected(
     sectionId,
-    currParamCollections.map((x) => allObjInfo[x.id]),
+    Object.values(currParamCollections),
     evColId,
     state
   );
@@ -67,8 +66,8 @@ function kwargsExportSelected(
   kwargColId,
   state
 ) {
-  const kwargIds = state.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
-  if (!kwargIds) {
+  const kwargIds = state.objInfos.x[kwargColId]?.[objInfoId]?.kwargIds;
+  if (_.isNil(kwargIds)) {
     return {};
   }
   const kwargInfos = kwargIds.map((y) => state.codeInfo.allObjInfo[y]);
@@ -79,7 +78,7 @@ function objInfoExportSelected(sectionId, objInfo, evColId, state) {
   const { path: fullObjPath } = getFullObjPath(objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
-    objInfo.children.map((x) => state.codeInfo.allObjInfo[x]),
+    Object.values(objInfo.children),
     evColId,
     state
   );
@@ -87,10 +86,14 @@ function objInfoExportSelected(sectionId, objInfo, evColId, state) {
 }
 
 function sectionExportSelected(section, state) {
-  const { allObjInfo, paramCollections } = state.codeInfo;
-  const { id: sectionId, configId } = section;
-  const { selectedItem, uiTypeId, evColId, kwargColId } =
-    state.sectionConfigs.x[configId];
+  const { allObjInfo, allParamCollections } = state.master;
+  const {
+    id: sectionId,
+    selectedItem,
+    uiTypeId,
+    evColId,
+    kwargColId,
+  } = section;
   const sectionType = state.uiTypes.x[uiTypeId];
 
   if (isRoot(sectionType.type)) {
@@ -101,8 +104,7 @@ function sectionExportSelected(section, state) {
   const nonObjParams = paramCollectionExportSelected(
     sectionId,
     sectionType,
-    allObjInfo,
-    paramCollections,
+    allParamCollections,
     evColId,
     state
   );
@@ -131,8 +133,7 @@ function sectionExportSelected(section, state) {
 }
 
 function processSelected(currSection, selected, sectionType, state) {
-  const currSectionConfig = state.sectionConfigs.x[currSection.configId];
-  const currSectionType = state.uiTypes.x[currSectionConfig.uiTypeId].type;
+  const currSectionType = state.uiTypes.x[currSection.uiTypeId].type;
   const parentIsPane = !sectionType;
   const parentIsListRoot = sectionType?.type === LIST_ROOT;
   if (parentIsListRoot) {
@@ -169,13 +170,6 @@ function multipleSectionExportSelected(children, sectionType, state) {
   return output;
 }
 
-export function exportSelected(state) {
-  const topLevelSectionIds = topLevelSectionInfo(state.sectionInfos.x).map(
-    (x) => x.id
-  );
-  return multipleSectionExportSelected(topLevelSectionIds, null, state);
-}
-
 function topLevelPrefix(key) {
   return `${VARIABLE}${key}`;
 }
@@ -194,6 +188,14 @@ function stringPrefix(x) {
 
 function maybeStringPrefix(x) {
   return _.isString(x) ? stringPrefix(x) : x;
+}
+
+export function exportSelected(state) {
+  const sections = state.sectionInfos.x;
+  const topLevelSectionIds = _.filter(sections, (x) => x.isTopLevel).map(
+    (x) => x.id
+  );
+  return multipleSectionExportSelected(topLevelSectionIds, null, state);
 }
 
 // Look at parent of deck to determine what to do with children of deck

@@ -8,7 +8,6 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
@@ -16,11 +15,10 @@ import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const reactFlowStore = useStoreApi();
   const saveProject = useStoreActions((x) => x.thunks.saveProject);
 
   function onSaveButtonClick() {
-    saveProject({ reactFlowStore });
+    saveProject();
   }
 
   function onLoadClick() {

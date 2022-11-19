@@ -11,9 +11,5 @@ export function useGetSectionInfo(sectionId) {
 
 export function useTopLevelSectionInfo() {
   const infos = useStoreState((x) => x.sectionInfos.x);
-  return topLevelSectionInfo(infos);
-}
-
-export function topLevelSectionInfo(sectionInfos) {
-  return _.filter(sectionInfos, (x) => x.isTopLevel);
+  return _.filter(infos, (x) => x.isTopLevel);
 }

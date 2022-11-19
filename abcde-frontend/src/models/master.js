@@ -1,10 +1,17 @@
 import { SectionConfig, SectionInfo } from "classes/mutableInfo";
 import { UIType } from "classes/uiType";
-import { thunk } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
+import { resetState } from "models/utils";
 import { exportSelected } from "utils/exportSelected";
 
+function getInitialState() {
+  return { activeSection: null };
+}
+
 const master = {
+  ...getInitialState(),
+
   clearSections: thunk((action, payload, helpers) => {
     resetProject(helpers.getStoreActions());
   }),
@@ -12,7 +19,6 @@ const master = {
   loadSections: thunk((action, payload, helpers) => {
     const {
       project,
-      projectConfig,
       codeInfo,
       globalDefaults,
       projectDefaults,
@@ -20,19 +26,19 @@ const master = {
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
+      sectionChildrenIds,
       ev,
       evCols,
       uiTypes,
-      uiTypeCols,
+      uiTypesCols,
       kwargCols,
     } = payload;
 
     const a = helpers.getStoreActions();
-    a.project.setAll(project);
-    a.projectConfig.setAll(projectConfig);
+    a.project.setAllProjectDetails(project);
     a.codeInfo.loadObjInfoAndCollections(codeInfo);
     action.initUITypes(uiTypes);
-    a.paramInfos.setAllUITypeIds({ ...uiTypeCols });
+    a.paramInfos.setAllUITypeIds({ ...uiTypesCols });
     action.initParamDefaults({
       storeName: "globalParamDefaults",
       paramDefaults: globalDefaults.paramDefaults,
@@ -43,14 +49,18 @@ const master = {
     });
     action.initEV(ev);
     a.paramInfos.setAllEnteredValueIds({ ...evCols });
-    a.objInfos.setAllKwargIds({ ...kwargCols });
+    action.initKwargCols(kwargCols);
     action.initSections({
       sections,
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
-      topLevelIds: projectConfig.children,
+      sectionChildrenIds,
     });
+  }),
+
+  setActiveSection: action((state, payload) => {
+    state.activeSection = payload;
   }),
 
   initParamDefaults: thunk((action, payload, helpers) => {
@@ -74,22 +84,52 @@ const master = {
     });
   }),
 
+  initKwargCols: thunk((action, payload, helpers) => {
+    const setKwargIds = helpers.getStoreActions().objInfos.setKwargIds;
+    for (const colId of Object.keys(payload)) {
+      for (const objInfoId of Object.keys(payload[colId])) {
+        setKwargIds({
+          collectionId: colId,
+          objInfoId: objInfoId,
+          newStateFn: () => payload[colId][objInfoId],
+        });
+      }
+    }
+  }),
+
   initSections: thunk((action, payload, helpers) => {
-    const {
+    let {
       sections,
       sectionConfigs,
       sectionConfigCol,
       sectionChildren,
-      topLevelIds,
+      sectionChildrenIds,
     } = payload;
+    let topLevelIds = null;
+    ({ sections, sectionConfigs, sectionChildren, topLevelIds } =
+      omitProjectSectionAndGetTopLevelIds(
+        helpers.getStoreState(),
+        sections,
+        sectionConfigs,
+        sectionChildren
+      ));
+
+    let idx = 0;
     const sectionInfos = _.mapValues(sections, (x) => {
+      const initialPosition = {
+        x: 500 * (Math.floor(idx / 3) + 0.75),
+        y: 300 * (idx % 3),
+      };
       const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
       const y = new SectionInfo({
+        initialPosition,
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],
+        sectionChildrenId: sectionChildrenIds[x.id],
         isTopLevel: topLevelIds.includes(x.id),
       });
+      idx += 1;
       return y;
     });
 
@@ -108,9 +148,30 @@ const master = {
   exportSelected: thunk((action, payload, helpers) => {
     return exportSelected(helpers.getStoreState());
   }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
 export default master;
+
+function omitProjectSectionAndGetTopLevelIds(
+  state,
+  sections,
+  sectionConfigs,
+  sectionChildren
+) {
+  const projectRootSection = state.project.rootSection;
+  const topLevelIds = sectionChildren[projectRootSection];
+  const projectSectionConfigId = sections[projectRootSection].configId;
+  return {
+    sections: _.omit(sections, projectRootSection),
+    sectionConfigs: _.omit(sectionConfigs, projectSectionConfigId),
+    sectionChildren: _.omit(sectionChildren, projectRootSection),
+    topLevelIds,
+  };
+}
 
 // reset states, except for state.project
 // If you reset state.project, the id will be reset, causing another render in MainContainer
@@ -126,4 +187,5 @@ function resetProject(a) {
   a.uiTypes.reset();
   a.sectionPositions.reset();
   a.uiEditor.reset();
+  a.master.reset();
 }

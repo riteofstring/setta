@@ -1,7 +1,6 @@
 import { Flex, Heading, Link, Spacer, Text } from "@chakra-ui/react";
 import "@fontsource/jetbrains-mono/300.css";
 import { useStoreActions } from "easy-peasy";
-import { NAVBAR_HEIGHT } from "utils/constants";
 import { HOME } from "utils/pageNames";
 import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
@@ -10,11 +9,7 @@ import SubNav from "./SubNav/SubNav";
 export default function HeaderContainer() {
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   return (
-    <Flex
-      width="calc(100vw - 5rem)"
-      height={`${NAVBAR_HEIGHT}px`}
-      align="center"
-    >
+    <Flex width="calc(100vw - 5rem)" height="4rem" align="center">
       <Link
         variant="ghost"
         _hover={{ textDecoration: "none" }}

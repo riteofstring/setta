@@ -1,19 +1,26 @@
 import { Grid } from "@chakra-ui/react";
-import { useAccessPage } from "hooks/dbRequests/authentication";
+import { accessPage } from "dbRequests/authentication";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect } from "react";
-import { ReactFlowProvider } from "react-flow-renderer";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 const AppContainer = () => {
-  const accessPage = useAccessPage();
+  const access_token = useStoreState((x) => x.auth.access_token);
+  const actionStayLoggedIn = useStoreActions((x) => x.auth.stayLoggedIn);
+  const actionLoginFail = useStoreActions((x) => x.auth.loginFail);
 
   useEffect(() => {
-    accessPage({ address: "" });
+    accessPage({
+      address: "",
+      access_token,
+      actionStayLoggedIn,
+      actionLoginFail,
+    });
   }, []);
 
   return (
-    <ReactFlowProvider>
+    <>
       <HeaderContainer />
       <Grid
         h="100%"
@@ -26,7 +33,7 @@ const AppContainer = () => {
       >
         <SwitchContainer />
       </Grid>
-    </ReactFlowProvider>
+    </>
   );
 };
 

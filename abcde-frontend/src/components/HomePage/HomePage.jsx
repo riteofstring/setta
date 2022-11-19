@@ -11,19 +11,19 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { useStoreActions } from "easy-peasy";
-import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
+import { createProject, getProjects } from "dbRequests/projects";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
 
 function HomePage() {
-  const getProjects = useGetProjects();
+  const access_token = useStoreState((x) => x.auth.access_token);
   const [projects, setProjects] = useState({});
 
   async function fetchData() {
-    setProjects(await getProjects());
+    setProjects(await getProjects({ access_token }));
   }
 
   useEffect(() => {
@@ -59,10 +59,13 @@ function LeftColumn() {
 }
 
 function RightColumn({ projects, setProjects }) {
-  const createProject = useCreateProject();
+  const access_token = useStoreState((x) => x.auth.access_token);
 
   async function onClick() {
-    const newProject = await createProject({ name: "amazing project" });
+    const newProject = await createProject({
+      access_token,
+      name: "amazing project",
+    });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
   }
 

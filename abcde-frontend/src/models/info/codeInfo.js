@@ -1,6 +1,5 @@
 import { createAllInfo } from "classes/infoFactory";
 import { action } from "easy-peasy";
-import _ from "lodash";
 import { resetState } from "models/utils";
 
 // allObjInfo maps from every objInfo key to its objInfo
@@ -42,13 +41,6 @@ const codeInfo = {
   deleteInfos: action((state, payload) => {
     const { ids } = payload;
     state.allObjInfo = _.omit(state.allObjInfo, ids);
-  }),
-
-  updateInfos: action((state, payload) => {
-    const allInfo = createAllInfo(payload);
-    for (const k of Object.keys(getInitialState())) {
-      state[k] = { ...state[k], ...allInfo[k] };
-    }
   }),
 
   reset: action((state) => {

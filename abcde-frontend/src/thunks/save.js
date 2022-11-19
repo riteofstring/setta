@@ -1,83 +1,59 @@
 import { saveProject as saveProjectDb } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
-import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 
-// s is the easy-peasy store
-export function getProjectData(s) {
-  const project = _.pick(s.project, ["id", "name", "ownerId", "defaultConfig"]);
-  const projectConfig = _.pick(s.projectConfig, [
-    "id",
-    "name",
-    "sectionConfigCol",
-    "childrenId",
-  ]);
-  projectConfig.children = topLevelSectionInfo(s.sectionInfos.x).map(
-    (x) => x.id
-  );
+export const saveProject = thunk((actions, payload, helpers) => {
+  const s = helpers.getStoreState();
+  const access_token = s.auth.access_token;
 
-  const ev = _.mapValues(s.enteredValues.x, (v) =>
-    _.pick(v, ["value", "childId"])
-  );
+  const projectId = s.project.id;
+
+  const ev = s.enteredValues.x;
   const evCols = s.paramInfos.x;
-  let uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
-  uiTypes = _.mapValues(uiTypes, (v) =>
-    _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
-  );
-  const uiTypeCols = s.paramInfos.y;
+  const uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
+  const uiTypesCols = s.paramInfos.y;
 
   const kwargCols = s.objInfos.x;
-  const kwargInfo = assembleKwargInfos(s, kwargCols);
+  const kwargInfos = getKwargInfos(s, kwargCols);
 
-  const sections = _.mapValues(s.sectionInfos.x, (x) =>
-    _.pick(x, [
-      "id",
-      "name",
-      "paramInfoId",
-      "sectionChildrenId",
-      "initialPosition",
-    ])
+  const sections = _.mapValues(s.sectionInfos.x, (x) => ({
+    id: x.id,
+    name: x.name,
+    paramInfoId: x.paramInfoId,
+  }));
+
+  const sectionChildrenIds = _.mapValues(
+    s.sectionInfos.x,
+    (x) => x.sectionChildrenId
   );
-
   const sectionChildren = s.sectionInfos.idsOverview;
-  const sectionConfigs = _.mapValues(s.sectionConfigs.x, (v) =>
-    Object.fromEntries(Object.entries(v))
-  );
-  const sectionConfigCol = _.mapValues(s.sectionInfos.x, (v) => v.configId);
+  const sectionConfigs = s.sectionConfigs.x;
 
-  return {
-    project,
-    projectConfig,
+  const sectionConfigCols = {
+    [s.project.sectionConfigColId]: _.mapValues(
+      s.sectionInfos.x,
+      (v) => v.configId
+    ),
+  };
+
+  const project = {
     ev,
     evCols,
     uiTypes,
-    uiTypeCols,
-    kwargInfo,
+    uiTypesCols,
+    kwargInfos,
     kwargCols,
     sections,
     sectionChildren,
+    sectionChildrenIds,
     sectionConfigs,
-    sectionConfigCol,
+    sectionConfigCols,
   };
-}
 
-export const saveProject = thunk((actions, payload, helpers) => {
-  const { reactFlowStore } = payload;
-  const s = helpers.getStoreState();
-  updateInitialPositions(s, reactFlowStore);
-  const access_token = s.auth.access_token;
-  const output = getProjectData(s);
-  saveProjectDb({ access_token, project: output });
+  saveProjectDb({ access_token, project });
 });
 
-function updateInitialPositions(s, reactFlowStore) {
-  const rfState = reactFlowStore.getState();
-  for (const [key, value] of rfState.nodeInternals) {
-    s.sectionInfos.x[key].initialPosition = { ...value.position };
-  }
-}
-
-function assembleKwargInfos(s, kwargCols) {
+function getKwargInfos(s, kwargCols) {
   let kwargInfos = {};
   for (const kwargColId of _.keys(kwargCols)) {
     for (const objInfoId of _.keys(kwargCols[kwargColId])) {

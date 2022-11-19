@@ -20,10 +20,8 @@ export const addChild = thunk((action, payload, helpers) => {
     parentParamInfoId = null,
     startId = null,
   } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
 
-  const newIds = a.thunks.createChildSectionInfo({
+  const newIds = helpers.getStoreActions().thunks.createChildSectionInfo({
     parentId,
     name,
     uiTypeId,
@@ -31,18 +29,20 @@ export const addChild = thunk((action, payload, helpers) => {
     paramInfoId: parentParamInfoId,
   });
 
-  a.sectionInfos.setIdsOverview({
+  helpers.getStoreActions().sectionInfos.setIdsOverview({
     sectionId: parentId,
     newStateFn: getNewStateFn(startId, newIds),
   });
 
   if (parentParamInfoId) {
-    const { configId } = s.sectionInfos.x[parentId];
-    const { evColId: collectionId } = s.sectionConfigs.x[configId];
+    const { configId } = helpers.getStoreState().sectionInfos.x[parentId];
+    const { evColId: collectionId } =
+      helpers.getStoreState().sectionConfigs.x[configId];
 
-    const enteredValueId = s.paramInfos.x[collectionId]?.[parentParamInfoId];
+    const enteredValueId =
+      helpers.getStoreState().paramInfos.x[collectionId]?.[parentParamInfoId];
 
-    a.enteredValues.setChildId({
+    helpers.getStoreActions().enteredValues.setChildId({
       enteredValueId,
       childId: newIds[0],
     });

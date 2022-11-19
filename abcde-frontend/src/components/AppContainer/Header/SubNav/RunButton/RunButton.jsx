@@ -15,51 +15,28 @@ import {
   Portal,
 } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
-import { useCodeGenerator } from "hooks/dbRequests/codeGenerator";
-import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { createNewId } from "utils/utils";
+
 import ExportSelectedButton from "./ExportSelectedButton";
 
 export default function RunButton() {
-  const [description, setDescription] = useState("Generating...");
-  const [command, setCommand] = useState("");
-
-  const generateCode = useCodeGenerator();
+  // const runSelected = useStoreActions((actions) => actions.master.runSelected);
   const exportSelected = useStoreActions((x) => x.master.exportSelected);
-  const runExport = async () => {
-    const codeId = createNewId();
-    const command = `runcoder run ${codeId}`;
-    setCommand(command);
-    setDescription("Paste this into your command line:");
-    navigator.clipboard.writeText(command);
-    const codeJson = exportSelected();
-    const ready = await generateCode({ codeId, codeJson });
+  const runExport = () => {
+    const selected = exportSelected();
+    // runSelected({ selected });
   };
 
   return (
     <ButtonGroup variant="outline" size="xs" isAttached mr=".25rem">
-      <Popover>
-        <PopoverTrigger>
-          <Button
-            bg="whiteAlpha"
-            leftIcon={<Icon as={RiPlayMiniFill} />}
-            mr="-px"
-            onClick={runExport}
-          >
-            Generate
-          </Button>
-        </PopoverTrigger>
-        <Portal>
-          <PopoverContent>
-            <PopoverArrow />
-            <PopoverHeader>{description}</PopoverHeader>
-            <PopoverCloseButton />
-            <PopoverBody>{command}</PopoverBody>
-          </PopoverContent>
-        </Portal>
-      </Popover>
-
+      <Button
+        bg="whiteAlpha"
+        leftIcon={<Icon as={RiPlayMiniFill} />}
+        mr="-px"
+        onClick={runExport}
+      >
+        Generate
+      </Button>
       <Popover>
         <PopoverTrigger>
           <IconButton

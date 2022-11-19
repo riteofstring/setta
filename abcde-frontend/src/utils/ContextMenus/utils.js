@@ -1,4 +1,4 @@
-import { useStoreActions } from "easy-peasy";
+import { useCreateDefaultSectionInfo } from "hooks/useCreateInfo";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { DECK_UI_TYPE_ID } from "utils/constants";
 
@@ -10,7 +10,7 @@ export function useOnClickAddSection({
   afterAddSection,
 }) {
   const getPosition = useMouseToReactFlowPosition(reactFlowRef);
-  const addSection = useStoreActions((x) => x.thunks.createDefaultSectionInfo);
+  const addSection = useCreateDefaultSectionInfo();
 
   return (isDeck) => () => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
@@ -21,7 +21,7 @@ export function useOnClickAddSection({
       sectionProps.name = "Deck";
       configProps.uiTypeId = DECK_UI_TYPE_ID;
     }
-    const [newId] = addSection({ sectionProps, configProps });
+    const [newId] = addSection(sectionProps, configProps);
     if (afterAddSection) {
       afterAddSection(newId);
     }

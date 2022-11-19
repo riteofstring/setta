@@ -14,12 +14,12 @@ import {
 } from "@chakra-ui/react";
 import { UIConfigDropdownAndFields } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { usePresetUIType } from "hooks/usePresetUIType";
+import { createOriginInfoId, usePresetUIType } from "hooks/usePresetUIType";
+import { cloneNewUIType } from "hooks/useUITypeCoreFunctions";
 import React, { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PROJECT_DEFAULT, SET_FROM_SIDEPANE } from "utils/constants";
 import { USER } from "utils/uiTypeConstants";
-import { cloneNewUIType, createOriginInfoId } from "utils/uiTypeUtils";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function UiConfigGlobal() {

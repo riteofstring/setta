@@ -2,14 +2,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import { NULL_OBJ_ID } from "utils/constants";
+import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import { renderUseGetKwargInfos } from "__tests__utils/renderHooks";
-import {
-  createStoreWrapperWithData,
-  sectionIdFromName,
-} from "__tests__utils/utils";
+import { sectionIdFromName } from "__tests__utils/utils";
 
 test("Adding kwarg on parameter-only section should work", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = createStoreWrapperWithData();
   const sectionId = sectionIdFromName(store, "The2ndOtherParameters");
   const props = { sectionId, parentId: null, depth: 0 };
 

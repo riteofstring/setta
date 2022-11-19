@@ -1,7 +1,6 @@
 import { arrayMove } from "@dnd-kit/sortable";
 import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
-import { NULL_OBJ_ID } from "./constants";
 
 export const createNewId = () => {
   return uuidv4();
@@ -73,10 +72,10 @@ export function findSortedIndex(array, value) {
   return low;
 }
 
-export function checkboxChangeFn(checked, id) {
+export function checkboxChangeFn(e, id) {
   return (x) => {
     if (x) {
-      return checked ? [...x, id] : x.filter((y) => y !== id);
+      return e.target.checked ? [...x, id] : x.filter((y) => y !== id);
     }
     return [id];
   };
@@ -86,6 +85,12 @@ export function maybeNewId(x) {
   return x ? x : createNewId();
 }
 
-export function maybeUseNullId(objInfoId) {
-  return objInfoId ? objInfoId : NULL_OBJ_ID;
+// Input an object mapping section ids to their children
+// Return the section that has no parents, and is therefore the root
+export function getRootSectionId(x) {
+  const candidates = new Set(Object.keys(x));
+  for (const children of Object.values(x)) {
+    children.forEach((child) => candidates.delete(child));
+  }
+  return candidates.values().next().value;
 }

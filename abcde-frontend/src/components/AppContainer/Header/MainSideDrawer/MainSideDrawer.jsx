@@ -1,6 +1,7 @@
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { Button, VStack } from "@chakra-ui/react";
-import { useLogout } from "hooks/dbRequests/authentication";
+import { logout } from "dbRequests/authentication";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { resetEntireState } from "store/store";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
 
@@ -23,17 +24,26 @@ function Header() {
 }
 
 function Body() {
-  const logout = useLogout();
+  const saveDraftUI = useStoreActions((actions) => actions.uiInfo.saveDraftUI);
+  const access_token = useStoreState((state) => state.auth.access_token);
+  const actionLoginFail = useStoreActions((actions) => actions.auth.loginFail);
 
   const doLogout = () => {
-    logout();
+    logout({ actionLoginFail, access_token });
     resetEntireState();
+  };
+
+  const saveDraft = () => {
+    saveDraftUI({ access_token }).then(() => null);
   };
 
   return (
     <VStack align="stretch">
       <Button>Profile</Button>
       <Button>Settings</Button>
+      <Button variant="outline" onClick={saveDraft}>
+        Save Draft
+      </Button>
       <Button variant="outline" onClick={doLogout}>
         Logout
       </Button>

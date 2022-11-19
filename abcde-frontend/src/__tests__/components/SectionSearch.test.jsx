@@ -1,18 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
+import { createStoreWrapperWithData } from "__tests__utils/createStoreWrapperWithData";
 import {
+  changeUITypeConfig,
   renderUseGetSectionConfig,
   renderUseGetSectionType,
 } from "__tests__utils/renderHooks";
-import {
-  createStoreWrapperWithData,
-  sectionIdFromName,
-} from "__tests__utils/utils";
+import { sectionIdFromName } from "__tests__utils/utils";
 
 test("Test SectionSearch", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = createStoreWrapperWithData();
   const sectionId = sectionIdFromName(store, "Optimizer");
   const props = { sectionId, parentId: null, depth: 0 };
 
@@ -47,14 +46,17 @@ test("Test SectionSearch", async () => {
   // Add collection to section
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
 
-  await waitFor(() =>
-    store.getActions().thunks.setSectionUITypeConfig({
-      sectionId,
-      configProps: {
-        configName: "collections",
-        newValueFn: (x) => [...x, newCollection.id],
-      },
-    })
+  const hookProps = {
+    sectionId,
+    settingSectionConfig: true,
+    currUIType: result.current,
+  };
+
+  changeUITypeConfig(
+    hookProps,
+    "collections",
+    (x) => [...x, newCollection.id],
+    wrapper
   );
 
   // rerender (not sure why this is necessary actually)
@@ -68,14 +70,11 @@ test("Test SectionSearch", async () => {
 
   // Make section only have models
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
-  await waitFor(() =>
-    store.getActions().thunks.setSectionUITypeConfig({
-      sectionId,
-      configProps: {
-        configName: "collections",
-        newValueFn: () => [newCollection.id],
-      },
-    })
+  changeUITypeConfig(
+    { ...hookProps, currUIType: result.current },
+    "collections",
+    () => [newCollection.id],
+    wrapper
   );
 
   // rerender (not sure why this is necessary actually)
@@ -99,14 +98,11 @@ test("Test SectionSearch", async () => {
 
   // Make section have no searchable items
   ({ result } = renderUseGetSectionType(sectionId, wrapper));
-  await waitFor(() =>
-    store.getActions().thunks.setSectionUITypeConfig({
-      sectionId,
-      configProps: {
-        configName: "collections",
-        newValueFn: () => [],
-      },
-    })
+  changeUITypeConfig(
+    { ...hookProps, currUIType: result.current },
+    "collections",
+    () => [],
+    wrapper
   );
 
   // rerender (not sure why this is necessary actually)

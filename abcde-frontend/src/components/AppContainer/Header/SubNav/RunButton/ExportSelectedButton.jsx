@@ -1,4 +1,5 @@
 import { Button, useDisclosure } from "@chakra-ui/react";
+import { generateCode } from "codeGeneration/codeGeneration";
 import { useState } from "react";
 
 import ExportSelectedModal from "./ExportSelectedModal";
@@ -22,7 +23,7 @@ export default function ExportSelectedButton({
     } else if (outputAs === "yaml") {
       asString = yaml.dump(selected);
     } else if (outputAs === "code") {
-      // asString = generateCode(selected);
+      asString = generateCode(selected);
     }
     setSelectedAsString(asString);
     onOpen();
