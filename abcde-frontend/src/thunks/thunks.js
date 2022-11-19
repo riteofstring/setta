@@ -3,7 +3,7 @@ import { addToDeck } from "./addToDeck";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
-import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "./kwargs";
+import { addKwarg, deleteKwarg } from "./kwargs";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
 import { saveProject } from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
@@ -34,5 +34,4 @@ export default {
   deleteKwarg,
   setParamChildId,
   setParamEnteredValue,
-  saveKwargsAsCollection,
 };
