@@ -12,7 +12,6 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 export default function MainContainer() {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
   const projectId = useStoreState((x) => x.project.id);
-  const projectConfigId = useStoreState((x) => x.projectConfig.id);
   const noAuthLoader = useNoAuthLoading();
   const authLoader = useAuthLoading();
   const [doneLoading, setDoneLoading] = useState(false);
@@ -24,13 +23,13 @@ export default function MainContainer() {
         setDoneLoading(await noAuthLoader());
       } else if (!NO_AUTH && isAuthenticated && projectId) {
         setDoneLoading(false);
-        setDoneLoading(await authLoader(projectId, projectConfigId));
+        setDoneLoading(await authLoader(projectId));
       } else {
         setDoneLoading(true);
       }
     }
     fn();
-  }, [projectId, projectConfigId]);
+  }, [projectId]);
 
   return (
     doneLoading && (
@@ -49,8 +48,8 @@ export default function MainContainer() {
   );
 }
 
-async function fetchData(access_token, id, configId) {
-  return await loadProject({ access_token, id, configId });
+async function fetchData(access_token, id) {
+  return await loadProject({ access_token, id });
 }
 
 function useNoAuthLoading() {
@@ -67,13 +66,9 @@ function useAuthLoading() {
   const clearSections = useStoreActions((x) => x.master.clearSections);
   const access_token = useStoreState((x) => x.auth.access_token);
 
-  return async (projectId, projectConfigId) => {
-    const projectInfo = await fetchData(
-      access_token,
-      projectId,
-      projectConfigId
-    );
+  return async (projectId) => {
     // TODO remove this
+    const projectInfo = await fetchData(access_token, projectId);
     const { projectDefaults, globalDefaults } = await loadOneProject({});
     clearSections();
     let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;

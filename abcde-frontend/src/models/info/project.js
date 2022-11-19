@@ -6,7 +6,7 @@ function getInitialState() {
     id: null,
     name: "",
     ownerId: null,
-    defaultConfigId: null,
+    defaultConfig: null,
   };
 }
 
