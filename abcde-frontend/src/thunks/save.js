@@ -5,6 +5,7 @@ import {
 import { thunk } from "easy-peasy";
 import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
+import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
 export function getProjectData(s) {
@@ -84,10 +85,23 @@ export const saveAsNewProjectConfig = thunk(
       ...x,
       newConfigName,
     });
-    a.thunks.loadProjectIntoState({
+    // load base and preset ui types from memory
+    // because these weren't sent during saving
+    // and therefore aren't returned
+    newProjectConfig.baseUITypes = _.pickBy(
+      s.uiTypes.x,
+      (x) => x.presetType === BASE
+    );
+    newProjectConfig.presetUITypes = _.pickBy(
+      s.uiTypes.x,
+      (x) => x.presetType === USER
+    );
+    a.projectToLoad.setIsLoading(true);
+    await a.thunks.loadProjectIntoState({
       projectInfo: newProjectConfig,
       excludeCodeInfo: true,
     });
+    a.projectToLoad.setIsLoading(false);
   }
 );
 
