@@ -7,8 +7,7 @@ export function TextInputConfig() {
 export default function TextInput({
   value,
   defaultVal,
-  onChange,
-  onBlur,
+  onChangeEnd,
   isDisabled,
   className,
 }) {
@@ -22,8 +21,7 @@ export default function TextInput({
         maxWidth="10rem"
         isDisabled={isDisabled}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={(e) => onBlur(e.target.value)}
+        onChange={(e) => onChangeEnd(e.target.value)}
         className={className}
       />
     </Tooltip>

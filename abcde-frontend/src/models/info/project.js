@@ -1,32 +1,28 @@
-import { action, thunk } from "easy-peasy";
+import { action } from "easy-peasy";
 import _ from "lodash";
-import { resetState } from "models/utils";
 
 function getInitialState() {
   return {
     id: null,
     name: "",
     ownerId: null,
-    defaultConfigId: null,
+    defaultConfig: null,
   };
 }
 
 const project = {
   ...getInitialState(),
 
-  resetAndSetAll: thunk((actions, payload) => {
-    actions.reset();
-    actions.setAll(payload);
-  }),
-
   setAll: action((state, payload) => {
     for (const k of _.keys(getInitialState())) {
-      state[k] = payload[k];
+      if (k in payload) {
+        state[k] = payload[k];
+      }
     }
   }),
 
-  reset: action((state) => {
-    resetState(state, getInitialState());
+  setId: action((state, payload) => {
+    state.id = payload;
   }),
 };
 

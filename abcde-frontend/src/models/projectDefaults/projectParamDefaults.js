@@ -1,5 +1,5 @@
 import { MutableParamUITypeInfo } from "classes/mutableInfo";
-import { action, thunk } from "easy-peasy";
+import { action } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 
@@ -19,14 +19,15 @@ function getInitialState() {
 const projectParamDefaults = {
   ...getInitialState(),
 
-  resetAndSetAll: thunk((actions, payload) => {
-    actions.reset();
-    actions.setAll(payload);
+  setUITypeId: action((state, payload) => {
+    const { paramInfoId, uiTypeId } = payload;
+    setMutableParamUITypeInfo(state, paramInfoId).uiTypeId = uiTypeId;
   }),
 
-  setAll: action((state, payload) => {
+  setManyUITypeIds: action((state, payload) => {
+    const { toUITypeId } = payload;
     _.forEach(
-      payload,
+      toUITypeId,
       (v, k) => (setMutableParamUITypeInfo(state, k).uiTypeId = v.uiTypeId)
     );
   }),

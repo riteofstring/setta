@@ -1,5 +1,5 @@
 import { createAllInfo } from "classes/infoFactory";
-import { action, thunk } from "easy-peasy";
+import { action } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 
@@ -19,12 +19,7 @@ function getInitialState() {
 const codeInfo = {
   ...getInitialState(),
 
-  resetAndSetAll: thunk((actions, payload) => {
-    actions.reset();
-    actions.setAll(payload);
-  }),
-
-  setAll: action((state, payload) => {
+  loadObjInfoAndCollections: action((state, payload) => {
     ({
       allObjInfo: state.allObjInfo,
       allCollections: state.allCollections,

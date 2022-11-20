@@ -1,143 +1,103 @@
 import { Button, HStack } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
+export default function SaveLoadModal(props) {
+  const {
+    onClose,
+    isOpen,
+    buttonText,
+    // foldersAndFiles: originalFoldersAndFiles,
+  } = props;
 
-export default function SaveLoadModal({
-  onClose,
-  isOpen,
-  modalType,
-  files,
-  onClickLoadProject,
-  onClickSaveAsProject,
-  currProjectId,
-}) {
-  const [selected, setSelected] = useState({});
-  const [configName, setConfigName] = useState("");
+  //   const isSaveAs = buttonText === "Save As";
 
-  function localOnClose() {
-    setSelected({});
-    setConfigName("");
-    onClose();
-  }
+  //   const [folderNames, setFolderNames] = useState(
+  //     Object.keys(originalFoldersAndFiles)
+  //   );
+  //   const [foldersAndFiles, setFoldersAndFiles] = useState(
+  //     originalFoldersAndFiles
+  //   );
+  //   const [selectedFolder, setSelectedFolder] = useState("");
+  //   const [selectedFile, setSelectedFile] = useState({});
+  //   const [enteredFile, setEnteredFile] = useState("");
 
-  function onClickSaveOrLoad() {
-    modalType === "Load"
-      ? onClickLoadProject(selected)
-      : onClickSaveAsProject(selected, configName);
-    setSelected({});
-    setConfigName("");
-  }
+  //   const saveUI = useStoreActions((actions) => actions.uiInfo.saveUI);
+  //   const loadUI = useStoreActions((actions) => actions.uiInfo.loadUI);
+  //   const access_token = useStoreState((state) => state.auth.access_token);
+
+  //   const _setSelectedFolder = (value) => {
+  //     if (value !== undefined) {
+  //       setSelectedFolder(value);
+  //     }
+  //   };
+
+  //   const _setSelectedFile = (value) => {
+  //     if (value !== undefined) {
+  //       setSelectedFile({ ...selectedFile, [selectedFolder]: value });
+  //       setEnteredFile(value);
+  //     }
+  //   };
+
+  //   const _onClose = () => {
+  //     onClose();
+  //     _setSelectedFolder("");
+  //     _setSelectedFile("");
+  //   };
+
+  //   useEffect(() => {
+  //     if (!selectedFolder) {
+  //       _setSelectedFolder(folderNames[0]);
+  //     }
+  //   }, [folderNames]);
+
+  //   useEffect(() => {
+  //     setFolderNames(Object.keys(originalFoldersAndFiles));
+  //     setFoldersAndFiles(originalFoldersAndFiles);
+  //   }, [originalFoldersAndFiles]);
+
+  //   const onSaveOrLoadClick = () => {
+  //     if (isSaveAs) {
+  //       saveUI({ access_token, folderName: selectedFolder, uiName: enteredFile });
+  //     } else if (buttonText === "Load") {
+  //       loadUI({ access_token, folderName: selectedFolder, uiName: enteredFile });
+  //     }
+
+  //     _onClose();
+  //   };
 
   return (
     <ModalContainer
-      onClose={localOnClose}
+      onClose={onClose}
       isOpen={isOpen}
-      size={"3xl"}
+      size={"6xl"}
+      // header={<Header isSaveAs={isSaveAs} />}
       overrideFooter={true}
-      body={
-        <Body
-          files={files}
-          setSelected={setSelected}
-          modalType={modalType}
-          currProjectId={currProjectId}
-          selected={selected}
-          configName={configName}
-          setConfigName={setConfigName}
-        />
-      }
-      footer={
-        <Footer
-          buttonText={modalType}
-          onClose={localOnClose}
-          onClick={onClickSaveOrLoad}
-        />
-      }
+      body={<Body />}
+      footer={<Footer buttonText={buttonText} onClose={onClose} />}
     />
   );
 }
 
-function Body({
-  modalType,
-  files,
-  setSelected,
-  currProjectId,
-  selected,
-  configName,
-  setConfigName,
-}) {
-  return modalType === "Load" ? (
-    <LoadBody files={files} selected={selected} setSelected={setSelected} />
-  ) : (
-    <SaveBody
-      files={files}
-      setSelected={setSelected}
-      currProjectId={currProjectId}
-      selected={selected}
-      configName={configName}
-      setConfigName={setConfigName}
-    />
-  );
+function Header({ isSaveAs }) {
+  return <>Save As</>;
 }
-
-function LoadBody({ files, selected, setSelected }) {
-  return (
-    <FileExplorer files={files} selected={selected} setSelected={setSelected} />
-  );
-}
-
-function SaveBody({
-  files,
-  setSelected,
-  currProjectId,
-  selected,
-  configName,
-  setConfigName,
-}) {
-  const currFiles = files[currProjectId];
-  const currFilesAsObj = currFiles ? { [currProjectId]: currFiles } : {};
-
-  function onChange(v) {
-    setConfigName(v);
-    const match = currFiles.configs.filter((x) => x.name === v)[0];
-    setSelected({ id: currProjectId, configId: match?.id });
-  }
-
-  useEffect(() => {
-    const configId = selected.configId;
-    if (configId) {
-      const matchingConfig = currFiles.configs.filter(
-        (x) => x.id === configId
-      )[0];
-      setConfigName(matchingConfig.name);
-    }
-  }, [selected]);
-
+function Body(props) {
   return (
     <>
-      <FileExplorer
-        files={currFilesAsObj}
-        selected={selected}
-        setSelected={setSelected}
-      />
-      <HStack>
-        <FileNameInput
-          placeholder="Config Name"
-          value={configName}
-          onChange={onChange}
-        />
-      </HStack>
+      <FileExplorer {...props} />
+      {props.isSaveAs && (
+        <HStack>
+          <FileNameInput {...props} placeholder="File" />
+        </HStack>
+      )}
     </>
   );
 }
-
-function Footer({ onClose, onClick, buttonText }) {
+function Footer({ onClose, buttonText }) {
   return (
     <HStack justify="stretch" mb=".5rem" spacing={4}>
-      <Button colorScheme="blue" onClick={onClick}>
-        {buttonText}
-      </Button>
+      <Button colorScheme="blue">{buttonText}</Button>
       <Button onClick={onClose}>Close</Button>
     </HStack>
   );

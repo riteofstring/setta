@@ -1,4 +1,3 @@
-import { SectionInfo } from "classes/mutableInfo";
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
@@ -19,29 +18,6 @@ function getInitialState() {
 
 const sectionInfos = {
   ...getInitialState(),
-
-  resetAndSetAll: thunk((actions, payload) => {
-    const { sections, sectionConfigCol, sectionChildren, topLevelIds } =
-      payload;
-    const sectionInfos = _.mapValues(sections, (x) => {
-      const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
-      const y = new SectionInfo({
-        ...x,
-        parentId,
-        configId: sectionConfigCol[x.id],
-        isTopLevel: topLevelIds.includes(x.id),
-      });
-      return y;
-    });
-
-    actions.reset();
-    actions.setAll({ x: sectionInfos, idsOverview: sectionChildren });
-  }),
-
-  setAll: action((state, payload) => {
-    state.x = payload.x;
-    state.idsOverview = payload.idsOverview;
-  }),
 
   setSectionInfo: action((state, payload) => {
     state.x = payload(state.x);
@@ -64,6 +40,10 @@ const sectionInfos = {
         newValues[sectionId]
       );
     }
+  }),
+
+  setAllIdsOverview: action((state, payload) => {
+    state.idsOverview = payload;
   }),
 
   setIdsOverview: action((state, payload) => {
