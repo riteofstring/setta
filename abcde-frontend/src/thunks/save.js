@@ -74,11 +74,16 @@ export const saveProject = thunk((actions, payload, helpers) => {
   saveProjectDb(x);
 });
 
-export const saveAsNewProjectConfig = thunk((actions, payload, helpers) => {
-  const x = assembleProject({ payload, helpers });
-  const { newConfigName } = payload;
-  saveAsNewProjectConfigDb({ ...x, newConfigName });
-});
+export const saveAsNewProjectConfig = thunk(
+  async (actions, payload, helpers) => {
+    const x = assembleProject({ payload, helpers });
+    const { newConfigName } = payload;
+    const newProjectConfig = await saveAsNewProjectConfigDb({
+      ...x,
+      newConfigName,
+    });
+  }
+);
 
 function assembleProject({ payload, helpers }) {
   const { reactFlowStore } = payload;

@@ -1,11 +1,11 @@
-import { useAccessPage } from "hooks/dbRequests/authentication";
+import { useStoreActions } from "easy-peasy";
 import React, { useEffect } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 const AppContainer = () => {
-  const accessPage = useAccessPage();
+  const accessPage = useStoreActions((x) => x.thunks.accessPage);
 
   useEffect(() => {
     accessPage({ address: "" });

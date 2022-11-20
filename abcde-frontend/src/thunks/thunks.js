@@ -1,5 +1,6 @@
 import { addChild } from "./addChild";
 import { addToDeck } from "./addToDeck";
+import { accessPage, login, logout } from "./authentication";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
@@ -38,4 +39,7 @@ export default {
   saveKwargsAsCollection,
   saveAsNewProjectConfig,
   loadProject,
+  logout,
+  accessPage,
+  login,
 };
