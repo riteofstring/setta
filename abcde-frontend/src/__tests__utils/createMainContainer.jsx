@@ -9,6 +9,7 @@ export async function createMainContainer() {
   const { store, wrapper } = await createStoreWrapperWithData({
     loadData: false,
   });
+  store.getActions().auth.loginSuccess({});
   render(<MainContainer />, {
     wrapper,
   });
