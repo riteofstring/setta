@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { createAllInfo } from './infoFactory';
 import { getCodeInfo } from './loadingFunctions';
 import _ = require('lodash');
 
@@ -16,6 +15,6 @@ export class CodeInfoService {
   }
 
   async getCollectionDetails(id: string) {
-    return createAllInfo(await getCodeInfo(this.prisma, [id]));
+    return await getCodeInfo(this.prisma, [id]);
   }
 }

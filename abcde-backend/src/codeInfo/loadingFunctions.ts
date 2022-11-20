@@ -1,6 +1,5 @@
 import _ = require('lodash');
 import { getOrderedChildren } from 'src/utils/utils';
-import { createAllInfo } from './infoFactory';
 
 export async function getCodeInfoForSectionsAndKwargs(
   prisma,
@@ -14,11 +13,7 @@ export async function getCodeInfoForSectionsAndKwargs(
   _.forEach(kwargCols, (x) =>
     _.forEach(_.values(x), (y) => kwargIds.push(...y)),
   );
-  const allCodeInfo = await getCodeInfo(prisma, [
-    ...collectionIds,
-    ...kwargIds,
-  ]);
-  return createAllInfo(allCodeInfo);
+  return await getCodeInfo(prisma, [...collectionIds, ...kwargIds]);
 }
 
 export async function getCodeInfo(prisma, ids: string[]) {
