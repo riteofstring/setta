@@ -11,6 +11,7 @@ import {
 } from './loadingFunctions';
 import {
   createProject,
+  saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProjectDetails,
 } from './savingFunctions';
@@ -34,6 +35,10 @@ export class ProjectsService {
 
   async saveAsNewProjectConfig(project, newConfigName: string): Promise<any> {
     return await saveAsNewProjectConfig(this.prisma, project, newConfigName);
+  }
+
+  async saveAsExistingProjectConfig(project, configId: string): Promise<any> {
+    return await saveAsExistingProjectConfig(this.prisma, project, configId);
   }
 
   async save(project): Promise<any> {

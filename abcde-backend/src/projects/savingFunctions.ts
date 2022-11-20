@@ -17,7 +17,7 @@ import {
   saveSections,
 } from 'src/sections/savingFunctions';
 import { saveUITypeCols, saveUITypes } from 'src/uiTypes/savingFunctions';
-import { createNewId } from 'src/utils/utils';
+import { createNewId, renameKeys } from 'src/utils/utils';
 
 export async function saveMultipleProjectDetails(
   prisma: PrismaClient,
@@ -135,14 +135,22 @@ export async function createProject(prisma: PrismaClient, user, name: string) {
   return project;
 }
 
-function copyProjectConfig(projectConfig, newConfigName) {
+function copyProjectConfig({
+  projectConfig,
+  newConfigName = null,
+  doCreateNewId = true,
+}) {
   const newProjectConfig = _.cloneDeep(projectConfig);
   const newVals = {
-    id: createNewId(),
-    name: newConfigName,
     sectionConfigCol: createNewId(),
     childrenId: createNewId(),
   };
+  if (newConfigName) {
+    newVals['name'] = newConfigName;
+  }
+  if (doCreateNewId) {
+    newVals['id'] = createNewId();
+  }
   Object.assign(newProjectConfig, newVals);
   return newProjectConfig;
 }
@@ -152,14 +160,41 @@ export async function saveAsNewProjectConfig(
   project,
   newConfigName: string,
 ) {
-  const {
-    projectConfig,
-    ev,
-    evCols,
-    sectionConfigs,
-    sectionConfigCol,
-    ...theRest
-  } = project;
+  const projectToSave = copyProjectDetails(project);
+  projectToSave.projectConfig = copyProjectConfig({
+    projectConfig: projectToSave.projectConfig,
+    newConfigName,
+  });
+  await saveProjectDetails(prisma, projectToSave);
+  return projectToSave;
+}
+
+export async function saveAsExistingProjectConfig(
+  prisma: PrismaClient,
+  project,
+  configId: string,
+) {
+  const projectToSave = copyProjectDetails(project);
+  let existingProjectConfig = await prisma.projectConfig.findUnique({
+    where: { id: configId },
+  });
+  existingProjectConfig = renameKeys(existingProjectConfig, {
+    sectionConfigColId: 'sectionConfigCol',
+    sectionChildrenId: 'childrenId',
+  });
+  existingProjectConfig['children'] = projectToSave.projectConfig.children;
+  delete existingProjectConfig.projectId;
+  projectToSave.projectConfig = copyProjectConfig({
+    projectConfig: existingProjectConfig,
+    doCreateNewId: false,
+  });
+  await saveProjectDetails(prisma, projectToSave);
+  return projectToSave;
+}
+
+function copyProjectDetails(project) {
+  const { ev, evCols, sectionConfigs, sectionConfigCol, ...theRest } = project;
+
   const { newEv, evIdMap } = copyEV(ev);
   const { newEvCols, evColIdMap } = copyEVCols(evCols, evIdMap);
   const { newSectionConfigs, sectionConfigIdMap } = copySectionConfigs(
@@ -171,16 +206,11 @@ export async function saveAsNewProjectConfig(
     sectionConfigIdMap,
   );
 
-  const newProjectConfig = copyProjectConfig(projectConfig, newConfigName);
-
-  const projectToSave = {
+  return {
     ...theRest,
-    projectConfig: newProjectConfig,
     ev: newEv,
     evCols: newEvCols,
     sectionConfigs: newSectionConfigs,
     sectionConfigCol: newSectionConfigCol,
   };
-  await saveProjectDetails(prisma, projectToSave);
-  return projectToSave;
 }

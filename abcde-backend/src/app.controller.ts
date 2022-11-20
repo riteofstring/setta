@@ -62,10 +62,19 @@ export class AppController {
 
   @UseGuards(JwtAuthGuard)
   @Post('projects/saveAsNewProjectConfig')
-  createProjectConfig(@Request() req) {
+  saveAsNewProjectConfig(@Request() req) {
     return this.projectsService.saveAsNewProjectConfig(
       req.body.project,
       req.body.newConfigName,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('projects/saveAsExistingProjectConfig')
+  saveAsExistingProjectConfig(@Request() req) {
+    return this.projectsService.saveAsExistingProjectConfig(
+      req.body.project,
+      req.body.configId,
     );
   }
 
