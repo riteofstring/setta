@@ -3,10 +3,11 @@ import { addToDeck } from "./addToDeck";
 import { accessPage, login, logout } from "./authentication";
 import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
+import { generateCode } from "./generateCode";
 import { initializeChild, initializeParam } from "./initializeParam";
 import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "./kwargs";
-import { loadProject } from "./load";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
+import { createProject, getProjects, loadProject } from "./projects";
 import { saveAsNewProjectConfig, saveProject } from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
@@ -42,4 +43,7 @@ export default {
   logout,
   accessPage,
   login,
+  generateCode,
+  createProject,
+  getProjects,
 };

@@ -1,15 +1,15 @@
-import { createProject, getProjects } from "dbRequests/projects";
-import { useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
-  const access_token = useStoreState((x) => x.auth.access_token);
+  const getProjects = useStoreActions((x) => x.thunks.getProjects);
+  const createProject = useStoreActions((x) => x.thunks.createProject);
   const fnGetProjects = async () => {
-    setProjects(await getProjects({ access_token }));
+    setProjects(await getProjects());
   };
   const fnCreateProject = async ({ name }) => {
-    const newProject = await createProject({ name, access_token });
+    const newProject = await createProject({ name });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
   };
 

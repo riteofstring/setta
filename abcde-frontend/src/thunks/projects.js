@@ -1,4 +1,8 @@
-import { loadProject as loadProjectDb } from "dbRequests/projects";
+import {
+  createProject as createProjectDb,
+  getProjects as getProjectsDb,
+  loadProject as loadProjectDb,
+} from "dbRequests/projects";
 import { thunk } from "easy-peasy";
 import { loadOneProject } from "__tests__utils/loadTestData.mjs";
 
@@ -21,4 +25,15 @@ export const loadProject = thunk(async (actions, payload, helpers) => {
     ...theRest,
   });
   return true;
+});
+
+export const createProject = thunk(async (actions, payload, helpers) => {
+  const { name } = payload;
+  const access_token = helpers.getStoreState().auth.access_token;
+  return await createProjectDb({ name, access_token });
+});
+
+export const getProjects = thunk(async (actions, payload, helpers) => {
+  const access_token = helpers.getStoreState().auth.access_token;
+  return await getProjectsDb({ access_token });
 });
