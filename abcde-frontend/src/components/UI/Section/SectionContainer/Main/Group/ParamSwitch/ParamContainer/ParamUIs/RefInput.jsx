@@ -6,14 +6,14 @@ export function RefInputConfig() {
   return null;
 }
 
-export default function RefInput({ value, onChangeEnd, className }) {
+export default function RefInput({ value, onBlur, className }) {
   const availableSections = useStoreState((x) => x.sectionInfos.x);
 
   return (
     <IdNameCombobox
       allItems={_.values(availableSections)}
       initialSelection={value}
-      onSelectedItemChange={onChangeEnd}
+      onSelectedItemChange={onBlur}
       className={className}
       width="424px"
     />

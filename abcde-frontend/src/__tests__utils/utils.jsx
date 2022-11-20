@@ -8,10 +8,12 @@ import { SECTION } from "utils/constants";
 import { loadOneProject } from "./loadTestData";
 import { renderUseGetSectionType } from "./renderHooks";
 
-export async function createStoreWrapperWithData() {
+export async function createStoreWrapperWithData({ loadData = true }) {
   const store = createStore();
-  const testData = await loadOneProject({});
-  store.getActions().master.loadSections(testData);
+  if (loadData) {
+    const testData = await loadOneProject({});
+    store.getActions().master.loadSections(testData);
+  }
   return { store, wrapper: getStoreProviderWrapper(store) };
 }
 

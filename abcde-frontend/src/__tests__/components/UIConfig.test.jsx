@@ -1,20 +1,14 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import MainContainer from "components/AppContainer/Main/MainContainer";
+import { createMainContainer } from "__tests__utils/createMainContainer";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import {
-  createStoreWrapperWithData,
-  sectionIdFromName,
-} from "__tests__utils/utils";
+import { sectionIdFromName } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
 
 test("Delete active section while ui config pane is open", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData();
-  render(<MainContainer />, {
-    wrapper,
-  });
+  const { store } = await createMainContainer();
 
   // make the parameter config pane active
   const uiConfigButton = screen.getByTestId("UiEditor Parameters Button");

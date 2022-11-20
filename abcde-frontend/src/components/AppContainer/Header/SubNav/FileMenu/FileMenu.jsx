@@ -1,23 +1,37 @@
 import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useStoreActions } from "easy-peasy";
+import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
+import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
   const reactFlowStore = useStoreApi();
+  const { projects, getProjects } = useGetOrCreateProjects();
   const saveProject = useStoreActions((x) => x.thunks.saveProject);
+  const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
 
-  function onSaveButtonClick() {
+  function onClose() {
+    closeModal();
+  }
+
+  function onClickSaveButton() {
     saveProject({ reactFlowStore });
   }
 
-  function onLoadClick() {
-    onOpen();
+  function onClickLoad() {
+    getProjects();
+    openModal();
+  }
+
+  function onClickLoadProject(selected) {
+    setProjectToLoad(selected);
+    closeModal();
   }
 
   return (
@@ -32,64 +46,38 @@ export default function FileMenu() {
             align="start"
             className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
           >
-            <Items />
+            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
+              <IoDocumentTextOutline />
+              New Project
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="text-sm flex flex-row gap-1"
+              onClick={onClickLoad}
+            >
+              <GrDocumentDownload />
+              Load
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="text-sm flex flex-row gap-1"
+              onClick={onClickSaveButton}
+            >
+              <VscSave />
+              Save
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
+              <VscSaveAs />
+              Save As
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-    </>
-  );
-}
-
-function Item(props) {
-  return (
-    <DropdownMenu.Item className="text-sm flex flex-row gap-1">
-      {props.children}
-    </DropdownMenu.Item>
-  );
-}
-
-function Items() {
-  return (
-    <>
-      <Item>
-        <IoDocumentTextOutline />
-        New Project
-      </Item>
-      <Item>
-        <GrDocumentDownload />
-        Load
-      </Item>
-      <Item>
-        <VscSave />
-        Save
-      </Item>
-      <Item>
-        <VscSaveAs />
-        Save As
-      </Item>
-    </>
-  );
-}
-
-{
-  /* <Menu>
-        <MenuButton size="xs" variant="ghost" as={Button}>
-          File <ChevronDownIcon />
-        </MenuButton>
-        <MenuList zIndex="11">
-          <MenuItem icon={<IoDocumentTextOutline />}>New Project</MenuItem>
-          <MenuItem icon={<GrDocumentDownload />} onClick={onLoadClick}>
-            Load
-          </MenuItem>
-          <MenuItem icon={<VscSave />} onClick={onSaveButtonClick}>
-            Save
-          </MenuItem>
-          <MenuItem icon={<VscSaveAs />}>Save As</MenuItem>
-        </MenuList>
-      </Menu>
       <SaveLoadModal
         onClose={onClose}
         isOpen={isOpen}
         buttonText={"SaveLoadModal"}
-      /> */
+        files={projects}
+        onClickLoadProject={onClickLoadProject}
+      />
+    </>
+  );
 }

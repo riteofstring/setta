@@ -7,7 +7,7 @@ export function SwitchInputConfig() {
 export default function SwitchInput({
   value,
   defaultVal,
-  onChangeEnd,
+  onBlur,
   isDisabled,
   className,
 }) {
@@ -16,7 +16,7 @@ export default function SwitchInput({
     <Switch
       isChecked={value}
       isDisabled={isDisabled}
-      onChange={(e) => onChangeEnd(e.target.checked)}
+      onChange={(e) => onBlur(e.target.checked)}
       size="sm"
       className={className}
     />
