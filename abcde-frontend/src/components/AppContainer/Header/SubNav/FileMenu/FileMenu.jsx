@@ -14,8 +14,7 @@ export default function FileMenu() {
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
   const saveProject = useStoreActions((x) => x.thunks.saveProject);
-  const setCurrProject = useStoreActions((x) => x.project.setId);
-  const setCurrProjectConfig = useStoreActions((x) => x.projectConfig.setId);
+  const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
 
   function onClose() {
     closeModal();
@@ -31,8 +30,7 @@ export default function FileMenu() {
   }
 
   function onClickLoadProject(selected) {
-    setCurrProject(selected.project);
-    setCurrProjectConfig(selected.projectConfig);
+    setProjectToLoad(selected);
     closeModal();
   }
 

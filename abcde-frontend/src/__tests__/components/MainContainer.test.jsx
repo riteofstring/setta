@@ -1,12 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import MainContainer from "components/AppContainer/Main/MainContainer";
 import { PANEID } from "utils/constants";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import {
-  createStoreWrapperWithData,
-  sectionIdFromName,
-} from "__tests__utils/utils";
+  createMainContainer,
+  getAllOverviewListings,
+  getOverviewSearch,
+} from "__tests__utils/createMainContainer";
+import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
+import { sectionIdFromName } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
@@ -27,8 +28,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
 
   // First check that the listings match the existing sections
   const sections = store.getState().sectionInfos.x;
-  const overviewListingRegex = /Overview Listing .+/;
-  let overviewListings = screen.getAllByTestId(overviewListingRegex);
+  let overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(Object.values(sections).length);
   for (let s of Object.values(sections)) {
     expect(screen.getByTestId(`Overview Listing ${s.id}`)).toBeTruthy();
@@ -36,7 +36,7 @@ test("Overview listing should be filtered by text in search bar", async () => {
 
   // Now test filtering via search
   await userEvent.type(overviewSearch, "optim");
-  overviewListings = screen.getAllByTestId(overviewListingRegex);
+  overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(1);
   const optimizerSectionId = sectionIdFromName(store, "Optimizer");
   expect(
@@ -75,17 +75,3 @@ test("Section names should be unique among siblings.", async () => {
   // "Model" is already taken, so it reverts to Optim
   expect(screen.getByDisplayValue("Optim")).toBeTruthy();
 });
-
-function getOverviewSearch() {
-  return screen.getByRole("textbox", {
-    name: "Overview Search",
-  });
-}
-
-async function createMainContainer() {
-  const { store, wrapper } = await createStoreWrapperWithData();
-  render(<MainContainer />, {
-    wrapper,
-  });
-  return { store, wrapper };
-}

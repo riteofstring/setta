@@ -167,3 +167,16 @@ function projectSubFolderNames(projectName) {
     diffusionDrops: ["diffusionConfig1", "diffusionConfig2"],
   }[projectName];
 }
+
+export async function loadOneProjectById({ projectId, projectConfigId }) {
+  const projectMetaData = await loadAllProjectsMetadata();
+  const project = _.filter(projectMetaData, (x) => x.id === projectId)[0];
+  const projectConfig = project.configs.filter(
+    (x) => x.id === projectConfigId
+  )[0];
+
+  return await loadOneProject({
+    projectName: project.name,
+    subFolderName: projectConfig.name,
+  });
+}

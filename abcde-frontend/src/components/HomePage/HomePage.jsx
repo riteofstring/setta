@@ -77,13 +77,11 @@ function RightColumn({ projects, createProject }) {
 function ProjectItem({ project }) {
   const { name, id, configs, defaultConfigId } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
-  const setCurrProject = useStoreActions((x) => x.project.setId);
-  const setCurrProjectConfig = useStoreActions((x) => x.projectConfig.setId);
+  const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
 
   function onClick() {
     setCurrPage(UI);
-    setCurrProject(id);
-    setCurrProjectConfig(defaultConfigId);
+    setProjectToLoad({ id, configId: defaultConfigId });
   }
 
   function onClickConfigsButton(e) {
@@ -93,8 +91,7 @@ function ProjectItem({ project }) {
   function onConfigClick(e, configId) {
     e.stopPropagation();
     setCurrPage(UI);
-    setCurrProject(id);
-    setCurrProjectConfig(configId);
+    setProjectToLoad({ id, configId });
   }
 
   return (

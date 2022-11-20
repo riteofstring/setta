@@ -21,10 +21,6 @@ const projectConfig = {
       }
     }
   }),
-
-  setId: action((state, payload) => {
-    state.id = payload;
-  }),
 };
 
 export default projectConfig;

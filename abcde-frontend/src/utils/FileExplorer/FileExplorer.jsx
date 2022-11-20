@@ -55,8 +55,8 @@ function ProjectListing({ project, getRadioProps }) {
             isProject={false}
             radioProps={getRadioProps({
               value: JSON.stringify({
-                project: project.id,
-                projectConfig: x.id,
+                id: project.id,
+                configId: x.id,
               }),
             })}
           >

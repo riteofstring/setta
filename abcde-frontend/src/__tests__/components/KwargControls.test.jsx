@@ -9,7 +9,7 @@ import {
 } from "__tests__utils/utils";
 
 test("Adding kwarg on parameter-only section should work", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData();
+  const { store, wrapper } = await createStoreWrapperWithData({});
   const sectionId = sectionIdFromName(store, "The2ndOtherParameters");
   const props = { sectionId, parentId: null, depth: 0 };
 

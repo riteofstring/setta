@@ -20,10 +20,6 @@ const project = {
       }
     }
   }),
-
-  setId: action((state, payload) => {
-    state.id = payload;
-  }),
 };
 
 export default project;
