@@ -182,4 +182,5 @@ export async function saveAsNewProjectConfig(
     sectionConfigCol: newSectionConfigCol,
   };
   await saveProjectDetails(prisma, projectToSave);
+  return projectToSave;
 }
