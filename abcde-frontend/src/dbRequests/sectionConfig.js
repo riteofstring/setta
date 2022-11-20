@@ -7,6 +7,9 @@ import {
 } from "./noAuth/sectionConfig";
 
 function searchCollectionsInMemory({ allCollections, searchTerm }) {
+  if (!searchTerm) {
+    return allCollections;
+  }
   return _.pickBy(allCollections, (x) => x.name.includes(searchTerm));
 }
 

@@ -1,4 +1,3 @@
-import { createAllInfo } from "classes/infoFactory";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
@@ -48,9 +47,8 @@ const codeInfo = {
   }),
 
   updateInfos: action((state, payload) => {
-    const allInfo = createAllInfo(payload);
     for (const k of Object.keys(getInitialState())) {
-      state[k] = { ...state[k], ...allInfo[k] };
+      state[k] = { ...state[k], ...payload[k] };
     }
   }),
 
