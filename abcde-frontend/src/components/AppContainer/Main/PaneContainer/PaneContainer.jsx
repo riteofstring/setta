@@ -1,29 +1,15 @@
-import { Box, GridItem, Heading, IconButton } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import useWindowSize from "hooks/useWindowSize";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import Button from "utils/atoms/buttons/Button";
 import { MIN_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
-const Pane = motion(GridItem);
-
 export default function PaneContainer(props) {
-  const {
-    boxH = "inherit",
-    boxW = "100%",
-    boxBorderRight = "1px",
-    boxBorderColor = "gray.200",
-    boxBoxShadow = "md",
-    boxDisplay = "inline-block",
-    boxPy = "2rem",
-    boxPx = "2.66rem",
-    boxBg = "gray.50",
-    paneTitle = null,
-    onResizeStop = null,
-  } = props;
+  const { paneTitle = null, onResizeStop = null } = props;
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
   const vis = useStoreState((x) => x.panes.vis[paneName]);
@@ -91,23 +77,18 @@ export default function PaneContainer(props) {
     }
   }
 
+  const rightCondition = right
+    ? "justify-self-end right-0 left-auto"
+    : "justify-self-start right-auto left-0";
+
+  const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
   if (props && vMin && vMax) {
     return (
-      <Pane
-        h="100%"
-        colStart="1"
-        colEnd="2"
-        rowStart="2"
-        rowEnd="3"
-        minH="0"
-        minW="0"
-        justifySelf={right ? "flex-end" : "flex-start"}
-        right={right ? 0 : "auto"}
-        left={!right ? 0 : "auto"}
+      <motion.div
+        className={`h-full col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 z-10 ${rightCondition} `}
         animate={vis ? "open" : "closed"}
         variants={variants}
         initial={vis ? "open" : "closed"}
-        zIndex={10}
         outline="none"
         aria-label={`${paneTitle} Pane`}
       >
@@ -127,47 +108,21 @@ export default function PaneContainer(props) {
             topLeft: false,
           }}
         >
-          <Box
-            h={boxH}
-            w={boxW}
-            borderRight={boxBorderRight}
-            borderColor={boxBorderColor}
-            boxShadow={boxBoxShadow}
-            display={boxDisplay}
-            py={boxPy}
-            px={boxPx}
-            bg={boxBg}
-          >
-            <Heading
-              as="h2"
-              size="md"
-              color="gray.300"
-              pb=".75rem"
-              textTransform="uppercase"
-              letterSpacing="widest"
-            >
+          <div className="h-[inherit] w-full border-r border-gray-200 shadow-md inline-block py-8 px-[2.66rem] bg-gray-50">
+            <h2 className="text-base font-bold text-gray-400  pb-3 uppercase tracking-widest">
               {paneTitle}
-            </Heading>
+            </h2>
             {props.children}
-            <IconButton
-              icon={btnDir ? <HiChevronRight /> : <HiChevronLeft />}
-              color="gray.500"
-              variant="ghost"
-              size="sm"
-              left={right ? 0 : "auto"}
-              right={!right ? 0 : "auto"}
-              top="0"
-              margin="0.33rem"
-              alignSelf="center"
+            <Button
+              tailwindClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+              tabindex="-1"
               onClick={uiToggle}
-              h="calc(100% - .66rem)"
-              tabIndex="-1"
-              position="absolute"
-              _focus={{ shadow: "none" }}
-            />
-          </Box>
+            >
+              {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
+            </Button>
+          </div>
         </Resizable>
-      </Pane>
+      </motion.div>
     );
   } else {
     return null;
