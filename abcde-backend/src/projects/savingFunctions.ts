@@ -27,14 +27,14 @@ export async function saveMultipleProjectDetails(
   }
   // save project info afterward, to ensure defaultconfigid is a valid foreign key
   for (const p of projects) {
-    await saveProject(prisma, p.project, p.projectConfig);
+    await saveProject(prisma, p.project, p.projectConfig.id);
   }
 }
 
 export async function saveProjectDetails(
   prisma: PrismaClient,
   p,
-  saveProjectInfo = true,
+  doSaveProject = true,
 ) {
   await saveKwargInfo(prisma, p.kwargInfo);
   await saveKwargCols(prisma, p.kwargCols);
@@ -50,16 +50,12 @@ export async function saveProjectDetails(
     p.projectConfig.sectionConfigCol,
   );
   await saveProjectConfig(prisma, p.projectConfig, p.sections);
-  if (saveProjectInfo) {
-    await saveProject(prisma, p.project, p.projectConfig);
+  if (doSaveProject) {
+    await saveProject(prisma, p.project, p.projectConfig.id);
   }
 }
 
-export async function saveProjectConfig(
-  prisma: PrismaClient,
-  config,
-  sections,
-) {
+async function assembleProjectConfig(prisma: PrismaClient, config, sections) {
   const { id, name, sectionConfigCol, children, childrenId } = config;
   const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
   await prisma.sectionChildrenId.createMany({
@@ -73,14 +69,25 @@ export async function saveProjectConfig(
     { null: sectionPositions },
   );
 
-  const data = {
+  return {
     id,
     name,
     sectionConfigColId: sectionConfigCol,
     sectionChildrenId: childrenId,
   };
+}
+
+export async function saveProjectConfig(
+  prisma: PrismaClient,
+  config,
+  sections,
+) {
+  if (_.isEmpty(config)) {
+    return;
+  }
+  const data = await assembleProjectConfig(prisma, config, sections);
   await prisma.projectConfig.upsert({
-    where: { id },
+    where: { id: data.id },
     create: data,
     update: data,
   });
@@ -89,7 +96,7 @@ export async function saveProjectConfig(
 export async function saveProject(
   prisma: PrismaClient,
   project,
-  projectConfig,
+  projectConfigId,
 ) {
   const data = {
     id: project.id,
@@ -103,7 +110,7 @@ export async function saveProject(
     update: data,
   });
   await prisma.projectConfig.update({
-    where: { id: projectConfig.id },
+    where: { id: projectConfigId },
     data: { projectId: project.id },
   });
 }
@@ -138,11 +145,15 @@ async function copyProjectConfig(
   sections,
 ) {
   const { id, ...newProjectConfig } = projectConfig;
-  newProjectConfig['name'] = newConfigName;
-  newProjectConfig['sectionConfigCol'] = newSectionConfigColId;
-
-  console.log('newProjectConfig', newProjectConfig);
-  // await saveProjectConfig(prisma, newProjectConfig, sections);
+  const newChildrenId = await prisma.sectionChildrenId.create({ data: {} });
+  Object.assign(newProjectConfig, {
+    name: newConfigName,
+    sectionConfigCol: newSectionConfigColId,
+    childrenId: newChildrenId.id,
+  });
+  const data = await assembleProjectConfig(prisma, newProjectConfig, sections);
+  const newConfigObj = await prisma.projectConfig.create({ data });
+  return newConfigObj.id;
 }
 
 export async function saveAsNewProjectConfig(
@@ -150,8 +161,14 @@ export async function saveAsNewProjectConfig(
   project,
   newConfigName: string,
 ) {
-  const { projectConfig, ev, evCols, sectionConfigs, sectionConfigCol } =
-    project;
+  const {
+    projectConfig,
+    ev,
+    evCols,
+    sectionConfigs,
+    sectionConfigCol,
+    ...theRest
+  } = project;
   const evIdMap = await copyEV(prisma, ev);
   const evColIdIdMap = await copyEVCols(prisma, evCols, evIdMap);
   const sectionConfigIdMap = await copySectionConfigs(
@@ -164,7 +181,7 @@ export async function saveAsNewProjectConfig(
     sectionConfigCol,
     sectionConfigIdMap,
   );
-  await copyProjectConfig(
+  const newProjectConfigId = await copyProjectConfig(
     prisma,
     projectConfig,
     newConfigName,
@@ -172,7 +189,16 @@ export async function saveAsNewProjectConfig(
     project.sections,
   );
 
-  // console.log('newConfigName', newConfigName);
-  // console.log('ev', ev);
-  // console.log('evCols', evCols);
+  // exclude the stuff that was already saved above
+  // TODO: set projectConfig: {} so it doesn't do an unnecessary write
+  const projectToSave = {
+    ...theRest,
+    projectConfig: {},
+    ev: {},
+    evCols: {},
+    sectionConfigs: {},
+    sectionConfigCol: {},
+  };
+  await saveProjectDetails(prisma, projectToSave, false);
+  await saveProject(prisma, projectToSave.project, newProjectConfigId);
 }
