@@ -17,6 +17,7 @@ import {
   saveSections,
 } from 'src/sections/savingFunctions';
 import { saveUITypeCols, saveUITypes } from 'src/uiTypes/savingFunctions';
+import { createNewId } from 'src/utils/utils';
 
 export async function saveMultipleProjectDetails(
   prisma: PrismaClient,
@@ -137,23 +138,16 @@ export async function createProject(prisma: PrismaClient, user, name: string) {
   return project;
 }
 
-async function copyProjectConfig(
-  prisma: PrismaClient,
-  projectConfig,
-  newConfigName,
-  newSectionConfigColId,
-  sections,
-) {
-  const { id, ...newProjectConfig } = projectConfig;
-  const newChildrenId = await prisma.sectionChildrenId.create({ data: {} });
-  Object.assign(newProjectConfig, {
+function copyProjectConfig(projectConfig, newConfigName) {
+  const newProjectConfig = _.cloneDeep(projectConfig);
+  const newVals = {
+    id: createNewId(),
     name: newConfigName,
-    sectionConfigCol: newSectionConfigColId,
-    childrenId: newChildrenId.id,
-  });
-  const data = await assembleProjectConfig(prisma, newProjectConfig, sections);
-  const newConfigObj = await prisma.projectConfig.create({ data });
-  return newConfigObj.id;
+    sectionConfigCol: createNewId(),
+    childrenId: createNewId(),
+  };
+  Object.assign(newProjectConfig, newVals);
+  return newProjectConfig;
 }
 
 export async function saveAsNewProjectConfig(
@@ -169,36 +163,26 @@ export async function saveAsNewProjectConfig(
     sectionConfigCol,
     ...theRest
   } = project;
-  const evIdMap = await copyEV(prisma, ev);
-  const evColIdIdMap = await copyEVCols(prisma, evCols, evIdMap);
-  const sectionConfigIdMap = await copySectionConfigs(
-    prisma,
+  const { newEv, evIdMap } = copyEV(ev);
+  const { newEvCols, evColIdMap } = copyEVCols(evCols, evIdMap);
+  const { newSectionConfigs, sectionConfigIdMap } = copySectionConfigs(
     sectionConfigs,
-    evColIdIdMap,
+    evColIdMap,
   );
-  const newSectionConfigColId = await copySectionConfigCol(
-    prisma,
+  const newSectionConfigCol = copySectionConfigCol(
     sectionConfigCol,
     sectionConfigIdMap,
   );
-  const newProjectConfigId = await copyProjectConfig(
-    prisma,
-    projectConfig,
-    newConfigName,
-    newSectionConfigColId,
-    project.sections,
-  );
 
-  // exclude the stuff that was already saved above
-  // TODO: set projectConfig: {} so it doesn't do an unnecessary write
+  const newProjectConfig = copyProjectConfig(projectConfig, newConfigName);
+
   const projectToSave = {
     ...theRest,
-    projectConfig: {},
-    ev: {},
-    evCols: {},
-    sectionConfigs: {},
-    sectionConfigCol: {},
+    projectConfig: newProjectConfig,
+    ev: newEv,
+    evCols: newEvCols,
+    sectionConfigs: newSectionConfigs,
+    sectionConfigCol: newSectionConfigCol,
   };
-  await saveProjectDetails(prisma, projectToSave, false);
-  await saveProject(prisma, projectToSave.project, newProjectConfigId);
+  await saveProjectDetails(prisma, projectToSave);
 }

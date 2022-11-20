@@ -4,6 +4,7 @@ import {
   createIdMap,
   deleteThenCreateCol,
   prismaNullOrConnect,
+  renameKeys,
 } from 'src/utils/utils';
 import _ = require('lodash');
 
@@ -99,32 +100,6 @@ export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
   );
 }
 
-export async function copySectionConfigs(
-  prisma: PrismaClient,
-  sectionConfigs,
-  evColIdIdMap,
-) {
-  const withReplacedEVColIds = _.mapValues(sectionConfigs, (x) => {
-    const newX = { ...x };
-    const curr = newX['evColId'];
-    if (curr in evColIdIdMap) {
-      newX['evColId'] = evColIdIdMap[curr];
-    }
-    return newX;
-  });
-
-  const inDbFormat = assembleSectionConfig(withReplacedEVColIds);
-  const withoutId = inDbFormat.map((x) => {
-    const { id, ...newX } = x;
-    return newX;
-  });
-
-  const newSectionConfigs = await prisma.$transaction(
-    withoutId.map((x) => prisma.sectionConfig.create({ data: x })),
-  );
-  return createIdMap(inDbFormat, newSectionConfigs);
-}
-
 function assembleSectionConfigCol(sectionConfigCol, colId) {
   const inDbFormat = [];
   for (const sectionId of _.keys(sectionConfigCol)) {
@@ -151,22 +126,28 @@ export async function saveSectionConfigCol(
   deleteThenCreateCol(prisma, prisma.sectionConfigCol, [colId], inDbFormat);
 }
 
-export async function copySectionConfigCol(
-  prisma: PrismaClient,
-  sectionConfigCol,
-  sectionConfigIdMap,
-) {
-  const newIdObj = await prisma.sectionConfigColId.create({ data: {} });
-  const newId = newIdObj['id'];
-  const newSectionConfigCol = { ...sectionConfigCol };
+export function copySectionConfigs(sectionConfigs, evColIdMap) {
+  const oldIds = _.keys(sectionConfigs);
+  const sectionConfigIdMap = createIdMap(oldIds);
+  const newSectionConfigs = renameKeys(sectionConfigs, sectionConfigIdMap);
 
+  for (const k of _.keys(newSectionConfigs)) {
+    const curr = newSectionConfigs[k];
+    curr.id = sectionConfigIdMap[curr.id];
+    if (curr.evColId in evColIdMap) {
+      curr.evColId = evColIdMap[curr.evColId];
+    }
+  }
+  return { newSectionConfigs, sectionConfigIdMap };
+}
+
+export function copySectionConfigCol(sectionConfigCol, sectionConfigIdMap) {
+  const newSectionConfigCol = _.cloneDeep(sectionConfigCol);
   for (const sectionId of _.keys(newSectionConfigCol)) {
     const curr = newSectionConfigCol[sectionId];
     if (curr in sectionConfigIdMap) {
       newSectionConfigCol[sectionId] = sectionConfigIdMap[curr];
     }
   }
-
-  await saveSectionConfigCol(prisma, newSectionConfigCol, newId);
-  return newId;
+  return newSectionConfigCol;
 }

@@ -1,8 +1,9 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 import _ = require('lodash');
 
 export function renameKeys(x, toRename) {
-  const output = { ...x };
+  const output = _.cloneDeep(x);
   for (const oldK of Object.keys(toRename)) {
     const newK = toRename[oldK];
     if (oldK in output) {
@@ -48,6 +49,10 @@ export function getOrderedChildren(children, toReturn = null) {
   return output;
 }
 
-export function createIdMap(oldIds, newIds) {
-  return _.fromPairs(oldIds.map((x, idx) => [x.id, newIds[idx].id]));
+export function createIdMap(oldIds) {
+  return _.fromPairs(oldIds.map((x) => [x, createNewId()]));
+}
+
+export function createNewId() {
+  return uuidv4();
 }

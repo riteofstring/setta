@@ -31,21 +31,6 @@ export async function saveEV(prisma: PrismaClient, ev) {
   );
 }
 
-export async function copyEV(prisma: PrismaClient, ev) {
-  const inDbFormat = assembleEV(ev);
-  const withoutId = inDbFormat.map((x) => {
-    const { id, ...newX } = x;
-    return newX;
-  });
-
-  // TODO: see if they fix this: https://github.com/prisma/prisma/issues/8131
-  const newEv = await prisma.$transaction(
-    withoutId.map((x) => prisma.eV.create({ data: x })),
-  );
-  // maps from old id to new id
-  return createIdMap(inDbFormat, newEv);
-}
-
 function assembleEVCols(evCols) {
   const allColIds = Object.keys(evCols);
   const inDbFormat = [];
@@ -75,30 +60,27 @@ export async function saveEVCols(prisma: PrismaClient, evCols) {
   deleteThenCreateCol(prisma, prisma.eVCol, allColIds, inDbFormat);
 }
 
-export async function copyEVCols(prisma: PrismaClient, evCols, evIdMap) {
-  // create new evColId entities
-  const evColIds = _.keys(evCols);
-  const newEVColIds = await prisma.$transaction(
-    evColIds.map(() => prisma.eVColId.create({ data: {} })),
-  );
-  const evColIdIdMap = createIdMap(
-    evColIds.map((x) => ({ id: x })),
-    newEVColIds,
-  );
+export function copyEV(ev) {
+  const oldIds = _.keys(ev);
+  const evIdMap = createIdMap(oldIds);
+  const newEv = renameKeys(ev, evIdMap);
+  return { newEv, evIdMap };
+}
 
-  // replace evColIds
-  const evColsWithNewIds = renameKeys(evCols, evColIdIdMap);
+export function copyEVCols(evCols, evIdMap) {
+  const oldIds = _.keys(evCols);
+  const evColIdMap = createIdMap(oldIds);
+  const newEvCols = renameKeys(evCols, evColIdMap);
+
   // replace ev ids
-  for (const idid of _.keys(evColsWithNewIds)) {
-    for (const codeInfoId of _.keys(evColsWithNewIds[idid])) {
-      const curr = evColsWithNewIds[idid][codeInfoId];
+  for (const idid of _.keys(newEvCols)) {
+    for (const codeInfoId of _.keys(newEvCols[idid])) {
+      const curr = newEvCols[idid][codeInfoId];
       if (curr in evIdMap) {
-        evColsWithNewIds[idid][codeInfoId] = evIdMap[curr];
+        newEvCols[idid][codeInfoId] = evIdMap[curr];
       }
     }
   }
 
-  await saveEVCols(prisma, evColsWithNewIds);
-
-  return evColIdIdMap;
+  return { newEvCols, evColIdMap };
 }
