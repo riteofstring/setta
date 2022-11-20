@@ -1,5 +1,6 @@
 import { loadAllProjectsMetadata } from "__tests__utils/loadTestData";
 import {
+  createInMemProject,
   loadOneProject,
   loadOneProjectById,
 } from "__tests__utils/loadTestData.mjs";
@@ -12,11 +13,13 @@ export async function noAuthLoadProject({ id, configId }) {
   if (!id) {
     return await loadOneProject({});
   }
-  console.log("id", id);
-  console.log("configId", configId);
   return await loadOneProjectById({ id, configId });
 }
 
-export async function noAuthCreateProject({ name }) {}
+export async function noAuthCreateProject({ name }) {
+  return createInMemProject(name);
+}
 
-export async function noAuthSaveProject({ project }) {}
+export async function noAuthSaveProject() {
+  return true;
+}

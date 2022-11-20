@@ -1,7 +1,12 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
 import { tokenConfig } from "./authentication";
-import { noAuthGetProjects, noAuthLoadProject } from "./noAuth/projects";
+import {
+  noAuthCreateProject,
+  noAuthGetProjects,
+  noAuthLoadProject,
+  noAuthSaveProject,
+} from "./noAuth/projects";
 
 export async function getProjects({ access_token }) {
   if (NO_AUTH) {
@@ -38,6 +43,10 @@ export async function loadProject({ access_token, id, configId }) {
 }
 
 export async function createProject({ access_token, name }) {
+  if (NO_AUTH) {
+    return await noAuthCreateProject({ name });
+  }
+
   return axios
     .post(
       BACKEND + `projects/createProject`,
@@ -53,6 +62,10 @@ export async function createProject({ access_token, name }) {
 }
 
 export async function saveProject({ access_token, project }) {
+  if (NO_AUTH) {
+    return await noAuthSaveProject();
+  }
+
   return axios
     .post(
       BACKEND + `projects/save`,
