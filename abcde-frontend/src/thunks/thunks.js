@@ -7,7 +7,12 @@ import { generateCode } from "./generateCode";
 import { initializeChild, initializeParam } from "./initializeParam";
 import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "./kwargs";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
-import { createProject, getProjects, loadProject } from "./projects";
+import {
+  createProject,
+  getProjects,
+  loadProject,
+  loadProjectIntoState,
+} from "./projects";
 import { saveAsNewProjectConfig, saveProject } from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
@@ -40,6 +45,7 @@ export default {
   saveKwargsAsCollection,
   saveAsNewProjectConfig,
   loadProject,
+  loadProjectIntoState,
   logout,
   accessPage,
   login,

@@ -77,10 +77,16 @@ export const saveProject = thunk((actions, payload, helpers) => {
 export const saveAsNewProjectConfig = thunk(
   async (actions, payload, helpers) => {
     const x = assembleProject({ payload, helpers });
+    const s = helpers.getStoreState();
+    const a = helpers.getStoreActions();
     const { newConfigName } = payload;
     const newProjectConfig = await saveAsNewProjectConfigDb({
       ...x,
       newConfigName,
+    });
+    a.thunks.loadProjectIntoState({
+      projectInfo: newProjectConfig,
+      excludeCodeInfo: true,
     });
   }
 );
