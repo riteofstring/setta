@@ -25,13 +25,11 @@ const codeInfo = {
   }),
 
   setAll: action((state, payload) => {
-    ({
-      allCodeInfo: state.allCodeInfo,
-      allCollections: state.allCollections,
-      callables: state.callables,
-      params: state.params,
-      paramCollections: state.paramCollections,
-    } = createAllInfo(payload));
+    state.allCodeInfo = payload.allCodeInfo;
+    state.allCollections = payload.allCollections;
+    state.callables = payload.callables;
+    state.params = payload.params;
+    state.paramCollections = payload.paramCollections;
   }),
 
   setCodeInfo: action((state, payload) => {
