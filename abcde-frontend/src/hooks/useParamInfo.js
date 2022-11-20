@@ -1,5 +1,6 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { requiresNestedSection } from "utils/constants";
 import { curryAction, defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
@@ -69,5 +70,14 @@ export function useGetManyParamsWithUITypeColId(sectionId, paramInfos) {
   return useStoreState(
     (x) => paramInfos.map((y) => x.paramInfos.y[uiTypeColId]?.[y.id]),
     _.isEqual
+  );
+}
+
+export function useAreAllParamsNested(sectionId, paramInfos) {
+  const uiTypeIds = useGetManyParamsWithUITypeColId(sectionId, paramInfos);
+  return useStoreState((x) =>
+    uiTypeIds
+      .map((y) => requiresNestedSection(x.uiTypes.x[y]?.type))
+      .every((z) => z)
   );
 }

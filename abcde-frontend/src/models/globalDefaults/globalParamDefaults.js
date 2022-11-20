@@ -1,5 +1,5 @@
 import { ParamTypeInfo } from "classes/mutableInfo";
-import { action } from "easy-peasy";
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 
@@ -17,15 +17,14 @@ function getInitialState() {
 const globalParamDefaults = {
   ...getInitialState(),
 
-  setUITypeId: action((state, payload) => {
-    const { type, uiTypeId } = payload;
-    setParamTypeInfo(state, type).uiTypeId = uiTypeId;
+  resetAndSetAll: thunk((actions, payload) => {
+    actions.reset();
+    actions.setAll(payload);
   }),
 
-  setManyUITypeIds: action((state, payload) => {
-    const { toUITypeId } = payload;
+  setAll: action((state, payload) => {
     _.forEach(
-      toUITypeId,
+      payload,
       (v, k) => (setParamTypeInfo(state, k).uiTypeId = v.uiTypeId)
     );
   }),
