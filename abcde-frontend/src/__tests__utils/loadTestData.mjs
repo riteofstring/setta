@@ -28,7 +28,11 @@ export async function loadProjectSpecificData({
 }) {
   const output = {};
   for (const k of [
-    "codeInfo",
+    "allCodeInfo",
+    "allCollections",
+    "callables",
+    "params",
+    "paramCollections",
     "ev",
     "evCols",
     "kwargCols",
@@ -75,7 +79,11 @@ export async function loadOneProject({
   );
 
   const {
-    codeInfo,
+    allCodeInfo,
+    allCollections,
+    callables,
+    params,
+    paramCollections,
     kwargInfo,
     uiTypes,
     baseUITypes,
@@ -87,7 +95,7 @@ export async function loadOneProject({
 
   if (forSeeding) {
     // For seeding a project we need kwargInfo
-    // instead of both kwargInfo and codeInfo
+    // instead of both kwargInfo and allCodeInfo
     return {
       kwargInfo,
       uiTypes: _uiTypes,
@@ -102,9 +110,15 @@ export async function loadOneProject({
     };
   } else {
     // This means we're testing the frontend, so we need everything
-    const _codeInfo = { ...codeInfo, ...kwargInfo };
+    const codeInfo = {
+      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+      allCollections,
+      callables,
+      params,
+      paramCollections,
+    };
     return {
-      codeInfo: _codeInfo,
+      codeInfo,
       uiTypes: _uiTypes,
       ...theRest,
     };

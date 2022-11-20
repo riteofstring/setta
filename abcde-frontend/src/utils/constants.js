@@ -17,9 +17,6 @@ export const REF = "REF";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
-export const COLLECTION = "collection";
-export const CALLABLE = "callable";
-export const PARAMETER = "parameter";
 
 // section sub types
 export const LIST = "LIST";
