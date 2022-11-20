@@ -1,5 +1,5 @@
 import { Button, HStack } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
@@ -7,51 +7,131 @@ import FileNameInput from "./FileNameInput";
 export default function SaveLoadModal({
   onClose,
   isOpen,
-  buttonText,
+  modalType,
   files,
   onClickLoadProject,
+  onClickSaveProject,
+  currProjectId,
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState({});
+  const [configName, setConfigName] = useState("");
 
-  function localOnClickLoadProject() {
-    onClickLoadProject(selected);
+  function localOnClose() {
+    setSelected({});
+    setConfigName("");
+    onClose();
+  }
+
+  function onClickSaveOrLoad() {
+    modalType === "Load"
+      ? onClickLoadProject(selected)
+      : onClickSaveProject(selected, configName);
+    setSelected({});
+    setConfigName("");
   }
 
   return (
     <ModalContainer
-      onClose={onClose}
+      onClose={localOnClose}
       isOpen={isOpen}
       size={"3xl"}
-      // header={<Header isSaveAs={isSaveAs} />}
       overrideFooter={true}
-      body={<Body files={files} setSelected={setSelected} />}
+      body={
+        <Body
+          files={files}
+          setSelected={setSelected}
+          modalType={modalType}
+          currProjectId={currProjectId}
+          selected={selected}
+          configName={configName}
+          setConfigName={setConfigName}
+        />
+      }
       footer={
         <Footer
-          buttonText={buttonText}
-          onClose={onClose}
-          onClick={localOnClickLoadProject}
+          buttonText={modalType}
+          onClose={localOnClose}
+          onClick={onClickSaveOrLoad}
         />
       }
     />
   );
 }
 
-function Header({ isSaveAs }) {
-  return <>Save As</>;
+function Body({
+  modalType,
+  files,
+  setSelected,
+  currProjectId,
+  selected,
+  configName,
+  setConfigName,
+}) {
+  return modalType === "Load" ? (
+    <LoadBody files={files} selected={selected} setSelected={setSelected} />
+  ) : (
+    <SaveBody
+      files={files}
+      setSelected={setSelected}
+      currProjectId={currProjectId}
+      selected={selected}
+      configName={configName}
+      setConfigName={setConfigName}
+    />
+  );
 }
 
-function Body({ isSaveAs, files, setSelected }) {
+function LoadBody({ files, selected, setSelected }) {
+  return (
+    <FileExplorer files={files} selected={selected} setSelected={setSelected} />
+  );
+}
+
+function SaveBody({
+  files,
+  setSelected,
+  currProjectId,
+  selected,
+  configName,
+  setConfigName,
+}) {
+  const currFiles = files[currProjectId];
+  const currFilesAsObj = currFiles ? { [currProjectId]: currFiles } : {};
+
+  function onChange(v) {
+    setConfigName(v);
+    const match = currFiles.configs.filter((x) => x.name === v)[0];
+    setSelected({ id: currProjectId, configId: match?.id });
+  }
+
+  useEffect(() => {
+    const configId = selected.configId;
+    if (configId) {
+      const matchingConfig = currFiles.configs.filter(
+        (x) => x.id === configId
+      )[0];
+      setConfigName(matchingConfig.name);
+    }
+  }, [selected]);
+
   return (
     <>
-      <FileExplorer files={files} setSelected={setSelected} />
-      {isSaveAs && (
-        <HStack>
-          <FileNameInput placeholder="File" />
-        </HStack>
-      )}
+      <FileExplorer
+        files={currFilesAsObj}
+        selected={selected}
+        setSelected={setSelected}
+      />
+      <HStack>
+        <FileNameInput
+          placeholder="Config Name"
+          value={configName}
+          onChange={onChange}
+        />
+      </HStack>
     </>
   );
 }
+
 function Footer({ onClose, onClick, buttonText }) {
   return (
     <HStack justify="stretch" mb=".5rem" spacing={4}>

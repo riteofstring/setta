@@ -2,13 +2,20 @@ import { Box, HStack, Icon, useRadio } from "@chakra-ui/react";
 import { BiFile, BiGitBranch } from "react-icons/bi";
 
 export function SelectableFileListItem({ isProject, children, radioProps }) {
-  const { getInputProps, getCheckboxProps } = useRadio(radioProps);
+  const { getInputProps, getCheckboxProps, state } = useRadio(radioProps);
   const input = getInputProps();
   const checkbox = getCheckboxProps();
 
+  // https://github.com/chakra-ui/chakra-ui/discussions/4252
+  function maybeUnset() {
+    if (state.isChecked && input.onChange) {
+      input.onChange("");
+    }
+  }
+
   return (
     <Box as="label">
-      <input {...input} />
+      <input {...input} onClick={maybeUnset} />
 
       <HStack
         {...checkbox}

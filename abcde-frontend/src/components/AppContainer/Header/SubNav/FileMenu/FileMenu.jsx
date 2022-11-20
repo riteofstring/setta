@@ -1,7 +1,8 @@
 import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useStoreActions } from "easy-peasy";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
+import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
@@ -13,24 +14,40 @@ export default function FileMenu() {
   const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
+  const currProjectId = useStoreState((x) => x.project.id);
   const saveProject = useStoreActions((x) => x.thunks.saveProject);
   const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
+  const [modalType, setModalType] = useState("");
 
   function onClose() {
     closeModal();
   }
 
-  function onClickSaveButton() {
+  function onClickSave() {
     saveProject({ reactFlowStore });
   }
 
   function onClickLoad() {
+    setModalType("Load");
+    getProjects();
+    openModal();
+  }
+
+  function onClickSaveAs() {
+    setModalType("Save As");
     getProjects();
     openModal();
   }
 
   function onClickLoadProject(selected) {
     setProjectToLoad(selected);
+    closeModal();
+  }
+
+  function onClickSaveProject(selected, configName) {
+    console.log("selected", selected);
+    console.log("configName", configName);
+    // setProjectToLoad(selected);
     closeModal();
   }
 
@@ -59,12 +76,15 @@ export default function FileMenu() {
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className="text-sm flex flex-row gap-1"
-              onClick={onClickSaveButton}
+              onClick={onClickSave}
             >
               <VscSave />
               Save
             </DropdownMenu.Item>
-            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
+            <DropdownMenu.Item
+              className="text-sm flex flex-row gap-1"
+              onClick={onClickSaveAs}
+            >
               <VscSaveAs />
               Save As
             </DropdownMenu.Item>
@@ -74,9 +94,10 @@ export default function FileMenu() {
       <SaveLoadModal
         onClose={onClose}
         isOpen={isOpen}
-        buttonText={"SaveLoadModal"}
+        modalType={modalType}
         files={projects}
         onClickLoadProject={onClickLoadProject}
+        currProjectId={currProjectId}
       />
     </>
   );

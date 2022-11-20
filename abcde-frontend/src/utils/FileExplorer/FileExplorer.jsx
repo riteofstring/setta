@@ -1,21 +1,23 @@
 import { Button, Flex, Spacer, useRadioGroup } from "@chakra-ui/react";
 import _ from "lodash";
-import { useEffect } from "react";
 
 import FileListContainer from "./FileListContainer";
 import { FileListItem, SelectableFileListItem } from "./FileListItem";
 
-export default function FileExplorer({ files, setSelected }) {
-  const { value, getRootProps, getRadioProps } = useRadioGroup({
-    name: "fileExplorer",
-  });
-  const radioGroup = getRootProps();
-
-  useEffect(() => {
-    if (value) {
-      setSelected(JSON.parse(value));
+export default function FileExplorer({ files, selected, setSelected }) {
+  function onChange(v) {
+    if (v) {
+      setSelected(JSON.parse(v));
     }
-  }, [value]);
+  }
+
+  const { getRootProps, getRadioProps } = useRadioGroup({
+    name: "fileExplorer",
+    value: JSON.stringify(selected),
+    onChange,
+  });
+
+  const radioGroup = getRootProps();
 
   return (
     <FileListContainer radioGroup={radioGroup}>
