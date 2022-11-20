@@ -32,7 +32,7 @@ const master = {
     a.globalParamDefaults.resetAndSetAll(globalDefaults.paramDefaults);
     a.projectParamDefaults.resetAndSetAll(projectDefaults.paramDefaults);
     a.enteredValues.resetAndSetAll(ev);
-    a.objInfos.setAllKwargIds({ ...kwargCols });
+    a.objInfos.resetAndSetAll(kwargCols);
     a.sectionInfos.resetAndSetAll({
       sections,
       sectionConfigCol,
