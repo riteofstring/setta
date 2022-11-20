@@ -1,16 +1,10 @@
-import {
-  Badge,
-  Box,
-  Heading,
-  List,
-  ListItem,
-  useDisclosure,
-} from "@chakra-ui/react";
+import { useDisclosure } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
 import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
+import Badge from "utils/atoms/badges/badge";
 import Button from "utils/atoms/buttons/Button";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
@@ -47,18 +41,14 @@ function RightColumn({ projects, setProjects }) {
   return (
     <div className="overflow-y-auto">
       <Button
-        tailwindClasses="mt-10 mx-10 rounded-full bg-blue-500"
+        tailwindClasses="py-2 px-4 mt-10 mx-10 rounded-full font-bold text-green-900 bg-green-300 hover:bg-green-400 gap-2"
         onClick={onClick}
       >
         <BiAddToQueue />
         Create New Project
       </Button>
 
-      <div
-        className="grid grid-cols-[repeat(auto-fit,_20rem)] gap-8 pt-7 px-10 justify-items-start"
-
-        // minChildWidth="20rem"
-      >
+      <div className="grid grid-cols-[repeat(auto-fit,_20rem)] gap-8 pt-7 px-10 justify-items-start">
         {Object.values(projects).map((x, i) => (
           <ProjectItem key={`Project ${i} ${x.name}`} project={x} />
         ))}
@@ -90,7 +80,7 @@ function ProjectItem({ project }) {
     >
       <div className="grid p-4 bg-gray-300 bg-[url('https://via.placeholder.com/400')] bg-center">
         <Button
-          tailwindClasses="round-full text-xs [place-self:flex-start_flex-end]"
+          tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs [place-self:flex-start_flex-end]"
           onClick={onClickConfigsButton}
         >
           <BiGitBranch />
@@ -99,12 +89,12 @@ function ProjectItem({ project }) {
         <ConfigButton onClose={onClose} isOpen={isOpen} configs={configs} />
       </div>
       <div className="p-4 bg-white">
-        <Heading as="h3" fontSize="md">
-          {name}
-        </Heading>
+        <h3 className="text-base">{name}</h3>
         <div className="flex flex-row gap-[0.15rem] mt-1">
-          <Badge colorScheme="green">PyTorch 2.9</Badge>
-          <Badge colorScheme="red">NumPy</Badge>
+          <Badge tailwindClasses="bg-green-100 text-green-800">
+            PyTorch 2.9
+          </Badge>
+          <Badge tailwindClasses="bg-red-100 text-red-800">NumPy</Badge>
         </div>
       </div>
     </div>
@@ -126,19 +116,19 @@ function ConfigButton({ onClose, isOpen, configs }) {
 }
 
 function Header() {
-  return <Heading>Configs</Heading>;
+  return <h1>Configs</h1>;
 }
 
 function Body({ configs }) {
   return (
-    <List>
+    <ul>
       {configs.map((x, idx) => (
-        <ListItem key={`Config ${idx}`}>{x.name}</ListItem>
+        <li key={`Config ${idx}`}>{x.name}</li>
       ))}
-    </List>
+    </ul>
   );
 }
 
 function Footer() {
-  return <Box />;
+  return <div />;
 }
