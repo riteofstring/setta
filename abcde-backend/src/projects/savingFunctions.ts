@@ -9,6 +9,8 @@ import {
 } from 'src/enteredValues/savingFunctions';
 import { saveKwargCols } from 'src/kwargs/savingFunctions';
 import {
+  copySectionConfigCol,
+  copySectionConfigs,
   saveSectionChildren,
   saveSectionConfigCol,
   saveSectionConfigs,
@@ -128,14 +130,47 @@ export async function createProject(prisma: PrismaClient, user, name: string) {
   return project;
 }
 
+async function copyProjectConfig(
+  prisma: PrismaClient,
+  projectConfig,
+  newConfigName,
+  newSectionConfigColId,
+  sections,
+) {
+  const { id, ...newProjectConfig } = projectConfig;
+  newProjectConfig['name'] = newConfigName;
+  newProjectConfig['sectionConfigCol'] = newSectionConfigColId;
+
+  console.log('newProjectConfig', newProjectConfig);
+  // await saveProjectConfig(prisma, newProjectConfig, sections);
+}
+
 export async function saveAsNewProjectConfig(
   prisma: PrismaClient,
   project,
   newConfigName: string,
 ) {
-  const { projectConfig, ev, evCols } = project;
+  const { projectConfig, ev, evCols, sectionConfigs, sectionConfigCol } =
+    project;
   const evIdMap = await copyEV(prisma, ev);
   const evColIdIdMap = await copyEVCols(prisma, evCols, evIdMap);
+  const sectionConfigIdMap = await copySectionConfigs(
+    prisma,
+    sectionConfigs,
+    evColIdIdMap,
+  );
+  const newSectionConfigColId = await copySectionConfigCol(
+    prisma,
+    sectionConfigCol,
+    sectionConfigIdMap,
+  );
+  await copyProjectConfig(
+    prisma,
+    projectConfig,
+    newConfigName,
+    newSectionConfigColId,
+    project.sections,
+  );
 
   // console.log('newConfigName', newConfigName);
   // console.log('ev', ev);

@@ -22,7 +22,7 @@ model CodeInfo {
   sections       Section[] // Section.paramInfo
   kwargOwner     KwargCol[]         @relation("KwargOwner") // KwargCol.codeInfo
   kwarg          KwargCol[]         @relation("Kwarg") // KwargCol.kwargInfo
-  evOwner        EVCol[] // EV.codeInfo
+  evOwner        EVCol[] // EVCol.codeInfo
   sectionConfigs SectionConfig[] //SectionConfig.selectedItem
   uiTypeOrigins  UIType[] //UIType.originCodeInfo
   uiTypeCols     UITypeCol[] //UITypeCol.codeInfo

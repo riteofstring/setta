@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import {
   connectOrCreateColId,
+  createIdMap,
   deleteThenCreateCol,
   prismaNullOrConnect,
 } from 'src/utils/utils';
@@ -69,7 +70,7 @@ export async function saveSectionChildren(
   deleteThenCreateCol(prisma, prisma.sectionChildren, allColIds, inDbFormat);
 }
 
-export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
+function assembleSectionConfig(sectionConfigs) {
   const inDbFormat = [];
   for (const v of _.values(sectionConfigs)) {
     const curr = {
@@ -81,6 +82,11 @@ export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
     };
     inDbFormat.push(curr);
   }
+  return inDbFormat;
+}
+
+export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
+  const inDbFormat = assembleSectionConfig(sectionConfigs);
 
   await prisma.$transaction(
     inDbFormat.map((v) =>
@@ -93,6 +99,44 @@ export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
   );
 }
 
+export async function copySectionConfigs(
+  prisma: PrismaClient,
+  sectionConfigs,
+  evColIdIdMap,
+) {
+  const withReplacedEVColIds = _.mapValues(sectionConfigs, (x) => {
+    const newX = { ...x };
+    const curr = newX['evColId'];
+    if (curr in evColIdIdMap) {
+      newX['evColId'] = evColIdIdMap[curr];
+    }
+    return newX;
+  });
+
+  const inDbFormat = assembleSectionConfig(withReplacedEVColIds);
+  const withoutId = inDbFormat.map((x) => {
+    const { id, ...newX } = x;
+    return newX;
+  });
+
+  const newSectionConfigs = await prisma.$transaction(
+    withoutId.map((x) => prisma.sectionConfig.create({ data: x })),
+  );
+  return createIdMap(inDbFormat, newSectionConfigs);
+}
+
+function assembleSectionConfigCol(sectionConfigCol, colId) {
+  const inDbFormat = [];
+  for (const sectionId of _.keys(sectionConfigCol)) {
+    inDbFormat.push({
+      idid: colId,
+      sectionId,
+      configId: sectionConfigCol[sectionId],
+    });
+  }
+  return inDbFormat;
+}
+
 export async function saveSectionConfigCol(
   prisma: PrismaClient,
   sectionConfigCol,
@@ -103,13 +147,26 @@ export async function saveSectionConfigCol(
     skipDuplicates: true,
   });
 
-  const inDbFormat = [];
-  for (const sectionId of _.keys(sectionConfigCol)) {
-    inDbFormat.push({
-      idid: colId,
-      sectionId,
-      configId: sectionConfigCol[sectionId],
-    });
-  }
+  const inDbFormat = assembleSectionConfigCol(sectionConfigCol, colId);
   deleteThenCreateCol(prisma, prisma.sectionConfigCol, [colId], inDbFormat);
+}
+
+export async function copySectionConfigCol(
+  prisma: PrismaClient,
+  sectionConfigCol,
+  sectionConfigIdMap,
+) {
+  const newIdObj = await prisma.sectionConfigColId.create({ data: {} });
+  const newId = newIdObj['id'];
+  const newSectionConfigCol = { ...sectionConfigCol };
+
+  for (const sectionId of _.keys(newSectionConfigCol)) {
+    const curr = newSectionConfigCol[sectionId];
+    if (curr in sectionConfigIdMap) {
+      newSectionConfigCol[sectionId] = sectionConfigIdMap[curr];
+    }
+  }
+
+  await saveSectionConfigCol(prisma, newSectionConfigCol, newId);
+  return newId;
 }

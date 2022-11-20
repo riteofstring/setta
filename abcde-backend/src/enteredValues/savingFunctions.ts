@@ -33,7 +33,10 @@ export async function saveEV(prisma: PrismaClient, ev) {
 
 export async function copyEV(prisma: PrismaClient, ev) {
   const inDbFormat = assembleEV(ev);
-  const withoutId = inDbFormat.map((x) => _.pick(x, ['value', 'child']));
+  const withoutId = inDbFormat.map((x) => {
+    const { id, ...newX } = x;
+    return newX;
+  });
 
   // TODO: see if they fix this: https://github.com/prisma/prisma/issues/8131
   const newEv = await prisma.$transaction(
@@ -89,7 +92,9 @@ export async function copyEVCols(prisma: PrismaClient, evCols, evIdMap) {
   for (const idid of _.keys(evColsWithNewIds)) {
     for (const codeInfoId of _.keys(evColsWithNewIds[idid])) {
       const curr = evColsWithNewIds[idid][codeInfoId];
-      evColsWithNewIds[idid][codeInfoId] = evIdMap[curr];
+      if (curr in evIdMap) {
+        evColsWithNewIds[idid][codeInfoId] = evIdMap[curr];
+      }
     }
   }
 
