@@ -168,12 +168,10 @@ function projectSubFolderNames(projectName) {
   }[projectName];
 }
 
-export async function loadOneProjectById({ projectId, projectConfigId }) {
+export async function loadOneProjectById({ id, configId }) {
   const projectMetaData = await loadAllProjectsMetadata();
-  const project = _.filter(projectMetaData, (x) => x.id === projectId)[0];
-  const projectConfig = project.configs.filter(
-    (x) => x.id === projectConfigId
-  )[0];
+  const project = _.filter(projectMetaData, (x) => x.id === id)[0];
+  const projectConfig = project.configs.filter((x) => x.id === configId)[0];
 
   return await loadOneProject({
     projectName: project.name,

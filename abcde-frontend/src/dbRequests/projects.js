@@ -1,12 +1,13 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
-import { loadAllProjectsMetadata } from "__tests__utils/loadTestData";
 import { tokenConfig } from "./authentication";
+import { noAuthGetProjects, noAuthLoadProject } from "./noAuth/projects";
 
 export async function getProjects({ access_token }) {
   if (NO_AUTH) {
-    return await loadAllProjectsMetadata();
+    return await noAuthGetProjects();
   }
+
   return axios
     .post(BACKEND + "projects", null, tokenConfig(access_token))
     .then((res) => {
@@ -18,6 +19,10 @@ export async function getProjects({ access_token }) {
 }
 
 export async function loadProject({ access_token, id, configId }) {
+  if (NO_AUTH) {
+    return await noAuthLoadProject({ id, configId });
+  }
+
   return axios
     .post(
       BACKEND + `projects/load/${id}/${configId}`,
@@ -33,9 +38,12 @@ export async function loadProject({ access_token, id, configId }) {
 }
 
 export async function createProject({ access_token, name }) {
-  const body = { name };
   return axios
-    .post(BACKEND + `projects/createProject`, body, tokenConfig(access_token))
+    .post(
+      BACKEND + `projects/createProject`,
+      { name },
+      tokenConfig(access_token)
+    )
     .then((res) => {
       return res.data;
     })
@@ -45,9 +53,12 @@ export async function createProject({ access_token, name }) {
 }
 
 export async function saveProject({ access_token, project }) {
-  const body = { access_token, project };
   return axios
-    .post(BACKEND + `projects/save`, body, tokenConfig(access_token))
+    .post(
+      BACKEND + `projects/save`,
+      { access_token, project },
+      tokenConfig(access_token)
+    )
     .then((res) => {
       return res.data;
     })
