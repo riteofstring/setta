@@ -7,8 +7,11 @@ export default function GridWrapper(props) {
 }
 
 function StandardGrid(props) {
+  const { gridProps } = props;
   return (
-    <div className="col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 h-full">
+    <div
+      className={`grid grid-col-[1fr] grid-row-[1fr] col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 h-full ${gridProps}`}
+    >
       {props.children}
     </div>
   );
@@ -18,7 +21,7 @@ function FlexForm(props) {
   const { flexFormWrap = false } = props;
   if (flexFormWrap) {
     return (
-      <div className="flex flex-col w-full min-h-[200px] mt-[20vh] justify-center items-center">
+      <div className="flex flex-col w-full min-h-[200px] justify-center items-center">
         {props.children}
       </div>
     );

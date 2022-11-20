@@ -1,11 +1,7 @@
 import {
   Badge,
   Box,
-  Button,
-  Grid,
-  GridItem,
   Heading,
-  HStack,
   List,
   ListItem,
   useDisclosure,
@@ -15,6 +11,7 @@ import { useStoreActions } from "easy-peasy";
 import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
+import Button from "utils/atoms/buttons/Button";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
 
@@ -31,32 +28,13 @@ function HomePage() {
   }, []);
 
   return (
-    <GridWrapper
-      gridTemplateColumns="1fr"
-      display="grid"
-      backgroundColor="gray.100"
-    >
-      {/* <LeftColumn /> */}
+    <GridWrapper gridProps=" bg-gray-100">
       <RightColumn projects={projects} setProjects={setProjects} />
     </GridWrapper>
   );
 }
 
 export default React.memo(HomePage);
-
-function LeftColumn() {
-  return (
-    <GridItem
-      p="2.5rem"
-      borderRightStyle="solid"
-      borderRightColor="gray.100"
-      borderRightWidth="1px"
-      overflowY="auto"
-    >
-      LEFT COLUMN
-    </GridItem>
-  );
-}
 
 function RightColumn({ projects, setProjects }) {
   const createProject = useCreateProject();
@@ -67,31 +45,25 @@ function RightColumn({ projects, setProjects }) {
   }
 
   return (
-    <GridItem overflowY="auto">
+    <div className="overflow-y-auto">
       <Button
-        mt="2.5rem"
-        mx="2.5rem"
-        borderRadius="full"
-        leftIcon={<BiAddToQueue />}
-        colorScheme="blue"
+        tailwindClasses="mt-10 mx-10 rounded-full bg-blue-500"
         onClick={onClick}
       >
+        <BiAddToQueue />
         Create New Project
       </Button>
 
-      <Grid
-        gridTemplateColumns="repeat(auto-fit, 20rem)"
-        gap="2rem"
-        pt="1.75rem"
-        px="2.5rem"
-        minChildWidth="20rem"
-        justifyItems="flex-start"
+      <div
+        className="grid grid-cols-[repeat(auto-fit,_20rem)] auto-rows-auto grid-flow-col gap-8 pt-7 px-10 justify-items-start"
+
+        // minChildWidth="20rem"
       >
         {Object.values(projects).map((x, i) => (
           <ProjectItem key={`Project ${i} ${x.name}`} project={x} />
         ))}
-      </Grid>
-    </GridItem>
+      </div>
+    </div>
   );
 }
 
@@ -112,50 +84,30 @@ function ProjectItem({ project }) {
   }
 
   return (
-    <Grid
-      templateRows="1fr 5rem"
-      borderRadius="3xl"
-      border="1px"
-      borderColor="gray.300"
-      minHeight="15rem"
-      width={{ base: "auto", sm: "20rem" }}
-      overflow="hidden"
-      _hover={{
-        transition: "box-shadow 200ms",
-        boxShadow: "lg",
-        borderColor: "white",
-        cursor: "pointer",
-      }}
+    <div
+      className="grid grid-rows-[1fr_5rem] rounded-3xl border border-gray-300 min-h-[15rem] sm:w-80 overflow-hidden hover:transition-all hover:shadow-lg hover:border-white hover:cursor-pointer"
       onClick={onClick}
     >
-      <GridItem
-        p="1rem"
-        bg="gray.300"
-        display="grid"
-        backgroundImage="https://via.placeholder.com/400"
-        backgroundPosition="center"
-      >
+      <div className="grid p-4 bg-gray-300 bg-[url('https://via.placeholder.com/400')] bg-center">
         <Button
-          placeSelf="flex-start flex-end"
-          borderRadius="full"
-          leftIcon={<BiGitBranch />}
-          size="xs"
+          tailwindClasses="round-full text-xs [place-self:flex-start_flex-end]"
           onClick={onClickConfigsButton}
         >
+          <BiGitBranch />
           Configs
         </Button>
         <ConfigButton onClose={onClose} isOpen={isOpen} configs={configs} />
-      </GridItem>
-      <GridItem p="1rem" bg="white">
+      </div>
+      <div className="p-4 bg-white">
         <Heading as="h3" fontSize="md">
           {name}
         </Heading>
-        <HStack gap="0.15rem" mt="0.25rem">
+        <div className="flex flex-row gap-[0.15rem] mt-1">
           <Badge colorScheme="green">PyTorch 2.9</Badge>
           <Badge colorScheme="red">NumPy</Badge>
-        </HStack>
-      </GridItem>
-    </Grid>
+        </div>
+      </div>
+    </div>
   );
 }
 
