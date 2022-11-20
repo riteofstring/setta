@@ -42,12 +42,13 @@ model CodeInfoChildren {
 }
 
 model User {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String          @unique @db.VarChar(255)
-  password      String
-  projects      Project[] //Project.owner
-  generatedCode GeneratedCode[] //GeneratedCode.owner
-  uiTypes       UIType[] //UIType.owner
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String                 @unique @db.VarChar(255)
+  password          String
+  projects          Project[] //Project.owner
+  generatedCode     GeneratedCode[] //GeneratedCode.owner
+  uiTypes           UIType[] //UIType.owner
+  paramTypeMappings UserParamTypeMapping[]
 }
 
 model Section {
@@ -156,18 +157,18 @@ model SectionConfig {
 }
 
 model UIType {
-  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String          @db.VarChar(255)
-  owner                    User?           @relation(fields: [ownerId], references: [id])
-  ownerId                  String?         @db.Uuid
-  type                     String          @db.VarChar(255)
-  presetType               String?         @db.VarChar(255)
-  originSection            Section?        @relation(fields: [originSectionId], references: [id])
-  originSectionId          String?         @db.Uuid
-  originUITypeCol          UITypeColId?    @relation(fields: [originUITypeColId], references: [id])
-  originUITypeColId        String?         @db.Uuid
-  originCodeInfo           CodeInfo?       @relation(fields: [originCodeInfoId], references: [id])
-  originCodeInfoId         String?         @db.Uuid
+  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String             @db.VarChar(255)
+  owner                    User?              @relation(fields: [ownerId], references: [id])
+  ownerId                  String?            @db.Uuid
+  type                     String             @db.VarChar(255)
+  presetType               String?            @db.VarChar(255)
+  originSection            Section?           @relation(fields: [originSectionId], references: [id])
+  originSectionId          String?            @db.Uuid
+  originUITypeCol          UITypeColId?       @relation(fields: [originUITypeColId], references: [id])
+  originUITypeColId        String?            @db.Uuid
+  originCodeInfo           CodeInfo?          @relation(fields: [originCodeInfoId], references: [id])
+  originCodeInfoId         String?            @db.Uuid
   isForChildOfOriginInfoId Boolean
   sectionConfigs           SectionConfig[] //SectionConfig.uiType
   uiTypeCols               UITypeCol[] //UITypeCol.uiType
@@ -176,6 +177,7 @@ model UIType {
   textUIType               TextUIType? //TextUIType.id
   switchUIType             SwitchUIType? //SwitchUIType.id
   refUIType                RefUIType? //RefUIType.id
+  paramTypeMappings        ParamTypeMapping[] //ParamTypeMapping.uiTypeId
 }
 
 model UITypeColId {
@@ -252,15 +254,16 @@ model Project {
 }
 
 model ProjectConfig {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String             @db.VarChar(255)
-  sectionConfigCol   SectionConfigColId @relation(fields: [sectionConfigColId], references: [id])
-  sectionConfigColId String             @db.Uuid
-  sectionChildren    SectionChildrenId  @relation(fields: [sectionChildrenId], references: [id])
-  sectionChildrenId  String             @db.Uuid
-  project            Project?           @relation("configs", fields: [projectId], references: [id])
-  projectId          String?            @db.Uuid
+  id                 String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String                          @db.VarChar(255)
+  sectionConfigCol   SectionConfigColId              @relation(fields: [sectionConfigColId], references: [id])
+  sectionConfigColId String                          @db.Uuid
+  sectionChildren    SectionChildrenId               @relation(fields: [sectionChildrenId], references: [id])
+  sectionChildrenId  String                          @db.Uuid
+  project            Project?                        @relation("configs", fields: [projectId], references: [id])
+  projectId          String?                         @db.Uuid
   defaultFor         Project? //Project.defaultConfig 
+  paramTypeMappings  ProjectConfigParamTypeMapping[]
 }
 
 model GeneratedCode {
@@ -268,4 +271,31 @@ model GeneratedCode {
   owner   User   @relation(fields: [ownerId], references: [id])
   ownerId String @db.Uuid
   code    String @db.Text
+}
+
+model ParamTypeMapping {
+  id                      String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                    String
+  uiType                  UIType                         @relation(fields: [uiTypeId], references: [id])
+  uiTypeId                String                         @db.Uuid
+  userParamTypeMapping    UserParamTypeMapping?
+  projectParamTypeMapping ProjectConfigParamTypeMapping?
+}
+
+model UserParamTypeMapping {
+  paramTypeMapping   ParamTypeMapping @relation(fields: [paramTypeMappingId], references: [id])
+  paramTypeMappingId String           @db.Uuid
+  owner              User             @relation(fields: [ownerId], references: [id])
+  ownerId            String           @db.Uuid
+
+  @@id([paramTypeMappingId]) // composite key
+}
+
+model ProjectConfigParamTypeMapping {
+  paramTypeMapping   ParamTypeMapping @relation(fields: [paramTypeMappingId], references: [id])
+  paramTypeMappingId String           @db.Uuid
+  projectConfig      ProjectConfig    @relation(fields: [projectConfigId], references: [id])
+  projectConfigId    String           @db.Uuid
+
+  @@id([paramTypeMappingId]) // composite key
 }
