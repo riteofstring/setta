@@ -55,7 +55,7 @@ function RightColumn({ projects, setProjects }) {
       </Button>
 
       <div
-        className="grid grid-cols-[repeat(auto-fit,_20rem)] auto-rows-auto grid-flow-col gap-8 pt-7 px-10 justify-items-start"
+        className="grid grid-cols-[repeat(auto-fit,_20rem)] gap-8 pt-7 px-10 justify-items-start"
 
         // minChildWidth="20rem"
       >
