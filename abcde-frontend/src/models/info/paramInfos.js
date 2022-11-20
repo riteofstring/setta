@@ -24,7 +24,7 @@ const paramInfos = {
     const { collectionId, paramInfoId, uiTypeId } = payload;
     setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
   }),
-  
+
   overrideUITypeIds: thunk((action, payload, helpers) => {
     const uiTypes = helpers.getStoreState().uiTypes.x;
     action.overrideUITypeIdsHelper({ ...payload, uiTypes });

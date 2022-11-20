@@ -22,9 +22,7 @@ const projectConfig = {
 
   setAll: action((state, payload) => {
     for (const k of _.keys(getInitialState())) {
-      if (k in payload) {
-        state[k] = payload[k];
-      }
+      state[k] = payload[k];
     }
   }),
 
