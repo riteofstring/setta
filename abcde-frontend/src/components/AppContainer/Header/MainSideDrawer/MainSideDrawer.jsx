@@ -1,7 +1,7 @@
 import { HamburgerIcon } from "@chakra-ui/icons";
+import { Button, VStack } from "@chakra-ui/react";
 import { useLogout } from "hooks/dbRequests/authentication";
 import { resetEntireState } from "store/store";
-import StandardButton from "utils/atoms/buttons/StandardButton";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
 
 export default function MainSideDrawer() {
@@ -31,13 +31,13 @@ function Body() {
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <StandardButton>Profile</StandardButton>
-      <StandardButton>Settings</StandardButton>
-      <StandardButton variant="outline" onClick={doLogout}>
+    <VStack align="stretch">
+      <Button>Profile</Button>
+      <Button>Settings</Button>
+      <Button variant="outline" onClick={doLogout}>
         Logout
-      </StandardButton>
-    </div>
+      </Button>
+    </VStack>
   );
 }
 

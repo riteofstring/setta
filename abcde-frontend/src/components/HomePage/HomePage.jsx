@@ -1,33 +1,27 @@
 import {
   Badge,
-  Box,
   Button,
   Grid,
   GridItem,
   Heading,
   HStack,
+  Input,
   List,
   ListItem,
-  useDisclosure,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
-import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
+import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
+import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
 function HomePage() {
-  const getProjects = useGetProjects();
-  const [projects, setProjects] = useState({});
-
-  async function fetchData() {
-    setProjects(await getProjects());
-  }
+  const { projects, getProjects, createProject } = useGetOrCreateProjects();
 
   useEffect(() => {
-    fetchData();
+    getProjects();
   }, []);
 
   return (
@@ -36,49 +30,34 @@ function HomePage() {
       display="grid"
       backgroundColor="gray.100"
     >
-      {/* <LeftColumn /> */}
-      <RightColumn projects={projects} setProjects={setProjects} />
+      <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
 }
 
 export default React.memo(HomePage);
 
-function LeftColumn() {
-  return (
-    <GridItem
-      p="2.5rem"
-      borderRightStyle="solid"
-      borderRightColor="gray.100"
-      borderRightWidth="1px"
-      overflowY="auto"
-    >
-      LEFT COLUMN
-    </GridItem>
-  );
-}
-
-function RightColumn({ projects, setProjects }) {
-  const createProject = useCreateProject();
-
-  async function onClick() {
-    const newProject = await createProject({ name: "amazing project" });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
+function RightColumn({ projects, createProject }) {
+  function onClick(name) {
+    createProject({ name });
   }
 
   return (
     <GridItem overflowY="auto">
-      <Button
-        mt="2.5rem"
-        mx="2.5rem"
-        borderRadius="full"
-        leftIcon={<BiAddToQueue />}
-        colorScheme="blue"
-        onClick={onClick}
-      >
-        Create New Project
-      </Button>
-
+      <PopoverWrapper
+        trigger={
+          <Button
+            mt="2.5rem"
+            mx="2.5rem"
+            borderRadius="full"
+            leftIcon={<BiAddToQueue />}
+            colorScheme="blue"
+          >
+            Create New Project
+          </Button>
+        }
+        body={<ProjectNameSetter onClick={onClick} />}
+      />
       <Grid
         gridTemplateColumns="repeat(auto-fit, 20rem)"
         gap="2rem"
@@ -96,19 +75,26 @@ function RightColumn({ projects, setProjects }) {
 }
 
 function ProjectItem({ project }) {
-  const { name, id, configs } = project;
+  const { name, id, configs, defaultConfigId } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
   const setCurrProject = useStoreActions((x) => x.project.setId);
+  const setCurrProjectConfig = useStoreActions((x) => x.projectConfig.setId);
 
   function onClick() {
     setCurrPage(UI);
     setCurrProject(id);
+    setCurrProjectConfig(defaultConfigId);
   }
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
   function onClickConfigsButton(e) {
     e.stopPropagation();
-    onOpen();
+  }
+
+  function onConfigClick(e, configId) {
+    e.stopPropagation();
+    setCurrPage(UI);
+    setCurrProject(id);
+    setCurrProjectConfig(configId);
   }
 
   return (
@@ -135,16 +121,27 @@ function ProjectItem({ project }) {
         backgroundImage="https://via.placeholder.com/400"
         backgroundPosition="center"
       >
-        <Button
-          placeSelf="flex-start flex-end"
-          borderRadius="full"
-          leftIcon={<BiGitBranch />}
-          size="xs"
-          onClick={onClickConfigsButton}
-        >
-          Configs
-        </Button>
-        <ConfigButton onClose={onClose} isOpen={isOpen} configs={configs} />
+        <PopoverWrapper
+          trigger={
+            <Button
+              placeSelf="flex-start flex-end"
+              borderRadius="full"
+              leftIcon={<BiGitBranch />}
+              size="xs"
+              onClick={onClickConfigsButton}
+            >
+              Configs
+            </Button>
+          }
+          body={
+            <Body
+              configs={configs}
+              defaultConfigId={defaultConfigId}
+              onClick={onConfigClick}
+            />
+          }
+          header="Configs"
+        />
       </GridItem>
       <GridItem p="1rem" bg="white">
         <Heading as="h3" fontSize="md">
@@ -159,34 +156,43 @@ function ProjectItem({ project }) {
   );
 }
 
-function ConfigButton({ onClose, isOpen, configs }) {
-  return (
-    <ModalContainer
-      onClose={onClose}
-      isOpen={isOpen}
-      size={"4xl"}
-      header={<Header />}
-      overrideFooter={true}
-      body={<Body configs={configs} />}
-      // footer={<Footer />}
-    />
-  );
-}
-
-function Header() {
-  return <Heading>Configs</Heading>;
-}
-
-function Body({ configs }) {
+function Body({ configs, defaultConfigId, onClick }) {
   return (
     <List>
       {configs.map((x, idx) => (
-        <ListItem key={`Config ${idx}`}>{x.name}</ListItem>
+        <HStack key={`Config ${idx}`} onClick={(e) => onClick(e, x.id)}>
+          <ListItem>{x.name}</ListItem>
+          <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
+        </HStack>
       ))}
     </List>
   );
 }
 
-function Footer() {
-  return <Box />;
+function ProjectNameSetter({ onClick }) {
+  const [presetName, setPresetName] = useState("");
+
+  function onChange(e) {
+    setPresetName(e.target.value);
+  }
+  function localOnClick() {
+    onClick(presetName);
+  }
+
+  return (
+    <>
+      <Input
+        placeholder="Project Name"
+        onChange={onChange}
+        value={presetName}
+      />
+      <Button onClick={localOnClick}>Create</Button>
+    </>
+  );
+}
+
+export function DefaultConfigBadge({ config, defaultConfigId }) {
+  return (
+    config.id === defaultConfigId && <Badge colorScheme="green">Default</Badge>
+  );
 }

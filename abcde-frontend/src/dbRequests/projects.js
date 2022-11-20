@@ -17,9 +17,13 @@ export async function getProjects({ access_token }) {
     });
 }
 
-export async function loadProject({ access_token, id }) {
+export async function loadProject({ access_token, id, configId }) {
   return axios
-    .post(BACKEND + `projects/load/${id}`, null, tokenConfig(access_token))
+    .post(
+      BACKEND + `projects/load/${id}/${configId}`,
+      null,
+      tokenConfig(access_token)
+    )
     .then((res) => {
       return res.data;
     })
