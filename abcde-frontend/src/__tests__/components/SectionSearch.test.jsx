@@ -12,7 +12,7 @@ import {
 } from "__tests__utils/utils";
 
 test("Test SectionSearch", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData({});
+  const { store, wrapper } = await createStoreWrapperWithData();
   const sectionId = sectionIdFromName(store, "Optimizer");
   const props = { sectionId, parentId: null, depth: 0 };
 

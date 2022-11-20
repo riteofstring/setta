@@ -9,7 +9,6 @@ import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
 import project from "models/info/project";
 import projectConfig from "models/info/projectConfig";
-import projectToLoad from "models/info/projectToLoad";
 import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
@@ -40,7 +39,6 @@ const store = createStore({
   currPage: currPage,
   project: project,
   projectConfig: projectConfig,
-  projectToLoad: projectToLoad,
   activeSection: activeSection,
   thunks: thunks,
   setState: action((state, payload) => payload),

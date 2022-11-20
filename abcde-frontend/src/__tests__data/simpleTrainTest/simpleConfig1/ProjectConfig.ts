@@ -1,6 +1,6 @@
 export default {
   id: "439f5590-fa98-4564-8f63-ec75b6dc89b2",
-  name: "simpleConfig1",
+  name: "Simple Config 1",
   sectionConfigCol: "f5cd8865-a15b-4fa3-9410-1ea3aa6933a5",
   childrenId: "e012b3cb-4bbd-4359-9ae5-7138d4e23481",
   children: [
