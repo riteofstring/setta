@@ -17,9 +17,13 @@ export async function getProjects({ access_token }) {
     });
 }
 
-export async function loadProject({ access_token, id }) {
+export async function loadProject({ access_token, id, configId }) {
   return axios
-    .post(BACKEND + `projects/load/${id}`, null, tokenConfig(access_token))
+    .post(
+      BACKEND + `projects/load/${id}/${configId}`,
+      null,
+      tokenConfig(access_token)
+    )
     .then((res) => {
       return res.data;
     })
@@ -29,7 +33,7 @@ export async function loadProject({ access_token, id }) {
 }
 
 export async function createProject({ access_token, name }) {
-  const body = JSON.stringify({ name });
+  const body = { name };
   return axios
     .post(BACKEND + `projects/createProject`, body, tokenConfig(access_token))
     .then((res) => {
@@ -41,7 +45,7 @@ export async function createProject({ access_token, name }) {
 }
 
 export async function saveProject({ access_token, project }) {
-  const body = JSON.stringify({ access_token, project });
+  const body = { access_token, project };
   return axios
     .post(BACKEND + `projects/save`, body, tokenConfig(access_token))
     .then((res) => {

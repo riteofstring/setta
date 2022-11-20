@@ -6,7 +6,7 @@ function getInitialState() {
     id: null,
     name: "",
     ownerId: null,
-    defaultConfig: null,
+    defaultConfigId: null,
   };
 }
 
@@ -19,10 +19,6 @@ const project = {
         state[k] = payload[k];
       }
     }
-  }),
-
-  setId: action((state, payload) => {
-    state.id = payload;
   }),
 };
 

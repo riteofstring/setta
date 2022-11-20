@@ -35,7 +35,7 @@ export const login = ({
     return true;
   }
 
-  const body = JSON.stringify({ username, password });
+  const body = { username, password };
   return axios
     .post(BACKEND + "auth/login", body, tokenConfig(null))
     .then((res) => {
@@ -72,7 +72,7 @@ export const register = ({
   actionLoginFail,
 }) => {
   console.log("attempting register");
-  const body = JSON.stringify({ username, password });
+  const body = { username, password };
   axios
     .post(BACKEND + "auth/register", body, tokenConfig(null))
     .then((res) => {

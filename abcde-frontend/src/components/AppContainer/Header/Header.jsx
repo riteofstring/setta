@@ -2,6 +2,7 @@ import { Spacer } from "@chakra-ui/react";
 import "@fontsource/jetbrains-mono/600.css";
 import { useStoreActions } from "easy-peasy";
 import { HOME } from "utils/pageNames";
+import ColorModeToggle from "./ColorModeToggle/ColorModeToggle";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
 import SubNav from "./SubNav/SubNav";
 
@@ -11,7 +12,7 @@ export default function HeaderContainer() {
       <SiteLogo />
       <SubNav />
       <Spacer />
-      {/* <ColorModeToggle /> */}
+      <ColorModeToggle />
       <MainSideDrawer />
     </FlexContainer>
   );
