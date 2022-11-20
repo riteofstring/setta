@@ -83,9 +83,6 @@ export async function saveProjectConfig(
   config,
   sections,
 ) {
-  if (_.isEmpty(config)) {
-    return;
-  }
   const data = await assembleProjectConfig(prisma, config, sections);
   await prisma.projectConfig.upsert({
     where: { id: data.id },
