@@ -1,3 +1,4 @@
+import { createAllInfo } from "classes/infoFactory";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
@@ -24,11 +25,13 @@ const codeInfo = {
   }),
 
   setAll: action((state, payload) => {
-    state.allCodeInfo = payload.allCodeInfo;
-    state.allCollections = payload.allCollections;
-    state.callables = payload.callables;
-    state.params = payload.params;
-    state.paramCollections = payload.paramCollections;
+    ({
+      allCodeInfo: state.allCodeInfo,
+      allCollections: state.allCollections,
+      callables: state.callables,
+      params: state.params,
+      paramCollections: state.paramCollections,
+    } = createAllInfo(payload));
   }),
 
   setCodeInfo: action((state, payload) => {
@@ -47,8 +50,9 @@ const codeInfo = {
   }),
 
   updateInfos: action((state, payload) => {
+    const allInfo = createAllInfo(payload);
     for (const k of Object.keys(getInitialState())) {
-      state[k] = { ...state[k], ...payload[k] };
+      state[k] = { ...state[k], ...allInfo[k] };
     }
   }),
 

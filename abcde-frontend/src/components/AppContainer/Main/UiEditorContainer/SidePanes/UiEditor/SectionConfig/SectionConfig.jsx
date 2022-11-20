@@ -88,8 +88,10 @@ function SectionConfigCore({
   const updateCodeInfos = useStoreActions((x) => x.codeInfo.updateInfos);
 
   async function onSubmit(searchTerm) {
-    const x = await getCollectionsAndModules({ allCollections, searchTerm });
-    setResults(x);
+    if (searchTerm) {
+      const x = await getCollectionsAndModules({ allCollections, searchTerm });
+      setResults(x);
+    }
   }
 
   async function onChange({ newValueFn, id }) {
