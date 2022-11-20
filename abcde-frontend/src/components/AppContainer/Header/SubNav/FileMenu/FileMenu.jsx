@@ -20,6 +20,9 @@ export default function FileMenu() {
   const saveAsNewProjectConfig = useStoreActions(
     (x) => x.thunks.saveAsNewProjectConfig
   );
+  const saveAsExistingProjectConfig = useStoreActions(
+    (x) => x.thunks.saveAsExistingProjectConfig
+  );
   const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
   const [modalType, setModalType] = useState("");
 
@@ -50,18 +53,20 @@ export default function FileMenu() {
 
   async function onClickSaveAsProject(selected, newConfigName) {
     const { id, configId } = selected;
+    if (id !== currProjectId) {
+      closeModal(); //TODO: display something
+    }
+
     if (configId) {
-      if (id === currProjectId && configId === currConfigId) {
-        console.log("regular save");
+      if (configId === currConfigId) {
         onClickSave();
       } else {
-        console.log("save over existing config");
+        saveAsExistingProjectConfig({ reactFlowStore, configId });
       }
     } else {
       saveAsNewProjectConfig({ reactFlowStore, newConfigName });
     }
 
-    // setProjectToLoad(selected);
     closeModal();
   }
 

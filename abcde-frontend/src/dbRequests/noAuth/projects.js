@@ -27,3 +27,7 @@ export async function noAuthSaveProject() {
 export async function noAuthSaveAsNewProjectConfig() {
   return true;
 }
+
+export async function noAuthSaveAsExistingProjectConfig() {
+  return true;
+}

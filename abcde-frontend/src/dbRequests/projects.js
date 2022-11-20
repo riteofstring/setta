@@ -5,6 +5,7 @@ import {
   noAuthCreateProject,
   noAuthGetProjects,
   noAuthLoadProject,
+  noAuthSaveAsExistingProjectConfig,
   noAuthSaveAsNewProjectConfig,
   noAuthSaveProject,
 } from "./noAuth/projects";
@@ -93,6 +94,28 @@ export async function saveAsNewProjectConfig({
     .post(
       BACKEND + `projects/saveAsNewProjectConfig`,
       { project, newConfigName },
+      tokenConfig(access_token)
+    )
+    .then((res) => {
+      return res.data;
+    })
+    .catch(() => {
+      return [];
+    });
+}
+
+export async function saveAsExistingProjectConfig({
+  access_token,
+  project,
+  configId,
+}) {
+  if (NO_AUTH) {
+    return await noAuthSaveAsExistingProjectConfig();
+  }
+  return axios
+    .post(
+      BACKEND + `projects/saveAsExistingProjectConfig`,
+      { project, configId },
       tokenConfig(access_token)
     )
     .then((res) => {

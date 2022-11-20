@@ -13,7 +13,11 @@ import {
   loadProject,
   loadProjectIntoState,
 } from "./projects";
-import { saveAsNewProjectConfig, saveProject } from "./save";
+import {
+  saveAsExistingProjectConfig,
+  saveAsNewProjectConfig,
+  saveProject,
+} from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
   setParamUITypeConfig,
@@ -44,6 +48,7 @@ export default {
   setParamEnteredValue,
   saveKwargsAsCollection,
   saveAsNewProjectConfig,
+  saveAsExistingProjectConfig,
   loadProject,
   loadProjectIntoState,
   logout,

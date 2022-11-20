@@ -1,4 +1,5 @@
 import {
+  saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
@@ -71,43 +72,57 @@ export function getProjectData(s) {
 }
 
 export const saveProject = thunk((actions, payload, helpers) => {
-  const x = assembleProject({ payload, helpers });
+  const x = assembleProject(helpers.getStoreState(), payload.reactFlowStore);
   saveProjectDb(x);
 });
 
 export const saveAsNewProjectConfig = thunk(
   async (actions, payload, helpers) => {
-    const x = assembleProject({ payload, helpers });
-    const s = helpers.getStoreState();
-    const a = helpers.getStoreActions();
-    const { newConfigName } = payload;
-    const newProjectConfig = await saveAsNewProjectConfigDb({
-      ...x,
-      newConfigName,
+    saveProjectAs({
+      s: helpers.getStoreState(),
+      a: helpers.getStoreActions(),
+      reactFlowStore: payload.reactFlowStore,
+      fn: saveAsNewProjectConfigDb,
+      otherArgs: { newConfigName: payload.newConfigName },
     });
-    // load base and preset ui types from memory
-    // because these weren't sent during saving
-    // and therefore aren't returned
-    newProjectConfig.baseUITypes = _.pickBy(
-      s.uiTypes.x,
-      (x) => x.presetType === BASE
-    );
-    newProjectConfig.presetUITypes = _.pickBy(
-      s.uiTypes.x,
-      (x) => x.presetType === USER
-    );
-    a.projectToLoad.setIsLoading(true);
-    await a.thunks.loadProjectIntoState({
-      projectInfo: newProjectConfig,
-      excludeCodeInfo: true,
-    });
-    a.projectToLoad.setIsLoading(false);
   }
 );
 
-function assembleProject({ payload, helpers }) {
-  const { reactFlowStore } = payload;
-  const s = helpers.getStoreState();
+export const saveAsExistingProjectConfig = thunk(
+  async (actions, payload, helpers) => {
+    saveProjectAs({
+      s: helpers.getStoreState(),
+      a: helpers.getStoreActions(),
+      reactFlowStore: payload.reactFlowStore,
+      fn: saveAsExistingProjectConfigDb,
+      otherArgs: { configId: payload.configId },
+    });
+  }
+);
+
+async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
+  const x = assembleProject(s, reactFlowStore);
+  const newProjectConfig = await fn({ ...x, ...otherArgs });
+  // load base and preset ui types from memory
+  // because these weren't sent during saving
+  // and therefore aren't returned
+  newProjectConfig.baseUITypes = _.pickBy(
+    s.uiTypes.x,
+    (x) => x.presetType === BASE
+  );
+  newProjectConfig.presetUITypes = _.pickBy(
+    s.uiTypes.x,
+    (x) => x.presetType === USER
+  );
+  a.projectToLoad.setIsLoading(true);
+  await a.thunks.loadProjectIntoState({
+    projectInfo: newProjectConfig,
+    excludeCodeInfo: true,
+  });
+  a.projectToLoad.setIsLoading(false);
+}
+
+function assembleProject(s, reactFlowStore) {
   updateInitialPositions(s, reactFlowStore);
   const access_token = s.auth.access_token;
   return { project: getProjectData(s), access_token };
