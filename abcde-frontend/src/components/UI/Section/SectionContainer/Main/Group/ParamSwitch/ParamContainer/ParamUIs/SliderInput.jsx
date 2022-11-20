@@ -31,8 +31,7 @@ export function SliderInputConfig({ onChange, savedConfig }) {
 
 export default function SliderInput({
   value,
-  onChange,
-  onBlur,
+  onChangeEnd,
   min,
   max,
   step,
@@ -42,8 +41,7 @@ export default function SliderInput({
   return (
     <Slider
       aria-label="slider-ex-1"
-      onChange={onChange}
-      onChangeEnd={onBlur}
+      onChange={(v) => onChangeEnd(v)}
       value={defaultIfNotNumber(tryParseFloat(value))}
       min={tryParseFloat(min)}
       max={tryParseFloat(max)}

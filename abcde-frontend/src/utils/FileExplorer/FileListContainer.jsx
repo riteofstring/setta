@@ -1,10 +1,11 @@
 import { VStack } from "@chakra-ui/react";
 
-export default function FileListContainer({ radioGroup, children, width }) {
+export default function FileListContainer(props) {
+  const group = props.group;
   return (
     <VStack
       h="inherit"
-      w={width}
+      w={props.width}
       border="1px"
       borderColor="gray.200"
       borderRadius="lg"
@@ -13,9 +14,9 @@ export default function FileListContainer({ radioGroup, children, width }) {
       overflowY="auto"
       px="1.5rem"
       py="1rem"
-      {...radioGroup}
+      {...group}
     >
-      {children}
+      {props.children}
     </VStack>
   );
 }
