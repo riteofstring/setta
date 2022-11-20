@@ -70,26 +70,3 @@ function Items() {
     </>
   );
 }
-
-{
-  /* <Menu>
-        <MenuButton size="xs" variant="ghost" as={Button}>
-          File <ChevronDownIcon />
-        </MenuButton>
-        <MenuList zIndex="11">
-          <MenuItem icon={<IoDocumentTextOutline />}>New Project</MenuItem>
-          <MenuItem icon={<GrDocumentDownload />} onClick={onLoadClick}>
-            Load
-          </MenuItem>
-          <MenuItem icon={<VscSave />} onClick={onSaveButtonClick}>
-            Save
-          </MenuItem>
-          <MenuItem icon={<VscSaveAs />}>Save As</MenuItem>
-        </MenuList>
-      </Menu>
-      <SaveLoadModal
-        onClose={onClose}
-        isOpen={isOpen}
-        buttonText={"SaveLoadModal"}
-      /> */
-}
