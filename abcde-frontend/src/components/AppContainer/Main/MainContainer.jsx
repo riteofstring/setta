@@ -1,6 +1,7 @@
 import { Box } from "@chakra-ui/react";
 import { useStoreState } from "easy-peasy";
 import { useLoadProject } from "hooks/dbRequests/projects";
+import { useProjectToLoad } from "hooks/useProject";
 import { useEffect, useState } from "react";
 import { NO_AUTH } from "utils/constants";
 import UIPage from "../../UI/UiPage";
@@ -39,10 +40,4 @@ export default function MainContainer() {
       </>
     )
   );
-}
-
-function useProjectToLoad() {
-  const idToLoad = useStoreState((x) => x.projectToLoad.id);
-  const configIdToLoad = useStoreState((x) => x.projectToLoad.configId);
-  return { idToLoad, configIdToLoad };
 }

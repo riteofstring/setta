@@ -23,3 +23,7 @@ export async function noAuthCreateProject({ name }) {
 export async function noAuthSaveProject() {
   return true;
 }
+
+export async function noAuthSaveAsNewProjectConfig() {
+  return true;
+}

@@ -1,7 +1,8 @@
 import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
+import { useCurrProjectId } from "hooks/useProject";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
@@ -14,8 +15,11 @@ export default function FileMenu() {
   const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
-  const currProjectId = useStoreState((x) => x.project.id);
+  const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
   const saveProject = useStoreActions((x) => x.thunks.saveProject);
+  const saveAsNewProjectConfig = useStoreActions(
+    (x) => x.thunks.saveAsNewProjectConfig
+  );
   const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
   const [modalType, setModalType] = useState("");
 
@@ -44,9 +48,19 @@ export default function FileMenu() {
     closeModal();
   }
 
-  function onClickSaveProject(selected, configName) {
-    console.log("selected", selected);
-    console.log("configName", configName);
+  async function onClickSaveAsProject(selected, newConfigName) {
+    const { id, configId } = selected;
+    if (configId) {
+      if (id === currProjectId && configId === currConfigId) {
+        console.log("regular save");
+        onClickSave();
+      } else {
+        console.log("save over existing config");
+      }
+    } else {
+      saveAsNewProjectConfig({ reactFlowStore, newConfigName });
+    }
+
     // setProjectToLoad(selected);
     closeModal();
   }
@@ -97,6 +111,7 @@ export default function FileMenu() {
         modalType={modalType}
         files={projects}
         onClickLoadProject={onClickLoadProject}
+        onClickSaveAsProject={onClickSaveAsProject}
         currProjectId={currProjectId}
       />
     </>

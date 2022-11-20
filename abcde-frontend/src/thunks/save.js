@@ -1,4 +1,7 @@
-import { saveProject as saveProjectDb } from "dbRequests/projects";
+import {
+  saveAsNewProjectConfig as saveAsNewProjectConfigDb,
+  saveProject as saveProjectDb,
+} from "dbRequests/projects";
 import { thunk } from "easy-peasy";
 import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
@@ -67,13 +70,23 @@ export function getProjectData(s) {
 }
 
 export const saveProject = thunk((actions, payload, helpers) => {
+  const x = assembleProject({ payload, helpers });
+  saveProjectDb(x);
+});
+
+export const saveAsNewProjectConfig = thunk((actions, payload, helpers) => {
+  const x = assembleProject({ payload, helpers });
+  const { newConfigName } = payload;
+  saveAsNewProjectConfigDb({ ...x, newConfigName });
+});
+
+function assembleProject({ payload, helpers }) {
   const { reactFlowStore } = payload;
   const s = helpers.getStoreState();
   updateInitialPositions(s, reactFlowStore);
   const access_token = s.auth.access_token;
-  const output = getProjectData(s);
-  saveProjectDb({ access_token, project: output });
-});
+  return { project: getProjectData(s), access_token };
+}
 
 function updateInitialPositions(s, reactFlowStore) {
   const rfState = reactFlowStore.getState();

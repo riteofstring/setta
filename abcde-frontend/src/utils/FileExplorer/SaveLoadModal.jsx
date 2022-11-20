@@ -10,7 +10,7 @@ export default function SaveLoadModal({
   modalType,
   files,
   onClickLoadProject,
-  onClickSaveProject,
+  onClickSaveAsProject,
   currProjectId,
 }) {
   const [selected, setSelected] = useState({});
@@ -25,7 +25,7 @@ export default function SaveLoadModal({
   function onClickSaveOrLoad() {
     modalType === "Load"
       ? onClickLoadProject(selected)
-      : onClickSaveProject(selected, configName);
+      : onClickSaveAsProject(selected, configName);
     setSelected({});
     setConfigName("");
   }

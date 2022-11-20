@@ -5,7 +5,7 @@ import { deleteChild } from "./deleteChild";
 import { initializeChild, initializeParam } from "./initializeParam";
 import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "./kwargs";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
-import { saveProject } from "./save";
+import { saveAsNewProjectConfig, saveProject } from "./save";
 import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
   setParamUITypeConfig,
@@ -35,4 +35,5 @@ export default {
   setParamChildId,
   setParamEnteredValue,
   saveKwargsAsCollection,
+  saveAsNewProjectConfig,
 };
