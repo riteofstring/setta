@@ -1,11 +1,19 @@
-import { HStack, Input, List, ListItem } from "@chakra-ui/react";
+import {
+  Badge,
+  Button,
+  Grid,
+  GridItem,
+  Heading,
+  HStack,
+  Input,
+  List,
+  ListItem,
+} from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
-import Badge from "utils/atoms/badges/badge";
-import Button from "utils/atoms/buttons/Button";
 import { UI } from "utils/pageNames";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
@@ -17,7 +25,11 @@ function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridProps=" bg-gray-100">
+    <GridWrapper
+      gridTemplateColumns="1fr"
+      display="grid"
+      backgroundColor="gray.100"
+    >
       <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
@@ -31,23 +43,34 @@ function RightColumn({ projects, createProject }) {
   }
 
   return (
-    <div className="overflow-y-auto">
+    <GridItem overflowY="auto">
       <PopoverWrapper
         trigger={
-          <Button tailwindClasses="py-2 px-4 mt-10 mx-10 rounded-full font-bold text-green-900 bg-green-300 hover:bg-green-400 gap-2">
-            <BiAddToQueue />
+          <Button
+            mt="2.5rem"
+            mx="2.5rem"
+            borderRadius="full"
+            leftIcon={<BiAddToQueue />}
+            colorScheme="blue"
+          >
             Create New Project
           </Button>
         }
         body={<ProjectNameSetter onClick={onClick} />}
       />
-
-      <div className="grid grid-cols-[repeat(auto-fit,_20rem)] gap-8 pt-7 px-10 justify-items-start">
+      <Grid
+        gridTemplateColumns="repeat(auto-fit, 20rem)"
+        gap="2rem"
+        pt="1.75rem"
+        px="2.5rem"
+        minChildWidth="20rem"
+        justifyItems="flex-start"
+      >
         {Object.values(projects).map((x, i) => (
           <ProjectItem key={`Project ${i} ${x.name}`} project={x} />
         ))}
-      </div>
-    </div>
+      </Grid>
+    </GridItem>
   );
 }
 
@@ -72,18 +95,38 @@ function ProjectItem({ project }) {
   }
 
   return (
-    <div
-      className="grid grid-rows-[1fr_5rem] rounded-3xl border border-gray-300 min-h-[15rem] sm:w-80 overflow-hidden hover:transition-all hover:shadow-lg hover:border-white hover:cursor-pointer"
+    <Grid
+      templateRows="1fr 5rem"
+      borderRadius="3xl"
+      border="1px"
+      borderColor="gray.300"
+      minHeight="15rem"
+      width={{ base: "auto", sm: "20rem" }}
+      overflow="hidden"
+      _hover={{
+        transition: "box-shadow 200ms",
+        boxShadow: "lg",
+        borderColor: "white",
+        cursor: "pointer",
+      }}
       onClick={onClick}
     >
-      <div className="grid p-4 bg-gray-300 bg-[url('https://via.placeholder.com/400')] bg-center">
+      <GridItem
+        p="1rem"
+        bg="gray.300"
+        display="grid"
+        backgroundImage="https://via.placeholder.com/400"
+        backgroundPosition="center"
+      >
         <PopoverWrapper
           trigger={
             <Button
-              tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs [place-self:flex-start_flex-end]"
+              placeSelf="flex-start flex-end"
+              borderRadius="full"
+              leftIcon={<BiGitBranch />}
+              size="xs"
               onClick={onClickConfigsButton}
             >
-              <BiGitBranch />
               Configs
             </Button>
           }
@@ -96,17 +139,17 @@ function ProjectItem({ project }) {
           }
           header="Configs"
         />
-      </div>
-      <div className="p-4 bg-white">
-        <h3 className="text-base">{name}</h3>
-        <div className="flex flex-row gap-[0.15rem] mt-1">
-          <Badge tailwindClasses="bg-green-100 text-green-800">
-            PyTorch 2.9
-          </Badge>
-          <Badge tailwindClasses="bg-red-100 text-red-800">NumPy</Badge>
-        </div>
-      </div>
-    </div>
+      </GridItem>
+      <GridItem p="1rem" bg="white">
+        <Heading as="h3" fontSize="md">
+          {name}
+        </Heading>
+        <HStack gap="0.15rem" mt="0.25rem">
+          <Badge colorScheme="green">PyTorch 2.9</Badge>
+          <Badge colorScheme="red">NumPy</Badge>
+        </HStack>
+      </GridItem>
+    </Grid>
   );
 }
 
@@ -147,8 +190,6 @@ function ProjectNameSetter({ onClick }) {
 
 export function DefaultConfigBadge({ config, defaultConfigId }) {
   return (
-    config.id === defaultConfigId && (
-      <Badge tailwindClasses="bg-green-100 text-green-800">Default</Badge>
-    )
+    config.id === defaultConfigId && <Badge colorScheme="green">Default</Badge>
   );
 }

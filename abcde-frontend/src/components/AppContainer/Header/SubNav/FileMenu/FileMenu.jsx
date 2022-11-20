@@ -82,11 +82,31 @@ export default function FileMenu() {
             align="start"
             className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
           >
-            <Items
-              onClickLoad={onClickLoad}
-              onClickSave={onClickSave}
-              onClickSaveAs={onClickSaveAs}
-            />
+            <DropdownMenu.Item className="text-sm flex flex-row gap-1">
+              <IoDocumentTextOutline />
+              New Project
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="text-sm flex flex-row gap-1"
+              onClick={onClickLoad}
+            >
+              <GrDocumentDownload />
+              Load
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="text-sm flex flex-row gap-1"
+              onClick={onClickSave}
+            >
+              <VscSave />
+              Save
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="text-sm flex flex-row gap-1"
+              onClick={onClickSaveAs}
+            >
+              <VscSaveAs />
+              Save As
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
@@ -100,39 +120,5 @@ export default function FileMenu() {
         currProjectId={currProjectId}
       />
     </>
-  );
-}
-
-function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
-  return (
-    <>
-      <Item>
-        <IoDocumentTextOutline />
-        New Project
-      </Item>
-      <Item onClick={onClickLoad}>
-        <GrDocumentDownload />
-        Load
-      </Item>
-      <Item onClick={onClickSave}>
-        <VscSave />
-        Save
-      </Item>
-      <Item onClick={onClickSaveAs}>
-        <VscSaveAs />
-        Save As
-      </Item>
-    </>
-  );
-}
-
-function Item({ children, onClick }) {
-  return (
-    <DropdownMenu.Item
-      className="text-sm flex flex-row gap-1"
-      onClick={onClick}
-    >
-      {children}
-    </DropdownMenu.Item>
   );
 }
