@@ -60,6 +60,15 @@ export class AppController {
     return this.projectsService.createProject(req.user, req.body.name);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('projects/saveAsNewProjectConfig')
+  createProjectConfig(@Request() req) {
+    return this.projectsService.saveAsNewProjectConfig(
+      req.body.project,
+      req.body.newConfigName,
+    );
+  }
+
   @Post('codeInfo/getCollectionsAndModules')
   getCollectionsAndModules(@Request() req) {
     return this.codeInfoService.getCollectionsAndModules(req.body.searchTerm);

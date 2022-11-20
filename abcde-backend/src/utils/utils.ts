@@ -47,3 +47,7 @@ export function getOrderedChildren(children, toReturn = null) {
   }
   return output;
 }
+
+export function createIdMap(oldIds, newIds) {
+  return _.fromPairs(oldIds.map((x, idx) => [x.id, newIds[idx].id]));
+}

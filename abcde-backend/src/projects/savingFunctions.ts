@@ -1,7 +1,12 @@
 import _ = require('lodash');
 import { PrismaClient } from '@prisma/client';
 import { saveKwargInfo } from 'src/codeInfo/savingFunctions';
-import { saveEV, saveEVCols } from 'src/enteredValues/savingFunctions';
+import {
+  copyEV,
+  copyEVCols,
+  saveEV,
+  saveEVCols,
+} from 'src/enteredValues/savingFunctions';
 import { saveKwargCols } from 'src/kwargs/savingFunctions';
 import {
   saveSectionChildren,
@@ -121,4 +126,18 @@ export async function createProject(prisma: PrismaClient, user, name: string) {
   });
 
   return project;
+}
+
+export async function saveAsNewProjectConfig(
+  prisma: PrismaClient,
+  project,
+  newConfigName: string,
+) {
+  const { projectConfig, ev, evCols } = project;
+  const evIdMap = await copyEV(prisma, ev);
+  const evColIdIdMap = await copyEVCols(prisma, evCols, evIdMap);
+
+  // console.log('newConfigName', newConfigName);
+  // console.log('ev', ev);
+  // console.log('evCols', evCols);
 }
