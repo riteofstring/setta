@@ -8,28 +8,28 @@ datasource db {
 }
 
 model CodeInfo {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String             @db.VarChar(255)
-  version          String?            @db.VarChar(255)
-  defaultVal       String?            @db.VarChar(255)
-  type             String             @db.VarChar(255)
-  rcType           String             @db.VarChar(255)
-  description      String?            @db.VarChar(255)
-  path             String?            @db.VarChar(255)
-  inCodeParent     CodeInfo?          @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
-  inCodeChildren   CodeInfo[]         @relation("InCodeDirectParent")
-  inCodeParentId   String?            @db.Uuid
-  sections         Section[] // Section.paramInfo
-  kwargOwner       KwargCol[]         @relation("KwargOwner") // KwargCol.codeInfo
-  kwarg            KwargCol[]         @relation("Kwarg") // KwargCol.kwargInfo
-  evOwner          EVCol[] // EVCol.codeInfo
-  sectionConfigs   SectionConfig[] //SectionConfig.selectedItem
-  uiTypeOrigins    UIType[] //UIType.originCodeInfo
-  uiTypeCols       UITypeCol[] //UITypeCol.codeInfo
-  sectionUITypes   SectionUIType[] //SectionUIType.collections
-  asParent         CodeInfoChildren[] @relation("CodeInfoParent") // CodeInfoChildren.parent
-  asChild          CodeInfoChildren[] @relation("CodeInfoChildren") // CodeInfoChildren.child
-  codeInfoMappings CodeInfoMapping[] //CodeInfoMapping.codeInfo
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String             @db.VarChar(255)
+  version        String?            @db.VarChar(255)
+  defaultVal     String?            @db.VarChar(255)
+  type           String             @db.VarChar(255)
+  rcType         String             @db.VarChar(255)
+  description    String?            @db.VarChar(255)
+  path           String?            @db.VarChar(255)
+  inCodeParent   CodeInfo?          @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
+  inCodeChildren CodeInfo[]         @relation("InCodeDirectParent")
+  inCodeParentId String?            @db.Uuid
+  sections       Section[] // Section.paramInfo
+  kwargOwner     KwargCol[]         @relation("KwargOwner") // KwargCol.codeInfo
+  kwarg          KwargCol[]         @relation("Kwarg") // KwargCol.kwargInfo
+  evOwner        EVCol[] // EVCol.codeInfo
+  sectionConfigs SectionConfig[] //SectionConfig.selectedItem
+  uiTypeOrigins  UIType[] //UIType.originCodeInfo
+  uiTypeCols     UITypeCol[] //UITypeCol.codeInfo
+  sectionUITypes SectionUIType[] //SectionUIType.collections
+  asParent       CodeInfoChildren[] @relation("CodeInfoParent") // CodeInfoChildren.parent
+  asChild        CodeInfoChildren[] @relation("CodeInfoChildren") // CodeInfoChildren.child
+  codeInfoMaps   CodeInfoMap[] //CodeInfoMap.codeInfo
 }
 
 model CodeInfoChildren {
@@ -43,14 +43,14 @@ model CodeInfoChildren {
 }
 
 model User {
-  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                 String                    @unique @db.VarChar(255)
-  password             String
-  projects             Project[] //Project.owner
-  generatedCode        GeneratedCode[] //GeneratedCode.owner
-  uiTypes              UIType[] //UIType.owner
-  codeInfoTypeMappings UserCodeInfoTypeMapping[] //UserCodeInfoTypeMapping.owner
-  codeInfoMappings     UserCodeInfoMapping[] //UserCodeInfoMapping.owner
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String                @unique @db.VarChar(255)
+  password         String
+  projects         Project[] //Project.owner
+  generatedCode    GeneratedCode[] //GeneratedCode.owner
+  uiTypes          UIType[] //UIType.owner
+  codeInfoTypeMaps UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.owner
+  codeInfoMaps     UserCodeInfoMap[] //UserCodeInfoMap.owner
 }
 
 model Section {
@@ -159,18 +159,18 @@ model SectionConfig {
 }
 
 model UIType {
-  id                       String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String                @db.VarChar(255)
-  owner                    User?                 @relation(fields: [ownerId], references: [id])
-  ownerId                  String?               @db.Uuid
-  type                     String                @db.VarChar(255)
-  presetType               String?               @db.VarChar(255)
-  originSection            Section?              @relation(fields: [originSectionId], references: [id])
-  originSectionId          String?               @db.Uuid
-  originUITypeCol          UITypeColId?          @relation(fields: [originUITypeColId], references: [id])
-  originUITypeColId        String?               @db.Uuid
-  originCodeInfo           CodeInfo?             @relation(fields: [originCodeInfoId], references: [id])
-  originCodeInfoId         String?               @db.Uuid
+  id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String            @db.VarChar(255)
+  owner                    User?             @relation(fields: [ownerId], references: [id])
+  ownerId                  String?           @db.Uuid
+  type                     String            @db.VarChar(255)
+  presetType               String?           @db.VarChar(255)
+  originSection            Section?          @relation(fields: [originSectionId], references: [id])
+  originSectionId          String?           @db.Uuid
+  originUITypeCol          UITypeColId?      @relation(fields: [originUITypeColId], references: [id])
+  originUITypeColId        String?           @db.Uuid
+  originCodeInfo           CodeInfo?         @relation(fields: [originCodeInfoId], references: [id])
+  originCodeInfoId         String?           @db.Uuid
   isForChildOfOriginInfoId Boolean
   sectionConfigs           SectionConfig[] //SectionConfig.uiType
   uiTypeCols               UITypeCol[] //UITypeCol.uiType
@@ -179,8 +179,8 @@ model UIType {
   textUIType               TextUIType? //TextUIType.id
   switchUIType             SwitchUIType? //SwitchUIType.id
   refUIType                RefUIType? //RefUIType.id
-  codeInfoTypeMappings     CodeInfoTypeMapping[] //CodeInfoTypeMapping.uiTypeId
-  codeInfoMappings         CodeInfoMapping[] //CodeInfoMapping.uiTypeId
+  codeInfoTypeMaps         CodeInfoTypeMap[] //CodeInfoTypeMap.uiTypeId
+  codeInfoMaps             CodeInfoMap[] //CodeInfoMap.uiTypeId
 }
 
 model UITypeColId {
@@ -257,17 +257,17 @@ model Project {
 }
 
 model ProjectConfig {
-  id                   String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                 String                             @db.VarChar(255)
-  sectionConfigCol     SectionConfigColId                 @relation(fields: [sectionConfigColId], references: [id])
-  sectionConfigColId   String                             @db.Uuid
-  sectionChildren      SectionChildrenId                  @relation(fields: [sectionChildrenId], references: [id])
-  sectionChildrenId    String                             @db.Uuid
-  project              Project?                           @relation("configs", fields: [projectId], references: [id])
-  projectId            String?                            @db.Uuid
-  defaultFor           Project? //Project.defaultConfig 
-  codeInfoTypeMappings ProjectConfigCodeInfoTypeMapping[] //ProjectConfigCodeInfoTypeMapping.projectConfig
-  codeInfoMappings     ProjectConfigCodeInfoMapping[] //ProjectConfigCodeInfoMapping.projectConfig
+  id                 String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String                         @db.VarChar(255)
+  sectionConfigCol   SectionConfigColId             @relation(fields: [sectionConfigColId], references: [id])
+  sectionConfigColId String                         @db.Uuid
+  sectionChildren    SectionChildrenId              @relation(fields: [sectionChildrenId], references: [id])
+  sectionChildrenId  String                         @db.Uuid
+  project            Project?                       @relation("configs", fields: [projectId], references: [id])
+  projectId          String?                        @db.Uuid
+  defaultFor         Project? //Project.defaultConfig 
+  codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
+  codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
 }
 
 model GeneratedCode {
@@ -277,57 +277,57 @@ model GeneratedCode {
   code    String @db.Text
 }
 
-model CodeInfoTypeMapping {
-  id                               String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  type                             String
-  uiType                           UIType                            @relation(fields: [uiTypeId], references: [id])
-  uiTypeId                         String                            @db.Uuid
-  userCodeInfoTypeMapping          UserCodeInfoTypeMapping?
-  projectConfigCodeInfoTypeMapping ProjectConfigCodeInfoTypeMapping?
-}
-
-model UserCodeInfoTypeMapping {
-  codeInfoTypeMapping   CodeInfoTypeMapping @relation(fields: [codeInfoTypeMappingId], references: [id])
-  codeInfoTypeMappingId String              @db.Uuid
-  owner                 User                @relation(fields: [ownerId], references: [id])
-  ownerId               String              @db.Uuid
-
-  @@id([codeInfoTypeMappingId]) // composite key
-}
-
-model ProjectConfigCodeInfoTypeMapping {
-  codeInfoTypeMapping   CodeInfoTypeMapping @relation(fields: [codeInfoTypeMappingId], references: [id])
-  codeInfoTypeMappingId String              @db.Uuid
-  projectConfig         ProjectConfig       @relation(fields: [projectConfigId], references: [id])
-  projectConfigId       String              @db.Uuid
-
-  @@id([codeInfoTypeMappingId]) // composite key
-}
-
-model CodeInfoMapping {
+model CodeInfoTypeMap {
   id                           String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  codeInfo                     CodeInfo                      @relation(fields: [codeInfoId], references: [id])
-  codeInfoId                   String                        @db.Uuid
+  type                         String
   uiType                       UIType                        @relation(fields: [uiTypeId], references: [id])
   uiTypeId                     String                        @db.Uuid
-  userCodeInfoMapping          UserCodeInfoMapping?
-  projectConfigCodeInfoMapping ProjectConfigCodeInfoMapping?
+  userCodeInfoTypeMap          UserCodeInfoTypeMap?
+  projectConfigCodeInfoTypeMap ProjectConfigCodeInfoTypeMap?
 }
 
-model UserCodeInfoMapping {
-  codeInfoMapping   CodeInfoMapping @relation(fields: [codeInfoMappingId], references: [id])
-  codeInfoMappingId String          @db.Uuid
+model UserCodeInfoTypeMap {
+  codeInfoTypeMap   CodeInfoTypeMap @relation(fields: [codeInfoTypeMapId], references: [id])
+  codeInfoTypeMapId String          @db.Uuid
   owner             User            @relation(fields: [ownerId], references: [id])
   ownerId           String          @db.Uuid
 
-  @@id([codeInfoMappingId]) // composite key
+  @@id([codeInfoTypeMapId]) // composite key
 }
 
-model ProjectConfigCodeInfoMapping {
-  codeInfoMapping   CodeInfoMapping @relation(fields: [codeInfoMappingId], references: [id])
-  codeInfoMappingId String          @db.Uuid
+model ProjectConfigCodeInfoTypeMap {
+  codeInfoTypeMap   CodeInfoTypeMap @relation(fields: [codeInfoTypeMapId], references: [id])
+  codeInfoTypeMapId String          @db.Uuid
   projectConfig     ProjectConfig   @relation(fields: [projectConfigId], references: [id])
   projectConfigId   String          @db.Uuid
 
-  @@id([codeInfoMappingId]) // composite key
+  @@id([codeInfoTypeMapId]) // composite key
+}
+
+model CodeInfoMap {
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codeInfo                 CodeInfo                  @relation(fields: [codeInfoId], references: [id])
+  codeInfoId               String                    @db.Uuid
+  uiType                   UIType                    @relation(fields: [uiTypeId], references: [id])
+  uiTypeId                 String                    @db.Uuid
+  userCodeInfoMap          UserCodeInfoMap?
+  projectConfigCodeInfoMap ProjectConfigCodeInfoMap?
+}
+
+model UserCodeInfoMap {
+  codeInfoMap   CodeInfoMap @relation(fields: [codeInfoMapId], references: [id])
+  codeInfoMapId String      @db.Uuid
+  owner         User        @relation(fields: [ownerId], references: [id])
+  ownerId       String      @db.Uuid
+
+  @@id([codeInfoMapId]) // composite key
+}
+
+model ProjectConfigCodeInfoMap {
+  codeInfoMap     CodeInfoMap   @relation(fields: [codeInfoMapId], references: [id])
+  codeInfoMapId   String        @db.Uuid
+  projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
+  projectConfigId String        @db.Uuid
+
+  @@id([codeInfoMapId]) // composite key
 }
