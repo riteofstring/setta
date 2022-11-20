@@ -16,6 +16,7 @@ export function accessPage({
   if (NO_AUTH) {
     return noAuthAccessPage({ actionStayLoggedIn });
   }
+
   return axios
     .post(BACKEND + address, null, tokenConfig(access_token))
     .then(() => {
@@ -54,6 +55,7 @@ export function logout({ actionLoginFail, access_token }) {
   if (NO_AUTH) {
     return noAuthLogout({ actionLoginFail });
   }
+
   axios
     .post(BACKEND + "api/auth/logout", null, tokenConfig(access_token))
     .then(() => {
