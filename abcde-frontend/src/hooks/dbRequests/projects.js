@@ -1,7 +1,6 @@
-import { createProject, getProjects, loadProject } from "dbRequests/projects";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { createProject, getProjects } from "dbRequests/projects";
+import { useStoreState } from "easy-peasy";
 import { useState } from "react";
-import { loadOneProject } from "__tests__utils/loadTestData";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
@@ -18,27 +17,5 @@ export function useGetOrCreateProjects() {
     projects,
     getProjects: fnGetProjects,
     createProject: fnCreateProject,
-  };
-}
-
-export function useLoadProject() {
-  const loadSections = useStoreActions((x) => x.master.loadSections);
-  const clearSections = useStoreActions((x) => x.master.clearSections);
-  const access_token = useStoreState((x) => x.auth.access_token);
-
-  return async (id, configId) => {
-    const projectInfo = await loadProject({ access_token, id, configId });
-    // TODO remove this
-    const { projectDefaults, globalDefaults } = await loadOneProject({});
-    clearSections();
-    let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
-    uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
-    loadSections({
-      projectDefaults,
-      globalDefaults,
-      uiTypes,
-      ...theRest,
-    });
-    return true;
   };
 }

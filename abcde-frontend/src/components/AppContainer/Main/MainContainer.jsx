@@ -1,6 +1,5 @@
 import { Box } from "@chakra-ui/react";
-import { useStoreState } from "easy-peasy";
-import { useLoadProject } from "hooks/dbRequests/projects";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useProjectToLoad } from "hooks/useProject";
 import { useEffect, useState } from "react";
 import { NO_AUTH } from "utils/constants";
@@ -12,14 +11,16 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 export default function MainContainer() {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
   const { idToLoad, configIdToLoad } = useProjectToLoad();
-  const loadProject = useLoadProject();
+  const loadProject = useStoreActions((x) => x.thunks.loadProject);
   const [doneLoading, setDoneLoading] = useState(false);
 
   useEffect(() => {
     async function fn() {
       if (NO_AUTH || (isAuthenticated && idToLoad)) {
         setDoneLoading(false);
-        setDoneLoading(await loadProject(idToLoad, configIdToLoad));
+        setDoneLoading(
+          await loadProject({ id: idToLoad, configId: configIdToLoad })
+        );
       }
     }
     fn();
