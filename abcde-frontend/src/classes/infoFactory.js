@@ -38,12 +38,12 @@ export function getCollections(allCodeInfo) {
 }
 
 export function createAllInfo(packages) {
-  const allObjInfo = packages;
-  const allCollections = getCollections(allObjInfo);
-  const callables = getCallables(allObjInfo, allCollections);
-  const params = getParams(allObjInfo);
-  const paramCollections = getParamCollections(allObjInfo, allCollections);
-  return { allObjInfo, allCollections, callables, params, paramCollections };
+  const allCodeInfo = packages;
+  const allCollections = getCollections(allCodeInfo);
+  const callables = getCallables(allCodeInfo, allCollections);
+  const params = getParams(allCodeInfo);
+  const paramCollections = getParamCollections(allCodeInfo, allCollections);
+  return { allCodeInfo, allCollections, callables, params, paramCollections };
 }
 
 function defaultCondition(currInfo, rcType) {

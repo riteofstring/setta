@@ -90,7 +90,7 @@ export const setParamUITypeConfig = thunk((action, payload, helpers) => {
 
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
-  const defaultName = s.codeInfo.allObjInfo[paramInfoId].name;
+  const defaultName = s.codeInfo.allCodeInfo[paramInfoId].name;
   const sectionTypeConfig = getSectionTypeConfig(s, sectionId);
   const currUIType = getParamUIType(s, sectionId, paramInfoId);
 

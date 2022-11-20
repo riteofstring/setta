@@ -41,7 +41,7 @@ function useGetKwargIds(sectionId, objInfoId) {
 export function useGetKwargInfos(sectionId, objInfoId) {
   const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
   return useStoreState(
-    (x) => kwargIds.map((y) => x.codeInfo.allObjInfo[y]),
+    (x) => kwargIds.map((y) => x.codeInfo.allCodeInfo[y]),
     _.isEqual
   );
 }

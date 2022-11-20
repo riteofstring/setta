@@ -140,7 +140,7 @@ function assembleKwargInfos(s, kwargCols) {
   for (const kwargColId of _.keys(kwargCols)) {
     for (const objInfoId of _.keys(kwargCols[kwargColId])) {
       for (const kwargId of kwargCols[kwargColId][objInfoId]) {
-        kwargInfos[kwargId] = s.codeInfo.allObjInfo[kwargId];
+        kwargInfos[kwargId] = s.codeInfo.allCodeInfo[kwargId];
       }
     }
   }

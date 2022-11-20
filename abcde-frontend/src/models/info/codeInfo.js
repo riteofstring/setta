@@ -3,12 +3,12 @@ import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 
-// allObjInfo maps from every objInfo key to its objInfo
+// allCodeInfo maps from every objInfo key to its objInfo
 // allCollections maps from every collection key to its objInfo
 // callables maps from every collection key to a list of objInfo that are callables
 function getInitialState() {
   return {
-    allObjInfo: {},
+    allCodeInfo: {},
     allCollections: {},
     callables: {},
     params: {},
@@ -26,7 +26,7 @@ const codeInfo = {
 
   setAll: action((state, payload) => {
     ({
-      allObjInfo: state.allObjInfo,
+      allCodeInfo: state.allCodeInfo,
       allCollections: state.allCollections,
       callables: state.callables,
       params: state.params,
@@ -36,17 +36,17 @@ const codeInfo = {
 
   setCodeInfo: action((state, payload) => {
     const { info } = payload;
-    state.allObjInfo[info.id] = info;
+    state.allCodeInfo[info.id] = info;
   }),
 
   setName: action((state, payload) => {
     const { id, name } = payload;
-    state.allObjInfo[id].name = name;
+    state.allCodeInfo[id].name = name;
   }),
 
   deleteInfos: action((state, payload) => {
     const { ids } = payload;
-    state.allObjInfo = _.omit(state.allObjInfo, ids);
+    state.allCodeInfo = _.omit(state.allCodeInfo, ids);
   }),
 
   updateInfos: action((state, payload) => {
