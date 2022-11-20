@@ -22,19 +22,17 @@ export async function getCollectionsAndModules({ allCollections, searchTerm }) {
     });
   }
 
-  const searchResults = axios
+  return axios
     .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
     .then((res) => {
-      return res.data;
+      return {
+        ...res.data,
+        ...searchCollectionsInMemory({ allCollections, searchTerm }),
+      };
     })
     .catch(() => {
       return {};
     });
-
-  return {
-    ...searchResults,
-    ...searchCollectionsInMemory({ allCollections, searchTerm }),
-  };
 }
 
 export async function getCollectionDetails(id) {
