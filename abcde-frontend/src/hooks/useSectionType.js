@@ -12,7 +12,7 @@ export function useGetSectionTypeConfig(sectionId) {
 }
 
 export function useGetSectionType(sectionId) {
-  const uiTypeId = useGetSectionConfig(sectionId).uiTypeId;
+  const [uiTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
   return defaultState(
     useStoreState((x) => x.uiTypes.x[uiTypeId]),
     () => ({})

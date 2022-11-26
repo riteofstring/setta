@@ -43,16 +43,16 @@ export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }
 
-export function requiresKeyInput(sectionTypeName) {
-  return sectionTypeName === DICT;
+export function requiresKeyInput(sectionSubTypeName) {
+  return sectionSubTypeName === DICT;
 }
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
 }
 
-export function isListLike(sectionTypeName) {
-  return [LIST, DICT].includes(sectionTypeName);
+export function isListLike(sectionSubTypeName) {
+  return [LIST, DICT].includes(sectionSubTypeName);
 }
 
 export const uiTypesToPretty = Object.freeze(

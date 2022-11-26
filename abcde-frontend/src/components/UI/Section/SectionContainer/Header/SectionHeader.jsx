@@ -11,7 +11,6 @@ function _SectionHeader({
   nextId,
   isList,
   isListRoot,
-  requiresKeyInput,
   hasNested,
 }) {
   const deleteChild = useStoreActions((x) => x.thunks.deleteChild);

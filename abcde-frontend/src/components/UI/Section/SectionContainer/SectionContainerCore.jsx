@@ -4,12 +4,7 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
-import {
-  isListLike,
-  isRoot,
-  requiresKeyInput,
-  SECTIONWIDTH,
-} from "utils/constants";
+import { isListLike, isRoot, SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
   KwargGroupContainer,
@@ -19,7 +14,7 @@ import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const { selectedItem } = useGetSectionConfig(sectionId);
+  const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
   const { type: sectionTypeName, config } = useGetSectionType(sectionId);
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
@@ -84,7 +79,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             isList={isList}
             isListRoot={isListRoot}
             hasNested={hasNested}
-            requiresKeyInput={requiresKeyInput(config.subType)}
           />
           {!isListRoot && (
             <Stack>

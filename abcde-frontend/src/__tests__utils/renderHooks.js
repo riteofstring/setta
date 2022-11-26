@@ -22,8 +22,8 @@ export function renderUseGetSectionType(sectionId, wrapper) {
   });
 }
 
-export function renderUseGetSectionConfig(sectionId, wrapper) {
-  return renderHook(() => useGetSectionConfig(sectionId), {
+export function renderUseGetSectionConfig(sectionId, props, wrapper) {
+  return renderHook(() => useGetSectionConfig(sectionId, props), {
     wrapper,
   });
 }
