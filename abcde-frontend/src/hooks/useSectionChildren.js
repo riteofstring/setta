@@ -4,7 +4,6 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { isRoot, requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
-
 import {
   useGetManyParamsWithParamCollectionId,
   useGetManyParamsWithUITypeColId,
@@ -19,12 +18,12 @@ export function useGetAllChildren(sectionId) {
 }
 
 export function useGetCurrChildren(sectionId) {
-  const allChildrenId = useGetAllChildren(sectionId);
-  const currChildrenId = useChildIdHelper(sectionId);
+  const allChildrenIds = useGetAllChildren(sectionId);
+  const currParamChildIds = useChildIdHelper(sectionId);
   const sectionTypeName = useGetSectionType(sectionId).type;
   const currChildren = isRoot(sectionTypeName)
-    ? allChildrenId
-    : _.intersection(allChildrenId, currChildrenId);
+    ? allChildrenIds
+    : _.intersection(allChildrenIds, currParamChildIds);
 
   const setCurrChildren = useStoreActions(
     (x) => x.sectionInfos.setCurrChildren
