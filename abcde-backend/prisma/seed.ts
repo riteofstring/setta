@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
+import { saveUserCodeInfoTypeMaps } from 'src/codeInfoMaps/savingFunctions';
 // import { saveUserCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
 import { saveMultipleProjectDetails } from 'src/projects/savingFunctions';
 import { saveUITypes } from 'src/uiTypes/savingFunctions';
@@ -13,7 +14,7 @@ async function main() {
   await seedCodeInfo();
   await seedBaseUITypes();
   await seedProjects();
-  // await seedUserCodeInfoMaps();
+  await seedUserCodeInfoMaps();
 }
 
 async function seedUsers() {
@@ -50,12 +51,16 @@ async function seedProjects() {
   console.log('done');
 }
 
-// async function seedUserCodeInfoMaps() {
-//   const data = await loadSpecificTestData({ name: 'UserCodeInfoMaps' });
-//   console.log('seedUserCodeInfoMaps');
-//   await saveUserCodeInfoMaps(prisma, data);
-//   console.log('done');
-// }
+async function seedUserCodeInfoMaps() {
+  const users = await loadSpecificTestData({ name: 'Users' });
+  const data = await loadSpecificTestData({ name: 'UserCodeInfoTypeMaps' });
+  console.log('seedUserCodeInfoMaps');
+  for (const user of _.values(users)) {
+    const usersMaps = data[user.id];
+    await saveUserCodeInfoTypeMaps(prisma, user, usersMaps);
+  }
+  console.log('done');
+}
 
 main()
   .then(async () => {
