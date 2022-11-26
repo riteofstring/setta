@@ -16,8 +16,8 @@ export function renderUseGetParamChildId(sectionId, paramInfoId, wrapper) {
   });
 }
 
-export function renderUseGetSectionType(sectionId, wrapper) {
-  return renderHook(() => useGetSectionType(sectionId), {
+export function renderUseGetSectionType(sectionId, props, wrapper) {
+  return renderHook(() => useGetSectionType(sectionId, props), {
     wrapper,
   });
 }

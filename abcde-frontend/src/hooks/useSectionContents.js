@@ -2,7 +2,7 @@ import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { defaultState, maybeUseNullId } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
-import { useGetSectionType } from "./useSectionType";
+import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
   const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
@@ -12,9 +12,9 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
 }
 
 function useGetCollectionChildren(sectionId, type) {
-  const sectionType = useGetSectionType(sectionId);
-  const collectionIds = sectionType.config
-    ? sectionType.config.collections
+  const sectionTypeConfig = useGetSectionTypeConfig(sectionId);
+  const collectionIds = !_.isEmpty(sectionTypeConfig)
+    ? sectionTypeConfig.collections
     : [];
   return useStoreState(
     (x) => [].concat(...collectionIds.map((y) => x.codeInfo[type][y])),

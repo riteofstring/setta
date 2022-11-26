@@ -18,7 +18,8 @@ function SectionContainer({
   depth,
   dragListeners,
 }) {
-  const isDeck = useGetSectionType(sectionId).type === DECK;
+  const [sectionType] = useGetSectionType(sectionId, ["type"]);
+  const isDeck = sectionType === DECK;
   const currChildren = useGetCurrChildren(sectionId);
   const hasNested = currChildren.length > 0;
 

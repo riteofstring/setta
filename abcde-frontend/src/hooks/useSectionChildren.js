@@ -20,7 +20,7 @@ export function useGetAllChildren(sectionId) {
 export function useGetCurrChildren(sectionId) {
   const allChildrenIds = useGetAllChildren(sectionId);
   const currParamChildIds = useChildIdHelper(sectionId);
-  const sectionTypeName = useGetSectionType(sectionId).type;
+  const [sectionTypeName] = useGetSectionType(sectionId, ["type"]);
   const currChildren = isRoot(sectionTypeName)
     ? allChildrenIds
     : _.intersection(allChildrenIds, currParamChildIds);

@@ -40,8 +40,10 @@ function SectionConfig() {
   );
 
   const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
-  const currUIType = useGetSectionType(sectionId);
-  const currTypeId = currUIType.id;
+  const [currTypeId, savedConfig] = useGetSectionType(sectionId, [
+    "id",
+    "config",
+  ]);
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
@@ -69,7 +71,7 @@ function SectionConfig() {
         onSectionTypeChange={onSectionTypeChange}
         currTypeId={currTypeId}
         sectionId={sectionId}
-        savedConfig={currUIType.config}
+        savedConfig={savedConfig}
         onConfigChange={onConfigChange}
       />
     </>

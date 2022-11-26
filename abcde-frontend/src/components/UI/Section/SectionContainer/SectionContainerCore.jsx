@@ -15,7 +15,10 @@ import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
-  const { type: sectionTypeName, config } = useGetSectionType(sectionId);
+  const [sectionTypeName, config] = useGetSectionType(sectionId, [
+    "type",
+    "config",
+  ]);
   const isList = isListLike(config.subType);
   const isListRoot = isRoot(sectionTypeName);
   const setSectionConfigAttr = useStoreActions(

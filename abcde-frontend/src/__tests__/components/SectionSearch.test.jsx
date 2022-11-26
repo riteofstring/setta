@@ -2,10 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
-import {
-  renderUseGetSectionConfig,
-  renderUseGetSectionType,
-} from "__tests__utils/renderHooks";
+import { renderUseGetSectionConfig } from "__tests__utils/renderHooks";
 import {
   createStoreWrapperWithData,
   sectionIdFromName,
@@ -53,8 +50,6 @@ test("Test SectionSearch", async () => {
   )[0];
 
   // Add collection to section
-  ({ result } = renderUseGetSectionType(sectionId, wrapper));
-
   await waitFor(() =>
     store.getActions().thunks.setSectionUITypeConfig({
       sectionId,
@@ -79,7 +74,6 @@ test("Test SectionSearch", async () => {
   expect(result.current[0]).toEqual(idSGD);
 
   // Make section only have models
-  ({ result } = renderUseGetSectionType(sectionId, wrapper));
   await waitFor(() =>
     store.getActions().thunks.setSectionUITypeConfig({
       sectionId,
@@ -114,7 +108,6 @@ test("Test SectionSearch", async () => {
   expect(result.current[0]).toBeTruthy();
 
   // Make section have no searchable items
-  ({ result } = renderUseGetSectionType(sectionId, wrapper));
   await waitFor(() =>
     store.getActions().thunks.setSectionUITypeConfig({
       sectionId,
