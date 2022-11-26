@@ -20,8 +20,8 @@ export function getProjectData(s) {
     _.pick(v, ["value", "childId"])
   );
   const evCols = s.paramInfos.x;
-  let uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
-  // The purpose of Object.fromEntries(Object.entries(...))) 
+  let uiTypes = _.pickBy(s.uiTypes.x, (v) => v.presetType !== BASE);
+  // The purpose of Object.fromEntries(Object.entries(...)))
   // is to get rid of class methods
   uiTypes = _.mapValues(uiTypes, (v) =>
     _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
