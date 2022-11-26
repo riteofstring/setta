@@ -41,7 +41,7 @@ export function getProjectData(s) {
     ])
   );
 
-  const sectionChildren = s.sectionInfos.idsOverview;
+  const sectionChildren = s.sectionInfos.allChildren;
   const sectionConfigs = _.mapValues(s.sectionConfigs.x, (v) =>
     Object.fromEntries(Object.entries(v))
   );

@@ -31,7 +31,7 @@ export const addChild = thunk((action, payload, helpers) => {
     paramInfoId: parentParamInfoId,
   });
 
-  a.sectionInfos.setIdsOverview({
+  a.sectionInfos.setAllChildren({
     sectionId: parentId,
     newStateFn: getNewStateFn(startId, newIds),
   });

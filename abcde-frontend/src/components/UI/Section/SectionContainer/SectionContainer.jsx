@@ -2,7 +2,7 @@ import "@chakra-ui/react";
 import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useDragActivation } from "hooks/useDragActivation";
-import { useIdsOverview } from "hooks/useIdsOverview";
+import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
@@ -19,8 +19,8 @@ function SectionContainer({
   dragListeners,
 }) {
   const isDeck = useGetSectionType(sectionId).type === DECK;
-  const idsOverview = useIdsOverview(sectionId);
-  const hasNested = idsOverview.length > 0;
+  const currChildren = useGetCurrChildren(sectionId);
+  const hasNested = currChildren.length > 0;
 
   return (
     <Container
@@ -43,7 +43,7 @@ function SectionContainer({
       {hasNested && (
         <Box flexDirection="column" display="flex">
           <ManyNestedSections
-            childIds={idsOverview}
+            childIds={currChildren}
             sectionId={sectionId}
             depth={depth}
             isDeck={isDeck}

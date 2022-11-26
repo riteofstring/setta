@@ -13,38 +13,31 @@ import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useGetAllChildren(sectionId) {
   return defaultState(
-    useStoreState((x) => x.sectionInfos.idsOverview[sectionId]),
+    useStoreState((x) => x.sectionInfos.allChildren[sectionId]),
     () => []
   );
 }
 
-export function useIdsOverview(sectionId) {
-  const idsOverview = useGetIdsOverview(sectionId);
+export function useGetCurrChildren(sectionId) {
+  const allChildrenId = useGetAllChildren(sectionId);
+  const currChildrenId = useChildIdHelper(sectionId);
+  const sectionTypeName = useGetSectionType(sectionId).type;
+  const currChildren = isRoot(sectionTypeName)
+    ? allChildrenId
+    : _.intersection(allChildrenId, currChildrenId);
+
   const setCurrChildren = useStoreActions(
     (x) => x.sectionInfos.setCurrChildren
   );
   useEffect(() => {
-    setCurrChildren({ sectionId, currChildren: idsOverview });
-  }, [idsOverview]);
-  return idsOverview;
+    setCurrChildren({ sectionId, currChildren });
+  }, [currChildren]);
+
+  return currChildren;
 }
 
-function useGetIdsOverview(sectionId) {
-  const allChildrenId = useGetAllChildren(sectionId);
-  const currChildrenId = useGetCurrChildrenIds(sectionId);
-  const sectionTypeName = useGetSectionType(sectionId).type;
-  if (isRoot(sectionTypeName)) {
-    return allChildrenId;
-  }
-  return _.intersection(allChildrenId, currChildrenId);
-}
-
-function useGetCurrChildrenIds(sectionId) {
-  const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
-  return useChildIdHelper(paramInfos, sectionId);
-}
-
-function useChildIdHelper(infos, sectionId) {
+function useChildIdHelper(sectionId) {
+  const infos = useGetCurrObjParamKwargInfos(sectionId);
   const uiTypeIds = useGetManyParamsWithUITypeColId(sectionId, infos);
   const hasNested = useStoreState(
     (x) =>

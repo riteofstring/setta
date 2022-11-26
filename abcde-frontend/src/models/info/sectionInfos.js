@@ -6,15 +6,15 @@ import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
 import { REF_ID } from "utils/uiTypeConstants";
 
-function setDefaultIdsOverview(state, sectionId) {
-  if (!(sectionId in state.idsOverview)) {
-    state.idsOverview[sectionId] = [];
+function setDefaultAllChildren(state, sectionId) {
+  if (!(sectionId in state.allChildren)) {
+    state.allChildren[sectionId] = [];
   }
-  return state.idsOverview[sectionId];
+  return state.allChildren[sectionId];
 }
 
 function getInitialState() {
-  return { x: {}, idsOverview: {}, currChildren: {} };
+  return { x: {}, allChildren: {}, currChildren: {} };
 }
 
 const sectionInfos = {
@@ -35,12 +35,12 @@ const sectionInfos = {
     });
 
     actions.reset();
-    actions.setAll({ x: sectionInfos, idsOverview: sectionChildren });
+    actions.setAll({ x: sectionInfos, allChildren: sectionChildren });
   }),
 
   setAll: action((state, payload) => {
     state.x = payload.x;
-    state.idsOverview = payload.idsOverview;
+    state.allChildren = payload.allChildren;
   }),
 
   setSectionInfo: action((state, payload) => {
@@ -66,10 +66,10 @@ const sectionInfos = {
     }
   }),
 
-  setIdsOverview: action((state, payload) => {
+  setAllChildren: action((state, payload) => {
     const { sectionId, newStateFn } = payload;
-    const currState = setDefaultIdsOverview(state, sectionId);
-    state.idsOverview[sectionId] = newStateFn(currState);
+    const currState = setDefaultAllChildren(state, sectionId);
+    state.allChildren[sectionId] = newStateFn(currState);
   }),
 
   setCurrChildren: action((state, payload) => {
@@ -128,7 +128,7 @@ export default sectionInfos;
 
 function deleteSectionFn(helpers, sectionId) {
   const localState = helpers.getState();
-  const childIds = localState.idsOverview[sectionId];
+  const childIds = localState.allChildren[sectionId];
   if (childIds) {
     for (let child of childIds) {
       deleteSectionFn(helpers, child);
@@ -138,7 +138,7 @@ function deleteSectionFn(helpers, sectionId) {
     helpers.getStoreActions().activeSection.setId(null);
   }
   delete localState.x[sectionId];
-  delete localState.idsOverview[sectionId];
+  delete localState.allChildren[sectionId];
   delete localState.currChildren[sectionId];
 }
 
@@ -151,7 +151,7 @@ function setSectionAttrBasedOnNewParent({
 }) {
   // Remove child from old parent's list
   if (oldParentId) {
-    actions.setIdsOverview({
+    actions.setAllChildren({
       sectionId: oldParentId,
       newStateFn: (x) => x.filter((y) => y !== sectionId),
     });
@@ -172,7 +172,7 @@ function setSectionAttrBasedOnNewParent({
     });
   } else {
     // Add child to new parent's list
-    actions.setIdsOverview({
+    actions.setAllChildren({
       sectionId: newParentId,
       newStateFn: (x) => [
         ...x.slice(0, newIndex),
