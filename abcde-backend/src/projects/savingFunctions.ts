@@ -1,6 +1,7 @@
 import _ = require('lodash');
 import { PrismaClient } from '@prisma/client';
 import { saveKwargInfo } from 'src/codeInfo/savingFunctions';
+import { saveAllProjectConfigCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
 import {
   copyEV,
   copyEVCols,
@@ -53,6 +54,12 @@ export async function saveProjectDetails(
     p.projectConfig.sectionConfigCol,
   );
   await saveProjectConfig(prisma, p.projectConfig, p.sections);
+  await saveAllProjectConfigCodeInfoMaps(
+    prisma,
+    p.projectConfig.id,
+    p.projectConfigCodeInfoMaps,
+  );
+
   if (doSaveProject) {
     await saveProject(prisma, user, p.project, p.projectConfig.id);
   }

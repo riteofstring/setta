@@ -6,6 +6,7 @@ import {
   getPresetUITypes,
   getProject,
   getProjectConfig,
+  getProjectConfigCodeInfoMaps,
   getSectionConfigs,
   getSections,
   getUserCodeInfoMaps,
@@ -89,6 +90,10 @@ export class ProjectsService {
       kwargCols,
     );
     const userCodeInfoMaps = await getUserCodeInfoMaps(this.prisma, user.id);
+    const projectConfigCodeInfoMaps = await getProjectConfigCodeInfoMaps(
+      this.prisma,
+      projectConfig.id,
+    );
 
     // put top-level initialPosition into sections
     _.merge(sections, sectionPositions);
@@ -107,6 +112,7 @@ export class ProjectsService {
       uiTypeCols,
       codeInfo,
       userCodeInfoMaps,
+      projectConfigCodeInfoMaps,
     };
   }
 }
