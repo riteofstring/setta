@@ -4,7 +4,7 @@ export function noAuthAccessPage({ actionStayLoggedIn }) {
 }
 
 export function noAuthLogin({ actionLoginSuccess }) {
-  actionLoginSuccess({ user: "user", access_token: "12345" });
+  actionLoginSuccess({ access_token: "12345" });
   return true;
 }
 
@@ -14,6 +14,6 @@ export function noAuthLogout({ actionLoginFail }) {
 }
 
 export function noAuthRegister({ actionLoginSuccess }) {
-  actionLoginSuccess({ user: "user", access_token: "12345" });
+  actionLoginSuccess({ access_token: "12345" });
   return true;
 }

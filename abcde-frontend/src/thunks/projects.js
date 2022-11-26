@@ -10,12 +10,12 @@ export const loadProjectIntoState = thunk(async (actions, payload, helpers) => {
   const { projectInfo, excludeCodeInfo = false } = payload;
   const a = helpers.getStoreActions();
 
-  const { projectDefaults, globalDefaults } = await loadOneProject({});
+  const { projectDefaults, userCodeInfoMaps } = await loadOneProject({});
   let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
   uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
   a.master.loadSections({
     projectDefaults,
-    globalDefaults,
+    userCodeInfoMaps,
     uiTypes,
     ...theRest,
     excludeCodeInfo,

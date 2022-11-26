@@ -3,18 +3,18 @@ import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 
-function setParamTypeInfo(state, type) {
-  if (!(type in state.x)) {
-    state.x[type] = new ParamTypeInfo({ type });
+function setCodeInfoTypeMap(state, type) {
+  if (!(type in state.codeInfoTypeMaps)) {
+    state.codeInfoTypeMaps[type] = new ParamTypeInfo({ type });
   }
-  return state.x[type];
+  return state.codeInfoTypeMaps[type];
 }
 
 function getInitialState() {
-  return { x: {} };
+  return { codeInfoTypeMaps: {} };
 }
 
-const globalParamDefaults = {
+const userSettings = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
@@ -25,7 +25,7 @@ const globalParamDefaults = {
   setAll: action((state, payload) => {
     _.forEach(
       payload,
-      (v, k) => (setParamTypeInfo(state, k).uiTypeId = v.uiTypeId)
+      (v, k) => (setCodeInfoTypeMap(state, k).uiTypeId = v.uiTypeId)
     );
   }),
 
@@ -34,4 +34,4 @@ const globalParamDefaults = {
   }),
 };
 
-export default globalParamDefaults;
+export default userSettings;

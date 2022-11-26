@@ -11,10 +11,11 @@ const PROJECT_CONFIG_NAMES = {
 };
 const IN_MEM_PROJECTS = {};
 const IN_MEM_PROJECT_CONFIGS = {};
+const DEFAULT_USER_ID = "25961114-6655-4e2c-b70f-e2e3aaa84131";
 
 export async function loadGlobalData({ forNode }) {
   const output = {};
-  for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
+  for (const k of ["baseUITypes", "userCodeInfoMaps", "presetUITypes"]) {
     output[k] = await loadSpecificTestData({ name: k, forNode });
   }
   return output;
@@ -88,6 +89,7 @@ export async function loadOneProject({
     uiTypes,
     baseUITypes,
     presetUITypes,
+    userCodeInfoMaps,
     ...theRest
   } = loaded;
 
@@ -99,6 +101,7 @@ export async function loadOneProject({
     return {
       kwargInfo,
       uiTypes: _uiTypes,
+      userCodeInfoMaps,
       ...theRest,
     };
   } else if (forSavingToBackend) {
@@ -120,6 +123,7 @@ export async function loadOneProject({
     return {
       codeInfo,
       uiTypes: _uiTypes,
+      userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
       ...theRest,
     };
   }

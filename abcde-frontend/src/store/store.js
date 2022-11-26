@@ -2,7 +2,6 @@ import { action, createStore } from "easy-peasy";
 import activeSection from "models/activeSection";
 import auth from "models/auth";
 import currPage from "models/currPage";
-import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
 import codeInfo from "models/info/codeInfo";
 import enteredValues from "models/info/enteredValues";
 import objInfos from "models/info/objInfos";
@@ -18,7 +17,7 @@ import panes from "models/panes";
 import projectParamDefaults from "models/projectDefaults/projectParamDefaults";
 import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
-import userSettings from "models/userSettings";
+import userCodeInfoMaps from "models/userCodeInfoMaps";
 import thunks from "thunks/thunks";
 
 const store = createStore({
@@ -33,10 +32,9 @@ const store = createStore({
   paramInfos: paramInfos,
   enteredValues: enteredValues,
   uiTypes: uiTypes,
-  userSettings: userSettings,
+  userCodeInfoMaps: userCodeInfoMaps,
   uiEditor: uiEditor,
   projectParamDefaults: projectParamDefaults,
-  globalParamDefaults: globalParamDefaults,
   currPage: currPage,
   project: project,
   projectConfig: projectConfig,
