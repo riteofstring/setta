@@ -14,7 +14,7 @@ function getInitialState() {
   return { codeInfoTypeMaps: {} };
 }
 
-const userSettings = {
+const userCodeInfoMaps = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
@@ -34,4 +34,4 @@ const userSettings = {
   }),
 };
 
-export default userSettings;
+export default userCodeInfoMaps;
