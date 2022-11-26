@@ -43,14 +43,14 @@ model CodeInfoChildren {
 }
 
 model User {
-  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String                @unique @db.VarChar(255)
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String            @unique @db.VarChar(255)
   password         String
   projects         Project[] //Project.owner
   generatedCode    GeneratedCode[] //GeneratedCode.owner
   uiTypes          UIType[] //UIType.owner
-  codeInfoTypeMaps UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.owner
-  codeInfoMaps     UserCodeInfoMap[] //UserCodeInfoMap.owner
+  codeInfoTypeMaps CodeInfoTypeMap[] //CodeInfoTypeMap.owner
+  codeInfoMaps     CodeInfoMap[] //CodeInfoMap.owner
 }
 
 model Section {
@@ -259,17 +259,17 @@ model Project {
 }
 
 model ProjectConfig {
-  id                 String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String                         @db.VarChar(255)
-  sectionConfigCol   SectionConfigColId             @relation(fields: [sectionConfigColId], references: [id])
-  sectionConfigColId String                         @db.Uuid
-  sectionChildren    SectionChildrenId              @relation(fields: [sectionChildrenId], references: [id])
-  sectionChildrenId  String                         @db.Uuid
-  project            Project?                       @relation("configs", fields: [projectId], references: [id])
-  projectId          String?                        @db.Uuid
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String             @db.VarChar(255)
+  sectionConfigCol   SectionConfigColId @relation(fields: [sectionConfigColId], references: [id])
+  sectionConfigColId String             @db.Uuid
+  sectionChildren    SectionChildrenId  @relation(fields: [sectionChildrenId], references: [id])
+  sectionChildrenId  String             @db.Uuid
+  project            Project?           @relation("configs", fields: [projectId], references: [id])
+  projectId          String?            @db.Uuid
   defaultFor         Project? //Project.defaultConfig 
-  codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
-  codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
+  codeInfoTypeMaps   CodeInfoTypeMap[] //CodeInfoTypeMap.projectConfig
+  codeInfoMaps       CodeInfoMap[] //CodeInfoMap.projectConfig
 
   @@unique([name, projectId])
 }
@@ -282,56 +282,24 @@ model GeneratedCode {
 }
 
 model CodeInfoTypeMap {
-  id                           String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  type                         String
-  uiType                       UIType                        @relation(fields: [uiTypeId], references: [id])
-  uiTypeId                     String                        @db.Uuid
-  userCodeInfoTypeMap          UserCodeInfoTypeMap?
-  projectConfigCodeInfoTypeMap ProjectConfigCodeInfoTypeMap?
-}
-
-model UserCodeInfoTypeMap {
-  codeInfoTypeMap   CodeInfoTypeMap @relation(fields: [codeInfoTypeMapId], references: [id])
-  codeInfoTypeMapId String          @db.Uuid
-  owner             User            @relation(fields: [ownerId], references: [id])
-  ownerId           String          @db.Uuid
-
-  @@id([codeInfoTypeMapId]) // composite key
-}
-
-model ProjectConfigCodeInfoTypeMap {
-  codeInfoTypeMap   CodeInfoTypeMap @relation(fields: [codeInfoTypeMapId], references: [id])
-  codeInfoTypeMapId String          @db.Uuid
-  projectConfig     ProjectConfig   @relation(fields: [projectConfigId], references: [id])
-  projectConfigId   String          @db.Uuid
-
-  @@id([codeInfoTypeMapId]) // composite key
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type            String
+  uiType          UIType         @relation(fields: [uiTypeId], references: [id])
+  uiTypeId        String         @db.Uuid
+  owner           User?          @relation(fields: [ownerId], references: [id])
+  ownerId         String?        @db.Uuid
+  projectConfig   ProjectConfig? @relation(fields: [projectConfigId], references: [id])
+  projectConfigId String?        @db.Uuid
 }
 
 model CodeInfoMap {
-  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  codeInfo                 CodeInfo                  @relation(fields: [codeInfoId], references: [id])
-  codeInfoId               String                    @db.Uuid
-  uiType                   UIType                    @relation(fields: [uiTypeId], references: [id])
-  uiTypeId                 String                    @db.Uuid
-  userCodeInfoMap          UserCodeInfoMap?
-  projectConfigCodeInfoMap ProjectConfigCodeInfoMap?
-}
-
-model UserCodeInfoMap {
-  codeInfoMap   CodeInfoMap @relation(fields: [codeInfoMapId], references: [id])
-  codeInfoMapId String      @db.Uuid
-  owner         User        @relation(fields: [ownerId], references: [id])
-  ownerId       String      @db.Uuid
-
-  @@id([codeInfoMapId]) // composite key
-}
-
-model ProjectConfigCodeInfoMap {
-  codeInfoMap     CodeInfoMap   @relation(fields: [codeInfoMapId], references: [id])
-  codeInfoMapId   String        @db.Uuid
-  projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
-  projectConfigId String        @db.Uuid
-
-  @@id([codeInfoMapId]) // composite key
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codeInfo        CodeInfo       @relation(fields: [codeInfoId], references: [id])
+  codeInfoId      String         @db.Uuid
+  uiType          UIType         @relation(fields: [uiTypeId], references: [id])
+  uiTypeId        String         @db.Uuid
+  owner           User?          @relation(fields: [ownerId], references: [id])
+  ownerId         String?        @db.Uuid
+  projectConfig   ProjectConfig? @relation(fields: [projectConfigId], references: [id])
+  projectConfigId String?        @db.Uuid
 }
