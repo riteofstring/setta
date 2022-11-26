@@ -1,8 +1,6 @@
 import { action, createStore } from "easy-peasy";
 import activeSection from "models/activeSection";
 import auth from "models/auth";
-import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
-import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
 import currPage from "models/currPage";
 import codeInfo from "models/info/codeInfo";
 import enteredValues from "models/info/enteredValues";
@@ -16,8 +14,10 @@ import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
 import panes from "models/panes";
+import projectParamDefaults from "models/projectDefaults/projectParamDefaults";
 import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
+import userCodeInfoMaps from "models/userCodeInfoMaps";
 import thunks from "thunks/thunks";
 
 const store = createStore({
@@ -34,7 +34,7 @@ const store = createStore({
   uiTypes: uiTypes,
   userCodeInfoMaps: userCodeInfoMaps,
   uiEditor: uiEditor,
-  projectConfigCodeInfoMaps: projectConfigCodeInfoMaps,
+  projectParamDefaults: projectParamDefaults,
   currPage: currPage,
   project: project,
   projectConfig: projectConfig,

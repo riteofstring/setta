@@ -38,7 +38,7 @@ export async function loadProjectSpecificData({
     "evCols",
     "kwargCols",
     "kwargInfo",
-    "projectConfigCodeInfoMaps",
+    "projectDefaults",
     "sectionChildren",
     "sectionConfigCol",
     "sectionConfigs",
@@ -64,6 +64,7 @@ export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
   forNode = false,
+  forSeeding = false,
   forSavingToBackend = false,
 }) {
   const loaded = await loadOneProjectMetadata({
@@ -92,11 +93,22 @@ export async function loadOneProject({
     ...theRest
   } = loaded;
 
-  if (forSavingToBackend) {
-    // For saving a project, we don't need base uitypes
+  const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
+  if (forSeeding) {
+    // For seeding a project we need kwargInfo
+    // instead of both kwargInfo and allCodeInfo
     return {
       kwargInfo,
-      uiTypes: { ...uiTypes, ...presetUITypes },
+      uiTypes: _uiTypes,
+      userCodeInfoMaps,
+      ...theRest,
+    };
+  } else if (forSavingToBackend) {
+    // For saving a project, we don't need preset or base uitypes
+    return {
+      kwargInfo,
+      uiTypes,
       ...theRest,
     };
   } else {
@@ -110,7 +122,7 @@ export async function loadOneProject({
     };
     return {
       codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+      uiTypes: _uiTypes,
       userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
       ...theRest,
     };
@@ -137,10 +149,7 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadAllProjects({
-  forNode = false,
-  forSavingToBackend = false,
-}) {
+export async function loadAllProjects({ forNode = false, forSeeding = false }) {
   const output = [];
   for (const type of ["inFile", "inMem"]) {
     for (const p of PROJECT_NAMES[type]) {
@@ -150,7 +159,7 @@ export async function loadAllProjects({
             projectName: p,
             subFolderName,
             forNode,
-            forSavingToBackend,
+            forSeeding,
           })
         );
       }
@@ -240,6 +249,7 @@ export function createInMemProject(name) {
   const project = {
     id: fakeId,
     name,
+    ownerId: fakeId,
     defaultConfigId: fakeId,
   };
 
