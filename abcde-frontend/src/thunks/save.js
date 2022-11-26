@@ -10,18 +10,8 @@ import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
 export function getProjectData(s) {
-  const project = _.pick(s.project, [
-    "id",
-    "name",
-    "ownerId",
-    "defaultConfigId",
-  ]);
-  const projectConfig = _.pick(s.projectConfig, [
-    "id",
-    "name",
-    "sectionConfigCol",
-    "childrenId",
-  ]);
+  const project = s.project;
+  const projectConfig = s.projectConfig;
   projectConfig.children = topLevelSectionInfo(s.sectionInfos.x).map(
     (x) => x.id
   );
@@ -31,6 +21,8 @@ export function getProjectData(s) {
   );
   const evCols = s.paramInfos.x;
   let uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
+  // The purpose of Object.fromEntries(Object.entries(...))) 
+  // is to get rid of class methods
   uiTypes = _.mapValues(uiTypes, (v) =>
     _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
   );

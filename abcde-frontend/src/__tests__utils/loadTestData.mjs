@@ -101,7 +101,6 @@ export async function loadOneProject({
     return {
       kwargInfo,
       uiTypes: _uiTypes,
-      userCodeInfoMaps,
       ...theRest,
     };
   } else if (forSavingToBackend) {
@@ -249,7 +248,6 @@ export function createInMemProject(name) {
   const project = {
     id: fakeId,
     name,
-    ownerId: fakeId,
     defaultConfigId: fakeId,
   };
 

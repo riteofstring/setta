@@ -2,7 +2,6 @@ export default {
   "9520d638-b662-44d0-97a3-e1dfabeb2939": {
     id: "9520d638-b662-44d0-97a3-e1dfabeb2939",
     name: "My switch",
-    ownerId: "25961114-6655-4e2c-b70f-e2e3aaa84131",
     type: "SWITCH",
     presetType: "user",
     config: {},
@@ -12,7 +11,6 @@ export default {
   "796ac83d-bb70-489d-89ed-13c73094982f": {
     id: "796ac83d-bb70-489d-89ed-13c73094982f",
     name: "Kevin's Slider",
-    ownerId: "25961114-6655-4e2c-b70f-e2e3aaa84131",
     type: "SLIDER",
     presetType: "user",
     config: { min: 10, max: 100, step: 10 },
@@ -22,7 +20,6 @@ export default {
   "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
     id: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     name: "torchvision transforms",
-    ownerId: "25961114-6655-4e2c-b70f-e2e3aaa84131",
     type: "LIST_ROOT",
     presetType: "user",
     config: {
@@ -37,7 +34,6 @@ export default {
   "a23ffe0c-3052-4964-843b-d84aa352b611": {
     id: "a23ffe0c-3052-4964-843b-d84aa352b611",
     name: "my preset for testing",
-    ownerId: "25961114-6655-4e2c-b70f-e2e3aaa84131",
     type: "LIST_ROOT",
     presetType: "user",
     config: {
