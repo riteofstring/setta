@@ -60,7 +60,7 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
 
   if (!uiTypeId) {
     const projectDefaultUITypeId =
-      s.projectCodeInfoMaps.codeInfoMaps[paramInfo.id]?.uiTypeId;
+      s.projectConfigCodeInfoMaps.codeInfoMaps[paramInfo.id]?.uiTypeId;
     const projectDefaultUIType = s.uiTypes.x[projectDefaultUITypeId];
 
     const globalDefaultUITypeId =

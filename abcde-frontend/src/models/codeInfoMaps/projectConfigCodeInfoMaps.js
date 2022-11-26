@@ -2,7 +2,7 @@ import { action, thunk } from "easy-peasy";
 import { resetState } from "models/utils";
 import { getInitialState, setAll } from "./utils";
 
-const projectCodeInfoMaps = {
+const projectConfigCodeInfoMaps = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
@@ -19,4 +19,4 @@ const projectCodeInfoMaps = {
   }),
 };
 
-export default projectCodeInfoMaps;
+export default projectConfigCodeInfoMaps;

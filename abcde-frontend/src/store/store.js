@@ -1,7 +1,7 @@
 import { action, createStore } from "easy-peasy";
 import activeSection from "models/activeSection";
 import auth from "models/auth";
-import projectCodeInfoMaps from "models/codeInfoMaps/projectCodeInfoMaps";
+import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
 import currPage from "models/currPage";
 import codeInfo from "models/info/codeInfo";
@@ -34,7 +34,7 @@ const store = createStore({
   uiTypes: uiTypes,
   userCodeInfoMaps: userCodeInfoMaps,
   uiEditor: uiEditor,
-  projectCodeInfoMaps: projectCodeInfoMaps,
+  projectConfigCodeInfoMaps: projectConfigCodeInfoMaps,
   currPage: currPage,
   project: project,
   projectConfig: projectConfig,

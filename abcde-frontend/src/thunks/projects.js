@@ -4,17 +4,14 @@ import {
   loadProject as loadProjectDb,
 } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
-import { loadOneProject } from "__tests__utils/loadTestData.mjs";
 
 export const loadProjectIntoState = thunk(async (actions, payload, helpers) => {
   const { projectInfo, excludeCodeInfo = false } = payload;
   const a = helpers.getStoreActions();
 
-  const { projectCodeInfoMaps } = await loadOneProject({});
   let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
   uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
   a.master.loadSections({
-    projectCodeInfoMaps,
     uiTypes,
     ...theRest,
     excludeCodeInfo,

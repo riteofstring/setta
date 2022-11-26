@@ -6,6 +6,7 @@ test("The output of getProjectData should match the test data", async () => {
   const { store } = await createStoreWrapperWithData({});
   const output = getProjectData(store.getState());
   const correctOutput = await loadOneProject({ forSavingToBackend: true });
-  const { userCodeInfoMaps, projectCodeInfoMaps, ...theRest } = correctOutput;
+  const { userCodeInfoMaps, projectConfigCodeInfoMaps, ...theRest } =
+    correctOutput;
   expect(output).toEqual(theRest);
 });
