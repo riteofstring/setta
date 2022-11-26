@@ -3,7 +3,7 @@ import _ from "lodash";
 import { isRoot, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
 import { isBasePreset, isPreset } from "utils/uiTypeConstants";
 import { createOriginInfoId } from "utils/uiTypeUtils";
-import { useParamUITypeId } from "./useParamInfo";
+import { useParamUITypeId } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
@@ -102,7 +102,7 @@ export function useAvailablePresetUITypes({
     "type",
     "config",
   ]);
-  const paramUITypeId = useParamUITypeId(sectionId)(paramInfoId)[0];
+  const paramUITypeId = useParamUITypeId(sectionId, paramInfoId);
   const originInfoId = createOriginInfoId({
     settingSectionConfig,
     sectionTypeConfig: paramInfoId ? sectionTypeConfig : parentTypeConfig,

@@ -4,10 +4,8 @@ import _ from "lodash";
 import { useEffect } from "react";
 import { isRoot, requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
-import {
-  useGetManyParamsWithParamCollectionId,
-  useGetManyParamsWithUITypeColId,
-} from "./useParamInfo";
+import { useGetManyParamEVs } from "./useEnteredValue";
+import { useGetManyParamUITypeIds } from "./useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useGetAllChildren(sectionId) {
@@ -37,7 +35,7 @@ export function useGetCurrChildren(sectionId) {
 
 function useChildIdHelper(sectionId) {
   const infos = useGetCurrObjParamKwargInfos(sectionId);
-  const uiTypeIds = useGetManyParamsWithUITypeColId(sectionId, infos);
+  const uiTypeIds = useGetManyParamUITypeIds(sectionId, infos);
   const hasNested = useStoreState(
     (x) =>
       infos.filter((y, i) =>
@@ -45,5 +43,5 @@ function useChildIdHelper(sectionId) {
       ),
     _.isEqual
   );
-  return useGetManyParamsWithParamCollectionId(sectionId, hasNested, "childId");
+  return useGetManyParamEVs(sectionId, hasNested, "childId");
 }
