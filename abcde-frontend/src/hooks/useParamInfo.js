@@ -20,7 +20,7 @@ function useParamInfoState(collectionId, setStateFn, key, attr) {
 }
 
 function useParamWithUITypeColId(sectionId, setStateFn, key) {
-  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
+  const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
   return useParamInfoState(uiTypeColId, setStateFn, key, "y");
 }
 
@@ -35,7 +35,7 @@ export function useGetParamChildId(sectionId, paramInfoId) {
 }
 
 export function useGetParamUIType(sectionId, paramInfoId) {
-  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
+  const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
   const uiTypeId = useStoreState(
     (x) => x.paramInfos.y[uiTypeColId]?.[paramInfoId]
   );
@@ -66,7 +66,7 @@ export function useGetManyParamsWithParamCollectionId(
 }
 
 export function useGetManyParamsWithUITypeColId(sectionId, paramInfos) {
-  const { uiTypeColId } = useGetSectionTypeConfig(sectionId);
+  const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
   return useStoreState(
     (x) => paramInfos.map((y) => x.paramInfos.y[uiTypeColId]?.[y.id]),
     _.isEqual

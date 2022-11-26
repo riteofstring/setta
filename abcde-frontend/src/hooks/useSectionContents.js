@@ -12,10 +12,8 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
 }
 
 function useGetCollectionChildren(sectionId, type) {
-  const sectionTypeConfig = useGetSectionTypeConfig(sectionId);
-  const collectionIds = !_.isEmpty(sectionTypeConfig)
-    ? sectionTypeConfig.collections
-    : [];
+  const [_collectionIds] = useGetSectionTypeConfig(sectionId, ["collections"]);
+  const collectionIds = _collectionIds ? _collectionIds : [];
   return useStoreState(
     (x) => [].concat(...collectionIds.map((y) => x.codeInfo[type][y])),
     _.isEqual
