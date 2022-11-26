@@ -6,12 +6,13 @@ import {
 } from 'src/utils/utils';
 import _ = require('lodash');
 
-async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
+async function saveCoreUITypes(prisma: PrismaClient, user, uiTypes) {
+  const userId = nullNotUndefined(user?.id);
   const data = _.values(uiTypes).map((x) => ({
     id: x.id,
     type: x.type,
     name: x.name,
-    owner: prismaNullOrConnect(x.ownerId),
+    owner: prismaNullOrConnect(userId),
     presetType: x.presetType,
     originSection: prismaNullOrConnect(x.originInfoId.sectionId),
     originUITypeCol: prismaNullOrConnect(x.originInfoId.uiTypeColId),
@@ -22,7 +23,7 @@ async function saveCoreUITypes(prisma: PrismaClient, uiTypes) {
   await prisma.$transaction(
     data.map((v) =>
       prisma.uIType.upsert({
-        where: { id: v.id },
+        where: { id: v.id, ownerId: userId },
         create: v,
         update: v,
       }),
@@ -77,8 +78,8 @@ async function saveRegularUIType(prisma: PrismaClient, db, sliderUITypes) {
   );
 }
 
-export async function saveUITypes(prisma: PrismaClient, uiTypes) {
-  await saveCoreUITypes(prisma, uiTypes);
+export async function saveUITypes(prisma: PrismaClient, user, uiTypes) {
+  await saveCoreUITypes(prisma, user, uiTypes);
   await saveSectionUITypes(
     prisma,
     _.filter(uiTypes, (v) =>

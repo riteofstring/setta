@@ -21,19 +21,21 @@ import { createNewId, renameKeys } from 'src/utils/utils';
 
 export async function saveMultipleProjectDetails(
   prisma: PrismaClient,
+  user,
   projects,
 ) {
   for (const p of projects) {
-    await saveProjectDetails(prisma, p, false);
+    await saveProjectDetails(prisma, user, p, false);
   }
   // save project info afterward, to ensure defaultconfigid is a valid foreign key
   for (const p of projects) {
-    await saveProject(prisma, p.project, p.projectConfig.id);
+    await saveProject(prisma, user, p.project, p.projectConfig.id);
   }
 }
 
 export async function saveProjectDetails(
   prisma: PrismaClient,
+  user,
   p,
   doSaveProject = true,
 ) {
@@ -42,7 +44,7 @@ export async function saveProjectDetails(
   await saveSections(prisma, p.sections, p.sectionChildren);
   await saveEV(prisma, p.ev);
   await saveEVCols(prisma, p.evCols);
-  await saveUITypes(prisma, p.uiTypes);
+  await saveUITypes(prisma, user, p.uiTypes);
   await saveUITypeCols(prisma, p.uiTypeCols);
   await saveSectionConfigs(prisma, p.sectionConfigs);
   await saveSectionConfigCol(
@@ -52,7 +54,7 @@ export async function saveProjectDetails(
   );
   await saveProjectConfig(prisma, p.projectConfig, p.sections);
   if (doSaveProject) {
-    await saveProject(prisma, p.project, p.projectConfig.id);
+    await saveProject(prisma, user, p.project, p.projectConfig.id);
   }
 }
 
@@ -93,17 +95,18 @@ export async function saveProjectConfig(
 
 export async function saveProject(
   prisma: PrismaClient,
+  user,
   project,
   projectConfigId,
 ) {
   const data = {
     id: project.id,
     name: project.name,
-    ownerId: project.ownerId,
+    ownerId: user.id,
     defaultConfigId: project.defaultConfigId,
   };
   await prisma.project.upsert({
-    where: { id: data.id },
+    where: { id: data.id, ownerId: data.ownerId },
     create: data,
     update: data,
   });
@@ -157,6 +160,7 @@ function copyProjectConfig({
 
 export async function saveAsNewProjectConfig(
   prisma: PrismaClient,
+  user,
   project,
   newConfigName: string,
 ) {
@@ -165,12 +169,13 @@ export async function saveAsNewProjectConfig(
     projectConfig: projectToSave.projectConfig,
     newConfigName,
   });
-  await saveProjectDetails(prisma, projectToSave);
+  await saveProjectDetails(prisma, user, projectToSave);
   return projectToSave;
 }
 
 export async function saveAsExistingProjectConfig(
   prisma: PrismaClient,
+  user,
   project,
   configId: string,
 ) {
@@ -188,7 +193,7 @@ export async function saveAsExistingProjectConfig(
     projectConfig: existingProjectConfig,
     doCreateNewId: false,
   });
-  await saveProjectDetails(prisma, projectToSave);
+  await saveProjectDetails(prisma, user, projectToSave);
   return projectToSave;
 }
 

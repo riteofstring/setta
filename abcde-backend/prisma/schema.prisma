@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["extendedWhereUnique"]
 }
 
 datasource db {
@@ -290,6 +291,8 @@ model CodeInfoTypeMap {
   ownerId         String?        @db.Uuid
   projectConfig   ProjectConfig? @relation(fields: [projectConfigId], references: [id])
   projectConfigId String?        @db.Uuid
+
+  @@unique([type, ownerId, projectConfigId])
 }
 
 model CodeInfoMap {

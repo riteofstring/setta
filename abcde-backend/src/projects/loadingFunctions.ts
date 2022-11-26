@@ -4,7 +4,7 @@ import _ = require('lodash');
 export async function getProject(prisma, id) {
   return await prisma.project.findUnique({
     where: { id },
-    select: { id: true, ownerId: true, name: true, defaultConfigId: true },
+    select: { id: true, name: true, defaultConfigId: true },
   });
 }
 
@@ -209,7 +209,7 @@ function processUIType(uiType) {
       ].includes(key)
     ) {
       output = { ...output, ...processSpecificUITypeConfig(val) };
-    } else {
+    } else if (key !== 'ownerId') {
       output[key] = val;
     }
   }

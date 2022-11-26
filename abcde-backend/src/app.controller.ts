@@ -51,7 +51,7 @@ export class AppController {
   @UseGuards(JwtAuthGuard)
   @Post('projects/save')
   saveProject(@Request() req) {
-    return this.projectsService.save(req.body.project);
+    return this.projectsService.save(req.user, req.body.project);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -64,6 +64,7 @@ export class AppController {
   @Post('projects/saveAsNewProjectConfig')
   saveAsNewProjectConfig(@Request() req) {
     return this.projectsService.saveAsNewProjectConfig(
+      req.user,
       req.body.project,
       req.body.newConfigName,
     );
@@ -73,6 +74,7 @@ export class AppController {
   @Post('projects/saveAsExistingProjectConfig')
   saveAsExistingProjectConfig(@Request() req) {
     return this.projectsService.saveAsExistingProjectConfig(
+      req.user,
       req.body.project,
       req.body.configId,
     );

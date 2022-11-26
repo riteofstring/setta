@@ -33,16 +33,34 @@ export class ProjectsService {
     return await createProject(this.prisma, user, name);
   }
 
-  async saveAsNewProjectConfig(project, newConfigName: string): Promise<any> {
-    return await saveAsNewProjectConfig(this.prisma, project, newConfigName);
+  async saveAsNewProjectConfig(
+    user,
+    project,
+    newConfigName: string,
+  ): Promise<any> {
+    return await saveAsNewProjectConfig(
+      this.prisma,
+      user,
+      project,
+      newConfigName,
+    );
   }
 
-  async saveAsExistingProjectConfig(project, configId: string): Promise<any> {
-    return await saveAsExistingProjectConfig(this.prisma, project, configId);
+  async saveAsExistingProjectConfig(
+    user,
+    project,
+    configId: string,
+  ): Promise<any> {
+    return await saveAsExistingProjectConfig(
+      this.prisma,
+      user,
+      project,
+      configId,
+    );
   }
 
-  async save(project): Promise<any> {
-    await saveProjectDetails(this.prisma, project);
+  async save(user, project): Promise<any> {
+    await saveProjectDetails(this.prisma, user, project);
   }
 
   async loadOne(user, id: string, configId: string): Promise<any> {
