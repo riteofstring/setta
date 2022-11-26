@@ -254,6 +254,8 @@ model Project {
   configs         ProjectConfig[] @relation("configs") //ProjectConfig.project
   defaultConfig   ProjectConfig   @relation(fields: [defaultConfigId], references: [id])
   defaultConfigId String          @unique @db.Uuid
+
+  @@unique([name, ownerId])
 }
 
 model ProjectConfig {
@@ -268,6 +270,8 @@ model ProjectConfig {
   defaultFor         Project? //Project.defaultConfig 
   codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
   codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
+
+  @@unique([name, projectId])
 }
 
 model GeneratedCode {
