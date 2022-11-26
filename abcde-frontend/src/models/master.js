@@ -8,7 +8,7 @@ const master = {
       projectConfig,
       codeInfo,
       userCodeInfoMaps,
-      projectDefaults,
+      projectCodeInfoMaps,
       sections,
       sectionConfigs,
       sectionConfigCol,
@@ -29,8 +29,8 @@ const master = {
     a.projectConfig.resetAndSetAll(projectConfig);
     a.uiTypes.resetAndSetAll(uiTypes);
     a.paramInfos.resetAndSetAll({ evCols, uiTypeCols });
-    a.userCodeInfoMaps.resetAndSetAll(userCodeInfoMaps.codeInfoTypeMaps);
-    a.projectParamDefaults.resetAndSetAll(projectDefaults.paramDefaults);
+    a.userCodeInfoMaps.resetAndSetAll(userCodeInfoMaps);
+    a.projectCodeInfoMaps.resetAndSetAll(projectCodeInfoMaps);
     a.enteredValues.resetAndSetAll(ev);
     a.objInfos.resetAndSetAll(kwargCols);
     a.sectionInfos.resetAndSetAll({

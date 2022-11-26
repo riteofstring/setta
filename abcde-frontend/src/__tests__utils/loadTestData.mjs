@@ -38,7 +38,7 @@ export async function loadProjectSpecificData({
     "evCols",
     "kwargCols",
     "kwargInfo",
-    "projectDefaults",
+    "projectCodeInfoMaps",
     "sectionChildren",
     "sectionConfigCol",
     "sectionConfigs",
