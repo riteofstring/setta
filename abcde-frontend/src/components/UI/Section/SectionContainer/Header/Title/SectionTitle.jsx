@@ -15,7 +15,30 @@ export default function SectionTitle({
   inputProps,
   isList,
 }) {
-  const { name: sectionName } = useGetSectionInfo(sectionId);
+  const [sectionName] = useGetSectionInfo(sectionId, ["name"]);
+
+  if (!isList) {
+    return (
+      <EditableTitle
+        sectionId={sectionId}
+        sectionName={sectionName}
+        editableProps={editableProps}
+        inputProps={inputProps}
+      />
+    );
+  }
+  return <ListTitle sectionName={sectionName} />;
+}
+
+function ListTitle({ sectionName }) {
+  return (
+    <Text fontWeight="100" color="gray.400" as="i" userSelect="none">
+      {sectionName}
+    </Text>
+  );
+}
+
+function EditableTitle({ sectionId, sectionName, editableProps, inputProps }) {
   const setSectionInfoAttr = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttr
   );
@@ -31,35 +54,6 @@ export default function SectionTitle({
     (v) => !siblingNames.has(v)
   );
 
-  if (!isList) {
-    return (
-      <EditableTitle
-        inputValue={inputValue}
-        setInputValue={setInputValue}
-        onSubmit={onSubmit}
-        editableProps={editableProps}
-        inputProps={inputProps}
-      />
-    );
-  }
-  return <ListTitle inputValue={inputValue} />;
-}
-
-function ListTitle({ inputValue }) {
-  return (
-    <Text fontWeight="100" color="gray.400" as="i" userSelect="none">
-      {inputValue}
-    </Text>
-  );
-}
-
-function EditableTitle({
-  inputValue,
-  setInputValue,
-  onSubmit,
-  editableProps,
-  inputProps,
-}) {
   return (
     <Editable
       value={inputValue}

@@ -75,6 +75,9 @@ const sectionInfos = {
   setCurrChildren: action((state, payload) => {
     const { sectionId, currChildren } = payload;
     state.currChildren[sectionId] = currChildren;
+    for (let idx = 0; idx < currChildren.length; idx++) {
+      state.x[currChildren[idx]].name = `[${idx}]`;
+    }
   }),
 
   deleteSections: thunk((action, payload, helpers) => {

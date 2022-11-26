@@ -39,7 +39,7 @@ function SectionConfig() {
     (x) => x.thunks.setSectionUITypeConfig
   );
 
-  const { parentId } = useGetSectionInfo(sectionId);
+  const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
   const currUIType = useGetSectionType(sectionId);
   const currTypeId = currUIType.id;
 
