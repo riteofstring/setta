@@ -4,6 +4,8 @@ import { AppModule } from 'src/app.module';
 import * as request from 'supertest';
 import { loadAllProjects, loadSpecificTestData } from '../utils';
 
+const TEST_USER = '25961114-6655-4e2c-b70f-e2e3aaa84131';
+
 describe('ProjectsService', () => {
   let app: INestApplication;
   let access_token: string;
@@ -11,7 +13,7 @@ describe('ProjectsService', () => {
 
   beforeAll(async () => {
     const allUsers = await loadSpecificTestData({ name: 'Users' });
-    testUser = allUsers['25961114-6655-4e2c-b70f-e2e3aaa84131'];
+    testUser = allUsers[TEST_USER];
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -53,7 +55,9 @@ describe('ProjectsService', () => {
 
     // TODO: figure out globalDefaults and projectDefaults
     const { ...theRest } = retrieved;
-    const { globalDefaults, projectDefaults, ...correctRest } = correctOutput;
+    const { projectDefaults, ...correctRest } = correctOutput;
+    correctOutput['userCodeInfoMaps'] =
+      correctOutput['userCodeInfoMaps'][TEST_USER];
 
     // expect(theRest.project).toEqual(correctRest.project);
     // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);

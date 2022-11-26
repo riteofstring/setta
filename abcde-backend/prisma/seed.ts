@@ -53,10 +53,10 @@ async function seedProjects() {
 
 async function seedUserCodeInfoMaps() {
   const users = await loadSpecificTestData({ name: 'Users' });
-  const data = await loadSpecificTestData({ name: 'UserCodeInfoTypeMaps' });
+  const data = await loadSpecificTestData({ name: 'UserCodeInfoMaps' });
   console.log('seedUserCodeInfoMaps');
   for (const user of _.values(users)) {
-    const usersMaps = data[user.id];
+    const usersMaps = data[user.id].codeInfoTypeMaps;
     await saveUserCodeInfoTypeMaps(prisma, user, usersMaps);
   }
   console.log('done');

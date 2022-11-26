@@ -1,3 +1,4 @@
+import { PrismaClient } from '@prisma/client';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 import _ = require('lodash');
 
@@ -239,4 +240,23 @@ export function reshapeOriginInfoId(uiType) {
     (x) => delete uiType[x],
   );
   return uiType;
+}
+
+export async function getUserCodeInfoMaps(prisma: PrismaClient, ownerId) {
+  const codeInfoMaps = await prisma.userCodeInfoMap.findMany({
+    where: { ownerId },
+    select: { codeInfoId: true, uiTypeId: true },
+  });
+  const codeInfoTypeMaps = await prisma.userCodeInfoTypeMap.findMany({
+    where: { ownerId },
+    select: { type: true, uiTypeId: true },
+  });
+  return {
+    codeInfoMaps: reshapeCodeInfoMap(codeInfoMaps),
+    codeInfoTypeMaps: reshapeCodeInfoMap(codeInfoTypeMaps),
+  };
+}
+
+function reshapeCodeInfoMap(x) {
+  return _.mapValues(_.keyBy(x, 'type'), (y) => ({ uiTypeId: y.uiTypeId }));
 }

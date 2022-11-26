@@ -8,6 +8,7 @@ import {
   getProjectConfig,
   getSectionConfigs,
   getSections,
+  getUserCodeInfoMaps,
 } from './loadingFunctions';
 import {
   createProject,
@@ -87,6 +88,7 @@ export class ProjectsService {
       sectionUITypes,
       kwargCols,
     );
+    const userCodeInfoMaps = await getUserCodeInfoMaps(this.prisma, user.id);
 
     // put top-level initialPosition into sections
     _.merge(sections, sectionPositions);
@@ -104,6 +106,7 @@ export class ProjectsService {
       uiTypes: { ...baseUITypes, ...presetUITypes, ...sectionUITypes },
       uiTypeCols,
       codeInfo,
+      userCodeInfoMaps,
     };
   }
 }
