@@ -116,7 +116,7 @@ export default function PaneContainer(props) {
             {props.children}
             <Button
               tailwindClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
-              tabindex="-1"
+              tabIndex="-1"
               onClick={uiToggle}
             >
               {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
