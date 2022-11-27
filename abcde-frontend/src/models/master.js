@@ -1,5 +1,4 @@
 import { thunk } from "easy-peasy";
-import { exportSelected } from "utils/exportSelected";
 
 const master = {
   loadSections: thunk((action, payload, helpers) => {
@@ -39,10 +38,6 @@ const master = {
       sectionChildren,
     });
     a.sectionConfigs.resetAndSetAll(sectionConfigs);
-  }),
-
-  exportSelected: thunk((action, payload, helpers) => {
-    return exportSelected(helpers.getStoreState());
   }),
 };
 
