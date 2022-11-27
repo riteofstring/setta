@@ -1,8 +1,8 @@
-import { ChevronDownIcon } from "@chakra-ui/icons";
-import { Button, ButtonGroup, Icon, IconButton } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
+import { BiChevronDown } from "react-icons/bi";
 import { RiPlayMiniFill } from "react-icons/ri";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { createNewId } from "utils/utils";
 
@@ -22,17 +22,13 @@ export default function RunButton() {
   };
 
   return (
-    <ButtonGroup variant="outline" size="xs" isAttached mr=".25rem">
+    <>
       <PopoverWrapper
         trigger={
-          <Button
-            bg="whiteAlpha"
-            leftIcon={<Icon as={RiPlayMiniFill} />}
-            mr="-px"
-            onClick={runExport}
-          >
+          <MenuBarButton onClick={runExport}>
+            <RiPlayMiniFill />
             Generate
-          </Button>
+          </MenuBarButton>
         }
         body={command}
         header={description}
@@ -40,16 +36,14 @@ export default function RunButton() {
       />
       <PopoverWrapper
         trigger={
-          <IconButton
-            bg="whiteAlpha"
-            aria-label="Run Options"
-            icon={<ChevronDownIcon />}
-          />
+          <MenuBarButton aria-label="Run Options">
+            <BiChevronDown />
+          </MenuBarButton>
         }
         body={"Options..."}
         header={"Generate Options"}
         closeButton={true}
       />
-    </ButtonGroup>
+    </>
   );
 }

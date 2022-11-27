@@ -1,17 +1,5 @@
-import { Button } from "@chakra-ui/react";
+import Button from "utils/atoms/buttons/Button";
 
 export default function ExportSelectedButton({ buttonText }) {
-  return (
-    <>
-      <Button
-        size="xs"
-        mr="-px"
-        onClick={convertAndOpen}
-        variant="ghost"
-        colorScheme="blue"
-      >
-        {buttonText}
-      </Button>
-    </>
-  );
+  return <Button onClick={convertAndOpen}>{buttonText}</Button>;
 }
