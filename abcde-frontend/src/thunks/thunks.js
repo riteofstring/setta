@@ -18,11 +18,7 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "./save";
-import {
-  createDefaultSectionInfo,
-  setCurrChildren,
-  setSectionConfigAttr,
-} from "./sections";
+import { createDefaultSectionInfo, setSectionConfigAttr } from "./sections";
 import {
   setParamUITypeConfig,
   setParamUITypeId,
@@ -42,7 +38,6 @@ export default {
   setSectionUITypeId,
   setSectionConfigAttr,
   setSectionUITypeConfig,
-  setCurrChildren,
   setParamUITypeConfig,
   setUITypeConfigAndMaybeClone,
   addToDeck,

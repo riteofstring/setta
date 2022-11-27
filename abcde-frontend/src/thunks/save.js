@@ -4,21 +4,33 @@ import {
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
+import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
 export function getProjectData(s) {
-  const project = s.project;
-  const projectConfig = s.projectConfig;
+  const project = _.pick(s.project, [
+    "id",
+    "name",
+    "ownerId",
+    "defaultConfigId",
+  ]);
+  const projectConfig = _.pick(s.projectConfig, [
+    "id",
+    "name",
+    "sectionConfigCol",
+    "childrenId",
+  ]);
+  projectConfig.children = topLevelSectionInfo(s.sectionInfos.x).map(
+    (x) => x.id
+  );
 
   const ev = _.mapValues(s.enteredValues.x, (v) =>
     _.pick(v, ["value", "childId"])
   );
   const evCols = s.paramInfos.x;
-  let uiTypes = _.pickBy(s.uiTypes.x, (v) => v.presetType !== BASE);
-  // The purpose of Object.fromEntries(Object.entries(...)))
-  // is to get rid of class methods
+  let uiTypes = _.pickBy(s.uiTypes.x, (v) => !v.presetType);
   uiTypes = _.mapValues(uiTypes, (v) =>
     _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
   );
@@ -37,7 +49,7 @@ export function getProjectData(s) {
     ])
   );
 
-  const sectionChildren = s.sectionInfos.allChildren;
+  const sectionChildren = s.sectionInfos.idsOverview;
   const sectionConfigs = _.mapValues(s.sectionConfigs.x, (v) =>
     Object.fromEntries(Object.entries(v))
   );
@@ -128,7 +140,7 @@ function assembleKwargInfos(s, kwargCols) {
   for (const kwargColId of _.keys(kwargCols)) {
     for (const objInfoId of _.keys(kwargCols[kwargColId])) {
       for (const kwargId of kwargCols[kwargColId][objInfoId]) {
-        kwargInfos[kwargId] = s.codeInfo.allCodeInfo[kwargId];
+        kwargInfos[kwargId] = s.codeInfo.allObjInfo[kwargId];
       }
     }
   }

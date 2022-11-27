@@ -1,19 +1,20 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 
-export function useGetSectionTypeConfig(sectionId, props) {
-  const [uiTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
-  return useStoreState(
-    (x) => props.map((y) => x.uiTypes.x[uiTypeId]?.["config"]?.[y]),
-    _.isEqual
-  );
+export function useGetSectionTypeConfig(sectionId) {
+  const sectionType = useGetSectionType(sectionId);
+  if (_.isEmpty(sectionType)) {
+    return {};
+  }
+  return sectionType.config;
 }
 
-export function useGetSectionType(sectionId, props) {
-  const [uiTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
-  return useStoreState(
-    (x) => props.map((y) => x.uiTypes.x[uiTypeId]?.[y]),
-    _.isEqual
+export function useGetSectionType(sectionId) {
+  const uiTypeId = useGetSectionConfig(sectionId).uiTypeId;
+  return defaultState(
+    useStoreState((x) => x.uiTypes.x[uiTypeId]),
+    () => ({})
   );
 }

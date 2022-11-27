@@ -1,5 +1,5 @@
 import { useStoreActions } from "easy-peasy";
-import { useGetParamUIType } from "hooks/useParamUIType";
+import { useGetParamUIType } from "hooks/useParamInfo";
 import { useEffect } from "react";
 import { requiresNestedSection } from "utils/constants";
 import KwargParam from "./ParamSwitchOptions/KwargParam";

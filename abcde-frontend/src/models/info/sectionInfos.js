@@ -2,48 +2,45 @@ import { SectionInfo } from "classes/mutableInfo";
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
-import { getSectionType } from "thunks/sections";
-import {
-  isListRoot,
-  isRoot,
-  PANEID,
-  rootTypeToChildSubType,
-} from "utils/constants";
+import { getSectionType, getSectionTypeConfig } from "thunks/sections";
+import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
 import { REF_ID } from "utils/uiTypeConstants";
 
-function setDefaultAllChildren(state, sectionId) {
-  if (!(sectionId in state.allChildren)) {
-    state.allChildren[sectionId] = [];
+function setDefaultIdsOverview(state, sectionId) {
+  if (!(sectionId in state.idsOverview)) {
+    state.idsOverview[sectionId] = [];
   }
-  return state.allChildren[sectionId];
+  return state.idsOverview[sectionId];
 }
 
 function getInitialState() {
-  return { x: {}, allChildren: {}, currChildren: {} };
+  return { x: {}, idsOverview: {}, currChildren: {} };
 }
 
 const sectionInfos = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
-    const { sections, sectionConfigCol, sectionChildren } = payload;
+    const { sections, sectionConfigCol, sectionChildren, topLevelIds } =
+      payload;
     const sectionInfos = _.mapValues(sections, (x) => {
       const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
       const y = new SectionInfo({
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],
+        isTopLevel: topLevelIds.includes(x.id),
       });
       return y;
     });
 
     actions.reset();
-    actions.setAll({ x: sectionInfos, allChildren: sectionChildren });
+    actions.setAll({ x: sectionInfos, idsOverview: sectionChildren });
   }),
 
   setAll: action((state, payload) => {
     state.x = payload.x;
-    state.allChildren = payload.allChildren;
+    state.idsOverview = payload.idsOverview;
   }),
 
   setSectionInfo: action((state, payload) => {
@@ -69,20 +66,10 @@ const sectionInfos = {
     }
   }),
 
-  setAllChildren: action((state, payload) => {
+  setIdsOverview: action((state, payload) => {
     const { sectionId, newStateFn } = payload;
-    const currState = setDefaultAllChildren(state, sectionId);
-    state.allChildren[sectionId] = newStateFn(currState);
-  }),
-
-  setCurrChildrenNames: action((state, payload) => {
-    const { currChildren, sectionType } = payload;
-
-    if (isListRoot(sectionType.type)) {
-      for (let idx = 0; idx < currChildren.length; idx++) {
-        state.x[currChildren[idx]].name = `[${idx}]`;
-      }
-    }
+    const currState = setDefaultIdsOverview(state, sectionId);
+    state.idsOverview[sectionId] = newStateFn(currState);
   }),
 
   setCurrChildren: action((state, payload) => {
@@ -90,17 +77,9 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
-  removeSectionInfos: action((state, payload) => {
-    payload.forEach((y) => {
-      delete state.x[y];
-      delete state.allChildren[y];
-      delete state.currChildren[y];
-    });
-  }),
-
-  deleteSections: thunk((actions, payload, helpers) => {
+  deleteSections: thunk((action, payload, helpers) => {
     const { sectionIds } = payload;
-    for (const sid of sectionIds) {
+    for (let sid of sectionIds) {
       deleteSectionFn(helpers, sid);
     }
   }),
@@ -126,7 +105,7 @@ const sectionInfos = {
       newParentId,
       sectionId,
       newIndex,
-      actions: a,
+      actions,
     });
 
     if (newParentId === PANEID && position) {
@@ -148,24 +127,19 @@ const sectionInfos = {
 export default sectionInfos;
 
 function deleteSectionFn(helpers, sectionId) {
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-  const allChildren = helpers.getState().allChildren;
-  const idsToDelete = [sectionId];
-  let idx = 0;
-  while (idx < idsToDelete.length) {
-    const currChildren = allChildren[idsToDelete[idx]];
-    if (currChildren) {
-      idsToDelete.push(...currChildren);
+  const localState = helpers.getState();
+  const childIds = localState.idsOverview[sectionId];
+  if (childIds) {
+    for (let child of childIds) {
+      deleteSectionFn(helpers, child);
     }
-    idx += 1;
   }
-
-  if (idsToDelete.includes(s.activeSection.id)) {
-    a.activeSection.setId(null);
+  if (helpers.getStoreState().activeSection.id === sectionId) {
+    helpers.getStoreActions().activeSection.setId(null);
   }
-  a.sectionInfos.removeSectionInfos(idsToDelete);
-  a.projectConfig.deleteChildren(idsToDelete);
+  delete localState.x[sectionId];
+  delete localState.idsOverview[sectionId];
+  delete localState.currChildren[sectionId];
 }
 
 function setSectionAttrBasedOnNewParent({
@@ -177,20 +151,28 @@ function setSectionAttrBasedOnNewParent({
 }) {
   // Remove child from old parent's list
   if (oldParentId) {
-    actions.sectionInfos.setAllChildren({
+    actions.setIdsOverview({
       sectionId: oldParentId,
       newStateFn: (x) => x.filter((y) => y !== sectionId),
     });
   } else {
     // This means it was a top level section
-    actions.projectConfig.deleteChildren([sectionId]);
+    actions.setSectionInfoAttr({
+      sectionId,
+      attr: "isTopLevel",
+      value: false,
+    });
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    actions.projectConfig.addChildren([sectionId]);
+    actions.setSectionInfoAttr({
+      sectionId,
+      attr: "isTopLevel",
+      value: true,
+    });
   } else {
     // Add child to new parent's list
-    actions.sectionInfos.setAllChildren({
+    actions.setIdsOverview({
       sectionId: newParentId,
       newStateFn: (x) => [
         ...x.slice(0, newIndex),
@@ -201,7 +183,7 @@ function setSectionAttrBasedOnNewParent({
   }
 
   // Set sectionInfo's parentId
-  actions.sectionInfos.setSectionInfoAttr({
+  actions.setSectionInfoAttr({
     sectionId,
     attr: "parentId",
     value: newParentId === PANEID ? undefined : newParentId,
@@ -211,16 +193,19 @@ function setSectionAttrBasedOnNewParent({
 function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(state, newParentId);
+  const sectionUITypeConfig = getSectionTypeConfig(state, sectionId);
   const parentIsRoot = isRoot(newParentUIType?.type);
+  const sectionIsListLike = isListLike(sectionUITypeConfig.subType);
 
-  let configProps = null;
-  if (parentIsRoot) {
-    configProps = {
-      configName: "subType",
-      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
-    };
-  } else {
-    configProps = { configName: "subType", newValueFn: () => null };
+  let configProps = {
+    configName: "subType",
+    newValueFn: (x) => x,
+  };
+
+  if (parentIsRoot && !sectionIsListLike) {
+    configProps = { ...configProps, newValueFn: () => LIST };
+  } else if (!parentIsRoot && sectionIsListLike) {
+    configProps = { ...configProps, newValueFn: () => null };
   }
 
   actions.thunks.setSectionUITypeConfig({ sectionId, configProps });

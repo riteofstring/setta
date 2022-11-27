@@ -11,11 +11,10 @@ const PROJECT_CONFIG_NAMES = {
 };
 const IN_MEM_PROJECTS = {};
 const IN_MEM_PROJECT_CONFIGS = {};
-const DEFAULT_USER_ID = "25961114-6655-4e2c-b70f-e2e3aaa84131";
 
 export async function loadGlobalData({ forNode }) {
   const output = {};
-  for (const k of ["baseUITypes", "userCodeInfoMaps", "presetUITypes"]) {
+  for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
     output[k] = await loadSpecificTestData({ name: k, forNode });
   }
   return output;
@@ -29,16 +28,12 @@ export async function loadProjectSpecificData({
 }) {
   const output = {};
   for (const k of [
-    "allCodeInfo",
-    "allCollections",
-    "callables",
-    "params",
-    "paramCollections",
+    "codeInfo",
     "ev",
     "evCols",
     "kwargCols",
     "kwargInfo",
-    "projectConfigCodeInfoMaps",
+    "projectDefaults",
     "sectionChildren",
     "sectionConfigCol",
     "sectionConfigs",
@@ -64,6 +59,7 @@ export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
   forNode = false,
+  forSeeding = false,
   forSavingToBackend = false,
 }) {
   const loaded = await loadOneProjectMetadata({
@@ -79,39 +75,37 @@ export async function loadOneProject({
   );
 
   const {
-    allCodeInfo,
-    allCollections,
-    callables,
-    params,
-    paramCollections,
+    codeInfo,
     kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
-    userCodeInfoMaps,
     ...theRest
   } = loaded;
 
-  if (forSavingToBackend) {
-    // For saving a project, we don't need base uitypes
+  const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
+  if (forSeeding) {
+    // For seeding a project we need kwargInfo
+    // instead of both kwargInfo and codeInfo
     return {
       kwargInfo,
-      uiTypes: { ...uiTypes, ...presetUITypes },
+      uiTypes: _uiTypes,
+      ...theRest,
+    };
+  } else if (forSavingToBackend) {
+    // For saving a project, we don't need preset or base uitypes
+    return {
+      kwargInfo,
+      uiTypes,
       ...theRest,
     };
   } else {
     // This means we're testing the frontend, so we need everything
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      allCollections,
-      callables,
-      params,
-      paramCollections,
-    };
+    const _codeInfo = { ...codeInfo, ...kwargInfo };
     return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
+      codeInfo: _codeInfo,
+      uiTypes: _uiTypes,
       ...theRest,
     };
   }
@@ -137,10 +131,7 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadAllProjects({
-  forNode = false,
-  forSavingToBackend = false,
-}) {
+export async function loadAllProjects({ forNode = false, forSeeding = false }) {
   const output = [];
   for (const type of ["inFile", "inMem"]) {
     for (const p of PROJECT_NAMES[type]) {
@@ -150,7 +141,7 @@ export async function loadAllProjects({
             projectName: p,
             subFolderName,
             forNode,
-            forSavingToBackend,
+            forSeeding,
           })
         );
       }
@@ -240,6 +231,7 @@ export function createInMemProject(name) {
   const project = {
     id: fakeId,
     name,
+    ownerId: fakeId,
     defaultConfigId: fakeId,
   };
 

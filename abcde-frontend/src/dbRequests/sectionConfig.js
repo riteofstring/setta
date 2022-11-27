@@ -7,9 +7,6 @@ import {
 } from "./noAuth/sectionConfig";
 
 function searchCollectionsInMemory({ allCollections, searchTerm }) {
-  if (!searchTerm) {
-    return allCollections;
-  }
   return _.pickBy(allCollections, (x) => x.name.includes(searchTerm));
 }
 
@@ -22,17 +19,19 @@ export async function getCollectionsAndModules({ allCollections, searchTerm }) {
     });
   }
 
-  return axios
+  const searchResults = axios
     .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
     .then((res) => {
-      return {
-        ...res.data,
-        ...searchCollectionsInMemory({ allCollections, searchTerm }),
-      };
+      return res.data;
     })
     .catch(() => {
       return {};
     });
+
+  return {
+    ...searchResults,
+    ...searchCollectionsInMemory({ allCollections, searchTerm }),
+  };
 }
 
 export async function getCollectionDetails(id) {

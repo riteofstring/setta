@@ -21,8 +21,8 @@ export function getSectionByName(store, name) {
   return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
 }
 
-function getParamCollectionParamInfoByName(allCodeInfo, paramCollection, name) {
-  const childrenInfo = paramCollection.children.map((x) => allCodeInfo[x]);
+function getParamCollectionParamInfoByName(allObjInfo, paramCollection, name) {
+  const childrenInfo = paramCollection.children.map((x) => allObjInfo[x]);
   return _.filter(childrenInfo, (v) => v.name === name)[0];
 }
 
@@ -36,17 +36,17 @@ export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
   const { uiTypeId: sectionTypeId } =
     store.getState().sectionConfigs.x[configId];
   // get sectionType
-  ({ result } = renderUseGetSectionType(sectionId, ["id", "config"], wrapper));
-  expect(result.current[0]).toEqual(sectionTypeId);
-  const evColId = result.current[1].collections[0];
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
+  expect(result.current.id).toEqual(sectionTypeId);
+  const evColId = result.current.config.collections[0];
 
   // get the param collection that the section contains
-  const allCodeInfo = store.getState().codeInfo.allCodeInfo;
-  const variousParams = allCodeInfo[evColId];
+  const allObjInfo = store.getState().codeInfo.allObjInfo;
+  const variousParams = allObjInfo[evColId];
 
   // get the parameter we are going to test on
   const paramInfo = getParamCollectionParamInfoByName(
-    allCodeInfo,
+    allObjInfo,
     variousParams,
     paramName
   );

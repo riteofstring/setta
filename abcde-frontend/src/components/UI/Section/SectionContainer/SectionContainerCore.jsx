@@ -4,7 +4,12 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import React, { useState } from "react";
-import { isRoot, isSeriesElement, SECTIONWIDTH } from "utils/constants";
+import {
+  isListLike,
+  isRoot,
+  requiresKeyInput,
+  SECTIONWIDTH,
+} from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
   KwargGroupContainer,
@@ -14,13 +19,10 @@ import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
-  const [sectionTypeName, config] = useGetSectionType(sectionId, [
-    "type",
-    "config",
-  ]);
-  const _isSeriesElement = isSeriesElement(config.subType);
-  const _isRoot = isRoot(sectionTypeName);
+  const { selectedItem } = useGetSectionConfig(sectionId);
+  const { type: sectionTypeName, config } = useGetSectionType(sectionId);
+  const isList = isListLike(config.subType);
+  const isListRoot = isRoot(sectionTypeName);
   const setSectionConfigAttr = useStoreActions(
     (x) => x.thunks.setSectionConfigAttr
   );
@@ -79,11 +81,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             sectionId={sectionId}
             parentId={parentId}
             nextId={nextId}
-            isSeriesElement={_isSeriesElement}
-            isRoot={_isRoot}
+            isList={isList}
+            isListRoot={isListRoot}
             hasNested={hasNested}
+            requiresKeyInput={requiresKeyInput(config.subType)}
           />
-          {!_isRoot && (
+          {!isListRoot && (
             <Stack>
               <SectionSearch
                 sectionId={sectionId}
