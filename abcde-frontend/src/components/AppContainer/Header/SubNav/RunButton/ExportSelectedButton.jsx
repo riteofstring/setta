@@ -1,33 +1,6 @@
-import { Button, useDisclosure } from "@chakra-ui/react";
-import { useState } from "react";
+import { Button } from "@chakra-ui/react";
 
-import ExportSelectedModal from "./ExportSelectedModal";
-
-// const yaml = require("js-yaml");
-
-export default function ExportSelectedButton({
-  exportSelected,
-  outputAs,
-  buttonText,
-}) {
-  const { isOpen, onOpen, onClose } = useDisclosure();
-
-  const [selectedAsString, setSelectedAsString] = useState("");
-
-  function convertAndOpen() {
-    const selected = exportSelected();
-    let asString = null;
-    if (outputAs === "json") {
-      asString = JSON.stringify(selected, null, 2);
-    } else if (outputAs === "yaml") {
-      asString = yaml.dump(selected);
-    } else if (outputAs === "code") {
-      // asString = generateCode(selected);
-    }
-    setSelectedAsString(asString);
-    onOpen();
-  }
-
+export default function ExportSelectedButton({ buttonText }) {
   return (
     <>
       <Button
@@ -39,11 +12,6 @@ export default function ExportSelectedButton({
       >
         {buttonText}
       </Button>
-      <ExportSelectedModal
-        isOpen={isOpen}
-        onClose={onClose}
-        selectedAsString={selectedAsString}
-      />
     </>
   );
 }
