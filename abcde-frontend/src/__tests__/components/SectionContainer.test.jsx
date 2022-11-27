@@ -1,20 +1,26 @@
-import { screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import MainContainer from "components/AppContainer/Main/MainContainer";
 import { SECTION } from "utils/constants";
-import { createMainContainer } from "__tests__utils/createMainContainer";
 import {
   renderUseGetParamChildId,
   renderUseGetParamUIType,
 } from "__tests__utils/renderHooks";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { getParameterToTestOn, sectionIdFromName } from "__tests__utils/utils";
+import {
+  createStoreWrapperWithData,
+  getParameterToTestOn,
+  sectionIdFromName,
+} from "__tests__utils/utils";
 
 global.ResizeObserver = ResizeObserver;
 
 test("A nested section should appear when a parameter uitype becomes section", async () => {
-  const { store, wrapper } = await createMainContainer();
+  const { store, wrapper } = await createStoreWrapperWithData();
   const sectionName = "The2ndOtherParameters";
   const sectionId = sectionIdFromName(store, sectionName);
+  const props = { sectionId, parentId: null, depth: 0 };
+  render(<MainContainer {...props} />, { wrapper });
 
   const {
     paramInfo: { id: paramInfoId },

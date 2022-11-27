@@ -10,12 +10,15 @@ import {
   Text,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { login } from "dbRequests/authentication.js";
 import { useStoreActions } from "easy-peasy";
 import { useFormik } from "formik";
 import React, { useState } from "react";
 
 const LoginPage = () => {
-  const login = useStoreActions((x) => x.thunks.login);
+  const actionLoginSuccess = useStoreActions((x) => x.auth.loginSuccess);
+  const actionLoginFail = useStoreActions((x) => x.auth.loginFail);
+
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
 
@@ -26,7 +29,12 @@ const LoginPage = () => {
         password: "",
       },
       onSubmit: ({ username, password }) => {
-        login({ username, password });
+        login({
+          username,
+          password,
+          actionLoginSuccess,
+          actionLoginFail,
+        });
       },
     });
 

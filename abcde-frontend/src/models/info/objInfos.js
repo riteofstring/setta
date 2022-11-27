@@ -1,4 +1,4 @@
-import { action, thunk } from "easy-peasy";
+import { action } from "easy-peasy";
 import { resetState } from "models/utils";
 import { setToDefault } from "./utils";
 
@@ -9,12 +9,7 @@ function getInitialState() {
 const objInfos = {
   ...getInitialState(),
 
-  resetAndSetAll: thunk((actions, payload) => {
-    actions.reset();
-    actions.setAll(payload);
-  }),
-
-  setAll: action((state, payload) => {
+  setAllKwargIds: action((state, payload) => {
     state.x = payload;
   }),
 

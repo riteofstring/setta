@@ -1,3 +1,5 @@
+import { getFullObjPath } from "classes/immutableInfo";
+import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
 import { DECK, isRoot, LIST_ROOT } from "./constants";
@@ -36,7 +38,7 @@ function multipleParamInfoExportSelected(
 function paramCollectionExportSelected(
   sectionId,
   sectionType,
-  allCodeInfo,
+  allObjInfo,
   paramCollections,
   evColId,
   state
@@ -52,7 +54,7 @@ function paramCollectionExportSelected(
   }
   return multipleParamInfoExportSelected(
     sectionId,
-    currParamCollections.map((x) => allCodeInfo[x.id]),
+    currParamCollections.map((x) => allObjInfo[x.id]),
     evColId,
     state
   );
@@ -69,22 +71,23 @@ function kwargsExportSelected(
   if (!kwargIds) {
     return {};
   }
-  const kwargInfos = kwargIds.map((y) => state.codeInfo.allCodeInfo[y]);
+  const kwargInfos = kwargIds.map((y) => state.codeInfo.allObjInfo[y]);
   return multipleParamInfoExportSelected(sectionId, kwargInfos, evColId, state);
 }
 
 function objInfoExportSelected(sectionId, objInfo, evColId, state) {
+  const { path: fullObjPath } = getFullObjPath(objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
-    objInfo.children.map((x) => state.codeInfo.allCodeInfo[x]),
+    objInfo.children.map((x) => state.codeInfo.allObjInfo[x]),
     evColId,
     state
   );
-  return { [objPrefix(objInfo.path)]: output };
+  return { [objPrefix(fullObjPath)]: output };
 }
 
 function sectionExportSelected(section, state) {
-  const { allCodeInfo, paramCollections } = state.codeInfo;
+  const { allObjInfo, paramCollections } = state.codeInfo;
   const { id: sectionId, configId } = section;
   const { selectedItem, uiTypeId, evColId, kwargColId } =
     state.sectionConfigs.x[configId];
@@ -98,7 +101,7 @@ function sectionExportSelected(section, state) {
   const nonObjParams = paramCollectionExportSelected(
     sectionId,
     sectionType,
-    allCodeInfo,
+    allObjInfo,
     paramCollections,
     evColId,
     state
@@ -116,7 +119,7 @@ function sectionExportSelected(section, state) {
   if (selectedItem) {
     const objParams = objInfoExportSelected(
       sectionId,
-      allCodeInfo[selectedItem],
+      allObjInfo[selectedItem],
       evColId,
       state
     );
@@ -167,7 +170,9 @@ function multipleSectionExportSelected(children, sectionType, state) {
 }
 
 export function exportSelected(state) {
-  const topLevelSectionIds = state.projectConfig.children;
+  const topLevelSectionIds = topLevelSectionInfo(state.sectionInfos.x).map(
+    (x) => x.id
+  );
   return multipleSectionExportSelected(topLevelSectionIds, null, state);
 }
 

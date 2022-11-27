@@ -11,9 +11,8 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useStoreActions, useStoreState } from "easy-peasy";
-import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
-import { useGetParamUIType } from "hooks/useParamUIType";
+import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";

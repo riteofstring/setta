@@ -1,23 +1,23 @@
 import { action, createStore } from "easy-peasy";
 import activeSection from "models/activeSection";
 import auth from "models/auth";
-import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
-import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
 import currPage from "models/currPage";
+import globalParamDefaults from "models/globalDefaults/globalParamDefaults";
 import codeInfo from "models/info/codeInfo";
 import enteredValues from "models/info/enteredValues";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
 import project from "models/info/project";
 import projectConfig from "models/info/projectConfig";
-import projectToLoad from "models/info/projectToLoad";
 import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
 import panes from "models/panes";
+import projectParamDefaults from "models/projectDefaults/projectParamDefaults";
 import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
+import userSettings from "models/userSettings";
 import thunks from "thunks/thunks";
 
 const store = createStore({
@@ -32,13 +32,13 @@ const store = createStore({
   paramInfos: paramInfos,
   enteredValues: enteredValues,
   uiTypes: uiTypes,
-  userCodeInfoMaps: userCodeInfoMaps,
+  userSettings: userSettings,
   uiEditor: uiEditor,
-  projectConfigCodeInfoMaps: projectConfigCodeInfoMaps,
+  projectParamDefaults: projectParamDefaults,
+  globalParamDefaults: globalParamDefaults,
   currPage: currPage,
   project: project,
   projectConfig: projectConfig,
-  projectToLoad: projectToLoad,
   activeSection: activeSection,
   thunks: thunks,
   setState: action((state, payload) => payload),

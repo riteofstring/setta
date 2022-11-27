@@ -2,14 +2,17 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
-import { renderUseGetSectionConfig } from "__tests__utils/renderHooks";
+import {
+  renderUseGetSectionConfig,
+  renderUseGetSectionType,
+} from "__tests__utils/renderHooks";
 import {
   createStoreWrapperWithData,
   sectionIdFromName,
 } from "__tests__utils/utils";
 
 test("Test SectionSearch", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData({});
+  const { store, wrapper } = await createStoreWrapperWithData();
   const sectionId = sectionIdFromName(store, "Optimizer");
   const props = { sectionId, parentId: null, depth: 0 };
 
@@ -18,12 +21,8 @@ test("Test SectionSearch", async () => {
   });
 
   // Expect that this section doesn't have any selection
-  let { result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  );
-  expect(result.current[0]).toEqual(null);
+  let { result } = renderUseGetSectionConfig(sectionId, wrapper);
+  expect(result.current.selectedItem).toEqual(null);
 
   // search box should be empty
   let searchBox = screen.getByRole("textbox");
@@ -36,12 +35,8 @@ test("Test SectionSearch", async () => {
 
   // Expect that the SGD object is now selected
   const idSGD = "0c264e90-eb09-4dfb-bb5b-b357037b2a08";
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
-  expect(result.current[0]).toEqual(idSGD);
+  ({ result } = renderUseGetSectionConfig(sectionId, wrapper));
+  expect(result.current.selectedItem).toEqual(idSGD);
 
   // Get another collection
   const newCollection = _.filter(
@@ -50,6 +45,8 @@ test("Test SectionSearch", async () => {
   )[0];
 
   // Add collection to section
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
+
   await waitFor(() =>
     store.getActions().thunks.setSectionUITypeConfig({
       sectionId,
@@ -66,14 +63,11 @@ test("Test SectionSearch", async () => {
   });
 
   // Expect selectedItem to be unchanged
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
-  expect(result.current[0]).toEqual(idSGD);
+  ({ result } = renderUseGetSectionConfig(sectionId, wrapper));
+  expect(result.current.selectedItem).toEqual(idSGD);
 
   // Make section only have models
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
   await waitFor(() =>
     store.getActions().thunks.setSectionUITypeConfig({
       sectionId,
@@ -90,12 +84,8 @@ test("Test SectionSearch", async () => {
   });
 
   // Expect selectedItem to be null now that its item is no longer available in the combobox
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
-  expect(result.current[0]).toEqual(null);
+  ({ result } = renderUseGetSectionConfig(sectionId, wrapper));
+  expect(result.current.selectedItem).toEqual(null);
 
   // search box should be empty
   searchBox = screen.getByRole("textbox");
@@ -105,9 +95,10 @@ test("Test SectionSearch", async () => {
   await userEvent.type(searchBox, "resnet");
   await userEvent.type(searchBox, "{arrowdown}");
   await userEvent.tab();
-  expect(result.current[0]).toBeTruthy();
+  expect(result.current.selectedItem).toBeTruthy();
 
   // Make section have no searchable items
+  ({ result } = renderUseGetSectionType(sectionId, wrapper));
   await waitFor(() =>
     store.getActions().thunks.setSectionUITypeConfig({
       sectionId,
@@ -124,10 +115,6 @@ test("Test SectionSearch", async () => {
   });
 
   // Expect selectedItem to be null now that its item is no longer available in the combobox
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
-  expect(result.current[0]).toEqual(null);
+  ({ result } = renderUseGetSectionConfig(sectionId, wrapper));
+  expect(result.current.selectedItem).toEqual(null);
 });

@@ -3,6 +3,7 @@ import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
+import { useTopLevelSectionInfo } from "hooks/useSectionInfo";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -22,7 +23,7 @@ export default function Overview() {
     "sectionHeading",
   ]);
 
-  const topLevelSectionIds = useStoreState((x) => x.projectConfig.children);
+  const topLevelSectionIds = useTopLevelSectionInfo().map((x) => x.id);
   const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
   const idNames = useStoreState((x) => x.sectionInfos.idNames);
 

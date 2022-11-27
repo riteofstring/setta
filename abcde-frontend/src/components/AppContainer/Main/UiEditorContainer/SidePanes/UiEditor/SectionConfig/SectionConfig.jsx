@@ -39,11 +39,9 @@ function SectionConfig() {
     (x) => x.thunks.setSectionUITypeConfig
   );
 
-  const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
-  const [currTypeId, savedConfig] = useGetSectionType(sectionId, [
-    "id",
-    "config",
-  ]);
+  const { parentId } = useGetSectionInfo(sectionId);
+  const currUIType = useGetSectionType(sectionId);
+  const currTypeId = currUIType.id;
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
@@ -71,7 +69,7 @@ function SectionConfig() {
         onSectionTypeChange={onSectionTypeChange}
         currTypeId={currTypeId}
         sectionId={sectionId}
-        savedConfig={savedConfig}
+        savedConfig={currUIType.config}
         onConfigChange={onConfigChange}
       />
     </>
@@ -90,8 +88,10 @@ function SectionConfigCore({
   const updateCodeInfos = useStoreActions((x) => x.codeInfo.updateInfos);
 
   async function onSubmit(searchTerm) {
-    const x = await getCollectionsAndModules({ allCollections, searchTerm });
-    setResults(x);
+    if (searchTerm) {
+      const x = await getCollectionsAndModules({ allCollections, searchTerm });
+      setResults(x);
+    }
   }
 
   async function onChange({ newValueFn, id }) {

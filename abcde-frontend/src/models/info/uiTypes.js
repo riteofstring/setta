@@ -1,6 +1,4 @@
-import { UIType } from "classes/uiType";
-import { action, thunk } from "easy-peasy";
-import _ from "lodash";
+import { action } from "easy-peasy";
 import { resetState } from "models/utils";
 
 function getInitialState() {
@@ -10,19 +8,16 @@ function getInitialState() {
 const uiTypes = {
   ...getInitialState(),
 
-  resetAndSetAll: thunk((actions, payload) => {
-    const uiTypes = _.mapValues(payload, (v) => new UIType(v));
-    actions.reset();
-    actions.setAll(uiTypes);
-  }),
-
-  setAll: action((state, payload) => {
-    state.x = payload;
-  }),
-
   setUIType: action((state, payload) => {
     const { uiType } = payload;
     state.x[uiType.id] = uiType;
+  }),
+
+  setManyUITypes: action((state, payload) => {
+    const { uiTypes } = payload;
+    for (let u of uiTypes) {
+      state.x[u.id] = u;
+    }
   }),
 
   setType: action((state, payload) => {

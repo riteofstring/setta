@@ -1,14 +1,16 @@
 import { Input } from "@chakra-ui/react";
 
-export default function FileNameInput({ value, placeholder, onChange }) {
+export default function FileNameInput(props) {
   return (
-    <Input
-      mt="1.25rem"
-      variant="flushed"
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      size="lg"
-    />
+    <>
+      <Input
+        mt="1.25rem"
+        variant="flushed"
+        value={props.value}
+        placeholder={props.placeholder}
+        onChange={(e) => props.onChange(e.target.value)}
+        size="lg"
+      />
+    </>
   );
 }
