@@ -38,7 +38,7 @@ function multipleParamInfoExportSelected(
 function paramCollectionExportSelected(
   sectionId,
   sectionType,
-  allObjInfo,
+  allCodeInfo,
   paramCollections,
   evColId,
   state
@@ -54,7 +54,7 @@ function paramCollectionExportSelected(
   }
   return multipleParamInfoExportSelected(
     sectionId,
-    currParamCollections.map((x) => allObjInfo[x.id]),
+    currParamCollections.map((x) => allCodeInfo[x.id]),
     evColId,
     state
   );
@@ -71,7 +71,7 @@ function kwargsExportSelected(
   if (!kwargIds) {
     return {};
   }
-  const kwargInfos = kwargIds.map((y) => state.codeInfo.allObjInfo[y]);
+  const kwargInfos = kwargIds.map((y) => state.codeInfo.allCodeInfo[y]);
   return multipleParamInfoExportSelected(sectionId, kwargInfos, evColId, state);
 }
 
@@ -79,7 +79,7 @@ function objInfoExportSelected(sectionId, objInfo, evColId, state) {
   const { path: fullObjPath } = getFullObjPath(objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
-    objInfo.children.map((x) => state.codeInfo.allObjInfo[x]),
+    objInfo.children.map((x) => state.codeInfo.allCodeInfo[x]),
     evColId,
     state
   );
@@ -87,7 +87,7 @@ function objInfoExportSelected(sectionId, objInfo, evColId, state) {
 }
 
 function sectionExportSelected(section, state) {
-  const { allObjInfo, paramCollections } = state.codeInfo;
+  const { allCodeInfo, paramCollections } = state.codeInfo;
   const { id: sectionId, configId } = section;
   const { selectedItem, uiTypeId, evColId, kwargColId } =
     state.sectionConfigs.x[configId];
@@ -101,7 +101,7 @@ function sectionExportSelected(section, state) {
   const nonObjParams = paramCollectionExportSelected(
     sectionId,
     sectionType,
-    allObjInfo,
+    allCodeInfo,
     paramCollections,
     evColId,
     state
@@ -119,7 +119,7 @@ function sectionExportSelected(section, state) {
   if (selectedItem) {
     const objParams = objInfoExportSelected(
       sectionId,
-      allObjInfo[selectedItem],
+      allCodeInfo[selectedItem],
       evColId,
       state
     );

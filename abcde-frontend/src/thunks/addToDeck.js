@@ -4,7 +4,7 @@ export const addToDeck = thunk((actions, payload, helpers) => {
   const { deckId, idsToAdd } = payload;
   const a = helpers.getStoreActions();
 
-  a.sectionInfos.setIdsOverview({
+  a.sectionInfos.setAllChildren({
     sectionId: deckId,
     newStateFn: (x) => [...x, ...idsToAdd],
   });

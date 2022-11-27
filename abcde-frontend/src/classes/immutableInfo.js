@@ -1,6 +1,6 @@
 import { maybeNewId } from "utils/utils";
 
-export class ObjInfo {
+export class CodeInfo {
   constructor({
     id,
     name = "",
@@ -24,17 +24,17 @@ export class ObjInfo {
   }
 }
 
-export function getFullObjPath(objInfo, skipLast = 0) {
+export function getFullObjPath(codeInfo, skipLast = 0) {
   if (skipLast === 0) {
-    return { path: objInfo.path, version: objInfo.version };
+    return { path: codeInfo.path, version: codeInfo.version };
   }
-  const numDots = objInfo.path.match(/\./g);
+  const numDots = codeInfo.path.match(/\./g);
   if (!numDots) {
-    return { path: objInfo.path, version: objInfo.version };
+    return { path: codeInfo.path, version: codeInfo.version };
   }
   const regex = new RegExp(`^(?:[^.]*.){${numDots.length - skipLast}}([^.]*)`);
   return {
-    path: objInfo.path.match(regex)[0],
-    version: objInfo.version,
+    path: codeInfo.path.match(regex)[0],
+    version: codeInfo.version,
   };
 }

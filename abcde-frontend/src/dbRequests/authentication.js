@@ -1,5 +1,11 @@
 import axios from "axios";
 import { BACKEND, NO_AUTH } from "utils/constants";
+import {
+  noAuthAccessPage,
+  noAuthLogin,
+  noAuthLogout,
+  noAuthRegister,
+} from "./noAuth/authentication";
 
 export function accessPage({
   address,
@@ -8,9 +14,9 @@ export function accessPage({
   actionLoginFail,
 }) {
   if (NO_AUTH) {
-    actionStayLoggedIn();
-    return true;
+    return noAuthAccessPage({ actionStayLoggedIn });
   }
+
   return axios
     .post(BACKEND + address, null, tokenConfig(access_token))
     .then(() => {
@@ -23,21 +29,18 @@ export function accessPage({
     });
 }
 
-// LOGIN USER
-export const login = ({
+export function login({
   username,
   password,
   actionLoginSuccess,
   actionLoginFail,
-}) => {
+}) {
   if (NO_AUTH) {
-    actionLoginSuccess({ user: "user", access_token: "12345" });
-    return true;
+    return noAuthLogin({ actionLoginSuccess });
   }
 
-  const body = JSON.stringify({ username, password });
   return axios
-    .post(BACKEND + "auth/login", body, tokenConfig(null))
+    .post(BACKEND + "auth/login", { username, password }, tokenConfig(null))
     .then((res) => {
       actionLoginSuccess(res.data);
       return true;
@@ -46,14 +49,13 @@ export const login = ({
       actionLoginFail();
       return false;
     });
-};
+}
 
-// LOGIN USER
-export const logout = ({ actionLoginFail, access_token }) => {
+export function logout({ actionLoginFail, access_token }) {
   if (NO_AUTH) {
-    actionLoginFail(null);
-    return;
+    return noAuthLogout({ actionLoginFail });
   }
+
   axios
     .post(BACKEND + "api/auth/logout", null, tokenConfig(access_token))
     .then(() => {
@@ -62,28 +64,29 @@ export const logout = ({ actionLoginFail, access_token }) => {
     .catch(() => {
       actionLoginFail();
     });
-};
+}
 
-// REGISTER USER
-export const register = ({
+export function register({
   username,
   password,
   actionLoginSuccess,
   actionLoginFail,
-}) => {
-  console.log("attempting register");
-  const body = JSON.stringify({ username, password });
+}) {
+  if (NO_AUTH) {
+    return noAuthRegister({ actionLoginSuccess });
+  }
+
   axios
-    .post(BACKEND + "auth/register", body, tokenConfig(null))
+    .post(BACKEND + "auth/register", { username, password }, tokenConfig(null))
     .then((res) => {
       actionLoginSuccess(res.data);
     })
     .catch(() => {
       actionLoginFail();
     });
-};
+}
 
-export const tokenConfig = (access_token) => {
+export function tokenConfig(access_token) {
   // Headers
   const config = {
     headers: {
@@ -97,4 +100,4 @@ export const tokenConfig = (access_token) => {
   }
 
   return config;
-};
+}

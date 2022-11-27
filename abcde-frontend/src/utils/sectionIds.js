@@ -1,27 +1,27 @@
-export const getOverviewListing = (groups, idsOverview, idNames) => {
+export const getOverviewListing = (groups, currChildren, idNames) => {
   let outputList = [];
   for (let group of groups) {
     outputList.push([]);
     for (let sectionId of group) {
       outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, idsOverview, idNames, 0)
+        ...getOverviewListingHelper(sectionId, currChildren, idNames, 0)
       );
     }
   }
   return outputList;
 };
 
-const getOverviewListingHelper = (sectionId, idsOverview, idNames, depth) => {
+const getOverviewListingHelper = (sectionId, currChildren, idNames, depth) => {
   let outputList = [];
   outputList.push({
     sectionId,
     sectionHeading: idNames[sectionId],
     depth: depth,
   });
-  if (idsOverview[sectionId]) {
-    for (let childId of idsOverview[sectionId]) {
+  if (currChildren[sectionId]) {
+    for (let childId of currChildren[sectionId]) {
       outputList.push(
-        ...getOverviewListingHelper(childId, idsOverview, idNames, depth + 1)
+        ...getOverviewListingHelper(childId, currChildren, idNames, depth + 1)
       );
     }
   }

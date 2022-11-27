@@ -7,10 +7,10 @@ import {
   useGetSectionPosition,
   useRequestSectionPositionUpdate,
 } from "./useGetSectionPosition";
-import { useGetAllChildren } from "./useIdsOverview";
+import { useGetAllChildren } from "./useSectionChildren";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
-  const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
+  const setAllChildren = useStoreActions((x) => x.sectionInfos.setAllChildren);
   const setSectionInfoAttrObjInput = useStoreActions(
     (x) => x.sectionInfos.setSectionInfoAttrObjInput
   );
@@ -22,7 +22,7 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
     _.forEach(coords, function (value, key) {
       newValues[key] = { initialPosition: project(value), isTopLevel: true };
     });
-    setIdsOverview({ sectionId: deckId, newStateFn: () => [] });
+    setAllChildren({ sectionId: deckId, newStateFn: () => [] });
     setSectionInfoAttrObjInput({ newValues });
     deleteSections({ sectionIds: [deckId] });
   }

@@ -1,7 +1,5 @@
-import { render } from "@testing-library/react";
-import MainContainer from "components/AppContainer/Main/MainContainer";
+import { createMainContainer } from "__tests__utils/createMainContainer";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { createStoreWrapperWithData } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
@@ -9,10 +7,7 @@ global.ResizeObserver = ResizeObserver;
 test("export simpleTrainTest", async () => await testExport());
 
 async function testExport() {
-  const { store, wrapper } = await createStoreWrapperWithData();
-  render(<MainContainer />, {
-    wrapper,
-  });
+  const { store } = await createMainContainer();
   const selected = store.getActions().master.exportSelected();
   const correct = {
     "V~Model": {

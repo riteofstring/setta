@@ -82,7 +82,6 @@ export default function PaneContainer(props) {
     : "justify-self-start right-auto left-0";
 
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
-
   if (props && vMin && vMax) {
     return (
       <motion.div

@@ -1,52 +1,46 @@
-import { useDisclosure } from "@chakra-ui/react";
+import { HStack, Input, List, ListItem } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useStoreActions } from "easy-peasy";
-import { useCreateProject, useGetProjects } from "hooks/dbRequests/projects";
+import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
 import Button from "utils/atoms/buttons/Button";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
 import { UI } from "utils/pageNames";
+import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
 function HomePage() {
-  const getProjects = useGetProjects();
-  const [projects, setProjects] = useState({});
-
-  async function fetchData() {
-    setProjects(await getProjects());
-  }
+  const { projects, getProjects, createProject } = useGetOrCreateProjects();
 
   useEffect(() => {
-    fetchData();
+    getProjects();
   }, []);
 
   return (
     <GridWrapper gridProps=" bg-gray-100">
-      <RightColumn projects={projects} setProjects={setProjects} />
+      <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
 }
 
 export default React.memo(HomePage);
 
-function RightColumn({ projects, setProjects }) {
-  const createProject = useCreateProject();
-
-  async function onClick() {
-    const newProject = await createProject({ name: "amazing project" });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
+function RightColumn({ projects, createProject }) {
+  function onClick(name) {
+    createProject({ name });
   }
 
   return (
     <div className="overflow-y-auto">
-      <Button
-        tailwindClasses="py-2 px-4 mt-10 mx-10 rounded-full font-bold text-green-900 bg-green-300 hover:bg-green-400 gap-2"
-        onClick={onClick}
-      >
-        <BiAddToQueue />
-        Create New Project
-      </Button>
+      <PopoverWrapper
+        trigger={
+          <Button tailwindClasses="py-2 px-4 mt-10 mx-10 rounded-full font-bold text-green-900 bg-green-300 hover:bg-green-400 gap-2">
+            <BiAddToQueue />
+            Create New Project
+          </Button>
+        }
+        body={<ProjectNameSetter onClick={onClick} />}
+      />
 
       <div className="grid grid-cols-[repeat(auto-fit,_20rem)] gap-8 pt-7 px-10 justify-items-start">
         {Object.values(projects).map((x, i) => (
@@ -58,19 +52,23 @@ function RightColumn({ projects, setProjects }) {
 }
 
 function ProjectItem({ project }) {
-  const { name, id, configs } = project;
+  const { name, id, configs, defaultConfigId } = project;
   const setCurrPage = useStoreActions((x) => x.currPage.setName);
-  const setCurrProject = useStoreActions((x) => x.project.setId);
+  const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
 
   function onClick() {
     setCurrPage(UI);
-    setCurrProject(id);
+    setProjectToLoad({ id, configId: defaultConfigId });
   }
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
   function onClickConfigsButton(e) {
     e.stopPropagation();
-    onOpen();
+  }
+
+  function onConfigClick(e, configId) {
+    e.stopPropagation();
+    setCurrPage(UI);
+    setProjectToLoad({ id, configId });
   }
 
   return (
@@ -79,14 +77,25 @@ function ProjectItem({ project }) {
       onClick={onClick}
     >
       <div className="grid p-4 bg-gray-300 bg-[url('https://via.placeholder.com/400')] bg-center">
-        <Button
-          tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs [place-self:flex-start_flex-end]"
-          onClick={onClickConfigsButton}
-        >
-          <BiGitBranch />
-          Configs
-        </Button>
-        <ConfigButton onClose={onClose} isOpen={isOpen} configs={configs} />
+        <PopoverWrapper
+          trigger={
+            <Button
+              tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs [place-self:flex-start_flex-end]"
+              onClick={onClickConfigsButton}
+            >
+              <BiGitBranch />
+              Configs
+            </Button>
+          }
+          body={
+            <Body
+              configs={configs}
+              defaultConfigId={defaultConfigId}
+              onClick={onConfigClick}
+            />
+          }
+          header="Configs"
+        />
       </div>
       <div className="p-4 bg-white">
         <h3 className="text-base">{name}</h3>
@@ -101,34 +110,45 @@ function ProjectItem({ project }) {
   );
 }
 
-function ConfigButton({ onClose, isOpen, configs }) {
+function Body({ configs, defaultConfigId, onClick }) {
   return (
-    <ModalContainer
-      onClose={onClose}
-      isOpen={isOpen}
-      size={"4xl"}
-      header={<Header />}
-      overrideFooter={true}
-      body={<Body configs={configs} />}
-      // footer={<Footer />}
-    />
-  );
-}
-
-function Header() {
-  return <h1>Configs</h1>;
-}
-
-function Body({ configs }) {
-  return (
-    <ul>
+    <List>
       {configs.map((x, idx) => (
-        <li key={`Config ${idx}`}>{x.name}</li>
+        <HStack key={`Config ${idx}`} onClick={(e) => onClick(e, x.id)}>
+          <ListItem>{x.name}</ListItem>
+          <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
+        </HStack>
       ))}
-    </ul>
+    </List>
   );
 }
 
-function Footer() {
-  return <div />;
+function ProjectNameSetter({ onClick }) {
+  const [presetName, setPresetName] = useState("");
+
+  function onChange(e) {
+    setPresetName(e.target.value);
+  }
+  function localOnClick() {
+    onClick(presetName);
+  }
+
+  return (
+    <>
+      <Input
+        placeholder="Project Name"
+        onChange={onChange}
+        value={presetName}
+      />
+      <Button onClick={localOnClick}>Create</Button>
+    </>
+  );
+}
+
+export function DefaultConfigBadge({ config, defaultConfigId }) {
+  return (
+    config.id === defaultConfigId && (
+      <Badge tailwindClasses="bg-green-100 text-green-800">Default</Badge>
+    )
+  );
 }
