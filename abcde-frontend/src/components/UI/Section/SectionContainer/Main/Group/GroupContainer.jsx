@@ -1,4 +1,5 @@
 import { Stack, VStack } from "@chakra-ui/react";
+import { useAreAllParamsNested } from "hooks/useParamUIType";
 import {
   useGetAllParamInfos,
   useGetKwargInfos,
@@ -22,18 +23,26 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
 function _KwargGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetKwargInfos(sectionId, objInfoId);
+  const allAreNested = useAreAllParamsNested(sectionId, infos);
   return (
     <GroupContainer
       sectionId={sectionId}
       objInfoId={objInfoId}
       infos={infos}
       isKwarg={true}
+      allAreNested={allAreNested}
     />
   );
 }
 
-function _GroupContainer({ sectionId, objInfoId, infos, isKwarg }) {
-  const kwargsStyleCondition = isKwarg && infos.length > 0;
+function _GroupContainer({
+  sectionId,
+  objInfoId,
+  infos,
+  isKwarg,
+  allAreNested,
+}) {
+  const kwargsStyleCondition = isKwarg && infos.length > 0 && !allAreNested;
   const kwargsControlCondition = !isKwarg;
 
   return (

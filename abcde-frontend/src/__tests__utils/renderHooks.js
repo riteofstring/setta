@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react";
-import { useGetParamChildId, useGetParamUIType } from "hooks/useParamInfo";
+import { useGetParamChildId } from "hooks/useEnteredValue";
+import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetKwargInfos } from "hooks/useSectionContents";
 import { useGetSectionType } from "hooks/useSectionType";
@@ -16,14 +17,14 @@ export function renderUseGetParamChildId(sectionId, paramInfoId, wrapper) {
   });
 }
 
-export function renderUseGetSectionType(sectionId, wrapper) {
-  return renderHook(() => useGetSectionType(sectionId), {
+export function renderUseGetSectionType(sectionId, props, wrapper) {
+  return renderHook(() => useGetSectionType(sectionId, props), {
     wrapper,
   });
 }
 
-export function renderUseGetSectionConfig(sectionId, wrapper) {
-  return renderHook(() => useGetSectionConfig(sectionId), {
+export function renderUseGetSectionConfig(sectionId, props, wrapper) {
+  return renderHook(() => useGetSectionConfig(sectionId, props), {
     wrapper,
   });
 }

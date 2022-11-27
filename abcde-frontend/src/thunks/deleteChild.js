@@ -29,7 +29,7 @@ export const deleteChild = thunk((action, payload, helpers) => {
   // deletedChildren is a list so that it can be operated on by reference
   // deletedChildren[0] is set to be the list of the children to delete
   let deletedChildren = [null];
-  a.sectionInfos.setIdsOverview({
+  a.sectionInfos.setAllChildren({
     sectionId,
     newStateFn: getNewStateFn(deletedChildren, numChildren, startId),
   });

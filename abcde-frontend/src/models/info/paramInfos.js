@@ -10,20 +10,19 @@ function getInitialState() {
 const paramInfos = {
   ...getInitialState(),
 
-  setAllUITypeIds: action((state, payload) => {
-    state.y = payload;
+  resetAndSetAll: thunk((actions, payload) => {
+    actions.reset();
+    actions.setAll(payload);
+  }),
+
+  setAll: action((state, payload) => {
+    state.x = payload.evCols;
+    state.y = payload.uiTypeCols;
   }),
 
   setUITypeId: action((state, payload) => {
     const { collectionId, paramInfoId, uiTypeId } = payload;
     setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
-  }),
-
-  setManyUITypeIds: action((state, payload) => {
-    const { collectionId, paramInfoIds, uiTypeIds } = payload;
-    for (let z of _.zip(paramInfoIds, uiTypeIds)) {
-      setToDefault(state.y, collectionId)[z[0]] = z[1];
-    }
   }),
 
   overrideUITypeIds: thunk((action, payload, helpers) => {
@@ -42,10 +41,6 @@ const paramInfos = {
         }
       }
     }
-  }),
-
-  setAllEnteredValueIds: action((state, payload) => {
-    state.x = payload;
   }),
 
   setEnteredValueId: action((state, payload) => {

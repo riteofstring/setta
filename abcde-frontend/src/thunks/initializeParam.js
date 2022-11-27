@@ -60,11 +60,11 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
 
   if (!uiTypeId) {
     const projectDefaultUITypeId =
-      s.projectParamDefaults.x[paramInfo.id]?.uiTypeId;
+      s.projectConfigCodeInfoMaps.codeInfoMaps[paramInfo.id]?.uiTypeId;
     const projectDefaultUIType = s.uiTypes.x[projectDefaultUITypeId];
 
     const globalDefaultUITypeId =
-      s.globalParamDefaults.x[paramInfo.type]?.uiTypeId;
+      s.userCodeInfoMaps.codeInfoTypeMaps[paramInfo.type]?.uiTypeId;
     const globalDefaultUIType = s.uiTypes.x[globalDefaultUITypeId];
 
     const setUITypeId = curryAction(

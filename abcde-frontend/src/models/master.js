@@ -1,21 +1,14 @@
-import { SectionConfig, SectionInfo } from "classes/mutableInfo";
-import { UIType } from "classes/uiType";
 import { thunk } from "easy-peasy";
-import _ from "lodash";
 import { exportSelected } from "utils/exportSelected";
 
 const master = {
-  clearSections: thunk((action, payload, helpers) => {
-    resetProject(helpers.getStoreActions());
-  }),
-
   loadSections: thunk((action, payload, helpers) => {
     const {
       project,
       projectConfig,
       codeInfo,
-      globalDefaults,
-      projectDefaults,
+      userCodeInfoMaps,
+      projectConfigCodeInfoMaps,
       sections,
       sectionConfigs,
       sectionConfigCol,
@@ -25,84 +18,27 @@ const master = {
       uiTypes,
       uiTypeCols,
       kwargCols,
+      excludeCodeInfo,
     } = payload;
 
     const a = helpers.getStoreActions();
-    a.project.setAll(project);
-    a.projectConfig.setAll(projectConfig);
-    a.codeInfo.loadObjInfoAndCollections(codeInfo);
-    action.initUITypes(uiTypes);
-    a.paramInfos.setAllUITypeIds({ ...uiTypeCols });
-    action.initParamDefaults({
-      storeName: "globalParamDefaults",
-      paramDefaults: globalDefaults.paramDefaults,
-    });
-    action.initParamDefaults({
-      storeName: "projectParamDefaults",
-      paramDefaults: projectDefaults.paramDefaults,
-    });
-    action.initEV(ev);
-    a.paramInfos.setAllEnteredValueIds({ ...evCols });
-    a.objInfos.setAllKwargIds({ ...kwargCols });
-    action.initSections({
+    if (!excludeCodeInfo) {
+      a.codeInfo.resetAndSetAll(codeInfo);
+    }
+    a.project.resetAndSetAll(project);
+    a.projectConfig.resetAndSetAll(projectConfig);
+    a.uiTypes.resetAndSetAll(uiTypes);
+    a.paramInfos.resetAndSetAll({ evCols, uiTypeCols });
+    a.userCodeInfoMaps.resetAndSetAll(userCodeInfoMaps);
+    a.projectConfigCodeInfoMaps.resetAndSetAll(projectConfigCodeInfoMaps);
+    a.enteredValues.resetAndSetAll(ev);
+    a.objInfos.resetAndSetAll(kwargCols);
+    a.sectionInfos.resetAndSetAll({
       sections,
-      sectionConfigs,
       sectionConfigCol,
       sectionChildren,
-      topLevelIds: projectConfig.children,
     });
-  }),
-
-  initParamDefaults: thunk((action, payload, helpers) => {
-    const { storeName, paramDefaults } = payload;
-    const setManyUITypeIds =
-      helpers.getStoreActions()[storeName].setManyUITypeIds;
-    setManyUITypeIds({ toUITypeId: paramDefaults });
-  }),
-
-  initUITypes: thunk((action, payload, helpers) => {
-    const uiTypes = _.map(payload, (x) => new UIType(x));
-    const setManyUITypes = helpers.getStoreActions().uiTypes.setManyUITypes;
-    setManyUITypes({ uiTypes });
-  }),
-
-  initEV: thunk((action, payload, helpers) => {
-    const a = helpers.getStoreActions();
-    _.forEach(payload, (v, k) => {
-      a.enteredValues.setEnteredValue({ enteredValueId: k, value: v.value });
-      a.enteredValues.setChildId({ enteredValueId: k, childId: v.childId });
-    });
-  }),
-
-  initSections: thunk((action, payload, helpers) => {
-    const {
-      sections,
-      sectionConfigs,
-      sectionConfigCol,
-      sectionChildren,
-      topLevelIds,
-    } = payload;
-    const sectionInfos = _.mapValues(sections, (x) => {
-      const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
-      const y = new SectionInfo({
-        ...x,
-        parentId,
-        configId: sectionConfigCol[x.id],
-        isTopLevel: topLevelIds.includes(x.id),
-      });
-      return y;
-    });
-
-    const sectionConfigInfos = _.mapValues(
-      sectionConfigs,
-      (x) => new SectionConfig(x)
-    );
-
-    const a = helpers.getStoreActions();
-
-    a.sectionInfos.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
-    a.sectionConfigs.setSectionConfig((x) => ({ ...x, ...sectionConfigInfos }));
-    a.sectionInfos.setAllIdsOverview({ ...sectionChildren });
+    a.sectionConfigs.resetAndSetAll(sectionConfigs);
   }),
 
   exportSelected: thunk((action, payload, helpers) => {
@@ -111,19 +47,3 @@ const master = {
 };
 
 export default master;
-
-// reset states, except for state.project
-// If you reset state.project, the id will be reset, causing another render in MainContainer
-function resetProject(a) {
-  a.globalParamDefaults.reset();
-  a.projectParamDefaults.reset();
-  a.codeInfo.reset();
-  a.enteredValues.reset();
-  a.objInfos.reset();
-  a.paramInfos.reset();
-  a.sectionConfigs.reset();
-  a.sectionInfos.reset();
-  a.uiTypes.reset();
-  a.sectionPositions.reset();
-  a.uiEditor.reset();
-}
