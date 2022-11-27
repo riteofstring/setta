@@ -2,13 +2,12 @@ import { SectionInfo } from "classes/mutableInfo";
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
-import { getSectionType, getSectionTypeConfig } from "thunks/sections";
+import { getSectionType } from "thunks/sections";
 import {
   isListRoot,
   isRoot,
-  isSeriesElement,
-  LIST,
   PANEID,
+  rootTypeToChildSubType,
 } from "utils/constants";
 import { REF_ID } from "utils/uiTypeConstants";
 
@@ -212,19 +211,16 @@ function setSectionAttrBasedOnNewParent({
 function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(state, newParentId);
-  const sectionUITypeConfig = getSectionTypeConfig(state, sectionId);
   const parentIsRoot = isRoot(newParentUIType?.type);
-  const sectionIsSeriesElement = isSeriesElement(sectionUITypeConfig.subType);
 
-  let configProps = {
-    configName: "subType",
-    newValueFn: (x) => x,
-  };
-
-  if (parentIsRoot && !sectionIsSeriesElement) {
-    configProps = { ...configProps, newValueFn: () => LIST };
-  } else if (!parentIsRoot && sectionIsSeriesElement) {
-    configProps = { ...configProps, newValueFn: () => null };
+  let configProps = null;
+  if (parentIsRoot) {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
+    };
+  } else {
+    configProps = { configName: "subType", newValueFn: () => null };
   }
 
   actions.thunks.setSectionUITypeConfig({ sectionId, configProps });

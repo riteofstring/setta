@@ -73,7 +73,11 @@ export const uiTypesToPretty = Object.freeze(
   )
 );
 
-export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
+export const rootTypeToChildSubType = {
+  [LIST_ROOT]: LIST,
+  [DICT_ROOT]: DICT,
+  [DECK]: null,
+};
 
 export function compatibleName(type) {
   return {
