@@ -4,8 +4,8 @@ import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 export default function SaveLoadModal(props) {
   const {
-    onClose,
-    isOpen,
+    // onClose,
+    // isOpen,
     buttonText,
     // foldersAndFiles: originalFoldersAndFiles,
   } = props;
@@ -68,11 +68,7 @@ export default function SaveLoadModal(props) {
 
   return (
     <ModalContainer
-      onClose={onClose}
-      isOpen={isOpen}
-      size={"6xl"}
-      // header={<Header isSaveAs={isSaveAs} />}
-      overrideFooter={true}
+      header={<Header isSaveAs={isSaveAs} />}
       body={<Body />}
       footer={<Footer buttonText={buttonText} onClose={onClose} />}
     />

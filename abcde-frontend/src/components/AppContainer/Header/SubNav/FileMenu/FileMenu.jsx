@@ -6,6 +6,7 @@ import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
+import ModalContainer from "utils/ModalContainer/ModalContainer";
 
 export default function FileMenu() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -60,8 +61,10 @@ function Items() {
         Load
       </Item>
       <Item>
-        <VscSave />
-        Save
+        <ModalContainer>
+          <VscSave />
+          Save
+        </ModalContainer>
       </Item>
       <Item>
         <VscSaveAs />

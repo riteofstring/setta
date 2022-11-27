@@ -1,60 +1,72 @@
-import {
-  Button,
-  HStack,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-} from "@chakra-ui/react";
+// import {
+//   Button,
+//   HStack,
+//   Modal,
+//   ModalBody,
+//   ModalCloseButton,
+//   ModalContent,
+//   ModalFooter,
+//   ModalHeader,
+//   ModalOverlay,
+// } from "@chakra-ui/react";
+
+import * as Dialog from "@radix-ui/react-dialog";
+import Button from "utils/atoms/buttons/Button";
 
 export default function ModalContainer(props) {
   const {
-    onClose,
-    isOpen,
-    isCentered = false,
-    size = "xl",
-    maxH = "auto",
+    // onClose,
+    // isOpen,
+    // isCentered = false,
+    // size = "xl",
+    // maxH = "auto",
+
     header,
     body,
+    // description,
+    closeText = "Close",
+    footer,
   } = props;
   return (
-    <Modal
-      onClose={onClose}
-      isOpen={isOpen}
-      isCentered={isCentered}
-      size={size}
-    >
-      <ModalOverlay />
-      <ModalContent maxH={maxH}>
-        <ModalHeader>{header}</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody overflowY="auto">{body}</ModalBody>
-        <FooterSwitch {...props} />
-      </ModalContent>
-    </Modal>
+    // <Modal
+    //   onClose={onClose}
+    //   isOpen={isOpen}
+    //   isCentered={isCentered}
+    //   size={size}
+    // >
+    //   <ModalOverlay />
+    //   <ModalContent maxH={maxH}>
+    //     <ModalHeader>{header}</ModalHeader>
+    //     <ModalCloseButton />
+    //     <ModalBody overflowY="auto">{body}</ModalBody>
+    //     <FooterSwitch {...props} />
+    //   </ModalContent>
+    // </Modal>
+    <Dialog.Root>
+      <Dialog.Trigger>{props.children}</Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay />
+        <Dialog.Content>
+          <Dialog.Title>{header}</Dialog.Title>
+          {/* <Dialog.Description>{description}</Dialog.Description> */}
+          {body}
+          <Dialog.Close>
+            <Button></Button>
+          </Dialog.Close>
+          <Footer closeText={closeText}>{footer}</Footer>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
-function FooterSwitch(props) {
-  const { overrideFooter, footer } = props;
-
+function Footer(props) {
   return (
-    <ModalFooter>
-      {overrideFooter ? footer : <DefaultFooter {...props} />}
-    </ModalFooter>
-  );
-}
-
-function DefaultFooter(props) {
-  const { onClose, footer } = props;
-
-  return (
-    <HStack justify="stretch" mb=".5rem" spacing={4}>
-      {footer}
-      <Button onClick={onClose}>Close</Button>
-    </HStack>
+    <div className="flex justify-self-stretch mb-2 gap-2">
+      {props.children}
+      <Dialog.Close>
+        <Button>{closeText}</Button>
+      </Dialog.Close>
+    </div>
   );
 }
