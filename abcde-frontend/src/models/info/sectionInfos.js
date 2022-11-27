@@ -93,10 +93,16 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
-  deleteSections: thunk((action, payload, helpers) => {
+  removeSectionInfo: action((state, payload) => {
+    delete state.x[payload];
+    delete state.allChildren[payload];
+    delete state.currChildren[payload];
+  }),
+
+  deleteSections: thunk((actions, payload, helpers) => {
     const { sectionIds } = payload;
-    for (let sid of sectionIds) {
-      deleteSectionFn(helpers, sid);
+    for (const sid of sectionIds) {
+      deleteSectionFn(actions, helpers, sid);
     }
   }),
 
@@ -142,20 +148,17 @@ const sectionInfos = {
 
 export default sectionInfos;
 
-function deleteSectionFn(helpers, sectionId) {
-  const localState = helpers.getState();
-  const childIds = localState.allChildren[sectionId];
+function deleteSectionFn(actions, helpers, sectionId) {
+  const childIds = helpers.getState().allChildren[sectionId];
   if (childIds) {
-    for (let child of childIds) {
-      deleteSectionFn(helpers, child);
+    for (const child of childIds) {
+      deleteSectionFn(actions, helpers, child);
     }
   }
   if (helpers.getStoreState().activeSection.id === sectionId) {
     helpers.getStoreActions().activeSection.setId(null);
   }
-  delete localState.x[sectionId];
-  delete localState.allChildren[sectionId];
-  delete localState.currChildren[sectionId];
+  actions.removeSectionInfo(sectionId);
 }
 
 function setSectionAttrBasedOnNewParent({
