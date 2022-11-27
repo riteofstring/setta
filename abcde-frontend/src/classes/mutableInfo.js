@@ -1,7 +1,7 @@
 import { immerable } from "immer";
 import { maybeNewId } from "utils/utils";
 
-import { ObjInfo } from "./immutableInfo";
+import { CodeInfo } from "./immutableInfo";
 
 export class MutableInfo {
   [immerable] = true;
@@ -36,7 +36,6 @@ export class SectionInfo extends MutableInfo {
     configId,
     sectionChildrenId,
     paramInfoId,
-    isTopLevel = false,
     initialPosition = { x: 0, y: 0 },
     parentId = null,
     parentName = "",
@@ -48,7 +47,6 @@ export class SectionInfo extends MutableInfo {
     this.sectionChildrenId = maybeNewId(sectionChildrenId);
     this.parentId = parentId;
     this.paramInfoId = paramInfoId;
-    this.isTopLevel = isTopLevel;
     this.initialPosition = initialPosition;
   }
 }
@@ -64,7 +62,7 @@ export class SectionConfig extends MutableInfo {
   }
 }
 
-export class KwargInfo extends ObjInfo {
+export class KwargInfo extends CodeInfo {
   [immerable] = true;
 }
 

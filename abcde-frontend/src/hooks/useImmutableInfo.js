@@ -4,7 +4,7 @@ import _ from "lodash";
 
 export function useGroupedObjInfos(ids) {
   const objInfos = useStoreState(
-    (x) => ids.map((y) => x.codeInfo.allObjInfo[y]),
+    (x) => ids.map((y) => x.codeInfo.allCodeInfo[y]),
     _.isEqual
   );
   return _.groupBy(objInfos, (x) => {

@@ -3,7 +3,7 @@ import _ from "lodash";
 import { isRoot, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
 import { isBasePreset, isPreset } from "utils/uiTypeConstants";
 import { createOriginInfoId } from "utils/uiTypeUtils";
-import { useParamUITypeId } from "./useParamInfo";
+import { useParamUITypeId } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
@@ -90,13 +90,19 @@ export function useAvailablePresetUITypes({
   paramInfoId,
   settingSectionConfig,
 }) {
-  const { parentId, paramInfoId: sectionParamInfoId } =
-    useGetSectionInfo(sectionId);
-  const { id: sectionTypeId, config: sectionTypeConfig } =
-    useGetSectionType(sectionId);
-  const { type: parentType, config: parentTypeConfig } =
-    useGetSectionType(parentId);
-  const paramUITypeId = useParamUITypeId(sectionId)(paramInfoId)[0];
+  const [parentId, sectionParamInfoId] = useGetSectionInfo(sectionId, [
+    "parentId",
+    "paramInfoId",
+  ]);
+  const [sectionTypeId, sectionTypeConfig] = useGetSectionType(sectionId, [
+    "id",
+    "config",
+  ]);
+  const [parentType, parentTypeConfig] = useGetSectionType(parentId, [
+    "type",
+    "config",
+  ]);
+  const paramUITypeId = useParamUITypeId(sectionId, paramInfoId);
   const originInfoId = createOriginInfoId({
     settingSectionConfig,
     sectionTypeConfig: paramInfoId ? sectionTypeConfig : parentTypeConfig,

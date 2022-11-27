@@ -1,5 +1,5 @@
 import { Stack, VStack } from "@chakra-ui/react";
-import { useAreAllParamsNested } from "hooks/useParamInfo";
+import { useAreAllParamsNested } from "hooks/useParamUIType";
 import {
   useGetAllParamInfos,
   useGetKwargInfos,
