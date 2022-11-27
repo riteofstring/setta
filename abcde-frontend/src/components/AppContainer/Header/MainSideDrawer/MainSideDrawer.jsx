@@ -1,5 +1,5 @@
-import { HamburgerIcon } from "@chakra-ui/icons";
 import { useStoreActions } from "easy-peasy";
+import { FiMenu } from "react-icons/fi";
 import { resetEntireState } from "store/store";
 import StandardButton from "utils/atoms/buttons/StandardButton";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
@@ -11,10 +11,7 @@ export default function MainSideDrawer() {
         header={<Header />}
         body={<Body />}
         footer={<Footer />}
-        icon={<HamburgerIcon />}
-        size="sm"
-        borderRadius="full"
-        variant="ghost"
+        icon={<FiMenu />}
       />
     </div>
   );
