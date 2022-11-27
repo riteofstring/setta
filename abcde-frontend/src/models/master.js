@@ -37,7 +37,6 @@ const master = {
       sections,
       sectionConfigCol,
       sectionChildren,
-      topLevelIds: projectConfig.children,
     });
     a.sectionConfigs.resetAndSetAll(sectionConfigs);
   }),

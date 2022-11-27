@@ -15,15 +15,17 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
     (x) => x.sectionInfos.setSectionInfoAttrObjInput
   );
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
+  const addChildren = useStoreActions((x) => x.projectConfig.addChildren);
 
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {
     const newValues = {};
     _.forEach(coords, function (value, key) {
-      newValues[key] = { initialPosition: project(value), isTopLevel: true };
+      newValues[key] = { initialPosition: project(value) };
     });
     setAllChildren({ sectionId: deckId, newStateFn: () => [] });
     setSectionInfoAttrObjInput({ newValues });
+    addChildren(childIds);
     deleteSections({ sectionIds: [deckId] });
   }
 

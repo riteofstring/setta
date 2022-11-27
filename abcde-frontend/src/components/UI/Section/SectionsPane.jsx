@@ -1,4 +1,4 @@
-import { useTopLevelSectionInfo } from "hooks/useSectionInfo";
+import { useTopLevelSectionInfos } from "hooks/useProjectConfig";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
 import React from "react";
@@ -10,7 +10,6 @@ import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
-
 import "./react-flow-css.css";
 import { ResponsiveControls } from "./ResponsiveControls";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
@@ -34,11 +33,11 @@ function setInitialToCurrent(initialNodes, nodes) {
 
 function SectionsPane() {
   const reactFlowRef = useSetSectionPosition(PANEID);
-  const topLevelSectionPositions = useTopLevelSectionInfo();
+  const topLevelSections = useTopLevelSectionInfos(["id", "initialPosition"]);
 
-  const initialNodes = topLevelSectionPositions.map((e) => ({
-    id: e.id,
-    position: e.initialPosition,
+  const initialNodes = topLevelSections.map((e) => ({
+    id: e[0],
+    position: e[1],
     type: "sectionContainerNode",
   }));
 

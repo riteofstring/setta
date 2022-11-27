@@ -26,15 +26,13 @@ const sectionInfos = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
-    const { sections, sectionConfigCol, sectionChildren, topLevelIds } =
-      payload;
+    const { sections, sectionConfigCol, sectionChildren } = payload;
     const sectionInfos = _.mapValues(sections, (x) => {
       const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
       const y = new SectionInfo({
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],
-        isTopLevel: topLevelIds.includes(x.id),
       });
       return y;
     });
@@ -92,16 +90,18 @@ const sectionInfos = {
     state.currChildren[sectionId] = currChildren;
   }),
 
-  removeSectionInfo: action((state, payload) => {
-    delete state.x[payload];
-    delete state.allChildren[payload];
-    delete state.currChildren[payload];
+  removeSectionInfos: action((state, payload) => {
+    payload.forEach((y) => {
+      delete state.x[y];
+      delete state.allChildren[y];
+      delete state.currChildren[y];
+    });
   }),
 
   deleteSections: thunk((actions, payload, helpers) => {
     const { sectionIds } = payload;
     for (const sid of sectionIds) {
-      deleteSectionFn(actions, helpers, sid);
+      deleteSectionFn(helpers, sid);
     }
   }),
 
@@ -126,7 +126,7 @@ const sectionInfos = {
       newParentId,
       sectionId,
       newIndex,
-      actions,
+      actions: a,
     });
 
     if (newParentId === PANEID && position) {
@@ -147,17 +147,25 @@ const sectionInfos = {
 
 export default sectionInfos;
 
-function deleteSectionFn(actions, helpers, sectionId) {
-  const childIds = helpers.getState().allChildren[sectionId];
-  if (childIds) {
-    for (const child of childIds) {
-      deleteSectionFn(actions, helpers, child);
+function deleteSectionFn(helpers, sectionId) {
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
+  const allChildren = helpers.getState().allChildren;
+  const idsToDelete = [sectionId];
+  let idx = 0;
+  while (idx < idsToDelete.length) {
+    const currChildren = allChildren[idsToDelete[idx]];
+    if (currChildren) {
+      idsToDelete.push(...currChildren);
     }
+    idx += 1;
   }
-  if (helpers.getStoreState().activeSection.id === sectionId) {
-    helpers.getStoreActions().activeSection.setId(null);
+
+  if (idsToDelete.includes(s.activeSection.id)) {
+    a.activeSection.setId(null);
   }
-  actions.removeSectionInfo(sectionId);
+  a.sectionInfos.removeSectionInfos(idsToDelete);
+  a.projectConfig.deleteChildren(idsToDelete);
 }
 
 function setSectionAttrBasedOnNewParent({
@@ -169,28 +177,20 @@ function setSectionAttrBasedOnNewParent({
 }) {
   // Remove child from old parent's list
   if (oldParentId) {
-    actions.setAllChildren({
+    actions.sectionInfos.setAllChildren({
       sectionId: oldParentId,
       newStateFn: (x) => x.filter((y) => y !== sectionId),
     });
   } else {
     // This means it was a top level section
-    actions.setSectionInfoAttr({
-      sectionId,
-      attr: "isTopLevel",
-      value: false,
-    });
+    actions.projectConfig.deleteChildren([sectionId]);
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    actions.setSectionInfoAttr({
-      sectionId,
-      attr: "isTopLevel",
-      value: true,
-    });
+    actions.projectConfig.addChildren([sectionId]);
   } else {
     // Add child to new parent's list
-    actions.setAllChildren({
+    actions.sectionInfos.setAllChildren({
       sectionId: newParentId,
       newStateFn: (x) => [
         ...x.slice(0, newIndex),
@@ -201,7 +201,7 @@ function setSectionAttrBasedOnNewParent({
   }
 
   // Set sectionInfo's parentId
-  actions.setSectionInfoAttr({
+  actions.sectionInfos.setSectionInfoAttr({
     sectionId,
     attr: "parentId",
     value: newParentId === PANEID ? undefined : newParentId,

@@ -4,7 +4,6 @@ import {
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
-import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { BASE, USER } from "utils/uiTypeConstants";
 
@@ -12,9 +11,6 @@ import { BASE, USER } from "utils/uiTypeConstants";
 export function getProjectData(s) {
   const project = s.project;
   const projectConfig = s.projectConfig;
-  projectConfig.children = topLevelSectionInfo(s.sectionInfos.x).map(
-    (x) => x.id
-  );
 
   const ev = _.mapValues(s.enteredValues.x, (v) =>
     _.pick(v, ["value", "childId"])

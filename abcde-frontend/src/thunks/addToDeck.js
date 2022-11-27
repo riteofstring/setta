@@ -8,9 +8,5 @@ export const addToDeck = thunk((actions, payload, helpers) => {
     sectionId: deckId,
     newStateFn: (x) => [...x, ...idsToAdd],
   });
-  a.sectionInfos.setSectionInfoAttr({
-    sectionIds: idsToAdd,
-    attr: "isTopLevel",
-    value: false,
-  });
+  a.projectConfig.deleteChildren(idsToAdd);
 });

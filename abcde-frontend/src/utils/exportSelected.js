@@ -1,5 +1,3 @@
-import { getFullObjPath } from "classes/immutableInfo";
-import { topLevelSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { OBJ, PARAM, STRING, VARIABLE } from "./codeGenConstants";
 import { DECK, isRoot, LIST_ROOT } from "./constants";
@@ -76,14 +74,13 @@ function kwargsExportSelected(
 }
 
 function objInfoExportSelected(sectionId, objInfo, evColId, state) {
-  const { path: fullObjPath } = getFullObjPath(objInfo);
   const output = multipleParamInfoExportSelected(
     sectionId,
     objInfo.children.map((x) => state.codeInfo.allCodeInfo[x]),
     evColId,
     state
   );
-  return { [objPrefix(fullObjPath)]: output };
+  return { [objPrefix(objInfo.path)]: output };
 }
 
 function sectionExportSelected(section, state) {
@@ -170,9 +167,7 @@ function multipleSectionExportSelected(children, sectionType, state) {
 }
 
 export function exportSelected(state) {
-  const topLevelSectionIds = topLevelSectionInfo(state.sectionInfos.x).map(
-    (x) => x.id
-  );
+  const topLevelSectionIds = state.projectConfig.children;
   return multipleSectionExportSelected(topLevelSectionIds, null, state);
 }
 

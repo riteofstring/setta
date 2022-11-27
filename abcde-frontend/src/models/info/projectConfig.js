@@ -26,6 +26,16 @@ const projectConfig = {
     }
   }),
 
+  addChildren: action((state, payload) => {
+    state.children = _.uniq([...state.children, ...payload]);
+  }),
+
+  deleteChildren: action((state, payload) => {
+    state.children = state.children.filter((x) => {
+      return !payload.includes(x);
+    });
+  }),
+
   reset: action((state) => {
     resetState(state, getInitialState());
   }),

@@ -36,7 +36,6 @@ export class SectionInfo extends MutableInfo {
     configId,
     sectionChildrenId,
     paramInfoId,
-    isTopLevel = false,
     initialPosition = { x: 0, y: 0 },
     parentId = null,
     parentName = "",
@@ -48,7 +47,6 @@ export class SectionInfo extends MutableInfo {
     this.sectionChildrenId = maybeNewId(sectionChildrenId);
     this.parentId = parentId;
     this.paramInfoId = paramInfoId;
-    this.isTopLevel = isTopLevel;
     this.initialPosition = initialPosition;
   }
 }
