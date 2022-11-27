@@ -71,12 +71,3 @@ export const createDefaultSectionInfo = thunk((actions, payload, helpers) => {
   }));
   return [id];
 });
-
-export const setCurrChildren = thunk((actions, payload, helpers) => {
-  const { sectionId, currChildren } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-  a.sectionInfos.setCurrChildren({ sectionId, currChildren });
-  const sectionType = getSectionType(s, sectionId);
-  a.sectionInfos.setCurrChildrenNames({ currChildren, sectionType });
-});

@@ -1,33 +1,10 @@
-import { useStoreActions } from "easy-peasy";
-import { useGetParamUIType } from "hooks/useParamUIType";
-import { useEffect } from "react";
-import { requiresNestedSection } from "utils/constants";
 import KwargParam from "./ParamSwitchOptions/KwargParam";
 import RegularParam from "./ParamSwitchOptions/RegularParam";
 
 export default function ParamSwitch(props) {
-  const { sectionId, paramInfo } = props;
-  const initializeParam = useStoreActions((x) => x.thunks.initializeParam);
-  const initializeChild = useStoreActions((x) => x.thunks.initializeChild);
-  const uiType = useGetParamUIType(sectionId, paramInfo.id);
-  const isNested = requiresNestedSection(uiType.type);
-
-  useEffect(() => {
-    initializeParam({ sectionId, paramInfo });
-  }, [paramInfo.id]);
-
-  useEffect(() => {
-    if (isNested) {
-      initializeChild({ sectionId, paramInfo, uiTypeId: uiType.id });
-    }
-  }, [isNested]);
-
-  return (
-    !isNested &&
-    (props.isKwarg ? (
-      <KwargParam {...props} uiType={uiType} />
-    ) : (
-      <RegularParam {...props} uiType={uiType} />
-    ))
+  return props.isKwarg ? (
+    <KwargParam {...props} />
+  ) : (
+    <RegularParam {...props} />
   );
 }

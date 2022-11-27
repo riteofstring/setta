@@ -4,14 +4,10 @@ import { defaultState } from "utils/utils";
 import { useGetSectionInfo, useTopLevelSectionInfo } from "./useSectionInfo";
 
 export function useSectionSiblingNames(sectionId) {
-  const [sectionName, parentId, isTopLevel] = useGetSectionInfo(sectionId, [
-    "name",
-    "parentId",
-    "isTopLevel",
-  ]);
+  const sectionInfo = useGetSectionInfo(sectionId);
   const topLevelSections = useTopLevelSectionInfo();
   const siblingIds = defaultState(
-    useStoreState((x) => x.sectionInfos.currChildren[parentId]),
+    useStoreState((x) => x.sectionInfos.currChildren[sectionInfo.parentId]),
     () => []
   );
   const siblingNames = useStoreState(
@@ -19,12 +15,12 @@ export function useSectionSiblingNames(sectionId) {
     _.isEqual
   );
   let output;
-  if (isTopLevel) {
+  if (sectionInfo.isTopLevel) {
     output = new Set(_.map(topLevelSections, (x) => x.name));
   } else {
     output = new Set(siblingNames);
   }
   // delete self name
-  output.delete(sectionName);
+  output.delete(sectionInfo.name);
   return output;
 }

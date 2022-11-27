@@ -17,6 +17,9 @@ export const REF = "REF";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const SECTION = "SECTION";
+export const COLLECTION = "collection";
+export const CALLABLE = "callable";
+export const PARAMETER = "parameter";
 
 // section sub types
 export const LIST = "LIST";
@@ -43,20 +46,16 @@ export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }
 
-export function requiresKeyInput(sectionSubTypeName) {
-  return [null, DICT].includes(sectionSubTypeName);
+export function requiresKeyInput(sectionTypeName) {
+  return sectionTypeName === DICT;
 }
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
 }
 
-export function isListRoot(sectionTypeName) {
-  return sectionTypeName === LIST_ROOT;
-}
-
-export function isSeriesElement(sectionSubTypeName) {
-  return [LIST, DICT].includes(sectionSubTypeName);
+export function isListLike(sectionTypeName) {
+  return [LIST, DICT].includes(sectionTypeName);
 }
 
 export const uiTypesToPretty = Object.freeze(
@@ -73,11 +72,7 @@ export const uiTypesToPretty = Object.freeze(
   )
 );
 
-export const rootTypeToChildSubType = {
-  [LIST_ROOT]: LIST,
-  [DICT_ROOT]: DICT,
-  [DECK]: null,
-};
+export const rootTypeToChildType = { [LIST_ROOT]: LIST, [DICT_ROOT]: DICT };
 
 export function compatibleName(type) {
   return {

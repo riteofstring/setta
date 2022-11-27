@@ -1,69 +1,10 @@
 import _ from "lodash";
 
-const PROJECT_NAMES = {
-  inFile: ["simpleTrainTest", "appleOrchardFarm", "diffusionDrops"],
-  inMem: [],
-};
-const PROJECT_CONFIG_NAMES = {
-  simpleTrainTest: ["simpleConfig1"],
-  appleOrchardFarm: ["appleConfig1"],
-  diffusionDrops: ["diffusionConfig1", "diffusionConfig2"],
-};
-const IN_MEM_PROJECTS = {};
-const IN_MEM_PROJECT_CONFIGS = {};
-const DEFAULT_USER_ID = "25961114-6655-4e2c-b70f-e2e3aaa84131";
-
-export async function loadGlobalData({ forNode }) {
-  const output = {};
-  for (const k of ["baseUITypes", "userCodeInfoMaps", "presetUITypes"]) {
-    output[k] = await loadSpecificTestData({ name: k, forNode });
-  }
-  return output;
-}
-
-export async function loadProjectSpecificData({
-  projectName,
-  subFolderName,
-  forNode,
-  type = "inFile",
-}) {
-  const output = {};
-  for (const k of [
-    "allCodeInfo",
-    "allCollections",
-    "callables",
-    "params",
-    "paramCollections",
-    "ev",
-    "evCols",
-    "kwargCols",
-    "kwargInfo",
-    "projectConfigCodeInfoMaps",
-    "sectionChildren",
-    "sectionConfigCol",
-    "sectionConfigs",
-    "sections",
-    "uiTypes",
-    "uiTypeCols",
-  ]) {
-    if (type === "inFile") {
-      output[k] = await loadSpecificTestData({
-        name: k,
-        projectName,
-        subFolderName,
-        forNode,
-      });
-    } else {
-      output[k] = {};
-    }
-  }
-  return output;
-}
-
 export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
   forNode = false,
+  forSeeding = false,
   forSavingToBackend = false,
 }) {
   const loaded = await loadOneProjectMetadata({
@@ -72,46 +13,64 @@ export async function loadOneProject({
     forNode,
   });
 
-  Object.assign(loaded, await loadGlobalData({ forNode }));
-  Object.assign(
-    loaded,
-    await loadProjectSpecificData({ projectName, subFolderName, forNode })
-  );
+  for (const k of ["baseUITypes", "globalDefaults", "presetUITypes"]) {
+    loaded[k] = await loadSpecificTestData({ name: k, forNode });
+  }
+
+  for (const k of [
+    "codeInfo",
+    "ev",
+    "evCols",
+    "kwargCols",
+    "kwargInfo",
+    "projectDefaults",
+    "sectionChildren",
+    "sectionConfigCol",
+    "sectionConfigs",
+    "sections",
+    "uiTypes",
+    "uiTypeCols",
+  ]) {
+    loaded[k] = await loadSpecificTestData({
+      name: k,
+      projectName,
+      subFolderName,
+      forNode,
+    });
+  }
 
   const {
-    allCodeInfo,
-    allCollections,
-    callables,
-    params,
-    paramCollections,
+    codeInfo,
     kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
-    userCodeInfoMaps,
     ...theRest
   } = loaded;
 
-  if (forSavingToBackend) {
-    // For saving a project, we don't need base uitypes
+  const _uiTypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
+  if (forSeeding) {
+    // For seeding a project we need kwargInfo
+    // instead of both kwargInfo and codeInfo
     return {
       kwargInfo,
-      uiTypes: { ...uiTypes, ...presetUITypes },
+      uiTypes: _uiTypes,
+      ...theRest,
+    };
+  } else if (forSavingToBackend) {
+    // For saving a project, we don't need preset or base uitypes
+    return {
+      kwargInfo,
+      uiTypes,
       ...theRest,
     };
   } else {
     // This means we're testing the frontend, so we need everything
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      allCollections,
-      callables,
-      params,
-      paramCollections,
-    };
+    const _codeInfo = { ...codeInfo, ...kwargInfo };
     return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
+      codeInfo: _codeInfo,
+      uiTypes: _uiTypes,
       ...theRest,
     };
   }
@@ -137,23 +96,18 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadAllProjects({
-  forNode = false,
-  forSavingToBackend = false,
-}) {
+export async function loadAllProjects({ forNode = false, forSeeding = false }) {
   const output = [];
-  for (const type of ["inFile", "inMem"]) {
-    for (const p of PROJECT_NAMES[type]) {
-      for (const subFolderName of PROJECT_CONFIG_NAMES[p]) {
-        output.push(
-          await loadOneProject({
-            projectName: p,
-            subFolderName,
-            forNode,
-            forSavingToBackend,
-          })
-        );
-      }
+  for (const p of projectNames()) {
+    for (const subFolderName of projectSubFolderNames(p)) {
+      output.push(
+        await loadOneProject({
+          projectName: p,
+          subFolderName,
+          forNode,
+          forSeeding,
+        })
+      );
     }
   }
   return output;
@@ -183,23 +137,13 @@ export async function loadOneProjectMetadata({
 
 export async function loadAllProjectsMetadata() {
   let output = [];
-  for (const type of ["inFile", "inMem"]) {
-    for (const p of PROJECT_NAMES[type]) {
-      for (const subFolderName of PROJECT_CONFIG_NAMES[p]) {
-        let loaded = null;
-        if (type === "inFile") {
-          loaded = await loadOneProjectMetadata({
-            projectName: p,
-            subFolderName,
-          });
-        } else {
-          loaded = await loadInMemProject({
-            projectName: p,
-            configName: subFolderName,
-          });
-        }
-        output.push(loaded);
-      }
+  for (const p of projectNames()) {
+    for (const subFolderName of projectSubFolderNames(p)) {
+      const loaded = await loadOneProjectMetadata({
+        projectName: p,
+        subFolderName,
+      });
+      output.push(loaded);
     }
   }
 
@@ -212,64 +156,14 @@ export async function loadAllProjectsMetadata() {
   return output;
 }
 
-export async function loadOneProjectById({ id, configId }) {
-  const projectMetaData = await loadAllProjectsMetadata();
-  const project = _.filter(projectMetaData, (x) => x.id === id)[0];
-  const projectConfig = project.configs.filter((x) => x.id === configId)[0];
-
-  if (PROJECT_NAMES["inFile"].includes(project.name)) {
-    return await loadOneProject({
-      projectName: project.name,
-      subFolderName: projectConfig.name,
-    });
-  } else {
-    return await loadInMemProject({
-      projectName: project.name,
-      configName: projectConfig.name,
-    });
-  }
+function projectNames() {
+  return ["simpleTrainTest", "appleOrchardFarm", "diffusionDrops"];
 }
 
-export function createInMemProject(name) {
-  const configName = "config1";
-
-  PROJECT_NAMES["inMem"].push(name);
-  PROJECT_CONFIG_NAMES[name] = [configName];
-  const fakeId = "12345";
-
-  const project = {
-    id: fakeId,
-    name,
-    defaultConfigId: fakeId,
-  };
-
-  const projectConfig = {
-    id: project.defaultConfigId,
-    name: configName,
-    sectionConfigCol: fakeId,
-    childrenId: fakeId,
-    children: [],
-  };
-
-  IN_MEM_PROJECTS[name] = project;
-  IN_MEM_PROJECT_CONFIGS[name] = { [configName]: projectConfig };
-
-  return { ...project, configs: [projectConfig] };
-}
-
-async function loadInMemProject({ projectName, configName }) {
-  const project = IN_MEM_PROJECTS[projectName];
-  const projectConfig = IN_MEM_PROJECT_CONFIGS[projectName][configName];
-  const loaded = { project, projectConfig };
-  Object.assign(loaded, await loadGlobalData({ forNode: false }));
-  Object.assign(
-    loaded,
-    await loadProjectSpecificData({
-      projectName,
-      subFolderName: configName,
-      forNode: false,
-      type: "inMem",
-    })
-  );
-  return loaded;
+function projectSubFolderNames(projectName) {
+  return {
+    simpleTrainTest: ["simpleConfig1"],
+    appleOrchardFarm: ["appleConfig1"],
+    diffusionDrops: ["diffusionConfig1"],
+  }[projectName];
 }

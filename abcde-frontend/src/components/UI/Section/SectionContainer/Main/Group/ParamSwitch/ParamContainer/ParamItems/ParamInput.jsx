@@ -21,7 +21,7 @@ export default function ParamInput({
     setValue(v);
   };
 
-  const onBlur = (v) => {
+  const onChangeEnd = (v) => {
     onChange(v);
     setEnteredValue(v);
   };
@@ -37,7 +37,7 @@ export default function ParamInput({
         value,
         defaultVal,
         onChange,
-        onBlur,
+        onChangeEnd,
         isDisabled,
         className: "nodrag",
         ...uiType.config,

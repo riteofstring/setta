@@ -69,7 +69,7 @@ function componentSetup({ forParent, numChildren }) {
     store.getActions().thunks.addChild({ parentId: parent.id });
   });
   const state = store.getState().sectionInfos;
-  const childIds = state.allChildren[parent.id];
+  const childIds = state.idsOverview[parent.id];
 
   // increment for one of the children
   function SectionHeaderForChild() {
@@ -78,8 +78,8 @@ function componentSetup({ forParent, numChildren }) {
         parentId={parent.id}
         sectionId={childIds[0].id}
         nextId={childIds.length > 1 ? childIds[1].id : null}
-        isSeriesElement={true}
-        isRoot={false}
+        isList={true}
+        isListRoot={false}
       />
     );
   }
@@ -89,8 +89,8 @@ function componentSetup({ forParent, numChildren }) {
     return (
       <SectionHeader
         sectionId={parent.id}
-        isSeriesElement={false}
-        isRoot={true}
+        isList={false}
+        isListRoot={true}
         hasNested={true}
       />
     );
@@ -128,9 +128,9 @@ function assertNChildrenAdded(store, parent, numInitialChildren, N) {
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren + N);
-  // 1 parent so only 1 entry in allChildren
-  expect(_.size(state.allChildren)).toEqual(1);
-  expect(_.size(state.allChildren[parent.id])).toEqual(numInitialChildren + N);
+  // 1 parent so only 1 entry in idsOverview
+  expect(_.size(state.idsOverview)).toEqual(1);
+  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren + N);
 }
 
 function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
@@ -138,9 +138,9 @@ function assertNChildrenDeleted(store, parent, numInitialChildren, N) {
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
-  // 1 parent so only 1 entry in allChildren
-  expect(_.size(state.allChildren)).toEqual(1);
-  expect(_.size(state.allChildren[parent.id])).toEqual(numInitialChildren - N);
+  // 1 parent so only 1 entry in idsOverview
+  expect(_.size(state.idsOverview)).toEqual(1);
+  expect(_.size(state.idsOverview[parent.id])).toEqual(numInitialChildren - N);
 }
 
 async function clickIncrementerNTimes({
@@ -234,7 +234,7 @@ async function clickDeleteSelf(store, parent, childId, forParent) {
 
   const xSize = forParent ? 0 : 1;
   expect(_.size(state.x)).toEqual(xSize);
-  expect(_.size(state.allChildren[parent.id])).toEqual(0);
+  expect(_.size(state.idsOverview[parent.id])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
 
   if (forParent) {

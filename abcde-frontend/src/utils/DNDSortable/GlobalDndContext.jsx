@@ -31,7 +31,7 @@ function getNewIndex(active, over) {
 export function GlobalDndContext(props) {
   const [active, setActive] = useState(null);
   const dummyRef = useRef(null);
-  const setAllChildren = useStoreActions((x) => x.sectionInfos.setAllChildren);
+  const setIdsOverview = useStoreActions((x) => x.sectionInfos.setIdsOverview);
   const moveSectionThunk = useStoreActions(
     (x) => x.sectionInfos.moveSectionThunk
   );
@@ -65,7 +65,7 @@ export function GlobalDndContext(props) {
       activeContainer === overContainer &&
       active.id !== over.id
     ) {
-      setAllChildren({
+      setIdsOverview({
         sectionId: activeContainer,
         newStateFn: updateWithArrayMove(active, over),
       });

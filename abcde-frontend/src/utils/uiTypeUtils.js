@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {
-  rootTypeToChildSubType,
+  rootTypeToChildType,
   SECTION,
   SECTION_TYPE_NAMES,
   SET_FROM_SIDEPANE,
@@ -12,7 +12,7 @@ function cloneRootUIType(parentUIType, parentId) {
   uiType.id = createNewId();
   uiType.type = SECTION;
   uiType.config.uiTypeColId = createNewId();
-  uiType.config.subType = rootTypeToChildSubType[parentUIType.type];
+  uiType.config.subType = rootTypeToChildType[parentUIType.type];
   uiType.presetType = null;
   uiType.originInfoId = createOriginInfoId({
     isChildOfRoot: true,

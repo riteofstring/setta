@@ -7,18 +7,18 @@ export default function Incrementer({
   parentId,
   sectionId,
   nextId,
-  isRoot,
+  isListRoot,
   hasNested,
 }) {
   const addChild = useStoreActions((x) => x.thunks.addChild);
   const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
 
   const decrementButtonCondition = () => {
-    return (isRoot && hasNested) || (!isRoot && nextId);
+    return (isListRoot && hasNested) || (!isListRoot && nextId);
   };
 
   const addSections = (numSections) => {
-    if (isRoot) {
+    if (isListRoot) {
       addChild({ parentId: sectionId, numChildren: numSections });
     } else {
       addChild({ parentId, numChildren: numSections, startId: sectionId });
@@ -26,7 +26,7 @@ export default function Incrementer({
   };
 
   const deleteChildren = (numSections) => {
-    if (isRoot) {
+    if (isListRoot) {
       deleteChild({ sectionId, numChildren: numSections });
     } else {
       deleteChild({
@@ -48,7 +48,7 @@ export default function Incrementer({
   return (
     <HStack maxW="320px" bg="gray.100" borderRadius="xl" p="0.25rem 0.5rem">
       <Heading as="h3" fontSize=".75em" color="gray.400">
-        {isRoot && "Children: "}
+        {isListRoot && "Children: "}
       </Heading>
       <Input
         size="xs"

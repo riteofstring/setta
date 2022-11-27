@@ -1,10 +1,11 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { defaultState } from "utils/utils";
 
-export function useGetSectionInfo(sectionId, props) {
-  return useStoreState(
-    (x) => props.map((y) => x.sectionInfos.x[sectionId]?.[y]),
-    _.isEqual
+export function useGetSectionInfo(sectionId) {
+  return defaultState(
+    useStoreState((x) => x.sectionInfos.x[sectionId]),
+    () => ({})
   );
 }
 

@@ -1,4 +1,4 @@
-import { CodeInfo } from "classes/immutableInfo";
+import { ObjInfo } from "classes/immutableInfo";
 import { KwargInfo } from "classes/mutableInfo";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
@@ -57,7 +57,7 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   const a = helpers.getStoreActions();
   const { kwargColId } = getSectionConfig(s, sectionId);
   const kwargIds = s.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
-  const collection = new CodeInfo({
+  const collection = new ObjInfo({
     name,
     rcType: "collection",
     children: kwargIds,
@@ -66,7 +66,7 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   // copy kwargInfos and set parentId to collection.id
   const paramInfos = _.keyBy(
     kwargIds.map((x) => ({
-      ...s.codeInfo.allCodeInfo[x],
+      ...s.codeInfo.allObjInfo[x],
       parentId: collection.id,
     })),
     "id"

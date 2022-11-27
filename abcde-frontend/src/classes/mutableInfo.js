@@ -1,7 +1,7 @@
 import { immerable } from "immer";
 import { maybeNewId } from "utils/utils";
 
-import { CodeInfo } from "./immutableInfo";
+import { ObjInfo } from "./immutableInfo";
 
 export class MutableInfo {
   [immerable] = true;
@@ -64,7 +64,7 @@ export class SectionConfig extends MutableInfo {
   }
 }
 
-export class KwargInfo extends CodeInfo {
+export class KwargInfo extends ObjInfo {
   [immerable] = true;
 }
 
