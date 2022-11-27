@@ -2,7 +2,7 @@ import { thunk } from "easy-peasy";
 import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { getSectionType, getSectionTypeConfig } from "thunks/sections";
-import { isListLike } from "utils/constants";
+import { isSeriesElement } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
 import { cloneNewUIType, createOriginInfoId } from "utils/uiTypeUtils";
 import { getParamChildId, getParamUIType } from "./paramInfos";
@@ -173,8 +173,8 @@ function shouldCloneUIType(uiType, settingPreset) {
   // The uiType is a list element (a child of a list root).
   // Changing its config shouldn't affect its siblings.
   // Plus it should become indepedent from the root config.
-  const isList = isListLike(uiType.config.subType);
-  return isPresetNotSettingPreset || isList;
+  const _isSeriesElement = isSeriesElement(uiType.config.subType);
+  return isPresetNotSettingPreset || _isSeriesElement;
 }
 
 function setChildUITypeConfig(uiType, props, setConfig) {

@@ -9,8 +9,8 @@ function _SectionHeader({
   sectionId,
   parentId,
   nextId,
-  isList,
-  isListRoot,
+  isSeriesElement,
+  isRoot,
   hasNested,
 }) {
   const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
@@ -24,14 +24,14 @@ function _SectionHeader({
 
   return (
     <Stack direction="row" align="center" w="100%" pl="0.75em">
-      <CardTitle sectionId={sectionId} isList={isList} />
+      <CardTitle sectionId={sectionId} />
       <Spacer />
-      {(isList || isListRoot) && (
+      {(isSeriesElement || isRoot) && (
         <Incrementer
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          isListRoot={isListRoot}
+          isRoot={isRoot}
           hasNested={hasNested}
         />
       )}
@@ -44,7 +44,7 @@ function _SectionHeader({
   );
 }
 
-function CardTitle({ sectionId, isList }) {
+function CardTitle({ sectionId }) {
   const editableProps = {
     isPreviewFocusable: true,
     fontFamily: "Work Sans",
@@ -63,7 +63,6 @@ function CardTitle({ sectionId, isList }) {
       sectionId={sectionId}
       editableProps={editableProps}
       inputProps={inputProps}
-      isList={isList}
     />
   );
 }

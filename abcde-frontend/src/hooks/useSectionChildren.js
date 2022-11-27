@@ -23,9 +23,7 @@ export function useGetCurrChildren(sectionId) {
     ? allChildrenIds
     : _.intersection(allChildrenIds, currParamChildIds);
 
-  const setCurrChildren = useStoreActions(
-    (x) => x.sectionInfos.setCurrChildren
-  );
+  const setCurrChildren = useStoreActions((x) => x.thunks.setCurrChildren);
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren });
   }, [currChildren]);

@@ -78,8 +78,8 @@ function componentSetup({ forParent, numChildren }) {
         parentId={parent.id}
         sectionId={childIds[0].id}
         nextId={childIds.length > 1 ? childIds[1].id : null}
-        isList={true}
-        isListRoot={false}
+        isSeriesElement={true}
+        isRoot={false}
       />
     );
   }
@@ -89,8 +89,8 @@ function componentSetup({ forParent, numChildren }) {
     return (
       <SectionHeader
         sectionId={parent.id}
-        isList={false}
-        isListRoot={true}
+        isSeriesElement={false}
+        isRoot={true}
         hasNested={true}
       />
     );

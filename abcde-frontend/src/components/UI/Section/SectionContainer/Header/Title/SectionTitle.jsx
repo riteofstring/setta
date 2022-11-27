@@ -8,16 +8,13 @@ import { useStoreActions } from "easy-peasy";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionSiblingNames } from "hooks/useSectionSiblings";
+import { useTitleIsEditable } from "hooks/useTitleIsEditable";
 
-export default function SectionTitle({
-  sectionId,
-  editableProps,
-  inputProps,
-  isList,
-}) {
+export default function SectionTitle({ sectionId, editableProps, inputProps }) {
   const [sectionName] = useGetSectionInfo(sectionId, ["name"]);
+  const titleIsEditable = useTitleIsEditable(sectionId);
 
-  if (!isList) {
+  if (titleIsEditable) {
     return (
       <EditableTitle
         sectionId={sectionId}
@@ -27,10 +24,10 @@ export default function SectionTitle({
       />
     );
   }
-  return <ListTitle sectionName={sectionName} />;
+  return <FixedTitle sectionName={sectionName} />;
 }
 
-function ListTitle({ sectionName }) {
+function FixedTitle({ sectionName }) {
   return (
     <Text fontWeight="100" color="gray.400" as="i" userSelect="none">
       {sectionName}

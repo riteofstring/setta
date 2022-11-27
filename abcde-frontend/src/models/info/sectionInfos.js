@@ -3,7 +3,13 @@ import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 import { getSectionType, getSectionTypeConfig } from "thunks/sections";
-import { isListLike, isRoot, LIST, PANEID } from "utils/constants";
+import {
+  isListRoot,
+  isRoot,
+  isSeriesElement,
+  LIST,
+  PANEID,
+} from "utils/constants";
 import { REF_ID } from "utils/uiTypeConstants";
 
 function setDefaultAllChildren(state, sectionId) {
@@ -72,12 +78,19 @@ const sectionInfos = {
     state.allChildren[sectionId] = newStateFn(currState);
   }),
 
+  setCurrChildrenNames: action((state, payload) => {
+    const { currChildren, sectionType } = payload;
+
+    if (isListRoot(sectionType.type)) {
+      for (let idx = 0; idx < currChildren.length; idx++) {
+        state.x[currChildren[idx]].name = `[${idx}]`;
+      }
+    }
+  }),
+
   setCurrChildren: action((state, payload) => {
     const { sectionId, currChildren } = payload;
     state.currChildren[sectionId] = currChildren;
-    for (let idx = 0; idx < currChildren.length; idx++) {
-      state.x[currChildren[idx]].name = `[${idx}]`;
-    }
   }),
 
   deleteSections: thunk((action, payload, helpers) => {
@@ -198,16 +211,16 @@ function maybeChangeSectionSubtype({ newParentId, sectionId, state, actions }) {
     newParentId === PANEID ? null : getSectionType(state, newParentId);
   const sectionUITypeConfig = getSectionTypeConfig(state, sectionId);
   const parentIsRoot = isRoot(newParentUIType?.type);
-  const sectionIsListLike = isListLike(sectionUITypeConfig.subType);
+  const sectionIsSeriesElement = isSeriesElement(sectionUITypeConfig.subType);
 
   let configProps = {
     configName: "subType",
     newValueFn: (x) => x,
   };
 
-  if (parentIsRoot && !sectionIsListLike) {
+  if (parentIsRoot && !sectionIsSeriesElement) {
     configProps = { ...configProps, newValueFn: () => LIST };
-  } else if (!parentIsRoot && sectionIsListLike) {
+  } else if (!parentIsRoot && sectionIsSeriesElement) {
     configProps = { ...configProps, newValueFn: () => null };
   }
 

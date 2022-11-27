@@ -44,14 +44,18 @@ export function requiresNestedSection(uiTypeType) {
 }
 
 export function requiresKeyInput(sectionSubTypeName) {
-  return sectionSubTypeName === DICT;
+  return [null, DICT].includes(sectionSubTypeName);
 }
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
 }
 
-export function isListLike(sectionSubTypeName) {
+export function isListRoot(sectionTypeName) {
+  return sectionTypeName === LIST_ROOT;
+}
+
+export function isSeriesElement(sectionSubTypeName) {
   return [LIST, DICT].includes(sectionSubTypeName);
 }
 
