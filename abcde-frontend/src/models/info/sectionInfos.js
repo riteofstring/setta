@@ -1,4 +1,4 @@
-import { SectionInfo } from "classes/mutableInfo";
+import { newSectionInfo } from "classes/mutableInfo";
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
@@ -29,7 +29,7 @@ const sectionInfos = {
     const { sections, sectionConfigCol, sectionChildren } = payload;
     const sectionInfos = _.mapValues(sections, (x) => {
       const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
-      const y = new SectionInfo({
+      const y = newSectionInfo({
         ...x,
         parentId,
         configId: sectionConfigCol[x.id],

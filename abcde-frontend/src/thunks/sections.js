@@ -1,4 +1,4 @@
-import { SectionConfig, SectionInfo } from "classes/mutableInfo";
+import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { thunk } from "easy-peasy";
 import { DEFAULT_SECTION_UI_TYPE_ID } from "utils/constants";
 
@@ -38,10 +38,10 @@ export function createManySectionInfo({
   const newInfos = {};
   const newConfigs = {};
   for (let i = 0; i < numChildren; i++) {
-    const sectionInfo = new SectionInfo(sectionInfoProps);
+    const sectionInfo = newSectionInfo(sectionInfoProps);
     const { id, configId } = sectionInfo;
     newInfos[id] = sectionInfo;
-    newConfigs[configId] = new SectionConfig({
+    newConfigs[configId] = newSectionConfig({
       id: configId,
       ...sectionConfigProps,
     });
@@ -53,11 +53,11 @@ export const createDefaultSectionInfo = thunk((actions, payload, helpers) => {
   const { sectionProps, configProps } = payload;
   const a = helpers.getStoreActions();
 
-  const sectionInfo = new SectionInfo({
+  const sectionInfo = newSectionInfo({
     name: "New Section",
     ...sectionProps,
   });
-  const sectionConfig = new SectionConfig({
+  const sectionConfig = newSectionConfig({
     id: sectionInfo.configId,
     uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
     ...configProps,

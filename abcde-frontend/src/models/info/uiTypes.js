@@ -1,4 +1,4 @@
-import { UIType } from "classes/uiType";
+import { newUIType } from "classes/uiType";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
@@ -11,7 +11,7 @@ const uiTypes = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
-    const uiTypes = _.mapValues(payload, (v) => new UIType(v));
+    const uiTypes = _.mapValues(payload, (v) => newUIType(v));
     actions.reset();
     actions.setAll(uiTypes);
   }),

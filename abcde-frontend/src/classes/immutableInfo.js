@@ -1,27 +1,27 @@
 import { maybeNewId } from "utils/utils";
 
-export class CodeInfo {
-  constructor({
-    id,
-    name = "",
-    version = null,
-    defaultVal = null,
-    type = "",
-    description = "",
+export function newCodeInfo({
+  id,
+  name = "",
+  version = null,
+  defaultVal = null,
+  type = "",
+  description = "",
+  rcType,
+  parentId = null,
+  children = [],
+}) {
+  return {
+    id: maybeNewId(id),
+    name,
+    version,
+    defaultVal,
+    type,
     rcType,
-    parentId = null,
-    children = [],
-  }) {
-    this.id = maybeNewId(id);
-    this.name = name;
-    this.version = version;
-    this.defaultVal = defaultVal;
-    this.type = type;
-    this.rcType = rcType;
-    this.description = description;
-    this.parentId = parentId;
-    this.children = children;
-  }
+    description,
+    parentId,
+    children,
+  };
 }
 
 export function getFullObjPath(codeInfo, skipLast = 0) {

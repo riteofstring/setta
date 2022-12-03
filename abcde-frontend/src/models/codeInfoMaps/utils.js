@@ -1,9 +1,12 @@
-import { MutableParamUITypeInfo, ParamTypeInfo } from "classes/mutableInfo";
+import {
+  newMutableParamUITypeInfo,
+  newParamTypeInfo,
+} from "classes/mutableInfo";
 import _ from "lodash";
 
 export function setCodeInfoMap(state, paramInfoId) {
   if (!(paramInfoId in state.codeInfoMaps)) {
-    state.codeInfoMaps[paramInfoId] = new MutableParamUITypeInfo({
+    state.codeInfoMaps[paramInfoId] = newMutableParamUITypeInfo({
       id: paramInfoId,
     });
   }
@@ -12,7 +15,7 @@ export function setCodeInfoMap(state, paramInfoId) {
 
 export function setCodeInfoTypeMap(state, type) {
   if (!(type in state.codeInfoTypeMaps)) {
-    state.codeInfoTypeMaps[type] = new ParamTypeInfo({ type });
+    state.codeInfoTypeMaps[type] = newParamTypeInfo({ type });
   }
   return state.codeInfoTypeMaps[type];
 }

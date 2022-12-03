@@ -1,5 +1,4 @@
-import { CodeInfo } from "classes/immutableInfo";
-import { KwargInfo } from "classes/mutableInfo";
+import { newCodeInfo } from "classes/immutableInfo";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { maybeUseNullId } from "utils/utils";
@@ -11,7 +10,7 @@ export const addKwarg = thunk((actions, payload, helpers) => {
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
   const { kwargColId } = getSectionConfig(s, sectionId);
-  const kwargInfo = new KwargInfo({
+  const kwargInfo = newCodeInfo({
     name: "",
     rcType: "parameter",
   });
@@ -57,7 +56,7 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   const a = helpers.getStoreActions();
   const { kwargColId } = getSectionConfig(s, sectionId);
   const kwargIds = s.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
-  const collection = new CodeInfo({
+  const collection = newCodeInfo({
     name,
     rcType: "collection",
     children: kwargIds,
@@ -71,5 +70,7 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
     })),
     "id"
   );
+
+  // TODO fix this call
   a.codeInfo.updateInfos({ [collection.id]: collection, ...paramInfos });
 });

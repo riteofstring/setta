@@ -1,11 +1,11 @@
-import { EVInfo } from "classes/mutableInfo";
+import { newEVInfo } from "classes/mutableInfo";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
 
 function getEVInfo(state, evId) {
   if (!(evId in state.x)) {
-    state.x[evId] = new EVInfo({ id: evId });
+    state.x[evId] = newEVInfo({ id: evId });
   }
   return state.x[evId];
 }
@@ -18,7 +18,7 @@ const enteredValues = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
-    const evs = _.mapValues(payload, (v, k) => new EVInfo({ id: k, ...v }));
+    const evs = _.mapValues(payload, (v, k) => newEVInfo({ id: k, ...v }));
     actions.reset();
     actions.setAll(evs);
   }),

@@ -1,5 +1,5 @@
-import { SectionConfig, SectionInfo } from "classes/mutableInfo";
-import { UIType } from "classes/uiType";
+import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
+import { newUIType } from "classes/uiType";
 import { StoreProvider } from "easy-peasy";
 import _ from "lodash";
 import { ReactFlowProvider } from "react-flow-renderer";
@@ -63,8 +63,8 @@ export function addSectionInfo(store, inputUIType = null) {
   if (!uiType) {
     uiType = addUIType(store, { type: SECTION });
   }
-  const si = new SectionInfo({});
-  const siConfig = new SectionConfig({ id: si.configId, uiTypeId: uiType.id });
+  const si = newSectionInfo({});
+  const siConfig = newSectionConfig({ id: si.configId, uiTypeId: uiType.id });
   store
     .getActions()
     .sectionInfos.setSectionInfo((x) => ({ ...x, [si.id]: si }));
@@ -76,7 +76,7 @@ export function addSectionInfo(store, inputUIType = null) {
 }
 
 export function addUIType(store, props = {}) {
-  const uiType = new UIType(props);
+  const uiType = newUIType(props);
   store.getActions().uiTypes.setUIType({ uiType });
   return uiType;
 }

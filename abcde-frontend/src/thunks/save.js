@@ -33,9 +33,7 @@ export function getProjectData(s) {
   );
 
   const sectionChildren = s.sectionInfos.allChildren;
-  const sectionConfigs = _.mapValues(s.sectionConfigs.x, (v) =>
-    Object.fromEntries(Object.entries(v))
-  );
+  const sectionConfigs = s.sectionConfigs.x;
   const sectionConfigCol = _.mapValues(s.sectionInfos.x, (v) => v.configId);
 
   return {
@@ -132,9 +130,5 @@ function assembleKwargInfos(s, kwargCols) {
 
 export function assembleUITypes(s, pickBy) {
   let uiTypes = _.pickBy(s.uiTypes.x, pickBy);
-  // The purpose of Object.fromEntries(Object.entries(...)))
-  // is to get rid of class methods
-  return _.mapValues(uiTypes, (v) =>
-    _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
-  );
+  return _.mapValues(uiTypes, (v) => _.omit(v, ["origin"]));
 }

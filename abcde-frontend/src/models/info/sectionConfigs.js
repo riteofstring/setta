@@ -1,4 +1,4 @@
-import { SectionConfig } from "classes/mutableInfo";
+import { newSectionConfig } from "classes/mutableInfo";
 import { action, thunk } from "easy-peasy";
 import _ from "lodash";
 import { resetState } from "models/utils";
@@ -11,10 +11,7 @@ const sectionConfigs = {
   ...getInitialState(),
 
   resetAndSetAll: thunk((actions, payload) => {
-    const sectionConfigInfos = _.mapValues(
-      payload,
-      (x) => new SectionConfig(x)
-    );
+    const sectionConfigInfos = _.mapValues(payload, (x) => newSectionConfig(x));
     actions.reset();
     actions.setAll(sectionConfigInfos);
   }),
