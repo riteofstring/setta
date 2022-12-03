@@ -96,7 +96,7 @@ export class AppController {
     return this.codeGeneratorService.generateCode(
       req.user,
       req.body.codeId,
-      req.body.codeJson,
+      req.body.project,
     );
   }
 
