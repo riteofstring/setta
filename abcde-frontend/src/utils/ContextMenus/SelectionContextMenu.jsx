@@ -4,24 +4,37 @@ import { useStoreActions } from "easy-peasy";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
 
-export function SelectionContextMenu(props) {
-  const { nodeIds, closeContextMenu } = props;
+export function SelectionContextMenu({
+  x,
+  y,
+  closeContextMenu,
+  reactFlowRef,
+  nodeIds,
+  ...props
+}) {
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
   const addToDeck = useStoreActions((x) => x.thunks.addToDeck);
   function afterAddSection(deckId) {
     addToDeck({ deckId, idsToAdd: nodeIds });
   }
 
-  const onClickCreateDeck = useOnClickAddSection({ ...props, afterAddSection });
+  const onClickCreateDeck = useOnClickAddSection({
+    x,
+    y,
+    closeContextMenu,
+    reactFlowRef,
+    afterAddSection,
+  });
+
   function onClickDelete() {
     deleteSections({ sectionIds: nodeIds });
     closeContextMenu();
   }
 
   return (
-    <ContextMenuCore {...props}>
+    <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
       <MenuList zIndex={10}>
-        <MenuItem onClick={onClickCreateDeck(true)}>Create Deck</MenuItem>
+        <MenuItem onClick={() => onClickCreateDeck(true)}>Create Deck</MenuItem>
         <MenuItem onClick={onClickDelete}>Delete</MenuItem>
       </MenuList>
     </ContextMenuCore>
