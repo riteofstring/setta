@@ -1,10 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMainContainer } from "__tests__utils/createMainContainer";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { sectionIdFromName } from "__tests__utils/utils";
-
-global.ResizeObserver = ResizeObserver;
 
 test("Deleting a section should work", async () => {
   const { store } = await createMainContainer();

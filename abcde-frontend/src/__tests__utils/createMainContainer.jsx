@@ -4,6 +4,10 @@ import {
   createStoreWrapperWithData,
   sectionIdFromName,
 } from "__tests__utils/utils";
+import { ResizeObserver } from "./resizeObserverDummy";
+
+// required to avoid "ReferenceError: ResizeObserver is not defined"
+global.ResizeObserver = ResizeObserver;
 
 export async function createMainContainer() {
   const { store, wrapper } = await createStoreWrapperWithData({

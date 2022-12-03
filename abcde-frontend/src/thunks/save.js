@@ -16,12 +16,7 @@ export function getProjectData(s) {
     _.pick(v, ["value", "childId"])
   );
   const evCols = s.paramInfos.x;
-  let uiTypes = _.pickBy(s.uiTypes.x, (v) => v.presetType !== BASE);
-  // The purpose of Object.fromEntries(Object.entries(...)))
-  // is to get rid of class methods
-  uiTypes = _.mapValues(uiTypes, (v) =>
-    _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
-  );
+  const uiTypes = assembleUITypes(s, (v) => v.presetType !== BASE);
   const uiTypeCols = s.paramInfos.y;
 
   const kwargCols = s.objInfos.x;
@@ -133,4 +128,13 @@ function assembleKwargInfos(s, kwargCols) {
     }
   }
   return kwargInfos;
+}
+
+export function assembleUITypes(s, pickBy) {
+  let uiTypes = _.pickBy(s.uiTypes.x, pickBy);
+  // The purpose of Object.fromEntries(Object.entries(...)))
+  // is to get rid of class methods
+  return _.mapValues(uiTypes, (v) =>
+    _.omit(Object.fromEntries(Object.entries(v)), ["origin"])
+  );
 }

@@ -6,11 +6,7 @@ import {
   getAllOverviewListings,
   getOverviewSearch,
 } from "__tests__utils/createMainContainer";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { sectionIdFromName } from "__tests__utils/utils";
-
-// required to avoid "ReferenceError: ResizeObserver is not defined"
-global.ResizeObserver = ResizeObserver;
 
 test("Tabbing away from Overview should focus onto a section when UI config is closed", async () => {
   await createMainContainer();

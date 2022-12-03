@@ -6,10 +6,7 @@ import {
   renderUseGetParamChildId,
   renderUseGetParamUIType,
 } from "__tests__utils/renderHooks";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { getParameterToTestOn, sectionIdFromName } from "__tests__utils/utils";
-
-global.ResizeObserver = ResizeObserver;
 
 test("A nested section should appear when a parameter uitype becomes section", async () => {
   const { store, wrapper } = await createMainContainer();
