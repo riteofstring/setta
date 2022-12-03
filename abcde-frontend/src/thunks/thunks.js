@@ -1,4 +1,5 @@
 import { addChild } from "./addChild";
+import { addSectionAtPosition } from "./addSectionAtPosition";
 import { addToDeck } from "./addToDeck";
 import { accessPage, login, logout } from "./authentication";
 import { createChildSectionInfo } from "./createChildSectionInfo";
@@ -62,4 +63,5 @@ export default {
   generateCode,
   createProject,
   getProjects,
+  addSectionAtPosition,
 };
