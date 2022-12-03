@@ -1,13 +1,8 @@
 import { exportSelected } from 'src/codeGenerator/exportSelected';
-import { loadOneProject, loadSpecificTestData } from 'test/utils';
+import { loadOneProject } from 'test/utils';
 
 test('export simpleTrainTest', async () => {
-  const p = await loadOneProject({});
-  p.currChildren = await loadSpecificTestData({
-    name: 'SectionCurrChildren',
-    projectName: 'simpleTrainTest',
-    subFolderName: 'simpleConfig1',
-  });
+  const p = await loadOneProject({ forCodeGen: true });
   const selected = exportSelected(p);
   const correct = {
     'V~Model': {

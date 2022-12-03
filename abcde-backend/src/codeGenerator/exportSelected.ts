@@ -16,7 +16,7 @@ function paramInfoExportSelected(sectionId, paramInfo, evColId, p) {
     return undefined;
   }
   const { value, childId } = p.ev[evId];
-  const sectionChildren = p.currChildren[sectionId];
+  const sectionChildren = p.sectionCurrChildren[sectionId];
   if (sectionChildren && sectionChildren.includes(childId)) {
     return sectionExportSelected(p.sections[childId], p);
   }
@@ -89,7 +89,7 @@ function sectionExportSelected(section, p) {
   const sectionType = p.uiTypes[uiTypeId];
 
   if (isRoot(sectionType.type)) {
-    const currChildren = p.currChildren[section.id];
+    const currChildren = p.sectionCurrChildren[section.id];
     return multipleSectionExportSelected(currChildren, sectionType, p);
   }
 
