@@ -1,6 +1,7 @@
 import { newSectionInfo } from "classes/mutableInfo";
 import { action, computed, thunk } from "easy-peasy";
 import _ from "lodash";
+import { useActiveSection } from "models/activeSection";
 import { resetState } from "models/utils";
 import { getSectionType } from "thunks/sections";
 import {
@@ -161,8 +162,10 @@ function deleteSectionFn(helpers, sectionId) {
     idx += 1;
   }
 
-  if (idsToDelete.includes(s.activeSection.id)) {
-    a.activeSection.setId(null);
+  const activeSection = useActiveSection.getState().id;
+  const setActiveSection = useActiveSection.getState().setId;
+  if (idsToDelete.includes(activeSection)) {
+    setActiveSection(null);
   }
   a.sectionInfos.removeSectionInfos(idsToDelete);
   a.projectConfig.deleteChildren(idsToDelete);

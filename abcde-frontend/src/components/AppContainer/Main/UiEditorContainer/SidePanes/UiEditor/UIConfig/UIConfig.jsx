@@ -10,11 +10,12 @@ import {
   Stack,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
+import { useActiveSection } from "models/activeSection";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
@@ -26,7 +27,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 export default React.memo(UIConfig);
 
 function UIConfig() {
-  const sectionId = useStoreState((x) => x.activeSection.id);
+  const sectionId = useActiveSection((x) => x.id);
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(

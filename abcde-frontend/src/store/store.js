@@ -1,5 +1,4 @@
 import { action, createStore } from "easy-peasy";
-import activeSection from "models/activeSection";
 import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
 import codeInfo from "models/info/codeInfo";
@@ -33,7 +32,6 @@ const store = createStore({
   project: project,
   projectConfig: projectConfig,
   projectToLoad: projectToLoad,
-  activeSection: activeSection,
   thunks: thunks,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {

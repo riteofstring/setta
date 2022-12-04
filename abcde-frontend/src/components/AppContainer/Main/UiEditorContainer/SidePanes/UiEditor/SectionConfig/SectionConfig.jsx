@@ -19,14 +19,15 @@ import {
   getCollectionDetails,
   getCollectionsAndModules,
 } from "dbRequests/sectionConfig";
+import { useActiveSection } from "models/activeSection";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
 export default React.memo(SectionConfig);
 
 function SectionConfig() {
-  const sectionId = useStoreState((x) => x.activeSection.id);
-  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
+  const sectionId = useActiveSection((x) => x.id);
+  const setActiveSection = useActiveSection((x) => x.setId);
   const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
   const setCameFromUIConfig = useStoreActions(
     (x) => x.uiEditor.setCameFromUIConfig
