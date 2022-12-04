@@ -19,18 +19,7 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "./save";
-import {
-  createDefaultSectionInfo,
-  setCurrChildren,
-  setSectionConfigAttr,
-} from "./sections";
-import {
-  setParamUITypeConfig,
-  setParamUITypeId,
-  setSectionUITypeConfig,
-  setSectionUITypeId,
-  setUITypeConfigAndMaybeClone,
-} from "./uiTypes";
+import { createDefaultSectionInfo, setCurrChildren } from "./sections";
 
 export default {
   addChild,
@@ -39,13 +28,7 @@ export default {
   initializeParam,
   initializeChild,
   saveProject,
-  setParamUITypeId,
-  setSectionUITypeId,
-  setSectionConfigAttr,
-  setSectionUITypeConfig,
   setCurrChildren,
-  setParamUITypeConfig,
-  setUITypeConfigAndMaybeClone,
   addToDeck,
   createDefaultSectionInfo,
   addKwarg,

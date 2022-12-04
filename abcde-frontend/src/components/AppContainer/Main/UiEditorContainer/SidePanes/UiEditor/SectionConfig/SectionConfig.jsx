@@ -10,7 +10,6 @@ import {
 
 import { SearchIcon } from "@chakra-ui/icons";
 
-import { useStoreActions } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import React, { useState } from "react";
@@ -22,6 +21,7 @@ import {
 import { useActiveSection } from "models/activeSection";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUIEditor } from "models/uiEditor";
+import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
@@ -33,13 +33,6 @@ function SectionConfig() {
   const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
   const setTabIndex = useUIEditor((x) => x.setTabIndex);
-  const setSectionUITypeId = useStoreActions(
-    (x) => x.thunks.setSectionUITypeId
-  );
-  const setSectionUITypeConfig = useStoreActions(
-    (x) => x.thunks.setSectionUITypeConfig
-  );
-
   const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
   const [currTypeId, savedConfig] = useGetSectionType(sectionId, [
     "id",

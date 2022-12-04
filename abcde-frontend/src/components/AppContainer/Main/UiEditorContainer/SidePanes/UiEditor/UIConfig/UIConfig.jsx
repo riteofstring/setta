@@ -10,7 +10,6 @@ import {
   Stack,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -18,6 +17,7 @@ import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
+import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { USER } from "utils/uiTypeConstants";
@@ -67,10 +67,6 @@ function UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const setParamUITypeId = useStoreActions((x) => x.thunks.setParamUITypeId);
-  const setParamUITypeConfig = useStoreActions(
-    (x) => x.thunks.setParamUITypeConfig
-  );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {

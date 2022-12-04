@@ -1,8 +1,7 @@
-import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { defaultState } from "utils/utils";
-import { useGetSectionInfo, useSectionInfoNames } from "./useSectionInfo";
+import { useGetSectionInfo, useSomeSectionInfoNames } from "./useSectionInfo";
 
 export function useSectionSiblingNames(sectionId) {
   const [sectionName, parentId] = useGetSectionInfo(sectionId, [
@@ -16,10 +15,7 @@ export function useSectionSiblingNames(sectionId) {
     () => []
   );
   const siblingIds = isTopLevel ? topLevelSectionIds : potentialSiblingIds;
-  const siblingNames = useSectionInfoNames(
-    (x) => siblingIds.map((y) => x[y]),
-    _.isEqual
-  );
+  const siblingNames = useSomeSectionInfoNames(siblingIds);
   const output = new Set(siblingNames);
   // delete self name
   output.delete(sectionName);

@@ -24,7 +24,7 @@ export const initializeParam = thunk((actions, payload, helpers) => {
 });
 
 function getEnteredValueId(sectionId, paramInfo, helpers) {
-  const configId = useSectIonfos.getState().x[sectionId].configId;
+  const configId = useSectionInfos.getState().x[sectionId].configId;
   const evColId = useSectionConfigs.getState().x[configId].evColId;
   return {
     enteredValueId: useParamInfos.getState().x[evColId]?.[paramInfo.id],

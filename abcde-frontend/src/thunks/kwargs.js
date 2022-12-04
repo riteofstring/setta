@@ -10,9 +10,7 @@ import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
 export const addKwarg = thunk((actions, payload, helpers) => {
   const { sectionId, objInfoId } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-  const { kwargColId } = getSectionConfig(s, sectionId);
+  const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name: "",
     rcType: "parameter",
@@ -27,10 +25,9 @@ export const addKwarg = thunk((actions, payload, helpers) => {
 
 export const deleteKwarg = thunk((actions, payload, helpers) => {
   let { sectionId, objInfoId, kwargId, deleteLast } = payload;
-  const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
-  const { evColId, kwargColId } = getSectionConfig(s, sectionId);
-  const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
+  const { evColId, kwargColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(sectionId);
   objInfoId = maybeUseNullId(objInfoId);
   if (deleteLast) {
     const kwargIds = useObjInfos.getState().x[kwargColId]?.[objInfoId];
@@ -40,7 +37,7 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  const childId = getParamChildId(s, sectionId, kwargId);
+  const childId = getParamChildId(sectionId, kwargId);
   useObjInfos.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId,
@@ -57,8 +54,7 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
 
 export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   const { sectionId, objInfoId, name = "test" } = payload;
-  const s = helpers.getStoreState();
-  const { kwargColId } = getSectionConfig(s, sectionId);
+  const { kwargColId } = getSectionConfig(sectionId);
   const kwargIds =
     useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
   const collection = newCodeInfo({

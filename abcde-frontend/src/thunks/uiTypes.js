@@ -109,7 +109,7 @@ export function setParamUITypeConfig({
   });
 }
 
-export function setUITypeConfigAndMaybeClone({
+function setUITypeConfigAndMaybeClone({
   defaultName,
   currUIType,
   settingPreset,

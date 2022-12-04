@@ -18,3 +18,7 @@ export function useGetManySectionInfos(sectionIds, props) {
 export function useSectionInfoNames() {
   return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name));
 }
+
+export function useSomeSectionInfoNames(sectionIds) {
+  return useSectionInfos((x) => sectionIds.map((y) => x.x[y].name));
+}
