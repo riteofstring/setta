@@ -36,10 +36,25 @@ function deleteSection(sectionId) {
   useProjectConfig.getState().deleteChildren(idsToDelete);
 }
 
-export function moveSections({ sectionIds, ...props }) {
-  sectionIds.forEach((x, newIndex) =>
-    moveSection({ sectionId: x, newIndex, ...props })
-  );
+export function moveSections({
+  sectionIds,
+  oldParentIds,
+  newParentIds,
+  positions,
+  oldParentId,
+  newParentId,
+}) {
+  let idx = 0;
+  for (const sectionId of sectionIds) {
+    moveSection({
+      oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
+      newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
+      sectionId,
+      newIndex: idx,
+      position: positions ? positions[sectionId] : null,
+    });
+    idx += 1;
+  }
 }
 
 export function moveSection({

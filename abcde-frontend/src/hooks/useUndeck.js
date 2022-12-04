@@ -1,9 +1,8 @@
 import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
-import { deleteSections } from "thunks/sectionOps";
+import { deleteSections, moveSections } from "thunks/sectionOps";
+import { PANEID } from "utils/constants";
 
 import {
   useGetSectionPosition,
@@ -12,21 +11,18 @@ import {
 import { useGetAllChildren } from "./useSectionChildren";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
-  const setAllChildren = useSectionInfos((x) => x.setAllChildren);
-  const setSectionInfoAttrObjInput = useSectionInfos(
-    (x) => x.setSectionInfoAttrObjInput
-  );
-  const addChildren = useProjectConfig((x) => x.addChildren);
-
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {
-    const newValues = {};
+    const positions = {};
     _.forEach(coords, function (value, key) {
-      newValues[key] = { initialPosition: project(value) };
+      positions[key] = { ...project(value) };
     });
-    setAllChildren({ sectionId: deckId, newStateFn: () => [] });
-    setSectionInfoAttrObjInput({ newValues });
-    addChildren(childIds);
+    moveSections({
+      oldParentId: deckId,
+      newParentId: PANEID,
+      sectionIds: childIds,
+      positions,
+    });
     deleteSections({ sectionIds: [deckId] });
   }
 
