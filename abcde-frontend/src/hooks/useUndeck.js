@@ -40,7 +40,7 @@ export function useUndeck(sectionId) {
   const requestPositionUpdate = useRequestSectionPositionUpdate();
   useMakeChildrenTopLevel(deckId, childIds, requesterName);
 
-  // closeContextMenu() happens before easy-peasy state updates.
+  // closeContextMenu() happens before state updates.
   // So sectionId ends up being null by the time onCoordsReceived is called
   // Therefore, only update deckId when sectionId is not null
   useEffect(() => {

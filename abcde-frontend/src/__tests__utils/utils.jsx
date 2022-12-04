@@ -1,9 +1,8 @@
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { newUIType } from "classes/uiType";
-import { StoreProvider } from "easy-peasy";
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { ReactFlowProvider } from "react-flow-renderer";
-import store, { resetEntireState } from "store/store";
 import { SECTION } from "utils/constants";
 import { loadOneProject } from "./loadTestData";
 import { renderUseGetSectionType } from "./renderHooks";
@@ -81,15 +80,11 @@ export function addUIType(store, props = {}) {
   return uiType;
 }
 
-export function getStoreProviderWrapper(store) {
-  return ({ children }) => (
-    <StoreProvider store={store}>
-      <ReactFlowProvider>{children}</ReactFlowProvider>
-    </StoreProvider>
-  );
+export function getReactFlowProvider() {
+  return ({ children }) => <ReactFlowProvider>{children}</ReactFlowProvider>;
 }
 
-export function sectionIdFromName(store, name) {
-  const sections = store.getState().sectionInfos.x;
+export function sectionIdFromName(name) {
+  const sections = useSectionInfos.getState().x;
   return _.filter(sections, (x) => x.name === name)[0].id;
 }
