@@ -1,6 +1,7 @@
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { newUIType } from "classes/uiType";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -17,8 +18,8 @@ export async function loadTestDataIntoState() {
   loadSections(testData);
 }
 
-export function getSectionByName(store, name) {
-  return _.filter(store.getState().sectionInfos.x, (v) => v.name === name)[0];
+export function getSectionByName(name) {
+  return _.filter(useSectionInfos.getState().x, (v) => v.name === name)[0];
 }
 
 function getParamCollectionParamInfoByName(allCodeInfo, paramCollection, name) {
@@ -26,22 +27,21 @@ function getParamCollectionParamInfoByName(allCodeInfo, paramCollection, name) {
   return _.filter(childrenInfo, (v) => v.name === name)[0];
 }
 
-export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
+export function getParameterToTestOn(sectionName, paramName) {
   let result = null;
 
   // get section
-  const sectionInfo = getSectionByName(store, sectionName);
+  const sectionInfo = getSectionByName(sectionName);
 
   const { id: sectionId, configId } = sectionInfo;
-  const { uiTypeId: sectionTypeId } =
-    store.getState().sectionConfigs.x[configId];
+  const { uiTypeId: sectionTypeId } = useSectionConfigs.getState().x[configId];
   // get sectionType
-  ({ result } = renderUseGetSectionType(sectionId, ["id", "config"], wrapper));
+  ({ result } = renderUseGetSectionType(sectionId, ["id", "config"]));
   expect(result.current[0]).toEqual(sectionTypeId);
   const evColId = result.current[1].collections[0];
 
   // get the param collection that the section contains
-  const allCodeInfo = store.getState().codeInfo.allCodeInfo;
+  const allCodeInfo = useCodeInfo.getState().allCodeInfo;
   const variousParams = allCodeInfo[evColId];
 
   // get the parameter we are going to test on
@@ -51,11 +51,6 @@ export function getParameterToTestOn(store, wrapper, sectionName, paramName) {
     paramName
   );
   return { sectionInfo, paramInfo };
-}
-
-export function createStore() {
-  resetEntireState();
-  return store;
 }
 
 export function addSectionInfo(inputUIType = null) {

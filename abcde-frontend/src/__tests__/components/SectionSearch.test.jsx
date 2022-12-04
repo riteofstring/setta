@@ -2,27 +2,20 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
+import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { renderUseGetSectionConfig } from "__tests__utils/renderHooks";
-import {
-  createStoreWrapperWithData,
-  sectionIdFromName,
-} from "__tests__utils/utils";
+import { loadTestDataIntoState, sectionIdFromName } from "__tests__utils/utils";
 
 test("Test SectionSearch", async () => {
-  const { store, wrapper } = await createStoreWrapperWithData({});
-  const sectionId = sectionIdFromName(store, "Optimizer");
+  await loadTestDataIntoState();
+  const sectionId = sectionIdFromName("Optimizer");
   const props = { sectionId, parentId: null, depth: 0 };
 
-  const { rerender } = render(<SectionContainer {...props} />, {
-    wrapper,
-  });
+  const { rerender } = render(<SectionContainer {...props} />);
 
   // Expect that this section doesn't have any selection
-  let { result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  );
+  let { result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]);
   expect(result.current[0]).toEqual(null);
 
   // search box should be empty
@@ -36,22 +29,18 @@ test("Test SectionSearch", async () => {
 
   // Expect that the SGD object is now selected
   const idSGD = "0c264e90-eb09-4dfb-bb5b-b357037b2a08";
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
+  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
   expect(result.current[0]).toEqual(idSGD);
 
   // Get another collection
   const newCollection = _.filter(
-    store.getState().codeInfo.allCollections,
+    useCodeInfo.getState().allCollections,
     (x) => x.name === "Torchvision Models"
   )[0];
 
   // Add collection to section
   await waitFor(() =>
-    store.getActions().thunks.setSectionUITypeConfig({
+    setSectionUITypeConfig({
       sectionId,
       configProps: {
         configName: "collections",
@@ -61,21 +50,15 @@ test("Test SectionSearch", async () => {
   );
 
   // rerender (not sure why this is necessary actually)
-  rerender(<SectionContainer {...props} />, {
-    wrapper,
-  });
+  rerender(<SectionContainer {...props} />);
 
   // Expect selectedItem to be unchanged
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
+  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
   expect(result.current[0]).toEqual(idSGD);
 
   // Make section only have models
   await waitFor(() =>
-    store.getActions().thunks.setSectionUITypeConfig({
+    setSectionUITypeConfig({
       sectionId,
       configProps: {
         configName: "collections",
@@ -85,16 +68,10 @@ test("Test SectionSearch", async () => {
   );
 
   // rerender (not sure why this is necessary actually)
-  rerender(<SectionContainer {...props} />, {
-    wrapper,
-  });
+  rerender(<SectionContainer {...props} />);
 
   // Expect selectedItem to be null now that its item is no longer available in the combobox
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
+  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
   expect(result.current[0]).toEqual(null);
 
   // search box should be empty
@@ -109,7 +86,7 @@ test("Test SectionSearch", async () => {
 
   // Make section have no searchable items
   await waitFor(() =>
-    store.getActions().thunks.setSectionUITypeConfig({
+    setSectionUITypeConfig({
       sectionId,
       configProps: {
         configName: "collections",
@@ -119,15 +96,9 @@ test("Test SectionSearch", async () => {
   );
 
   // rerender (not sure why this is necessary actually)
-  rerender(<SectionContainer {...props} />, {
-    wrapper,
-  });
+  rerender(<SectionContainer {...props} />);
 
   // Expect selectedItem to be null now that its item is no longer available in the combobox
-  ({ result } = renderUseGetSectionConfig(
-    sectionId,
-    ["selectedItem"],
-    wrapper
-  ));
+  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
   expect(result.current[0]).toEqual(null);
 });

@@ -5,28 +5,20 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetKwargInfos } from "hooks/useSectionContents";
 import { useGetSectionType } from "hooks/useSectionType";
 
-export function renderUseGetParamUIType(sectionId, paramInfoId, wrapper) {
-  return renderHook(() => useGetParamUIType(sectionId, paramInfoId), {
-    wrapper,
-  });
+export function renderUseGetParamUIType(sectionId, paramInfoId) {
+  return renderHook(() => useGetParamUIType(sectionId, paramInfoId));
 }
 
-export function renderUseGetParamChildId(sectionId, paramInfoId, wrapper) {
-  return renderHook(() => useGetParamChildId(sectionId, paramInfoId), {
-    wrapper,
-  });
+export function renderUseGetParamChildId(sectionId, paramInfoId) {
+  return renderHook(() => useGetParamChildId(sectionId, paramInfoId));
 }
 
-export function renderUseGetSectionType(sectionId, props, wrapper) {
-  return renderHook(() => useGetSectionType(sectionId, props), {
-    wrapper,
-  });
+export function renderUseGetSectionType(sectionId, props) {
+  return renderHook(() => useGetSectionType(sectionId, props));
 }
 
-export function renderUseGetSectionConfig(sectionId, props, wrapper) {
-  return renderHook(() => useGetSectionConfig(sectionId, props), {
-    wrapper,
-  });
+export function renderUseGetSectionConfig(sectionId, props) {
+  return renderHook(() => useGetSectionConfig(sectionId, props));
 }
 
 export function renderUseGetKwargInfos(sectionId, objInfoId) {

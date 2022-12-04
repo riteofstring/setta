@@ -23,7 +23,6 @@
     "autoprefixer": "10.4.12",
     "axios": "0.21.0",
     "downshift": "6.1.0",
-    "easy-peasy": "5.1.0",
     "formik": "2.2.6",
     "framer-motion": "4.1.17",
     "immer": "9.0.16",
