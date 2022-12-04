@@ -12,7 +12,6 @@ import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
-import uiEditor from "models/uiEditor";
 import thunks from "thunks/thunks";
 
 const store = createStore({
@@ -25,7 +24,6 @@ const store = createStore({
   enteredValues: enteredValues,
   uiTypes: uiTypes,
   userCodeInfoMaps: userCodeInfoMaps,
-  uiEditor: uiEditor,
   projectConfigCodeInfoMaps: projectConfigCodeInfoMaps,
   project: project,
   projectConfig: projectConfig,
