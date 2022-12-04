@@ -1,4 +1,4 @@
-import HomePage from "components/HomePage";
+import HomePage from "components/HomePage/HomePage";
 import SignUpPage from "components/SignUpPage/SignUpPage";
 import { useAuth } from "models/auth";
 import { useCurrPage } from "models/currPage";

@@ -2,7 +2,7 @@ import { Spacer, Stack } from "@chakra-ui/react";
 import React from "react";
 import { deleteChild } from "thunks/deleteChild";
 import Incrementer from "../Incrementer/Incrementer";
-import CustomCloseButton from "./CustomCloseButton";
+import CustomCloseButton from "./CustomCloseButton/CustomCloseButton";
 import SectionTitle from "./Title/SectionTitle";
 
 function _SectionHeader({
