@@ -1,4 +1,3 @@
-import { thunk } from "easy-peasy";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useEnteredValues } from "models/info/enteredValues";
@@ -13,18 +12,13 @@ import {
 import { createNewId, curryAction } from "utils/utils";
 import { addChild } from "./addChild";
 
-export const initializeParam = thunk((actions, payload, helpers) => {
-  const { sectionId, paramInfo } = payload;
-  const enteredValueId = initializeParamEnteredValue(
-    sectionId,
-    paramInfo,
-    helpers
-  );
-  const uiTypeId = initializeParamUIType(sectionId, paramInfo, helpers);
+export function initializeParam({ sectionId, paramInfo }) {
+  const enteredValueId = initializeParamEnteredValue(sectionId, paramInfo);
+  const uiTypeId = initializeParamUIType(sectionId, paramInfo);
   fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId);
-});
+}
 
-function getEnteredValueId(sectionId, paramInfo, helpers) {
+function getEnteredValueId(sectionId, paramInfo) {
   const configId = useSectionInfos.getState().x[sectionId].configId;
   const evColId = useSectionConfigs.getState().x[configId].evColId;
   return {
@@ -33,12 +27,8 @@ function getEnteredValueId(sectionId, paramInfo, helpers) {
   };
 }
 
-function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
-  let { enteredValueId, evColId } = getEnteredValueId(
-    sectionId,
-    paramInfo,
-    helpers
-  );
+function initializeParamEnteredValue(sectionId, paramInfo) {
+  let { enteredValueId, evColId } = getEnteredValueId(sectionId, paramInfo);
 
   if (!enteredValueId) {
     const setEnteredValueId = curryAction(
@@ -61,7 +51,7 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
   return enteredValueId;
 }
 
-function initializeParamUIType(sectionId, paramInfo, helpers) {
+function initializeParamUIType(sectionId, paramInfo) {
   const uiTypesState = useUITypes.getState();
   const configId = useSectionInfos.getState().x[sectionId].configId;
   const sectionTypeId = useSectionConfigs.getState().x[configId].uiTypeId;
@@ -116,8 +106,7 @@ function fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId) {
   }
 }
 
-export const initializeChild = thunk((actions, payload, helpers) => {
-  const { sectionId, paramInfo, uiTypeId } = payload;
-  const { enteredValueId } = getEnteredValueId(sectionId, paramInfo, helpers);
+export function initializeChild({ sectionId, paramInfo, uiTypeId }) {
+  const { enteredValueId } = getEnteredValueId(sectionId, paramInfo);
   fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId);
-});
+}

@@ -1,14 +1,9 @@
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { Heading, HStack, IconButton, Stack } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
 import { VscSave } from "react-icons/vsc";
+import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "thunks/kwargs";
 
 export default function KwargsControls({ sectionId, objInfoId }) {
-  const addKwarg = useStoreActions((x) => x.thunks.addKwarg);
-  const deleteKwarg = useStoreActions((x) => x.thunks.deleteKwarg);
-  const saveKwargsAsCollection = useStoreActions(
-    (x) => x.thunks.saveKwargsAsCollection
-  );
   function onClickAddKwarg() {
     addKwarg({ sectionId, objInfoId });
   }

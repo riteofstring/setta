@@ -1,15 +1,14 @@
 import { newCodeInfo } from "classes/immutableInfo";
-import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
 import { useParamInfos } from "models/info/paramInfos";
 import { maybeUseNullId } from "utils/utils";
+import { deleteChild } from "./deleteChild";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-export const addKwarg = thunk((actions, payload, helpers) => {
-  const { sectionId, objInfoId } = payload;
+export function addKwarg({ sectionId, objInfoId }) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name: "",
@@ -21,11 +20,10 @@ export const addKwarg = thunk((actions, payload, helpers) => {
     objInfoId: maybeUseNullId(objInfoId),
     newStateFn: (x) => [...x, kwargInfo.id],
   });
-});
+}
 
-export const deleteKwarg = thunk((actions, payload, helpers) => {
+export function deleteKwarg(payload) {
   let { sectionId, objInfoId, kwargId, deleteLast } = payload;
-  const a = helpers.getStoreActions();
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
   objInfoId = maybeUseNullId(objInfoId);
@@ -48,12 +46,15 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
   if (childId) {
-    a.thunks.deleteChild({ sectionId, startId: childId });
+    deleteChild({ sectionId, startId: childId });
   }
-});
+}
 
-export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
-  const { sectionId, objInfoId, name = "test" } = payload;
+export function saveKwargsAsCollection({
+  sectionId,
+  objInfoId,
+  name = "test",
+}) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargIds =
     useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
@@ -75,4 +76,4 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
 
   // TODO fix this call
   codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
-});
+}

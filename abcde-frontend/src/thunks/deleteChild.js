@@ -1,4 +1,3 @@
-import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { deleteSections } from "./sectionOps";
@@ -18,9 +17,7 @@ function getNewStateFn(deletedChildren, numChildren, startId) {
   };
 }
 
-export const deleteChild = thunk((action, payload, helpers) => {
-  const { sectionId, numChildren = 1, startId = null } = payload;
-
+export function deleteChild({ sectionId, numChildren = 1, startId = null }) {
   // For deleting root sections, in which case the parent (sectionid) is "null"
   if (_.isNil(sectionId)) {
     deleteSections({ sectionIds: [startId] });
@@ -36,4 +33,4 @@ export const deleteChild = thunk((action, payload, helpers) => {
   });
 
   deleteSections({ sectionIds: deletedChildren[0] });
-});
+}
