@@ -1,15 +1,17 @@
-import {
-  AccordionButton,
-  AccordionIcon,
-  AccordionItem,
-  AccordionPanel,
-  Box,
-} from "@chakra-ui/react";
-import ReduceMotionAccordian from "utils/ReduceMotionAccordian/ReduceMotionAccordian";
+import { useState } from "react";
 
 export default function PageAccordion(props) {
+  const [open, setOpen] = useState(false);
   return (
-    <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
+    <>
+      <Collapsible.Root>
+        <Collapsible.Trigger>
+          {open ? "open" : "close"} <h2>{`Group ${props.pageNum}`}</h2>
+        </Collapsible.Trigger>
+        <Collapsible.Content>{props.children}</Collapsible.Content>
+      </Collapsible.Root>
+
+      {/* <ReduceMotionAccordian defaultIndex={[0]} allowMultiple>
       <AccordionItem>
         <h2>
           <AccordionButton>
@@ -19,8 +21,9 @@ export default function PageAccordion(props) {
             <AccordionIcon />
           </AccordionButton>
         </h2>
-        <AccordionPanel pb={4}>{props.children}</AccordionPanel>
+        <AccordionPanel pb={4}></AccordionPanel>
       </AccordionItem>
-    </ReduceMotionAccordian>
+    </ReduceMotionAccordian> */}
+    </>
   );
 }
