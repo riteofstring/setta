@@ -1,4 +1,3 @@
-import { Spacer, Stack } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
 import React from "react";
 import Incrementer from "../Incrementer/Incrementer";
@@ -23,9 +22,9 @@ function _SectionHeader({
   };
 
   return (
-    <Stack direction="row" align="center" w="100%" pl="0.75em">
+    <div className="flex flex-row items-center w-full pl-3">
       <CardTitle sectionId={sectionId} />
-      <Spacer />
+      <div className="flex-1 justify-self-stretch align-self-stretch" />
       {(isSeriesElement || isRoot) && (
         <Incrementer
           sectionId={sectionId}
@@ -40,7 +39,7 @@ function _SectionHeader({
         aria-label="Delete self"
         data-testid={`Delete ${sectionId}`}
       />
-    </Stack>
+    </div>
   );
 }
 
