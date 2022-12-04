@@ -1,4 +1,6 @@
 import { thunk } from "easy-peasy";
+import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
+import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
@@ -68,11 +70,12 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
 
   if (!uiTypeId) {
     const projectDefaultUITypeId =
-      s.projectConfigCodeInfoMaps.codeInfoMaps[paramInfo.id]?.uiTypeId;
+      useProjectConfigCodeInfoMaps.getState().codeInfoMaps[paramInfo.id]
+        ?.uiTypeId;
     const projectDefaultUIType = s.uiTypes.x[projectDefaultUITypeId];
 
     const globalDefaultUITypeId =
-      s.userCodeInfoMaps.codeInfoTypeMaps[paramInfo.type]?.uiTypeId;
+      useUserCodeInfoMaps.getState().codeInfoTypeMaps[paramInfo.type]?.uiTypeId;
     const globalDefaultUIType = s.uiTypes.x[globalDefaultUITypeId];
 
     const setUITypeId = curryAction(
