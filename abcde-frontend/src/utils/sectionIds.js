@@ -1,12 +1,9 @@
-export const getOverviewListing = (groups, currChildren, idNames) => {
-  let outputList = [];
-  for (let group of groups) {
-    outputList.push([]);
-    for (let sectionId of group) {
-      outputList[outputList.length - 1].push(
-        ...getOverviewListingHelper(sectionId, currChildren, idNames, 0)
-      );
-    }
+export const getOverviewListing = (topLevelIds, currChildren, idNames) => {
+  const outputList = [];
+  for (const sectionId of topLevelIds) {
+    outputList.push(
+      ...getOverviewListingHelper(sectionId, currChildren, idNames, 0)
+    );
   }
   return outputList;
 };
