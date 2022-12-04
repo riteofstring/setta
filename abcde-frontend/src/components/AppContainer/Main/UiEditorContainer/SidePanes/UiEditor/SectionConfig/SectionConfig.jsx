@@ -10,6 +10,7 @@ import {
 
 import { SearchIcon } from "@chakra-ui/icons";
 
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import React, { useState } from "react";
@@ -18,21 +19,26 @@ import {
   getCollectionDetails,
   getCollectionsAndModules,
 } from "dbRequests/sectionConfig";
-import { useActiveSection } from "models/activeSection";
-import { useCodeInfo } from "models/info/codeInfo";
-import { useUIEditor } from "models/uiEditor";
-import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
 export default React.memo(SectionConfig);
 
 function SectionConfig() {
-  const sectionId = useActiveSection((x) => x.id);
-  const setActiveSection = useActiveSection((x) => x.setId);
-  const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
-  const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
-  const setTabIndex = useUIEditor((x) => x.setTabIndex);
+  const sectionId = useStoreState((x) => x.activeSection.id);
+  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
+  const cameFromUIConfig = useStoreState((x) => x.uiEditor.cameFromUIConfig);
+  const setCameFromUIConfig = useStoreActions(
+    (x) => x.uiEditor.setCameFromUIConfig
+  );
+  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const setSectionUITypeId = useStoreActions(
+    (x) => x.thunks.setSectionUITypeId
+  );
+  const setSectionUITypeConfig = useStoreActions(
+    (x) => x.thunks.setSectionUITypeConfig
+  );
+
   const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
   const [currTypeId, savedConfig] = useGetSectionType(sectionId, [
     "id",
@@ -80,8 +86,8 @@ function SectionConfigCore({
   onConfigChange,
 }) {
   const [results, setResults] = useState({});
-  const allCollections = useCodeInfo((x) => x.allCollections);
-  const updateCodeInfos = useCodeInfo((x) => x.updateInfos);
+  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
+  const updateCodeInfos = useStoreActions((x) => x.codeInfo.updateInfos);
 
   async function onSubmit(searchTerm) {
     const x = await getCollectionsAndModules({ allCollections, searchTerm });

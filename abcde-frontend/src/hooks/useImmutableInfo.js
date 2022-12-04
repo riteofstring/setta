@@ -1,10 +1,10 @@
 import { getFullObjPath } from "classes/immutableInfo";
+import { useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
 
 export function useGroupedObjInfos(ids) {
-  const objInfos = useCodeInfo(
-    (x) => ids.map((y) => x.allCodeInfo[y]),
+  const objInfos = useStoreState(
+    (x) => ids.map((y) => x.codeInfo.allCodeInfo[y]),
     _.isEqual
   );
   return _.groupBy(objInfos, (x) => {

@@ -1,23 +1,26 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import MainContainer from "components/AppContainer/Main/MainContainer";
-import { useAuth } from "models/auth";
-import { useProject } from "models/info/project";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { resetAllSlices } from "models/utils";
-import { getReactFlowProvider, sectionIdFromName } from "__tests__utils/utils";
+import {
+  createStoreWrapperWithData,
+  sectionIdFromName,
+} from "__tests__utils/utils";
 import { ResizeObserver } from "./resizeObserverDummy";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
 
 export async function createMainContainer() {
-  resetAllSlices();
-  useAuth.getState().loginSuccess({});
-  render(<MainContainer />, { wrapper: getReactFlowProvider() });
-  await waitFor(() => expect(useProject.getState().id).toBeTruthy());
+  const { store, wrapper } = await createStoreWrapperWithData({
+    loadData: false,
+  });
+  store.getActions().auth.loginSuccess({});
+  render(<MainContainer />, {
+    wrapper,
+  });
+  await waitFor(() => expect(store.getState().project.id).toBeTruthy());
 
   // make sure overview items are rendered
-  const sections = useSectionInfos.getState().x;
+  const sections = store.getState().sectionInfos.x;
   await waitFor(() =>
     expect(getAllOverviewListings().length).toEqual(
       Object.values(sections).length
@@ -25,8 +28,10 @@ export async function createMainContainer() {
   );
 
   // make sure sections are rendered
-  const sectionId = sectionIdFromName("Model");
+  const sectionId = sectionIdFromName(store, "Model");
   await waitFor(() => screen.getByTestId(`${sectionId} section core`));
+
+  return { store, wrapper };
 }
 
 export function getOverviewSearch() {

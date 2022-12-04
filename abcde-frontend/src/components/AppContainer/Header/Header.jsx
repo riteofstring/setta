@@ -1,6 +1,6 @@
 import { Spacer } from "@chakra-ui/react";
 import "@fontsource/jetbrains-mono/600.css";
-import { useCurrPage } from "models/currPage";
+import { useStoreActions } from "easy-peasy";
 import { HOME } from "utils/pageNames";
 import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
 import SubNav from "./SubNav/SubNav";
@@ -27,7 +27,7 @@ function FlexContainer(props) {
 }
 
 function SiteLogo() {
-  const setCurrPage = useCurrPage((x) => x.setName);
+  const setCurrPage = useStoreActions((x) => x.currPage.setName);
   return (
     <h2
       className="no-underline select-none cursor-pointer text-gray-600 mr-4 tracking-tight text-lg font-semibold [font-family:JetBrains Mono]"

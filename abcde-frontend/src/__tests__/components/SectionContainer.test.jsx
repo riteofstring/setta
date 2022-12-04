@@ -9,18 +9,18 @@ import {
 import { getParameterToTestOn, sectionIdFromName } from "__tests__utils/utils";
 
 test("A nested section should appear when a parameter uitype becomes section", async () => {
-  await createMainContainer();
+  const { store, wrapper } = await createMainContainer();
   const sectionName = "The2ndOtherParameters";
-  const sectionId = sectionIdFromName(sectionName);
+  const sectionId = sectionIdFromName(store, sectionName);
 
   const {
     paramInfo: { id: paramInfoId },
-  } = getParameterToTestOn(sectionName, "dataset_root");
+  } = getParameterToTestOn(store, wrapper, sectionName, "dataset_root");
 
-  let { result } = renderUseGetParamChildId(sectionId, paramInfoId);
+  let { result } = renderUseGetParamChildId(sectionId, paramInfoId, wrapper);
   expect(result.current).toEqual(null);
 
-  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId));
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
 
   // make section active
   const section = screen.getByTestId(`${sectionId} section core`);
@@ -41,11 +41,11 @@ test("A nested section should appear when a parameter uitype becomes section", a
   await userEvent.type(combobox, "{arrowdown}");
   await userEvent.tab();
 
-  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId));
+  ({ result } = renderUseGetParamUIType(sectionId, paramInfoId, wrapper));
   expect(result.current.type).toEqual(SECTION);
   expect(result.current.presetType).toEqual("base");
 
-  ({ result } = renderUseGetParamChildId(sectionId, paramInfoId));
+  ({ result } = renderUseGetParamChildId(sectionId, paramInfoId, wrapper));
   expect(result.current).toBeTruthy();
   const childId = result.current;
   const nestedSection = screen.getByTestId(`${childId} section core`);

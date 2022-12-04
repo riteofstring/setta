@@ -1,20 +1,32 @@
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
-import { create } from "../utils";
+import { resetState } from "models/utils";
 
-const initialState = {
-  id: null,
-  name: "",
-  defaultConfigId: null,
+function getInitialState() {
+  return {
+    id: null,
+    name: "",
+    defaultConfigId: null,
+  };
+}
+
+const project = {
+  ...getInitialState(),
+
+  resetAndSetAll: thunk((actions, payload) => {
+    actions.reset();
+    actions.setAll(payload);
+  }),
+
+  setAll: action((state, payload) => {
+    for (const k of _.keys(getInitialState())) {
+      state[k] = payload[k];
+    }
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
 };
 
-export const useProject = create((set, get) => ({
-  ...initialState,
-  resetAndSetAll: (payload) => {
-    const s = get();
-    s.reset();
-    s.setAll(payload);
-  },
-  setAll: (payload) => set(payload),
-  reset: () => set(initialState),
-  getAll: () => _.pick(get(), _.keys(initialState)),
-}));
+export default project;

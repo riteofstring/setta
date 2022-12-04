@@ -1,28 +1,37 @@
 import { newSectionConfig } from "classes/mutableInfo";
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
-import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { resetState } from "models/utils";
 
-const initialState = { x: {} };
+function getInitialState() {
+  return { x: {} };
+}
 
-export const useSectionConfigs = create(
-  immer((set, get) => ({
-    ...initialState,
-    resetAndSetAll: (payload) => {
-      const sectionConfigInfos = _.mapValues(payload, (x) =>
-        newSectionConfig(x)
-      );
-      const s = get();
-      s.reset();
-      s.setAll({ x: sectionConfigInfos });
-    },
-    setSectionConfig: (payload) => set((state) => ({ x: payload(state.x) })),
-    setSectionConfigAttr: ({ configId, attr, value }) =>
-      set((state) => {
-        state.x[configId][attr] = value;
-      }),
-    setAll: (payload) => set(payload),
-    reset: () => set(initialState),
-    getAll: () => get().x,
-  }))
-);
+const sectionConfigs = {
+  ...getInitialState(),
+
+  resetAndSetAll: thunk((actions, payload) => {
+    const sectionConfigInfos = _.mapValues(payload, (x) => newSectionConfig(x));
+    actions.reset();
+    actions.setAll(sectionConfigInfos);
+  }),
+
+  setAll: action((state, payload) => {
+    state.x = payload;
+  }),
+
+  setSectionConfig: action((state, payload) => {
+    state.x = payload(state.x);
+  }),
+
+  setSectionConfigAttr: action((state, payload) => {
+    const { configId, attr, value } = payload;
+    state.x[configId][attr] = value;
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
+};
+
+export default sectionConfigs;

@@ -1,7 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useSectionPositions } from "models/sectionPositions";
 import { PANEID } from "utils/constants";
 import {
   createMainContainer,
@@ -21,11 +19,11 @@ test("Tabbing away from Overview should focus onto a section when UI config is c
 });
 
 test("Overview listing should be filtered by text in search bar", async () => {
-  await createMainContainer();
+  const { store } = await createMainContainer();
   const overviewSearch = getOverviewSearch();
 
   // First check that the listings match the existing sections
-  const sections = useSectionInfos.getState().x;
+  const sections = store.getState().sectionInfos.x;
   let overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(Object.values(sections).length);
   for (let s of Object.values(sections)) {
@@ -36,19 +34,19 @@ test("Overview listing should be filtered by text in search bar", async () => {
   await userEvent.type(overviewSearch, "optim");
   overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(1);
-  const optimizerSectionId = sectionIdFromName("Optimizer");
+  const optimizerSectionId = sectionIdFromName(store, "Optimizer");
   expect(
     screen.getByTestId(`Overview Listing ${optimizerSectionId}`)
   ).toBeTruthy();
 });
 
 test("Jump to section", async () => {
-  await createMainContainer();
-  const modelSectionId = sectionIdFromName("Model");
+  const { store } = await createMainContainer();
+  const modelSectionId = sectionIdFromName(store, "Model");
   const modelListing = screen.getByTestId(`Overview Listing ${modelSectionId}`);
   await userEvent.click(modelListing);
 
-  const sectionPositions = useSectionPositions.getState().sectionPositions;
+  const sectionPositions = store.getState().sectionPositions.sectionPositions;
   // Upon clicking section name, the sectionPosition is updated.
   // Since this is the first click on any section, sectionPositions
   // will contain only this section's position and the pane's position.

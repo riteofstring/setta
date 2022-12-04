@@ -1,32 +1,34 @@
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
-import { useSectionConfigs } from "models/info/sectionConfigs";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useUITypes } from "models/info/uiTypes";
+import { thunk } from "easy-peasy";
 import { DEFAULT_SECTION_UI_TYPE_ID } from "utils/constants";
 
-function getSectionConfigId(sectionId) {
-  return useSectionInfos.getState().x[sectionId]?.configId;
+function getSectionConfigId(s, sectionId) {
+  return s.sectionInfos.x[sectionId]?.configId;
 }
 
-export function getSectionConfig(sectionId) {
-  const configId = getSectionConfigId(sectionId);
-  return useSectionConfigs.getState().x[configId];
+export function getSectionConfig(s, sectionId) {
+  const configId = getSectionConfigId(s, sectionId);
+  return s.sectionConfigs.x[configId];
 }
 
-export function getSectionType(sectionId) {
-  const config = getSectionConfig(sectionId);
+export function getSectionType(s, sectionId) {
+  const config = getSectionConfig(s, sectionId);
   const sectionTypeId = config.uiTypeId;
-  return useUITypes.getState().x[sectionTypeId];
+  return s.uiTypes.x[sectionTypeId];
 }
 
-export function getSectionTypeConfig(sectionId) {
-  return getSectionType(sectionId).config;
+export function getSectionTypeConfig(s, sectionId) {
+  return getSectionType(s, sectionId).config;
 }
 
-export function setSectionConfigAttr({ sectionId, attr, value }) {
-  const configId = getSectionConfigId(sectionId);
-  useSectionConfigs.getState().setSectionConfigAttr({ configId, attr, value });
-}
+export const setSectionConfigAttr = thunk((action, payload, helpers) => {
+  const { sectionId, attr, value } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
+
+  const configId = getSectionConfigId(s, sectionId);
+  a.sectionConfigs.setSectionConfigAttr({ configId, attr, value });
+});
 
 export function createManySectionInfo({
   sectionInfoProps,
@@ -47,7 +49,10 @@ export function createManySectionInfo({
   return { newInfos, newConfigs };
 }
 
-export function createDefaultSectionInfo({ sectionProps, configProps }) {
+export const createDefaultSectionInfo = thunk((actions, payload, helpers) => {
+  const { sectionProps, configProps } = payload;
+  const a = helpers.getStoreActions();
+
   const sectionInfo = newSectionInfo({
     name: "New Section",
     ...sectionProps,
@@ -59,19 +64,19 @@ export function createDefaultSectionInfo({ sectionProps, configProps }) {
   });
   const { id, configId } = sectionInfo;
 
-  useSectionInfos
-    .getState()
-    .setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));
-  useSectionConfigs.getState().setSectionConfig((x) => ({
+  a.sectionInfos.setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));
+  a.sectionConfigs.setSectionConfig((x) => ({
     ...x,
     [configId]: sectionConfig,
   }));
   return [id];
-}
+});
 
-export function setCurrChildren({ sectionId, currChildren }) {
-  const sectionInfosState = useSectionInfos.getState();
-  sectionInfosState.setCurrChildren({ sectionId, currChildren });
-  const sectionType = getSectionType(sectionId);
-  sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
-}
+export const setCurrChildren = thunk((actions, payload, helpers) => {
+  const { sectionId, currChildren } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
+  a.sectionInfos.setCurrChildren({ sectionId, currChildren });
+  const sectionType = getSectionType(s, sectionId);
+  a.sectionInfos.setCurrChildrenNames({ currChildren, sectionType });
+});

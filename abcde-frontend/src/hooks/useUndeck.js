@@ -1,9 +1,7 @@
+import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
-import { deleteSections } from "thunks/sectionOps";
 
 import {
   useGetSectionPosition,
@@ -12,11 +10,12 @@ import {
 import { useGetAllChildren } from "./useSectionChildren";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
-  const setAllChildren = useSectionInfos((x) => x.setAllChildren);
-  const setSectionInfoAttrObjInput = useSectionInfos(
-    (x) => x.setSectionInfoAttrObjInput
+  const setAllChildren = useStoreActions((x) => x.sectionInfos.setAllChildren);
+  const setSectionInfoAttrObjInput = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttrObjInput
   );
-  const addChildren = useProjectConfig((x) => x.addChildren);
+  const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
+  const addChildren = useStoreActions((x) => x.projectConfig.addChildren);
 
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {
@@ -40,7 +39,7 @@ export function useUndeck(sectionId) {
   const requestPositionUpdate = useRequestSectionPositionUpdate();
   useMakeChildrenTopLevel(deckId, childIds, requesterName);
 
-  // closeContextMenu() happens before state updates.
+  // closeContextMenu() happens before easy-peasy state updates.
   // So sectionId ends up being null by the time onCoordsReceived is called
   // Therefore, only update deckId when sectionId is not null
   useEffect(() => {

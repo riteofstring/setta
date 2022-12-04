@@ -1,12 +1,12 @@
-import { usePanes } from "models/panes";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useStoreApi } from "react-flow-renderer";
-import { addSectionAtPosition } from "thunks/addSectionAtPosition";
 import { OVERVIEW } from "utils/constants";
 
 export function useAddSectionInEmptySpace({ isDeck }) {
   const store = useStoreApi();
+  const addSection = useStoreActions((x) => x.thunks.addSectionAtPosition);
   //   const reactFlowRef = useStoreState((x) => x.reactFlowRef.ref);
-  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
+  const overviewWidth = useStoreState((x) => x.panes.trueWidth[OVERVIEW]);
 
   return () => {
     const {
@@ -17,7 +17,7 @@ export function useAddSectionInEmptySpace({ isDeck }) {
     const x = (overviewWidth - _x) / zoom;
     const y = -_y / zoom;
 
-    addSectionAtPosition({
+    addSection({
       isDeck,
       initialPosition: { x, y },
     });

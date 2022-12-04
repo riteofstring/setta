@@ -1,7 +1,6 @@
 import { Button } from "@chakra-ui/react";
 import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
-import { useActiveSection } from "models/activeSection";
-import { useUIEditor } from "models/uiEditor";
+import { useStoreActions } from "easy-peasy";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
 export function NestedObjectInputConfig({ origin, ...props }) {
@@ -13,9 +12,11 @@ export function NestedObjectInputConfig({ origin, ...props }) {
 }
 
 function ButtonGoToSectionConfig({ paramChildId }) {
-  const setTabIndex = useUIEditor((x) => x.setTabIndex);
-  const setActiveSection = useActiveSection((x) => x.setId);
-  const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
+  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
+  const setCameFromUIConfig = useStoreActions(
+    (x) => x.uiEditor.setCameFromUIConfig
+  );
 
   const onClick = () => {
     if (paramChildId) {

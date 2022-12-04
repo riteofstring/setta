@@ -1,10 +1,10 @@
+import { useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
-import { usePanes } from "models/panes";
 import { Controls } from "react-flow-renderer";
 import { OVERVIEW } from "utils/constants";
 
 export function ResponsiveControls() {
-  const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
+  const overviewCssWidth = useStoreState((x) => x.panes.trueWidth[OVERVIEW]);
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
   // It's the style used inside of Controls.

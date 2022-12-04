@@ -20,7 +20,9 @@ export function setCodeInfoTypeMap(state, type) {
   return state.codeInfoTypeMaps[type];
 }
 
-export const initialState = { codeInfoMaps: {}, codeInfoTypeMaps: {} };
+export function getInitialState() {
+  return { codeInfoMaps: {}, codeInfoTypeMaps: {} };
+}
 
 export function setAll(state, payload) {
   const { codeInfoMaps, codeInfoTypeMaps } = payload;

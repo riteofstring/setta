@@ -1,7 +1,5 @@
+import { thunk } from "easy-peasy";
 import _ from "lodash";
-import { useSectionConfigs } from "models/info/sectionConfigs";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useUITypes } from "models/info/uiTypes";
 import { createManySectionInfo } from "thunks/sections";
 import { getChildUITypeId } from "utils/uiTypeUtils";
 
@@ -18,19 +16,15 @@ function maybeGetChildUITypeId(
   return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
 }
 
-export function createChildSectionInfo({
-  parentId,
-  numChildren,
-  ...sectionInfoProps
-}) {
-  const sectionConfigState = useSectionConfigs.getState();
-  const uiTypesState = useUITypes.getState();
-  const sectionInfosState = useSectionInfos.getState();
+export const createChildSectionInfo = thunk((action, payload, helpers) => {
+  const { parentId, numChildren, ...sectionInfoProps } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
 
-  const { name: parentName, configId } = sectionInfosState.x[parentId];
-  const { uiTypeId: parentUITypeId } = sectionConfigState.x[configId];
-  const parentUIType = uiTypesState.x[parentUITypeId];
-  const { setUIType, setOneConfig } = uiTypesState;
+  const { name: parentName, configId } = s.sectionInfos.x[parentId];
+  const { uiTypeId: parentUITypeId } = s.sectionConfigs.x[configId];
+  const parentUIType = s.uiTypes.x[parentUITypeId];
+  const { setUIType, setOneConfig } = a.uiTypes;
 
   const uiTypeId = maybeGetChildUITypeId(
     sectionInfoProps.uiTypeId,
@@ -46,8 +40,8 @@ export function createChildSectionInfo({
     numChildren,
   });
 
-  sectionInfosState.setSectionInfo((x) => ({ ...x, ...newInfos }));
-  sectionConfigState.setSectionConfig((x) => ({ ...x, ...newConfigs }));
+  a.sectionInfos.setSectionInfo((x) => ({ ...x, ...newInfos }));
+  a.sectionConfigs.setSectionConfig((x) => ({ ...x, ...newConfigs }));
 
   return _.keys(newInfos);
-}
+});

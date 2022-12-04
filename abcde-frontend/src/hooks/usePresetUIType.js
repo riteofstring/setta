@@ -1,5 +1,5 @@
+import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { useUITypes } from "models/info/uiTypes";
 import { isRoot, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
 import { isBasePreset, isPreset } from "utils/uiTypeConstants";
 import { createOriginInfoId } from "utils/uiTypeUtils";
@@ -8,8 +8,8 @@ import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
 export function usePresetUIType(uiTypeId) {
-  const uiType = useUITypes((x) => x.x[uiTypeId]);
-  const setConfig = useUITypes((x) => x.setConfig);
+  const uiType = useStoreState((x) => x.uiTypes.x[uiTypeId]);
+  const setConfig = useStoreActions((x) => x.uiTypes.setConfig);
   const _setConfig = (newConfig) => {
     setConfig({ uiTypeId, newStateFn: (x) => ({ ...x, ...newConfig }) });
   };
@@ -116,8 +116,15 @@ export function useAvailablePresetUITypes({
   const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
   const filterFn = paramInfoId ? () => true : isSectionType;
 
-  return useUITypes(
-    (x) => filterUITypes(x.x, filterFn, selectedId, originInfoId, parentInfo),
+  return useStoreState(
+    (x) =>
+      filterUITypes(
+        x.uiTypes.x,
+        filterFn,
+        selectedId,
+        originInfoId,
+        parentInfo
+      ),
     _.isEqual
   );
 }
