@@ -6,6 +6,7 @@ import {
 import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useAuth } from "models/auth";
+import { useEnteredValues } from "models/info/enteredValues";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
@@ -17,7 +18,7 @@ export function getProjectData(s) {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
-  const ev = _.mapValues(s.enteredValues.x, (v) =>
+  const ev = _.mapValues(useEnteredValues.getState().getAll(), (v) =>
     _.pick(v, ["value", "childId"])
   );
   const evCols = s.paramInfos.x;

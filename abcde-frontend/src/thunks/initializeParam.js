@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useEnteredValues } from "models/info/enteredValues";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import {
   DEFAULT_BASE_UI_TYPE_ID,
@@ -46,7 +47,9 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
     enteredValueId = createNewId();
 
     setEnteredValueId(enteredValueId);
-    a.enteredValues.setEnteredValue({ enteredValueId, value: null });
+    useEnteredValues
+      .getState()
+      .setEnteredValue({ enteredValueId, value: null });
   }
 
   return enteredValueId;
@@ -102,7 +105,7 @@ function fnInitializeChild(
   if (!requiresNestedSection(uiType.type)) {
     return;
   }
-  const childId = s.enteredValues.x[enteredValueId].childId;
+  const childId = useEnteredValues.getState().x[enteredValueId].childId;
   if (!childId) {
     helpers.getStoreActions().thunks.addChild({
       parentId: sectionId,

@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useEnteredValues } from "models/info/enteredValues";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
 function getParamEVId(s, sectionId, paramInfoId) {
@@ -8,7 +9,7 @@ function getParamEVId(s, sectionId, paramInfoId) {
 
 export function getParamChildId(s, sectionId, paramInfoId) {
   const evId = getParamEVId(s, sectionId, paramInfoId);
-  return s.enteredValues.x[evId]?.childId;
+  return useEnteredValues.getState().x[evId]?.childId;
 }
 
 export function getParamUITypeId(s, sectionId, paramInfoId) {
@@ -32,7 +33,7 @@ export const setParamChildId = thunk((actions, payload, helpers) => {
     helpers.getStoreState(),
     sectionId,
     paramInfoId,
-    helpers.getStoreActions().enteredValues.setChildId,
+    useEnteredValues.getState().setChildId,
     {
       childId,
     }
@@ -45,7 +46,7 @@ export const setParamEnteredValue = thunk((actions, payload, helpers) => {
     helpers.getStoreState(),
     sectionId,
     paramInfoId,
-    helpers.getStoreActions().enteredValues.setEnteredValue,
+    useEnteredValues.getState().setEnteredValue,
     {
       value,
     }
