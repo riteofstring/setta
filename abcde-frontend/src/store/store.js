@@ -1,6 +1,5 @@
 import { action, createStore } from "easy-peasy";
 import activeSection from "models/activeSection";
-import auth from "models/auth";
 import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
 import codeInfo from "models/info/codeInfo";
@@ -22,7 +21,6 @@ import thunks from "thunks/thunks";
 const store = createStore({
   master: master,
   codeInfo: codeInfo,
-  auth: auth,
   panes: panes,
   sectionPositions: sectionPositions,
   sectionInfos: sectionInfos,

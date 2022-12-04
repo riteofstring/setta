@@ -1,4 +1,4 @@
-import { useStoreState } from "easy-peasy";
+import { useAuth } from "models/auth";
 import { useCurrPage } from "models/currPage";
 import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import VerticalLine from "utils/atoms/dividers/VerticalLine";
@@ -19,7 +19,7 @@ export default function SubNav() {
 }
 
 function NavSwitch() {
-  const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
+  const isAuthenticated = useAuth((x) => x.isAuthenticated);
   const currPage = useCurrPage((x) => x.name);
   const setCurrPage = useCurrPage((x) => x.setName);
 

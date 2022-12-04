@@ -4,6 +4,7 @@ import {
   loadProject as loadProjectDb,
 } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
+import { useAuth } from "models/auth";
 
 export const loadProjectIntoState = thunk(async (actions, payload, helpers) => {
   const { projectInfo, excludeCodeInfo = false } = payload;
@@ -23,7 +24,7 @@ export const loadProject = thunk(async (actions, payload, helpers) => {
   const { id, configId } = payload;
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
-  const access_token = s.auth.access_token;
+  const access_token = useAuth.getState().access_token;
 
   const projectInfo = await loadProjectDb({ access_token, id, configId });
   return await a.thunks.loadProjectIntoState({ projectInfo });
@@ -31,11 +32,11 @@ export const loadProject = thunk(async (actions, payload, helpers) => {
 
 export const createProject = thunk(async (actions, payload, helpers) => {
   const { name } = payload;
-  const access_token = helpers.getStoreState().auth.access_token;
+  const access_token = useAuth.getState().access_token;
   return await createProjectDb({ name, access_token });
 });
 
 export const getProjects = thunk(async (actions, payload, helpers) => {
-  const access_token = helpers.getStoreState().auth.access_token;
+  const access_token = useAuth.getState().access_token;
   return await getProjectsDb({ access_token });
 });

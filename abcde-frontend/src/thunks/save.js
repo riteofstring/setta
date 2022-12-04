@@ -105,7 +105,7 @@ async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
 
 function assembleProject(s, reactFlowStore) {
   updateInitialPositions(s, reactFlowStore);
-  const access_token = s.auth.access_token;
+  const access_token = useAuth.getState().access_token;
   return { project: getProjectData(s), access_token };
 }
 

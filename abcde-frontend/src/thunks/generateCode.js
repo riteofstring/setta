@@ -1,5 +1,6 @@
 import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
 import { thunk } from "easy-peasy";
+import { useAuth } from "models/auth";
 import { BASE } from "utils/uiTypeConstants";
 import { assembleUITypes, getProjectData } from "./save";
 
@@ -21,6 +22,6 @@ export const generateCode = thunk(async (actions, payload, helpers) => {
   const { codeId } = payload;
   const s = helpers.getStoreState();
   const project = getProjectDataToGenerateCode(s);
-  const access_token = helpers.getStoreState().auth.access_token;
+  const access_token = useAuth.getState().access_token;
   return await generateCodeDb({ access_token, codeId, project });
 });
