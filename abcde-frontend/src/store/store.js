@@ -13,7 +13,6 @@ import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
-import panes from "models/panes";
 import sectionPositions from "models/sectionPositions";
 import uiEditor from "models/uiEditor";
 import thunks from "thunks/thunks";
@@ -21,7 +20,6 @@ import thunks from "thunks/thunks";
 const store = createStore({
   master: master,
   codeInfo: codeInfo,
-  panes: panes,
   sectionPositions: sectionPositions,
   sectionInfos: sectionInfos,
   sectionConfigs: sectionConfigs,

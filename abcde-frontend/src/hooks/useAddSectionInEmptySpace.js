@@ -1,4 +1,5 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
+import { usePanes } from "models/panes";
 import { useStoreApi } from "react-flow-renderer";
 import { OVERVIEW } from "utils/constants";
 
@@ -6,7 +7,7 @@ export function useAddSectionInEmptySpace({ isDeck }) {
   const store = useStoreApi();
   const addSection = useStoreActions((x) => x.thunks.addSectionAtPosition);
   //   const reactFlowRef = useStoreState((x) => x.reactFlowRef.ref);
-  const overviewWidth = useStoreState((x) => x.panes.trueWidth[OVERVIEW]);
+  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
 
   return () => {
     const {
