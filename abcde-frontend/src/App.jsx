@@ -1,11 +1,19 @@
+import { Flex } from "@chakra-ui/react";
+
 import "./App.css";
 import AppContainer from "./components/AppContainer/AppContainer";
 
+// import {
+//   DragHandleIcon,
+//   ChevronRightIcon,
+//   ChevronLeftIcon,
+// } from "@chakra-ui/icons";
+
 function App() {
   return (
-    <div className="flex flex-col items-center w-screen h-screen">
+    <Flex width="100vw" height="100vh" flexDir="column" align="center">
       <AppContainer />
-    </div>
+    </Flex>
   );
 }
 
