@@ -1,7 +1,7 @@
 import { newEVInfo } from "classes/mutableInfo";
 import _ from "lodash";
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 
 function getEVInfo(state, evId) {
   if (!(evId in state.x)) {

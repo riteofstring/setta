@@ -1,6 +1,6 @@
 import _ from "lodash";
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 
 // allCodeInfo maps from every objInfo key to its objInfo
 // allCollections maps from every collection key to its objInfo

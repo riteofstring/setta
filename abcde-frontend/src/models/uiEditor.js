@@ -1,4 +1,4 @@
-import create from "zustand";
+import { create } from "./utils";
 
 export const useUIEditor = create((set) => ({
   tabIndex: 0,

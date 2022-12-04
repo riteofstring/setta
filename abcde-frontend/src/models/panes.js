@@ -1,6 +1,6 @@
 import { MIN_PANE_WIDTH, OVERVIEW, UI_EDITOR } from "utils/constants";
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "./utils";
 
 export const usePanes = create(
   immer((set) => ({

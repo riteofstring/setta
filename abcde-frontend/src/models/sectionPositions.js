@@ -1,6 +1,6 @@
 import { PANEID } from "utils/constants";
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "./utils";
 
 function relativePos(sectionPositions, sectionId) {
   const sectionP = sectionPositions[sectionId];

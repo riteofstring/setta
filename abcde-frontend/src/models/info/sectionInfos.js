@@ -1,8 +1,8 @@
 import { newSectionInfo } from "classes/mutableInfo";
 import _ from "lodash";
 import { isListRoot } from "utils/constants";
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 
 function setDefaultAllChildren(state, sectionId) {
   if (!(sectionId in state.allChildren)) {

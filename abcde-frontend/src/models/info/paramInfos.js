@@ -1,6 +1,6 @@
 import _ from "lodash";
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 import { setToDefault } from "./utils";
 
 const initialState = { x: {}, y: {} };

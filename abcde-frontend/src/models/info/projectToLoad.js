@@ -1,5 +1,5 @@
 import { NO_AUTH } from "utils/constants";
-import create from "zustand";
+import { create } from "../utils";
 
 export const useProjectToLoad = create((set) => ({
   id: NO_AUTH ? "61e089c8-62bf-4e8c-915e-111b4587da81" : null,

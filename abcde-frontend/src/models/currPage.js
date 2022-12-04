@@ -1,5 +1,5 @@
 import { LOGIN } from "utils/pageNames";
-import create from "zustand";
+import { create } from "./utils";
 
 export const useCurrPage = create((set) => ({
   name: LOGIN,

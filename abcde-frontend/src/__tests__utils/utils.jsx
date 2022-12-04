@@ -1,7 +1,9 @@
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { newUIType } from "classes/uiType";
 import _ from "lodash";
+import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useUITypes } from "models/info/uiTypes";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { SECTION } from "utils/constants";
 import { loadOneProject } from "./loadTestData";
@@ -57,26 +59,24 @@ export function createStore() {
   return store;
 }
 
-export function addSectionInfo(store, inputUIType = null) {
+export function addSectionInfo(inputUIType = null) {
   let uiType = inputUIType;
   if (!uiType) {
-    uiType = addUIType(store, { type: SECTION });
+    uiType = addUIType({ type: SECTION });
   }
   const si = newSectionInfo({});
   const siConfig = newSectionConfig({ id: si.configId, uiTypeId: uiType.id });
-  store
-    .getActions()
-    .sectionInfos.setSectionInfo((x) => ({ ...x, [si.id]: si }));
-  store.getActions().sectionConfigs.setSectionConfig((x) => ({
+  useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
+  useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
     [siConfig.id]: siConfig,
   }));
   return { section: si, sectionConfig: siConfig };
 }
 
-export function addUIType(store, props = {}) {
+export function addUIType(props = {}) {
   const uiType = newUIType(props);
-  store.getActions().uiTypes.setUIType({ uiType });
+  useUITypes.getState().setUIType({ uiType });
   return uiType;
 }
 

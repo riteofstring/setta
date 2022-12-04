@@ -1,4 +1,4 @@
-import create from "zustand";
+import { create } from "./utils";
 
 export const useAuth = create((set) => ({
   access_token: localStorage.getItem("access_token"),

@@ -1,5 +1,5 @@
-import create from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 import { initialState, setAll } from "./utils";
 
 export const useProjectConfigCodeInfoMaps = create(

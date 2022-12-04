@@ -1,4 +1,4 @@
-import create from "zustand";
+import { create } from "./utils";
 
 export const useActiveSection = create((set) => ({
   id: null,
