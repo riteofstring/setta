@@ -1,12 +1,6 @@
 import { generateCode } from "./generateCode";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
 import {
-  createProject,
-  getProjects,
-  loadProject,
-  loadProjectIntoState,
-} from "./projects";
-import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProject,
@@ -18,9 +12,5 @@ export default {
   setParamEnteredValue,
   saveAsNewProjectConfig,
   saveAsExistingProjectConfig,
-  loadProject,
-  loadProjectIntoState,
   generateCode,
-  createProject,
-  getProjects,
 };

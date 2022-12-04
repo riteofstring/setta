@@ -1,9 +1,9 @@
-import { useStoreActions } from "easy-peasy";
 import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useEffect, useState } from "react";
+import { loadProject } from "thunks/projects";
 
 // setDoneLoading sets the doneLoading state in MainContainer
 export function useLoadProject() {
@@ -16,7 +16,6 @@ export function useLoadProject() {
 
   const setProject = useProjectToLoad((x) => x.setProject);
   const setIsLoading = useProjectToLoad((x) => x.setIsLoading);
-  const loadProject = useStoreActions((x) => x.thunks.loadProject);
 
   useEffect(() => {
     async function fn() {

@@ -17,6 +17,7 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { BASE, USER } from "utils/uiTypeConstants";
+import { loadProjectIntoState } from "./projects";
 
 // s is the easy-peasy store
 export function getProjectData(s) {
@@ -113,7 +114,7 @@ async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
   );
   const zState = useProjectToLoad.getState();
   zState.setIsLoading(true);
-  await a.thunks.loadProjectIntoState({
+  loadProjectIntoState({
     projectInfo: newProjectConfig,
     excludeCodeInfo: true,
   });
