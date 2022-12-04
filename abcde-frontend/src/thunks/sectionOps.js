@@ -36,6 +36,12 @@ function deleteSection(sectionId) {
   useProjectConfig.getState().deleteChildren(idsToDelete);
 }
 
+export function moveSections({ sectionIds, ...props }) {
+  sectionIds.forEach((x, newIndex) =>
+    moveSection({ sectionId: x, newIndex, ...props })
+  );
+}
+
 export function moveSection({
   oldParentId,
   newParentId,
