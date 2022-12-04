@@ -1,9 +1,7 @@
 import { action, createStore } from "easy-peasy";
-import master from "models/master";
 import thunks from "thunks/thunks";
 
 const store = createStore({
-  master: master,
   thunks: thunks,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {

@@ -5,14 +5,14 @@ import {
 } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
 import { useAuth } from "models/auth";
+import { loadSections } from "models/master";
 
 export const loadProjectIntoState = thunk(async (actions, payload, helpers) => {
   const { projectInfo, excludeCodeInfo = false } = payload;
-  const a = helpers.getStoreActions();
 
   let { uiTypes, baseUITypes, presetUITypes, ...theRest } = projectInfo;
   uiTypes = { ...uiTypes, ...baseUITypes, ...presetUITypes };
-  a.master.loadSections({
+  loadSections({
     uiTypes,
     ...theRest,
     excludeCodeInfo,
