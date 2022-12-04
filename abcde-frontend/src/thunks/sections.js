@@ -1,5 +1,4 @@
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
-import { thunk } from "easy-peasy";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -48,10 +47,7 @@ export function createManySectionInfo({
   return { newInfos, newConfigs };
 }
 
-export const createDefaultSectionInfo = thunk((actions, payload, helpers) => {
-  const { sectionProps, configProps } = payload;
-  const a = helpers.getStoreActions();
-
+export function createDefaultSectionInfo({ sectionProps, configProps }) {
   const sectionInfo = newSectionInfo({
     name: "New Section",
     ...sectionProps,
@@ -71,12 +67,11 @@ export const createDefaultSectionInfo = thunk((actions, payload, helpers) => {
     [configId]: sectionConfig,
   }));
   return [id];
-});
+}
 
-export const setCurrChildren = thunk((actions, payload, helpers) => {
-  const { sectionId, currChildren } = payload;
+export function setCurrChildren({ sectionId, currChildren }) {
   const sectionInfosState = useSectionInfos.getState();
   sectionInfosState.setCurrChildren({ sectionId, currChildren });
   const sectionType = getSectionType(sectionId);
   sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
-});
+}

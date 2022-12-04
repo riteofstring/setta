@@ -1,5 +1,4 @@
 import { addChild } from "./addChild";
-import { addSectionAtPosition } from "./addSectionAtPosition";
 import { addToDeck } from "./addToDeck";
 import { accessPage, login, logout } from "./authentication";
 import { createChildSectionInfo } from "./createChildSectionInfo";
@@ -19,7 +18,6 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "./save";
-import { createDefaultSectionInfo, setCurrChildren } from "./sections";
 
 export default {
   addChild,
@@ -28,9 +26,7 @@ export default {
   initializeParam,
   initializeChild,
   saveProject,
-  setCurrChildren,
   addToDeck,
-  createDefaultSectionInfo,
   addKwarg,
   deleteKwarg,
   setParamChildId,
@@ -46,5 +42,4 @@ export default {
   generateCode,
   createProject,
   getProjects,
-  addSectionAtPosition,
 };

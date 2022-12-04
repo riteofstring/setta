@@ -1,9 +1,9 @@
-import { useStoreActions } from "easy-peasy";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
+import { setCurrChildren } from "thunks/sections";
 import { isRoot, requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
 import { useGetManyParamEVs } from "./useEnteredValue";
@@ -25,7 +25,6 @@ export function useGetCurrChildren(sectionId) {
     ? allChildrenIds
     : _.intersection(allChildrenIds, currParamChildIds);
 
-  const setCurrChildren = useStoreActions((x) => x.thunks.setCurrChildren);
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren });
   }, [currChildren]);
