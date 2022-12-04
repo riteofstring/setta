@@ -9,6 +9,7 @@ import { defaultState } from "utils/utils";
 import { useGetManyParamEVs } from "./useEnteredValue";
 import { useGetManyParamUITypeIds } from "./useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
+import { useGetManySectionInfos } from "./useSectionInfo";
 
 export function useGetAllChildren(sectionId) {
   return defaultState(
@@ -19,11 +20,16 @@ export function useGetAllChildren(sectionId) {
 
 export function useGetCurrChildren(sectionId) {
   const allChildrenIds = useGetAllChildren(sectionId);
+  const allParamInfoIds = useGetManySectionInfos(allChildrenIds, [
+    "paramInfoId",
+  ]);
   const currParamChildIds = useChildIdHelper(sectionId);
   const [sectionTypeName] = useGetSectionType(sectionId, ["type"]);
   const currChildren = isRoot(sectionTypeName)
-    ? allChildrenIds
-    : _.intersection(allChildrenIds, currParamChildIds);
+    ? // keep sections that aren't associated with any parameter
+      allChildrenIds.filter((x, idx) => !allParamInfoIds[idx][0])
+    : // keep sections that are associated with current parameters
+      _.intersection(allChildrenIds, currParamChildIds);
 
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren });
