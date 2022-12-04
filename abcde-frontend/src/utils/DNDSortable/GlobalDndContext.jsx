@@ -5,11 +5,12 @@ import {
   rectIntersection,
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { useStoreActions } from "easy-peasy";
 import { useDragActivation } from "hooks/useDragActivation";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReactFlow } from "react-flow-renderer";
+import { moveSection } from "thunks/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
@@ -31,10 +32,7 @@ function getNewIndex(active, over) {
 export function GlobalDndContext(props) {
   const [active, setActive] = useState(null);
   const dummyRef = useRef(null);
-  const setAllChildren = useStoreActions((x) => x.sectionInfos.setAllChildren);
-  const moveSectionThunk = useStoreActions(
-    (x) => x.sectionInfos.moveSectionThunk
-  );
+  const setAllChildren = useSectionInfos((x) => x.setAllChildren);
   const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
   const { project } = useReactFlow();
@@ -82,7 +80,7 @@ export function GlobalDndContext(props) {
           position = project({ x, y: y - NAVBAR_HEIGHT });
         }
       }
-      moveSectionThunk({
+      moveSection({
         oldParentId: activeContainer,
         newParentId: overContainer,
         sectionId: active.id,

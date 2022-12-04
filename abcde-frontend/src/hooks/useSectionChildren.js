@@ -1,6 +1,7 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
 import { isRoot, requiresNestedSection } from "utils/constants";
@@ -11,7 +12,7 @@ import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 
 export function useGetAllChildren(sectionId) {
   return defaultState(
-    useStoreState((x) => x.sectionInfos.allChildren[sectionId]),
+    useSectionInfos((x) => x.allChildren[sectionId]),
     () => []
   );
 }

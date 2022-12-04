@@ -8,6 +8,7 @@ import { useParamInfos } from "./info/paramInfos";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
 import { useSectionConfigs } from "./info/sectionConfigs";
+import { useSectionInfos } from "./info/sectionInfos";
 import { useUITypes } from "./info/uiTypes";
 
 const master = {
@@ -44,7 +45,7 @@ const master = {
       .resetAndSetAll(projectConfigCodeInfoMaps);
     useEnteredValues.getState().resetAndSetAll(ev);
     useObjInfos.getState().resetAndSetAll(kwargCols);
-    a.sectionInfos.resetAndSetAll({
+    useSectionInfos.getState().resetAndSetAll({
       sections,
       sectionConfigCol,
       sectionChildren,

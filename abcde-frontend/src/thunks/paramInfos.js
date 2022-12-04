@@ -1,38 +1,35 @@
-import { thunk } from "easy-peasy";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-function getParamEVId(s, sectionId, paramInfoId) {
-  const { evColId } = getSectionConfig(s, sectionId);
+function getParamEVId(sectionId, paramInfoId) {
+  const { evColId } = getSectionConfig(sectionId);
   return useParamInfos.getState().x[evColId]?.[paramInfoId];
 }
 
-export function getParamChildId(s, sectionId, paramInfoId) {
-  const evId = getParamEVId(s, sectionId, paramInfoId);
+export function getParamChildId(sectionId, paramInfoId) {
+  const evId = getParamEVId(sectionId, paramInfoId);
   return useEnteredValues.getState().x[evId]?.childId;
 }
 
-export function getParamUITypeId(s, sectionId, paramInfoId) {
-  const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
+export function getParamUITypeId(sectionId, paramInfoId) {
+  const { uiTypeColId } = getSectionTypeConfig(sectionId);
   return useParamInfos.getState().y[uiTypeColId]?.[paramInfoId];
 }
 
-export function getParamUIType(s, sectionId, paramInfoId) {
-  const uiTypeId = getParamUITypeId(s, sectionId, paramInfoId);
+export function getParamUIType(sectionId, paramInfoId) {
+  const uiTypeId = getParamUITypeId(sectionId, paramInfoId);
   return useUITypes.getState().x[uiTypeId];
 }
 
-export function setParamEVAttr(s, sectionId, paramInfoId, fn, props) {
-  const evId = getParamEVId(s, sectionId, paramInfoId);
+export function setParamEVAttr(sectionId, paramInfoId, fn, props) {
+  const evId = getParamEVId(sectionId, paramInfoId);
   fn({ enteredValueId: evId, ...props });
 }
 
-export const setParamChildId = thunk((actions, payload, helpers) => {
-  const { sectionId, paramInfoId, childId } = payload;
+export function setParamChildId({ sectionId, paramInfoId, childId }) {
   setParamEVAttr(
-    helpers.getStoreState(),
     sectionId,
     paramInfoId,
     useEnteredValues.getState().setChildId,
@@ -40,12 +37,10 @@ export const setParamChildId = thunk((actions, payload, helpers) => {
       childId,
     }
   );
-});
+}
 
-export const setParamEnteredValue = thunk((actions, payload, helpers) => {
-  const { sectionId, paramInfoId, value } = payload;
+export function setParamEnteredValue({ sectionId, paramInfoId, value }) {
   setParamEVAttr(
-    helpers.getStoreState(),
     sectionId,
     paramInfoId,
     useEnteredValues.getState().setEnteredValue,
@@ -53,4 +48,4 @@ export const setParamEnteredValue = thunk((actions, payload, helpers) => {
       value,
     }
   );
-});
+}

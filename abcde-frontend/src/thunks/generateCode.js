@@ -2,12 +2,13 @@ import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
 import { thunk } from "easy-peasy";
 import { useAuth } from "models/auth";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { BASE } from "utils/uiTypeConstants";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode(s) {
   const project = getProjectData(s);
-  project.sectionCurrChildren = s.sectionInfos.currChildren;
+  project.sectionCurrChildren = useSectionInfos.getState().currChildren;
   const codeInfoState = useCodeInfo.getState();
   const allCodeInfo = {
     ...codeInfoState.allCodeInfo,

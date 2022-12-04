@@ -4,6 +4,7 @@ import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import {
   DEFAULT_BASE_UI_TYPE_ID,
@@ -23,8 +24,7 @@ export const initializeParam = thunk((actions, payload, helpers) => {
 });
 
 function getEnteredValueId(sectionId, paramInfo, helpers) {
-  const s = helpers.getStoreState();
-  const configId = s.sectionInfos.x[sectionId].configId;
+  const configId = useSectIonfos.getState().x[sectionId].configId;
   const evColId = useSectionConfigs.getState().x[configId].evColId;
   return {
     enteredValueId: useParamInfos.getState().x[evColId]?.[paramInfo.id],
@@ -61,9 +61,8 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
 }
 
 function initializeParamUIType(sectionId, paramInfo, helpers) {
-  const s = helpers.getStoreState();
   const uiTypesState = useUITypes.getState();
-  const configId = s.sectionInfos.x[sectionId].configId;
+  const configId = useSectionInfos.getState().x[sectionId].configId;
   const sectionTypeId = useSectionConfigs.getState().x[configId].uiTypeId;
   const uiTypeColId = uiTypesState.x[sectionTypeId].config.uiTypeColId;
   let uiTypeId = useParamInfos.getState().y[uiTypeColId]?.[paramInfo.id];

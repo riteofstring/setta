@@ -2,6 +2,7 @@ import { thunk } from "easy-peasy";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { insertIntoArrayOrXpend } from "utils/utils";
 
 function getNewStateFn(startId, newIds) {
@@ -23,7 +24,6 @@ export const addChild = thunk((action, payload, helpers) => {
     parentParamInfoId = null,
     startId = null,
   } = payload;
-  const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
 
   const newIds = a.thunks.createChildSectionInfo({
@@ -34,13 +34,15 @@ export const addChild = thunk((action, payload, helpers) => {
     paramInfoId: parentParamInfoId,
   });
 
-  a.sectionInfos.setAllChildren({
+  const sectionInfosState = useSectionInfos.getState();
+
+  sectionInfosState.setAllChildren({
     sectionId: parentId,
     newStateFn: getNewStateFn(startId, newIds),
   });
 
   if (parentParamInfoId) {
-    const { configId } = s.sectionInfos.x[parentId];
+    const { configId } = sectionInfosState.x[parentId];
     const { evColId: collectionId } = useSectionConfigs.getState().x[configId];
 
     const enteredValueId =

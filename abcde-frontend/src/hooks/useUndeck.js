@@ -1,8 +1,9 @@
-import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
+import { deleteSections } from "thunks/sectionOps";
 
 import {
   useGetSectionPosition,
@@ -11,11 +12,10 @@ import {
 import { useGetAllChildren } from "./useSectionChildren";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
-  const setAllChildren = useStoreActions((x) => x.sectionInfos.setAllChildren);
-  const setSectionInfoAttrObjInput = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttrObjInput
+  const setAllChildren = useSectionInfos((x) => x.setAllChildren);
+  const setSectionInfoAttrObjInput = useSectionInfos(
+    (x) => x.setSectionInfoAttrObjInput
   );
-  const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
   const addChildren = useProjectConfig((x) => x.addChildren);
 
   const { project } = useReactFlow();

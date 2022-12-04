@@ -14,6 +14,7 @@ import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { BASE, USER } from "utils/uiTypeConstants";
 
@@ -35,7 +36,8 @@ export function getProjectData(s) {
   const kwargCols = useObjInfos.getState().getAll();
   const kwargInfo = assembleKwargInfos(s, kwargCols);
 
-  const sections = _.mapValues(s.sectionInfos.x, (x) =>
+  const sectionInfosState = useSectionInfos.getState();
+  const sections = _.mapValues(sectionInfosState.x, (x) =>
     _.pick(x, [
       "id",
       "name",
@@ -45,9 +47,9 @@ export function getProjectData(s) {
     ])
   );
 
-  const sectionChildren = s.sectionInfos.allChildren;
+  const sectionChildren = sectionInfosState.allChildren;
   const sectionConfigs = useSectionConfigs.getState().getAll();
-  const sectionConfigCol = _.mapValues(s.sectionInfos.x, (v) => v.configId);
+  const sectionConfigCol = _.mapValues(sectionInfosState.x, (v) => v.configId);
 
   return {
     project,
