@@ -1,6 +1,7 @@
 import { thunk } from "easy-peasy";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
+import { useSectionConfigs } from "./info/sectionConfigs";
 
 const master = {
   loadSections: thunk((action, payload, helpers) => {
@@ -39,7 +40,7 @@ const master = {
       sectionConfigCol,
       sectionChildren,
     });
-    a.sectionConfigs.resetAndSetAll(sectionConfigs);
+    useSectionConfigs.getState().resetAndSetAll(sectionConfigs);
   }),
 };
 

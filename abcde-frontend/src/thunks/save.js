@@ -9,6 +9,7 @@ import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
+import { useSectionConfigs } from "models/info/sectionConfigs";
 import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
@@ -37,7 +38,7 @@ export function getProjectData(s) {
   );
 
   const sectionChildren = s.sectionInfos.allChildren;
-  const sectionConfigs = s.sectionConfigs.x;
+  const sectionConfigs = useSectionConfigs.getState().getAll();
   const sectionConfigCol = _.mapValues(s.sectionInfos.x, (v) => v.configId);
 
   return {

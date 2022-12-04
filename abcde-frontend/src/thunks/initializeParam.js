@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useSectionConfigs } from "models/info/sectionConfigs";
 import {
   DEFAULT_BASE_UI_TYPE_ID,
   requiresNestedSection,
@@ -19,7 +20,7 @@ export const initializeParam = thunk((actions, payload, helpers) => {
 function getEnteredValueId(sectionId, paramInfo, helpers) {
   const s = helpers.getStoreState();
   const configId = s.sectionInfos.x[sectionId].configId;
-  const evColId = s.sectionConfigs.x[configId].evColId;
+  const evColId = useSectionConfigs.getState().x[configId].evColId;
   return { enteredValueId: s.paramInfos.x[evColId]?.[paramInfo.id], evColId };
 }
 
@@ -54,7 +55,7 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
 function initializeParamUIType(sectionId, paramInfo, helpers) {
   const s = helpers.getStoreState();
   const configId = s.sectionInfos.x[sectionId].configId;
-  const sectionTypeId = s.sectionConfigs.x[configId].uiTypeId;
+  const sectionTypeId = useSectionConfigs.getState().x[configId].uiTypeId;
   const uiTypeColId = s.uiTypes.x[sectionTypeId].config.uiTypeColId;
   let uiTypeId = s.paramInfos.y[uiTypeColId]?.[paramInfo.id];
 

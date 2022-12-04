@@ -5,7 +5,6 @@ import codeInfo from "models/info/codeInfo";
 import enteredValues from "models/info/enteredValues";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
-import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
 import master from "models/master";
@@ -15,7 +14,6 @@ const store = createStore({
   master: master,
   codeInfo: codeInfo,
   sectionInfos: sectionInfos,
-  sectionConfigs: sectionConfigs,
   objInfos: objInfos,
   paramInfos: paramInfos,
   enteredValues: enteredValues,
