@@ -41,7 +41,8 @@
     "vite-plugin-svgr": "2.2.1",
     "vite-tsconfig-paths": "3.5.1",
     "web-vitals": "2.1.0",
-    "yup": "0.32.8"
+    "yup": "0.32.8",
+    "zustand": "4.1.4"
   },
   "scripts": {
     "start": "vite",

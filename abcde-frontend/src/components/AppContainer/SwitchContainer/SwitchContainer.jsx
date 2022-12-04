@@ -1,6 +1,7 @@
 import HomePage from "components/HomePage";
 import SignUpPage from "components/SignUpPage/SignUpPage";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreState } from "easy-peasy";
+import { useCurrPage } from "models/currPage";
 import React, { useEffect } from "react";
 import { NO_AUTH } from "utils/constants";
 import { HOME, LOGIN, SIGN_UP, UI } from "utils/pageNames";
@@ -9,8 +10,8 @@ import MainContainer from "../Main/MainContainer";
 
 const SwitchContainer = () => {
   const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
-  const currPage = useStoreState((x) => x.currPage.name);
-  const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  const currPage = useCurrPage((x) => x.name);
+  const setCurrPage = useCurrPage((x) => x.setName);
 
   function getPage() {
     if (isAuthenticated) {

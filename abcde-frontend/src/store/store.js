@@ -3,7 +3,6 @@ import activeSection from "models/activeSection";
 import auth from "models/auth";
 import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
-import currPage from "models/currPage";
 import codeInfo from "models/info/codeInfo";
 import enteredValues from "models/info/enteredValues";
 import objInfos from "models/info/objInfos";
@@ -35,7 +34,6 @@ const store = createStore({
   userCodeInfoMaps: userCodeInfoMaps,
   uiEditor: uiEditor,
   projectConfigCodeInfoMaps: projectConfigCodeInfoMaps,
-  currPage: currPage,
   project: project,
   projectConfig: projectConfig,
   projectToLoad: projectToLoad,
