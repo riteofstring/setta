@@ -1,6 +1,7 @@
 import { newCodeInfo } from "classes/immutableInfo";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
+import { useObjInfos } from "models/info/objInfos";
 import { maybeUseNullId } from "utils/utils";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
@@ -15,7 +16,7 @@ export const addKwarg = thunk((actions, payload, helpers) => {
     rcType: "parameter",
   });
   a.codeInfo.setCodeInfo({ info: kwargInfo });
-  a.objInfos.setKwargIds({
+  useObjInfos.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId: maybeUseNullId(objInfoId),
     newStateFn: (x) => [...x, kwargInfo.id],
@@ -30,7 +31,7 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
   const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
   objInfoId = maybeUseNullId(objInfoId);
   if (deleteLast) {
-    const kwargIds = s.objInfos.x[kwargColId]?.[objInfoId];
+    const kwargIds = useObjInfos.getState().x[kwargColId]?.[objInfoId];
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
@@ -38,7 +39,7 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
     kwargId = kwargIds[numKwargs - 1];
   }
   const childId = getParamChildId(s, sectionId, kwargId);
-  a.objInfos.setKwargIds({
+  useObjInfos.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId,
     newStateFn: (x) => x.filter((y) => y !== kwargId),
@@ -55,7 +56,8 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
   const { kwargColId } = getSectionConfig(s, sectionId);
-  const kwargIds = s.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
+  const kwargIds =
+    useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
   const collection = newCodeInfo({
     name,
     rcType: "collection",

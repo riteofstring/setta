@@ -7,6 +7,7 @@ import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useAuth } from "models/auth";
 import { useEnteredValues } from "models/info/enteredValues";
+import { useObjInfos } from "models/info/objInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
@@ -25,7 +26,7 @@ export function getProjectData(s) {
   const uiTypes = assembleUITypes(s, (v) => v.presetType !== BASE);
   const uiTypeCols = s.paramInfos.y;
 
-  const kwargCols = s.objInfos.x;
+  const kwargCols = useObjInfos.getState().getAll();
   const kwargInfo = assembleKwargInfos(s, kwargCols);
 
   const sections = _.mapValues(s.sectionInfos.x, (x) =>

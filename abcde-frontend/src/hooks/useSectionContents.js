@@ -1,5 +1,6 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { useObjInfos } from "models/info/objInfos";
 import { defaultState, maybeUseNullId } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
@@ -31,7 +32,7 @@ function useGetAllParamCollections(sectionId) {
 function useGetKwargIds(sectionId, objInfoId) {
   const [kwargColId] = useGetSectionConfig(sectionId, ["kwargColId"]);
   return defaultState(
-    useStoreState((x) => x.objInfos.x[kwargColId]?.[objInfoId]),
+    useObjInfos((x) => x.x[kwargColId]?.[objInfoId]),
     () => []
   );
 }

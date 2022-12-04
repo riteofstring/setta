@@ -1,5 +1,6 @@
 import { thunk } from "easy-peasy";
 import { useEnteredValues } from "./info/enteredValues";
+import { useObjInfos } from "./info/objInfos";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
 import { useSectionConfigs } from "./info/sectionConfigs";
@@ -35,7 +36,7 @@ const master = {
     a.userCodeInfoMaps.resetAndSetAll(userCodeInfoMaps);
     a.projectConfigCodeInfoMaps.resetAndSetAll(projectConfigCodeInfoMaps);
     useEnteredValues.getState().resetAndSetAll(ev);
-    a.objInfos.resetAndSetAll(kwargCols);
+    useObjInfos.getState().resetAndSetAll(kwargCols);
     a.sectionInfos.resetAndSetAll({
       sections,
       sectionConfigCol,
