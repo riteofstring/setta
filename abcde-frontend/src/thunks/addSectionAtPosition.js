@@ -1,11 +1,12 @@
 import { thunk } from "easy-peasy";
+import { useProjectConfig } from "models/info/projectConfig";
 import { DECK_UI_TYPE_ID } from "utils/constants";
 
 export const addSectionAtPosition = thunk((actions, payload, helpers) => {
   const { isDeck, initialPosition, fnAfterAddSection = () => {} } = payload;
   const a = helpers.getStoreActions();
   const addSection = a.thunks.createDefaultSectionInfo;
-  const addChildren = a.projectConfig.addChildren;
+  const addChildren = useProjectConfig.getState().addChildren;
   const sectionProps = { initialPosition };
   const configProps = {};
   if (isDeck) {

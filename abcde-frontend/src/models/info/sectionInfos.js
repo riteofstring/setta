@@ -11,6 +11,7 @@ import {
   rootTypeToChildSubType,
 } from "utils/constants";
 import { REF_ID } from "utils/uiTypeConstants";
+import { useProjectConfig } from "./projectConfig";
 
 function setDefaultAllChildren(state, sectionId) {
   if (!(sectionId in state.allChildren)) {
@@ -149,7 +150,6 @@ const sectionInfos = {
 export default sectionInfos;
 
 function deleteSectionFn(helpers, sectionId) {
-  const s = helpers.getStoreState();
   const a = helpers.getStoreActions();
   const allChildren = helpers.getState().allChildren;
   const idsToDelete = [sectionId];
@@ -168,7 +168,7 @@ function deleteSectionFn(helpers, sectionId) {
     setActiveSection(null);
   }
   a.sectionInfos.removeSectionInfos(idsToDelete);
-  a.projectConfig.deleteChildren(idsToDelete);
+  useProjectConfig.getState().deleteChildren(idsToDelete);
 }
 
 function setSectionAttrBasedOnNewParent({
@@ -178,6 +178,7 @@ function setSectionAttrBasedOnNewParent({
   newIndex,
   actions,
 }) {
+  const projectConfigState = useProjectConfig.getState();
   // Remove child from old parent's list
   if (oldParentId) {
     actions.sectionInfos.setAllChildren({
@@ -186,11 +187,11 @@ function setSectionAttrBasedOnNewParent({
     });
   } else {
     // This means it was a top level section
-    actions.projectConfig.deleteChildren([sectionId]);
+    projectConfigState.deleteChildren([sectionId]);
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    actions.projectConfig.addChildren([sectionId]);
+    projectConfigState.addChildren([sectionId]);
   } else {
     // Add child to new parent's list
     actions.sectionInfos.setAllChildren({

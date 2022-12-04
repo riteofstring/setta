@@ -6,7 +6,6 @@ import enteredValues from "models/info/enteredValues";
 import objInfos from "models/info/objInfos";
 import paramInfos from "models/info/paramInfos";
 import project from "models/info/project";
-import projectConfig from "models/info/projectConfig";
 import sectionConfigs from "models/info/sectionConfigs";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
@@ -25,7 +24,6 @@ const store = createStore({
   userCodeInfoMaps: userCodeInfoMaps,
   projectConfigCodeInfoMaps: projectConfigCodeInfoMaps,
   project: project,
-  projectConfig: projectConfig,
   thunks: thunks,
   setState: action((state, payload) => payload),
   setSubState: action((state, payload) => {

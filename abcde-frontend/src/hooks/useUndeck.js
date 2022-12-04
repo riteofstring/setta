@@ -1,5 +1,6 @@
 import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
 
@@ -15,7 +16,7 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
     (x) => x.sectionInfos.setSectionInfoAttrObjInput
   );
   const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
-  const addChildren = useStoreActions((x) => x.projectConfig.addChildren);
+  const addChildren = useProjectConfig((x) => x.addChildren);
 
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {

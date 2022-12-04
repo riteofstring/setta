@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useProjectConfig } from "./info/projectConfig";
 
 const master = {
   loadSections: thunk((action, payload, helpers) => {
@@ -25,7 +26,7 @@ const master = {
       a.codeInfo.resetAndSetAll(codeInfo);
     }
     a.project.resetAndSetAll(project);
-    a.projectConfig.resetAndSetAll(projectConfig);
+    useProjectConfig.getState().resetAndSetAll(projectConfig);
     a.uiTypes.resetAndSetAll(uiTypes);
     a.paramInfos.resetAndSetAll({ evCols, uiTypeCols });
     a.userCodeInfoMaps.resetAndSetAll(userCodeInfoMaps);

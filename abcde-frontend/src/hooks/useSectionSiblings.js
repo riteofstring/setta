@@ -1,5 +1,6 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { useProjectConfig } from "models/info/projectConfig";
 import { defaultState } from "utils/utils";
 import { useGetSectionInfo } from "./useSectionInfo";
 
@@ -8,7 +9,7 @@ export function useSectionSiblingNames(sectionId) {
     "name",
     "parentId",
   ]);
-  const topLevelSectionIds = useStoreState((x) => x.projectConfig.children);
+  const topLevelSectionIds = useProjectConfig((x) => x.children);
   const isTopLevel = topLevelSectionIds.includes(sectionId);
   const potentialSiblingIds = defaultState(
     useStoreState((x) => x.sectionInfos.currChildren[parentId]),

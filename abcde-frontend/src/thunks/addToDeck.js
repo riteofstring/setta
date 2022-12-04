@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useProjectConfig } from "models/info/projectConfig";
 
 export const addToDeck = thunk((actions, payload, helpers) => {
   const { deckId, idsToAdd } = payload;
@@ -8,5 +9,5 @@ export const addToDeck = thunk((actions, payload, helpers) => {
     sectionId: deckId,
     newStateFn: (x) => [...x, ...idsToAdd],
   });
-  a.projectConfig.deleteChildren(idsToAdd);
+  useProjectConfig.getState().deleteChildren(idsToAdd);
 });
