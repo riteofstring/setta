@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useCodeInfo } from "./info/codeInfo";
 import { useEnteredValues } from "./info/enteredValues";
 import { useObjInfos } from "./info/objInfos";
 import { useProject } from "./info/project";
@@ -27,7 +28,7 @@ const master = {
 
     const a = helpers.getStoreActions();
     if (!excludeCodeInfo) {
-      a.codeInfo.resetAndSetAll(codeInfo);
+      useCodeInfo.getState().resetAndSetAll(codeInfo);
     }
     useProject.getState().resetAndSetAll(project);
     useProjectConfig.getState().resetAndSetAll(projectConfig);

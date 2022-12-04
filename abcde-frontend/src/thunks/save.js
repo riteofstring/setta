@@ -6,6 +6,7 @@ import {
 import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useAuth } from "models/auth";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useObjInfos } from "models/info/objInfos";
 import { useProject } from "models/info/project";
@@ -126,10 +127,11 @@ function updateInitialPositions(s, reactFlowStore) {
 
 function assembleKwargInfos(s, kwargCols) {
   let kwargInfos = {};
+  const codeInfoState = useCodeInfo.getState();
   for (const kwargColId of _.keys(kwargCols)) {
     for (const objInfoId of _.keys(kwargCols[kwargColId])) {
       for (const kwargId of kwargCols[kwargColId][objInfoId]) {
-        kwargInfos[kwargId] = s.codeInfo.allCodeInfo[kwargId];
+        kwargInfos[kwargId] = codeInfoState.allCodeInfo[kwargId];
       }
     }
   }

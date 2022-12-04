@@ -1,7 +1,6 @@
 import { action, createStore } from "easy-peasy";
 import projectConfigCodeInfoMaps from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import userCodeInfoMaps from "models/codeInfoMaps/userCodeInfoMaps";
-import codeInfo from "models/info/codeInfo";
 import paramInfos from "models/info/paramInfos";
 import sectionInfos from "models/info/sectionInfos";
 import uiTypes from "models/info/uiTypes";
@@ -10,7 +9,6 @@ import thunks from "thunks/thunks";
 
 const store = createStore({
   master: master,
-  codeInfo: codeInfo,
   sectionInfos: sectionInfos,
   paramInfos: paramInfos,
   uiTypes: uiTypes,

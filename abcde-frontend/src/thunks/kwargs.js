@@ -1,6 +1,7 @@
 import { newCodeInfo } from "classes/immutableInfo";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
 import { maybeUseNullId } from "utils/utils";
 import { getParamChildId } from "./paramInfos";
@@ -15,7 +16,7 @@ export const addKwarg = thunk((actions, payload, helpers) => {
     name: "",
     rcType: "parameter",
   });
-  a.codeInfo.setCodeInfo({ info: kwargInfo });
+  useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
   useObjInfos.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId: maybeUseNullId(objInfoId),
@@ -44,7 +45,7 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
     objInfoId,
     newStateFn: (x) => x.filter((y) => y !== kwargId),
   });
-  a.codeInfo.deleteInfos({ ids: [kwargId] });
+  useCodeInfo.getState().deleteInfos({ ids: [kwargId] });
   a.paramInfos.deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
   if (childId) {
     a.thunks.deleteChild({ sectionId, startId: childId });
@@ -64,15 +65,16 @@ export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
     children: kwargIds,
   });
 
+  const codeInfoState = useCodeInfo.getState();
   // copy kwargInfos and set parentId to collection.id
   const paramInfos = _.keyBy(
     kwargIds.map((x) => ({
-      ...s.codeInfo.allCodeInfo[x],
+      ...codeInfoState.allCodeInfo[x],
       parentId: collection.id,
     })),
     "id"
   );
 
   // TODO fix this call
-  a.codeInfo.updateInfos({ [collection.id]: collection, ...paramInfos });
+  codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 });

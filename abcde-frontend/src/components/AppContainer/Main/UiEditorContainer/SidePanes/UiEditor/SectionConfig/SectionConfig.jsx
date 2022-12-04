@@ -10,7 +10,7 @@ import {
 
 import { SearchIcon } from "@chakra-ui/icons";
 
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import React, { useState } from "react";
@@ -20,6 +20,7 @@ import {
   getCollectionsAndModules,
 } from "dbRequests/sectionConfig";
 import { useActiveSection } from "models/activeSection";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useUIEditor } from "models/uiEditor";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
@@ -86,8 +87,8 @@ function SectionConfigCore({
   onConfigChange,
 }) {
   const [results, setResults] = useState({});
-  const allCollections = useStoreState((x) => x.codeInfo.allCollections);
-  const updateCodeInfos = useStoreActions((x) => x.codeInfo.updateInfos);
+  const allCollections = useCodeInfo((x) => x.allCollections);
+  const updateCodeInfos = useCodeInfo((x) => x.updateInfos);
 
   async function onSubmit(searchTerm) {
     const x = await getCollectionsAndModules({ allCollections, searchTerm });

@@ -1,12 +1,13 @@
 import { CloseIcon } from "@chakra-ui/icons";
 import { HStack, IconButton } from "@chakra-ui/react";
 import { useStoreActions } from "easy-peasy";
+import { useCodeInfo } from "models/info/codeInfo";
 import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 
 export default function KwargParam(props) {
   const { sectionId, objInfoId, paramInfo: kwargInfo } = props;
-  const setName = useStoreActions((x) => x.codeInfo.setName);
+  const setName = useCodeInfo((x) => x.setName);
   const onBlur = (v) => {
     setName({ id: kwargInfo.id, name: v });
   };
