@@ -1,6 +1,7 @@
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { thunk } from "easy-peasy";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useUITypes } from "models/info/uiTypes";
 import { DEFAULT_SECTION_UI_TYPE_ID } from "utils/constants";
 
 function getSectionConfigId(s, sectionId) {
@@ -15,7 +16,7 @@ export function getSectionConfig(s, sectionId) {
 export function getSectionType(s, sectionId) {
   const config = getSectionConfig(s, sectionId);
   const sectionTypeId = config.uiTypeId;
-  return s.uiTypes.x[sectionTypeId];
+  return useUITypes.getState().x[sectionTypeId];
 }
 
 export function getSectionTypeConfig(s, sectionId) {

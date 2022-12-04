@@ -8,6 +8,7 @@ import { useParamInfos } from "./info/paramInfos";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
 import { useSectionConfigs } from "./info/sectionConfigs";
+import { useUITypes } from "./info/uiTypes";
 
 const master = {
   loadSections: thunk((action, payload, helpers) => {
@@ -35,7 +36,7 @@ const master = {
     }
     useProject.getState().resetAndSetAll(project);
     useProjectConfig.getState().resetAndSetAll(projectConfig);
-    a.uiTypes.resetAndSetAll(uiTypes);
+    useUITypes.getState().resetAndSetAll(uiTypes);
     useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
     useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
     useProjectConfigCodeInfoMaps

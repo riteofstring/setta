@@ -1,7 +1,9 @@
 import { thunk } from "easy-peasy";
 import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useUITypes } from "models/info/uiTypes";
 import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isSeriesElement } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
@@ -125,8 +127,9 @@ export const setUITypeConfigAndMaybeClone = thunk(
     } = payload;
     const s = helpers.getStoreState();
     const a = helpers.getStoreActions();
-    const setConfig = a.uiTypes.setOneConfig;
-    const setUIType = a.uiTypes.setUIType;
+    const uiTypesState = useUITypes.getState();
+    const setConfig = uiTypesState.setOneConfig;
+    const setUIType = uiTypesState.setUIType;
 
     // If it's a preset but we're not "saving as",
     // then use existing non-preset, or copy into a new non-preset ui type.
@@ -134,7 +137,7 @@ export const setUITypeConfigAndMaybeClone = thunk(
     if (shouldCloneUIType(currUIType, settingPreset)) {
       // Try using existing non-preset (uiType with same originInfoId and type)
       const possibleMatch = existingNonPresetMatchingType(
-        s.uiTypes.x,
+        uiTypesState.x,
         currUIType,
         originInfoId
       );

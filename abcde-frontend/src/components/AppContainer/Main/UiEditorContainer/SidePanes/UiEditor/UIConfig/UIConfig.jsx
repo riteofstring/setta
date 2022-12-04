@@ -16,6 +16,7 @@ import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import { useActiveSection } from "models/activeSection";
+import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
@@ -61,8 +62,8 @@ function UIConfig() {
 }
 
 function UIElement({ sectionId, paramInfo }) {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
+  const setUIType = useUITypes((x) => x.setUIType);
+  const deleteUIType = useUITypes((x) => x.deleteUIType);
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);

@@ -1,6 +1,7 @@
 import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
+import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
 import { isRoot, requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
@@ -34,11 +35,9 @@ export function useGetCurrChildren(sectionId) {
 function useChildIdHelper(sectionId) {
   const infos = useGetCurrObjParamKwargInfos(sectionId);
   const uiTypeIds = useGetManyParamUITypeIds(sectionId, infos);
-  const hasNested = useStoreState(
+  const hasNested = useUITypes(
     (x) =>
-      infos.filter((y, i) =>
-        requiresNestedSection(x.uiTypes.x[uiTypeIds[i]]?.type)
-      ),
+      infos.filter((y, i) => requiresNestedSection(x.x[uiTypeIds[i]]?.type)),
     _.isEqual
   );
   return useGetManyParamEVs(sectionId, hasNested, "childId");

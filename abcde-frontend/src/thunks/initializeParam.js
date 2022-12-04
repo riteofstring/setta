@@ -4,6 +4,7 @@ import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useUITypes } from "models/info/uiTypes";
 import {
   DEFAULT_BASE_UI_TYPE_ID,
   requiresNestedSection,
@@ -39,8 +40,6 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
   );
 
   if (!enteredValueId) {
-    const a = helpers.getStoreActions();
-
     const setEnteredValueId = curryAction(
       useParamInfos.getState().setEnteredValueId,
       {
@@ -63,20 +62,21 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
 
 function initializeParamUIType(sectionId, paramInfo, helpers) {
   const s = helpers.getStoreState();
+  const uiTypesState = useUITypes.getState();
   const configId = s.sectionInfos.x[sectionId].configId;
   const sectionTypeId = useSectionConfigs.getState().x[configId].uiTypeId;
-  const uiTypeColId = s.uiTypes.x[sectionTypeId].config.uiTypeColId;
+  const uiTypeColId = uiTypesState.x[sectionTypeId].config.uiTypeColId;
   let uiTypeId = useParamInfos.getState().y[uiTypeColId]?.[paramInfo.id];
 
   if (!uiTypeId) {
     const projectDefaultUITypeId =
       useProjectConfigCodeInfoMaps.getState().codeInfoMaps[paramInfo.id]
         ?.uiTypeId;
-    const projectDefaultUIType = s.uiTypes.x[projectDefaultUITypeId];
+    const projectDefaultUIType = uiTypesState.x[projectDefaultUITypeId];
 
     const globalDefaultUITypeId =
       useUserCodeInfoMaps.getState().codeInfoTypeMaps[paramInfo.type]?.uiTypeId;
-    const globalDefaultUIType = s.uiTypes.x[globalDefaultUITypeId];
+    const globalDefaultUIType = uiTypesState.x[globalDefaultUITypeId];
 
     const setUITypeId = curryAction(
       useParamInfos.getState().setUITypeId,
@@ -107,8 +107,7 @@ function fnInitializeChild(
   enteredValueId,
   helpers
 ) {
-  const s = helpers.getStoreState();
-  const uiType = s.uiTypes.x[uiTypeId];
+  const uiType = useUITypes.getState().x[uiTypeId];
   if (!requiresNestedSection(uiType.type)) {
     return;
   }

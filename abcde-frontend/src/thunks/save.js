@@ -14,6 +14,7 @@ import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useUITypes } from "models/info/uiTypes";
 import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
@@ -25,7 +26,10 @@ export function getProjectData(s) {
     _.pick(v, ["value", "childId"])
   );
   const evCols = useParamInfos.getState().x;
-  const uiTypes = assembleUITypes(s, (v) => v.presetType !== BASE);
+  const uiTypes = assembleUITypes(
+    useUITypes.getState().x,
+    (v) => v.presetType !== BASE
+  );
   const uiTypeCols = useParamInfos.getState().y;
 
   const kwargCols = useObjInfos.getState().getAll();
@@ -93,15 +97,16 @@ export const saveAsExistingProjectConfig = thunk(
 async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
   const x = assembleProject(s, reactFlowStore);
   const newProjectConfig = await fn({ ...x, ...otherArgs });
+  const uiTypesState = useUITypes.getState();
   // load base and preset ui types from memory
   // because these weren't sent during saving
   // and therefore aren't returned
   newProjectConfig.baseUITypes = _.pickBy(
-    s.uiTypes.x,
+    uiTypesState.x,
     (x) => x.presetType === BASE
   );
   newProjectConfig.presetUITypes = _.pickBy(
-    s.uiTypes.x,
+    uiTypesState.x,
     (x) => x.presetType === USER
   );
   const zState = useProjectToLoad.getState();
@@ -140,6 +145,6 @@ function assembleKwargInfos(s, kwargCols) {
 }
 
 export function assembleUITypes(s, pickBy) {
-  let uiTypes = _.pickBy(s.uiTypes.x, pickBy);
+  const uiTypes = _.pickBy(s, pickBy);
   return _.mapValues(uiTypes, (v) => _.omit(v, ["origin"]));
 }

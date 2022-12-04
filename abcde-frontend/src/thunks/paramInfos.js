@@ -1,6 +1,7 @@
 import { thunk } from "easy-peasy";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
+import { useUITypes } from "models/info/uiTypes";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
 function getParamEVId(s, sectionId, paramInfoId) {
@@ -20,7 +21,7 @@ export function getParamUITypeId(s, sectionId, paramInfoId) {
 
 export function getParamUIType(s, sectionId, paramInfoId) {
   const uiTypeId = getParamUITypeId(s, sectionId, paramInfoId);
-  return s.uiTypes.x[uiTypeId];
+  return useUITypes.getState().x[uiTypeId];
 }
 
 export function setParamEVAttr(s, sectionId, paramInfoId, fn, props) {
