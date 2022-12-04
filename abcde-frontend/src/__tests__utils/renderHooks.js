@@ -29,6 +29,6 @@ export function renderUseGetSectionConfig(sectionId, props, wrapper) {
   });
 }
 
-export function renderUseGetKwargInfos(sectionId, objInfoId, wrapper) {
-  return renderHook(() => useGetKwargInfos(sectionId, objInfoId), { wrapper });
+export function renderUseGetKwargInfos(sectionId, objInfoId) {
+  return renderHook(() => useGetKwargInfos(sectionId, objInfoId));
 }

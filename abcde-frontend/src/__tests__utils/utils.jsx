@@ -4,18 +4,17 @@ import _ from "lodash";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { loadSections } from "models/master";
+import { resetAllSlices } from "models/utils";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { SECTION } from "utils/constants";
 import { loadOneProject } from "./loadTestData";
 import { renderUseGetSectionType } from "./renderHooks";
 
-export async function createStoreWrapperWithData({ loadData = true }) {
-  const store = createStore();
-  if (loadData) {
-    const testData = await loadOneProject({});
-    store.getActions().master.loadSections(testData);
-  }
-  return { store, wrapper: getStoreProviderWrapper(store) };
+export async function loadTestDataIntoState() {
+  resetAllSlices();
+  const testData = await loadOneProject({});
+  loadSections(testData);
 }
 
 export function getSectionByName(store, name) {

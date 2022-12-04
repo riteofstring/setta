@@ -3,6 +3,7 @@ import MainContainer from "components/AppContainer/Main/MainContainer";
 import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { resetAllSlices } from "models/utils";
 import { getReactFlowProvider, sectionIdFromName } from "__tests__utils/utils";
 import { ResizeObserver } from "./resizeObserverDummy";
 
@@ -10,6 +11,7 @@ import { ResizeObserver } from "./resizeObserverDummy";
 global.ResizeObserver = ResizeObserver;
 
 export async function createMainContainer() {
+  resetAllSlices();
   useAuth.getState().loginSuccess({});
   render(<MainContainer />, { wrapper: getReactFlowProvider() });
   await waitFor(() => expect(useProject.getState().id).toBeTruthy());
