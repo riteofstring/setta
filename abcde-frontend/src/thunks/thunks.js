@@ -1,7 +1,3 @@
-import { addChild } from "./addChild";
-import { addToDeck } from "./addToDeck";
-import { accessPage, login, logout } from "./authentication";
-import { createChildSectionInfo } from "./createChildSectionInfo";
 import { deleteChild } from "./deleteChild";
 import { generateCode } from "./generateCode";
 import { initializeChild, initializeParam } from "./initializeParam";
@@ -20,13 +16,10 @@ import {
 } from "./save";
 
 export default {
-  addChild,
-  createChildSectionInfo,
   deleteChild,
   initializeParam,
   initializeChild,
   saveProject,
-  addToDeck,
   addKwarg,
   deleteKwarg,
   setParamChildId,
@@ -36,9 +29,6 @@ export default {
   saveAsExistingProjectConfig,
   loadProject,
   loadProjectIntoState,
-  logout,
-  accessPage,
-  login,
   generateCode,
   createProject,
   getProjects,

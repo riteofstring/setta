@@ -3,11 +3,9 @@ import {
   login as loginDb,
   logout as logoutDb,
 } from "dbRequests/authentication";
-import { thunk } from "easy-peasy";
 import { useAuth } from "models/auth";
 
-export const accessPage = thunk((actions, payload, helpers) => {
-  const { address } = payload;
+export function accessPage({ address }) {
   const s = useAuth.getState();
   const access_token = s.access_token;
   const actionStayLoggedIn = s.stayLoggedIn;
@@ -18,10 +16,9 @@ export const accessPage = thunk((actions, payload, helpers) => {
     actionStayLoggedIn,
     actionLoginFail,
   });
-});
+}
 
-export const login = thunk((actions, payload, helpers) => {
-  const { username, password } = payload;
+export function login({ username, password }) {
   const s = useAuth.getState();
   const actionLoginSuccess = s.loginSuccess;
   const actionLoginFail = s.loginFail;
@@ -31,11 +28,11 @@ export const login = thunk((actions, payload, helpers) => {
     actionLoginSuccess,
     actionLoginFail,
   });
-});
+}
 
-export const logout = thunk((actions, payload, helpers) => {
+export function logout() {
   const s = useAuth.getState();
   const access_token = s.access_token;
   const actionLoginFail = s.loginFail;
   logoutDb({ actionLoginFail, access_token });
-});
+}

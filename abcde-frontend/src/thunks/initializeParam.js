@@ -11,6 +11,7 @@ import {
   requiresNestedSection,
 } from "utils/constants";
 import { createNewId, curryAction } from "utils/utils";
+import { addChild } from "./addChild";
 
 export const initializeParam = thunk((actions, payload, helpers) => {
   const { sectionId, paramInfo } = payload;
@@ -20,7 +21,7 @@ export const initializeParam = thunk((actions, payload, helpers) => {
     helpers
   );
   const uiTypeId = initializeParamUIType(sectionId, paramInfo, helpers);
-  fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId, helpers);
+  fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId);
 });
 
 function getEnteredValueId(sectionId, paramInfo, helpers) {
@@ -99,20 +100,14 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
   return uiTypeId;
 }
 
-function fnInitializeChild(
-  sectionId,
-  paramInfo,
-  uiTypeId,
-  enteredValueId,
-  helpers
-) {
+function fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId) {
   const uiType = useUITypes.getState().x[uiTypeId];
   if (!requiresNestedSection(uiType.type)) {
     return;
   }
   const childId = useEnteredValues.getState().x[enteredValueId].childId;
   if (!childId) {
-    helpers.getStoreActions().thunks.addChild({
+    addChild({
       parentId: sectionId,
       name: paramInfo.name,
       uiTypeId,
@@ -124,5 +119,5 @@ function fnInitializeChild(
 export const initializeChild = thunk((actions, payload, helpers) => {
   const { sectionId, paramInfo, uiTypeId } = payload;
   const { enteredValueId } = getEnteredValueId(sectionId, paramInfo, helpers);
-  fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId, helpers);
+  fnInitializeChild(sectionId, paramInfo, uiTypeId, enteredValueId);
 });

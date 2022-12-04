@@ -1,4 +1,3 @@
-import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -19,8 +18,11 @@ function maybeGetChildUITypeId(
   return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
 }
 
-export const createChildSectionInfo = thunk((action, payload, helpers) => {
-  const { parentId, numChildren, ...sectionInfoProps } = payload;
+export function createChildSectionInfo({
+  parentId,
+  numChildren,
+  ...sectionInfoProps
+}) {
   const sectionConfigState = useSectionConfigs.getState();
   const uiTypesState = useUITypes.getState();
   const sectionInfosState = useSectionInfos.getState();
@@ -48,4 +50,4 @@ export const createChildSectionInfo = thunk((action, payload, helpers) => {
   sectionConfigState.setSectionConfig((x) => ({ ...x, ...newConfigs }));
 
   return _.keys(newInfos);
-});
+}
