@@ -47,14 +47,13 @@ function UIConfig() {
           onChange={(e) => setFilter(e.target.value)}
         />
       </InputGroup>
-      {filteredList.length > 0 &&
-        filteredList.map((e, idx) => (
-          <UIElement
-            sectionId={sectionId}
-            paramInfo={e}
-            key={`${e.name}-${idx}`}
-          />
-        ))}
+      {filteredList.map((e, idx) => (
+        <UIElement
+          sectionId={sectionId}
+          paramInfo={e}
+          key={`${e.name}-${idx}`}
+        />
+      ))}
     </VStack>
   );
 }
