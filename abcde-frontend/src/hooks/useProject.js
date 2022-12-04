@@ -1,5 +1,6 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useStoreActions } from "easy-peasy";
 import { useAuth } from "models/auth";
+import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useEffect, useState } from "react";
@@ -49,7 +50,7 @@ export function useLoadProject() {
 }
 
 export function useCurrProjectId() {
-  const id = useStoreState((x) => x.project.id);
+  const id = useProject((x) => x.id);
   const configId = useProjectConfig((x) => x.id);
   return { id, configId };
 }

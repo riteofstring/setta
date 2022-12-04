@@ -6,13 +6,14 @@ import {
 import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useAuth } from "models/auth";
+import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
 export function getProjectData(s) {
-  const project = s.project;
+  const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
   const ev = _.mapValues(s.enteredValues.x, (v) =>

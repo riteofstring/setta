@@ -1,4 +1,5 @@
 import { thunk } from "easy-peasy";
+import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
 
 const master = {
@@ -25,7 +26,7 @@ const master = {
     if (!excludeCodeInfo) {
       a.codeInfo.resetAndSetAll(codeInfo);
     }
-    a.project.resetAndSetAll(project);
+    useProject.getState().resetAndSetAll(project);
     useProjectConfig.getState().resetAndSetAll(projectConfig);
     a.uiTypes.resetAndSetAll(uiTypes);
     a.paramInfos.resetAndSetAll({ evCols, uiTypeCols });
