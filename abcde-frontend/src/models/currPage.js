@@ -1,12 +1,7 @@
-import { action } from "easy-peasy";
 import { LOGIN } from "utils/pageNames";
+import { create } from "./utils";
 
-const currPage = {
+export const useCurrPage = create((set) => ({
   name: LOGIN,
-
-  setName: action((state, payload) => {
-    state.name = payload;
-  }),
-};
-
-export default currPage;
+  setName: (payload) => set(() => ({ name: payload })),
+}));

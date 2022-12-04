@@ -1,12 +1,12 @@
 import { Box } from "@chakra-ui/react";
-import { useProjectToLoad } from "hooks/useProject";
+import { useLoadProject } from "hooks/useProject";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
-  const doneLoading = useProjectToLoad();
+  const doneLoading = useLoadProject();
 
   return (
     doneLoading && (

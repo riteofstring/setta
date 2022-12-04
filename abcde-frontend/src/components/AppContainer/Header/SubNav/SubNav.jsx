@@ -1,8 +1,8 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
-import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
-
+import { useAuth } from "models/auth";
+import { useCurrPage } from "models/currPage";
 import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import VerticalLine from "utils/atoms/dividers/VerticalLine";
+import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
 import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
 import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";
@@ -19,9 +19,9 @@ export default function SubNav() {
 }
 
 function NavSwitch() {
-  const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
-  const currPage = useStoreState((x) => x.currPage.name);
-  const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  const isAuthenticated = useAuth((x) => x.isAuthenticated);
+  const currPage = useCurrPage((x) => x.name);
+  const setCurrPage = useCurrPage((x) => x.setName);
 
   if (isAuthenticated) {
     switch (currPage) {

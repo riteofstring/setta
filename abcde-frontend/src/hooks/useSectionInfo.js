@@ -1,16 +1,24 @@
-import { useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 
 export function useGetSectionInfo(sectionId, props) {
-  return useStoreState(
-    (x) => props.map((y) => x.sectionInfos.x[sectionId]?.[y]),
+  return useSectionInfos(
+    (x) => props.map((y) => x.x[sectionId]?.[y]),
     _.isEqual
   );
 }
 
 export function useGetManySectionInfos(sectionIds, props) {
-  return useStoreState(
-    (x) => sectionIds.map((id) => props.map((y) => x.sectionInfos.x[id]?.[y])),
+  return useSectionInfos(
+    (x) => sectionIds.map((id) => props.map((y) => x.x[id]?.[y])),
     _.isEqual
   );
+}
+
+export function useSectionInfoNames() {
+  return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name));
+}
+
+export function useSomeSectionInfoNames(sectionIds) {
+  return useSectionInfos((x) => sectionIds.map((y) => x.x[y].name));
 }

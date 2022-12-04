@@ -10,12 +10,11 @@ import {
   Text,
 } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { useStoreActions } from "easy-peasy";
 import { useFormik } from "formik";
 import React, { useState } from "react";
+import { login } from "thunks/authentication";
 
 const LoginPage = () => {
-  const login = useStoreActions((x) => x.thunks.login);
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
 

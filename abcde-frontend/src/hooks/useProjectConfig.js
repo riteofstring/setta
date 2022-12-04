@@ -1,7 +1,7 @@
-import { useStoreState } from "easy-peasy";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
 export function useTopLevelSectionInfos(props) {
-  const topLevelSectionIds = useStoreState((x) => x.projectConfig.children);
+  const topLevelSectionIds = useProjectConfig((x) => x.children);
   return useGetManySectionInfos(topLevelSectionIds, props);
 }

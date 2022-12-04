@@ -1,12 +1,10 @@
-import { thunk } from "easy-peasy";
+import { useProjectConfig } from "models/info/projectConfig";
+import { useSectionInfos } from "models/info/sectionInfos";
 
-export const addToDeck = thunk((actions, payload, helpers) => {
-  const { deckId, idsToAdd } = payload;
-  const a = helpers.getStoreActions();
-
-  a.sectionInfos.setAllChildren({
+export function addToDeck({ deckId, idsToAdd }) {
+  useSectionInfos.getState().setAllChildren({
     sectionId: deckId,
     newStateFn: (x) => [...x, ...idsToAdd],
   });
-  a.projectConfig.deleteChildren(idsToAdd);
-});
+  useProjectConfig.getState().deleteChildren(idsToAdd);
+}

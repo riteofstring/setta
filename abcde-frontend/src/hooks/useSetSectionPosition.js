@@ -1,23 +1,19 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useSectionPositions } from "models/sectionPositions";
 import { useEffect, useRef } from "react";
 
 export function useSetSectionPosition(sectionId) {
   const refForPosition = useRef(null);
 
-  const setSectionPosition = useStoreActions(
-    (x) => x.sectionPositions.setSectionPosition
+  const setSectionPosition = useSectionPositions((x) => x.setSectionPosition);
+
+  const setPositionUpdated = useSectionPositions((x) => x.setPositionUpdated);
+
+  const setPositionUpdateRequested = useSectionPositions(
+    (x) => x.setPositionUpdateRequested
   );
 
-  const setPositionUpdated = useStoreActions(
-    (x) => x.sectionPositions.setPositionUpdated
-  );
-
-  const setPositionUpdateRequested = useStoreActions(
-    (x) => x.sectionPositions.setPositionUpdateRequested
-  );
-
-  const positionUpdateRequested = useStoreState(
-    (x) => x.sectionPositions.positionUpdateRequested[sectionId]
+  const positionUpdateRequested = useSectionPositions(
+    (x) => x.positionUpdateRequested[sectionId]
   );
 
   useEffect(() => {
