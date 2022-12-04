@@ -5,6 +5,8 @@ import {
 } from "dbRequests/projects";
 import { thunk } from "easy-peasy";
 import _ from "lodash";
+import { useAuth } from "models/auth";
+import { useProjectToLoad } from "models/info/projectToLoad";
 import { BASE, USER } from "utils/uiTypeConstants";
 
 // s is the easy-peasy store
@@ -95,12 +97,13 @@ async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
     s.uiTypes.x,
     (x) => x.presetType === USER
   );
-  a.projectToLoad.setIsLoading(true);
+  const zState = useProjectToLoad.getState();
+  zState.setIsLoading(true);
   await a.thunks.loadProjectIntoState({
     projectInfo: newProjectConfig,
     excludeCodeInfo: true,
   });
-  a.projectToLoad.setIsLoading(false);
+  zState.setIsLoading(false);
 }
 
 function assembleProject(s, reactFlowStore) {

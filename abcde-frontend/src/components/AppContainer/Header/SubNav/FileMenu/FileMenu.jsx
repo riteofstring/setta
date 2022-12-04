@@ -3,6 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useStoreActions } from "easy-peasy";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
+import { useProjectToLoad } from "models/info/projectToLoad";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
@@ -23,7 +24,7 @@ export default function FileMenu() {
   const saveAsExistingProjectConfig = useStoreActions(
     (x) => x.thunks.saveAsExistingProjectConfig
   );
-  const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
+  const setProjectToLoad = useProjectToLoad((x) => x.setProject);
   const [modalType, setModalType] = useState("");
 
   function onClose() {
