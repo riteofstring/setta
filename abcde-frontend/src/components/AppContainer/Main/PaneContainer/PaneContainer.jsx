@@ -1,6 +1,6 @@
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
 import useWindowSize from "hooks/useWindowSize";
-import { usePanes } from "models/panes";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
@@ -12,9 +12,9 @@ export default function PaneContainer(props) {
   const { paneTitle = null, onResizeStop = null } = props;
   const size = useWindowSize();
   const { right, paneName } = props.paneProps;
-  const vis = usePanes((x) => x.vis[paneName]);
-  const setVis = usePanes((x) => x.setVis);
-  const setTrueWidth = usePanes((x) => x.setTrueWidth);
+  const vis = useStoreState((x) => x.panes.vis[paneName]);
+  const setVis = useStoreActions((x) => x.panes.setVis);
+  const setTrueWidth = useStoreActions((x) => x.panes.setTrueWidth);
   function uiToggle() {
     const newVis = !vis;
     setVis({ paneName, vis: newVis });
@@ -53,8 +53,8 @@ export default function PaneContainer(props) {
     }
   }, [vis, size.winWidth]);
 
-  const width = usePanes((x) => x.width[paneName]);
-  const setWidth = usePanes((x) => x.setWidth);
+  const width = useStoreState((x) => x.panes.width[paneName]);
+  const setWidth = useStoreActions((x) => x.panes.setWidth);
   const height = "100%";
 
   const variants = {

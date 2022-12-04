@@ -1,10 +1,9 @@
 import { HStack, Stack, VStack } from "@chakra-ui/react";
+import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
-import { useActiveSection } from "models/activeSection";
 import React, { useState } from "react";
-import { setSectionConfigAttr } from "thunks/sections";
 import { isRoot, isSeriesElement, SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -22,8 +21,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   ]);
   const _isSeriesElement = isSeriesElement(config.subType);
   const _isRoot = isRoot(sectionTypeName);
-  const isActiveSection = useActiveSection((x) => x.id) === sectionId;
-  const setActiveSection = useActiveSection((x) => x.setId);
+  const setSectionConfigAttr = useStoreActions(
+    (x) => x.thunks.setSectionConfigAttr
+  );
+  const setActiveSection = useStoreActions((x) => x.activeSection.setId);
+  const isActiveSection =
+    useStoreState((x) => x.activeSection.id) === sectionId;
   const [isActive, setIsActive] = useState(false);
 
   function onSelectedItemChange(value) {

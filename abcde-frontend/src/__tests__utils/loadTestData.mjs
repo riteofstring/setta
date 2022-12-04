@@ -39,7 +39,6 @@ export async function loadProjectSpecificData({
     "kwargCols",
     "kwargInfo",
     "projectConfigCodeInfoMaps",
-    "sectionCurrChildren",
     "sectionChildren",
     "sectionConfigCol",
     "sectionConfigs",
@@ -66,7 +65,6 @@ export async function loadOneProject({
   subFolderName = "simpleConfig1",
   forNode = false,
   forSavingToBackend = false,
-  forCodeGen = false,
 }) {
   const loaded = await loadOneProjectMetadata({
     projectName,
@@ -91,7 +89,6 @@ export async function loadOneProject({
     baseUITypes,
     presetUITypes,
     userCodeInfoMaps,
-    sectionCurrChildren,
     ...theRest
   } = loaded;
 
@@ -100,17 +97,6 @@ export async function loadOneProject({
     return {
       kwargInfo,
       uiTypes: { ...uiTypes, ...presetUITypes },
-      ...theRest,
-    };
-  } else if (forCodeGen) {
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      paramCollections,
-    };
-    return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      sectionCurrChildren,
       ...theRest,
     };
   } else {

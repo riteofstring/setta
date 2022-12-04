@@ -1,8 +1,7 @@
 import { HStack, Input, List, ListItem } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { useStoreActions } from "easy-peasy";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { useCurrPage } from "models/currPage";
-import { useProjectToLoad } from "models/info/projectToLoad";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
@@ -54,8 +53,8 @@ function RightColumn({ projects, createProject }) {
 
 function ProjectItem({ project }) {
   const { name, id, configs, defaultConfigId } = project;
-  const setCurrPage = useCurrPage((x) => x.setName);
-  const setProjectToLoad = useProjectToLoad((x) => x.setProject);
+  const setCurrPage = useStoreActions((x) => x.currPage.setName);
+  const setProjectToLoad = useStoreActions((x) => x.projectToLoad.setProject);
 
   function onClick() {
     setCurrPage(UI);

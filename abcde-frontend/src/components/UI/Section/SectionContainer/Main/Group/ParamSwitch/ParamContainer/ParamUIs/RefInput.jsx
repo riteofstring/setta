@@ -1,5 +1,5 @@
+import { useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export function RefInputConfig() {
@@ -7,7 +7,7 @@ export function RefInputConfig() {
 }
 
 export default function RefInput({ value, onBlur, className }) {
-  const availableSections = useSectionInfos((x) => x.x);
+  const availableSections = useStoreState((x) => x.sectionInfos.x);
 
   return (
     <IdNameCombobox

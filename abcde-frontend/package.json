@@ -23,9 +23,9 @@
     "autoprefixer": "10.4.12",
     "axios": "0.21.0",
     "downshift": "6.1.0",
+    "easy-peasy": "5.1.0",
     "formik": "2.2.6",
     "framer-motion": "4.1.17",
-    "immer": "9.0.16",
     "lodash": "4.17.21",
     "match-sorter": "6.3.1",
     "postcss": "8.4.18",
@@ -41,8 +41,7 @@
     "vite-plugin-svgr": "2.2.1",
     "vite-tsconfig-paths": "3.5.1",
     "web-vitals": "2.1.0",
-    "yup": "0.32.8",
-    "zustand": "4.1.4"
+    "yup": "0.32.8"
   },
   "scripts": {
     "start": "vite",

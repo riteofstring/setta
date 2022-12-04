@@ -1,49 +1,49 @@
-import { useProjectConfigCodeInfoMaps } from "./codeInfoMaps/projectConfigCodeInfoMaps";
-import { useUserCodeInfoMaps } from "./codeInfoMaps/userCodeInfoMaps";
-import { useCodeInfo } from "./info/codeInfo";
-import { useEnteredValues } from "./info/enteredValues";
-import { useObjInfos } from "./info/objInfos";
-import { useParamInfos } from "./info/paramInfos";
-import { useProject } from "./info/project";
-import { useProjectConfig } from "./info/projectConfig";
-import { useSectionConfigs } from "./info/sectionConfigs";
-import { useSectionInfos } from "./info/sectionInfos";
-import { useUITypes } from "./info/uiTypes";
+import { thunk } from "easy-peasy";
+import { exportSelected } from "utils/exportSelected";
 
-export function loadSections({
-  project,
-  projectConfig,
-  codeInfo,
-  userCodeInfoMaps,
-  projectConfigCodeInfoMaps,
-  sections,
-  sectionConfigs,
-  sectionConfigCol,
-  sectionChildren,
-  ev,
-  evCols,
-  uiTypes,
-  uiTypeCols,
-  kwargCols,
-  excludeCodeInfo,
-}) {
-  if (!excludeCodeInfo) {
-    useCodeInfo.getState().resetAndSetAll(codeInfo);
-  }
-  useProject.getState().resetAndSetAll(project);
-  useProjectConfig.getState().resetAndSetAll(projectConfig);
-  useUITypes.getState().resetAndSetAll(uiTypes);
-  useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
-  useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
-  useProjectConfigCodeInfoMaps
-    .getState()
-    .resetAndSetAll(projectConfigCodeInfoMaps);
-  useEnteredValues.getState().resetAndSetAll(ev);
-  useObjInfos.getState().resetAndSetAll(kwargCols);
-  useSectionInfos.getState().resetAndSetAll({
-    sections,
-    sectionConfigCol,
-    sectionChildren,
-  });
-  useSectionConfigs.getState().resetAndSetAll(sectionConfigs);
-}
+const master = {
+  loadSections: thunk((action, payload, helpers) => {
+    const {
+      project,
+      projectConfig,
+      codeInfo,
+      userCodeInfoMaps,
+      projectConfigCodeInfoMaps,
+      sections,
+      sectionConfigs,
+      sectionConfigCol,
+      sectionChildren,
+      ev,
+      evCols,
+      uiTypes,
+      uiTypeCols,
+      kwargCols,
+      excludeCodeInfo,
+    } = payload;
+
+    const a = helpers.getStoreActions();
+    if (!excludeCodeInfo) {
+      a.codeInfo.resetAndSetAll(codeInfo);
+    }
+    a.project.resetAndSetAll(project);
+    a.projectConfig.resetAndSetAll(projectConfig);
+    a.uiTypes.resetAndSetAll(uiTypes);
+    a.paramInfos.resetAndSetAll({ evCols, uiTypeCols });
+    a.userCodeInfoMaps.resetAndSetAll(userCodeInfoMaps);
+    a.projectConfigCodeInfoMaps.resetAndSetAll(projectConfigCodeInfoMaps);
+    a.enteredValues.resetAndSetAll(ev);
+    a.objInfos.resetAndSetAll(kwargCols);
+    a.sectionInfos.resetAndSetAll({
+      sections,
+      sectionConfigCol,
+      sectionChildren,
+    });
+    a.sectionConfigs.resetAndSetAll(sectionConfigs);
+  }),
+
+  exportSelected: thunk((action, payload, helpers) => {
+    return exportSelected(helpers.getStoreState());
+  }),
+};
+
+export default master;

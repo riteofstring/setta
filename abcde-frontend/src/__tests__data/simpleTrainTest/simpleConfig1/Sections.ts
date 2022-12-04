@@ -101,7 +101,7 @@ export default {
   },
   "80f921cd-f88f-4612-92f3-219a89834e13": {
     id: "80f921cd-f88f-4612-92f3-219a89834e13",
-    name: "[0]",
+    name: "transforms",
     paramInfoId: null,
     sectionChildrenId: "afd43e1f-1443-4012-8521-52163a7174ce",
     initialPosition: {

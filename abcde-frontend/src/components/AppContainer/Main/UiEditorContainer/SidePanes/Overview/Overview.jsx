@@ -1,11 +1,9 @@
 import { SearchIcon } from "@chakra-ui/icons";
 import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { useStoreState } from "easy-peasy";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
-import { useSectionInfoNames } from "hooks/useSectionInfo";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
-import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
@@ -24,9 +22,9 @@ export default function Overview() {
     "sectionHeading",
   ]);
 
-  const topLevelSectionIds = useProjectConfig((x) => x.children);
-  const currChildren = useSectionInfos((x) => x.currChildren);
-  const idNames = useSectionInfoNames();
+  const topLevelSectionIds = useStoreState((x) => x.projectConfig.children);
+  const currChildren = useStoreState((x) => x.sectionInfos.currChildren);
+  const idNames = useStoreState((x) => x.sectionInfos.idNames);
 
   useDeepCompareEffect(() => {
     setSectionList(

@@ -1,8 +1,10 @@
+import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
-import { createProject, getProjects } from "thunks/projects";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
+  const getProjects = useStoreActions((x) => x.thunks.getProjects);
+  const createProject = useStoreActions((x) => x.thunks.createProject);
   const fnGetProjects = async () => {
     setProjects(await getProjects());
   };

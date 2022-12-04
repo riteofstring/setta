@@ -1,18 +1,27 @@
-import { create } from "./utils";
+import { action } from "easy-peasy";
 
-export const useAuth = create((set) => ({
+const auth = {
   access_token: localStorage.getItem("access_token"),
   isAuthenticated: false,
-  loginSuccess: (payload) =>
-    set(() => {
-      localStorage.setItem("access_token", payload.access_token);
-      return { access_token: payload.access_token, isAuthenticated: true };
-    }),
-  loginFail: () =>
-    set(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-      return { access_token: null, isAuthenticated: false };
-    }),
-  stayLoggedIn: () => set(() => ({ isAuthenticated: true })),
-}));
+
+  loginSuccess: action((state, payload) => {
+    console.log("loginSuccess", payload);
+    localStorage.setItem("access_token", payload.access_token);
+    state.access_token = payload.access_token;
+    state.isAuthenticated = true;
+  }),
+
+  loginFail: action((state) => {
+    console.log("loginFail");
+    localStorage.clear();
+    sessionStorage.clear();
+    state.access_token = null;
+    state.isAuthenticated = false;
+  }),
+
+  stayLoggedIn: action((state) => {
+    state.isAuthenticated = true;
+  }),
+};
+
+export default auth;

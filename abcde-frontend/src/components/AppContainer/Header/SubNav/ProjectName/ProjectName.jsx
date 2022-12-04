@@ -1,8 +1,7 @@
-import { useProject } from "models/info/project";
-import { useProjectConfig } from "models/info/projectConfig";
+import { useStoreState } from "easy-peasy";
 
 export function ProjectName() {
-  const name = useProject((x) => x.name);
-  const configName = useProjectConfig((x) => x.name);
-  return <span className="text-[#00B5D8]">{`${name} / ${configName}`}</span>;
+  const name = useStoreState((x) => x.project.name);
+  const configName = useStoreState((x) => x.projectConfig.name);
+  return <h3 className="text-[#00B5D8]">{`${name} / ${configName}`}</h3>;
 }

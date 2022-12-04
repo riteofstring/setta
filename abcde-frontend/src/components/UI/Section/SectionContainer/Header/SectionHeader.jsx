@@ -1,8 +1,8 @@
 import { Spacer, Stack } from "@chakra-ui/react";
+import { useStoreActions } from "easy-peasy";
 import React from "react";
-import { deleteChild } from "thunks/deleteChild";
 import Incrementer from "../Incrementer/Incrementer";
-import CustomCloseButton from "./CustomCloseButton/CustomCloseButton";
+import CustomCloseButton from "./CustomCloseButton";
 import SectionTitle from "./Title/SectionTitle";
 
 function _SectionHeader({
@@ -13,6 +13,8 @@ function _SectionHeader({
   isRoot,
   hasNested,
 }) {
+  const deleteChild = useStoreActions((x) => x.thunks.deleteChild);
+
   const onCustomCloseButtonClick = (e) => {
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element

@@ -1,26 +1,25 @@
-import { MIN_PANE_WIDTH, OVERVIEW, UI_EDITOR } from "utils/constants";
-import { immer } from "zustand/middleware/immer";
-import { create } from "./utils";
+import { action } from "easy-peasy";
+import { MIN_PANE_WIDTH } from "utils/constants";
 
-export const usePanes = create(
-  immer((set) => ({
-    vis: { [OVERVIEW]: true, [UI_EDITOR]: false },
-    width: { [OVERVIEW]: 320, [UI_EDITOR]: 500 },
-    trueWidth: { [OVERVIEW]: 320, [UI_EDITOR]: MIN_PANE_WIDTH },
+const panes = {
+  vis: { overview: true, uiEditor: false },
+  width: { overview: 320, uiEditor: 500 },
+  trueWidth: { overview: 320, uiEditor: MIN_PANE_WIDTH },
 
-    setVis: ({ paneName, vis }) =>
-      set((state) => {
-        state.vis[paneName] = vis;
-      }),
+  setVis: action((state, payload) => {
+    const { paneName, vis } = payload;
+    state.vis[paneName] = vis;
+  }),
 
-    setWidth: ({ paneName, width }) =>
-      set((state) => {
-        state.width[paneName] = width;
-      }),
+  setWidth: action((state, payload) => {
+    const { paneName, width } = payload;
+    state.width[paneName] = width;
+  }),
 
-    setTrueWidth: ({ paneName, trueWidth }) =>
-      set((state) => {
-        state.trueWidth[paneName] = trueWidth;
-      }),
-  }))
-);
+  setTrueWidth: action((state, payload) => {
+    const { paneName, trueWidth } = payload;
+    state.trueWidth[paneName] = trueWidth;
+  }),
+};
+
+export default panes;

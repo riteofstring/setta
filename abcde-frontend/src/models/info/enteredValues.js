@@ -1,36 +1,45 @@
-import { newEVInfo } from "classes/mutableInfo";
+import { EVInfo } from "classes/mutableInfo";
+import { action, thunk } from "easy-peasy";
 import _ from "lodash";
-import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { resetState } from "models/utils";
 
 function getEVInfo(state, evId) {
   if (!(evId in state.x)) {
-    state.x[evId] = newEVInfo({ id: evId });
+    state.x[evId] = new EVInfo({ id: evId });
   }
   return state.x[evId];
 }
 
-const initialState = { x: {} };
+function getInitialState() {
+  return { x: {} };
+}
 
-export const useEnteredValues = create(
-  immer((set, get) => ({
-    ...initialState,
-    resetAndSetAll: (payload) => {
-      const evs = _.mapValues(payload, (v, k) => newEVInfo({ id: k, ...v }));
-      const s = get();
-      s.reset();
-      s.setAll({ x: evs });
-    },
-    setEnteredValue: ({ enteredValueId, value }) =>
-      set((state) => {
-        getEVInfo(state, enteredValueId).value = value;
-      }),
-    setChildId: ({ enteredValueId, childId }) =>
-      set((state) => {
-        getEVInfo(state, enteredValueId).childId = childId;
-      }),
-    setAll: (payload) => set(payload),
-    reset: () => set(initialState),
-    getAll: () => get().x,
-  }))
-);
+const enteredValues = {
+  ...getInitialState(),
+
+  resetAndSetAll: thunk((actions, payload) => {
+    const evs = _.mapValues(payload, (v, k) => new EVInfo({ id: k, ...v }));
+    actions.reset();
+    actions.setAll(evs);
+  }),
+
+  setAll: action((state, payload) => {
+    state.x = payload;
+  }),
+
+  setEnteredValue: action((state, payload) => {
+    const { enteredValueId, value } = payload;
+    getEVInfo(state, enteredValueId).value = value;
+  }),
+
+  setChildId: action((state, payload) => {
+    const { enteredValueId, childId } = payload;
+    getEVInfo(state, enteredValueId).childId = childId;
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
+};
+
+export default enteredValues;

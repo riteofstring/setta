@@ -1,9 +1,5 @@
-import { useEnteredValues } from "models/info/enteredValues";
-import { useParamInfos } from "models/info/paramInfos";
-import { useSectionConfigs } from "models/info/sectionConfigs";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { thunk } from "easy-peasy";
 import { insertIntoArrayOrXpend } from "utils/utils";
-import { createChildSectionInfo } from "./createChildSectionInfo";
 
 function getNewStateFn(startId, newIds) {
   return (x) => {
@@ -15,15 +11,19 @@ function getNewStateFn(startId, newIds) {
   };
 }
 
-export function addChild({
-  parentId,
-  name = null,
-  uiTypeId,
-  numChildren = 1,
-  parentParamInfoId = null,
-  startId = null,
-}) {
-  const newIds = createChildSectionInfo({
+export const addChild = thunk((action, payload, helpers) => {
+  const {
+    parentId,
+    name = null,
+    uiTypeId,
+    numChildren = 1,
+    parentParamInfoId = null,
+    startId = null,
+  } = payload;
+  const s = helpers.getStoreState();
+  const a = helpers.getStoreActions();
+
+  const newIds = a.thunks.createChildSectionInfo({
     parentId,
     name,
     uiTypeId,
@@ -31,23 +31,20 @@ export function addChild({
     paramInfoId: parentParamInfoId,
   });
 
-  const sectionInfosState = useSectionInfos.getState();
-
-  sectionInfosState.setAllChildren({
+  a.sectionInfos.setAllChildren({
     sectionId: parentId,
     newStateFn: getNewStateFn(startId, newIds),
   });
 
   if (parentParamInfoId) {
-    const { configId } = sectionInfosState.x[parentId];
-    const { evColId: collectionId } = useSectionConfigs.getState().x[configId];
+    const { configId } = s.sectionInfos.x[parentId];
+    const { evColId: collectionId } = s.sectionConfigs.x[configId];
 
-    const enteredValueId =
-      useParamInfos.getState().x[collectionId]?.[parentParamInfoId];
+    const enteredValueId = s.paramInfos.x[collectionId]?.[parentParamInfoId];
 
-    useEnteredValues.getState().setChildId({
+    a.enteredValues.setChildId({
       enteredValueId,
       childId: newIds[0],
     });
   }
-}
+});

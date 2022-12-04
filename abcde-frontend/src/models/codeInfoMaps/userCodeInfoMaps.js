@@ -1,16 +1,22 @@
-import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
-import { initialState, setAll } from "./utils";
+import { action, thunk } from "easy-peasy";
+import { resetState } from "models/utils";
+import { getInitialState, setAll } from "./utils";
 
-export const useUserCodeInfoMaps = create(
-  immer((set, get) => ({
-    ...initialState,
-    resetAndSetAll: (payload) => {
-      const s = get();
-      s.reset();
-      s.setAll(payload);
-    },
-    setAll: (payload) => set((state) => setAll(state, payload)),
-    reset: () => set(initialState),
-  }))
-);
+const userCodeInfoMaps = {
+  ...getInitialState(),
+
+  resetAndSetAll: thunk((actions, payload) => {
+    actions.reset();
+    actions.setAll(payload);
+  }),
+
+  setAll: action((state, payload) => {
+    setAll(state, payload);
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
+};
+
+export default userCodeInfoMaps;

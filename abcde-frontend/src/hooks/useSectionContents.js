@@ -1,6 +1,5 @@
+import { useStoreState } from "easy-peasy";
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
-import { useObjInfos } from "models/info/objInfos";
 import { defaultState, maybeUseNullId } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
@@ -15,8 +14,8 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
 function useGetCollectionChildren(sectionId, type) {
   const [_collectionIds] = useGetSectionTypeConfig(sectionId, ["collections"]);
   const collectionIds = _collectionIds ? _collectionIds : [];
-  return useCodeInfo(
-    (x) => [].concat(...collectionIds.map((y) => x[type][y])),
+  return useStoreState(
+    (x) => [].concat(...collectionIds.map((y) => x.codeInfo[type][y])),
     _.isEqual
   );
 }
@@ -32,19 +31,22 @@ function useGetAllParamCollections(sectionId) {
 function useGetKwargIds(sectionId, objInfoId) {
   const [kwargColId] = useGetSectionConfig(sectionId, ["kwargColId"]);
   return defaultState(
-    useObjInfos((x) => x.x[kwargColId]?.[objInfoId]),
+    useStoreState((x) => x.objInfos.x[kwargColId]?.[objInfoId]),
     () => []
   );
 }
 
 export function useGetKwargInfos(sectionId, objInfoId) {
   const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
-  return useCodeInfo((x) => kwargIds.map((y) => x.allCodeInfo[y]), _.isEqual);
+  return useStoreState(
+    (x) => kwargIds.map((y) => x.codeInfo.allCodeInfo[y]),
+    _.isEqual
+  );
 }
 
 export function useGetAllParamInfos(sectionId, objInfoId) {
-  const objParamInfos = useCodeInfo(
-    (x) => (objInfoId ? x.params[objInfoId] : []),
+  const objParamInfos = useStoreState(
+    (x) => (objInfoId ? x.codeInfo.params[objInfoId] : []),
     _.isEqual
   );
   const paramCollections = useGetAllParamCollections(sectionId);

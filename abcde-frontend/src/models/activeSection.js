@@ -1,6 +1,22 @@
-import { create } from "./utils";
+import { action } from "easy-peasy";
+import { resetState } from "./utils";
 
-export const useActiveSection = create((set) => ({
-  id: null,
-  setId: (payload) => set(() => ({ id: payload })),
-}));
+function getInitialState() {
+  return {
+    id: null,
+  };
+}
+
+const activeSection = {
+  ...getInitialState(),
+
+  setId: action((state, payload) => {
+    state.id = payload;
+  }),
+
+  reset: action((state) => {
+    resetState(state, getInitialState());
+  }),
+};
+
+export default activeSection;

@@ -1,20 +1,19 @@
-import { HamburgerIcon } from "@chakra-ui/icons";
-import { resetAllSlices } from "models/utils";
-import { logout } from "thunks/authentication";
+import { useStoreActions } from "easy-peasy";
+import { FiMenu } from "react-icons/fi";
+import { resetEntireState } from "store/store";
 import StandardButton from "utils/atoms/buttons/StandardButton";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
 
 export default function MainSideDrawer() {
   return (
-    <DrawerContainer
-      header={<Header />}
-      body={<Body />}
-      footer={<Footer />}
-      icon={<HamburgerIcon />}
-      size="sm"
-      borderRadius="full"
-      variant="ghost"
-    />
+    <div className="flex flex-1 justify-end content-center">
+      <DrawerContainer
+        header={<Header />}
+        body={<Body />}
+        footer={<Footer />}
+        icon={<FiMenu />}
+      />
+    </div>
   );
 }
 
@@ -23,9 +22,11 @@ function Header() {
 }
 
 function Body() {
+  const logout = useStoreActions((x) => x.thunks.logout);
+
   const doLogout = () => {
     logout();
-    resetAllSlices();
+    resetEntireState();
   };
 
   return (

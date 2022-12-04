@@ -1,26 +1,25 @@
 import { useDisclosure } from "@chakra-ui/react";
 import { useRef } from "react";
+import Button from "utils/atoms/buttons/Button";
 
-import DrawerButton from "./DrawerButton";
 import DrawerPane from "./DrawerPane";
 
 export default function DrawerContainer(props) {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const btnRef = useRef();
-  const { header, body, footer, icon, size, variant, borderRadius } = props;
+  const { header, body, footer, icon } = props;
 
   return (
     <>
-      <DrawerButton
+      <Button
         btnRef={btnRef}
         onOpen={onOpen}
-        icon={icon}
-        variant={variant}
-        size={size}
-        borderRadius={borderRadius}
+        tailwindClasses="rounded-full hover:bg-gray-200 p-2"
       >
+        {icon && icon}
         {props.children}
-      </DrawerButton>
+      </Button>
+
       <DrawerPane
         isOpen={isOpen}
         onClose={onClose}

@@ -1,8 +1,7 @@
+import { useStoreActions } from "easy-peasy";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
-import { deleteSections, moveSections } from "thunks/sectionOps";
-import { PANEID } from "utils/constants";
 
 import {
   useGetSectionPosition,
@@ -11,18 +10,22 @@ import {
 import { useGetAllChildren } from "./useSectionChildren";
 
 function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
+  const setAllChildren = useStoreActions((x) => x.sectionInfos.setAllChildren);
+  const setSectionInfoAttrObjInput = useStoreActions(
+    (x) => x.sectionInfos.setSectionInfoAttrObjInput
+  );
+  const deleteSections = useStoreActions((x) => x.sectionInfos.deleteSections);
+  const addChildren = useStoreActions((x) => x.projectConfig.addChildren);
+
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {
-    const positions = {};
+    const newValues = {};
     _.forEach(coords, function (value, key) {
-      positions[key] = { ...project(value) };
+      newValues[key] = { initialPosition: project(value) };
     });
-    moveSections({
-      oldParentId: deckId,
-      newParentId: PANEID,
-      sectionIds: childIds,
-      positions,
-    });
+    setAllChildren({ sectionId: deckId, newStateFn: () => [] });
+    setSectionInfoAttrObjInput({ newValues });
+    addChildren(childIds);
     deleteSections({ sectionIds: [deckId] });
   }
 
@@ -36,7 +39,7 @@ export function useUndeck(sectionId) {
   const requestPositionUpdate = useRequestSectionPositionUpdate();
   useMakeChildrenTopLevel(deckId, childIds, requesterName);
 
-  // closeContextMenu() happens before state updates.
+  // closeContextMenu() happens before easy-peasy state updates.
   // So sectionId ends up being null by the time onCoordsReceived is called
   // Therefore, only update deckId when sectionId is not null
   useEffect(() => {

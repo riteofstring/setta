@@ -1,10 +1,12 @@
+import { useStoreActions } from "easy-peasy";
 import React, { useEffect } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
-import { accessPage } from "thunks/authentication";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 const AppContainer = () => {
+  const accessPage = useStoreActions((x) => x.thunks.accessPage);
+
   useEffect(() => {
     accessPage({ address: "" });
   }, []);

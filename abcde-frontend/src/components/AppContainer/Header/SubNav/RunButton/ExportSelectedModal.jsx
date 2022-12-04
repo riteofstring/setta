@@ -1,4 +1,3 @@
-import { Box, Text } from "@chakra-ui/react";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 
 function numSpaces(x) {
@@ -23,21 +22,21 @@ export default function ExportSelectedModal({
 }
 
 function Header() {
-  return <Box>Selections</Box>;
+  return <div>Selections</div>;
 }
 
 function Body({ selectedAsString }) {
   const splitByLines = selectedAsString.split("\n");
   return splitByLines.map((x, idx) => (
-    <Text
+    <p
       key={`selectedAsString-${idx}`}
       style={{ textIndent: 10 * numSpaces(x) }}
     >
       {x}
-    </Text>
+    </p>
   ));
 }
 
 function Footer() {
-  return <Box></Box>;
+  return <div></div>;
 }
