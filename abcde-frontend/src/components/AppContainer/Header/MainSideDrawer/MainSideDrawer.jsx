@@ -1,5 +1,4 @@
 import { HamburgerIcon } from "@chakra-ui/icons";
-import { resetEntireState } from "store/store";
 import { logout } from "thunks/authentication";
 import StandardButton from "utils/atoms/buttons/StandardButton";
 import DrawerContainer from "utils/DrawerContainer/DrawerContainer";
@@ -25,7 +24,8 @@ function Header() {
 function Body() {
   const doLogout = () => {
     logout();
-    resetEntireState();
+    // TODO: implement zustand version of this
+    // resetEntireState();
   };
 
   return (

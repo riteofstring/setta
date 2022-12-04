@@ -3,7 +3,6 @@ import {
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
-import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useAuth } from "models/auth";
 import { useCodeInfo } from "models/info/codeInfo";
@@ -19,8 +18,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { BASE, USER } from "utils/uiTypeConstants";
 import { loadProjectIntoState } from "./projects";
 
-// s is the easy-peasy store
-export function getProjectData(s) {
+export function getProjectData() {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
@@ -35,7 +33,7 @@ export function getProjectData(s) {
   const uiTypeCols = useParamInfos.getState().y;
 
   const kwargCols = useObjInfos.getState().getAll();
-  const kwargInfo = assembleKwargInfos(s, kwargCols);
+  const kwargInfo = assembleKwargInfos(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();
   const sections = _.mapValues(sectionInfosState.x, (x) =>
@@ -68,37 +66,35 @@ export function getProjectData(s) {
   };
 }
 
-export const saveProject = thunk((actions, payload, helpers) => {
-  const x = assembleProject(helpers.getStoreState(), payload.reactFlowStore);
+export function saveProject({ reactFlowStore }) {
+  const x = assembleProject(reactFlowStore);
   saveProjectDb(x);
-});
+}
 
-export const saveAsNewProjectConfig = thunk(
-  async (actions, payload, helpers) => {
-    saveProjectAs({
-      s: helpers.getStoreState(),
-      a: helpers.getStoreActions(),
-      reactFlowStore: payload.reactFlowStore,
-      fn: saveAsNewProjectConfigDb,
-      otherArgs: { newConfigName: payload.newConfigName },
-    });
-  }
-);
+export async function saveAsNewProjectConfig({
+  reactFlowStore,
+  newConfigName,
+}) {
+  saveProjectAs({
+    reactFlowStore,
+    fn: saveAsNewProjectConfigDb,
+    otherArgs: { newConfigName },
+  });
+}
 
-export const saveAsExistingProjectConfig = thunk(
-  async (actions, payload, helpers) => {
-    saveProjectAs({
-      s: helpers.getStoreState(),
-      a: helpers.getStoreActions(),
-      reactFlowStore: payload.reactFlowStore,
-      fn: saveAsExistingProjectConfigDb,
-      otherArgs: { configId: payload.configId },
-    });
-  }
-);
+export async function saveAsExistingProjectConfig({
+  reactFlowStore,
+  configId,
+}) {
+  saveProjectAs({
+    reactFlowStore,
+    fn: saveAsExistingProjectConfigDb,
+    otherArgs: { configId },
+  });
+}
 
-async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
-  const x = assembleProject(s, reactFlowStore);
+async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
+  const x = assembleProject(reactFlowStore);
   const newProjectConfig = await fn({ ...x, ...otherArgs });
   const uiTypesState = useUITypes.getState();
   // load base and preset ui types from memory
@@ -121,20 +117,22 @@ async function saveProjectAs({ s, a, reactFlowStore, fn, otherArgs }) {
   zState.setIsLoading(false);
 }
 
-function assembleProject(s, reactFlowStore) {
-  updateInitialPositions(s, reactFlowStore);
+function assembleProject(reactFlowStore) {
+  updateInitialPositions(reactFlowStore);
   const access_token = useAuth.getState().access_token;
-  return { project: getProjectData(s), access_token };
+  return { project: getProjectData(), access_token };
 }
 
-function updateInitialPositions(s, reactFlowStore) {
+function updateInitialPositions(reactFlowStore) {
   const rfState = reactFlowStore.getState();
+  const newValues = {};
   for (const [key, value] of rfState.nodeInternals) {
-    s.sectionInfos.x[key].initialPosition = { ...value.position };
+    newValues[key] = { initialPosition: value.position };
   }
+  useSectionInfos.getState().setSectionInfoAttrObjInput({ newValues });
 }
 
-function assembleKwargInfos(s, kwargCols) {
+function assembleKwargInfos(kwargCols) {
   let kwargInfos = {};
   const codeInfoState = useCodeInfo.getState();
   for (const kwargColId of _.keys(kwargCols)) {

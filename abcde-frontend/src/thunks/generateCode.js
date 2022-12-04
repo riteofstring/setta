@@ -1,13 +1,12 @@
 import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
-import { thunk } from "easy-peasy";
 import { useAuth } from "models/auth";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { BASE } from "utils/uiTypeConstants";
 import { assembleUITypes, getProjectData } from "./save";
 
-export function getProjectDataToGenerateCode(s) {
-  const project = getProjectData(s);
+export function getProjectDataToGenerateCode() {
+  const project = getProjectData();
   project.sectionCurrChildren = useSectionInfos.getState().currChildren;
   const codeInfoState = useCodeInfo.getState();
   const allCodeInfo = {
@@ -18,16 +17,17 @@ export function getProjectDataToGenerateCode(s) {
     allCodeInfo,
     paramCollections: codeInfoState.paramCollections,
   };
-  const baseUITypes = assembleUITypes(s, (v) => v.presetType === BASE);
+  const baseUITypes = assembleUITypes(
+    useUITypes.getState().x,
+    (v) => v.presetType === BASE
+  );
   project.uiTypes = { ...project.uiTypes, ...baseUITypes };
   delete project.kwargInfo;
   return project;
 }
 
-export const generateCode = thunk(async (actions, payload, helpers) => {
-  const { codeId } = payload;
-  const s = helpers.getStoreState();
-  const project = getProjectDataToGenerateCode(s);
+export async function generateCode({ codeId }) {
+  const project = getProjectDataToGenerateCode();
   const access_token = useAuth.getState().access_token;
   return await generateCodeDb({ access_token, codeId, project });
-});
+}

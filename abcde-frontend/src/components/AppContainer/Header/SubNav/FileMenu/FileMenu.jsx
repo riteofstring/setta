@@ -1,6 +1,5 @@
 import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useStoreActions } from "easy-peasy";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
@@ -9,6 +8,11 @@ import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
+import {
+  saveAsExistingProjectConfig,
+  saveAsNewProjectConfig,
+  saveProject,
+} from "thunks/save";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
@@ -17,13 +21,6 @@ export default function FileMenu() {
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
   const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
-  const saveProject = useStoreActions((x) => x.thunks.saveProject);
-  const saveAsNewProjectConfig = useStoreActions(
-    (x) => x.thunks.saveAsNewProjectConfig
-  );
-  const saveAsExistingProjectConfig = useStoreActions(
-    (x) => x.thunks.saveAsExistingProjectConfig
-  );
   const setProjectToLoad = useProjectToLoad((x) => x.setProject);
   const [modalType, setModalType] = useState("");
 
