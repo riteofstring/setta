@@ -1,6 +1,7 @@
 import { thunk } from "easy-peasy";
 import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
+import { useParamInfos } from "models/info/paramInfos";
 import { getSectionType, getSectionTypeConfig } from "thunks/sections";
 import { isSeriesElement } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
@@ -31,7 +32,7 @@ export const setParamUITypeId = thunk((action, payload, helpers) => {
   const childId = getParamChildId(s, sectionId, paramInfoId);
   const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
 
-  a.paramInfos.setUITypeId({
+  useParamInfos.getState().setUITypeId({
     collectionId: uiTypeColId,
     paramInfoId,
     uiTypeId,

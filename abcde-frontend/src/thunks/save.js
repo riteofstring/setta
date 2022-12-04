@@ -9,6 +9,7 @@ import { useAuth } from "models/auth";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useObjInfos } from "models/info/objInfos";
+import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useProjectToLoad } from "models/info/projectToLoad";
@@ -23,9 +24,9 @@ export function getProjectData(s) {
   const ev = _.mapValues(useEnteredValues.getState().getAll(), (v) =>
     _.pick(v, ["value", "childId"])
   );
-  const evCols = s.paramInfos.x;
+  const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(s, (v) => v.presetType !== BASE);
-  const uiTypeCols = s.paramInfos.y;
+  const uiTypeCols = useParamInfos.getState().y;
 
   const kwargCols = useObjInfos.getState().getAll();
   const kwargInfo = assembleKwargInfos(s, kwargCols);

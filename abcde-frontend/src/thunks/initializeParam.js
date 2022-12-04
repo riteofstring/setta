@@ -1,5 +1,6 @@
 import { thunk } from "easy-peasy";
 import { useEnteredValues } from "models/info/enteredValues";
+import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import {
   DEFAULT_BASE_UI_TYPE_ID,
@@ -22,7 +23,10 @@ function getEnteredValueId(sectionId, paramInfo, helpers) {
   const s = helpers.getStoreState();
   const configId = s.sectionInfos.x[sectionId].configId;
   const evColId = useSectionConfigs.getState().x[configId].evColId;
-  return { enteredValueId: s.paramInfos.x[evColId]?.[paramInfo.id], evColId };
+  return {
+    enteredValueId: useParamInfos.getState().x[evColId]?.[paramInfo.id],
+    evColId,
+  };
 }
 
 function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
@@ -36,7 +40,7 @@ function initializeParamEnteredValue(sectionId, paramInfo, helpers) {
     const a = helpers.getStoreActions();
 
     const setEnteredValueId = curryAction(
-      a.paramInfos.setEnteredValueId,
+      useParamInfos.getState().setEnteredValueId,
       {
         collectionId: evColId,
         paramInfoId: paramInfo.id,
@@ -60,7 +64,7 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
   const configId = s.sectionInfos.x[sectionId].configId;
   const sectionTypeId = useSectionConfigs.getState().x[configId].uiTypeId;
   const uiTypeColId = s.uiTypes.x[sectionTypeId].config.uiTypeColId;
-  let uiTypeId = s.paramInfos.y[uiTypeColId]?.[paramInfo.id];
+  let uiTypeId = useParamInfos.getState().y[uiTypeColId]?.[paramInfo.id];
 
   if (!uiTypeId) {
     const projectDefaultUITypeId =
@@ -72,7 +76,7 @@ function initializeParamUIType(sectionId, paramInfo, helpers) {
     const globalDefaultUIType = s.uiTypes.x[globalDefaultUITypeId];
 
     const setUITypeId = curryAction(
-      helpers.getStoreActions().paramInfos.setUITypeId,
+      useParamInfos.getState().setUITypeId,
       {
         collectionId: uiTypeColId,
         paramInfoId: paramInfo.id,

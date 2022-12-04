@@ -3,6 +3,7 @@ import { thunk } from "easy-peasy";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
+import { useParamInfos } from "models/info/paramInfos";
 import { maybeUseNullId } from "utils/utils";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
@@ -46,7 +47,9 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
     newStateFn: (x) => x.filter((y) => y !== kwargId),
   });
   useCodeInfo.getState().deleteInfos({ ids: [kwargId] });
-  a.paramInfos.deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
+  useParamInfos
+    .getState()
+    .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
   if (childId) {
     a.thunks.deleteChild({ sectionId, startId: childId });
   }
@@ -55,7 +58,6 @@ export const deleteKwarg = thunk((actions, payload, helpers) => {
 export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
   const { sectionId, objInfoId, name = "test" } = payload;
   const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
   const { kwargColId } = getSectionConfig(s, sectionId);
   const kwargIds =
     useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];

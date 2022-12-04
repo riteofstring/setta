@@ -1,5 +1,6 @@
 import { useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { useParamInfos } from "models/info/paramInfos";
 import { requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
 import { useGetSectionTypeConfig } from "./useSectionType";
@@ -14,13 +15,13 @@ export function useGetParamUIType(sectionId, paramInfoId) {
 
 export function useParamUITypeId(sectionId, paramInfoId) {
   const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
-  return useStoreState((x) => x.paramInfos.y[uiTypeColId]?.[paramInfoId]);
+  return useParamInfos((x) => x.y[uiTypeColId]?.[paramInfoId]);
 }
 
 export function useGetManyParamUITypeIds(sectionId, paramInfos) {
   const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
-  return useStoreState(
-    (x) => paramInfos.map((y) => x.paramInfos.y[uiTypeColId]?.[y.id]),
+  return useParamInfos(
+    (x) => paramInfos.map((y) => x.y[uiTypeColId]?.[y.id]),
     _.isEqual
   );
 }

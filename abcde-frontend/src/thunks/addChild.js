@@ -1,5 +1,6 @@
 import { thunk } from "easy-peasy";
 import { useEnteredValues } from "models/info/enteredValues";
+import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { insertIntoArrayOrXpend } from "utils/utils";
 
@@ -42,7 +43,8 @@ export const addChild = thunk((action, payload, helpers) => {
     const { configId } = s.sectionInfos.x[parentId];
     const { evColId: collectionId } = useSectionConfigs.getState().x[configId];
 
-    const enteredValueId = s.paramInfos.x[collectionId]?.[parentParamInfoId];
+    const enteredValueId =
+      useParamInfos.getState().x[collectionId]?.[parentParamInfoId];
 
     useEnteredValues.getState().setChildId({
       enteredValueId,

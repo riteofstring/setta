@@ -1,6 +1,6 @@
-import { useStoreState } from "easy-peasy";
 import _ from "lodash";
 import { useEnteredValues } from "models/info/enteredValues";
+import { useParamInfos } from "models/info/paramInfos";
 import { curryAction, defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 
@@ -25,13 +25,13 @@ export function useGetParamChildId(sectionId, paramInfoId) {
 
 export function useGetParamEnteredValueId(sectionId, paramInfoId) {
   const [evColId] = useGetSectionConfig(sectionId, ["evColId"]);
-  return useStoreState((x) => x.paramInfos.x[evColId]?.[paramInfoId]);
+  return useParamInfos((x) => x.x[evColId]?.[paramInfoId]);
 }
 
 export function useGetManyParamEVs(sectionId, paramInfos, key) {
   const [evColId] = useGetSectionConfig(sectionId, ["evColId"]);
-  const enteredValueIds = useStoreState(
-    (x) => paramInfos.map((y) => x.paramInfos.x[evColId]?.[y.id]),
+  const enteredValueIds = useParamInfos(
+    (x) => paramInfos.map((y) => x.x[evColId]?.[y.id]),
     _.isEqual
   );
   return useEnteredValues(
