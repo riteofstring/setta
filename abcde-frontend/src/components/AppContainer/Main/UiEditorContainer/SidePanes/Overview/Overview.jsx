@@ -1,5 +1,3 @@
-import { SearchIcon } from "@chakra-ui/icons";
-import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useSectionInfoNames } from "hooks/useSectionInfo";
@@ -41,17 +39,13 @@ export default function Overview() {
       paneTitle="Overview"
       onResizeStop={onResizeStop}
     >
-      <InputGroup pb="1rem">
-        <InputLeftElement pointerEvents="none">
-          <SearchIcon color="gray.300" />
-        </InputLeftElement>
-        <Input
-          variant="flushed"
+      <div className="pb-4">
+        <input
           placeholder="Search"
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Overview Search"
         />
-      </InputGroup>
+      </div>
       <SectionListItems listOfSectionIdsAndNames={filteredList} />
     </PaneContainer>
   );
