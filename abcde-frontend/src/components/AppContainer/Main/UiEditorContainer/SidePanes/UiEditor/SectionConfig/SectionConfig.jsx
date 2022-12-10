@@ -1,12 +1,3 @@
-import { SearchIcon } from "@chakra-ui/icons";
-import {
-  Box,
-  Heading,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  InputRightElement,
-} from "@chakra-ui/react";
 import {
   getCollectionDetails,
   getCollectionsAndModules,
@@ -95,30 +86,20 @@ function SectionConfigCore({
 
   return (
     <>
-      <Heading as="h3" size="xs" textTransform="uppercase" color="gray.400">
+      <h3 className="text-xs uppercase text-gray-400 font-semibold">
         Card Types
-      </Heading>
+      </h3>
       <SectionConfigTypeSelection
         onDropdownSelect={onSectionTypeChange}
         selectedId={currTypeId}
         sectionId={sectionId}
       />
-
-      <Heading as="h3" size="xs" textTransform="uppercase" color="gray.400">
+      <h3 className="text-xs uppercase text-gray-400 font-semibold">
         Contents
-      </Heading>
-      <Box
-        py="0.5rem"
-        px="0.75rem"
-        borderRadius="2xl"
-        bg="white"
-        boxShadow="inner"
-        border="1px"
-        borderColor="white"
-        flexGrow="1"
-        mb="2.5rem"
-        display="flex"
-        flexDirection="column"
+      </h3>
+
+      <div
+        className="py-2 px-3 rounded-2xl bg-white shadow-inner border border-white grow mb-10 flex flex-col"
         data-testid={`SectionConfig ${sectionId}`}
       >
         <Search onSubmit={onSubmit} />
@@ -128,7 +109,7 @@ function SectionConfigCore({
           allCollections={allCollections}
           results={results}
         />
-      </Box>
+      </div>
     </>
   );
 }
@@ -143,16 +124,11 @@ function Search({ onSubmit }) {
   }
 
   return (
-    <InputGroup pb="1rem">
-      <InputLeftElement pointerEvents="none">
-        <SearchIcon color="gray.300" />
-      </InputLeftElement>
-      <Input variant="flushed" placeholder="Search" onChange={onChange} />
-      <InputRightElement width="4.5rem">
-        <button className="h-7" onClick={onClick}>
-          Go
-        </button>
-      </InputRightElement>
-    </InputGroup>
+    <div className="pb-4">
+      <input className="w-4/5" placeholder="Search" onChange={onChange} />
+      <button className="h-7" onClick={onClick}>
+        Go
+      </button>
+    </div>
   );
 }
