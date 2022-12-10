@@ -1,5 +1,4 @@
-import "@chakra-ui/icons";
-import { Box, Flex } from "@chakra-ui/react";
+import { Flex } from "@chakra-ui/react";
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { useEffect, useState } from "react";
@@ -98,7 +97,7 @@ export function ComboboxSearch({
             alignItems="stretch"
             zIndex="20"
           >
-            <Box m={3} maxH="100%" overflowY="scroll" width="100%">
+            <div className="max-h-full m-3 w-full overflow-y-scroll">
               {filteredItems.map((item, index) => (
                 <ComboboxItem
                   {...getItemProps({ item, index })}
@@ -110,7 +109,7 @@ export function ComboboxSearch({
                   {itemToString(item)}
                 </ComboboxItem>
               ))}
-            </Box>
+            </div>
           </ComboboxList>
         </Flex>
       </Flex>
