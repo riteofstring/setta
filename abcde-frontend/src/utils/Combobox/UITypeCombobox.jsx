@@ -14,15 +14,11 @@ export default function UITypeCombobox({
 
   function itemStyleGetter(item) {
     if (item.presetType === USER) {
-      return {
-        weight: "700",
-        fontStyle: "italic",
-        color: "green.700",
-      };
+      return "font-bold italic text-green-700";
     } else if (item.presetType === BASE) {
-      return { weight: "700", color: "blue.500" };
+      return "font-bold text-blue-500";
     } else {
-      return { color: "grey.500" };
+      return "text-gray-500";
     }
   }
 

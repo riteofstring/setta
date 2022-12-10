@@ -6,7 +6,6 @@ import {
   InputLeftElement,
   InputRightElement,
   List,
-  ListItem,
 } from "@chakra-ui/react";
 import React from "react";
 
@@ -109,24 +108,21 @@ export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
 });
 
 export const ComboboxItem = React.forwardRef(
-  ({ itemIndex, highlightedIndex, itemStyle, ...props }, ref) => {
+  (
+    { itemIndex, highlightedIndex, itemStyle = "", children, ...props },
+    ref
+  ) => {
     const isActive = itemIndex === highlightedIndex;
-
+    const bg = isActive ? "bg-gray-100" : "";
     return (
-      <ListItem
-        transition="background-color 220ms, color 220ms"
-        bg={isActive ? "gray.100" : null}
-        px={4}
-        py={2}
-        cursor="pointer"
+      <div
+        className={`px-4 py-2 cursor-pointer rounded-xl mx-1 my-0.5 ${bg} ${itemStyle}`}
         {...props}
         ref={ref}
-        borderRadius="xl"
-        mx="0.25rem"
-        my="0.125rem"
         data-testid={"ComboboxListItem"}
-        {...itemStyle}
-      />
+      >
+        {children}
+      </div>
     );
   }
 );
