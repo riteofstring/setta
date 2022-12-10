@@ -13,7 +13,6 @@ export function ComboboxSearch({
   textSize,
   simpleSearch,
   width,
-  size,
   itemStyleGetter,
 }) {
   const [selection, setSelection] = useState(null);
@@ -35,7 +34,6 @@ export function ComboboxSearch({
   const {
     isOpen,
     getToggleButtonProps,
-    // getLabelProps,
     getMenuProps,
     getInputProps,
     getComboboxProps,
@@ -54,19 +52,13 @@ export function ComboboxSearch({
       className="flex flex-col items-stretch overflow-visible w-full h-10"
       {...getComboboxProps()}
     >
-      {/* <Text as="label" fontSize="lg" {...getLabelProps()}>
-        label
-      </Text> */}
       <ComboboxInput
         {...getInputProps()}
         toggleButtonProps={getToggleButtonProps()}
-        bg="white"
-        placeholder="Search..."
         isOpen={isOpen}
         dropdown={true}
         textSize={textSize}
         simpleSearch={simpleSearch}
-        size={size}
       />
 
       <div className="flex flex-col items-stretch" style={{ width }}>

@@ -5,9 +5,8 @@ export function IdNameCombobox({
   allItems,
   onSelectedItemChange,
   initialSelection,
-  textSize = "sm",
+  textSize,
   simpleSearch,
-  size,
   width,
   itemStyleGetter,
 }) {
@@ -39,7 +38,6 @@ export function IdNameCombobox({
       matchSorterProps={{ keys: ["name"] }}
       textSize={textSize}
       simpleSearch={simpleSearch}
-      size={size}
       width={width}
       itemStyleGetter={itemStyleGetter}
     />

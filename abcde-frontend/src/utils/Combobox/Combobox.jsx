@@ -1,12 +1,5 @@
-import { ChevronDownIcon, ChevronUpIcon, SearchIcon } from "@chakra-ui/icons";
-import {
-  IconButton,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  InputRightElement,
-} from "@chakra-ui/react";
 import React from "react";
+import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -15,79 +8,52 @@ export const ComboboxInput = React.forwardRef(
       dropdown,
       isOpen,
       textSize,
-      height = "40px",
+      height,
       simpleSearch = false,
-      size = "normal",
       ...props
     },
     ref
   ) => {
     return (
-      <InputGroup
-        // width="100%"
-        className="nodrag"
-        size={size === "small" ? "sm" : "md"}
-      >
-        <InputLeftElement pointerEvents="none">
-          <SearchIcon color="gray.300" />
-        </InputLeftElement>
+      <div className="flex nodrag">
         <SearchInput
           simpleSearch={simpleSearch}
           height={height}
-          size={size}
           textSize={textSize}
-          isOpen={isOpen}
           {...props}
           {...toggleButtonProps}
           ref={ref}
         />
         {dropdown && (
-          <InputRightElement>
-            <IconButton
-              {...toggleButtonProps}
-              aria-label={"toggle menu"}
-              borderRadius={!simpleSearch ? "full" : "2xl"}
-              bg={!simpleSearch ? "white" : "unset"}
-              icon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-              // height={height - 10}
-              size={size === "small" ? "xs" : "md"}
-            />
-          </InputRightElement>
+          <button
+            className={`${!simpleSearch ? "rounded-full" : "rounded-2xl"} ${
+              !simpleSearch ? "bg-white" : "bg-transparent"
+            }`}
+            {...toggleButtonProps}
+            aria-label={"toggle menu"}
+          >
+            {isOpen ? <HiChevronUp /> : <HiChevronDown />}
+          </button>
         )}
-      </InputGroup>
+      </div>
     );
   }
 );
 
 const SearchInput = React.forwardRef(
-  ({ textSize, height, size, simpleSearch, isOpen, ...props }, ref) => {
-    function onClick(e) {
-      if (!isOpen) {
-        props.onClick(e);
-      }
-    }
+  (
+    { textSize = "text-sm", height = "h-[40px]", simpleSearch, ...props },
+    ref
+  ) => {
+    const otherStyling = simpleSearch
+      ? "bg-transparent"
+      : "bg-white rounded-full border-0 shadow-sm";
 
-    const commonProps = {
-      ...props,
-      onClick: onClick,
-      placeholder: "Search",
-      h: (size === "small" && "32px") || height,
-      pl: "2.5rem",
-      size: textSize,
-    };
+    const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0`;
 
-    const specificProps = simpleSearch
-      ? {
-          variant: "flushed",
-          bg: "unset",
-        }
-      : {
-          border: 0,
-          borderRadius: "full",
-          boxShadow: "sm",
-        };
-
-    return <Input {...commonProps} {...specificProps} ref={ref} />;
+    return (
+      <input className={className} placeholder="Search" ref={ref} {...props} />
+    );
   }
 );
 

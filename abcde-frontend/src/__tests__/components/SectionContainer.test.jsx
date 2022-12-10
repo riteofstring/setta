@@ -38,7 +38,7 @@ test("A nested section should appear when a parameter uitype becomes section", a
   const combobox = inputFields[0]; //combobox is the first textbox within uiElement
   await userEvent.clear(combobox);
   await userEvent.type(combobox, "Object");
-  await userEvent.type(combobox, "{arrowdown}");
+  await userEvent.keyboard("{arrowdown}");
   await userEvent.tab();
 
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId));

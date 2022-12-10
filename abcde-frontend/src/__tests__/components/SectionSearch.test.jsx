@@ -24,8 +24,9 @@ test("Test SectionSearch", async () => {
 
   await userEvent.clear(searchBox);
   await userEvent.type(searchBox, "SGD");
-  await userEvent.type(searchBox, "{arrowdown}");
+  await userEvent.keyboard("{arrowdown}");
   await userEvent.tab();
+  expect(searchBox.value).toEqual("SGD");
 
   // Expect that the SGD object is now selected
   const idSGD = "0c264e90-eb09-4dfb-bb5b-b357037b2a08";
@@ -80,7 +81,7 @@ test("Test SectionSearch", async () => {
 
   // select item
   await userEvent.type(searchBox, "resnet");
-  await userEvent.type(searchBox, "{arrowdown}");
+  await userEvent.keyboard("{arrowdown}");
   await userEvent.tab();
   expect(result.current[0]).toBeTruthy();
 
