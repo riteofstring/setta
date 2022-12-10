@@ -1,6 +1,6 @@
-import { AddIcon, MinusIcon } from "@chakra-ui/icons";
-import { Heading, HStack, IconButton, Input } from "@chakra-ui/react";
+import { HStack, IconButton } from "@chakra-ui/react";
 import { useState } from "react";
+import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { addChild } from "thunks/addChild";
 import { deleteChild } from "thunks/deleteChild";
 
@@ -45,22 +45,18 @@ export default function Incrementer({
   const [numSections, setNumSections] = useState(1);
   return (
     <HStack maxW="320px" bg="gray.100" borderRadius="xl" p="0.25rem 0.5rem">
-      <Heading as="h3" fontSize=".75em" color="gray.400">
+      <h3 style={{ fontSize: ".75em", color: "#A0AEC0" }}>
         {isRoot && "Children: "}
-      </Heading>
-      <Input
-        size="xs"
-        maxW="5ch"
+      </h3>
+      <input
+        className="nodrag max-w-[5ch] bg-white rounded-md text-center text-xs"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         aria-label="Number of sections"
-        bg="white"
-        borderRadius="md"
-        className="nodrag"
       />
 
       <IconButton
-        icon={<MinusIcon />}
+        icon={<AiOutlineMinus />}
         size="xs"
         onClick={() => deleteChildren(numSections)}
         isDisabled={!decrementButtonCondition()}
@@ -70,7 +66,7 @@ export default function Incrementer({
       />
 
       <IconButton
-        icon={<AddIcon />}
+        icon={<AiOutlinePlus />}
         size="xs"
         onClick={() => addSections(numSections)}
         aria-label="Add child section"
