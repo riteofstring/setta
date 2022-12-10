@@ -1,4 +1,3 @@
-import { Box } from "@chakra-ui/react";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -6,10 +5,10 @@ import {
 import { useDisableSort, useHighlightDroppable } from "hooks/useDndUtils";
 
 export function DNDSortable({ sectionId, items, ...props }) {
-  const style = useHighlightDroppable(sectionId);
+  const { className, style } = useHighlightDroppable(sectionId);
   const disabled = useDisableSort(sectionId);
   return (
-    <Box {...style}>
+    <div className={className} style={style}>
       <SortableContext
         id={sectionId}
         items={items}
@@ -18,6 +17,6 @@ export function DNDSortable({ sectionId, items, ...props }) {
       >
         {props.children}
       </SortableContext>
-    </Box>
+    </div>
   );
 }
