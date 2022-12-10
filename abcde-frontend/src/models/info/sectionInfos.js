@@ -19,7 +19,13 @@ export const useSectionInfos = create(
 
     resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
       const sectionInfos = _.mapValues(sections, (x) => {
-        const parentId = _.filter(sectionChildren, (v) => v.includes(x.id))[0];
+        let parentId = null;
+        for (const [k, v] of Object.entries(sectionChildren)) {
+          if (v.includes(x.id)) {
+            parentId = k;
+            break;
+          }
+        }
         const y = newSectionInfo({
           ...x,
           parentId,
