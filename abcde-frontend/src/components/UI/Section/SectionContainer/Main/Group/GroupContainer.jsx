@@ -1,11 +1,9 @@
-import { Stack, VStack } from "@chakra-ui/react";
 import { useAreAllParamsNested } from "hooks/useParamUIType";
 import {
   useGetAllParamInfos,
   useGetKwargInfos,
 } from "hooks/useSectionContents";
 import React from "react";
-
 import KwargsControls from "../KwargsControls/KwargsControls";
 import GetParamSwitch from "./ParamSwitch/GetParamSwitch";
 
@@ -46,12 +44,8 @@ function _GroupContainer({
   const kwargsControlCondition = !isKwarg;
 
   return (
-    <VStack alignItems="stretch">
-      <Stack
-        py={kwargsStyleCondition && "1rem"}
-        w="auto"
-        mx={kwargsStyleCondition && ".75rem"}
-      >
+    <div className="flex flex-col items-stretch">
+      <div className={kwargsStyleCondition ? "py-4 w-auto mx-3" : "w-auto"}>
         <GetParamSwitch
           sectionId={sectionId}
           infos={infos}
@@ -61,8 +55,8 @@ function _GroupContainer({
         {kwargsControlCondition && (
           <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
         )}
-      </Stack>
-    </VStack>
+      </div>
+    </div>
   );
 }
 
