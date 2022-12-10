@@ -70,22 +70,7 @@ export function ComboboxSearch({
       />
 
       <div className="flex flex-col items-stretch" style={{ width }}>
-        <ComboboxList
-          isOpen={isOpen}
-          {...getMenuProps()}
-          flex={1}
-          maxH="16rem"
-          mt={0}
-          bg="white"
-          borderBottomLeftRadius="3xl"
-          borderBottomRightRadius="3xl"
-          boxShadow="xl"
-          w="inherit"
-          // p=".5rem"
-          display={isOpen ? "flex" : "none"}
-          alignItems="stretch"
-          zIndex="20"
-        >
+        <ComboboxList isOpen={isOpen} {...getMenuProps()}>
           <div className="max-h-full m-3 w-full overflow-y-scroll">
             {filteredItems.map((item, index) => (
               <ComboboxItem

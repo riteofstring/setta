@@ -5,7 +5,6 @@ import {
   InputGroup,
   InputLeftElement,
   InputRightElement,
-  List,
 } from "@chakra-ui/react";
 import React from "react";
 
@@ -92,20 +91,20 @@ const SearchInput = React.forwardRef(
   }
 );
 
-export const ComboboxList = React.forwardRef(({ isOpen, ...props }, ref) => {
-  return (
-    <List
-      display={isOpen ? null : "none"}
-      {...props}
-      ref={ref}
-      position="fixed"
-      overflow="visible !important"
-      className="nowheel nodrag"
-      borderRadius="3xl"
-      mt="0.5rem"
-    />
-  );
-});
+export const ComboboxList = React.forwardRef(
+  ({ isOpen, children, ...props }, ref) => {
+    const display = isOpen ? "flex" : "hidden";
+    return (
+      <div
+        className={`nowheel nodrag ${display} flex-1 items-stretch w-[inherit] max-h-96 mt-2 z-20 rounded-3xl bg-white !overflow-visible fixed shadow-xl`}
+        {...props}
+        ref={ref}
+      >
+        {children}
+      </div>
+    );
+  }
+);
 
 export const ComboboxItem = React.forwardRef(
   (
