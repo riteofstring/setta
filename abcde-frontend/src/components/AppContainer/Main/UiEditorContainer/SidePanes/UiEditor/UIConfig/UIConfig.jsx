@@ -1,15 +1,4 @@
-import { SearchIcon } from "@chakra-ui/icons";
-import {
-  Box,
-  Button,
-  Heading,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  Spacer,
-  Stack,
-  VStack,
-} from "@chakra-ui/react";
+import { VStack } from "@chakra-ui/react";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -38,17 +27,14 @@ function UIConfig() {
   );
 
   return (
-    <VStack align="stretch" spacing={0}>
-      <InputGroup pb="2.5rem">
-        <InputLeftElement pointerEvents="none">
-          <SearchIcon color="gray.300" />
-        </InputLeftElement>
-        <Input
-          variant="flushed"
+    <div className="items-stretch">
+      <div className="pb-10">
+        <input
+          className="w-full"
           placeholder="Search"
           onChange={(e) => setFilter(e.target.value)}
         />
-      </InputGroup>
+      </div>
       {filteredList.map((e, idx) => (
         <UIElement
           sectionId={sectionId}
@@ -56,7 +42,7 @@ function UIConfig() {
           key={`${e.name}-${idx}`}
         />
       ))}
-    </VStack>
+    </div>
   );
 }
 
@@ -114,17 +100,11 @@ function UIElement({ sectionId, paramInfo }) {
       }}
       data-testid={`UIElement ${paramName}`}
     >
-      <Box flex="1" textAlign="left">
-        <Heading
-          as="h3"
-          size="sm"
-          color="gray.500"
-          textTransform="uppercase"
-          letterSpacing="widest"
-        >
+      <div className="flex-1 text-left">
+        <h3 className="text-sm text-gray-500 uppercase tracking-widest">
           {paramName}
-        </Heading>
-      </Box>
+        </h3>
+      </div>
 
       <UIConfigDropdownAndFields
         onDropdownSelect={onSelect}
@@ -144,24 +124,17 @@ function UIElement({ sectionId, paramInfo }) {
 
 function SaveLoadButtons({ onSubmit }) {
   return (
-    <Stack spacing={3} direction="row" pb="1.5rem">
-      <Spacer />
+    <div className="flex flex-row pb-6">
+      <div className="flex-1" />
       <PopoverWrapper
         trigger={
-          <Button
-            variant="outline"
-            size="xs"
-            color="gray.500"
-            className="uiconfig-param-save-as"
-            visibility="hidden"
-            opacity="0"
-          >
+          <button className="uiconfig-param-save-as text-xs text-gray-500 invisible opacity-0">
             Save As
-          </Button>
+          </button>
         }
         body={<SubmitAsPreset onSubmit={onSubmit} />}
       />
-    </Stack>
+    </div>
   );
 }
 
@@ -178,8 +151,8 @@ function SubmitAsPreset({ onSubmit }) {
 
   return (
     <>
-      <Input placeholder="Preset Name" onChange={onChange} value={presetName} />
-      <Button onClick={localOnSubmit}>Done</Button>
+      <input placeholder="Preset Name" onChange={onChange} value={presetName} />
+      <button onClick={localOnSubmit}>Done</button>
     </>
   );
 }
