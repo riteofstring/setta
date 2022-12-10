@@ -1,5 +1,4 @@
 import { useSectionInfos } from "models/info/sectionInfos";
-
 import SectionContainer from "./SectionContainer";
 
 export function SectionContainerNode({ id }) {

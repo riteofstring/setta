@@ -2,7 +2,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import { useStore } from "react-flow-renderer";
-
 import SectionContainer from "./SectionContainer";
 
 function _SortableSectionContainer({ sectionId, ...props }) {

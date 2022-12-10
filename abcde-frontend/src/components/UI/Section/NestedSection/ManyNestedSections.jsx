@@ -2,7 +2,6 @@ import { HStack } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { INDICATOR_GOTO_PARENT } from "utils/constants";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
-
 import { NestedSection } from "./NestedSection";
 
 export default function ManyNestedSections({

@@ -38,12 +38,10 @@ function UiEditorSubNav() {
   return (
     <>
       <FileMenu />
-      {/* <EcoSysButton /> */}
       <ClearHistoryButton />
       <VerticalLine />
       <CreateSectionButton />
       <CreateGroupButton />
-      {/* <UiConfigButton /> */}
       <VerticalLine />
 
       <RunButton />

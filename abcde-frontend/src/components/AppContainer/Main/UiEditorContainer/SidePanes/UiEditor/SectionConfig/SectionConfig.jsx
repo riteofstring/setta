@@ -1,3 +1,4 @@
+import { SearchIcon } from "@chakra-ui/icons";
 import {
   Box,
   Button,
@@ -7,20 +8,16 @@ import {
   InputLeftElement,
   InputRightElement,
 } from "@chakra-ui/react";
-
-import { SearchIcon } from "@chakra-ui/icons";
-
-import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useGetSectionType } from "hooks/useSectionType";
-import React, { useState } from "react";
-
 import {
   getCollectionDetails,
   getCollectionsAndModules,
 } from "dbRequests/sectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useGetSectionType } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUIEditor } from "models/uiEditor";
+import React, { useState } from "react";
 import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
@@ -158,43 +155,3 @@ function Search({ onSubmit }) {
     </InputGroup>
   );
 }
-
-// function ComboboxPlaceholder() {
-//   return (
-//     <Flex
-//       direction="column"
-//       align="stretch"
-//       overflow="visible"
-//       h="2.5rem"
-//       w="100%"
-//       backgroundColor="white"
-//       borderRadius="full"
-//       mb="1rem"
-//       boxShadow="sm"
-//     >
-//       <InputGroup
-//         // width="100%"
-//         className="nodrag"
-//       >
-//         <InputLeftElement pointerEvents="none">
-//           <SearchIcon color="gray.300" />
-//         </InputLeftElement>
-//         <InputRightElement>
-//           <IconButton
-//             aria-label={"toggle menu"}
-//             borderRadius="full"
-//             bg="white"
-//             icon={<ChevronDownIcon />}
-//           />
-//         </InputRightElement>
-//       </InputGroup>
-
-//       <Flex
-//         direction="column"
-//         w="100%"
-//         alignItems="stretch"
-//         transitionDuration="0.25s"
-//       ></Flex>
-//     </Flex>
-//   );
-// }
