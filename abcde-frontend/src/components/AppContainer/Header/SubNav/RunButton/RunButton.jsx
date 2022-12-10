@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { BiChevronDown } from "react-icons/bi";
 import { RiPlayMiniFill } from "react-icons/ri";
-import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import { generateCode } from "thunks/generateCode";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { createNewId } from "utils/utils";
 
