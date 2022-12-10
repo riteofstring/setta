@@ -22,7 +22,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   ]);
   const _isSeriesElement = isSeriesElement(config.subType);
   const _isRoot = isRoot(sectionTypeName);
-  const isActiveSection = useActiveSection((x) => x.id) === sectionId;
+  const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
   const [isActive, setIsActive] = useState(false);
 
