@@ -1,4 +1,3 @@
-import { Button, HStack } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import FileExplorer from "./FileExplorer";
@@ -121,24 +120,24 @@ function SaveBody({
         selected={selected}
         setSelected={setSelected}
       />
-      <HStack>
-        <FileNameInput
-          placeholder="Config Name"
-          value={configName}
-          onChange={onChange}
-        />
-      </HStack>
+      <FileNameInput
+        placeholder="Config Name"
+        value={configName}
+        onChange={onChange}
+      />
     </>
   );
 }
 
 function Footer({ onClose, onClick, buttonText }) {
   return (
-    <HStack justify="stretch" mb=".5rem" spacing={4}>
-      <Button colorScheme="blue" onClick={onClick}>
+    <div className="mb-2">
+      <button className="rounded bg-gray-200" onClick={onClick}>
         {buttonText}
-      </Button>
-      <Button onClick={onClose}>Close</Button>
-    </HStack>
+      </button>
+      <button className="rounded bg-gray-200" onClick={onClose}>
+        Close
+      </button>
+    </div>
   );
 }
