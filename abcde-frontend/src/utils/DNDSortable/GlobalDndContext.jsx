@@ -105,7 +105,7 @@ export function GlobalDndContext(props) {
       {active?.id &&
         active.data.current.depth !== 0 &&
         createPortal(
-          <DragOverlay>
+          <DragOverlay dropAnimation={null}>
             <DummySection zoom={active.data.current.zoom} ref={dummyRef} />
           </DragOverlay>,
           document.body
