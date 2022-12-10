@@ -1,4 +1,3 @@
-import { HStack, Input, List, ListItem } from "@chakra-ui/react";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrPage } from "models/currPage";
@@ -112,16 +111,16 @@ function ProjectItem({ project }) {
 }
 
 function Body({ configs, defaultConfigId, onClick }) {
-  return (
-    <List>
-      {configs.map((x, idx) => (
-        <HStack key={`Config ${idx}`} onClick={(e) => onClick(e, x.id)}>
-          <ListItem>{x.name}</ListItem>
-          <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
-        </HStack>
-      ))}
-    </List>
-  );
+  return configs.map((x, idx) => (
+    <div
+      className="flex flex-row"
+      key={`Config ${idx}`}
+      onClick={(e) => onClick(e, x.id)}
+    >
+      <p>{x.name}</p>
+      <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
+    </div>
+  ));
 }
 
 function ProjectNameSetter({ onClick }) {
@@ -136,7 +135,7 @@ function ProjectNameSetter({ onClick }) {
 
   return (
     <>
-      <Input
+      <input
         placeholder="Project Name"
         onChange={onChange}
         value={presetName}
