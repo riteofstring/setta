@@ -1,14 +1,10 @@
-import { Input } from "@chakra-ui/react";
-
 export default function FileNameInput({ value, placeholder, onChange }) {
   return (
-    <Input
-      mt="1.25rem"
-      variant="flushed"
+    <input
+      className="mt-5 w-full"
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      size="lg"
     />
   );
 }
