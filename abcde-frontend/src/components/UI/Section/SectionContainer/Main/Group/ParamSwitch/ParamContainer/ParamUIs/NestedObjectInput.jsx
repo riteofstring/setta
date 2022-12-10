@@ -1,4 +1,3 @@
-import { Button } from "@chakra-ui/react";
 import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useActiveSection } from "models/activeSection";
 import { useUIEditor } from "models/uiEditor";
@@ -24,5 +23,5 @@ function ButtonGoToSectionConfig({ paramChildId }) {
       setTabIndex(0);
     }
   };
-  return <Button onClick={onClick}>Configure section</Button>;
+  return <button onClick={onClick}>Configure section</button>;
 }

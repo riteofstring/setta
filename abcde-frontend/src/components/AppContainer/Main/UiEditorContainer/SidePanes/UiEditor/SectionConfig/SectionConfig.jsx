@@ -1,7 +1,6 @@
 import { SearchIcon } from "@chakra-ui/icons";
 import {
   Box,
-  Button,
   Heading,
   Input,
   InputGroup,
@@ -57,7 +56,7 @@ function SectionConfig() {
 
   return (
     <>
-      {cameFromUIConfig && <Button onClick={onGoBackClick}>Go back</Button>}
+      {cameFromUIConfig && <button onClick={onGoBackClick}>Go back</button>}
       <SectionConfigCore
         onSectionTypeChange={onSectionTypeChange}
         currTypeId={currTypeId}
@@ -150,7 +149,9 @@ function Search({ onSubmit }) {
       </InputLeftElement>
       <Input variant="flushed" placeholder="Search" onChange={onChange} />
       <InputRightElement width="4.5rem">
-        <Button h="1.75rem" size="sm" onClick={onClick} />
+        <button className="h-7" onClick={onClick}>
+          Go
+        </button>
       </InputRightElement>
     </InputGroup>
   );
