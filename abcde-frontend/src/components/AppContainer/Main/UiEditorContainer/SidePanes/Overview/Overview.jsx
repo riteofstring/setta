@@ -8,7 +8,8 @@ import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW } from "utils/constants";
 import { getOverviewListing } from "utils/sectionIds";
-import SectionListItems from "./SectionList/SectionListItems";
+
+import SectionList from "./SectionList/SectionList";
 
 const paneProps = {
   right: false,
@@ -16,8 +17,8 @@ const paneProps = {
 };
 
 export default function Overview() {
-  const [sectionList, setSectionList] = useState([]);
-  const [filteredList, setFilter] = useMatchSorterFilter(sectionList, [
+  const [sectionList, setSectionList] = useState([[]]);
+  const [filteredList, setFilter] = useMatchSorterFilter(sectionList[0], [
     "sectionHeading",
   ]);
 
@@ -27,7 +28,7 @@ export default function Overview() {
 
   useDeepCompareEffect(() => {
     setSectionList(
-      getOverviewListing(topLevelSectionIds, currChildren, idNames)
+      getOverviewListing([topLevelSectionIds], currChildren, idNames)
     );
   }, [topLevelSectionIds, currChildren, idNames]);
 
@@ -50,7 +51,8 @@ export default function Overview() {
           aria-label="Overview Search"
         />
       </InputGroup>
-      <SectionListItems listOfSectionIdsAndNames={filteredList} />
+
+      <SectionList listOfSectionIdsAndNames={[filteredList]} />
     </PaneContainer>
   );
 }

@@ -1,12 +1,13 @@
-import { AiOutlineClose } from "react-icons/ai";
+import { CloseButton } from "@chakra-ui/react";
 
 export default function CustomCloseButton(props) {
   return (
-    <button
-      className="nodrag rounded-full p-1.5 hover:bg-gray-100 active:bg-gray-200"
+    <CloseButton
+      borderRadius="full"
+      variant="ghost"
+      size="sm"
       {...props}
-    >
-      <AiOutlineClose />
-    </button>
+      className="nodrag"
+    />
   );
 }

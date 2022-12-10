@@ -1,3 +1,4 @@
+import { Box } from "@chakra-ui/react";
 import { useProjectToLoad } from "hooks/useProject";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
@@ -13,9 +14,11 @@ export default function MainContainer() {
         <Overview />
         <UiEditor />
         <GridWrapper>
-          <div className="h-[inherit] overflow-hidden flex-1 min-h-0 min-w-0">
+          <Box h="inherit" overflow="hidden" flex="1" minH="0" minW="0">
+            {/* <Box padding="2.5rem" h="100%"> */}
             <UIPage />
-          </div>
+            {/* </Box> */}
+          </Box>
         </GridWrapper>
       </>
     )

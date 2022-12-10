@@ -1,3 +1,4 @@
+import { HStack, Text } from "@chakra-ui/react";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { OVERVIEW } from "utils/constants";
 
@@ -9,12 +10,25 @@ export default function SectionItem({ sectionId, sectionHeading }) {
   };
 
   return (
-    <p
-      className="py-0.5 px-3 w-full rounded text-gray-500 cursor-pointer hover:bg-white hover:shadow-sm hover:border-white"
-      onClick={onClick}
-      data-testid={`Overview Listing ${sectionId}`}
-    >
-      {sectionHeading}
-    </p>
+    <HStack py="0.125rem">
+      <Text
+        cursor="pointer"
+        // py={0.5}
+        px={3}
+        w="100%"
+        borderRadius="0.25rem"
+        color="gray.500"
+        _hover={{
+          background: "white",
+          boxShadow: "sm",
+          borderColor: "white",
+          transition: "box-shadow 200ms, background 200ms",
+        }}
+        onClick={onClick}
+        data-testid={`Overview Listing ${sectionId}`}
+      >
+        {sectionHeading}
+      </Text>
+    </HStack>
   );
 }
