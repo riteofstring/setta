@@ -1,4 +1,3 @@
-import { HStack, Stack, VStack } from "@chakra-ui/react";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
@@ -34,44 +33,32 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     });
   }
 
-  // // temp_
+  const boxShadow = isActive || isActiveSection ? "shadow-2xl" : "shadow-md";
+  const outlineColor =
+    isActive && !isActiveSection
+      ? "outline-cyan-300"
+      : isActiveSection
+      ? "outline-blue-300"
+      : "outline-transparent";
+
+  // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
-    <VStack
-      spacing={0}
-      alignItems="stretch"
-      boxShadow={isActive || isActiveSection ? "2xl" : "md"}
-      borderRadius="xl"
-      bg="white"
-      w={`${SECTIONWIDTH}px`}
-      outline="4px solid"
-      outlineColor={
-        isActive && !isActiveSection
-          ? "cyan.300"
-          : isActiveSection
-          ? "blue.300"
-          : "transparent"
-      }
-      transitionDuration=".15s"
+    <div
+      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150`}
+      style={{
+        width: `${SECTIONWIDTH}px`,
+      }}
       onClick={() => setActiveSection(sectionId)}
       onMouseDown={() => !isActive && setIsActive(true)}
       onMouseUp={() => isActive && setIsActive(false)}
       data-testid={`${sectionId} section core`}
-      // mt="0.5rem"
     >
-      <HStack
-        direction="column"
-        bg="gray.50"
-        borderRadius="xl"
-        px="0.5rem"
-        boxShadow="md"
-        zIndex={isActiveSection ? "150" : "10"}
-        w="100%"
-        border="1px"
-        borderColor="white"
-        overflow="hidden"
+      <div
+        className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
+        style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <Stack px=".25rem" py="1rem" w="100%">
+        <div className="px-1 py-4 w-full">
           <SectionHeader
             sectionId={sectionId}
             parentId={parentId}
@@ -81,7 +68,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             hasNested={hasNested}
           />
           {!_isRoot && (
-            <Stack>
+            <>
               <SectionSearch
                 sectionId={sectionId}
                 initialSelection={selectedItem}
@@ -92,12 +79,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
                 sectionId={sectionId}
                 objInfoId={selectedItem}
               />
-            </Stack>
+            </>
           )}
-        </Stack>
-      </HStack>
+        </div>
+      </div>
       <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-    </VStack>
+    </div>
   );
 }
 
