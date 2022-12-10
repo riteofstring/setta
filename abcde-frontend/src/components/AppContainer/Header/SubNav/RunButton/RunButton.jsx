@@ -1,24 +1,21 @@
 import { ChevronDownIcon } from "@chakra-ui/icons";
 import { Button, ButtonGroup, Icon, IconButton } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
+import { generateCode } from "thunks/generateCode";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { createNewId } from "utils/utils";
 
 export default function RunButton() {
   const [description, setDescription] = useState("Generating...");
   const [command, setCommand] = useState("");
-  const generateCode = useStoreActions((x) => x.thunks.generateCode);
-  const exportSelected = useStoreActions((x) => x.master.exportSelected);
   const runExport = async () => {
     const codeId = createNewId();
     const command = `runcoder run ${codeId}`;
     setCommand(command);
     setDescription("Paste this into your command line:");
     navigator.clipboard.writeText(command);
-    const codeJson = exportSelected();
-    const ready = await generateCode({ codeId, codeJson });
+    const ready = await generateCode({ codeId });
   };
 
   return (

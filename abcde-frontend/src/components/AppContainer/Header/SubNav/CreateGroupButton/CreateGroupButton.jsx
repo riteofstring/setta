@@ -1,5 +1,7 @@
+import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 
 export default function CreateGroupButton() {
-  return <MenuBarButton>Create Deck</MenuBarButton>;
+  const addSection = useAddSectionInEmptySpace({ isDeck: true });
+  return <MenuBarButton onClick={addSection}>Create Deck</MenuBarButton>;
 }

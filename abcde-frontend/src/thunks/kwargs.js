@@ -1,75 +1,79 @@
-import { CodeInfo } from "classes/immutableInfo";
-import { KwargInfo } from "classes/mutableInfo";
-import { thunk } from "easy-peasy";
+import { newCodeInfo } from "classes/immutableInfo";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
+import { useObjInfos } from "models/info/objInfos";
+import { useParamInfos } from "models/info/paramInfos";
 import { maybeUseNullId } from "utils/utils";
+import { deleteChild } from "./deleteChild";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-export const addKwarg = thunk((actions, payload, helpers) => {
-  const { sectionId, objInfoId } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-  const { kwargColId } = getSectionConfig(s, sectionId);
-  const kwargInfo = new KwargInfo({
+export function addKwarg({ sectionId, objInfoId }) {
+  const { kwargColId } = getSectionConfig(sectionId);
+  const kwargInfo = newCodeInfo({
     name: "",
     rcType: "parameter",
   });
-  a.codeInfo.setCodeInfo({ info: kwargInfo });
-  a.objInfos.setKwargIds({
+  useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
+  useObjInfos.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId: maybeUseNullId(objInfoId),
     newStateFn: (x) => [...x, kwargInfo.id],
   });
-});
+}
 
-export const deleteKwarg = thunk((actions, payload, helpers) => {
+export function deleteKwarg(payload) {
   let { sectionId, objInfoId, kwargId, deleteLast } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-  const { evColId, kwargColId } = getSectionConfig(s, sectionId);
-  const { uiTypeColId } = getSectionTypeConfig(s, sectionId);
+  const { evColId, kwargColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(sectionId);
   objInfoId = maybeUseNullId(objInfoId);
   if (deleteLast) {
-    const kwargIds = s.objInfos.x[kwargColId]?.[objInfoId];
+    const kwargIds = useObjInfos.getState().x[kwargColId]?.[objInfoId];
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  const childId = getParamChildId(s, sectionId, kwargId);
-  a.objInfos.setKwargIds({
+  const childId = getParamChildId(sectionId, kwargId);
+  useObjInfos.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId,
     newStateFn: (x) => x.filter((y) => y !== kwargId),
   });
-  a.codeInfo.deleteInfos({ ids: [kwargId] });
-  a.paramInfos.deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
+  useCodeInfo.getState().deleteInfos({ ids: [kwargId] });
+  useParamInfos
+    .getState()
+    .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
   if (childId) {
-    a.thunks.deleteChild({ sectionId, startId: childId });
+    deleteChild({ sectionId, startId: childId });
   }
-});
+}
 
-export const saveKwargsAsCollection = thunk((actions, payload, helpers) => {
-  const { sectionId, objInfoId, name = "test" } = payload;
-  const s = helpers.getStoreState();
-  const a = helpers.getStoreActions();
-  const { kwargColId } = getSectionConfig(s, sectionId);
-  const kwargIds = s.objInfos.x[kwargColId]?.[maybeUseNullId(objInfoId)];
-  const collection = new CodeInfo({
+export function saveKwargsAsCollection({
+  sectionId,
+  objInfoId,
+  name = "test",
+}) {
+  const { kwargColId } = getSectionConfig(sectionId);
+  const kwargIds =
+    useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
+  const collection = newCodeInfo({
     name,
     rcType: "collection",
     children: kwargIds,
   });
 
+  const codeInfoState = useCodeInfo.getState();
   // copy kwargInfos and set parentId to collection.id
   const paramInfos = _.keyBy(
     kwargIds.map((x) => ({
-      ...s.codeInfo.allCodeInfo[x],
+      ...codeInfoState.allCodeInfo[x],
       parentId: collection.id,
     })),
     "id"
   );
-  a.codeInfo.updateInfos({ [collection.id]: collection, ...paramInfos });
-});
+
+  // TODO fix this call
+  codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
+}

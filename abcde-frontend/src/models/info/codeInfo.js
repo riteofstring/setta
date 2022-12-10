@@ -1,60 +1,45 @@
-import { action, thunk } from "easy-peasy";
 import _ from "lodash";
-import { resetState } from "models/utils";
+import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 
 // allCodeInfo maps from every objInfo key to its objInfo
 // allCollections maps from every collection key to its objInfo
 // callables maps from every collection key to a list of objInfo that are callables
-function getInitialState() {
-  return {
-    allCodeInfo: {},
-    allCollections: {},
-    callables: {},
-    params: {},
-    paramCollections: {},
-  };
-}
-
-const codeInfo = {
-  ...getInitialState(),
-
-  resetAndSetAll: thunk((actions, payload) => {
-    actions.reset();
-    actions.setAll(payload);
-  }),
-
-  setAll: action((state, payload) => {
-    state.allCodeInfo = payload.allCodeInfo;
-    state.allCollections = payload.allCollections;
-    state.callables = payload.callables;
-    state.params = payload.params;
-    state.paramCollections = payload.paramCollections;
-  }),
-
-  setCodeInfo: action((state, payload) => {
-    const { info } = payload;
-    state.allCodeInfo[info.id] = info;
-  }),
-
-  setName: action((state, payload) => {
-    const { id, name } = payload;
-    state.allCodeInfo[id].name = name;
-  }),
-
-  deleteInfos: action((state, payload) => {
-    const { ids } = payload;
-    state.allCodeInfo = _.omit(state.allCodeInfo, ids);
-  }),
-
-  updateInfos: action((state, payload) => {
-    for (const k of Object.keys(getInitialState())) {
-      state[k] = { ...state[k], ...payload[k] };
-    }
-  }),
-
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
+const initialState = {
+  allCodeInfo: {},
+  allCollections: {},
+  callables: {},
+  params: {},
+  paramCollections: {},
 };
 
-export default codeInfo;
+export const useCodeInfo = create(
+  immer((set, get) => ({
+    ...initialState,
+    resetAndSetAll: (payload) => {
+      const s = get();
+      s.reset();
+      s.setAll(payload);
+    },
+    setCodeInfo: ({ info }) =>
+      set((state) => {
+        state.allCodeInfo[info.id] = info;
+      }),
+    setName: ({ id, name }) =>
+      set((state) => {
+        state.allCodeInfo[id].name = name;
+      }),
+    deleteInfos: ({ ids }) =>
+      set((state) => {
+        state.allCodeInfo = _.omit(state.allCodeInfo, ids);
+      }),
+    updateInfos: (payload) =>
+      set((state) => {
+        for (const k of _.keys(initialState)) {
+          state[k] = { ...state[k], ...payload[k] };
+        }
+      }),
+    setAll: (payload) => set(payload),
+    reset: () => set(initialState),
+  }))
+);

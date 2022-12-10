@@ -1,18 +1,21 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { useAuth } from "models/auth";
+import { useProject } from "models/info/project";
+import { useProjectConfig } from "models/info/projectConfig";
+import { useProjectToLoad } from "models/info/projectToLoad";
 import { useEffect, useState } from "react";
+import { loadProject } from "thunks/projects";
 
 // setDoneLoading sets the doneLoading state in MainContainer
-export function useProjectToLoad() {
+export function useLoadProject() {
   const [doneLoading, setDoneLoading] = useState(false);
 
-  const isAuthenticated = useStoreState((x) => x.auth.isAuthenticated);
-  const idToLoad = useStoreState((x) => x.projectToLoad.id);
-  const configIdToLoad = useStoreState((x) => x.projectToLoad.configId);
-  const isLoading = useStoreState((x) => x.projectToLoad.isLoading);
+  const isAuthenticated = useAuth((x) => x.isAuthenticated);
+  const idToLoad = useProjectToLoad((x) => x.id);
+  const configIdToLoad = useProjectToLoad((x) => x.configId);
+  const isLoading = useProjectToLoad((x) => x.isLoading);
 
-  const setProject = useStoreActions((x) => x.projectToLoad.setProject);
-  const setIsLoading = useStoreActions((x) => x.projectToLoad.setIsLoading);
-  const loadProject = useStoreActions((x) => x.thunks.loadProject);
+  const setProject = useProjectToLoad((x) => x.setProject);
+  const setIsLoading = useProjectToLoad((x) => x.setIsLoading);
 
   useEffect(() => {
     async function fn() {
@@ -46,7 +49,7 @@ export function useProjectToLoad() {
 }
 
 export function useCurrProjectId() {
-  const id = useStoreState((x) => x.project.id);
-  const configId = useStoreState((x) => x.projectConfig.id);
+  const id = useProject((x) => x.id);
+  const configId = useProjectConfig((x) => x.id);
   return { id, configId };
 }

@@ -1,55 +1,39 @@
-import { UIType } from "classes/uiType";
-import { action, thunk } from "easy-peasy";
+import { newUIType } from "classes/uiType";
 import _ from "lodash";
-import { resetState } from "models/utils";
+import { immer } from "zustand/middleware/immer";
+import { create } from "../utils";
 
-function getInitialState() {
-  return { x: {} };
-}
+const initialState = { x: {} };
 
-const uiTypes = {
-  ...getInitialState(),
-
-  resetAndSetAll: thunk((actions, payload) => {
-    const uiTypes = _.mapValues(payload, (v) => new UIType(v));
-    actions.reset();
-    actions.setAll(uiTypes);
-  }),
-
-  setAll: action((state, payload) => {
-    state.x = payload;
-  }),
-
-  setUIType: action((state, payload) => {
-    const { uiType } = payload;
-    state.x[uiType.id] = uiType;
-  }),
-
-  setType: action((state, payload) => {
-    const { uiTypeId, type } = payload;
-    state.x[uiTypeId].type = type;
-  }),
-
-  setConfig: action((state, payload) => {
-    const { uiTypeId, newStateFn } = payload;
-    const curr = state.x[uiTypeId];
-    curr.config = newStateFn(curr.config);
-  }),
-
-  setOneConfig: action((state, payload) => {
-    const { uiTypeId, configName, newValueFn } = payload;
-    const curr = state.x[uiTypeId].config;
-    curr[configName] = newValueFn(curr[configName]);
-  }),
-
-  deleteUIType: action((state, payload) => {
-    const { uiTypeId } = payload;
-    delete state.x[uiTypeId];
-  }),
-
-  reset: action((state) => {
-    resetState(state, getInitialState());
-  }),
-};
-
-export default uiTypes;
+export const useUITypes = create(
+  immer((set, get) => ({
+    ...initialState,
+    resetAndSetAll: (payload) => {
+      const uiTypes = _.mapValues(payload, (v) => newUIType(v));
+      const s = get();
+      s.reset();
+      s.setAll({ x: uiTypes });
+    },
+    setUIType: ({ uiType }) =>
+      set((state) => {
+        state.x[uiType.id] = uiType;
+      }),
+    setConfig: ({ uiTypeId, newStateFn }) =>
+      set((state) => {
+        const curr = state.x[uiTypeId];
+        curr.config = newStateFn(curr.config);
+      }),
+    setOneConfig: ({ uiTypeId, configName, newValueFn }) =>
+      set((state) => {
+        const curr = state.x[uiTypeId].config;
+        curr[configName] = newValueFn(curr[configName]);
+      }),
+    deleteUIType: ({ uiTypeId }) =>
+      set((state) => {
+        delete state.x[uiTypeId];
+      }),
+    setAll: (payload) => set(payload),
+    reset: () => set(initialState),
+    getAll: () => get().x,
+  }))
+);

@@ -1,16 +1,14 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionPositions } from "models/sectionPositions";
 import { PANEID } from "utils/constants";
 import {
   createMainContainer,
   getAllOverviewListings,
   getOverviewSearch,
 } from "__tests__utils/createMainContainer";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { sectionIdFromName } from "__tests__utils/utils";
-
-// required to avoid "ReferenceError: ResizeObserver is not defined"
-global.ResizeObserver = ResizeObserver;
 
 test("Tabbing away from Overview should focus onto a section when UI config is closed", async () => {
   await createMainContainer();
@@ -23,11 +21,11 @@ test("Tabbing away from Overview should focus onto a section when UI config is c
 });
 
 test("Overview listing should be filtered by text in search bar", async () => {
-  const { store } = await createMainContainer();
+  await createMainContainer();
   const overviewSearch = getOverviewSearch();
 
   // First check that the listings match the existing sections
-  const sections = store.getState().sectionInfos.x;
+  const sections = useSectionInfos.getState().x;
   let overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(Object.values(sections).length);
   for (let s of Object.values(sections)) {
@@ -38,19 +36,19 @@ test("Overview listing should be filtered by text in search bar", async () => {
   await userEvent.type(overviewSearch, "optim");
   overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(1);
-  const optimizerSectionId = sectionIdFromName(store, "Optimizer");
+  const optimizerSectionId = sectionIdFromName("Optimizer");
   expect(
     screen.getByTestId(`Overview Listing ${optimizerSectionId}`)
   ).toBeTruthy();
 });
 
 test("Jump to section", async () => {
-  const { store } = await createMainContainer();
-  const modelSectionId = sectionIdFromName(store, "Model");
+  await createMainContainer();
+  const modelSectionId = sectionIdFromName("Model");
   const modelListing = screen.getByTestId(`Overview Listing ${modelSectionId}`);
   await userEvent.click(modelListing);
 
-  const sectionPositions = store.getState().sectionPositions.sectionPositions;
+  const sectionPositions = useSectionPositions.getState().sectionPositions;
   // Upon clicking section name, the sectionPosition is updated.
   // Since this is the first click on any section, sectionPositions
   // will contain only this section's position and the pane's position.

@@ -1,5 +1,6 @@
-import { useStoreActions, useStoreState } from "easy-peasy";
 import _ from "lodash";
+import { usePanes } from "models/panes";
+import { useSectionPositions } from "models/sectionPositions";
 import { useReactFlow, useStoreApi } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW, PANEID } from "utils/constants";
@@ -11,12 +12,10 @@ export function useGoToSection(sectionId, requesterName) {
 }
 
 export function useRequestSectionPositionUpdate() {
-  const setWhoRequested = useStoreActions(
-    (x) => x.sectionPositions.setWhoRequested
-  );
+  const setWhoRequested = useSectionPositions((x) => x.setWhoRequested);
 
-  const setPositionUpdateRequested = useStoreActions(
-    (x) => x.sectionPositions.setPositionUpdateRequested
+  const setPositionUpdateRequested = useSectionPositions(
+    (x) => x.setPositionUpdateRequested
   );
   return (sectionIds, requesterName) => {
     setWhoRequested(requesterName);
@@ -33,26 +32,19 @@ export function useGetSectionPosition(
   onCoordsReceived
 ) {
   const allIds = sectionIds ? [...sectionIds, PANEID] : null;
-  const whoRequested = useStoreState((x) => x.sectionPositions.whoRequested);
-  const setWhoRequested = useStoreActions(
-    (x) => x.sectionPositions.setWhoRequested
+  const whoRequested = useSectionPositions((x) => x.whoRequested);
+  const setWhoRequested = useSectionPositions((x) => x.setWhoRequested);
+
+  const getCurrPositionOfSection = useSectionPositions(
+    (x) => x.getCurrPositionOfSection
   );
 
-  const getCurrPositionOfSection = useStoreActions(
-    (x) => x.sectionPositions.getCurrPositionOfSection
-  );
-
-  const sectionPositionUpdated = useStoreState(
-    (x) =>
-      allIds
-        ? allIds.map((y) => x.sectionPositions.positionUpdated[y])
-        : [false], //don't return empty array because _.every will evaluate to true
+  const sectionPositionUpdated = useSectionPositions(
+    (x) => (allIds ? allIds.map((y) => x.positionUpdated[y]) : [false]), //don't return empty array because _.every will evaluate to true
     _.isEqual
   );
 
-  const setPositionUpdated = useStoreActions(
-    (x) => x.sectionPositions.setPositionUpdated
-  );
+  const setPositionUpdated = useSectionPositions((x) => x.setPositionUpdated);
 
   useDeepCompareEffect(() => {
     if (whoRequested === requesterName && _.every(sectionPositionUpdated)) {
@@ -67,7 +59,7 @@ export function useGetSectionPosition(
 function useSetGoToCoordinates(sectionId, requesterName) {
   const { project, setCenter } = useReactFlow();
   const store = useStoreApi(); // height and width of the react flow container
-  const overviewWidth = useStoreState((x) => x.panes.trueWidth[OVERVIEW]);
+  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
   const margin = 20;
 
   function onCoordsReceived(coords) {

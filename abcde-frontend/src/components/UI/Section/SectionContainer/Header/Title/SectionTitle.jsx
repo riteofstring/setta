@@ -4,11 +4,11 @@ import {
   EditablePreview,
   Text,
 } from "@chakra-ui/react";
-import { useStoreActions } from "easy-peasy";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionSiblingNames } from "hooks/useSectionSiblings";
 import { useTitleIsEditable } from "hooks/useTitleIsEditable";
+import { useSectionInfos } from "models/info/sectionInfos";
 
 export default function SectionTitle({ sectionId, editableProps, inputProps }) {
   const [sectionName] = useGetSectionInfo(sectionId, ["name"]);
@@ -36,9 +36,7 @@ function FixedTitle({ sectionName }) {
 }
 
 function EditableTitle({ sectionId, sectionName, editableProps, inputProps }) {
-  const setSectionInfoAttr = useStoreActions(
-    (x) => x.sectionInfos.setSectionInfoAttr
-  );
+  const setSectionInfoAttr = useSectionInfos((x) => x.setSectionInfoAttr);
   const siblingNames = useSectionSiblingNames(sectionId);
 
   function onTitleInputChange(value) {

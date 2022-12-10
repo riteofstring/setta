@@ -1,10 +1,10 @@
-import { useStoreState } from "easy-peasy";
 import { motion } from "framer-motion";
+import { usePanes } from "models/panes";
 import { MiniMap } from "react-flow-renderer";
 import { UI_EDITOR } from "utils/constants";
 
 export function ResponsiveMiniMap() {
-  const uiEditorWidth = useStoreState((x) => x.panes.trueWidth[UI_EDITOR]);
+  const uiEditorWidth = usePanes((x) => x.trueWidth[UI_EDITOR]);
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
   // It's the style used inside of MiniMap.

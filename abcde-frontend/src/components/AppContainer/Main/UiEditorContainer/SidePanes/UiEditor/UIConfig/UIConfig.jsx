@@ -10,12 +10,14 @@ import {
   Stack,
   VStack,
 } from "@chakra-ui/react";
-import { useStoreActions, useStoreState } from "easy-peasy";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
+import { useActiveSection } from "models/activeSection";
+import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
+import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { USER } from "utils/uiTypeConstants";
@@ -26,7 +28,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 export default React.memo(UIConfig);
 
 function UIConfig() {
-  const sectionId = useStoreState((x) => x.activeSection.id);
+  const sectionId = useActiveSection((x) => x.id);
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
@@ -60,15 +62,11 @@ function UIConfig() {
 }
 
 function UIElement({ sectionId, paramInfo }) {
-  const setUIType = useStoreActions((x) => x.uiTypes.setUIType);
-  const deleteUIType = useStoreActions((x) => x.uiTypes.deleteUIType);
+  const setUIType = useUITypes((x) => x.setUIType);
+  const deleteUIType = useUITypes((x) => x.deleteUIType);
   const paramInfoId = paramInfo.id;
   const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const setParamUITypeId = useStoreActions((x) => x.thunks.setParamUITypeId);
-  const setParamUITypeConfig = useStoreActions(
-    (x) => x.thunks.setParamUITypeConfig
-  );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {

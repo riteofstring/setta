@@ -8,7 +8,8 @@ import {
   useTab,
 } from "@chakra-ui/react";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { useStoreActions, useStoreState } from "easy-peasy";
+import { usePanes } from "models/panes";
+import { useUIEditor } from "models/uiEditor";
 import React from "react";
 import { UI_EDITOR } from "utils/constants";
 import SectionConfig from "./SectionConfig/SectionConfig";
@@ -20,9 +21,9 @@ const paneProps = {
 };
 
 export default function UiEditor() {
-  const vis = useStoreState((x) => x.panes.vis[paneProps.paneName]);
-  const tabIndex = useStoreState((x) => x.uiEditor.tabIndex);
-  const setTabIndex = useStoreActions((x) => x.uiEditor.setTabIndex);
+  const vis = usePanes((x) => x.vis[paneProps.paneName]);
+  const tabIndex = useUIEditor((x) => x.tabIndex);
+  const setTabIndex = useUIEditor((x) => x.setTabIndex);
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
