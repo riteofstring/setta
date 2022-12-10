@@ -2,12 +2,10 @@ import _ from "lodash";
 import React from "react";
 import ParamInput from "./ParamItems/ParamInput";
 
-function _ParamContainer(props) {
-  const { sectionId, paramInfo, uiType } = props;
-
+function _ParamContainer({ sectionId, paramInfo, uiType, children }) {
   return (
     <div className="flex justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]">
-      {props.children}
+      {children}
       <ParamInput
         sectionId={sectionId}
         paramInfoId={paramInfo.id}

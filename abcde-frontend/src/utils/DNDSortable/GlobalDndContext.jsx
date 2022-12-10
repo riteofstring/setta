@@ -29,7 +29,7 @@ function getNewIndex(active, over) {
   return overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
 }
 
-export function GlobalDndContext(props) {
+export function GlobalDndContext({ children }) {
   const [active, setActive] = useState(null);
   const dummyRef = useRef(null);
   const setAllChildren = useSectionInfos((x) => x.setAllChildren);
@@ -101,7 +101,7 @@ export function GlobalDndContext(props) {
       onDragEnd={onDragEnd}
       modifiers={modifiers}
     >
-      {props.children}
+      {children}
       {active?.id &&
         active.data.current.depth !== 0 &&
         createPortal(

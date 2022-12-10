@@ -4,10 +4,15 @@ import Button from "utils/atoms/buttons/Button";
 
 import DrawerPane from "./DrawerPane";
 
-export default function DrawerContainer(props) {
+export default function DrawerContainer({
+  header,
+  body,
+  footer,
+  icon,
+  children,
+}) {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const btnRef = useRef();
-  const { header, body, footer, icon } = props;
 
   return (
     <>
@@ -17,7 +22,7 @@ export default function DrawerContainer(props) {
         tailwindClasses="rounded-full hover:bg-gray-200 p-2"
       >
         {icon && icon}
-        {props.children}
+        {children}
       </Button>
 
       <DrawerPane

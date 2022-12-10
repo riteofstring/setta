@@ -16,10 +16,10 @@ export default function HeaderContainer() {
 }
 
 // TODO try to use the NAVBAR_HEIGHT constant here
-function FlexContainer(props) {
+function FlexContainer({ children }) {
   return (
     <div className="w-[calc(100vw-5rem)] h-14 items-center flex flex-row">
-      {props.children}
+      {children}
     </div>
   );
 }

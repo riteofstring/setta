@@ -4,7 +4,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useDisableSort, useHighlightDroppable } from "hooks/useDndUtils";
 
-export function DNDSortable({ sectionId, items, ...props }) {
+export function DNDSortable({ sectionId, items, children }) {
   const { className, style } = useHighlightDroppable(sectionId);
   const disabled = useDisableSort(sectionId);
   return (
@@ -15,7 +15,7 @@ export function DNDSortable({ sectionId, items, ...props }) {
         strategy={verticalListSortingStrategy}
         disabled={disabled}
       >
-        {props.children}
+        {children}
       </SortableContext>
     </div>
   );

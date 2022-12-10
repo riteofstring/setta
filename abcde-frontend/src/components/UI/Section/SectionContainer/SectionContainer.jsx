@@ -56,9 +56,15 @@ export default React.memo(SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });
 
-function Container(props) {
-  const { isDeck, sectionId, parentId, dragListeners, hasNested, depth } =
-    props;
+function Container({
+  isDeck,
+  sectionId,
+  parentId,
+  dragListeners,
+  hasNested,
+  depth,
+  children,
+}) {
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
     useDraggable({
@@ -101,11 +107,11 @@ function Container(props) {
           {...commonProps}
         >
           <DeckSectionTitle sectionId={sectionId} />
-          {props.children}
+          {children}
         </div>
       ) : (
         <div className={className} {...commonProps}>
-          {props.children}
+          {children}
         </div>
       )}
     </>
