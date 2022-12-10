@@ -1,5 +1,3 @@
-import "@chakra-ui/react";
-import { Box, Stack } from "@chakra-ui/react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useGetCurrChildren } from "hooks/useSectionChildren";
@@ -42,14 +40,14 @@ function SectionContainer({
       )}
 
       {hasNested && (
-        <Box flexDirection="column" display="flex">
+        <div className="flex flex-col">
           <ManyNestedSections
             childIds={currChildren}
             sectionId={sectionId}
             depth={depth}
             isDeck={isDeck}
           />
-        </Box>
+        </div>
       )}
     </Container>
   );
@@ -80,7 +78,7 @@ function Container(props) {
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = isDraggingSortable ? "nodrag" : "";
+  const className = `${isDraggingSortable && "nodrag"} mt-2`;
 
   function totalRef(e) {
     refForPosition.current = e;
@@ -92,25 +90,23 @@ function Container(props) {
     }
   }
 
-  const commonProps = { ref: totalRef, ...trueDragListeners, className };
+  const commonProps = { ref: totalRef, ...trueDragListeners };
 
   return (
     <>
       {isDeck ? (
-        <Stack
-          bg="hsla(212, 22%, 50%, 0.2)"
-          pt=".75rem"
-          px="2rem"
-          pb="1.5rem"
-          borderRadius="3xl"
+        <div
+          className={`${className} pt-3 px-8 pb-6 rounded-3xl`}
+          style={{ backgroundColor: "hsla(212, 22%, 50%, 0.2)" }}
           {...commonProps}
-          className="STACK"
         >
           <DeckSectionTitle sectionId={sectionId} />
           {props.children}
-        </Stack>
+        </div>
       ) : (
-        <Stack {...commonProps}>{props.children}</Stack>
+        <div className={className} {...commonProps}>
+          {props.children}
+        </div>
       )}
     </>
   );
