@@ -1,4 +1,3 @@
-import { Input } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 
 export default function ParamNameInput({ value, onBlur }) {
@@ -9,16 +8,12 @@ export default function ParamNameInput({ value, onBlur }) {
   }, [value]);
 
   return (
-    <Input
+    <input
       placeholder="Please Enter Key"
       value={liveValue}
-      width="50%"
       onChange={(v) => setLiveValue(v.target.value)}
       onBlur={(v) => onBlur(v.target.value)}
-      variant="flushed"
-      size="xs"
-      maxWidth="10rem"
-      className="nodrag"
+      className="nodrag w-1/2 bg-white text-xs"
     />
   );
 }
