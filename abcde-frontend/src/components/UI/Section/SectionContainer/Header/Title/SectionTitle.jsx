@@ -1,11 +1,11 @@
-import { Editable, EditableInput, EditablePreview } from "@chakra-ui/react";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionSiblingNames } from "hooks/useSectionSiblings";
 import { useTitleIsEditable } from "hooks/useTitleIsEditable";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { Editable } from "utils/Editable/Editable";
 
-export default function SectionTitle({ sectionId, editableProps, inputProps }) {
+export default function SectionTitle({ sectionId, titleProps }) {
   const [sectionName] = useGetSectionInfo(sectionId, ["name"]);
   const titleIsEditable = useTitleIsEditable(sectionId);
 
@@ -14,8 +14,7 @@ export default function SectionTitle({ sectionId, editableProps, inputProps }) {
       <EditableTitle
         sectionId={sectionId}
         sectionName={sectionName}
-        editableProps={editableProps}
-        inputProps={inputProps}
+        titleProps={titleProps}
       />
     );
   }
@@ -28,7 +27,7 @@ function FixedTitle({ sectionName }) {
   );
 }
 
-function EditableTitle({ sectionId, sectionName, editableProps, inputProps }) {
+function EditableTitle({ sectionId, sectionName, titleProps }) {
   const setSectionInfoAttr = useSectionInfos((x) => x.setSectionInfoAttr);
   const siblingNames = useSectionSiblingNames(sectionId);
 
@@ -36,7 +35,7 @@ function EditableTitle({ sectionId, sectionName, editableProps, inputProps }) {
     setSectionInfoAttr({ sectionId, attr: "name", value });
   }
 
-  const [inputValue, setInputValue, onSubmit] = useEditableOnSubmit(
+  const [inputValue, setInputValue, onBlur] = useEditableOnSubmit(
     sectionName,
     onTitleInputChange,
     (v) => !siblingNames.has(v)
@@ -46,11 +45,8 @@ function EditableTitle({ sectionId, sectionName, editableProps, inputProps }) {
     <Editable
       value={inputValue}
       onChange={setInputValue}
-      onSubmit={onSubmit}
-      {...editableProps}
-    >
-      <EditablePreview />
-      <EditableInput {...inputProps} />
-    </Editable>
+      onBlur={onBlur}
+      titleProps={titleProps}
+    />
   );
 }

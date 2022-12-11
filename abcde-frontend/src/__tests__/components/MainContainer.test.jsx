@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionPositions } from "models/sectionPositions";
@@ -16,8 +16,9 @@ test("Tabbing away from Overview should focus onto a section when UI config is c
   overviewSearch.focus();
   await userEvent.tab();
 
-  const modelSectionTitle = screen.getByDisplayValue("Model");
-  expect(modelSectionTitle).toHaveFocus();
+  const modelSectionId = sectionIdFromName("Model");
+  const modelCloseButton = screen.getByTestId(`Delete ${modelSectionId}`);
+  expect(modelCloseButton).toHaveFocus();
 });
 
 test("Overview listing should be filtered by text in search bar", async () => {
@@ -60,16 +61,23 @@ test("Jump to section", async () => {
 
 test("Section names should be unique among siblings.", async () => {
   await createMainContainer();
-  let sectionTitle = screen.getByDisplayValue("Optimizer");
+  const optimizerSectionId = sectionIdFromName("Optimizer");
+  let section = screen.getByTestId(`${optimizerSectionId} section core`);
+
+  let sectionTitle = within(section).getByText("Optimizer");
+  await userEvent.click(sectionTitle);
+  sectionTitle = within(section).getByDisplayValue("Optimizer");
   await userEvent.clear(sectionTitle);
   await userEvent.type(sectionTitle, "Optim");
   await waitFor(async () => await userEvent.tab());
-  expect(screen.getByDisplayValue("Optim")).toBeTruthy();
+  expect(within(section).getByText("Optim")).toBeTruthy();
 
-  sectionTitle = screen.getByDisplayValue("Optim");
+  sectionTitle = within(section).getByText("Optim");
+  await userEvent.click(sectionTitle);
+  sectionTitle = within(section).getByDisplayValue("Optim");
   await userEvent.clear(sectionTitle);
   await userEvent.type(sectionTitle, "Model");
   await waitFor(async () => await userEvent.tab());
   // "Model" is already taken, so it reverts to Optim
-  expect(screen.getByDisplayValue("Optim")).toBeTruthy();
+  expect(within(section).getByText("Optim")).toBeTruthy();
 });

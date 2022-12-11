@@ -119,25 +119,13 @@ function Container({
 }
 
 function DeckSectionTitle({ sectionId }) {
-  const editableProps = {
-    fontFamily: "Work Sans",
-    fontWeight: "bold",
-    color: "gray.100",
-    fontSize: "4xl",
-    mb: "-.5rem",
-    letterSpacing: "tighter",
+  const titleProps = {
+    editing: { className: "nodrag w-[450px] tracking-tighter" },
+    notEditing: {
+      className: "font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
+      style: { fontFamily: "Work Sans" },
+    },
   };
 
-  const inputProps = {
-    className: "nodrag",
-    w: "450px",
-    letterSpacing: "tighter",
-  };
-  return (
-    <SectionTitle
-      sectionId={sectionId}
-      editableProps={editableProps}
-      inputProps={inputProps}
-    />
-  );
+  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }

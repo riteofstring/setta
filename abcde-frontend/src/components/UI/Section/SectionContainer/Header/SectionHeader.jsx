@@ -42,26 +42,15 @@ function _SectionHeader({
 }
 
 function CardTitle({ sectionId }) {
-  const editableProps = {
-    isPreviewFocusable: true,
-    fontFamily: "Work Sans",
-    fontWeight: "bold",
-    className: "nodrag",
+  const titleProps = {
+    editing: { className: "nodrag h-[30px] px-2 py-0 -ml-2" },
+    notEditing: {
+      className: "font-bold",
+      style: { fontFamily: "Work Sans" },
+    },
   };
 
-  const inputProps = {
-    paddingX: "0.5rem",
-    paddingY: "0",
-    marginLeft: "-0.5rem",
-    height: "30px",
-  };
-  return (
-    <SectionTitle
-      sectionId={sectionId}
-      editableProps={editableProps}
-      inputProps={inputProps}
-    />
-  );
+  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
