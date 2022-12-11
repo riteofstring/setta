@@ -3,7 +3,11 @@ import userEvent from "@testing-library/user-event";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import { NULL_OBJ_ID } from "utils/constants";
 import { renderUseGetKwargInfos } from "__tests__utils/renderHooks";
+import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { loadTestDataIntoState, sectionIdFromName } from "__tests__utils/utils";
+
+// required to avoid "ReferenceError: ResizeObserver is not defined"
+global.ResizeObserver = ResizeObserver;
 
 test("Adding kwarg on parameter-only section should work", async () => {
   await loadTestDataIntoState();
