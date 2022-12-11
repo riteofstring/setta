@@ -55,6 +55,7 @@ function ProjectItem({ project }) {
   const { name, id, configs, defaultConfigId } = project;
   const setCurrPage = useCurrPage((x) => x.setName);
   const setProjectToLoad = useProjectToLoad((x) => x.setProject);
+  const [openConfigs, setOpenConfigs] = useState(false);
 
   function onClick() {
     setCurrPage(UI);
@@ -63,6 +64,7 @@ function ProjectItem({ project }) {
 
   function onClickConfigsButton(e) {
     e.stopPropagation();
+    setOpenConfigs(!openConfigs);
   }
 
   function onConfigClick(e, configId) {
@@ -77,25 +79,29 @@ function ProjectItem({ project }) {
       onClick={onClick}
     >
       <div className="grid p-4 bg-gray-300 bg-[url('https://via.placeholder.com/400')] bg-center">
-        <PopoverWrapper
-          trigger={
-            <Button
-              tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs [place-self:flex-start_flex-end]"
-              onClick={onClickConfigsButton}
-            >
-              <BiGitBranch />
-              Configs
-            </Button>
-          }
-          body={
-            <Body
-              configs={configs}
-              defaultConfigId={defaultConfigId}
-              onClick={onConfigClick}
-            />
-          }
-          header="Configs"
-        />
+        <div className="[place-self:flex-start_flex-end]">
+          <PopoverWrapper
+            trigger={
+              <Button
+                tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
+                onClick={onClickConfigsButton}
+              >
+                <BiGitBranch />
+                Configs
+              </Button>
+            }
+            body={
+              <Body
+                configs={configs}
+                defaultConfigId={defaultConfigId}
+                onClick={onConfigClick}
+              />
+            }
+            header="Configs"
+            open={openConfigs}
+            onOpenChange={setOpenConfigs}
+          />
+        </div>
       </div>
       <div className="p-4 bg-white">
         <h3 className="text-base">{name}</h3>

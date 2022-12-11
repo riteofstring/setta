@@ -1,25 +1,27 @@
-import {
-  Popover,
-  PopoverArrow,
-  PopoverBody,
-  PopoverCloseButton,
-  PopoverContent,
-  PopoverFooter,
-  PopoverHeader,
-  PopoverTrigger,
-} from "@chakra-ui/react";
+import * as Popover from "@radix-ui/react-popover";
 
-export function PopoverWrapper({ trigger, body, header, closeButton, footer }) {
+export function PopoverWrapper({
+  trigger,
+  body,
+  header,
+  closeButton,
+  footer,
+  open,
+  onOpenChange,
+}) {
+  // TODO: show a close button if closeButton is true
+
   return (
-    <Popover>
-      <PopoverTrigger>{trigger}</PopoverTrigger>
-      <PopoverContent>
-        <PopoverArrow />
-        {closeButton && <PopoverCloseButton />}
-        {header && <PopoverHeader>{header}</PopoverHeader>}
-        <PopoverBody>{body}</PopoverBody>
-        {footer && <PopoverFooter>{footer}</PopoverFooter>}
-      </PopoverContent>
-    </Popover>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
+      <Popover.Trigger>{trigger}</Popover.Trigger>
+      <div style={{ zIndex: 100 }}>
+        <Popover.Content>
+          <Popover.Arrow />
+          {header}
+          {body}
+          {footer}
+        </Popover.Content>
+      </div>
+    </Popover.Root>
   );
 }
