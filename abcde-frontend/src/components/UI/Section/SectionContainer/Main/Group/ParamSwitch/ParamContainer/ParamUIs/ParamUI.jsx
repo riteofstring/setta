@@ -9,7 +9,7 @@ import {
 
 import { NestedObjectInputConfig } from "./NestedObjectInput";
 import RefInput, { RefInputConfig } from "./RefInput";
-import SliderInput, { SliderInputConfig } from "./SliderInput";
+import SliderInput, { SliderInputConfig } from "./SliderInput/SliderInput";
 import SwitchInput, { SwitchInputConfig } from "./SwitchInput/SwitchInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 
