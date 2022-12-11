@@ -1,7 +1,7 @@
 import "@fontsource/jetbrains-mono/600.css";
 import { useCurrPage } from "models/currPage";
 import { HOME } from "utils/pageNames";
-import MainSideDrawer from "./MainSideDrawer/MainSideDrawer";
+import MainSideMenu from "./MainSideMenu/MainSideMenu";
 import SubNav from "./SubNav/SubNav";
 
 export default function HeaderContainer() {
@@ -9,8 +9,7 @@ export default function HeaderContainer() {
     <FlexContainer>
       <SiteLogo />
       <SubNav />
-
-      <MainSideDrawer />
+      <MainSideMenu />
     </FlexContainer>
   );
 }

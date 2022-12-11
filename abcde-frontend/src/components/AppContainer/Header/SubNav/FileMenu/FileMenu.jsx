@@ -14,6 +14,7 @@ import {
   saveProject,
 } from "thunks/save";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
+import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
@@ -74,7 +75,6 @@ export default function FileMenu() {
         <DropdownMenu.Trigger className={MenuBarButtonClasses}>
           File
         </DropdownMenu.Trigger>
-        {/* <DropdownMenu.Arrow /> */}
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
@@ -121,16 +121,5 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
         Save As
       </Item>
     </>
-  );
-}
-
-function Item({ children, onClick }) {
-  return (
-    <DropdownMenu.Item
-      className="text-sm flex flex-row gap-1"
-      onClick={onClick}
-    >
-      {children}
-    </DropdownMenu.Item>
   );
 }
