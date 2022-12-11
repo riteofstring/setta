@@ -13,7 +13,7 @@ export function PopoverWrapper({
 
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
-      <Popover.Trigger>{trigger}</Popover.Trigger>
+      <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <div style={{ zIndex: 100 }}>
         <Popover.Content>
           <Popover.Arrow />
