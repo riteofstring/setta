@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
-export function Editable({ value, onChange, onBlur, titleProps }) {
+export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
   const [isEditing, setIsEditing] = useState(false);
+  useCancelOnEscapeKey({ isEditing, onCancel, setIsEditing });
 
   function localOnChange(e) {
     onChange(e.target.value);
@@ -63,4 +64,20 @@ function InNonEditMode({ value, onClick, titleProps }) {
       {value}
     </p>
   );
+}
+
+function useCancelOnEscapeKey({ isEditing, onCancel, setIsEditing }) {
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.keyCode === 27 && isEditing) {
+        onCancel();
+        setIsEditing(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [isEditing]);
 }

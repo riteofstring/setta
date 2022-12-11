@@ -35,7 +35,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
     setSectionInfoAttr({ sectionId, attr: "name", value });
   }
 
-  const [inputValue, setInputValue, onBlur] = useEditableOnSubmit(
+  const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
     sectionName,
     onTitleInputChange,
     (v) => !siblingNames.has(v)
@@ -46,6 +46,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
       value={inputValue}
       onChange={setInputValue}
       onBlur={onBlur}
+      onCancel={onCancel}
       titleProps={titleProps}
     />
   );

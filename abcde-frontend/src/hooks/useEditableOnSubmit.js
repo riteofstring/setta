@@ -7,13 +7,17 @@ export function useEditableOnSubmit(
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
 
-  const onBlur = (v) => {
+  function onBlur(v) {
     if (v != "" && condition(v)) {
       onSetTitle(v);
     } else {
       setInputValue(initialValue);
     }
-  };
+  }
 
-  return [inputValue, setInputValue, onBlur];
+  function onCancel() {
+    setInputValue(initialValue);
+  }
+
+  return [inputValue, setInputValue, onBlur, onCancel];
 }
