@@ -1,5 +1,15 @@
-import { useDisclosure } from "@chakra-ui/react";
-import * as Collapsible from "@radix-ui/react-collapsible";
+import {
+  Box,
+  Checkbox,
+  Collapse,
+  Heading,
+  HStack,
+  List,
+  ListItem,
+  Text,
+  useDisclosure,
+  VStack,
+} from "@chakra-ui/react";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import _ from "lodash";
 import { checkboxChangeFn } from "utils/utils";
@@ -16,10 +26,15 @@ export default function SectionConfigComp({
   const allResults = { ...selectedCollections, ...results };
 
   return (
-    <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
-      <div className="flex flex-col pt-1">
-        <ul className="flex flex-col flex-grow gap-3">
-          {/* <List spacing={3} flexGrow="1"> */}
+    <VStack
+      align="stretch"
+      mt="1rem"
+      flexGrow="1"
+      height="calc(100vh - 26rem)"
+      overflowY="auto"
+    >
+      <Box pt=".25rem" display="flex" flexDirection="column">
+        <List spacing={3} flexGrow="1">
           {_.values(allResults).map((x) => (
             <SearchItem
               id={x.id}
@@ -31,10 +46,9 @@ export default function SectionConfigComp({
               key={`SearchItem-${x.id}`}
             />
           ))}
-          {/* </List> */}
-        </ul>
-      </div>
-    </div>
+        </List>
+      </Box>
+    </VStack>
   );
 }
 
@@ -46,54 +60,79 @@ function SearchItem({ id, name, description, details, isChecked, onChange }) {
   }
 
   return (
-    <li className="px-5 py-4 border-r-4 cursor-pointer border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item">
-      <div className="flex flex-row self-stretch [&:hover_*]:text-black">
-        <input
-          type="checkbox"
-          className="h-4 w-4 border-2 rounded-full items-start mt-1 mr-2"
+    <ListItem
+      px=".75rem"
+      py=".5rem"
+      // mb="1.25rem"
+      borderRadius="md"
+      cursor="pointer"
+      _hover={{
+        background: "white",
+        boxShadow: "sm",
+        borderColor: "white",
+        transition: "box-shadow 200ms, background 200ms",
+      }}
+      border="1px"
+      borderColor="rgba(0, 0, 0, 0)"
+      className="edit-list-item"
+    >
+      <HStack align="stretch">
+        {/* <ListIcon as={IoMdCheckmarkCircle} mr=".125rem" color="green.500" /> */}
+        <Checkbox
           isChecked={isChecked}
           onChange={onCheckboxChange}
+          alignSelf="flex-start"
+          mt="0.25rem"
+          mr="0.25rem"
         />
-        <label>
-          <ObjCollectionDetails details={details}>
-            <div className="flex flex-col self-stretch" onClick={onToggle}>
-              <h2 className="text-md font-bold text-gray-500">{name}</h2>
-              <p className="text-sm mt-1">{description}</p>
-            </div>
-          </ObjCollectionDetails>
-        </label>
-      </div>
-    </li>
+        <VStack align="stretch" onClick={onToggle}>
+          <Heading
+            as="h2"
+            fontSize="1rem"
+            color="gray.500"
+            sx={{
+              ".edit-list-item:hover": { color: "black" },
+            }}
+          >
+            {name}
+          </Heading>
+          <Text
+            fontSize="sm"
+            mt="0.33rem !important"
+            sx={{
+              ".edit-list-item:hover": { color: "black" },
+            }}
+          >
+            {description}
+          </Text>
+        </VStack>
+      </HStack>
+      {/* <ObjCollectionDetails isOpen={isOpen} details={details} /> */}
+    </ListItem>
   );
 }
 
-function ObjCollectionDetails({ children, details }) {
+function ObjCollectionDetails({ isOpen, details }) {
   const groupedDetails = useGroupedObjInfos(details);
 
   return (
-    <Collapsible.Root>
-      <Collapsible.Trigger>{children}</Collapsible.Trigger>
-      <Collapsible.Content>
-        <div className="p-[40px] text-white mt-2 bg-teal-500 rounded-md shadow-md">
-          {_.keys(groupedDetails).map((x) => (
-            <div key={`ObjCollectionDetails-${x}`}>
-              {x}
-              <ObjListText objList={groupedDetails[x]} />
-            </div>
-          ))}
-        </div>
-      </Collapsible.Content>
-    </Collapsible.Root>
-    // <Collapse in={isOpen} animateOpacity>
-
-    // </Collapse>
+    <Collapse in={isOpen} animateOpacity>
+      <Box p="40px" color="white" mt="4" bg="teal.500" rounded="md" shadow="md">
+        {_.keys(groupedDetails).map((x) => (
+          <div key={`ObjCollectionDetails-${x}`}>
+            <Text>{x}</Text>
+            <ObjListText objList={groupedDetails[x]} />
+          </div>
+        ))}
+      </Box>
+    </Collapse>
   );
 }
 
 function ObjListText({ objList }) {
   return objList.map((x) => (
     <div key={`ObjListText-${x.id}`} style={{ textIndent: "20px" }}>
-      {x.name}
+      <Text>{x.name}</Text>
     </div>
   ));
 }

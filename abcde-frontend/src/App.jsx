@@ -1,11 +1,9 @@
-import "@fontsource/inter";
-import "@fontsource/jetbrains-mono/600.css";
-import "@fontsource/work-sans";
-import "@fontsource/work-sans/700.css";
+import "./App.css";
 import AppContainer from "./components/AppContainer/AppContainer";
+
 function App() {
   return (
-    <div className="flex flex-col items-center w-screen h-screen font-body">
+    <div className="flex flex-col items-center w-screen h-screen">
       <AppContainer />
     </div>
   );

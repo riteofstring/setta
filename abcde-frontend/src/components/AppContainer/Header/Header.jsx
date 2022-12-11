@@ -1,3 +1,4 @@
+import "@fontsource/jetbrains-mono/600.css";
 import { useCurrPage } from "models/currPage";
 import { HOME } from "utils/pageNames";
 import MainSideMenu from "./MainSideMenu/MainSideMenu";
@@ -26,7 +27,7 @@ function SiteLogo() {
   const setCurrPage = useCurrPage((x) => x.setName);
   return (
     <h2
-      className="no-underline select-none cursor-pointer text-gray-600 mr-4 tracking-tight text-lg font-semibold font-logo"
+      className="no-underline select-none cursor-pointer text-gray-600 mr-4 tracking-tight text-lg font-semibold [font-family:JetBrains Mono]"
       onClick={() => setCurrPage(HOME)}
     >
       <span className="text-[#00B5D8]">run</span>

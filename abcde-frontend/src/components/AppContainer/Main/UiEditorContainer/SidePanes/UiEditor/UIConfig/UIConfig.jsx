@@ -1,3 +1,4 @@
+import { VStack } from "@chakra-ui/react";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -88,13 +89,22 @@ function UIElement({ sectionId, paramInfo }) {
   }
 
   return (
-    <div
-      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-save]:visible [&:hover_.uicfg-save]:opacity-100 [&:hover_.uicfg-save]:duration-500"
+    <VStack
+      align="stretch"
+      _hover={{
+        "&:hover .uiconfig-param-save-as": {
+          visibility: "visible",
+          opacity: "1",
+          transitionDuration: "opacity 0.5s",
+        },
+      }}
       data-testid={`UIElement ${paramName}`}
     >
-      <h3 className="text-sm text-gray-500 uppercase tracking-widest">
-        {paramName}
-      </h3>
+      <div className="flex-1 text-left">
+        <h3 className="text-sm text-gray-500 uppercase tracking-widest">
+          {paramName}
+        </h3>
+      </div>
 
       <UIConfigDropdownAndFields
         onDropdownSelect={onSelect}
@@ -108,7 +118,7 @@ function UIElement({ sectionId, paramInfo }) {
         origin={SET_FROM_SIDEPANE}
       />
       <SaveLoadButtons onSubmit={onSaveAsSubmit} />
-    </div>
+    </VStack>
   );
 }
 
@@ -118,7 +128,7 @@ function SaveLoadButtons({ onSubmit }) {
       <div className="flex-1" />
       <PopoverWrapper
         trigger={
-          <button className="uicfg-save text-xs text-gray-500 invisible opacity-0">
+          <button className="uiconfig-param-save-as text-xs text-gray-500 invisible opacity-0">
             Save As
           </button>
         }

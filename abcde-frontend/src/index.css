@@ -5,59 +5,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: gray transparent;
 }
 
-.js-focus-visible :focus:not([data-focus-visible-added]) {
-  outline: none;
-  box-shadow: none;
-}
-
-body::-webkit-scrollbar {
-  width: 0.5rem; 
-  height: 0.5rem; 
-  background-color: white; 
-}
-
-body *::-webkit-scrollbar{
-  width: 0.5rem; 
-  height: 0.5rem; 
-  background-color: white; 
-}
-
-body *{
-  scrollbar-width: thin;
-  scrollbar-height: thin;
-  scrollbar-color: gray transparent;
-}
-
-::-webkit-scrollbar-corner{
-  background: gray;
-}
-
-body::-webkit-scrollbar-track{
-  background: gray;
-}
-
-body *::-webkit-scrollbar-track {
-  background: white;
-}
-
-body::-webkit-scrollbar-thumb{
-  background-color: gray;
-  border: 1px solid transparent;
-  border-radius: 0.5rem;
-}
-
-body *::-webkit-scrollbar-thumb{
-  background-color: gray;
-  border: 1px solid transparent;
-  border-radius: 0.5rem;
-}
-
-/* code {
+code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
-} */
+}
