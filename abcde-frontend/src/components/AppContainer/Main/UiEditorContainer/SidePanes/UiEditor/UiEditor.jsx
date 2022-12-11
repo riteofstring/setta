@@ -44,7 +44,7 @@ function TabItem({ name, value, ...tabProps }) {
   // border-b-2 isn't working for some reason. using border-bottom instead.
   return (
     <Tabs.Trigger
-      className="[border-bottom:3px_solid_transparent] my-4 text-lg [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold"
+      className="[border-bottom:3px_solid_transparent] my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${tabProps.name} Button`}
     >
@@ -57,7 +57,7 @@ function TabContent(props) {
   const { children, value } = props;
   return (
     <Tabs.Content
-      className="flex-grow grid  h-[inherit] overflow-y-auto"
+      className="flex-grow grid h-[inherit] overflow-y-auto"
       value={value}
     >
       {children}
