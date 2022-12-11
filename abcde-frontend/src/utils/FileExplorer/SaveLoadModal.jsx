@@ -5,7 +5,9 @@ import FileNameInput from "./FileNameInput";
 
 export default function SaveLoadModal({
   onClose,
-  isOpen,
+  modalIsOpen,
+  setModalIsOpen,
+  returnFocusTo,
   modalType,
   files,
   onClickLoadProject,
@@ -31,10 +33,9 @@ export default function SaveLoadModal({
 
   return (
     <ModalContainer
-      onClose={localOnClose}
-      isOpen={isOpen}
-      size={"3xl"}
-      overrideFooter={true}
+      open={modalIsOpen}
+      onOpenChange={setModalIsOpen}
+      returnFocusTo={returnFocusTo}
       body={
         <Body
           files={files}
@@ -55,6 +56,31 @@ export default function SaveLoadModal({
       }
     />
   );
+
+  // return (
+  //   <ModalContainer
+  //     onClose={localOnClose}
+  //     isOpen={isOpen}
+  // body={
+  //   <Body
+  //     files={files}
+  //     setSelected={setSelected}
+  //     modalType={modalType}
+  //     currProjectId={currProjectId}
+  //     selected={selected}
+  //     configName={configName}
+  //     setConfigName={setConfigName}
+  //   />
+  //     }
+  //   footer={
+  //     <Footer
+  //       buttonText={modalType}
+  //       onClose={localOnClose}
+  //       onClick={onClickSaveOrLoad}
+  //     />
+  //   }
+  // />
+  // );
 }
 
 function Body({

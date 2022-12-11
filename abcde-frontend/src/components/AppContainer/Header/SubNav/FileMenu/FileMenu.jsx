@@ -1,9 +1,8 @@
-import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
@@ -18,7 +17,8 @@ import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
-  const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
+  const dropdownRef = useRef();
+  const [modalIsOpen, setModalIsOpen] = useState(false);
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
   const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
@@ -26,7 +26,7 @@ export default function FileMenu() {
   const [modalType, setModalType] = useState("");
 
   function onClose() {
-    closeModal();
+    // closeModal();
   }
 
   function onClickSave() {
@@ -36,24 +36,25 @@ export default function FileMenu() {
   function onClickLoad() {
     setModalType("Load");
     getProjects();
-    openModal();
+    // openModal();
+    setModalIsOpen(true);
   }
 
   function onClickSaveAs() {
     setModalType("Save As");
     getProjects();
-    openModal();
+    // openModal();
   }
 
   function onClickLoadProject(selected) {
     setProjectToLoad(selected);
-    closeModal();
+    // closeModal();
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
     const { id, configId } = selected;
     if (id !== currProjectId) {
-      closeModal(); //TODO: display something
+      // closeModal(); //TODO: display something
     }
 
     if (configId) {
@@ -66,11 +67,11 @@ export default function FileMenu() {
       saveAsNewProjectConfig({ reactFlowStore, newConfigName });
     }
 
-    closeModal();
+    // closeModal();
   }
 
   return (
-    <>
+    <div ref={dropdownRef}>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger className={MenuBarButtonClasses}>
           File
@@ -90,14 +91,16 @@ export default function FileMenu() {
       </DropdownMenu.Root>
       <SaveLoadModal
         onClose={onClose}
-        isOpen={isOpen}
+        returnFocusTo={dropdownRef}
+        modalIsOpen={modalIsOpen}
+        setModalIsOpen={setModalIsOpen}
         modalType={modalType}
         files={projects}
         onClickLoadProject={onClickLoadProject}
         onClickSaveAsProject={onClickSaveAsProject}
         currProjectId={currProjectId}
       />
-    </>
+    </div>
   );
 }
 
