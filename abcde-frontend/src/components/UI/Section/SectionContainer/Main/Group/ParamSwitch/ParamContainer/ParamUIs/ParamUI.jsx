@@ -10,7 +10,7 @@ import {
 import { NestedObjectInputConfig } from "./NestedObjectInput";
 import RefInput, { RefInputConfig } from "./RefInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput";
-import SwitchInput, { SwitchInputConfig } from "./SwitchInput";
+import SwitchInput, { SwitchInputConfig } from "./SwitchInput/SwitchInput";
 import TextInput, { TextInputConfig } from "./TextInput";
 
 export function ParamUIConfig({ name, ...props }) {
