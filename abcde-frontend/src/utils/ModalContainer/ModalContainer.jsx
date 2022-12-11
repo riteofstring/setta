@@ -1,28 +1,13 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import "./styles.css";
 
-export default function ModalContainer({
-  open,
-  onOpenChange,
-  body,
-  footer,
-  returnFocusTo,
-}) {
-
-  console.log("returnFocusTo", returnFocusTo)
-  function onCloseAutoFocus(event) {
-    event.preventDefault();
-    returnFocusTo.current.focus();
-  }
-
+export default function ModalContainer({ trigger, body, footer }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root>
+      <Dialog.Trigger>{trigger}</Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="DialogOverlay" />
-        <Dialog.Content
-          className="DialogContent"
-          onCloseAutoFocus={onCloseAutoFocus}
-        >
+        <Dialog.Content className="DialogContent">
           {/* {body}
           {footer} */}
         </Dialog.Content>

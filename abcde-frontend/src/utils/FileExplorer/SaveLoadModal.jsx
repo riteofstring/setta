@@ -4,10 +4,7 @@ import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
 export default function SaveLoadModal({
-  onClose,
-  modalIsOpen,
-  setModalIsOpen,
-  returnFocusTo,
+  trigger,
   modalType,
   files,
   onClickLoadProject,
@@ -20,7 +17,6 @@ export default function SaveLoadModal({
   function localOnClose() {
     setSelected({});
     setConfigName("");
-    onClose();
   }
 
   function onClickSaveOrLoad() {
@@ -33,9 +29,7 @@ export default function SaveLoadModal({
 
   return (
     <ModalContainer
-      open={modalIsOpen}
-      onOpenChange={setModalIsOpen}
-      returnFocusTo={returnFocusTo}
+      trigger={trigger}
       body={
         <Body
           files={files}

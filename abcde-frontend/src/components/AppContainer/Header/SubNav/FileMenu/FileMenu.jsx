@@ -2,11 +2,10 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
-import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
@@ -17,7 +16,26 @@ import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
-  const dropdownRef = useRef();
+  return (
+    <>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger className={MenuBarButtonClasses}>
+          File
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="start"
+            className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
+          >
+            <Items />
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </>
+  );
+}
+
+function Items() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
@@ -70,59 +88,40 @@ export default function FileMenu() {
     // closeModal();
   }
 
-  return (
-    <div ref={dropdownRef}>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger className={MenuBarButtonClasses}>
-          File
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="start"
-            className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
-          >
-            <Items
-              onClickLoad={onClickLoad}
-              onClickSave={onClickSave}
-              onClickSaveAs={onClickSaveAs}
-            />
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+  function modalWrapper(trigger, modalType) {
+    return (
       <SaveLoadModal
-        onClose={onClose}
-        returnFocusTo={dropdownRef}
-        modalIsOpen={modalIsOpen}
-        setModalIsOpen={setModalIsOpen}
+        trigger={trigger}
         modalType={modalType}
         files={projects}
         onClickLoadProject={onClickLoadProject}
         onClickSaveAsProject={onClickSaveAsProject}
         currProjectId={currProjectId}
       />
-    </div>
-  );
-}
+    );
+  }
 
-function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
       <Item>
         <IoDocumentTextOutline />
         New Project
       </Item>
-      <Item onClick={onClickLoad}>
-        <GrDocumentDownload />
-        Load
-      </Item>
-      <Item onClick={onClickSave}>
+      {modalWrapper(
+        <Item onClick={onClickLoad}>
+          <GrDocumentDownload />
+          Load
+        </Item>,
+        "Load"
+      )}
+      {/* <Item onClick={onClickSave}>
         <VscSave />
         Save
       </Item>
       <Item onClick={onClickSaveAs}>
         <VscSaveAs />
         Save As
-      </Item>
+      </Item> */}
     </>
   );
 }
