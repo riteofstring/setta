@@ -89,14 +89,12 @@ function UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-save]:visible [&:hover_.uicfg-save]:opacity-100 [&:hover_.uicfg-save]:duration-500"
+      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-save]:visible [&:hover_.uicfg-save]:opacity-100 [&:hover_.uicfg-save]:duration-500"
       data-testid={`UIElement ${paramName}`}
     >
-      <div className="flex-1 text-left">
-        <h3 className="text-sm text-gray-500 uppercase tracking-widest">
-          {paramName}
-        </h3>
-      </div>
+      <h3 className="text-sm text-gray-500 uppercase tracking-widest">
+        {paramName}
+      </h3>
 
       <UIConfigDropdownAndFields
         onDropdownSelect={onSelect}
