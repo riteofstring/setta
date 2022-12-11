@@ -1,13 +1,4 @@
-import {
-  Button,
-  Flex,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
-  Grid,
-  Input,
-  Text,
-} from "@chakra-ui/react";
+import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { register } from "dbRequests/authentication.js";
 import { useFormik } from "formik";
 import { useAuth } from "models/auth";
@@ -15,7 +6,7 @@ import React from "react";
 import * as Yup from "yup";
 
 const SignUpPage = () => {
-  const actionLoginSuccess = useAuth((x) => auth.loginSuccess);
+  const actionLoginSuccess = useAuth((x) => x.loginSuccess);
   const actionLoginFail = useAuth((x) => x.loginFail);
 
   const { handleSubmit, handleChange, values, touched, errors, handleBlur } =
@@ -52,132 +43,58 @@ const SignUpPage = () => {
     });
 
   return (
-    <Flex
-      flexDirection="column"
-      width="800px"
-      minHeight="200px"
-      mt="200px"
-      justifyContent="center"
-      alignItems="center"
-    >
-      <Text fontSize="4xl" mb="1rem">
-        Sign Up
-      </Text>
+    <GridWrapper flexFormWrap={true}>
+      <p className="mb-4 text-4xl">Sign Up</p>
       <form onSubmit={handleSubmit}>
-        <FormControl isInvalid={errors.email}>
-          <Grid
-            gap="1rem"
-            templateColumns="[left] 0.25fr [middle] 0.75fr [right] 10vw [error]"
-            mr="-10vw"
-          >
-            {/* email */}
-            <FormLabel
-              alignSelf="center"
-              htmlFor="email"
-              gridColumn="left/middle"
-            >
-              Email
-            </FormLabel>
+        <div className="-mr[10vw] gap-4">
+          <p className="self-center ">Email</p>
 
-            <Input
-              id="email"
-              name="email"
-              placeholder="email"
-              w="300px"
-              value={values.email}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              gridColumn="middle/right"
-            />
+          <input
+            id="email"
+            name="email"
+            placeholder="email"
+            value={values.email}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className="w-80"
+          />
+          <p className="self-center ">Username</p>
 
-            <FormErrorMessage gridColumn="right/error">
-              {touched.email && errors.email ? (
-                <Text>{errors.email}</Text>
-              ) : null}
-            </FormErrorMessage>
+          <input
+            id="username"
+            name="username"
+            placeholder="username"
+            value={values.username}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className="w-80"
+          />
 
-            {/* username */}
-            <FormLabel
-              alignSelf="center"
-              htmlFor="username"
-              gridColumn="left/middle"
-            >
-              Username
-            </FormLabel>
-
-            <Input
-              id="username"
-              name="username"
-              placeholder="username"
-              w="300px"
-              value={values.username}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              gridColumn="middle/right"
-            />
-
-            <FormErrorMessage gridColumn="right/error">
-              {touched.username && errors.username ? (
-                <Text>{errors.username}</Text>
-              ) : null}
-            </FormErrorMessage>
-
-            {/* password */}
-            <FormLabel
-              alignSelf="center"
-              htmlFor="password"
-              gridColumn="left/middle"
-            >
-              Password
-            </FormLabel>
-            <Input
-              id="password"
-              name="password"
-              placeholder="password"
-              value={values.password}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              w="300px"
-              gridColumn="middle/right"
-            />
-
-            <FormErrorMessage gridColumn="right/error">
-              {touched.password && errors.password ? (
-                <Text>{errors.password}</Text>
-              ) : null}
-            </FormErrorMessage>
-
-            {/* confirm password */}
-
-            <Input
-              id="confirmpassword"
-              name="confirmpassword"
-              placeholder="confirm password"
-              value={values.confirmpassword}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              w="300px"
-              gridColumn="middle/right"
-            />
-
-            <FormErrorMessage gridColumn="right/error">
-              {touched.confirmpassword && errors.confirmpassword ? (
-                <Text>{errors.confirmpassword}</Text>
-              ) : null}
-            </FormErrorMessage>
-            <Button
-              alignSelf="flex-end"
-              mt={4}
-              colorScheme="teal"
-              type="submit"
-              gridColumn="middle/right"
-            >
-              Sign Up!
-            </Button>
-          </Grid>
-        </FormControl>
+          <p className="self-center ">Password</p>
+          <input
+            id="password"
+            name="password"
+            placeholder="password"
+            value={values.password}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className="w-80"
+          />
+          <input
+            id="confirmpassword"
+            name="confirmpassword"
+            placeholder="confirm password"
+            value={values.confirmpassword}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className="w-80"
+          />
+          <button className="mt-4 self-end" type="submit">
+            Sign Up
+          </button>
+        </div>
       </form>
-    </Flex>
+    </GridWrapper>
   );
 };
 

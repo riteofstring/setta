@@ -49,11 +49,7 @@ const LoginPage = () => {
               {show ? "Hide" : "Show"}
             </button>
           </div>
-          <button
-            className="mt-4 self-end"
-            type="submit"
-            style={{ gridColumn: "middle/right" }}
-          >
+          <button className="mt-4 self-end" type="submit">
             Login
           </button>
         </div>
