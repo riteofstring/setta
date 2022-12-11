@@ -84,8 +84,8 @@ export default function UiEditor() {
 //   {tabProps.name}
 // </Button>
 
-function TabItem({ name }) {
-  return <Tabs.Trigger>{name}</Tabs.Trigger>;
+function TabItem({ name, value }) {
+  return <Tabs.Trigger value={value}>{name}</Tabs.Trigger>;
 }
 
 function TabContent(props) {
