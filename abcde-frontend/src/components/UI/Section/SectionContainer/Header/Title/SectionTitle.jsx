@@ -1,9 +1,4 @@
-import {
-  Editable,
-  EditableInput,
-  EditablePreview,
-  Text,
-} from "@chakra-ui/react";
+import { Editable, EditableInput, EditablePreview } from "@chakra-ui/react";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionSiblingNames } from "hooks/useSectionSiblings";
@@ -29,9 +24,7 @@ export default function SectionTitle({ sectionId, editableProps, inputProps }) {
 
 function FixedTitle({ sectionName }) {
   return (
-    <Text fontWeight="100" color="gray.400" as="i" userSelect="none">
-      {sectionName}
-    </Text>
+    <p className="font-thin text-gray-400 italic select-none">{sectionName}</p>
   );
 }
 
