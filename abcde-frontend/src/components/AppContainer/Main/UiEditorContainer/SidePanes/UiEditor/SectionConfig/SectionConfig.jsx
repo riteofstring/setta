@@ -1,13 +1,8 @@
-import {
-  getCollectionDetails,
-  getCollectionsAndModules,
-} from "dbRequests/sectionConfig";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
-import { useCodeInfo } from "models/info/codeInfo";
 import { UI_CONFIG_TAB, useUIEditor } from "models/uiEditor";
-import React, { useState } from "react";
+import React from "react";
 import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
@@ -61,26 +56,6 @@ function SectionConfigCore({
   sectionId,
   onConfigChange,
 }) {
-  const [results, setResults] = useState({});
-  const updateCodeInfos = useCodeInfo((x) => x.updateInfos);
-
-  // console.log("results", results);
-
-  async function onSubmit(searchTerm) {
-    const x = await getCollectionsAndModules({ searchTerm });
-    setResults(x);
-  }
-
-  async function onChange({ newValueFn, id }) {
-    // collection needs to be retrieved from db
-    const allCollections = useCodeInfo.getState().allCollections;
-    if (!(id in allCollections)) {
-      const collectionDetails = await getCollectionDetails(id);
-      updateCodeInfos(collectionDetails);
-    }
-    onConfigChange({ newValueFn });
-  }
-
   return (
     <>
       <h3 className="text-xs uppercase text-gray-400 font-semibold">
@@ -94,37 +69,10 @@ function SectionConfigCore({
       <h3 className="text-xs uppercase text-gray-400 font-semibold">
         Contents
       </h3>
-
-      <div
-        className="py-2 px-3 rounded-2xl bg-white shadow-inner border border-white grow mb-10 flex flex-col"
-        data-testid={`SectionConfig ${sectionId}`}
-      >
-        <Search onSubmit={onSubmit} />
-        <SectionConfigComp
-          sectionId={sectionId}
-          onChange={onChange}
-          results={results}
-        />
-      </div>
+      <SectionConfigComp
+        sectionId={sectionId}
+        onConfigChange={onConfigChange}
+      />
     </>
-  );
-}
-
-function Search({ onSubmit }) {
-  const [text, setText] = useState("");
-  function onChange(e) {
-    setText(e.target.value);
-  }
-  function onClick() {
-    onSubmit(text);
-  }
-
-  return (
-    <div className="pb-4">
-      <input className="w-4/5" placeholder="Search" onChange={onChange} />
-      <button className="h-7" onClick={onClick}>
-        Go
-      </button>
-    </div>
   );
 }

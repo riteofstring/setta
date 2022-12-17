@@ -37,16 +37,24 @@ export async function getCollectionsAndModules({ searchTerm }) {
 }
 
 export async function getCollectionDetails(id) {
-  if (NO_AUTH) {
-    return await noAuthGetCollectionDetails(id);
+  const s = useCodeInfo.getState();
+  if (id in s.allCollections) {
+    return;
   }
 
-  return axios
-    .post(BACKEND + "codeInfo/getCollectionDetails", { codeInfoId: id })
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return {};
-    });
+  let results;
+  if (NO_AUTH) {
+    results = await noAuthGetCollectionDetails(id);
+  } else {
+    results = axios
+      .post(BACKEND + "codeInfo/getCollectionDetails", { codeInfoId: id })
+      .then((res) => {
+        return res.data;
+      })
+      .catch(() => {
+        return {};
+      });
+  }
+
+  s.updateCodeInfo(results);
 }

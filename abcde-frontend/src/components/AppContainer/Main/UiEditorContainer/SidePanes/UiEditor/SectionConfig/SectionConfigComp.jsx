@@ -1,30 +1,72 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import {
+  getCollectionDetails,
+  getCollectionsAndModules,
+} from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollections } from "hooks/useSectionContents";
+import { useState } from "react";
 import { checkboxChangeFn } from "utils/utils";
 
-export default function SectionConfigComp({ sectionId, onChange, results }) {
+export default function SectionConfigComp({ sectionId, onConfigChange }) {
+  const [results, setResults] = useState({});
   const selectedCollections = useGetSelectedCollections(sectionId);
   const allResults = { ...selectedCollections, ...results };
   console.log("selectedCollections", selectedCollections);
 
+  async function onSubmit(searchTerm) {
+    const x = await getCollectionsAndModules({ searchTerm });
+    setResults(x);
+  }
+
+  async function onChange({ newValueFn, id }) {
+    // collection needs to be retrieved from db
+    await getCollectionDetails(id);
+    onConfigChange({ newValueFn });
+  }
+
   return (
-    <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
-      <div className="flex flex-col pt-1">
-        <ul className="flex flex-col flex-grow gap-3">
-          {Object.values(allResults).map((x) => (
-            <SearchItem
-              id={x.id}
-              name={x.name}
-              description={x.description}
-              details={x.children}
-              checked={x.id in selectedCollections}
-              onChange={onChange}
-              key={`SearchItem-${x.id}`}
-            />
-          ))}
-        </ul>
+    <div
+      className="py-2 px-3 rounded-2xl bg-white shadow-inner border border-white grow mb-10 flex flex-col"
+      data-testid={`SectionConfig ${sectionId}`}
+    >
+      <Search onSubmit={onSubmit} />
+      <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
+        <div className="flex flex-col pt-1">
+          <ul className="flex flex-col flex-grow gap-3">
+            {Object.values(allResults).map((x) => (
+              <SearchItem
+                id={x.id}
+                name={x.name}
+                description={x.description}
+                details={x.children}
+                checked={x.id in selectedCollections}
+                onChange={onChange}
+                key={`SearchItem-${x.id}`}
+              />
+            ))}
+          </ul>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function Search({ onSubmit }) {
+  const [text, setText] = useState("");
+  function onChange(e) {
+    setText(e.target.value);
+  }
+  function onClick() {
+    onSubmit(text);
+  }
+
+  return (
+    <div className="pb-4">
+      <input className="w-4/5" placeholder="Search" onChange={onChange} />
+      <button className="h-7" onClick={onClick}>
+        Go
+      </button>
     </div>
   );
 }
