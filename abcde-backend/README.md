@@ -14,12 +14,10 @@ psql -U postgres
 # enter the password that you entered during installation
 ```
 
-### Link abcde-frontend
-To use the same test dataloaders, we need access to some functions in abcde-frontend.
-
-In abcde-frontend do `yarn link`.
-
-Then in abcde-backend do `yarn link abcde-frontend`.
+### Link abcde-utils and abcde-test
+```
+yarn linkutils && yarn linktest
+```
 
 ### Create db, create tables, add data
 ```bash
