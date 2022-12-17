@@ -1,4 +1,3 @@
-import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
@@ -14,20 +13,15 @@ import {
   saveProject,
 } from "thunks/save";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
-import { Item } from "utils/atoms/dropdown/item";
+import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
-  const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
   const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
   const setProjectToLoad = useProjectToLoad((x) => x.setProject);
   const [modalType, setModalType] = useState("");
-
-  function onClose() {
-    closeModal();
-  }
 
   function onClickSave() {
     saveProject({ reactFlowStore });
@@ -36,26 +30,22 @@ export default function FileMenu() {
   function onClickLoad() {
     setModalType("Load");
     getProjects();
-    openModal();
   }
 
   function onClickSaveAs() {
     setModalType("Save As");
     getProjects();
-    openModal();
   }
 
   function onClickLoadProject(selected) {
     setProjectToLoad(selected);
-    closeModal();
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
     const { id, configId } = selected;
     if (id !== currProjectId) {
-      closeModal(); //TODO: display something
+      //TODO: display something
     }
-
     if (configId) {
       if (configId === currConfigId) {
         onClickSave();
@@ -65,12 +55,16 @@ export default function FileMenu() {
     } else {
       saveAsNewProjectConfig({ reactFlowStore, newConfigName });
     }
-
-    closeModal();
   }
 
   return (
-    <>
+    <SaveLoadModal
+      modalType={modalType}
+      files={projects}
+      onClickLoadProject={onClickLoadProject}
+      onClickSaveAsProject={onClickSaveAsProject}
+      currProjectId={currProjectId}
+    >
       <DropdownMenu.Root>
         <DropdownMenu.Trigger className={MenuBarButtonClasses}>
           File
@@ -88,38 +82,29 @@ export default function FileMenu() {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      <SaveLoadModal
-        onClose={onClose}
-        isOpen={isOpen}
-        modalType={modalType}
-        files={projects}
-        onClickLoadProject={onClickLoadProject}
-        onClickSaveAsProject={onClickSaveAsProject}
-        currProjectId={currProjectId}
-      />
-    </>
+    </SaveLoadModal>
   );
 }
 
 function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
-      <Item>
+      <DialogTriggerItem>
         <IoDocumentTextOutline />
         New Project
-      </Item>
-      <Item onClick={onClickLoad}>
+      </DialogTriggerItem>
+      <DialogTriggerItem onClick={onClickLoad}>
         <GrDocumentDownload />
         Load
-      </Item>
-      <Item onClick={onClickSave}>
+      </DialogTriggerItem>
+      <DialogTriggerItem onClick={onClickSave}>
         <VscSave />
         Save
-      </Item>
-      <Item onClick={onClickSaveAs}>
+      </DialogTriggerItem>
+      <DialogTriggerItem onClick={onClickSaveAs}>
         <VscSaveAs />
         Save As
-      </Item>
+      </DialogTriggerItem>
     </>
   );
 }
