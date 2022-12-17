@@ -46,8 +46,8 @@ export default function PaneContainer({
   useEffect(() => {
     const newVMax = size.winWidth / 2.1;
     const newVMin = 340;
-    setVMax(newVMax);
-    setVMin(newVMin);
+    newVMax && setVMax(newVMax);
+    newVMin && setVMin(newVMin);
     if (width > newVMax) {
       setWidth({ paneName, width: newVMax });
       setTrueWidth({ paneName, trueWidth: vis ? newVMax : MIN_PANE_WIDTH });
