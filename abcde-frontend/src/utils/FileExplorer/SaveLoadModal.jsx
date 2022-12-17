@@ -4,7 +4,8 @@ import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
 export default function SaveLoadModal({
-  trigger,
+  onClose,
+  isOpen,
   modalType,
   files,
   onClickLoadProject,
@@ -17,6 +18,7 @@ export default function SaveLoadModal({
   function localOnClose() {
     setSelected({});
     setConfigName("");
+    onClose();
   }
 
   function onClickSaveOrLoad() {
@@ -29,7 +31,10 @@ export default function SaveLoadModal({
 
   return (
     <ModalContainer
-      trigger={trigger}
+      onClose={localOnClose}
+      isOpen={isOpen}
+      size={"3xl"}
+      overrideFooter={true}
       body={
         <Body
           files={files}
@@ -50,31 +55,6 @@ export default function SaveLoadModal({
       }
     />
   );
-
-  // return (
-  //   <ModalContainer
-  //     onClose={localOnClose}
-  //     isOpen={isOpen}
-  // body={
-  //   <Body
-  //     files={files}
-  //     setSelected={setSelected}
-  //     modalType={modalType}
-  //     currProjectId={currProjectId}
-  //     selected={selected}
-  //     configName={configName}
-  //     setConfigName={setConfigName}
-  //   />
-  //     }
-  //   footer={
-  //     <Footer
-  //       buttonText={modalType}
-  //       onClose={localOnClose}
-  //       onClick={onClickSaveOrLoad}
-  //     />
-  //   }
-  // />
-  // );
 }
 
 function Body({

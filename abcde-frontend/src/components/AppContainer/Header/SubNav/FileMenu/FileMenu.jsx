@@ -1,3 +1,4 @@
+import { useDisclosure } from "@chakra-ui/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
@@ -6,6 +7,7 @@ import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { GrDocumentDownload } from "react-icons/gr";
 import { IoDocumentTextOutline } from "react-icons/io5";
+import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
@@ -16,27 +18,7 @@ import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
-  return (
-    <>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger className={MenuBarButtonClasses}>
-          File
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="start"
-            className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
-          >
-            <Items />
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
-    </>
-  );
-}
-
-function Items() {
-  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const { isOpen, onOpen: openModal, onClose: closeModal } = useDisclosure();
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
   const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
@@ -44,7 +26,7 @@ function Items() {
   const [modalType, setModalType] = useState("");
 
   function onClose() {
-    // closeModal();
+    closeModal();
   }
 
   function onClickSave() {
@@ -54,25 +36,24 @@ function Items() {
   function onClickLoad() {
     setModalType("Load");
     getProjects();
-    // openModal();
-    setModalIsOpen(true);
+    openModal();
   }
 
   function onClickSaveAs() {
     setModalType("Save As");
     getProjects();
-    // openModal();
+    openModal();
   }
 
   function onClickLoadProject(selected) {
     setProjectToLoad(selected);
-    // closeModal();
+    closeModal();
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
     const { id, configId } = selected;
     if (id !== currProjectId) {
-      // closeModal(); //TODO: display something
+      closeModal(); //TODO: display something
     }
 
     if (configId) {
@@ -85,43 +66,60 @@ function Items() {
       saveAsNewProjectConfig({ reactFlowStore, newConfigName });
     }
 
-    // closeModal();
+    closeModal();
   }
 
-  function modalWrapper(trigger, modalType) {
-    return (
+  return (
+    <>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger className={MenuBarButtonClasses}>
+          File
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="start"
+            className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
+          >
+            <Items
+              onClickLoad={onClickLoad}
+              onClickSave={onClickSave}
+              onClickSaveAs={onClickSaveAs}
+            />
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
       <SaveLoadModal
-        trigger={trigger}
+        onClose={onClose}
+        isOpen={isOpen}
         modalType={modalType}
         files={projects}
         onClickLoadProject={onClickLoadProject}
         onClickSaveAsProject={onClickSaveAsProject}
         currProjectId={currProjectId}
       />
-    );
-  }
+    </>
+  );
+}
 
+function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
       <Item>
         <IoDocumentTextOutline />
         New Project
       </Item>
-      {modalWrapper(
-        <Item onClick={onClickLoad}>
-          <GrDocumentDownload />
-          Load
-        </Item>,
-        "Load"
-      )}
-      {/* <Item onClick={onClickSave}>
+      <Item onClick={onClickLoad}>
+        <GrDocumentDownload />
+        Load
+      </Item>
+      <Item onClick={onClickSave}>
         <VscSave />
         Save
       </Item>
       <Item onClick={onClickSaveAs}>
         <VscSaveAs />
         Save As
-      </Item> */}
+      </Item>
     </>
   );
 }
