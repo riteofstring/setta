@@ -1,14 +1,14 @@
-import * as _ from 'lodash';
 import {
   DECK,
   isRoot,
   LIST_ROOT,
-  maybeUseNullId,
   OBJ,
   PARAM,
   STRING,
   VARIABLE,
-} from './constants';
+} from 'abcde-utils/src/constants';
+import { maybeUseNullId } from 'abcde-utils/src/utils';
+import * as _ from 'lodash';
 
 function paramInfoExportSelected(sectionId, paramInfo, evColId, p) {
   const evId = p.evCols[evColId]?.[paramInfo.id];
