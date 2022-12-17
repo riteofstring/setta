@@ -1,11 +1,10 @@
-import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
 import { KwargColsType } from 'src/kwargs/types';
+import { prisma } from 'src/prisma';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
 
 export async function getCodeInfoForSectionsAndKwargs(
-  prisma,
   sectionUITypes,
   kwargCols: KwargColsType,
 ) {
@@ -16,20 +15,17 @@ export async function getCodeInfoForSectionsAndKwargs(
   _.forEach(kwargCols, (x) =>
     _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
-  const allCodeInfo = await getCodeInfo(prisma, [
-    ...collectionIds,
-    ...kwargIds,
-  ]);
+  const allCodeInfo = await getCodeInfo([...collectionIds, ...kwargIds]);
   return createAllInfo(allCodeInfo);
 }
 
-export async function getCodeInfo(prisma, ids: string[]) {
+export async function getCodeInfo(ids: string[]) {
   const collectionIds = new Set(ids);
   let childMap = {};
   const allIds = new Set(collectionIds);
 
   for (const c of collectionIds) {
-    const parentChildPairs = await prisma.$queryRaw`
+    const parentChildPairs: any = await prisma.$queryRaw`
           with recursive descendants as (
               select "parentId", "childId", "order"
               from "CodeInfoChildren"
@@ -70,10 +66,7 @@ export function processCodeInfo(codeInfo, childMap) {
   };
 }
 
-export async function getCollectionsAndModules(
-  prisma: PrismaClient,
-  searchTerm: string,
-) {
+export async function getCollectionsAndModules(searchTerm: string) {
   const results = await prisma.codeInfo.findMany({
     where: { name: { contains: searchTerm }, rcType: 'collection' },
     select: {

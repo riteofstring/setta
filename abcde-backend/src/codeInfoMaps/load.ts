@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
+import { prisma } from 'src/prisma';
 
-export async function getUserCodeInfoMaps(prisma: PrismaClient, ownerId) {
+export async function getUserCodeInfoMaps(ownerId) {
   const codeInfoMaps = await prisma.userCodeInfoMap.findMany({
     where: { ownerId },
     select: { codeInfoId: true, uiTypeId: true },
@@ -16,10 +16,7 @@ export async function getUserCodeInfoMaps(prisma: PrismaClient, ownerId) {
   };
 }
 
-export async function getProjectConfigCodeInfoMaps(
-  prisma: PrismaClient,
-  projectConfigId,
-) {
+export async function getProjectConfigCodeInfoMaps(projectConfigId) {
   const codeInfoMaps = await prisma.projectConfigCodeInfoMap.findMany({
     where: { projectConfigId },
     select: { codeInfoId: true, uiTypeId: true },
