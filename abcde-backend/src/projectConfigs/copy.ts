@@ -1,5 +1,5 @@
+import { createNewId } from 'abcde-utils/src/utils';
 import * as _ from 'lodash';
-import { createNewId } from 'src/utils/utils';
 
 export function copyProjectConfig({
   projectConfig,

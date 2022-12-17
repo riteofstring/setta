@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { createNewId } from 'abcde-utils/src/utils';
 import * as _ from 'lodash';
-import { v4 as uuidv4 } from 'uuid';
 
 export function renameKeys<T>(x: T, toRename: object) {
   const output = _.cloneDeep(x);
@@ -51,10 +51,6 @@ export function getOrderedChildren(children, toReturn = null) {
 
 export function createIdMap(oldIds: string[]) {
   return _.fromPairs(oldIds.map((x) => [x, createNewId()]));
-}
-
-export function createNewId() {
-  return uuidv4();
 }
 
 export function connectIfNotNull(existingObj, otherObj) {
