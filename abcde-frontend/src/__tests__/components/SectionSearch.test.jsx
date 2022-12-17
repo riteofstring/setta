@@ -34,10 +34,10 @@ test("Test SectionSearch", async () => {
   expect(result.current[0]).toEqual(idSGD);
 
   // Get another collection
-  const newCollection = _.filter(
+  const newCollection = _.find(
     useCodeInfo.getState().allCollections,
     (x) => x.name === "Torchvision Models"
-  )[0];
+  );
 
   // Add collection to section
   await waitFor(() =>

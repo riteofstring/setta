@@ -19,12 +19,12 @@ export async function loadTestDataIntoState() {
 }
 
 export function getSectionByName(name) {
-  return _.filter(useSectionInfos.getState().x, (v) => v.name === name)[0];
+  return _.find(useSectionInfos.getState().x, (v) => v.name === name);
 }
 
 function getParamCollectionParamInfoByName(allCodeInfo, paramCollection, name) {
   const childrenInfo = paramCollection.children.map((x) => allCodeInfo[x]);
-  return _.filter(childrenInfo, (v) => v.name === name)[0];
+  return _.find(childrenInfo, (v) => v.name === name);
 }
 
 export function getParameterToTestOn(sectionName, paramName) {
@@ -80,5 +80,5 @@ export function getReactFlowProvider() {
 
 export function sectionIdFromName(name) {
   const sections = useSectionInfos.getState().x;
-  return _.filter(sections, (x) => x.name === name)[0].id;
+  return _.find(sections, (x) => x.name === name).id;
 }

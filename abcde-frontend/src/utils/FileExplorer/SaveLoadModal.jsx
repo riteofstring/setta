@@ -114,16 +114,14 @@ function SaveBody({
 
   function onChange(v) {
     setConfigName(v);
-    const match = currFiles.configs.filter((x) => x.name === v)[0];
+    const match = currFiles.configs.find((x) => x.name === v);
     setSelected({ id: currProjectId, configId: match?.id });
   }
 
   useEffect(() => {
     const configId = selected.configId;
     if (configId) {
-      const matchingConfig = currFiles.configs.filter(
-        (x) => x.id === configId
-      )[0];
+      const matchingConfig = currFiles.configs.find((x) => x.id === configId);
       setConfigName(matchingConfig.name);
     }
   }, [selected]);

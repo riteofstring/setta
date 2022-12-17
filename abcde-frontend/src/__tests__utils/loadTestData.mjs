@@ -227,8 +227,8 @@ export async function loadAllProjectsMetadata() {
 
 export async function loadOneProjectById({ id, configId }) {
   const projectMetaData = await loadAllProjectsMetadata();
-  const project = _.filter(projectMetaData, (x) => x.id === id)[0];
-  const projectConfig = project.configs.filter((x) => x.id === configId)[0];
+  const project = _.find(projectMetaData, (x) => x.id === id);
+  const projectConfig = project.configs.find((x) => x.id === configId);
 
   if (PROJECT_NAMES["inFile"].includes(project.name)) {
     return await loadOneProject({
