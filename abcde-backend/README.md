@@ -51,5 +51,4 @@ Seed all the tables
 
 ### References
 
-- https://docs.nestjs.com/
 - https://github.com/prisma/prisma/discussions/7200
