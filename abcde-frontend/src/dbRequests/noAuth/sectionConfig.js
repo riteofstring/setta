@@ -1,25 +1,19 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 
-export async function noAuthGetCollectionsAndModules({
-  searchTerm,
-  searchCollectionsInMemory,
-}) {
-  let results = searchCollectionsInMemory({ searchTerm });
+function searchCollectionsInMemory({ searchTerm }) {
+  const allCollections = useCodeInfo.getState().allCollections;
+  if (!searchTerm) {
+    return allCollections;
+  }
+  return _.pickBy(allCollections, (x) => x.name.includes(searchTerm));
+}
 
-  // keep only necessary keys
-  results = _.mapValues(results, (x) =>
-    _.pick(x, ["id", "name", "description", "path", "children"])
-  );
-
+export async function noAuthGetCollectionsAndModules({ searchTerm }) {
+  const results = searchCollectionsInMemory({ searchTerm });
   const allCodeInfo = useCodeInfo.getState().allCodeInfo;
-  // re-assign children to be list of objects instead of list of ids
-  _.forEach(results, (v) => {
-    v["children"] = v["children"].map((x) =>
-      _.pick(allCodeInfo[x], ["id", "name", "path"])
-    );
-  });
-  return results;
+  return assembleCollectionsForSectionConfig(allCodeInfo, results);
 }
 
 export async function noAuthGetCollectionDetails() {

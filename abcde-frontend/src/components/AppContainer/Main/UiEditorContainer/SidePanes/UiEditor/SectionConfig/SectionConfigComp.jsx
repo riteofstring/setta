@@ -4,15 +4,15 @@ import {
   getCollectionsAndModules,
 } from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
-import { useGetSelectedCollections } from "hooks/useSectionContents";
+import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import { useState } from "react";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ sectionId, onConfigChange }) {
   const [results, setResults] = useState({});
-  const selectedCollections = useGetSelectedCollections(sectionId);
+  const selectedCollections =
+    useGetSelectedCollectionsForSectionConfig(sectionId);
   const allResults = { ...selectedCollections, ...results };
-  console.log("selectedCollections", selectedCollections);
 
   async function onSubmit(searchTerm) {
     const x = await getCollectionsAndModules({ searchTerm });
@@ -99,12 +99,7 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
 }
 
 function ObjCollectionDetails({ children, details }) {
-  // console.log("details", details);
   const groupedDetails = useGroupedObjInfos(details);
-
-  // console.log("groupedDetails", groupedDetails);
-
-  // console.log("details", details)
 
   return (
     <Collapsible.Root>

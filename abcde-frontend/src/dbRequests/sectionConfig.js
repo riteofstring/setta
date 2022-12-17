@@ -1,5 +1,4 @@
 import axios from "axios";
-import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { BACKEND, NO_AUTH } from "utils/constants";
 import {
@@ -7,29 +6,15 @@ import {
   noAuthGetCollectionsAndModules,
 } from "./noAuth/sectionConfig";
 
-function searchCollectionsInMemory({ searchTerm }) {
-  const allCollections = useCodeInfo.getState().allCollections;
-  if (!searchTerm) {
-    return allCollections;
-  }
-  return _.pickBy(allCollections, (x) => x.name.includes(searchTerm));
-}
-
 export async function getCollectionsAndModules({ searchTerm }) {
   if (NO_AUTH) {
-    return await noAuthGetCollectionsAndModules({
-      searchTerm,
-      searchCollectionsInMemory,
-    });
+    return await noAuthGetCollectionsAndModules({ searchTerm });
   }
 
   return axios
     .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
     .then((res) => {
-      return {
-        ...res.data,
-        ...searchCollectionsInMemory({ searchTerm }),
-      };
+      return res.data;
     })
     .catch(() => {
       return {};
