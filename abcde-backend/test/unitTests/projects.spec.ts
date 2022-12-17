@@ -49,9 +49,7 @@ describe('ProjectsService', () => {
       .set('Authorization', `Bearer ${access_token}`);
 
     const allProjects = await loadAllProjects({});
-    const correctOutput = allProjects.filter(
-      (x) => x.project.id === projectId,
-    )[0];
+    const correctOutput = allProjects.find((x) => x.project.id === projectId);
 
     // TODO: figure out globalDefaults and projectDefaults
     const { ...theRest } = retrieved;
