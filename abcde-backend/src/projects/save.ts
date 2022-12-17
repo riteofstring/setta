@@ -1,19 +1,14 @@
 import { PrismaClient } from '@prisma/client';
-import * as _ from 'lodash';
-import { saveKwargInfo } from 'src/codeInfo/save';
 import { saveAllProjectConfigCodeInfoMaps } from 'src/codeInfoMaps/save';
-import { copyEV, copyEVCols, saveEV, saveEVCols } from 'src/enteredValues/save';
-import { saveKwargCols } from 'src/kwargs/save';
+import { saveEV, saveEVCols } from 'src/enteredValues/save';
+import { saveKwargCols, saveKwargInfo } from 'src/kwargs/save';
+import { saveProjectConfig } from 'src/projectConfigs/save';
 import {
-  copySectionConfigCol,
-  copySectionConfigs,
-  saveSectionChildren,
   saveSectionConfigCol,
   saveSectionConfigs,
   saveSections,
 } from 'src/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/uiTypes/save';
-import { createNewId, renameKeys } from 'src/utils/utils';
 
 export async function saveMultipleProjectDetails(
   prisma: PrismaClient,
@@ -60,41 +55,6 @@ export async function saveProjectDetails(
   }
 }
 
-async function assembleProjectConfig(prisma: PrismaClient, config, sections) {
-  const { id, name, sectionConfigCol, children, childrenId } = config;
-  const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
-  await prisma.sectionChildrenId.createMany({
-    data: [{ id: childrenId }],
-    skipDuplicates: true,
-  });
-  await saveSectionChildren(
-    prisma,
-    { null: children },
-    { null: childrenId },
-    { null: sectionPositions },
-  );
-
-  return {
-    id,
-    name,
-    sectionConfigColId: sectionConfigCol,
-    sectionChildrenId: childrenId,
-  };
-}
-
-export async function saveProjectConfig(
-  prisma: PrismaClient,
-  config,
-  sections,
-) {
-  const data = await assembleProjectConfig(prisma, config, sections);
-  await prisma.projectConfig.upsert({
-    where: { id: data.id },
-    create: data,
-    update: data,
-  });
-}
-
 export async function saveProject(
   prisma: PrismaClient,
   user,
@@ -138,86 +98,4 @@ export async function createProject(prisma: PrismaClient, user, name: string) {
   });
 
   return project;
-}
-
-function copyProjectConfig({
-  projectConfig,
-  newConfigName = null,
-  doCreateNewId = true,
-}) {
-  const newProjectConfig = _.cloneDeep(projectConfig);
-  const newVals = {
-    sectionConfigCol: createNewId(),
-    childrenId: createNewId(),
-  };
-  if (newConfigName) {
-    newVals['name'] = newConfigName;
-  }
-  if (doCreateNewId) {
-    newVals['id'] = createNewId();
-  }
-  Object.assign(newProjectConfig, newVals);
-  return newProjectConfig;
-}
-
-export async function saveAsNewProjectConfig(
-  prisma: PrismaClient,
-  user,
-  project,
-  newConfigName: string,
-) {
-  const projectToSave = copyProjectDetails(project);
-  projectToSave.projectConfig = copyProjectConfig({
-    projectConfig: projectToSave.projectConfig,
-    newConfigName,
-  });
-  await saveProjectDetails(prisma, user, projectToSave);
-  return projectToSave;
-}
-
-export async function saveAsExistingProjectConfig(
-  prisma: PrismaClient,
-  user,
-  project,
-  configId: string,
-) {
-  const projectToSave = copyProjectDetails(project);
-  let existingProjectConfig = await prisma.projectConfig.findUnique({
-    where: { id: configId },
-  });
-  existingProjectConfig = renameKeys(existingProjectConfig, {
-    sectionConfigColId: 'sectionConfigCol',
-    sectionChildrenId: 'childrenId',
-  });
-  existingProjectConfig['children'] = projectToSave.projectConfig.children;
-  delete existingProjectConfig.projectId;
-  projectToSave.projectConfig = copyProjectConfig({
-    projectConfig: existingProjectConfig,
-    doCreateNewId: false,
-  });
-  await saveProjectDetails(prisma, user, projectToSave);
-  return projectToSave;
-}
-
-function copyProjectDetails(project) {
-  const { ev, evCols, sectionConfigs, sectionConfigCol, ...theRest } = project;
-
-  const { newEv, evIdMap } = copyEV(ev);
-  const { newEvCols, evColIdMap } = copyEVCols(evCols, evIdMap);
-  const { newSectionConfigs, sectionConfigIdMap } = copySectionConfigs(
-    sectionConfigs,
-    evColIdMap,
-  );
-  const newSectionConfigCol = copySectionConfigCol(
-    sectionConfigCol,
-    sectionConfigIdMap,
-  );
-
-  return {
-    ...theRest,
-    ev: newEv,
-    evCols: newEvCols,
-    sectionConfigs: newSectionConfigs,
-    sectionConfigCol: newSectionConfigCol,
-  };
 }

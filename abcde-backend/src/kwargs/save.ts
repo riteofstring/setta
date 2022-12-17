@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { saveCodeInfo } from 'src/codeInfo/save';
 import { deleteThenCreateCol } from 'src/utils/utils';
 import { KwargColsType } from './types';
 
@@ -27,4 +28,8 @@ export async function saveKwargCols(
   }
 
   deleteThenCreateCol(prisma, prisma.kwargCol, ids, inDbFormat);
+}
+
+export async function saveKwargInfo(prisma, kwargInfo) {
+  await saveCodeInfo(prisma, kwargInfo, true);
 }

@@ -6,15 +6,15 @@ import {
   getUserCodeInfoMaps,
 } from 'src/codeInfoMaps/load';
 import { PrismaService } from 'src/prisma.service';
-import { getSectionConfigs, getSections } from 'src/sections/load';
-import { getBaseUITypes, getPresetUITypes } from 'src/uiTypes/load';
-import { getProject, getProjectConfig } from './load';
+import { getProjectConfig } from 'src/projectConfigs/load';
 import {
-  createProject,
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
-  saveProjectDetails,
-} from './save';
+} from 'src/projectConfigs/saveAs';
+import { getSectionConfigs, getSections } from 'src/sections/load';
+import { getBaseUITypes, getPresetUITypes } from 'src/uiTypes/load';
+import { getProject } from './load';
+import { createProject, saveProjectDetails } from './save';
 
 @Injectable()
 export class ProjectsService {

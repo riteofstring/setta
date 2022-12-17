@@ -54,10 +54,6 @@ export async function saveCodeInfo(
   );
 }
 
-export async function saveKwargInfo(prisma, kwargInfo) {
-  await saveCodeInfo(prisma, kwargInfo, true);
-}
-
 function assembleCodeInfoChildren(codeInfoVals) {
   const output = [];
   for (const c of codeInfoVals) {
