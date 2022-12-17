@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useRef } from "react";
 import Button from "../../utils/atoms/buttons/Button";
 import { FileListItem, SelectableFileListItem } from "./FileListItem";
+import "./radioItem.css";
 
 export default function FileExplorer({ files, selected, setSelected }) {
   function onChange(v) {
@@ -64,10 +65,15 @@ function ConfigListing({ id, name, onClick }) {
   }
 
   return (
-    <RadioGroup.Item value={id} ref={itemRef} onClick={_onClick}>
-      <div style={{ marginLeft: "20px" }}>
+    <div style={{ marginLeft: "20px" }}>
+      <RadioGroup.Item
+        value={id}
+        ref={itemRef}
+        onClick={_onClick}
+        className="RadioItem"
+      >
         <SelectableFileListItem isProject={false} name={name} />
-      </div>
-    </RadioGroup.Item>
+      </RadioGroup.Item>
+    </div>
   );
 }
