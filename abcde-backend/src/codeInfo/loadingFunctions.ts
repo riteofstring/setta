@@ -1,18 +1,19 @@
 import * as _ from 'lodash';
+import { KwargColsObj } from 'src/kwargs/savingFunctions';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
 
 export async function getCodeInfoForSectionsAndKwargs(
   prisma,
   sectionUITypes,
-  kwargCols,
+  kwargCols: KwargColsObj,
 ) {
   const collectionIds = [].concat(
     ..._.map(sectionUITypes, (x) => x.config.collections),
   );
   const kwargIds = [];
   _.forEach(kwargCols, (x) =>
-    _.forEach(_.values(x), (y) => kwargIds.push(...y)),
+    _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
   const allCodeInfo = await getCodeInfo(prisma, [
     ...collectionIds,

@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { deleteThenCreateCol } from 'src/utils/utils';
 
-interface KwargColsObj {
+export interface KwargColsObj {
   [id: string]: { [codeInfoId: string]: string[] };
 }
 

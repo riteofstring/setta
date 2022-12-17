@@ -13,25 +13,31 @@ interface SectionChildrenObj {
 }
 
 interface SectionConfigObj {
-  [id: string]: Prisma.SectionConfigGetPayload<true>;
+  [id: string]: Prisma.SectionConfigGetPayload<{
+    include: { selectedItem: true };
+  }>;
 }
 
 interface SectionConfigColObj {
   [id: string]: string;
 }
 
+interface SectionObj {
+  [id: string]: Prisma.SectionGetPayload<true> & { sectionChildrenId: string };
+}
+
 export async function saveSections(
   prisma: PrismaClient,
-  sections,
+  sections: SectionObj,
   sectionChildren,
 ) {
   await prisma.sectionChildrenId.createMany({
-    data: _.values(sections).map((x) => ({ id: x.sectionChildrenId })),
+    data: Object.values(sections).map((x) => ({ id: x.sectionChildrenId })),
     skipDuplicates: true,
   });
 
   const inDbFormat = [];
-  for (const v of _.values(sections)) {
+  for (const v of Object.values(sections)) {
     const curr = {
       id: v.id,
       name: v.name,
@@ -64,7 +70,7 @@ export async function saveSectionChildren(
   sectionChildrenIds,
   sectionPositions = {},
 ) {
-  const allColIds = _.values(sectionChildrenIds);
+  const allColIds = Object.values(sectionChildrenIds);
   const inDbFormat = [];
   for (const [parentSectionId, currChildren] of Object.entries(
     sectionChildren,
@@ -83,9 +89,9 @@ export async function saveSectionChildren(
   deleteThenCreateCol(prisma, prisma.sectionChildren, allColIds, inDbFormat);
 }
 
-function assembleSectionConfig(sectionConfigs) {
+function assembleSectionConfig(sectionConfigs: SectionConfigObj) {
   const inDbFormat = [];
-  for (const v of _.values(sectionConfigs)) {
+  for (const v of Object.values(sectionConfigs)) {
     const curr = {
       id: v.id,
       evCol: connectOrCreateColId(v.evColId),

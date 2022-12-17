@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
+import { SectionUITypeObj } from 'src/uiTypes/savingFunctions';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
 export async function getProject(prisma, id) {
@@ -155,8 +156,8 @@ function getSectionPositions(children) {
   }));
 }
 
-export async function getUITypeCols(prisma, sectionUITypes) {
-  const ids = _.values(sectionUITypes)
+export async function getUITypeCols(prisma, sectionUITypes: SectionUITypeObj) {
+  const ids = Object.values(sectionUITypes)
     .map((x) => x.config.uiTypeColId)
     .filter((x) => x);
 

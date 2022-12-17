@@ -80,7 +80,7 @@ export class ProjectsService {
       kwargCols,
       sectionUITypes,
       uiTypeCols,
-    } = await getSectionConfigs(this.prisma, _.values(sectionConfigCol));
+    } = await getSectionConfigs(this.prisma, Object.values(sectionConfigCol));
 
     const baseUITypes = await getBaseUITypes(this.prisma);
     const presetUITypes = await getPresetUITypes(this.prisma, user.id);
