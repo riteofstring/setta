@@ -16,7 +16,9 @@ export default React.memo(UIConfig);
 
 function UIConfig() {
   const sectionId = useActiveSection((x) => x.id);
-  const paramInfos = useGetCurrObjParamKwargInfos(sectionId, true);
+  const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
+    (x) => x.name
+  );
 
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,

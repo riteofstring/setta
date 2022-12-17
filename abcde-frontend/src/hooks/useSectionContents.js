@@ -5,15 +5,11 @@ import { defaultState, maybeUseNullId } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useGetCurrObjParamKwargInfos(sectionId, mustHaveName = false) {
+export function useGetCurrObjParamKwargInfos(sectionId) {
   const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
   const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
-  const output = [...paramInfos, ...kwargInfos];
-  if (mustHaveName) {
-    return output.filter((x) => x.name);
-  }
-  return output;
+  return [...paramInfos, ...kwargInfos];
 }
 
 function useGetCollectionChildren(sectionId, type) {
