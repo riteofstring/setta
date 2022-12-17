@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { createIdMap, deleteThenCreateCol, renameKeys } from 'src/utils/utils';
+import { deleteThenCreateCol } from 'src/utils/utils';
 import { EVColType, EVType } from './types';
 
 function assembleEV(ev: EVColType) {
@@ -47,28 +47,4 @@ export async function saveEVCols(prisma: PrismaClient, evCols) {
 
   const inDbFormat = assembleEVCols(evCols);
   deleteThenCreateCol(prisma, prisma.eVCol, ids, inDbFormat);
-}
-
-export function copyEV(ev) {
-  const oldIds = Object.keys(ev);
-  const evIdMap = createIdMap(oldIds);
-  const newEv = renameKeys(ev, evIdMap);
-  return { newEv, evIdMap };
-}
-
-export function copyEVCols(evCols: EVColType, evIdMap) {
-  const oldIds = Object.keys(evCols);
-  const evColIdMap = createIdMap(oldIds);
-  const newEvCols = renameKeys(evCols, evColIdMap);
-
-  // replace ev ids
-  for (const newEvCol of Object.values(newEvCols)) {
-    for (const [codeInfoId, evId] of Object.entries(newEvCol)) {
-      if (evId in evIdMap) {
-        newEvCol[codeInfoId] = evIdMap[evId];
-      }
-    }
-  }
-
-  return { newEvCols, evColIdMap };
 }

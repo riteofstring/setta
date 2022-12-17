@@ -1,5 +1,5 @@
-import { copyEV, copyEVCols } from 'src/enteredValues/save';
-import { copySectionConfigCol, copySectionConfigs } from 'src/sections/save';
+import { copyEV, copyEVCols } from 'src/enteredValues/copy';
+import { copySectionConfigCol, copySectionConfigs } from 'src/sections/copy';
 
 export function copyProjectDetails(project) {
   const { ev, evCols, sectionConfigs, sectionConfigCol, ...theRest } = project;

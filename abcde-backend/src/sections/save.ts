@@ -2,17 +2,10 @@ import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
 import {
   connectOrCreateColId,
-  createIdMap,
   deleteThenCreateCol,
   prismaNullOrConnect,
-  renameKeys,
 } from 'src/utils/utils';
-import {
-  SectionChildrenType,
-  SectionConfigColType,
-  SectionConfigType,
-  SectionType,
-} from './types';
+import { SectionChildrenType, SectionConfigType, SectionType } from './types';
 
 export async function saveSections(
   prisma: PrismaClient,
@@ -130,34 +123,4 @@ export async function saveSectionConfigCol(
 
   const inDbFormat = assembleSectionConfigCol(sectionConfigCol, colId);
   deleteThenCreateCol(prisma, prisma.sectionConfigCol, [colId], inDbFormat);
-}
-
-export function copySectionConfigs(
-  sectionConfigs: SectionConfigType,
-  evColIdMap,
-) {
-  const oldIds = Object.keys(sectionConfigs);
-  const sectionConfigIdMap = createIdMap(oldIds);
-  const newSectionConfigs = renameKeys(sectionConfigs, sectionConfigIdMap);
-
-  for (const curr of Object.values(newSectionConfigs)) {
-    curr.id = sectionConfigIdMap[curr.id];
-    if (curr.evColId in evColIdMap) {
-      curr.evColId = evColIdMap[curr.evColId];
-    }
-  }
-  return { newSectionConfigs, sectionConfigIdMap };
-}
-
-export function copySectionConfigCol(
-  sectionConfigCol: SectionConfigColType,
-  sectionConfigIdMap,
-) {
-  const newSectionConfigCol = _.cloneDeep(sectionConfigCol);
-  for (const [sectionId, configId] of Object.entries(newSectionConfigCol)) {
-    if (configId in sectionConfigIdMap) {
-      newSectionConfigCol[sectionId] = sectionConfigIdMap[configId];
-    }
-  }
-  return newSectionConfigCol;
 }
