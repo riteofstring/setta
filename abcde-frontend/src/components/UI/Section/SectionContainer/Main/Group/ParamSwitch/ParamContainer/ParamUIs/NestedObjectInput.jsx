@@ -1,6 +1,6 @@
 import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useActiveSection } from "models/activeSection";
-import { useUIEditor } from "models/uiEditor";
+import { SECTION_CONFIG_TAB, useUIEditor } from "models/uiEditor";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 
 export function NestedObjectInputConfig({ origin, ...props }) {
@@ -12,7 +12,7 @@ export function NestedObjectInputConfig({ origin, ...props }) {
 }
 
 function ButtonGoToSectionConfig({ paramChildId }) {
-  const setTabIndex = useUIEditor((x) => x.setTabIndex);
+  const setTab = useUIEditor((x) => x.setTab);
   const setActiveSection = useActiveSection((x) => x.setId);
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
 
@@ -20,7 +20,7 @@ function ButtonGoToSectionConfig({ paramChildId }) {
     if (paramChildId) {
       setActiveSection(paramChildId);
       setCameFromUIConfig(true);
-      setTabIndex(0);
+      setTab(SECTION_CONFIG_TAB);
     }
   };
   return <button onClick={onClick}>Configure section</button>;

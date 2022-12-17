@@ -1,8 +1,11 @@
 import { create } from "./utils";
 
+export const SECTION_CONFIG_TAB = "SectionConfig";
+export const UI_CONFIG_TAB = "UIConfig";
+
 export const useUIEditor = create((set) => ({
-  tabIndex: 0,
+  tab: SECTION_CONFIG_TAB,
   cameFromUIConfig: false,
-  setTabIndex: (payload) => set(() => ({ tabIndex: payload })),
+  setTab: (payload) => set(() => ({ tab: payload })),
   setCameFromUIConfig: (payload) => set(() => ({ cameFromUIConfig: payload })),
 }));

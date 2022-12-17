@@ -1,8 +1,11 @@
 import * as Tabs from "@radix-ui/react-tabs";
-
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { usePanes } from "models/panes";
-import { useUIEditor } from "models/uiEditor";
+import {
+  SECTION_CONFIG_TAB,
+  UI_CONFIG_TAB,
+  useUIEditor,
+} from "models/uiEditor";
 import { UI_EDITOR } from "utils/constants";
 import SectionConfig from "./SectionConfig/SectionConfig";
 import UIConfig from "./UIConfig/UIConfig";
@@ -14,25 +17,25 @@ const paneProps = {
 
 export default function UiEditor() {
   const vis = usePanes((x) => x.vis[paneProps.paneName]);
-  const tabIndex = useUIEditor((x) => x.tabIndex);
-  const setTabIndex = useUIEditor((x) => x.setTabIndex);
+  const tab = useUIEditor((x) => x.tab);
+  const setTab = useUIEditor((x) => x.setTab);
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
       <Tabs.Root
-        defaultValue="tab1"
+        defaultValue={SECTION_CONFIG_TAB}
         visibility={vis ? "visible" : "hidden"}
-        // index={tabIndex}
-        // onChange={setTabIndex}
+        value={tab}
+        onValueChange={setTab}
       >
         <Tabs.List className="flex gap-4">
-          <TabItem name="Card" value="tab1" />
-          <TabItem name="Parameters" value="tab2" />
+          <TabItem name="Card" value={SECTION_CONFIG_TAB} />
+          <TabItem name="Parameters" value={UI_CONFIG_TAB} />
         </Tabs.List>
-        <TabContent value="tab1">
+        <TabContent value={SECTION_CONFIG_TAB}>
           <SectionConfig />
         </TabContent>
-        <TabContent value="tab2">
+        <TabContent value={UI_CONFIG_TAB}>
           <UIConfig />
         </TabContent>
       </Tabs.Root>

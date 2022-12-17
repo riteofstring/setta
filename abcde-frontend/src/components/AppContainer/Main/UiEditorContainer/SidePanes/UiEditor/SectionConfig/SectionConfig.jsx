@@ -6,7 +6,7 @@ import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useUIEditor } from "models/uiEditor";
+import { UI_CONFIG_TAB, useUIEditor } from "models/uiEditor";
 import React, { useState } from "react";
 import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import SectionConfigComp from "./SectionConfigComp";
@@ -19,7 +19,7 @@ function SectionConfig() {
   const setActiveSection = useActiveSection((x) => x.setId);
   const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
-  const setTabIndex = useUIEditor((x) => x.setTabIndex);
+  const setTab = useUIEditor((x) => x.setTab);
   const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
   const [currTypeId, savedConfig] = useGetSectionType(sectionId, [
     "id",
@@ -29,7 +29,7 @@ function SectionConfig() {
   const onGoBackClick = () => {
     setActiveSection(parentId);
     setCameFromUIConfig(false);
-    setTabIndex(1);
+    setTab(UI_CONFIG_TAB);
   };
 
   const onSectionTypeChange = (e) => {

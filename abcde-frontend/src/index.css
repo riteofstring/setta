@@ -16,28 +16,28 @@ body {
 }
 
 body::-webkit-scrollbar {
-  width: 0.5rem; 
-  height: 0.5rem; 
-  background-color: white; 
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: white;
 }
 
-body *::-webkit-scrollbar{
-  width: 0.5rem; 
-  height: 0.5rem; 
-  background-color: white; 
+body *::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: white;
 }
 
-body *{
+body * {
   scrollbar-width: thin;
   scrollbar-height: thin;
   scrollbar-color: gray transparent;
 }
 
-::-webkit-scrollbar-corner{
+::-webkit-scrollbar-corner {
   background: gray;
 }
 
-body::-webkit-scrollbar-track{
+body::-webkit-scrollbar-track {
   background: gray;
 }
 
@@ -45,13 +45,13 @@ body *::-webkit-scrollbar-track {
   background: white;
 }
 
-body::-webkit-scrollbar-thumb{
+body::-webkit-scrollbar-thumb {
   background-color: gray;
   border: 1px solid transparent;
   border-radius: 0.5rem;
 }
 
-body *::-webkit-scrollbar-thumb{
+body *::-webkit-scrollbar-thumb {
   background-color: gray;
   border: 1px solid transparent;
   border-radius: 0.5rem;
