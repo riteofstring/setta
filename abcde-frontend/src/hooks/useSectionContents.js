@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
-import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { defaultState, maybeUseNullId } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
@@ -50,17 +49,4 @@ export function useGetParamInfos(sectionId, objInfoId) {
   );
   const paramCollections = useGetAllParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
-}
-
-export function useGetSelectedCollections(sectionId) {
-  const [collections] = useGetSectionTypeConfig(sectionId, ["collections"]);
-  return useCodeInfo((x) => _.pick(x.allCollections, collections), _.isEqual);
-}
-
-export function useGetSelectedCollectionsForSectionConfig(sectionId) {
-  const collections = useGetSelectedCollections(sectionId);
-  return useCodeInfo(
-    (x) => assembleCollectionsForSectionConfig(x.allCodeInfo, collections),
-    _.isEqual
-  );
 }
