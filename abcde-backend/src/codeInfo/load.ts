@@ -1,3 +1,4 @@
+import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
 import { KwargColsType } from 'src/kwargs/types';
 import { getOrderedChildren } from 'src/utils/utils';
@@ -67,4 +68,28 @@ export function processCodeInfo(codeInfo, childMap) {
     parentId: inCodeParentId,
     children,
   };
+}
+
+export async function getCollectionsAndModules(
+  prisma: PrismaClient,
+  searchTerm: string,
+) {
+  const results = await prisma.codeInfo.findMany({
+    where: { name: { contains: searchTerm }, rcType: 'collection' },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      path: true,
+      asParent: {
+        select: { child: { select: { id: true, name: true, path: true } } },
+      },
+    },
+  });
+  const processed = results.map((x) => {
+    const output = { ...x, children: x.asParent.map((y) => y.child) };
+    delete output.asParent;
+    return output;
+  });
+  return _.keyBy(processed, 'id');
 }
