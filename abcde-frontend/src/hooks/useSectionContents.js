@@ -5,11 +5,15 @@ import { defaultState, maybeUseNullId } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useGetCurrObjParamKwargInfos(sectionId) {
+export function useGetCurrObjParamKwargInfos(sectionId, mustHaveName = false) {
   const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
-  const paramInfos = useGetAllParamInfos(sectionId, selectedItem);
+  const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
-  return [...paramInfos, ...kwargInfos];
+  const output = [...paramInfos, ...kwargInfos];
+  if (mustHaveName) {
+    return output.filter((x) => x.name);
+  }
+  return output;
 }
 
 function useGetCollectionChildren(sectionId, type) {
@@ -42,7 +46,7 @@ export function useGetKwargInfos(sectionId, objInfoId) {
   return useCodeInfo((x) => kwargIds.map((y) => x.allCodeInfo[y]), _.isEqual);
 }
 
-export function useGetAllParamInfos(sectionId, objInfoId) {
+export function useGetParamInfos(sectionId, objInfoId) {
   const objParamInfos = useCodeInfo(
     (x) => (objInfoId ? x.params[objInfoId] : []),
     _.isEqual
