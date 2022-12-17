@@ -1,7 +1,12 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+
 export function Item({ children, onClick }) {
   return (
-    <div className="text-sm flex flex-row gap-1" onClick={onClick}>
+    <DropdownMenu.Item
+      className="text-sm flex flex-row gap-1"
+      onClick={onClick}
+    >
       {children}
-    </div>
+    </DropdownMenu.Item>
   );
 }

@@ -4,12 +4,12 @@ import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
 export default function SaveLoadModal({
-  trigger,
   modalType,
   files,
   onClickLoadProject,
   onClickSaveAsProject,
   currProjectId,
+  children,
 }) {
   const [selected, setSelected] = useState({});
   const [configName, setConfigName] = useState("");
@@ -29,7 +29,6 @@ export default function SaveLoadModal({
 
   return (
     <ModalContainer
-      trigger={trigger}
       body={
         <Body
           files={files}
@@ -48,33 +47,10 @@ export default function SaveLoadModal({
           onClick={onClickSaveOrLoad}
         />
       }
-    />
+    >
+      {children}
+    </ModalContainer>
   );
-
-  // return (
-  //   <ModalContainer
-  //     onClose={localOnClose}
-  //     isOpen={isOpen}
-  // body={
-  //   <Body
-  //     files={files}
-  //     setSelected={setSelected}
-  //     modalType={modalType}
-  //     currProjectId={currProjectId}
-  //     selected={selected}
-  //     configName={configName}
-  //     setConfigName={setConfigName}
-  //   />
-  //     }
-  //   footer={
-  //     <Footer
-  //       buttonText={modalType}
-  //       onClose={localOnClose}
-  //       onClick={onClickSaveOrLoad}
-  //     />
-  //   }
-  // />
-  // );
 }
 
 function Body({
