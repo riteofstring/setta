@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as _ from 'lodash';
 import { PrismaService } from 'src/prisma.service';
 import { createAllInfo } from './infoFactory';
-import { getCodeInfo } from './loadingFunctions';
+import { getCodeInfo } from './load';
 
 @Injectable()
 export class CodeInfoService {

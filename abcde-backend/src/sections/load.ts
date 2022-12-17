@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import { getUITypeCols, getUITypesByWhere } from 'src/uiTypes/loadingFunctions';
+import { getUITypeCols, getUITypesByWhere } from 'src/uiTypes/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
 export async function getSections(prisma, ids) {

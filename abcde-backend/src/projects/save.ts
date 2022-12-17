@@ -1,14 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
-import { saveKwargInfo } from 'src/codeInfo/savingFunctions';
-import { saveAllProjectConfigCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
-import {
-  copyEV,
-  copyEVCols,
-  saveEV,
-  saveEVCols,
-} from 'src/enteredValues/savingFunctions';
-import { saveKwargCols } from 'src/kwargs/savingFunctions';
+import { saveKwargInfo } from 'src/codeInfo/save';
+import { saveAllProjectConfigCodeInfoMaps } from 'src/codeInfoMaps/save';
+import { copyEV, copyEVCols, saveEV, saveEVCols } from 'src/enteredValues/save';
+import { saveKwargCols } from 'src/kwargs/save';
 import {
   copySectionConfigCol,
   copySectionConfigs,
@@ -16,8 +11,8 @@ import {
   saveSectionConfigCol,
   saveSectionConfigs,
   saveSections,
-} from 'src/sections/savingFunctions';
-import { saveUITypeCols, saveUITypes } from 'src/uiTypes/savingFunctions';
+} from 'src/sections/save';
+import { saveUITypeCols, saveUITypes } from 'src/uiTypes/save';
 import { createNewId, renameKeys } from 'src/utils/utils';
 
 export async function saveMultipleProjectDetails(

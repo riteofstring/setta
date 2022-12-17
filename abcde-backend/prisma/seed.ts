@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
-import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
-import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
-import { saveMultipleProjectDetails } from 'src/projects/savingFunctions';
-import { saveUITypes } from 'src/uiTypes/savingFunctions';
-import { saveUsers } from 'src/users/savingFunctions';
+import { saveCodeInfo } from 'src/codeInfo/save';
+import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/save';
+import { saveMultipleProjectDetails } from 'src/projects/save';
+import { saveUITypes } from 'src/uiTypes/save';
+import { saveUsers } from 'src/users/save';
 import { UserType } from 'src/users/types';
 import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();

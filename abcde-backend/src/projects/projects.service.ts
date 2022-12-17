@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import * as _ from 'lodash';
-import { getCodeInfoForSectionsAndKwargs } from 'src/codeInfo/loadingFunctions';
+import { getCodeInfoForSectionsAndKwargs } from 'src/codeInfo/load';
 import {
   getProjectConfigCodeInfoMaps,
   getUserCodeInfoMaps,
-} from 'src/codeInfoMaps/loadingFunctions';
+} from 'src/codeInfoMaps/load';
 import { PrismaService } from 'src/prisma.service';
-import { getSectionConfigs, getSections } from 'src/sections/loadingFunctions';
-import { getBaseUITypes, getPresetUITypes } from 'src/uiTypes/loadingFunctions';
-import { getProject, getProjectConfig } from './loadingFunctions';
+import { getSectionConfigs, getSections } from 'src/sections/load';
+import { getBaseUITypes, getPresetUITypes } from 'src/uiTypes/load';
+import { getProject, getProjectConfig } from './load';
 import {
   createProject,
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProjectDetails,
-} from './savingFunctions';
+} from './save';
 
 @Injectable()
 export class ProjectsService {

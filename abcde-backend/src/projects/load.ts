@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
-import { getSectionPositions } from 'src/sections/loadingFunctions';
+import { getSectionPositions } from 'src/sections/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
 export async function getProject(prisma: PrismaClient, id) {
