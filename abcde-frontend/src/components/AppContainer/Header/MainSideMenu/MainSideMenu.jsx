@@ -1,7 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { logout } from "dbRequests/authentication";
 import { resetAllSlices } from "models/utils";
 import { FiMenu } from "react-icons/fi";
-import { logout } from "thunks/authentication";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
 import { Item } from "utils/atoms/dropdown/item";
 

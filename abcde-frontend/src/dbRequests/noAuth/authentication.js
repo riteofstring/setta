@@ -1,19 +1,19 @@
-export function noAuthAccessPage({ actionStayLoggedIn }) {
-  actionStayLoggedIn();
+export function noAuthAccessPage({ stayLoggedIn }) {
+  stayLoggedIn();
   return true;
 }
 
-export function noAuthLogin({ actionLoginSuccess }) {
-  actionLoginSuccess({ access_token: "12345" });
+export function noAuthLogin({ loginSuccess }) {
+  loginSuccess({ access_token: "12345" });
   return true;
 }
 
-export function noAuthLogout({ actionLoginFail }) {
-  actionLoginFail(null);
+export function noAuthLogout({ loginFail }) {
+  loginFail(null);
   return;
 }
 
-export function noAuthRegister({ actionLoginSuccess }) {
-  actionLoginSuccess({ access_token: "12345" });
+export function noAuthRegister({ loginSuccess }) {
+  loginSuccess({ access_token: "12345" });
   return true;
 }

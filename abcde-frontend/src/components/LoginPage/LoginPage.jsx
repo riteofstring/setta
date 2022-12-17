@@ -1,7 +1,7 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { login } from "dbRequests/authentication";
 import { useFormik } from "formik";
 import React, { useState } from "react";
-import { login } from "thunks/authentication";
 
 const LoginPage = () => {
   const [show, setShow] = useState(false);

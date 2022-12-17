@@ -1,4 +1,5 @@
 import axios from "axios";
+import { useAuth } from "models/auth";
 import { BACKEND, NO_AUTH } from "utils/constants";
 import {
   noAuthAccessPage,
@@ -7,82 +8,84 @@ import {
   noAuthRegister,
 } from "./noAuth/authentication";
 
-export function accessPage({
-  address,
-  access_token,
-  actionStayLoggedIn,
-  actionLoginFail,
-}) {
+export function accessPage({ address }) {
+  const s = useAuth.getState();
+  const access_token = s.access_token;
+  const stayLoggedIn = s.stayLoggedIn;
+  const loginFail = s.loginFail;
+
   if (NO_AUTH) {
-    return noAuthAccessPage({ actionStayLoggedIn });
+    return noAuthAccessPage({ stayLoggedIn });
   }
 
   return axios
     .post(BACKEND + address, null, tokenConfig(access_token))
     .then(() => {
-      actionStayLoggedIn();
+      stayLoggedIn();
       return true;
     })
     .catch(() => {
-      actionLoginFail();
+      loginFail();
       return false;
     });
 }
 
-export function login({
-  username,
-  password,
-  actionLoginSuccess,
-  actionLoginFail,
-}) {
+export function login({ username, password }) {
+  const s = useAuth.getState();
+  const loginSuccess = s.loginSuccess;
+  const loginFail = s.loginFail;
+
   if (NO_AUTH) {
-    return noAuthLogin({ actionLoginSuccess });
+    return noAuthLogin({ loginSuccess });
   }
 
   return axios
     .post(BACKEND + "auth/login", { username, password }, tokenConfig(null))
     .then((res) => {
-      actionLoginSuccess(res.data);
+      loginSuccess(res.data);
       return true;
     })
     .catch(() => {
-      actionLoginFail();
+      loginFail();
       return false;
     });
 }
 
-export function logout({ actionLoginFail, access_token }) {
+export function logout() {
+  const s = useAuth.getState();
+  const access_token = s.access_token;
+  const loginFail = s.loginFail;
+
   if (NO_AUTH) {
-    return noAuthLogout({ actionLoginFail });
+    return noAuthLogout({ loginFail });
   }
 
   axios
     .post(BACKEND + "api/auth/logout", null, tokenConfig(access_token))
     .then(() => {
-      actionLoginFail();
+      loginFail();
     })
     .catch(() => {
-      actionLoginFail();
+      loginFail();
     });
 }
 
-export function register({
-  username,
-  password,
-  actionLoginSuccess,
-  actionLoginFail,
-}) {
+export function register({ username, password }) {
+  const s = useAuth.getState();
+  const loginSuccess = s.loginSuccess;
+  const loginFail = s.loginFail;
+
   if (NO_AUTH) {
-    return noAuthRegister({ actionLoginSuccess });
+    return noAuthRegister({ loginSuccess });
   }
 
   axios
     .post(BACKEND + "auth/register", { username, password }, tokenConfig(null))
     .then((res) => {
-      actionLoginSuccess(res.data);
+      loginSuccess(res.data);
     })
     .catch(() => {
-      actionLoginFail();
+      loginFail();
     });
 }
 

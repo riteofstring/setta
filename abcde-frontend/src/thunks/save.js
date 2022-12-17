@@ -4,7 +4,6 @@ import {
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import _ from "lodash";
-import { useAuth } from "models/auth";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useObjInfos } from "models/info/objInfos";
@@ -119,8 +118,7 @@ async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
 
 function assembleProject(reactFlowStore) {
   updateInitialPositions(reactFlowStore);
-  const access_token = useAuth.getState().access_token;
-  return { project: getProjectData(), access_token };
+  return { project: getProjectData() };
 }
 
 function updateInitialPositions(reactFlowStore) {

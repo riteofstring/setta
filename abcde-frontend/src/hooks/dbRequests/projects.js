@@ -1,5 +1,5 @@
+import { createProject, getProjects } from "dbRequests/projects";
 import { useState } from "react";
-import { createProject, getProjects } from "thunks/projects";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});

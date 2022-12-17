@@ -1,14 +1,10 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { register } from "dbRequests/authentication.js";
 import { useFormik } from "formik";
-import { useAuth } from "models/auth";
 import React from "react";
 import * as Yup from "yup";
 
 const SignUpPage = () => {
-  const actionLoginSuccess = useAuth((x) => x.loginSuccess);
-  const actionLoginFail = useAuth((x) => x.loginFail);
-
   const { handleSubmit, handleChange, values, touched, errors, handleBlur } =
     useFormik({
       initialValues: {
@@ -36,8 +32,6 @@ const SignUpPage = () => {
           username,
           email,
           password,
-          actionLoginSuccess,
-          actionLoginFail,
         });
       },
     });

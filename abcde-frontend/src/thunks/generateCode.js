@@ -1,5 +1,4 @@
 import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
-import { useAuth } from "models/auth";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -29,6 +28,5 @@ export function getProjectDataToGenerateCode() {
 
 export async function generateCode({ codeId }) {
   const project = getProjectDataToGenerateCode();
-  const access_token = useAuth.getState().access_token;
-  return await generateCodeDb({ access_token, codeId, project });
+  return await generateCodeDb({ codeId, project });
 }
