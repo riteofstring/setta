@@ -18,7 +18,7 @@ export default function SectionConfigComp({
     <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
       <div className="flex flex-col pt-1">
         <ul className="flex flex-col flex-grow gap-3">
-          {_.values(allResults).map((x) => (
+          {Object.values(allResults).map((x) => (
             <SearchItem
               id={x.id}
               name={x.name}

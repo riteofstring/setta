@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
@@ -11,7 +10,7 @@ export default function RefInput({ value, onBlur, className }) {
 
   return (
     <IdNameCombobox
-      allItems={_.values(availableSections)}
+      allItems={Object.values(availableSections)}
       initialSelection={value}
       onSelectedItemChange={onBlur}
       className={className}
