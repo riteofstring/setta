@@ -1,4 +1,3 @@
-import { useDisclosure } from "@chakra-ui/react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import _ from "lodash";
@@ -19,28 +18,24 @@ export default function SectionConfigComp({
     <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
       <div className="flex flex-col pt-1">
         <ul className="flex flex-col flex-grow gap-3">
-          {/* <List spacing={3} flexGrow="1"> */}
           {_.values(allResults).map((x) => (
             <SearchItem
               id={x.id}
               name={x.name}
               description={x.description}
               details={x.children}
-              isChecked={isSelected(x.id, savedConfig)}
+              checked={isSelected(x.id, savedConfig)}
               onChange={onChange}
               key={`SearchItem-${x.id}`}
             />
           ))}
-          {/* </List> */}
         </ul>
       </div>
     </div>
   );
 }
 
-function SearchItem({ id, name, description, details, isChecked, onChange }) {
-  const { isOpen, onToggle } = useDisclosure();
-
+function SearchItem({ id, name, description, details, checked, onChange }) {
   function onCheckboxChange(e) {
     onChange({ newValueFn: checkboxChangeFn(e.target.checked, id), id });
   }
@@ -51,12 +46,12 @@ function SearchItem({ id, name, description, details, isChecked, onChange }) {
         <input
           type="checkbox"
           className="h-4 w-4 border-2 rounded-full items-start mt-1 mr-2"
-          isChecked={isChecked}
+          checked={checked}
           onChange={onCheckboxChange}
         />
         <label>
           <ObjCollectionDetails details={details}>
-            <div className="flex flex-col self-stretch" onClick={onToggle}>
+            <div className="flex flex-col self-stretch">
               <h2 className="text-md font-bold text-gray-500">{name}</h2>
               <p className="text-sm mt-1">{description}</p>
             </div>
@@ -84,9 +79,6 @@ function ObjCollectionDetails({ children, details }) {
         </div>
       </Collapsible.Content>
     </Collapsible.Root>
-    // <Collapse in={isOpen} animateOpacity>
-
-    // </Collapse>
   );
 }
 
