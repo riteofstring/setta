@@ -1,5 +1,4 @@
-import { MenuItem, MenuList } from "@chakra-ui/react";
-
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
 
@@ -19,10 +18,12 @@ export function PaneContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <MenuList zIndex={10}>
-        <MenuItem onClick={() => onClick(false)}>New Section</MenuItem>
-        <MenuItem onClick={() => onClick(true)}>New Deck</MenuItem>
-      </MenuList>
+      <DropdownMenu.Item onClick={() => onClick(false)}>
+        New Section
+      </DropdownMenu.Item>
+      <DropdownMenu.Item onClick={() => onClick(true)}>
+        New Deck
+      </DropdownMenu.Item>
     </ContextMenuCore>
   );
 }

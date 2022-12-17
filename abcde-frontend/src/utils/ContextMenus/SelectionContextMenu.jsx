@@ -1,4 +1,4 @@
-import { MenuItem, MenuList } from "@chakra-ui/react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { deleteSections, moveSections } from "thunks/sectionOps";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
@@ -30,10 +30,10 @@ export function SelectionContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <MenuList zIndex={10}>
-        <MenuItem onClick={() => onClickCreateDeck(true)}>Create Deck</MenuItem>
-        <MenuItem onClick={onClickDelete}>Delete</MenuItem>
-      </MenuList>
+      <DropdownMenu.Item onClick={() => onClickCreateDeck(true)}>
+        Create Deck
+      </DropdownMenu.Item>
+      <DropdownMenu.Item onClick={onClickDelete}>Delete</DropdownMenu.Item>
     </ContextMenuCore>
   );
 }

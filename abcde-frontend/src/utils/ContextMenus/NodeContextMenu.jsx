@@ -1,4 +1,4 @@
-import { MenuItem, MenuList } from "@chakra-ui/react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useUndeck } from "hooks/useUndeck";
 import { DECK } from "utils/constants";
@@ -18,9 +18,7 @@ export function NodeContextMenu(props) {
 
   return nodeIsDeck ? (
     <ContextMenuCore {...props}>
-      <MenuList zIndex={10}>
-        <MenuItem onClick={onClick}>Undeck</MenuItem>
-      </MenuList>
+      <DropdownMenu.Item onClick={onClick}>Undeck</DropdownMenu.Item>
     </ContextMenuCore>
   ) : null;
 }

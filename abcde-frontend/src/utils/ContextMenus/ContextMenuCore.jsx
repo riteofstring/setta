@@ -1,28 +1,25 @@
-import { Menu, MenuButton, Portal } from "@chakra-ui/react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useEffect, useRef } from "react";
 
 export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
   const ref = useOutsideAlerter(isOpen, closeContextMenu);
 
   return (
-    <Portal>
-      <div ref={ref}>
-        <Menu isOpen={isOpen} gutter={0}>
-          <MenuButton
-            aria-hidden={true}
-            w={1}
-            h={1}
-            style={{
-              position: "absolute",
-              left: x,
-              top: y,
-              cursor: "default",
-            }}
-          />
+    <div ref={ref}>
+      <DropdownMenu.Root open={isOpen} modal={false}>
+        <DropdownMenu.Content
+          style={{
+            position: "absolute",
+            left: x,
+            top: y,
+            cursor: "default",
+            zIndex: 10,
+          }}
+        >
           {children}
-        </Menu>
-      </div>
-    </Portal>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    </div>
   );
 }
 
