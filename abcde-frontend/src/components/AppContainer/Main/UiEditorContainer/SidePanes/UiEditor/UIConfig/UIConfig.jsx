@@ -10,7 +10,6 @@ import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { USER } from "utils/uiTypeConstants";
 import { cloneNewUIType } from "utils/uiTypeUtils";
-
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 export default React.memo(UIConfig);
@@ -34,13 +33,14 @@ function UIConfig() {
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>
-      {filteredList.map((e, idx) => (
-        <UIElement
-          sectionId={sectionId}
-          paramInfo={e}
-          key={`${e.name}-${idx}`}
-        />
-      ))}
+      {sectionId &&
+        filteredList.map((e, idx) => (
+          <UIElement
+            sectionId={sectionId}
+            paramInfo={e}
+            key={`${e.name}-${idx}`}
+          />
+        ))}
     </div>
   );
 }

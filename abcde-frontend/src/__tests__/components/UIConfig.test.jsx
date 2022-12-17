@@ -12,7 +12,7 @@ test("Delete active section while ui config pane is open", async () => {
   await userEvent.click(uiConfigButton);
 
   // set activeSection to sectionId
-  const sectionId = sectionIdFromName("Optimizer");
+  const sectionId = sectionIdFromName("Model");
   await waitFor(() => useActiveSection.getState().setId(sectionId));
 
   // should run without error
