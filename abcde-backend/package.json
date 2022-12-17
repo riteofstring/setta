@@ -20,7 +20,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "yarn test --config ./test/jest-e2e.json",
     "f": "yarn prettier src test prisma --write",
-    "linkutils": "cd ../abcde-utils && yarn && yarn link && cd ../abcde-backend && yarn link abcde-utils"
+    "linkutils": "cd ../abcde-utils && yarn && yarn link && cd ../abcde-backend && yarn link abcde-utils",
+    "linktest": "cd ../abcde-test && yarn && yarn link && cd ../abcde-backend && yarn link abcde-test"
   },
   "dependencies": {
     "@nestjs/common": "9.0.0",

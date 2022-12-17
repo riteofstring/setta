@@ -1,11 +1,14 @@
 import { PrismaClient } from '@prisma/client';
+import {
+  loadAllProjects,
+  loadSpecificTestData,
+} from 'abcde-test/src/loadTestData';
 import { saveCodeInfo } from 'src/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/save';
 import { saveMultipleProjectDetails } from 'src/projects/save';
 import { saveUITypes } from 'src/uiTypes/save';
 import { saveUsers } from 'src/users/save';
 import { UserType } from 'src/users/types';
-import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
 
 async function main() {

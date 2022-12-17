@@ -1,8 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  loadAllProjects,
+  loadSpecificTestData,
+} from 'abcde-test/src/loadTestData';
 import { AppModule } from 'src/app.module';
 import * as request from 'supertest';
-import { loadAllProjects, loadSpecificTestData } from '../utils';
 
 const TEST_USER = '25961114-6655-4e2c-b70f-e2e3aaa84131';
 
