@@ -1,3 +1,4 @@
+import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import {
   rootTypeToChildSubType,
@@ -5,7 +6,6 @@ import {
   SECTION_TYPE_NAMES,
   SET_FROM_SIDEPANE,
 } from "./constants";
-import { createNewId } from "./utils";
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);

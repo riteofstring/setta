@@ -1,10 +1,6 @@
 import { arrayMove } from "@dnd-kit/sortable";
+import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
-import { v4 as uuidv4 } from "uuid";
-
-export const createNewId = () => {
-  return uuidv4();
-};
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));

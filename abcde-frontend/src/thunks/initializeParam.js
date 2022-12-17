@@ -1,3 +1,4 @@
+import { createNewId } from "abcde-utils/src/utils";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useEnteredValues } from "models/info/enteredValues";
@@ -9,7 +10,7 @@ import {
   DEFAULT_BASE_UI_TYPE_ID,
   requiresNestedSection,
 } from "utils/constants";
-import { createNewId, curryAction } from "utils/utils";
+import { curryAction } from "utils/utils";
 import { addChild } from "./addChild";
 
 export function initializeParam({ sectionId, paramInfo }) {
