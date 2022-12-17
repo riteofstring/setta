@@ -31,7 +31,7 @@ export async function getCollectionDetails(id) {
   if (NO_AUTH) {
     results = await noAuthGetCollectionDetails(id);
   } else {
-    results = axios
+    results = await axios
       .post(BACKEND + "codeInfo/getCollectionDetails", { codeInfoId: id })
       .then((res) => {
         return res.data;
@@ -41,5 +41,5 @@ export async function getCollectionDetails(id) {
       });
   }
 
-  s.updateCodeInfo(results);
+  s.updateInfos(results);
 }
