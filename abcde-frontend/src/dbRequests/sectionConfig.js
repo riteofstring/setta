@@ -1,22 +1,23 @@
 import axios from "axios";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { BACKEND, NO_AUTH } from "utils/constants";
 import {
   noAuthGetCollectionDetails,
   noAuthGetCollectionsAndModules,
 } from "./noAuth/sectionConfig";
 
-function searchCollectionsInMemory({ allCollections, searchTerm }) {
+function searchCollectionsInMemory({ searchTerm }) {
+  const allCollections = useCodeInfo.getState().allCollections;
   if (!searchTerm) {
     return allCollections;
   }
   return _.pickBy(allCollections, (x) => x.name.includes(searchTerm));
 }
 
-export async function getCollectionsAndModules({ allCollections, searchTerm }) {
+export async function getCollectionsAndModules({ searchTerm }) {
   if (NO_AUTH) {
     return await noAuthGetCollectionsAndModules({
-      allCollections,
       searchTerm,
       searchCollectionsInMemory,
     });
@@ -27,7 +28,7 @@ export async function getCollectionsAndModules({ allCollections, searchTerm }) {
     .then((res) => {
       return {
         ...res.data,
-        ...searchCollectionsInMemory({ allCollections, searchTerm }),
+        ...searchCollectionsInMemory({ searchTerm }),
       };
     })
     .catch(() => {

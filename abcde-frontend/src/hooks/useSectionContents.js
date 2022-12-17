@@ -50,3 +50,9 @@ export function useGetParamInfos(sectionId, objInfoId) {
   const paramCollections = useGetAllParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
 }
+
+export function useGetSelectedCollections(sectionId) {
+  const collections = useGetSectionTypeConfig(sectionId, ["collections"]);
+  console.log("collections", collections);
+  return useCodeInfo((x) => _.pick(x.allCollections, collections), _.isEqual);
+}

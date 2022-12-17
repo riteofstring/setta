@@ -1,18 +1,12 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
-import _ from "lodash";
+import { useGetSelectedCollections } from "hooks/useSectionContents";
 import { checkboxChangeFn } from "utils/utils";
 
-export default function SectionConfigComp({
-  savedConfig,
-  onChange,
-  allCollections,
-  results,
-}) {
-  const selectedCollections = _.pickBy(allCollections, (x) =>
-    isSelected(x.id, savedConfig)
-  );
+export default function SectionConfigComp({ sectionId, onChange, results }) {
+  const selectedCollections = useGetSelectedCollections(sectionId);
   const allResults = { ...selectedCollections, ...results };
+  console.log("selectedCollections", selectedCollections);
 
   return (
     <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
@@ -24,7 +18,7 @@ export default function SectionConfigComp({
               name={x.name}
               description={x.description}
               details={x.children}
-              checked={isSelected(x.id, savedConfig)}
+              checked={x.id in selectedCollections}
               onChange={onChange}
               key={`SearchItem-${x.id}`}
             />
@@ -63,7 +57,12 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
 }
 
 function ObjCollectionDetails({ children, details }) {
+  // console.log("details", details);
   const groupedDetails = useGroupedObjInfos(details);
+
+  // console.log("groupedDetails", groupedDetails);
+
+  // console.log("details", details)
 
   return (
     <Collapsible.Root>
@@ -88,8 +87,4 @@ function ObjListText({ objList }) {
       {x.name}
     </div>
   ));
-}
-
-function isSelected(id, savedConfig) {
-  return savedConfig?.collections.includes(id);
 }

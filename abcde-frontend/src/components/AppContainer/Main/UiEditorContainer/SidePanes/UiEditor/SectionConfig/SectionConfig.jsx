@@ -21,10 +21,7 @@ function SectionConfig() {
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
   const setTab = useUIEditor((x) => x.setTab);
   const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
-  const [currTypeId, savedConfig] = useGetSectionType(sectionId, [
-    "id",
-    "config",
-  ]);
+  const [currTypeId] = useGetSectionType(sectionId, ["id"]);
 
   const onGoBackClick = () => {
     setActiveSection(parentId);
@@ -52,7 +49,6 @@ function SectionConfig() {
         onSectionTypeChange={onSectionTypeChange}
         currTypeId={currTypeId}
         sectionId={sectionId}
-        savedConfig={savedConfig}
         onConfigChange={onConfigChange}
       />
     </>
@@ -63,20 +59,21 @@ function SectionConfigCore({
   onSectionTypeChange,
   currTypeId,
   sectionId,
-  savedConfig,
   onConfigChange,
 }) {
   const [results, setResults] = useState({});
-  const allCollections = useCodeInfo((x) => x.allCollections);
   const updateCodeInfos = useCodeInfo((x) => x.updateInfos);
 
+  // console.log("results", results);
+
   async function onSubmit(searchTerm) {
-    const x = await getCollectionsAndModules({ allCollections, searchTerm });
+    const x = await getCollectionsAndModules({ searchTerm });
     setResults(x);
   }
 
   async function onChange({ newValueFn, id }) {
     // collection needs to be retrieved from db
+    const allCollections = useCodeInfo.getState().allCollections;
     if (!(id in allCollections)) {
       const collectionDetails = await getCollectionDetails(id);
       updateCodeInfos(collectionDetails);
@@ -104,9 +101,8 @@ function SectionConfigCore({
       >
         <Search onSubmit={onSubmit} />
         <SectionConfigComp
-          savedConfig={savedConfig}
+          sectionId={sectionId}
           onChange={onChange}
-          allCollections={allCollections}
           results={results}
         />
       </div>
