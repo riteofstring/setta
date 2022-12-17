@@ -46,7 +46,11 @@ export function GlobalDndContext({ children }) {
       return;
     }
 
-    const activeContainer = active.data.current.sortable?.containerId;
+    let activeContainer = active.data.current.sortable?.containerId;
+    if (!activeContainer) {
+      activeContainer = PANEID;
+    }
+
     let overContainer = over?.data.current?.sortable.containerId;
     const overIsSortable = !!overContainer;
     if (!overContainer) {

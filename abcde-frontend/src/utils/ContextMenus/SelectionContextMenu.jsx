@@ -1,5 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { deleteSections, moveSections } from "thunks/sectionOps";
+import { PANEID } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
 
@@ -12,7 +13,11 @@ export function SelectionContextMenu({
   ...props
 }) {
   function afterAddSection(deckId) {
-    moveSections({ newParentId: deckId, sectionIds: nodeIds });
+    moveSections({
+      oldParentId: PANEID,
+      newParentId: deckId,
+      sectionIds: nodeIds,
+    });
   }
 
   const onClickCreateDeck = useOnClickAddSection({

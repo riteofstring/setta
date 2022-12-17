@@ -96,14 +96,14 @@ function setSectionAttrBasedOnNewParent({
   const sectionInfosState = useSectionInfos.getState();
   const projectConfigState = useProjectConfig.getState();
   // Remove child from old parent's list
-  if (oldParentId) {
+  if (oldParentId === PANEID) {
+    // This means it was a top level section
+    projectConfigState.deleteChildren([sectionId]);
+  } else {
     sectionInfosState.setAllChildren({
       sectionId: oldParentId,
       newStateFn: (x) => x.filter((y) => y !== sectionId),
     });
-  } else {
-    // This means it was a top level section
-    projectConfigState.deleteChildren([sectionId]);
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
