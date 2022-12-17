@@ -2,7 +2,7 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import React, { useState } from "react";
+import React from "react";
 import { setSectionConfigAttr } from "thunks/sections";
 import { isRoot, isSeriesElement, SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
@@ -23,7 +23,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const _isRoot = isRoot(sectionTypeName);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
-  const [isActive, setIsActive] = useState(false);
 
   function onSelectedItemChange(value) {
     setSectionConfigAttr({
@@ -33,13 +32,13 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     });
   }
 
-  const boxShadow = isActive || isActiveSection ? "shadow-2xl" : "shadow-md";
-  const outlineColor =
-    isActive && !isActiveSection
-      ? "outline-cyan-300"
-      : isActiveSection
-      ? "outline-blue-300"
-      : "outline-transparent";
+  const boxShadow = isActiveSection
+    ? "shadow-2xl"
+    : "shadow-md active:shadow-2xl";
+
+  const outlineColor = isActiveSection
+    ? "outline-blue-300"
+    : "outline-transparent active:outline-cyan-300";
 
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
@@ -50,8 +49,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         width: `${SECTIONWIDTH}px`,
       }}
       onClick={() => setActiveSection(sectionId)}
-      onMouseDown={() => !isActive && setIsActive(true)}
-      onMouseUp={() => isActive && setIsActive(false)}
       data-testid={`${sectionId} section core`}
     >
       <div
