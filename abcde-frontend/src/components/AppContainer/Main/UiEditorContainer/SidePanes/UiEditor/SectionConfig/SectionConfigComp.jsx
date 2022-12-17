@@ -70,10 +70,10 @@ function ObjCollectionDetails({ children, details }) {
       <Collapsible.Trigger>{children}</Collapsible.Trigger>
       <Collapsible.Content>
         <div className="p-[40px] text-white mt-2 bg-teal-500 rounded-md shadow-md">
-          {_.keys(groupedDetails).map((x) => (
-            <div key={`ObjCollectionDetails-${x}`}>
-              {x}
-              <ObjListText objList={groupedDetails[x]} />
+          {Object.entries(groupedDetails).map(([k, v]) => (
+            <div key={`ObjCollectionDetails-${k}`}>
+              {k}
+              <ObjListText objList={v} />
             </div>
           ))}
         </div>

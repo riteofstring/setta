@@ -44,8 +44,7 @@ export function moveSections({
   oldParentId,
   newParentId,
 }) {
-  let idx = 0;
-  for (const sectionId of sectionIds) {
+  for (const [idx, sectionId] of sectionIds.entries()) {
     moveSection({
       oldParentId: oldParentIds ? oldParentIds[sectionId] : oldParentId,
       newParentId: newParentIds ? newParentIds[sectionId] : newParentId,
@@ -53,7 +52,6 @@ export function moveSections({
       newIndex: idx,
       position: positions ? positions[sectionId] : null,
     });
-    idx += 1;
   }
 }
 

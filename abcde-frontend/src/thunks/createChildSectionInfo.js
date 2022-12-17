@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -49,5 +48,5 @@ export function createChildSectionInfo({
   sectionInfosState.setSectionInfo((x) => ({ ...x, ...newInfos }));
   sectionConfigState.setSectionConfig((x) => ({ ...x, ...newConfigs }));
 
-  return _.keys(newInfos);
+  return Object.keys(newInfos);
 }

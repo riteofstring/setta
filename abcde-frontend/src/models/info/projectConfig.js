@@ -24,5 +24,5 @@ export const useProjectConfig = create((set, get) => ({
     })),
   setAll: (payload) => set(payload),
   reset: () => set(initialState),
-  getAll: () => _.pick(get(), _.keys(initialState)),
+  getAll: () => _.pick(get(), Object.keys(initialState)),
 }));

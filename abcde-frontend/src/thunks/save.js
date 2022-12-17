@@ -135,9 +135,9 @@ function updateInitialPositions(reactFlowStore) {
 function assembleKwargInfos(kwargCols) {
   let kwargInfos = {};
   const codeInfoState = useCodeInfo.getState();
-  for (const kwargColId of _.keys(kwargCols)) {
-    for (const objInfoId of _.keys(kwargCols[kwargColId])) {
-      for (const kwargId of kwargCols[kwargColId][objInfoId]) {
+  for (const kwargCol of Object.values(kwargCols)) {
+    for (const kwargIds of Object.values(kwargCol)) {
+      for (const kwargId of kwargIds) {
         kwargInfos[kwargId] = codeInfoState.allCodeInfo[kwargId];
       }
     }
