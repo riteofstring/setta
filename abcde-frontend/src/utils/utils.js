@@ -1,7 +1,6 @@
 import { arrayMove } from "@dnd-kit/sortable";
 import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
-import { NULL_OBJ_ID } from "./constants";
 
 export const createNewId = () => {
   return uuidv4();
@@ -84,8 +83,4 @@ export function checkboxChangeFn(checked, id) {
 
 export function maybeNewId(x) {
   return x ? x : createNewId();
-}
-
-export function maybeUseNullId(objInfoId) {
-  return objInfoId ? objInfoId : NULL_OBJ_ID;
 }

@@ -1,9 +1,9 @@
+import { maybeUseNullId } from "abcde-utils/src/utils";
 import { newCodeInfo } from "classes/immutableInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
 import { useParamInfos } from "models/info/paramInfos";
-import { maybeUseNullId } from "utils/utils";
 import { deleteChild } from "./deleteChild";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";

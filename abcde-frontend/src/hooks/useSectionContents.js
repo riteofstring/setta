@@ -1,8 +1,9 @@
+import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
-import { defaultState, maybeUseNullId } from "utils/utils";
+import { defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
