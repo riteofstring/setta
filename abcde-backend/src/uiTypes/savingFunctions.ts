@@ -1,31 +1,12 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
-
-interface UITypeConfig {
-  config: { [key: string]: any };
-}
-
-export interface SectionUITypeObj {
-  [id: string]: Prisma.SectionUITypeGetPayload<true> & UITypeConfig;
-}
-
-interface OriginInfoObj {
-  [originInfoId: string]: {
-    sectionId: string;
-    uiTypeColId: string;
-    paramInfoId: string;
-  };
-}
-
-interface UITypeObj {
-  [id: string]: Prisma.UITypeGetPayload<true> & OriginInfoObj;
-}
+import { UITypeType } from './types';
 
 async function saveCoreUITypes(
   prisma: PrismaClient,
   user: Prisma.UserGetPayload<true>,
-  uiTypes: UITypeObj,
+  uiTypes: UITypeType,
 ) {
   const userId = nullNotUndefined(user?.id);
   const data = Object.values(uiTypes).map((x) => {

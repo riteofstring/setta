@@ -1,13 +1,10 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
-
-interface CodeInfoObj {
-  [id: string]: Prisma.CodeInfoGetPayload<true> & { parentId: string };
-}
+import { CodeInfoType } from './types';
 
 export async function saveCodeInfo(
   prisma: PrismaClient,
-  codeInfo: CodeInfoObj,
+  codeInfo: CodeInfoType,
   upsert = false,
 ) {
   const vals = Object.values(codeInfo);

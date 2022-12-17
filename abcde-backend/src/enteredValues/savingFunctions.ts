@@ -1,15 +1,8 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { createIdMap, deleteThenCreateCol, renameKeys } from 'src/utils/utils';
+import { EVColType, EVType } from './types';
 
-interface EVObj {
-  [id: string]: Prisma.EVGetPayload<true>;
-}
-
-interface EVColObj {
-  [id: string]: { [codeInfoId: string]: string };
-}
-
-function assembleEV(ev: EVObj) {
+function assembleEV(ev: EVColType) {
   const inDbFormat = [];
   for (const [id, v] of Object.entries(ev)) {
     const curr = {
@@ -22,7 +15,7 @@ function assembleEV(ev: EVObj) {
   return inDbFormat;
 }
 
-export async function saveEV(prisma: PrismaClient, ev: EVObj) {
+export async function saveEV(prisma: PrismaClient, ev: EVType) {
   const inDbFormat = assembleEV(ev);
   await prisma.$transaction(
     inDbFormat.map((v) =>
@@ -63,7 +56,7 @@ export function copyEV(ev) {
   return { newEv, evIdMap };
 }
 
-export function copyEVCols(evCols: EVColObj, evIdMap) {
+export function copyEVCols(evCols: EVColType, evIdMap) {
   const oldIds = Object.keys(evCols);
   const evColIdMap = createIdMap(oldIds);
   const newEvCols = renameKeys(evCols, evColIdMap);

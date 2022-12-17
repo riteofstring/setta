@@ -3,7 +3,8 @@ import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
 import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
 import { saveMultipleProjectDetails } from 'src/projects/savingFunctions';
 import { saveUITypes } from 'src/uiTypes/savingFunctions';
-import { saveUsers, UserObj } from 'src/users/savingFunctions';
+import { saveUsers } from 'src/users/savingFunctions';
+import { UserType } from 'src/users/types';
 import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
 
@@ -37,7 +38,7 @@ async function seedBaseUITypes() {
 }
 
 async function seedProjects() {
-  const users: UserObj = await loadSpecificTestData({ name: 'Users' });
+  const users: UserType = await loadSpecificTestData({ name: 'Users' });
   const allProjects = await loadAllProjects({ forSavingToBackend: true });
   console.log('seedProjects');
   for (const user of Object.values(users)) {
@@ -50,7 +51,7 @@ async function seedProjects() {
 }
 
 async function seedUserCodeInfoMaps() {
-  const users: UserObj = await loadSpecificTestData({ name: 'Users' });
+  const users: UserType = await loadSpecificTestData({ name: 'Users' });
   const data = await loadSpecificTestData({ name: 'UserCodeInfoMaps' });
   console.log('seedUserCodeInfoMaps');
   for (const user of Object.values(users)) {

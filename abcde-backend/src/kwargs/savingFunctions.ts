@@ -1,13 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { deleteThenCreateCol } from 'src/utils/utils';
-
-export interface KwargColsObj {
-  [id: string]: { [codeInfoId: string]: string[] };
-}
+import { KwargColsType } from './types';
 
 export async function saveKwargCols(
   prisma: PrismaClient,
-  kwargCols: KwargColsObj,
+  kwargCols: KwargColsType,
 ) {
   const ids = Object.keys(kwargCols);
   await prisma.kwargColId.createMany({

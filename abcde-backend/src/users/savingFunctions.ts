@@ -1,13 +1,8 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
+import { UserType } from './types';
 
-export interface UserObj {
-  [id: string]: Prisma.UserGetPayload<{
-    include: { projects: { select: { id: true } } };
-  }>;
-}
-
-export async function saveUsers(prisma: PrismaClient, data: UserObj) {
+export async function saveUsers(prisma: PrismaClient, data: UserType) {
   await prisma.$transaction(
     Object.values(data).map((v) => {
       const curr = _.pick(v, ['id', 'name', 'password']);

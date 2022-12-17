@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
 import {
   connectOrCreateColId,
@@ -7,28 +7,16 @@ import {
   prismaNullOrConnect,
   renameKeys,
 } from 'src/utils/utils';
-
-interface SectionChildrenObj {
-  [id: string]: string[];
-}
-
-interface SectionConfigObj {
-  [id: string]: Prisma.SectionConfigGetPayload<{
-    include: { selectedItem: true };
-  }>;
-}
-
-interface SectionConfigColObj {
-  [id: string]: string;
-}
-
-interface SectionObj {
-  [id: string]: Prisma.SectionGetPayload<true> & { sectionChildrenId: string };
-}
+import {
+  SectionChildrenType,
+  SectionConfigColType,
+  SectionConfigType,
+  SectionType,
+} from './types';
 
 export async function saveSections(
   prisma: PrismaClient,
-  sections: SectionObj,
+  sections: SectionType,
   sectionChildren,
 ) {
   await prisma.sectionChildrenId.createMany({
@@ -66,7 +54,7 @@ export async function saveSections(
 
 export async function saveSectionChildren(
   prisma: PrismaClient,
-  sectionChildren: SectionChildrenObj,
+  sectionChildren: SectionChildrenType,
   sectionChildrenIds,
   sectionPositions = {},
 ) {
@@ -89,7 +77,7 @@ export async function saveSectionChildren(
   deleteThenCreateCol(prisma, prisma.sectionChildren, allColIds, inDbFormat);
 }
 
-function assembleSectionConfig(sectionConfigs: SectionConfigObj) {
+function assembleSectionConfig(sectionConfigs: SectionConfigType) {
   const inDbFormat = [];
   for (const v of Object.values(sectionConfigs)) {
     const curr = {
@@ -145,7 +133,7 @@ export async function saveSectionConfigCol(
 }
 
 export function copySectionConfigs(
-  sectionConfigs: SectionConfigObj,
+  sectionConfigs: SectionConfigType,
   evColIdMap,
 ) {
   const oldIds = Object.keys(sectionConfigs);
@@ -162,7 +150,7 @@ export function copySectionConfigs(
 }
 
 export function copySectionConfigCol(
-  sectionConfigCol: SectionConfigColObj,
+  sectionConfigCol: SectionConfigColType,
   sectionConfigIdMap,
 ) {
   const newSectionConfigCol = _.cloneDeep(sectionConfigCol);
