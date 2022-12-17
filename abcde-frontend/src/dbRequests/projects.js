@@ -1,7 +1,4 @@
-import axios from "axios";
-import { useAuth } from "models/auth";
-import { BACKEND, NO_AUTH } from "utils/constants";
-import { tokenConfig } from "./authentication";
+import { NO_AUTH } from "utils/constants";
 import {
   noAuthCreateProject,
   noAuthGetProjects,
@@ -10,21 +7,18 @@ import {
   noAuthSaveAsNewProjectConfig,
   noAuthSaveProject,
 } from "./noAuth/projects";
+import { post } from "./utils";
 
 export async function getProjects() {
   if (NO_AUTH) {
     return await noAuthGetProjects();
   }
 
-  const access_token = useAuth.getState().access_token;
-  return axios
-    .post(BACKEND + "projects", null, tokenConfig(access_token))
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return [];
-    });
+  return post({
+    address: "projects",
+    thenFn: (res) => res.data,
+    catchFn: () => [],
+  });
 }
 
 export async function loadProject({ id, configId }) {
@@ -32,19 +26,11 @@ export async function loadProject({ id, configId }) {
     return await noAuthLoadProject({ id, configId });
   }
 
-  const access_token = useAuth.getState().access_token;
-  return axios
-    .post(
-      BACKEND + `projects/load/${id}/${configId}`,
-      null,
-      tokenConfig(access_token)
-    )
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return [];
-    });
+  return post({
+    address: `projects/load/${id}/${configId}`,
+    thenFn: (res) => res.data,
+    catchFn: () => [],
+  });
 }
 
 export async function createProject({ name }) {
@@ -52,19 +38,12 @@ export async function createProject({ name }) {
     return await noAuthCreateProject({ name });
   }
 
-  const access_token = useAuth.getState().access_token;
-  return axios
-    .post(
-      BACKEND + `projects/createProject`,
-      { name },
-      tokenConfig(access_token)
-    )
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return [];
-    });
+  return post({
+    address: `projects/createProject`,
+    body: { name },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
+  });
 }
 
 export async function saveProject({ project }) {
@@ -72,38 +51,25 @@ export async function saveProject({ project }) {
     return await noAuthSaveProject();
   }
 
-  const access_token = useAuth.getState().access_token;
-  return axios
-    .post(
-      BACKEND + `projects/save`,
-      { access_token, project },
-      tokenConfig(access_token)
-    )
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return [];
-    });
+  return post({
+    address: `projects/save`,
+    body: { project },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
+  });
 }
 
 export async function saveAsNewProjectConfig({ project, newConfigName }) {
   if (NO_AUTH) {
     return await noAuthSaveAsNewProjectConfig();
   }
-  const access_token = useAuth.getState().access_token;
-  return axios
-    .post(
-      BACKEND + `projects/saveAsNewProjectConfig`,
-      { project, newConfigName },
-      tokenConfig(access_token)
-    )
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return [];
-    });
+
+  return post({
+    address: `projects/saveAsNewProjectConfig`,
+    body: { project, newConfigName },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
+  });
 }
 
 export async function saveAsExistingProjectConfig({ project, configId }) {
@@ -111,17 +77,10 @@ export async function saveAsExistingProjectConfig({ project, configId }) {
     return await noAuthSaveAsExistingProjectConfig();
   }
 
-  const access_token = useAuth.getState().access_token;
-  return axios
-    .post(
-      BACKEND + `projects/saveAsExistingProjectConfig`,
-      { project, configId },
-      tokenConfig(access_token)
-    )
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return [];
-    });
+  return post({
+    address: `projects/saveAsExistingProjectConfig`,
+    body: { project, configId },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
+  });
 }

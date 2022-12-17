@@ -1,24 +1,22 @@
-import axios from "axios";
 import { useCodeInfo } from "models/info/codeInfo";
-import { BACKEND, NO_AUTH } from "utils/constants";
+import { NO_AUTH } from "utils/constants";
 import {
   noAuthGetCollectionDetails,
   noAuthGetCollectionsAndModules,
 } from "./noAuth/sectionConfig";
+import { post } from "./utils";
 
 export async function getCollectionsAndModules({ searchTerm }) {
   if (NO_AUTH) {
     return await noAuthGetCollectionsAndModules({ searchTerm });
   }
 
-  return axios
-    .post(BACKEND + "codeInfo/getCollectionsAndModules", { searchTerm })
-    .then((res) => {
-      return res.data;
-    })
-    .catch(() => {
-      return {};
-    });
+  return post({
+    address: "codeInfo/getCollectionsAndModules",
+    body: { searchTerm },
+    thenFn: (res) => res.data,
+    catchFn: () => ({}),
+  });
 }
 
 export async function getCollectionDetails(id) {
@@ -31,14 +29,12 @@ export async function getCollectionDetails(id) {
   if (NO_AUTH) {
     results = await noAuthGetCollectionDetails(id);
   } else {
-    results = await axios
-      .post(BACKEND + "codeInfo/getCollectionDetails", { codeInfoId: id })
-      .then((res) => {
-        return res.data;
-      })
-      .catch(() => {
-        return {};
-      });
+    results = await post({
+      address: "codeInfo/getCollectionDetails",
+      body: { codeInfoId: id },
+      thenFn: (res) => res.data,
+      catchFn: () => ({}),
+    });
   }
 
   s.updateInfos(results);
