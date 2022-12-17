@@ -1,8 +1,7 @@
-import { useRadioGroup } from "@chakra-ui/react";
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
+import { useRef } from "react";
 import Button from "../../utils/atoms/buttons/Button";
-
-import FileListContainer from "./FileListContainer";
 import { FileListItem, SelectableFileListItem } from "./FileListItem";
 
 export default function FileExplorer({ files, selected, setSelected }) {
@@ -12,50 +11,63 @@ export default function FileExplorer({ files, selected, setSelected }) {
     }
   }
 
-  const { getRootProps, getRadioProps } = useRadioGroup({
-    name: "fileExplorer",
-    value: JSON.stringify(selected),
-    onChange,
-  });
-
-  const radioGroup = getRootProps();
-
   return (
-    <FileListContainer radioGroup={radioGroup}>
+    <div className="h-[inherit] border border-gray-200 rounded-lg items-stretch px-6 py-4 overflow-y-auto">
       <div className="flex justify-between p-0 mb-3 border-b border-gray-200">
         <Button>Name</Button>
         <Button>Date</Button>
       </div>
-      {_.map(files, (x, idx) => (
-        <ProjectListing
-          project={x}
-          key={`File ${idx}`}
-          getRadioProps={getRadioProps}
-        />
-      ))}
-    </FileListContainer>
+      <RadioGroup.Root
+        value={JSON.stringify(selected)}
+        onValueChange={onChange}
+      >
+        {_.map(files, (x, idx) => (
+          <ProjectListing project={x} key={`File ${idx}`} onClick={onChange} />
+        ))}
+      </RadioGroup.Root>
+    </div>
   );
 }
 
-function ProjectListing({ project, getRadioProps }) {
+function ProjectListing({ project, onClick }) {
   return (
     <>
-      <FileListItem isProject={true}>{project.name}</FileListItem>
-      {project.configs.map((x, idx) => (
-        <div style={{ marginLeft: "20px" }} key={`File config ${idx}`}>
-          <SelectableFileListItem
-            isProject={false}
-            radioProps={getRadioProps({
-              value: JSON.stringify({
-                id: project.id,
-                configId: x.id,
-              }),
-            })}
-          >
-            {x.name}
-          </SelectableFileListItem>
-        </div>
-      ))}
+      <FileListItem isProject={true} name={project.name} />
+      <ConfigListings project={project} onClick={onClick} />
     </>
+  );
+}
+
+function ConfigListings({ project, onClick }) {
+  return project.configs.map((x, idx) => {
+    const id = JSON.stringify({ id: project.id, configId: x.id });
+    return (
+      <ConfigListing
+        id={id}
+        name={x.name}
+        key={`File config ${idx}`}
+        onClick={onClick}
+      />
+    );
+  });
+}
+
+function ConfigListing({ id, name, onClick }) {
+  const itemRef = useRef();
+
+  function _onClick() {
+    const isChecked =
+      itemRef?.current?.attributes["data-state"]?.value === "checked";
+    if (isChecked) {
+      onClick(JSON.stringify({ id: null, configId: null }));
+    }
+  }
+
+  return (
+    <RadioGroup.Item value={id} ref={itemRef} onClick={_onClick}>
+      <div style={{ marginLeft: "20px" }}>
+        <SelectableFileListItem isProject={false} name={name} />
+      </div>
+    </RadioGroup.Item>
   );
 }
