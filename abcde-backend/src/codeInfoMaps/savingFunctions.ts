@@ -1,5 +1,5 @@
-import _ = require('lodash');
 import { PrismaClient } from '@prisma/client';
+import * as _ from 'lodash';
 
 function assembleUserCodeInfoMap(user, data, mapsFrom) {
   const inDbFormat = [];

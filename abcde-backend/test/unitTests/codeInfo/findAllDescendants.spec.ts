@@ -1,6 +1,6 @@
+import * as _ from 'lodash';
 import { findAllCallables, findAllParameters } from 'src/codeInfo/infoFactory';
 import { loadSpecificTestData } from 'test/utils';
-import _ = require('lodash');
 
 test('find all callable descendants', async () => {
   const codeInfo = await loadSpecificTestData({ name: 'AllCodeInfo' });

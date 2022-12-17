@@ -1,5 +1,5 @@
-import _ = require('lodash');
 import { PrismaClient } from '@prisma/client';
+import * as _ from 'lodash';
 import { saveKwargInfo } from 'src/codeInfo/savingFunctions';
 import { saveAllProjectConfigCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
 import {

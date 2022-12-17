@@ -1,4 +1,4 @@
-import _ = require('lodash');
+import * as _ from 'lodash';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
 

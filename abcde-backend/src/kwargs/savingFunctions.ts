@@ -1,30 +1,33 @@
 import { PrismaClient } from '@prisma/client';
 import { deleteThenCreateCol } from 'src/utils/utils';
-import _ = require('lodash');
 
-export async function saveKwargCols(prisma: PrismaClient, kwargCols) {
-  const ids = _.keys(kwargCols);
+interface KwargColsObj {
+  [id: string]: { [codeInfoId: string]: string[] };
+}
+
+export async function saveKwargCols(
+  prisma: PrismaClient,
+  kwargCols: KwargColsObj,
+) {
+  const ids = Object.keys(kwargCols);
   await prisma.kwargColId.createMany({
     data: ids.map((x) => ({ id: x })),
     skipDuplicates: true,
   });
 
-  const allColIds = Object.keys(kwargCols);
   const inDbFormat = [];
-  for (const idid of allColIds) {
-    for (const codeInfoId of _.keys(kwargCols[idid])) {
-      let order = 0;
-      for (const kwargInfoId of kwargCols[idid][codeInfoId]) {
+  for (const idid of ids) {
+    for (const [codeInfoId, kwargInfoList] of Object.entries(kwargCols[idid])) {
+      for (const [order, kwargInfoId] of kwargInfoList.entries()) {
         inDbFormat.push({
           idid,
           codeInfoId,
           kwargInfoId,
           order,
         });
-        order += 1;
       }
     }
   }
 
-  deleteThenCreateCol(prisma, prisma.kwargCol, allColIds, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.kwargCol, ids, inDbFormat);
 }

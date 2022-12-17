@@ -1,12 +1,16 @@
-import _ = require('lodash');
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import * as _ from 'lodash';
+
+interface CodeInfoObj {
+  [id: string]: Prisma.CodeInfoGetPayload<true> & { parentId: string };
+}
 
 export async function saveCodeInfo(
   prisma: PrismaClient,
-  codeInfo,
+  codeInfo: CodeInfoObj,
   upsert = false,
 ) {
-  const vals = _.values(codeInfo);
+  const vals = Object.values(codeInfo);
   const data = vals.map((v) =>
     _.pick(v, [
       'id',
@@ -60,10 +64,8 @@ export async function saveKwargInfo(prisma, kwargInfo) {
 function assembleCodeInfoChildren(codeInfoVals) {
   const output = [];
   for (const c of codeInfoVals) {
-    let order = 0;
-    for (const child of c.children) {
+    for (const [order, child] of c.children.entries()) {
       output.push({ parentId: c.id, childId: child, order });
-      order += 1;
     }
   }
   return output;

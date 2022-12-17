@@ -1,4 +1,4 @@
-import _ = require('lodash');
+import * as _ from 'lodash';
 import {
   DECK,
   isRoot,
@@ -118,8 +118,8 @@ function sectionExportSelected(section, p) {
       evColId,
       p,
     );
-    const key = Object.keys(objParams)[0];
-    output = { [key]: { ...objParams[key], ...output } };
+    const [key, value] = Object.entries(objParams)[0];
+    output = { [key]: { ...value, ...output } };
   }
 
   return output;

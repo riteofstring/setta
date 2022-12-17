@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import * as _ from 'lodash';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
-import _ = require('lodash');
 
 export async function getProject(prisma, id) {
   return await prisma.project.findUnique({
@@ -198,8 +198,7 @@ export async function getUITypesByWhere(prisma, where) {
 
 function processUIType(uiType) {
   let output = {};
-  for (const key of _.keys(uiType)) {
-    const val = uiType[key];
+  for (const [key, val] of Object.entries(uiType)) {
     if (
       [
         'sectionUIType',

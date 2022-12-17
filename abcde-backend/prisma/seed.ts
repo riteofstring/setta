@@ -3,10 +3,9 @@ import { saveCodeInfo } from 'src/codeInfo/savingFunctions';
 import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/savingFunctions';
 import { saveMultipleProjectDetails } from 'src/projects/savingFunctions';
 import { saveUITypes } from 'src/uiTypes/savingFunctions';
-import { saveUsers } from 'src/users/savingFunctions';
+import { saveUsers, UserObj } from 'src/users/savingFunctions';
 import { loadAllProjects, loadSpecificTestData } from '../test/utils';
 const prisma = new PrismaClient();
-import _ = require('lodash');
 
 async function main() {
   await seedUsers();
@@ -38,10 +37,10 @@ async function seedBaseUITypes() {
 }
 
 async function seedProjects() {
-  const users = await loadSpecificTestData({ name: 'Users' });
+  const users: UserObj = await loadSpecificTestData({ name: 'Users' });
   const allProjects = await loadAllProjects({ forSavingToBackend: true });
   console.log('seedProjects');
-  for (const user of _.values(users)) {
+  for (const user of Object.values(users)) {
     const usersProjects = allProjects.filter((x) =>
       user.projects.includes(x.project.id),
     );
@@ -51,10 +50,10 @@ async function seedProjects() {
 }
 
 async function seedUserCodeInfoMaps() {
-  const users = await loadSpecificTestData({ name: 'Users' });
+  const users: UserObj = await loadSpecificTestData({ name: 'Users' });
   const data = await loadSpecificTestData({ name: 'UserCodeInfoMaps' });
   console.log('seedUserCodeInfoMaps');
-  for (const user of _.values(users)) {
+  for (const user of Object.values(users)) {
     const usersMaps = data[user.id];
     await saveAllUserCodeInfoMaps(prisma, user, usersMaps);
   }

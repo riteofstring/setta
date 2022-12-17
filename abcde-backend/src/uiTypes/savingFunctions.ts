@@ -1,24 +1,38 @@
-import { PrismaClient } from '@prisma/client';
-import {
-  deleteThenCreateCol,
-  nullNotUndefined,
-  prismaNullOrConnect,
-} from 'src/utils/utils';
-import _ = require('lodash');
+import { Prisma, PrismaClient } from '@prisma/client';
+import * as _ from 'lodash';
+import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
 
-async function saveCoreUITypes(prisma: PrismaClient, user, uiTypes) {
+interface OriginInfoObj {
+  [originInfoId: string]: {
+    sectionId: string;
+    uiTypeColId: string;
+    paramInfoId: string;
+  };
+}
+
+interface UITypeObj {
+  [id: string]: Prisma.UITypeGetPayload<true> & OriginInfoObj;
+}
+
+async function saveCoreUITypes(
+  prisma: PrismaClient,
+  user: Prisma.UserGetPayload<true>,
+  uiTypes: UITypeObj,
+) {
   const userId = nullNotUndefined(user?.id);
-  const data = _.values(uiTypes).map((x) => ({
-    id: x.id,
-    type: x.type,
-    name: x.name,
-    owner: prismaNullOrConnect(userId),
-    presetType: x.presetType,
-    originSection: prismaNullOrConnect(x.originInfoId.sectionId),
-    originUITypeCol: prismaNullOrConnect(x.originInfoId.uiTypeColId),
-    originCodeInfo: prismaNullOrConnect(x.originInfoId.paramInfoId),
-    isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
-  }));
+  const data = _.values(uiTypes).map((x) => {
+    return {
+      id: x.id,
+      ownerId: userId,
+      type: x.type,
+      name: x.name,
+      presetType: x.presetType,
+      isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
+      originSectionId: x.originInfoId.sectionId,
+      originUITypeColId: x.originInfoId.uiTypeColId,
+      originCodeInfoId: x.originInfoId.paramInfoId,
+    };
+  });
 
   await prisma.$transaction(
     data.map((v) =>
@@ -109,22 +123,21 @@ export async function saveUITypes(prisma: PrismaClient, user, uiTypes) {
 }
 
 export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
-  const ids = _.keys(uiTypeCols);
+  const ids = Object.keys(uiTypeCols);
   await prisma.uITypeColId.createMany({
     data: ids.map((x) => ({ id: x })),
     skipDuplicates: true,
   });
 
-  const allColIds = Object.keys(uiTypeCols);
   const inDbFormat = [];
-  for (const idid of allColIds) {
-    for (const codeInfoId of _.keys(uiTypeCols[idid])) {
+  for (const idid of ids) {
+    for (const [codeInfoId, uiTypeId] of Object.entries(uiTypeCols[idid])) {
       inDbFormat.push({
         idid,
         codeInfoId,
-        uiTypeId: uiTypeCols[idid][codeInfoId],
+        uiTypeId,
       });
     }
   }
-  deleteThenCreateCol(prisma, prisma.uITypeCol, allColIds, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.uITypeCol, ids, inDbFormat);
 }

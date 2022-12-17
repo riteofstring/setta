@@ -1,24 +1,28 @@
-import { PrismaClient } from '@prisma/client';
-import {
-  createIdMap,
-  deleteThenCreateCol,
-  prismaNullOrConnect,
-  renameKeys,
-} from 'src/utils/utils';
-import _ = require('lodash');
+import { Prisma, PrismaClient } from '@prisma/client';
+import { createIdMap, deleteThenCreateCol, renameKeys } from 'src/utils/utils';
 
-function assembleEV(ev) {
+interface EVObj {
+  [id: string]: Prisma.EVGetPayload<true>;
+}
+
+interface EVColObj {
+  [id: string]: { [codeInfoId: string]: string };
+}
+
+function assembleEV(ev: EVObj) {
   const inDbFormat = [];
-  for (const id of _.keys(ev)) {
-    const v = ev[id];
-    const curr = { id, value: v.value ? v.value.toString() : null };
-    curr['child'] = prismaNullOrConnect(v.childId);
+  for (const [id, v] of Object.entries(ev)) {
+    const curr = {
+      id,
+      value: v.value ? v.value.toString() : null,
+      childId: v.childId,
+    };
     inDbFormat.push(curr);
   }
   return inDbFormat;
 }
 
-export async function saveEV(prisma: PrismaClient, ev) {
+export async function saveEV(prisma: PrismaClient, ev: EVObj) {
   const inDbFormat = assembleEV(ev);
   await prisma.$transaction(
     inDbFormat.map((v) =>
@@ -32,52 +36,43 @@ export async function saveEV(prisma: PrismaClient, ev) {
 }
 
 function assembleEVCols(evCols) {
-  const allColIds = Object.keys(evCols);
   const inDbFormat = [];
-
-  for (const idid of allColIds) {
-    for (const codeInfoId of _.keys(evCols[idid])) {
-      inDbFormat.push({
-        idid,
-        codeInfoId,
-        evId: evCols[idid][codeInfoId],
-      });
+  for (const [idid, evCol] of Object.entries(evCols)) {
+    for (const [codeInfoId, evId] of Object.entries(evCol)) {
+      inDbFormat.push({ idid, codeInfoId, evId });
     }
   }
   return inDbFormat;
 }
 
 export async function saveEVCols(prisma: PrismaClient, evCols) {
-  const ids = _.keys(evCols);
+  const ids = Object.keys(evCols);
   await prisma.eVColId.createMany({
     data: ids.map((x) => ({ id: x })),
     skipDuplicates: true,
   });
 
-  const allColIds = Object.keys(evCols);
   const inDbFormat = assembleEVCols(evCols);
-
-  deleteThenCreateCol(prisma, prisma.eVCol, allColIds, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.eVCol, ids, inDbFormat);
 }
 
 export function copyEV(ev) {
-  const oldIds = _.keys(ev);
+  const oldIds = Object.keys(ev);
   const evIdMap = createIdMap(oldIds);
   const newEv = renameKeys(ev, evIdMap);
   return { newEv, evIdMap };
 }
 
-export function copyEVCols(evCols, evIdMap) {
-  const oldIds = _.keys(evCols);
+export function copyEVCols(evCols: EVColObj, evIdMap) {
+  const oldIds = Object.keys(evCols);
   const evColIdMap = createIdMap(oldIds);
   const newEvCols = renameKeys(evCols, evColIdMap);
 
   // replace ev ids
-  for (const idid of _.keys(newEvCols)) {
-    for (const codeInfoId of _.keys(newEvCols[idid])) {
-      const curr = newEvCols[idid][codeInfoId];
-      if (curr in evIdMap) {
-        newEvCols[idid][codeInfoId] = evIdMap[curr];
+  for (const newEvCol of Object.values(newEvCols)) {
+    for (const [codeInfoId, evId] of Object.entries(newEvCol)) {
+      if (evId in evIdMap) {
+        newEvCol[codeInfoId] = evIdMap[evId];
       }
     }
   }

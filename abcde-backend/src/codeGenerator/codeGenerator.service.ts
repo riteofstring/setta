@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { generateCode as fnGenerateCode } from './codeGenerator';
 import { exportSelected } from './exportSelected';
-import _ = require('lodash');
 
 @Injectable()
 export class CodeGeneratorService {

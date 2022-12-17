@@ -1,4 +1,4 @@
-import _ = require('lodash');
+import * as _ from 'lodash';
 import { OBJ, REF, STRING, VARIABLE } from './constants';
 
 class Variable {
@@ -177,8 +177,8 @@ function addChildVarNamesFromArray(x, allVars) {
 
 function addChildVarNamesFromObject(x, allVars) {
   const childVarNames = [];
-  for (const k of Object.keys(x)) {
-    addChildVarName(k, x[k], allVars, childVarNames);
+  for (const [k, v] of Object.entries(x)) {
+    addChildVarName(k, v, allVars, childVarNames);
   }
   return childVarNames;
 }

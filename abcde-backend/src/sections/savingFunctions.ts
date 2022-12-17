@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import * as _ from 'lodash';
 import {
   connectOrCreateColId,
   createIdMap,
@@ -6,7 +7,18 @@ import {
   prismaNullOrConnect,
   renameKeys,
 } from 'src/utils/utils';
-import _ = require('lodash');
+
+interface SectionChildrenObj {
+  [id: string]: string[];
+}
+
+interface SectionConfigObj {
+  [id: string]: Prisma.SectionConfigGetPayload<true>;
+}
+
+interface SectionConfigColObj {
+  [id: string]: string;
+}
 
 export async function saveSections(
   prisma: PrismaClient,
@@ -23,9 +35,9 @@ export async function saveSections(
     const curr = {
       id: v.id,
       name: v.name,
-      children: { connect: { id: v.sectionChildrenId } },
+      childrenId: v.sectionChildrenId,
+      paramInfoId: v.paramInfoId,
     };
-    curr['paramInfo'] = prismaNullOrConnect(v.paramInfoId);
     inDbFormat.push(curr);
   }
 
@@ -48,15 +60,16 @@ export async function saveSections(
 
 export async function saveSectionChildren(
   prisma: PrismaClient,
-  sectionChildren,
+  sectionChildren: SectionChildrenObj,
   sectionChildrenIds,
   sectionPositions = {},
 ) {
   const allColIds = _.values(sectionChildrenIds);
   const inDbFormat = [];
-  for (const parentSectionId of _.keys(sectionChildren)) {
-    let order = 0;
-    for (const sectionId of sectionChildren[parentSectionId]) {
+  for (const [parentSectionId, currChildren] of Object.entries(
+    sectionChildren,
+  )) {
+    for (const [order, sectionId] of currChildren.entries()) {
       const position = sectionPositions[parentSectionId]?.[sectionId];
       inDbFormat.push({
         idid: sectionChildrenIds[parentSectionId],
@@ -65,7 +78,6 @@ export async function saveSectionChildren(
         x: position?.x,
         y: position?.y,
       });
-      order += 1;
     }
   }
   deleteThenCreateCol(prisma, prisma.sectionChildren, allColIds, inDbFormat);
@@ -102,11 +114,11 @@ export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
 
 function assembleSectionConfigCol(sectionConfigCol, colId) {
   const inDbFormat = [];
-  for (const sectionId of _.keys(sectionConfigCol)) {
+  for (const [sectionId, configId] of Object.entries(sectionConfigCol)) {
     inDbFormat.push({
       idid: colId,
       sectionId,
-      configId: sectionConfigCol[sectionId],
+      configId,
     });
   }
   return inDbFormat;
@@ -126,13 +138,15 @@ export async function saveSectionConfigCol(
   deleteThenCreateCol(prisma, prisma.sectionConfigCol, [colId], inDbFormat);
 }
 
-export function copySectionConfigs(sectionConfigs, evColIdMap) {
-  const oldIds = _.keys(sectionConfigs);
+export function copySectionConfigs(
+  sectionConfigs: SectionConfigObj,
+  evColIdMap,
+) {
+  const oldIds = Object.keys(sectionConfigs);
   const sectionConfigIdMap = createIdMap(oldIds);
   const newSectionConfigs = renameKeys(sectionConfigs, sectionConfigIdMap);
 
-  for (const k of _.keys(newSectionConfigs)) {
-    const curr = newSectionConfigs[k];
+  for (const curr of Object.values(newSectionConfigs)) {
     curr.id = sectionConfigIdMap[curr.id];
     if (curr.evColId in evColIdMap) {
       curr.evColId = evColIdMap[curr.evColId];
@@ -141,12 +155,14 @@ export function copySectionConfigs(sectionConfigs, evColIdMap) {
   return { newSectionConfigs, sectionConfigIdMap };
 }
 
-export function copySectionConfigCol(sectionConfigCol, sectionConfigIdMap) {
+export function copySectionConfigCol(
+  sectionConfigCol: SectionConfigColObj,
+  sectionConfigIdMap,
+) {
   const newSectionConfigCol = _.cloneDeep(sectionConfigCol);
-  for (const sectionId of _.keys(newSectionConfigCol)) {
-    const curr = newSectionConfigCol[sectionId];
-    if (curr in sectionConfigIdMap) {
-      newSectionConfigCol[sectionId] = sectionConfigIdMap[curr];
+  for (const [sectionId, configId] of Object.entries(newSectionConfigCol)) {
+    if (configId in sectionConfigIdMap) {
+      newSectionConfigCol[sectionId] = sectionConfigIdMap[configId];
     }
   }
   return newSectionConfigCol;
