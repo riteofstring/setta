@@ -1,6 +1,5 @@
-import { useRadioGroup } from "@chakra-ui/react";
+import { Button, Flex, Spacer, useRadioGroup } from "@chakra-ui/react";
 import _ from "lodash";
-import Button from "../../utils/atoms/buttons/Button";
 
 import FileListContainer from "./FileListContainer";
 import { FileListItem, SelectableFileListItem } from "./FileListItem";
@@ -22,10 +21,21 @@ export default function FileExplorer({ files, selected, setSelected }) {
 
   return (
     <FileListContainer radioGroup={radioGroup}>
-      <div className="flex justify-between p-0 mb-3 border-b border-gray-200">
-        <Button>Name</Button>
-        <Button>Date</Button>
-      </div>
+      <Flex
+        py={0}
+        px={0}
+        mb="0.75rem"
+        borderBottom="1px"
+        borderColor="gray.200"
+      >
+        <Button size="xs" variant="ghost">
+          Name
+        </Button>
+        <Spacer />
+        <Button size="xs" variant="ghost">
+          Date
+        </Button>
+      </Flex>
       {_.map(files, (x, idx) => (
         <ProjectListing
           project={x}
