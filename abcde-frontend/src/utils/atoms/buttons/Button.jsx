@@ -1,7 +1,7 @@
 export default function Button(props) {
-  const { tailwindClasses, as, children, ...theRest } = props;
+  const { tailwindClasses = "", as, children, ...theRest } = props;
 
-  const classes = `${tailwindClasses} transition-colors duration-150 focus:shadow-outline inline-flex items-center`;
+  const classes = `transition-colors duration-150 focus:shadow-outline inline-flex items-center ${tailwindClasses} `;
 
   if (as === "link") {
     return (

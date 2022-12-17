@@ -1,4 +1,4 @@
-import { Box, HStack, Icon, useRadio } from "@chakra-ui/react";
+import { useRadio } from "@chakra-ui/react";
 import { BiFile, BiGitBranch } from "react-icons/bi";
 
 export function SelectableFileListItem({ isProject, children, radioProps }) {
@@ -14,46 +14,31 @@ export function SelectableFileListItem({ isProject, children, radioProps }) {
   }
 
   return (
-    <Box as="label">
+    <label>
       <input {...input} onClick={maybeUnset} />
-
-      <HStack
-        {...checkbox}
-        cursor="pointer"
-        _checked={{
-          bg: "gray.600",
-          color: "white",
-          borderColor: "gray.600",
-        }}
-        _focus={{
-          boxShadow: "outline",
-        }}
-        px={3}
-        py={1}
-        borderRadius="md"
-      >
-        <Icon as={getFileIcon(isProject)} />
-        <Box>{children}</Box>
-      </HStack>
-    </Box>
+      <div className="flex flex-col px-3 py-1 rounded-md hover:bg-red-500 checked:bg-gray.600 checked:text-white checked:border-gray-600 focus:ring-1 ">
+        <GetFileIcon isProject={isProject} />
+        <div>{children}</div>
+      </div>
+    </label>
   );
 }
 
 export function FileListItem({ isProject, children }) {
   return (
-    <Box as="label">
-      <HStack cursor="pointer" px={3} py={1} borderRadius="md">
-        <Icon as={getFileIcon(isProject)} />
-        <Box>{children}</Box>
-      </HStack>
-    </Box>
+    <label>
+      <div className="flex cursor-pointer px-3 py-1 rounded-md">
+        <GetFileIcon isProject={isProject} />
+        <div>{children}</div>
+      </div>
+    </label>
   );
 }
 
-function getFileIcon(isProject) {
+function GetFileIcon(isProject) {
   if (isProject) {
-    return BiFile;
+    return <BiFile />;
   } else {
-    return BiGitBranch;
+    return <BiGitBranch />;
   }
 }

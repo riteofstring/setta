@@ -1,37 +1,13 @@
 import { useEffect, useState } from "react";
-import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
 import FileExplorer from "./FileExplorer";
 import FileNameInput from "./FileNameInput";
 
 export default function SaveLoadModal({
+  onClose,
+  isOpen,
   modalType,
   files,
-  onClickLoadProject,
-  onClickSaveAsProject,
-  currProjectId,
-  children,
-}) {
-  return (
-    <ModalContainer
-      content={
-        <ModalContent
-          files={files}
-          modalType={modalType}
-          onClickLoadProject={onClickLoadProject}
-          onClickSaveAsProject={onClickSaveAsProject}
-          currProjectId={currProjectId}
-        />
-      }
-    >
-      {children}
-    </ModalContainer>
-  );
-}
-
-function ModalContent({
-  files,
-  modalType,
   onClickLoadProject,
   onClickSaveAsProject,
   currProjectId,
@@ -42,6 +18,7 @@ function ModalContent({
   function localOnClose() {
     setSelected({});
     setConfigName("");
+    onClose();
   }
 
   function onClickSaveOrLoad() {
@@ -53,22 +30,30 @@ function ModalContent({
   }
 
   return (
-    <>
-      <Body
-        files={files}
-        setSelected={setSelected}
-        modalType={modalType}
-        currProjectId={currProjectId}
-        selected={selected}
-        configName={configName}
-        setConfigName={setConfigName}
-      />
-      <Footer
-        buttonText={modalType}
-        onClose={localOnClose}
-        onClick={onClickSaveOrLoad}
-      />
-    </>
+    <ModalContainer
+      onClose={localOnClose}
+      isOpen={isOpen}
+      size={"3xl"}
+      overrideFooter={true}
+      body={
+        <Body
+          files={files}
+          setSelected={setSelected}
+          modalType={modalType}
+          currProjectId={currProjectId}
+          selected={selected}
+          configName={configName}
+          setConfigName={setConfigName}
+        />
+      }
+      footer={
+        <Footer
+          buttonText={modalType}
+          onClose={localOnClose}
+          onClick={onClickSaveOrLoad}
+        />
+      }
+    />
   );
 }
 
@@ -147,12 +132,12 @@ function SaveBody({
 function Footer({ onClose, onClick, buttonText }) {
   return (
     <div className="mb-2">
-      <DialogCloseButton className="rounded bg-gray-200" onClick={onClick}>
+      <button className="rounded bg-gray-200" onClick={onClick}>
         {buttonText}
-      </DialogCloseButton>
-      <DialogCloseButton className="rounded bg-gray-200" onClick={onClose}>
+      </button>
+      <button className="rounded bg-gray-200" onClick={onClose}>
         Close
-      </DialogCloseButton>
+      </button>
     </div>
   );
 }
