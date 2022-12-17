@@ -1,6 +1,6 @@
 /// <reference types="vite" />
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 
@@ -10,6 +10,10 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    fs: {
+      // Allow serving files from one level up to the project root
+      allow: [searchForWorkspaceRoot(process.cwd()), "../abcde-test"],
+    },
   },
   test: {
     globals: true,

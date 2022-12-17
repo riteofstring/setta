@@ -1,3 +1,4 @@
+import { loadOneProject } from "abcde-test/src/loadTestData";
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { newUIType } from "classes/uiType";
 import _ from "lodash";
@@ -9,7 +10,6 @@ import { loadSections } from "models/master";
 import { resetAllSlices } from "models/utils";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { SECTION } from "utils/constants";
-import { loadOneProject } from "./loadTestData";
 import { renderUseGetSectionType } from "./renderHooks";
 
 export async function loadTestDataIntoState() {

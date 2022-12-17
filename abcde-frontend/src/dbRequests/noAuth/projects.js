@@ -1,9 +1,9 @@
-import { loadAllProjectsMetadata } from "__tests__utils/loadTestData";
 import {
   createInMemProject,
+  loadAllProjectsMetadata,
   loadOneProject,
   loadOneProjectById,
-} from "__tests__utils/loadTestData.mjs";
+} from "abcde-test/src/loadTestData";
 
 export async function noAuthGetProjects() {
   return await loadAllProjectsMetadata();
