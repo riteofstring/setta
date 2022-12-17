@@ -14,6 +14,7 @@ import {
 } from "thunks/save";
 import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
+import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
@@ -97,10 +98,10 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
         <GrDocumentDownload />
         Load
       </DialogTriggerItem>
-      <DialogTriggerItem onClick={onClickSave}>
+      <Item onClick={onClickSave}>
         <VscSave />
         Save
-      </DialogTriggerItem>
+      </Item>
       <DialogTriggerItem onClick={onClickSaveAs}>
         <VscSaveAs />
         Save As
