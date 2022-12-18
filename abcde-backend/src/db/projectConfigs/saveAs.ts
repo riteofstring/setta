@@ -24,9 +24,9 @@ export async function saveAsExistingProjectConfig(
   configId: string,
 ) {
   const projectToSave = copyProjectDetails(project);
-  let existingProjectConfig = await prisma.projectConfig.findUnique({
+  let existingProjectConfig = (await prisma.projectConfig.findUnique({
     where: { id: configId },
-  });
+  })) as any;
   existingProjectConfig = renameKeys(existingProjectConfig, {
     sectionConfigColId: 'sectionConfigCol',
     sectionChildrenId: 'childrenId',

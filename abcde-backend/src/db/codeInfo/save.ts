@@ -51,7 +51,7 @@ export async function saveCodeInfo(codeInfo: CodeInfoType, upsert = false) {
 }
 
 function assembleCodeInfoChildren(codeInfoVals) {
-  const output = [];
+  const output = [] as any;
   for (const c of codeInfoVals) {
     for (const [order, child] of c.children.entries()) {
       output.push({ parentId: c.id, childId: child, order });
