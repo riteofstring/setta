@@ -1,14 +1,12 @@
-import { IoClose } from "react-icons/io5";
-import IconButton from "utils/atoms/buttons/IconButton";
+import { AiOutlineClose } from "react-icons/ai";
 
 export default function CustomCloseButton(props) {
   return (
-    <IconButton
+    <button
+      className="nodrag rounded-full p-1.5 hover:bg-gray-100 active:bg-gray-200"
       {...props}
-      icon={<IoClose />}
-      color="text-gray-600 hover:text-white"
-      bg="bg-transparent hover:bg-red-500"
-      size="w-4 h-4"
-    />
+    >
+      <AiOutlineClose />
+    </button>
   );
 }

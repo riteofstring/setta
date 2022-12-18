@@ -1,8 +1,3 @@
-export function noAuthAccessPage({ stayLoggedIn }) {
-  stayLoggedIn();
-  return true;
-}
-
 export function noAuthLogin({ loginSuccess }) {
   loginSuccess();
   return true;

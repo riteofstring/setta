@@ -47,7 +47,8 @@ function InEditMode({ value, onChange, onBlur, titleProps }) {
       value={value}
       onChange={onChange}
       onBlur={onBlur}
-      className={titleProps}
+      className={titleProps["className"]}
+      style={titleProps["style"]}
       ref={inputRef}
     />
   );
@@ -55,7 +56,11 @@ function InEditMode({ value, onChange, onBlur, titleProps }) {
 
 function InNonEditMode({ value, onClick, titleProps }) {
   return (
-    <p onClick={onClick} className={titleProps}>
+    <p
+      onClick={onClick}
+      className={titleProps["className"]}
+      style={titleProps["style"]}
+    >
       {value}
     </p>
   );

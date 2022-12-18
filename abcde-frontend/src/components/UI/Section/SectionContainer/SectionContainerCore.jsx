@@ -1,10 +1,11 @@
+import { isRoot, isSeriesElement } from "abcde-utils/src/constants";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
 import { setSectionConfigAttr } from "thunks/sections";
-import { isRoot, isSeriesElement, SECTIONWIDTH } from "utils/constants";
+import { SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
   KwargGroupContainer,
@@ -37,7 +38,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     : "shadow-md active:shadow-2xl";
 
   const outlineColor = isActiveSection
-    ? "outline-blue-500"
+    ? "outline-blue-300"
     : "outline-transparent active:outline-cyan-300";
 
   // TODO: determine tempBoolDesc dynamically
