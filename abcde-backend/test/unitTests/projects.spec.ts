@@ -1,55 +1,45 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import {
   loadAllProjects,
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
-import { AppModule } from 'src/app.module';
-import * as request from 'supertest';
+import app from 'src/app';
+import supertest from 'supertest';
 
 const TEST_USER = '25961114-6655-4e2c-b70f-e2e3aaa84131';
 
 describe('ProjectsService', () => {
-  let app: INestApplication;
-  let access_token: string;
-  let testUser;
+  let request = null;
+  let server = null;
 
   beforeAll(async () => {
     const allUsers = await loadSpecificTestData({ name: 'Users' });
-    testUser = allUsers[TEST_USER];
+    const testUser = allUsers[TEST_USER];
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    server = app.listen();
+    request = supertest.agent(server);
 
     // login
-    const { body } = await request(app.getHttpServer())
+    return await request
       .post('/auth/login')
       .send({ username: testUser.name, password: testUser.password })
-      .expect(201);
-    access_token = body.access_token;
+      .expect(200);
   });
 
   afterAll(async () => {
-    await app.close();
+    await server.close();
   });
 
   it('Get list of user projects', async () => {
-    const { body: projects } = await request(app.getHttpServer())
-      .post('/projects')
-      .set('Authorization', `Bearer ${access_token}`);
+    const { body: projects } = await request.post('/projects');
     expect(Object.keys(projects).length).toEqual(3);
   });
 
   it('Get a project with nested sections', async () => {
     const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
     const configId = '439f5590-fa98-4564-8f63-ec75b6dc89b2';
-    const { body: retrieved } = await request(app.getHttpServer())
-      .post(`/projects/load/${projectId}/${configId}`)
-      .set('Authorization', `Bearer ${access_token}`);
+    const { body: retrieved } = await request.post(
+      `/projects/load/${projectId}/${configId}`,
+    );
 
     const allProjects = await loadAllProjects({});
     const correctOutput = allProjects.find((x) => x.project.id === projectId);

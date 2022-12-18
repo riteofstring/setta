@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
+import { prisma } from 'src/prisma';
 import {
   connectOrCreateColId,
   deleteThenCreateCol,
@@ -7,11 +7,7 @@ import {
 } from 'src/utils/utils';
 import { SectionChildrenType, SectionConfigType, SectionType } from './types';
 
-export async function saveSections(
-  prisma: PrismaClient,
-  sections: SectionType,
-  sectionChildren,
-) {
+export async function saveSections(sections: SectionType, sectionChildren) {
   await prisma.sectionChildrenId.createMany({
     data: Object.values(sections).map((x) => ({ id: x.sectionChildrenId })),
     skipDuplicates: true,
@@ -39,14 +35,12 @@ export async function saveSections(
   );
 
   await saveSectionChildren(
-    prisma,
     sectionChildren,
     _.mapValues(sections, (v) => v.sectionChildrenId),
   );
 }
 
 export async function saveSectionChildren(
-  prisma: PrismaClient,
   sectionChildren: SectionChildrenType,
   sectionChildrenIds,
   sectionPositions = {},
@@ -67,7 +61,7 @@ export async function saveSectionChildren(
       });
     }
   }
-  deleteThenCreateCol(prisma, prisma.sectionChildren, allColIds, inDbFormat);
+  deleteThenCreateCol(prisma.sectionChildren, allColIds, inDbFormat);
 }
 
 function assembleSectionConfig(sectionConfigs: SectionConfigType) {
@@ -85,7 +79,7 @@ function assembleSectionConfig(sectionConfigs: SectionConfigType) {
   return inDbFormat;
 }
 
-export async function saveSectionConfigs(prisma: PrismaClient, sectionConfigs) {
+export async function saveSectionConfigs(sectionConfigs) {
   const inDbFormat = assembleSectionConfig(sectionConfigs);
 
   await prisma.$transaction(
@@ -111,16 +105,12 @@ function assembleSectionConfigCol(sectionConfigCol, colId) {
   return inDbFormat;
 }
 
-export async function saveSectionConfigCol(
-  prisma: PrismaClient,
-  sectionConfigCol,
-  colId,
-) {
+export async function saveSectionConfigCol(sectionConfigCol, colId) {
   await prisma.sectionConfigColId.createMany({
     data: [{ id: colId }],
     skipDuplicates: true,
   });
 
   const inDbFormat = assembleSectionConfigCol(sectionConfigCol, colId);
-  deleteThenCreateCol(prisma, prisma.sectionConfigCol, [colId], inDbFormat);
+  deleteThenCreateCol(prisma.sectionConfigCol, [colId], inDbFormat);
 }

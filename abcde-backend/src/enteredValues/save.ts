@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from 'src/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
 import { EVColType, EVType } from './types';
 
@@ -15,7 +15,7 @@ function assembleEV(ev: EVColType) {
   return inDbFormat;
 }
 
-export async function saveEV(prisma: PrismaClient, ev: EVType) {
+export async function saveEV(ev: EVType) {
   const inDbFormat = assembleEV(ev);
   await prisma.$transaction(
     inDbFormat.map((v) =>
@@ -38,7 +38,7 @@ function assembleEVCols(evCols) {
   return inDbFormat;
 }
 
-export async function saveEVCols(prisma: PrismaClient, evCols) {
+export async function saveEVCols(evCols) {
   const ids = Object.keys(evCols);
   await prisma.eVColId.createMany({
     data: ids.map((x) => ({ id: x })),
@@ -46,5 +46,5 @@ export async function saveEVCols(prisma: PrismaClient, evCols) {
   });
 
   const inDbFormat = assembleEVCols(evCols);
-  deleteThenCreateCol(prisma, prisma.eVCol, ids, inDbFormat);
+  deleteThenCreateCol(prisma.eVCol, ids, inDbFormat);
 }

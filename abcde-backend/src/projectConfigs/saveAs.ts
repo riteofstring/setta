@@ -1,12 +1,11 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from 'src/prisma';
 import { copyProjectDetails } from 'src/projects/copy';
 import { saveProjectDetails } from 'src/projects/save';
 import { renameKeys } from 'src/utils/utils';
 import { copyProjectConfig } from './copy';
 
 export async function saveAsNewProjectConfig(
-  prisma: PrismaClient,
-  user,
+  userId,
   project,
   newConfigName: string,
 ) {
@@ -15,13 +14,12 @@ export async function saveAsNewProjectConfig(
     projectConfig: projectToSave.projectConfig,
     newConfigName,
   });
-  await saveProjectDetails(prisma, user, projectToSave);
+  await saveProjectDetails(userId, projectToSave);
   return projectToSave;
 }
 
 export async function saveAsExistingProjectConfig(
-  prisma: PrismaClient,
-  user,
+  userId,
   project,
   configId: string,
 ) {
@@ -39,6 +37,6 @@ export async function saveAsExistingProjectConfig(
     projectConfig: existingProjectConfig,
     doCreateNewId: false,
   });
-  await saveProjectDetails(prisma, user, projectToSave);
+  await saveProjectDetails(userId, projectToSave);
   return projectToSave;
 }

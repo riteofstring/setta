@@ -1,14 +1,9 @@
-import { Prisma, PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
+import { prisma } from 'src/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
 import { UITypeType } from './types';
 
-async function saveCoreUITypes(
-  prisma: PrismaClient,
-  user: Prisma.UserGetPayload<true>,
-  uiTypes: UITypeType,
-) {
-  const userId = nullNotUndefined(user?.id);
+async function saveCoreUITypes(userId: string | null, uiTypes: UITypeType) {
   const data = Object.values(uiTypes).map((x) => {
     return {
       id: x.id,
@@ -34,7 +29,7 @@ async function saveCoreUITypes(
   );
 }
 
-async function saveSectionUITypes(prisma: PrismaClient, sectionUITypes) {
+async function saveSectionUITypes(sectionUITypes) {
   const uiTypeCols = sectionUITypes
     .filter((x) => x.config.uiTypeColId)
     .map((x) => ({ id: x.config.uiTypeColId }));
@@ -65,7 +60,7 @@ async function saveSectionUITypes(prisma: PrismaClient, sectionUITypes) {
   );
 }
 
-async function saveRegularUIType(prisma: PrismaClient, db, sliderUITypes) {
+async function saveRegularUIType(db, sliderUITypes) {
   const data = sliderUITypes.map((x) => ({
     idid: x.id,
     ...x.config,
@@ -81,37 +76,32 @@ async function saveRegularUIType(prisma: PrismaClient, db, sliderUITypes) {
   );
 }
 
-export async function saveUITypes(prisma: PrismaClient, user, uiTypes) {
-  await saveCoreUITypes(prisma, user, uiTypes);
+export async function saveUITypes(userId, uiTypes) {
+  await saveCoreUITypes(userId, uiTypes);
   await saveSectionUITypes(
-    prisma,
     _.filter(uiTypes, (v) =>
       ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
     ),
   );
   await saveRegularUIType(
-    prisma,
     prisma.sliderUIType,
     _.filter(uiTypes, (v) => v.type === 'SLIDER'),
   );
   await saveRegularUIType(
-    prisma,
     prisma.textUIType,
     _.filter(uiTypes, (v) => v.type === 'TEXT'),
   );
   await saveRegularUIType(
-    prisma,
     prisma.switchUIType,
     _.filter(uiTypes, (v) => v.type === 'SWITCH'),
   );
   await saveRegularUIType(
-    prisma,
     prisma.refUIType,
     _.filter(uiTypes, (v) => v.type === 'REF'),
   );
 }
 
-export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
+export async function saveUITypeCols(uiTypeCols) {
   const ids = Object.keys(uiTypeCols);
   await prisma.uITypeColId.createMany({
     data: ids.map((x) => ({ id: x })),
@@ -128,5 +118,5 @@ export async function saveUITypeCols(prisma: PrismaClient, uiTypeCols) {
       });
     }
   }
-  deleteThenCreateCol(prisma, prisma.uITypeCol, ids, inDbFormat);
+  deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
 }
