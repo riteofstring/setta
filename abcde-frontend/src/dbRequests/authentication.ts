@@ -1,3 +1,4 @@
+import { LOGIN, LOGOUT, REGISTER } from "abcde-utils/src/routes";
 import { AuthType } from "abcde-utils/src/types/auth";
 import { useAuth } from "models/auth";
 import { NO_AUTH } from "utils/constants";
@@ -18,7 +19,7 @@ export function login({ username, password }: AuthType) {
   }
 
   return post({
-    address: "auth/login",
+    address: LOGIN,
     body: { username, password },
     thenFn: loginSuccess,
     catchFn: loginFail,
@@ -35,7 +36,7 @@ export function logout() {
   }
 
   return post({
-    address: "auth/logout",
+    address: LOGOUT,
     thenFn: loginFail,
     catchFn: loginFail,
     withCredentials: true,
@@ -52,7 +53,7 @@ export function register({ username, password }: AuthType) {
   }
 
   return post({
-    address: "auth/register",
+    address: REGISTER,
     body: { username, password },
     thenFn: loginSuccess,
     catchFn: loginFail,

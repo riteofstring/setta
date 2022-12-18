@@ -9,7 +9,7 @@ export async function post({
   withCredentials = false,
 }) {
   return axios
-    .post(`${BACKEND}/${address}`, body, {
+    .post(`${BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },
