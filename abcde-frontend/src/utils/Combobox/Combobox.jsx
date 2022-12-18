@@ -60,7 +60,12 @@ const SearchInput = React.forwardRef(
     const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0 cursor-auto`;
 
     return (
-      <input className={className} placeholder="Search" ref={ref} {...props} />
+      <input
+        className={`${className} focus:ring-2`}
+        placeholder="Search"
+        ref={ref}
+        {...props}
+      />
     );
   }
 );

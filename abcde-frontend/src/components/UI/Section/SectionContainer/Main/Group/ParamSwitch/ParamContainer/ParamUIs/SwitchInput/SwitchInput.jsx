@@ -14,7 +14,7 @@ export default function SwitchInput({
 }) {
   return (
     <Switch.Root
-      className={`${className} items-center p-[0.2rem] w-7 h-3 bg-gray-400 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus:shadow-black data-[state='checked']:bg-blue-500 SwitchRoot`}
+      className={`${className} items-center p-[0.2rem] w-7 h-3 bg-gray-400 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus:shadow-black data-[state='checked']:bg-blue-500 focus:ring-2  SwitchRoot`}
       checked={value}
       disabled={isDisabled}
       onCheckedChange={onBlur}
