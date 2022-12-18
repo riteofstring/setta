@@ -1,5 +1,6 @@
 import { NO_AUTH } from "utils/constants";
 import { noAuthGenerateCode } from "./noAuth/codeGenerator";
+import { post } from "./utils";
 
 export async function generateCode({ codeId, project }) {
   if (NO_AUTH) {
@@ -11,5 +12,6 @@ export async function generateCode({ codeId, project }) {
     body: { codeId, project },
     thenFn: (res) => res.data,
     catchFn: () => ({}),
+    withCredentials: true,
   });
 }

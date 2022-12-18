@@ -72,6 +72,7 @@ export async function saveAsNewProjectConfig({ project, newConfigName }) {
     body: { project, newConfigName },
     thenFn: (res) => res.data,
     catchFn: () => [],
+    withCredentials: true,
   });
 }
 
@@ -85,5 +86,6 @@ export async function saveAsExistingProjectConfig({ project, configId }) {
     body: { project, configId },
     thenFn: (res) => res.data,
     catchFn: () => [],
+    withCredentials: true,
   });
 }
