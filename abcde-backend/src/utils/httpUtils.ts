@@ -1,15 +1,11 @@
-export function sendStatusOnLogin(req, res, next) {
+export function sendStatusOnLogin(req, res) {
   if (req.isAuthenticated()) {
     res.sendStatus(200);
     return;
   }
-  next();
+  res.sendStatus(401);
 }
 
-export function sendStatusOnLogout(req, res, next) {
-  if (!req.isAuthenticated()) {
-    res.sendStatus(200);
-    return;
-  }
-  next();
+export function sendStatusOnLogout(req, res) {
+  res.sendStatus(200);
 }
