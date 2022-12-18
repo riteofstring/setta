@@ -1,3 +1,4 @@
+import { isSectionUIType } from 'abcde-utils/src/constants';
 import * as _ from 'lodash';
 import { prisma } from 'src/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
@@ -78,11 +79,7 @@ async function saveRegularUIType(db, sliderUITypes) {
 
 export async function saveUITypes(userId, uiTypes) {
   await saveCoreUITypes(userId, uiTypes);
-  await saveSectionUITypes(
-    _.filter(uiTypes, (v) =>
-      ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
-    ),
-  );
+  await saveSectionUITypes(_.filter(uiTypes, (v) => isSectionUIType(v.type)));
   await saveRegularUIType(
     prisma.sliderUIType,
     _.filter(uiTypes, (v) => v.type === 'SLIDER'),

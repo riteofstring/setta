@@ -1,12 +1,5 @@
-import {
-  DECK,
-  isRoot,
-  LIST_ROOT,
-  OBJ,
-  PARAM,
-  STRING,
-  VARIABLE,
-} from 'abcde-utils/src/constants';
+import { OBJ, PARAM, STRING, VARIABLE } from 'abcde-utils/src/codeGenConstants';
+import { DECK, isRoot, LIST_ROOT } from 'abcde-utils/src/constants';
 import { maybeUseNullId } from 'abcde-utils/src/utils';
 import * as _ from 'lodash';
 
