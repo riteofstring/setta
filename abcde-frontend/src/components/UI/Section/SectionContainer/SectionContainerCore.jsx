@@ -37,7 +37,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     : "shadow-md active:shadow-2xl";
 
   const outlineColor = isActiveSection
-    ? "outline-blue-300"
+    ? "outline-blue-500"
     : "outline-transparent active:outline-cyan-300";
 
   // TODO: determine tempBoolDesc dynamically

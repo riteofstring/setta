@@ -120,13 +120,10 @@ function Container({
 
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
-    editing: {
-      className: "nodrag w-[450px] font-bold text-4xl -mb-2 tracking-tighter",
-    },
-    notEditing: {
-      className: "font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
-      style: { fontFamily: "Work Sans" },
-    },
+    editing: "nodrag w-[450px] font-bold text-4xl -mb-2 tracking-tighter",
+
+    notEditing:
+      "font-heading font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
