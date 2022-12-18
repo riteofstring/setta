@@ -44,24 +44,18 @@ import crypto from 'crypto';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
 import { prisma } from 'src/prisma';
+import { hashPasswordAsync } from './utils';
 
 async function verify(username, password, doneFn) {
   const user = await prisma.user.findUnique({ where: { name: username } });
   if (!user) {
     return doneFn(null, false);
   }
-  checkHash(user, password, doneFn);
+  checkHash(password, user, doneFn);
 }
 
-function checkHash(user, password, doneFn) {
-  crypto.pbkdf2(
-    password,
-    user.salt,
-    310000,
-    32,
-    'sha256',
-    getCompareHashFn(user, doneFn),
-  );
+function checkHash(password, user, doneFn) {
+  hashPasswordAsync(password, user.salt, getCompareHashFn(user, doneFn));
 }
 
 function getCompareHashFn(user, doneFn) {
@@ -79,3 +73,7 @@ function getCompareHashFn(user, doneFn) {
 }
 
 passport.use(new LocalStrategy(verify));
+
+export function login(...args) {
+  passport.authenticate('local')(...args);
+}

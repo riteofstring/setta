@@ -1,4 +1,5 @@
 import express from 'express';
+import { login } from './auth/login';
 export const router = express.Router();
 
 // // middleware that is specific to this router
@@ -6,7 +7,7 @@ export const router = express.Router();
 //   console.log('Time: ', Date.now());
 //   next();
 // });
-// router.post('/auth/login', login);
+router.post('/auth/login', login);
 // router.post('/auth/register', register);
 // router.post('/', verifyToken);
 // router.post('/projects', getAllByOwner);
