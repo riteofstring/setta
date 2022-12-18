@@ -1,7 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { DECK } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useUndeck } from "hooks/useUndeck";
-import { DECK } from "utils/constants";
 
 import { ContextMenuCore } from "./ContextMenuCore";
 

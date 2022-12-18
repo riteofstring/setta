@@ -1,6 +1,7 @@
+import { isRoot, SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { isRoot, SECTION_TYPE_NAMES, uiTypesToPretty } from "utils/constants";
+import { uiTypesToPretty } from "utils/constants";
 import { isBasePreset, isPreset } from "utils/uiTypeConstants";
 import { createOriginInfoId } from "utils/uiTypeUtils";
 import { useParamUITypeId } from "./useParamUIType";
