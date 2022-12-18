@@ -1,5 +1,6 @@
 import express from 'express';
 import { login } from './auth/login';
+import { logout } from './auth/logout';
 import { register } from './auth/register';
 export const router = express.Router();
 
@@ -10,7 +11,8 @@ export const router = express.Router();
 // });
 router.post('/auth/login', login);
 router.post('/auth/register', register);
-// router.get('/usersOnly', (req, res) => {
+router.post('/auth/logout', logout);
+// router.get('/auth/usersOnly', (req, res) => {
 //   console.log('usersOnly req.isAuthenticated()', req.isAuthenticated());
 //   res.send('usersOnly!');
 // });
