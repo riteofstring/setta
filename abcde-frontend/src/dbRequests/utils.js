@@ -7,7 +7,6 @@ export async function post({
   thenFn = () => {},
   catchFn = () => {},
   withCredentials = false,
-  auth = null,
 }) {
   return axios
     .post(BACKEND + address, body, {
@@ -15,7 +14,6 @@ export async function post({
         "Content-Type": "application/json",
       },
       withCredentials,
-      auth,
     })
     .then(thenFn)
     .catch(catchFn);
