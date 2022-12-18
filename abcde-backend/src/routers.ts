@@ -1,5 +1,7 @@
 import express from 'express';
 import { login } from './auth/login';
+import { logout } from './auth/logout';
+import { register } from './auth/register';
 export const router = express.Router();
 
 // // middleware that is specific to this router
@@ -8,15 +10,13 @@ export const router = express.Router();
 //   next();
 // });
 router.post('/auth/login', login);
-router.get('/auth/loginSuccess', (req, res) => {
-  console.log('req.isAuthenticated()', req.isAuthenticated());
-  res.send('success');
-});
-router.get('/usersOnly', (req, res) => {
-  console.log('usersOnly req.isAuthenticated()', req.isAuthenticated());
-  res.send('usersOnly!');
-});
-// router.post('/auth/register', register);
+router.post('/auth/register', register);
+router.post('/auth/logout', logout);
+// router.get('/auth/usersOnly', (req, res) => {
+//   console.log('usersOnly req.isAuthenticated()', req.isAuthenticated());
+//   res.send('usersOnly!');
+// });
+
 // router.post('/', verifyToken);
 // router.post('/projects', getAllByOwner);
 // router.post('/projects/load/:id/:configId', loadOne);

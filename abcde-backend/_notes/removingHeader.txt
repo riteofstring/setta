@@ -1,0 +1,11 @@
+// error handler
+app.use((err, req, res, next) => {
+  if (res.statusCode === 401) {
+    // To prevent 'sign in' dialog opening in browser
+    // TODO: determine if this is still needed if we move away from "Basic" auth
+    // https://stackoverflow.com/a/20221330
+    // https://stackoverflow.com/a/17473627
+    res.removeHeader('www-authenticate');
+    res.send();
+  }
+});
