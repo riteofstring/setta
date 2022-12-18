@@ -1,3 +1,4 @@
+import { isSeriesElement } from "abcde-utils/src/constants";
 import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
@@ -9,7 +10,6 @@ import {
   getSectionTypeConfig,
   setSectionConfigAttr,
 } from "thunks/sections";
-import { isSeriesElement } from "utils/constants";
 import { isPreset } from "utils/uiTypeConstants";
 import { cloneNewUIType, createOriginInfoId } from "utils/uiTypeUtils";
 import { getParamChildId, getParamUIType } from "./paramInfos";
