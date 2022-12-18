@@ -18,6 +18,7 @@ export async function getProjects() {
     address: "projects",
     thenFn: (res) => res.data,
     catchFn: () => [],
+    withCredentials: true,
   });
 }
 
