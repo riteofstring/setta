@@ -10,23 +10,23 @@ import {
 } from 'src/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/uiTypes/save';
 
-export async function saveMultipleProjectDetails(user, projects) {
+export async function saveMultipleProjectDetails(userId, projects) {
   for (const p of projects) {
-    await saveProjectDetails(user, p, false);
+    await saveProjectDetails(userId, p, false);
   }
   // save project info afterward, to ensure defaultconfigid is a valid foreign key
   for (const p of projects) {
-    await saveProject(user, p.project, p.projectConfig.id);
+    await saveProject(userId, p.project, p.projectConfig.id);
   }
 }
 
-export async function saveProjectDetails(user, p, doSaveProject = true) {
+export async function saveProjectDetails(userId, p, doSaveProject = true) {
   await saveKwargInfo(p.kwargInfo);
   await saveKwargCols(p.kwargCols);
   await saveSections(p.sections, p.sectionChildren);
   await saveEV(p.ev);
   await saveEVCols(p.evCols);
-  await saveUITypes(user, p.uiTypes);
+  await saveUITypes(userId, p.uiTypes);
   await saveUITypeCols(p.uiTypeCols);
   await saveSectionConfigs(p.sectionConfigs);
   await saveSectionConfigCol(
@@ -40,15 +40,15 @@ export async function saveProjectDetails(user, p, doSaveProject = true) {
   );
 
   if (doSaveProject) {
-    await saveProject(user, p.project, p.projectConfig.id);
+    await saveProject(userId, p.project, p.projectConfig.id);
   }
 }
 
-export async function saveProject(user, project, projectConfigId) {
+export async function saveProject(userId, project, projectConfigId) {
   const data = {
     id: project.id,
     name: project.name,
-    ownerId: user.id,
+    ownerId: userId,
     defaultConfigId: project.defaultConfigId,
   };
   await prisma.project.upsert({
@@ -62,7 +62,7 @@ export async function saveProject(user, project, projectConfigId) {
   });
 }
 
-export async function createProject(user, name: string) {
+export async function createProject(userId, name: string) {
   const defaultConfig = await prisma.projectConfig.create({
     data: {
       name: 'config1',
@@ -73,7 +73,7 @@ export async function createProject(user, name: string) {
 
   const project = await prisma.project.create({
     data: {
-      owner: { connect: { id: user.id } },
+      owner: { connect: { id: userId } },
       name,
       defaultConfig: { connect: { id: defaultConfig.id } },
       configs: { connect: [{ id: defaultConfig.id }] },

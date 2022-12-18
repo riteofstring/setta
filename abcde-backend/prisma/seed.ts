@@ -47,7 +47,7 @@ async function seedProjects() {
     const usersProjects = allProjects.filter((x) =>
       user.projects.includes(x.project.id),
     );
-    await saveMultipleProjectDetails(user, usersProjects);
+    await saveMultipleProjectDetails(user.id, usersProjects);
   }
   console.log('done');
 }

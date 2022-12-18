@@ -1,14 +1,9 @@
-import { Prisma } from '@prisma/client';
 import * as _ from 'lodash';
 import { prisma } from 'src/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
 import { UITypeType } from './types';
 
-async function saveCoreUITypes(
-  user: Prisma.UserGetPayload<true>,
-  uiTypes: UITypeType,
-) {
-  const userId = nullNotUndefined(user?.id);
+async function saveCoreUITypes(userId: string | null, uiTypes: UITypeType) {
   const data = Object.values(uiTypes).map((x) => {
     return {
       id: x.id,
@@ -81,8 +76,8 @@ async function saveRegularUIType(db, sliderUITypes) {
   );
 }
 
-export async function saveUITypes(user, uiTypes) {
-  await saveCoreUITypes(user, uiTypes);
+export async function saveUITypes(userId, uiTypes) {
+  await saveCoreUITypes(userId, uiTypes);
   await saveSectionUITypes(
     _.filter(uiTypes, (v) =>
       ['SECTION', 'LIST_ROOT', 'DICT_ROOT', 'DECK', 'GROUP'].includes(v.type),
