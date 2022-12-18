@@ -1,6 +1,6 @@
+import simpleExample from 'abcde-test/src/codegenData/simple';
 import { generateCode } from 'src/middleware/codeGenerator/codeGenerator';
 import { clearDb } from 'test/clearDb';
-import example1 from './example1';
 
 describe('generateCode', () => {
   beforeAll(async () => {
@@ -8,7 +8,7 @@ describe('generateCode', () => {
   });
 
   test('test generateCode function', () => {
-    const code = generateCode(example1);
+    const code = generateCode(simpleExample);
     console.log(code);
   });
 });
