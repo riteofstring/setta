@@ -44,7 +44,6 @@ import crypto from 'crypto';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
 import { prisma } from 'src/prisma';
-import { sendStatusOnLogin } from 'src/utils/httpUtils';
 import { hashPassword } from './utils';
 
 async function verify(username, password, done) {
@@ -53,6 +52,7 @@ async function verify(username, password, done) {
     return done(null, false);
   }
   checkHash(password, user, done);
+  console.log('verified!');
 }
 
 function checkHash(password, user, done) {
@@ -70,16 +70,16 @@ function checkHash(password, user, done) {
 }
 
 passport.use(new LocalStrategy(verify));
-passport.serializeUser((user, done) => {
+passport.serializeUser(function (user, done) {
   console.log('serializeUser', user);
   done(null, user.id);
 });
-passport.deserializeUser((user, done) => {
+passport.deserializeUser(function (user, done) {
   console.log('deserializeUser', user);
   done(null, user);
 });
 
-export const login = [
-  passport.authenticate('local', { session: true }),
-  sendStatusOnLogin,
-];
+export const login = passport.authenticate('local', {
+  successRedirect: '/auth/loginSuccess',
+  failureRedirect: '/auth/login',
+});

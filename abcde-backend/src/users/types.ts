@@ -1,22 +1,7 @@
 import { Prisma } from '@prisma/client';
 
-interface PasswordAsString {
-  password: string;
-}
-
-export interface SeedUserType {
+export interface UserType {
   [id: string]: Prisma.UserGetPayload<{
-    select: { id: true; name: true; projects: { select: { id: true } } };
-  }> &
-    PasswordAsString;
+    include: { projects: { select: { id: true } } };
+  }>;
 }
-
-export type NewUserType = Prisma.UserGetPayload<{
-  select: { name: true };
-}> &
-  PasswordAsString;
-
-export type ExistingUserType = Prisma.UserGetPayload<{
-  select: { id: true };
-}> &
-  NewUserType;
