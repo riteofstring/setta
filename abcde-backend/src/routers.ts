@@ -2,6 +2,8 @@ import express from 'express';
 import { login } from './auth/login';
 import { logout } from './auth/logout';
 import { register } from './auth/register';
+import { generateCode } from './codeGenerator/generateCode';
+import { getCode } from './codeGenerator/getCode';
 import { createProject } from './projects/createProject';
 import { loadAllUsersProjects } from './projects/loadAllUsersProjects';
 import { loadOneProject } from './projects/loadOneProject';
@@ -24,5 +26,5 @@ router.post(
 );
 // router.post('/projects/getCollectionsAndModules', getCollectionsAndModules);
 // router.post('/projects/getCollectionDetails', getCollectionDetails);
-// router.post('/projects/generateCode', generateCode);
-// router.post('/projects/getCode', getCode);
+router.post('/codeGenerator/generateCode', generateCode);
+router.post('/codeGenerator/getCode', getCode);
