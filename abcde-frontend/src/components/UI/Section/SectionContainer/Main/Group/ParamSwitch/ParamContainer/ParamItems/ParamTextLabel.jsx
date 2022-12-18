@@ -1,7 +1,5 @@
 export default function ParamTextLabel(props) {
   return (
-    <h2 className="text-xs font-black font-heading text-gray-600">
-      {props.paramInfo.name}
-    </h2>
+    <h2 className="text-xs font-black text-gray-600">{props.paramInfo.name}</h2>
   );
 }

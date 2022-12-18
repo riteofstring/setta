@@ -15,7 +15,7 @@ export default function KwargsControls({ sectionId, objInfoId }) {
 
   return (
     <div className="flex pt-4 pl-3">
-      <h2 className="text-gray-400 text-sm font-heading font-bold">kwargs</h2>
+      <h2 className="text-gray-400 text-sm font-bold">kwargs</h2>
       <KwargsButton
         icon={<AiOutlineMinus />}
         type="minus"
