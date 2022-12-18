@@ -56,7 +56,7 @@ export function findAllDescendants(
   rcType,
   condition = defaultCondition,
 ) {
-  const output = [] as any;
+  const output = [];
   const idStack = [...collectionIds];
   const visited = new Set();
   while (idStack.length > 0) {

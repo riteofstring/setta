@@ -39,7 +39,7 @@ function paramCollectionExportSelected(
   const {
     config: { collections },
   } = sectionType;
-  let currParamCollections = [] as any;
+  let currParamCollections = [];
   for (const c of collections) {
     if (c in paramCollections) {
       currParamCollections = [...currParamCollections, ...paramCollections[c]];

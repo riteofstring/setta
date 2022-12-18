@@ -4,7 +4,7 @@ import { getSectionPositions } from 'src/db/sections/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
 export async function getProjectConfig(id) {
-  const p = (await prisma.projectConfig.findUnique({
+  const p = await prisma.projectConfig.findUnique({
     where: { id },
     select: {
       id: true,
@@ -22,7 +22,7 @@ export async function getProjectConfig(id) {
         },
       },
     },
-  })) as any;
+  });
   const sectionConfigCol = _.mapValues(
     _.keyBy(p.sectionConfigCol.children, 'sectionId'),
     (v) => v.configId,

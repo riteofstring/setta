@@ -1,9 +1,9 @@
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
-import { EVType } from './types';
+import { EVColType, EVType } from './types';
 
-function assembleEV(ev: EVType) {
-  const inDbFormat = [] as any;
+function assembleEV(ev: EVColType) {
+  const inDbFormat = [];
   for (const [id, v] of Object.entries(ev)) {
     const curr = {
       id,
@@ -29,9 +29,9 @@ export async function saveEV(ev: EVType) {
 }
 
 function assembleEVCols(evCols) {
-  const inDbFormat = [] as any;
+  const inDbFormat = [];
   for (const [idid, evCol] of Object.entries(evCols)) {
-    for (const [codeInfoId, evId] of Object.entries(evCol as any)) {
+    for (const [codeInfoId, evId] of Object.entries(evCol)) {
       inDbFormat.push({ idid, codeInfoId, evId });
     }
   }

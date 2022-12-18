@@ -11,7 +11,7 @@ export async function getCodeInfoForSectionsAndKwargs(
   const collectionIds = [].concat(
     ..._.map(sectionUITypes, (x) => x.config.collections),
   );
-  const kwargIds = [] as any;
+  const kwargIds = [];
   _.forEach(kwargCols, (x) =>
     _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
@@ -55,7 +55,7 @@ export async function getCodeInfo(ids: string[]) {
 
 export function processCodeInfo(codeInfo, childMap) {
   const { inCodeParentId, ...theRest } = codeInfo;
-  let children = [] as any;
+  let children = [];
   if (codeInfo.id in childMap) {
     children = getOrderedChildren(childMap[codeInfo.id], 'childId');
   }
@@ -80,7 +80,7 @@ export async function getCollectionsAndModules(searchTerm: string) {
     },
   });
   const processed = results.map((x) => {
-    const output = { ...x, children: x.asParent.map((y) => y.child) } as any;
+    const output = { ...x, children: x.asParent.map((y) => y.child) };
     delete output.asParent;
     return output;
   });

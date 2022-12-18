@@ -49,7 +49,7 @@ class Variable {
     }
 
     // Otherwise we're dealing with an object (dict)
-    const childStrs = [] as any;
+    const childStrs = [];
     for (const k of this.childVarNames) {
       const curr = allVars[k];
       curr.createString(allVars);
@@ -59,7 +59,7 @@ class Variable {
   }
 
   callableString(allVars) {
-    const childStrs = [] as any;
+    const childStrs = [];
     for (const k of this.childVarNames) {
       const curr = allVars[k];
       curr.createString(allVars);
@@ -113,7 +113,7 @@ function randomString(length) {
 }
 
 function genVarName(allVars) {
-  let newVar;
+  let newVar = null;
   do {
     newVar = randomString(3);
   } while (newVar in allVars);
@@ -127,8 +127,7 @@ function isPrimitive(datatype) {
 }
 
 function getDatatype(varType, value) {
-  let datatype;
-  let trueValue = value;
+  let [datatype, trueValue] = [null, value];
   if (Array.isArray(value)) {
     datatype = 'array';
   } else if (_.isObject(value)) {
@@ -197,7 +196,7 @@ function createVars(x, allVars) {
 
 function createStringWithoutDuplicates(listOfStrings) {
   const strSet = new Set();
-  const output = [] as any;
+  const output = [];
   for (const v of listOfStrings) {
     if (!strSet.has(v)) {
       output.push(v);

@@ -13,7 +13,7 @@ export async function saveSections(sections: SectionType, sectionChildren) {
     skipDuplicates: true,
   });
 
-  const inDbFormat = [] as any;
+  const inDbFormat = [];
   for (const v of Object.values(sections)) {
     const curr = {
       id: v.id,
@@ -46,7 +46,7 @@ export async function saveSectionChildren(
   sectionPositions = {},
 ) {
   const allColIds = Object.values(sectionChildrenIds);
-  const inDbFormat = [] as any;
+  const inDbFormat = [];
   for (const [parentSectionId, currChildren] of Object.entries(
     sectionChildren,
   )) {
@@ -65,7 +65,7 @@ export async function saveSectionChildren(
 }
 
 function assembleSectionConfig(sectionConfigs: SectionConfigType) {
-  const inDbFormat = [] as any;
+  const inDbFormat = [];
   for (const v of Object.values(sectionConfigs)) {
     const curr = {
       id: v.id,
@@ -94,7 +94,7 @@ export async function saveSectionConfigs(sectionConfigs) {
 }
 
 function assembleSectionConfigCol(sectionConfigCol, colId) {
-  const inDbFormat = [] as any;
+  const inDbFormat = [];
   for (const [sectionId, configId] of Object.entries(sectionConfigCol)) {
     inDbFormat.push({
       idid: colId,

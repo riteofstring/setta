@@ -8,8 +8,8 @@ import supertest from 'supertest';
 const TEST_USER = '25961114-6655-4e2c-b70f-e2e3aaa84131';
 
 describe('ProjectsService', () => {
-  let request;
-  let server;
+  let request = null;
+  let server = null;
 
   beforeAll(async () => {
     const allUsers = await loadSpecificTestData({ name: 'Users' });

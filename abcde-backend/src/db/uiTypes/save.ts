@@ -105,7 +105,7 @@ export async function saveUITypeCols(uiTypeCols) {
     skipDuplicates: true,
   });
 
-  const inDbFormat = [] as any;
+  const inDbFormat = [];
   for (const idid of ids) {
     for (const [codeInfoId, uiTypeId] of Object.entries(uiTypeCols[idid])) {
       inDbFormat.push({

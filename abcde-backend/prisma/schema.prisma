@@ -150,10 +150,10 @@ model SectionConfigCol {
 
 model SectionConfig {
   id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  evCol          EVColId            @relation(fields: [evColId], references: [id])
-  evColId        String             @db.Uuid
-  kwargCol       KwargColId         @relation(fields: [kwargColId], references: [id])
-  kwargColId     String             @db.Uuid
+  evCol          EVColId?           @relation(fields: [evColId], references: [id])
+  evColId        String?            @db.Uuid
+  kwargCol       KwargColId?        @relation(fields: [kwargColId], references: [id])
+  kwargColId     String?            @db.Uuid
   selectedItem   CodeInfo?          @relation(fields: [selectedItemId], references: [id])
   selectedItemId String?            @db.Uuid
   uiType         UIType             @relation(fields: [uiTypeId], references: [id])
