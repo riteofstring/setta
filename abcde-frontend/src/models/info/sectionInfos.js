@@ -1,6 +1,6 @@
+import { isListRoot } from "abcde-utils/src/constants";
 import { newSectionInfo } from "classes/mutableInfo";
 import _ from "lodash";
-import { isListRoot } from "utils/constants";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
