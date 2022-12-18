@@ -4,6 +4,8 @@ import { logout } from './auth/logout';
 import { register } from './auth/register';
 import { generateCode } from './codeGenerator/generateCode';
 import { getCode } from './codeGenerator/getCode';
+import { getCollectionDetails } from './codeInfo/getCollectionDetails';
+import { getCollectionsAndModules } from './codeInfo/getCollectionsAndModules';
 import { createProject } from './projects/createProject';
 import { loadAllUsersProjects } from './projects/loadAllUsersProjects';
 import { loadOneProject } from './projects/loadOneProject';
@@ -24,7 +26,7 @@ router.post(
   '/projects/saveAsExistingProjectConfig',
   saveAsExistingProjectConfig,
 );
-// router.post('/projects/getCollectionsAndModules', getCollectionsAndModules);
-// router.post('/projects/getCollectionDetails', getCollectionDetails);
+router.post('/codeInfo/getCollectionsAndModules', getCollectionsAndModules);
+router.post('/codeInfo/getCollectionDetails', getCollectionDetails);
 router.post('/codeGenerator/generateCode', generateCode);
 router.post('/codeGenerator/getCode', getCode);
