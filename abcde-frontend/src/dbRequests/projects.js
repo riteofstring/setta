@@ -1,3 +1,11 @@
+import {
+  CREATE_PROJECT,
+  LOAD_PROJECT,
+  PROJECTS,
+  SAVE_AS_EXISTING_PROJECT_CONFIG,
+  SAVE_AS_NEW_PROJECT_CONFIG,
+  SAVE_PROJECT,
+} from "abcde-utils/src/routes";
 import { NO_AUTH } from "utils/constants";
 import {
   noAuthCreateProject,
@@ -15,7 +23,7 @@ export async function getProjects() {
   }
 
   return post({
-    address: "projects",
+    address: PROJECTS,
     thenFn: (res) => res.data,
     catchFn: () => [],
     withCredentials: true,
@@ -28,7 +36,7 @@ export async function loadProject({ id, configId }) {
   }
 
   return post({
-    address: `projects/load/${id}/${configId}`,
+    address: LOAD_PROJECT(id, configId),
     thenFn: (res) => res.data,
     catchFn: () => [],
   });
@@ -40,7 +48,7 @@ export async function createProject({ name }) {
   }
 
   return post({
-    address: `projects/createProject`,
+    address: CREATE_PROJECT,
     body: { name },
     thenFn: (res) => res.data,
     catchFn: () => [],
@@ -54,7 +62,7 @@ export async function saveProject({ project }) {
   }
 
   return post({
-    address: `projects/save`,
+    address: SAVE_PROJECT,
     body: { project },
     thenFn: (res) => res.data,
     catchFn: () => [],
@@ -68,7 +76,7 @@ export async function saveAsNewProjectConfig({ project, newConfigName }) {
   }
 
   return post({
-    address: `projects/saveAsNewProjectConfig`,
+    address: SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName },
     thenFn: (res) => res.data,
     catchFn: () => [],
@@ -82,7 +90,7 @@ export async function saveAsExistingProjectConfig({ project, configId }) {
   }
 
   return post({
-    address: `projects/saveAsExistingProjectConfig`,
+    address: SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configId },
     thenFn: (res) => res.data,
     catchFn: () => [],

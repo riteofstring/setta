@@ -1,3 +1,7 @@
+import {
+  GET_COLLECTIONS_AND_MODULES,
+  GET_COLLECTION_DETAILS,
+} from "abcde-utils/src/routes";
 import { useCodeInfo } from "models/info/codeInfo";
 import { NO_AUTH } from "utils/constants";
 import {
@@ -12,7 +16,7 @@ export async function getCollectionsAndModules({ searchTerm }) {
   }
 
   return post({
-    address: "codeInfo/getCollectionsAndModules",
+    address: GET_COLLECTIONS_AND_MODULES,
     body: { searchTerm },
     thenFn: (res) => res.data,
     catchFn: () => ({}),
@@ -30,7 +34,7 @@ export async function getCollectionDetails(id) {
     results = await noAuthGetCollectionDetails(id);
   } else {
     results = await post({
-      address: "codeInfo/getCollectionDetails",
+      address: GET_COLLECTION_DETAILS,
       body: { codeInfoId: id },
       thenFn: (res) => res.data,
       catchFn: () => ({}),

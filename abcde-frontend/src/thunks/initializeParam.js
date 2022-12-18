@@ -1,3 +1,4 @@
+import { DEFAULT_BASE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { createNewId } from "abcde-utils/src/utils";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
@@ -6,10 +7,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import {
-  DEFAULT_BASE_UI_TYPE_ID,
-  requiresNestedSection,
-} from "utils/constants";
+import { requiresNestedSection } from "utils/constants";
 import { curryAction } from "utils/utils";
 import { addChild } from "./addChild";
 
