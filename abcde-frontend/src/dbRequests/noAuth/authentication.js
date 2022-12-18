@@ -4,7 +4,7 @@ export function noAuthAccessPage({ stayLoggedIn }) {
 }
 
 export function noAuthLogin({ loginSuccess }) {
-  loginSuccess();
+  loginSuccess({ access_token: "12345" });
   return true;
 }
 
@@ -14,6 +14,6 @@ export function noAuthLogout({ loginFail }) {
 }
 
 export function noAuthRegister({ loginSuccess }) {
-  loginSuccess();
+  loginSuccess({ access_token: "12345" });
   return true;
 }

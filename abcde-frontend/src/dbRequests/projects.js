@@ -18,7 +18,6 @@ export async function getProjects() {
     address: "projects",
     thenFn: (res) => res.data,
     catchFn: () => [],
-    withCredentials: true,
   });
 }
 
@@ -44,7 +43,6 @@ export async function createProject({ name }) {
     body: { name },
     thenFn: (res) => res.data,
     catchFn: () => [],
-    withCredentials: true,
   });
 }
 
@@ -58,7 +56,6 @@ export async function saveProject({ project }) {
     body: { project },
     thenFn: (res) => res.data,
     catchFn: () => [],
-    withCredentials: true,
   });
 }
 

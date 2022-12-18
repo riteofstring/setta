@@ -1,16 +1,18 @@
 import { create } from "./utils";
 
 export const useAuth = create((set) => ({
+  access_token: localStorage.getItem("access_token"),
   isAuthenticated: false,
-  loginSuccess: () =>
+  loginSuccess: (payload) =>
     set(() => {
-      return { isAuthenticated: true };
+      localStorage.setItem("access_token", payload.access_token);
+      return { access_token: payload.access_token, isAuthenticated: true };
     }),
   loginFail: () =>
     set(() => {
       localStorage.clear();
       sessionStorage.clear();
-      return { isAuthenticated: false };
+      return { access_token: null, isAuthenticated: false };
     }),
   stayLoggedIn: () => set(() => ({ isAuthenticated: true })),
 }));
