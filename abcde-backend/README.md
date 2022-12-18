@@ -46,7 +46,32 @@ Seed all the tables
 ./db/seed.bat
 ```
 
+### Run tests
 
+Unit tests:
+```
+yarn unittest
+```
+
+Specific unit tests
+```
+yarn unittest user/createUser
+```
+
+First reset test db
+```
+yarn unittest "" --reset
+```
+
+Big tests:
+```
+yarn bigtest
+```
+
+All tests:
+```
+yarn test
+```
 
 
 ### References
