@@ -38,6 +38,7 @@ export function logout() {
     address: "auth/logout",
     thenFn: loginFail,
     catchFn: loginFail,
+    withCredentials: true,
   });
 }
 
