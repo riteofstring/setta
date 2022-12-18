@@ -52,7 +52,6 @@ async function verify(username, password, done) {
     return done(null, false);
   }
   checkHash(password, user, done);
-  console.log('verified!');
 }
 
 function checkHash(password, user, done) {
@@ -86,6 +85,6 @@ function sendStatus(req, res) {
 }
 
 export const login = [
-  passport.authenticate('basic', { session: true }),
+  passport.authenticate('basic', { session: true, failWithError: true }),
   sendStatus,
 ];
