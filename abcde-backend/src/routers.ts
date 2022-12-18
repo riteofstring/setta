@@ -7,11 +7,15 @@ export const router = express.Router();
 //   console.log('Time: ', Date.now());
 //   next();
 // });
-router.post('/auth/login', login);
-router.get('/auth/loginSuccess', (req, res) => {
-  console.log('req.isAuthenticated()', req.isAuthenticated());
-  res.send('success');
+router.post('/auth/login', login, (req, res) => {
+  if (req.isAuthenticated()) {
+    res.sendStatus(200);
+  }
 });
+// router.get('/auth/loginSuccess', (req, res) => {
+//   // console.log('loginSuccess req.isAuthenticated()', req.isAuthenticated());
+//   // res.send('success');
+// });
 router.get('/usersOnly', (req, res) => {
   console.log('usersOnly req.isAuthenticated()', req.isAuthenticated());
   res.send('usersOnly!');

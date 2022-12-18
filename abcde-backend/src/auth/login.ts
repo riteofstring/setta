@@ -42,7 +42,7 @@
 
 import crypto from 'crypto';
 import passport from 'passport';
-import LocalStrategy from 'passport-local';
+import { BasicStrategy } from 'passport-http';
 import { prisma } from 'src/prisma';
 import { hashPassword } from './utils';
 
@@ -69,7 +69,7 @@ function checkHash(password, user, done) {
   return done(null, user);
 }
 
-passport.use(new LocalStrategy(verify));
+passport.use(new BasicStrategy(verify));
 passport.serializeUser(function (user, done) {
   console.log('serializeUser', user);
   done(null, user.id);
@@ -79,7 +79,17 @@ passport.deserializeUser(function (user, done) {
   done(null, user);
 });
 
-export const login = passport.authenticate('local', {
-  successRedirect: '/auth/loginSuccess',
-  failureRedirect: '/auth/login',
-});
+// export function login(req, res, next) {
+//   passport.authenticate('local', function (err, user, info) {
+//     if (err) {
+//       return next(err);
+//     }
+//     if (!user) {
+//       return res.redirect('/auth/login');
+//     }
+//     req.login(user, next);
+//     res.sendStatus(200);
+//   })(req, res, next);
+// }
+
+export const login = passport.authenticate('basic', { session: true });
