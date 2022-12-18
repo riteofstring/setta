@@ -13,7 +13,6 @@ export async function clearDb() {
 
   try {
     await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tables} CASCADE;`);
-    console.log('***CLEARED DB***');
   } catch (error) {
     console.log({ error });
   }
