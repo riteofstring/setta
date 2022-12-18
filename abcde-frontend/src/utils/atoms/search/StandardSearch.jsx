@@ -8,7 +8,7 @@ export default function StandardSearch({
   ...props
 }) {
   const otherStyling = simpleSearch
-    ? "bg-transparent border-b border-t-0 border-r-0 border-l-0 border-solid border-gray-300"
+    ? "bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300"
     : "bg-white rounded-full shadow-sm";
 
   const size = simpleSearch ? "w-4 h-4" : "w-10 h-10";
