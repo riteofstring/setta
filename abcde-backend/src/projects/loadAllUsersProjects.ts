@@ -14,10 +14,6 @@
 // import { getProject } from './load';
 // import { createProject, saveProjectDetails } from './save';
 
-//   async createProject(user, name: string): Promise<any> {
-//     return await createProject(this.prisma, user, name);
-//   }
-
 //   async saveAsNewProjectConfig(
 //     user,
 //     project,
