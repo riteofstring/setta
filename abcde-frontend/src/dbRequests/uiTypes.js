@@ -1,4 +1,4 @@
-export async function savePreset({ access_token, uiType }) {
+export async function savePreset({ uiType }) {
   // if (NO_AUTH) {
   //   return await loadAllProjectsMetadata();
   // }
