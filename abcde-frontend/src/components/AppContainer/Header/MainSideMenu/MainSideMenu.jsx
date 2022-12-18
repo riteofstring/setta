@@ -2,7 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { logout } from "dbRequests/authentication";
 import { resetAllSlices } from "models/utils";
 import { FiMenu } from "react-icons/fi";
-import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
+import IconButton from "utils/atoms/buttons/IconButton";
 import { Item } from "utils/atoms/dropdown/item";
 
 export default function MainSideMenu() {
@@ -14,8 +14,8 @@ export default function MainSideMenu() {
   return (
     <div className="flex flex-1 justify-end content-center">
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className={MenuBarButtonClasses}>
-          <FiMenu />
+        <DropdownMenu.Trigger>
+          <IconButton icon={<FiMenu />} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
