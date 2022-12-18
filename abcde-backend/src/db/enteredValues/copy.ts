@@ -1,10 +1,13 @@
 import { createIdMap, renameKeys } from 'src/utils/utils';
-import { EVColType } from './types';
+import { EVColType, EVType } from './types';
 
-export function copyEV(ev) {
+export function copyEV(ev: EVType) {
   const oldIds = Object.keys(ev);
   const evIdMap = createIdMap(oldIds);
   const newEv = renameKeys(ev, evIdMap);
+  for (const [newId, x] of Object.entries(newEv)) {
+    x.id = newId;
+  }
   return { newEv, evIdMap };
 }
 
