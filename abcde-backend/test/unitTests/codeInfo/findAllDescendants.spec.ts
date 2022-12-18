@@ -4,13 +4,8 @@ import {
   findAllCallables,
   findAllParameters,
 } from 'src/db/codeInfo/infoFactory';
-import { clearDb } from 'test/clearDb';
 
-describe('exportSelected', () => {
-  beforeAll(async () => {
-    await clearDb();
-  });
-
+describe('find descendants', () => {
   test('find all callable descendants', async () => {
     const codeInfo = await loadSpecificTestData({ name: 'AllCodeInfo' });
     const collectionId = _.find(
