@@ -1,7 +1,5 @@
 import React from "react";
-import { AiOutlineSearch } from "react-icons/ai";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
-import IconButton from "utils/atoms/buttons/IconButton";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -17,11 +15,7 @@ export const ComboboxInput = React.forwardRef(
     ref
   ) => {
     return (
-      <div className="flex relative nodrag">
-        <div className="w-10 h-10 absolute left-0 grid place-items-center select-none">
-          <AiOutlineSearch className="text-gray-400" />
-        </div>
-
+      <div className="flex nodrag">
         <SearchInput
           simpleSearch={simpleSearch}
           height={height}
@@ -31,17 +25,15 @@ export const ComboboxInput = React.forwardRef(
           ref={ref}
         />
         {dropdown && (
-          <IconButton
-            rounded={`${!simpleSearch ? "rounded-full" : "rounded-2xl"}`}
-            bg={` ${!simpleSearch ? "bg-white" : "bg-transparent"}`}
-            size="w-10 h-10"
-            padding="p-0"
-            grid={true}
-            twClasses="absolute right-0 hover:bg-gray-100"
+          <button
+            className={`${!simpleSearch ? "rounded-full" : "rounded-2xl"} ${
+              !simpleSearch ? "bg-white" : "bg-transparent"
+            }`}
             {...toggleButtonProps}
             aria-label={"toggle menu"}
-            icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
-          />
+          >
+            {isOpen ? <HiChevronUp /> : <HiChevronDown />}
+          </button>
         )}
       </div>
     );
@@ -57,7 +49,7 @@ const SearchInput = React.forwardRef(
       ? "bg-transparent"
       : "bg-white rounded-full border-0 shadow-sm";
 
-    const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0 cursor-auto`;
+    const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0`;
 
     return (
       <input className={className} placeholder="Search" ref={ref} {...props} />

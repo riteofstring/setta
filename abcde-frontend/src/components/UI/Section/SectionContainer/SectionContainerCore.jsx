@@ -55,7 +55,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <div className="flex flex-col gap-2 px-1 py-4 w-full">
+        <div className="px-1 py-4 w-full">
           <SectionHeader
             sectionId={sectionId}
             parentId={parentId}

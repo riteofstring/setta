@@ -10,8 +10,7 @@ export default function TextInput({
   isDisabled,
   className,
 }) {
-  const _className =
-    className + " border-b border-gray-700 text-xs max-w-[10rem]";
+  const _className = className + " text-xs max-w-[10rem]";
 
   return (
     <input
@@ -20,8 +19,7 @@ export default function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onBlur={(e) => onBlur(e.target.value)}
-      // className={_className}
-      className="border-0 border-b focus:border-b-2 cursor-auto border-gray-200 border-solid text-xs max-w-[10rem] pb-1 focus:border-blue-300"
+      className={_className}
     />
   );
 }

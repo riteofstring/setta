@@ -1,18 +1,9 @@
 import React from "react";
 
 export default React.forwardRef((props, ref) => {
-  const {
-    tailwindClasses = "",
-    grid = false,
-    as,
-    children,
-    ...theRest
-  } = props;
-  const gridStatus = grid
-    ? "grid place-items-center"
-    : "inline-flex items-center";
+  const { tailwindClasses = "", as, children, ...theRest } = props;
 
-  const classes = `transition-colors duration-150 focus:shadow-outline ${gridStatus} nodrag cursor-auto ${tailwindClasses} `;
+  const classes = `transition-colors duration-150 focus:shadow-outline inline-flex items-center ${tailwindClasses} `;
 
   if (as === "link") {
     return (
