@@ -7,8 +7,8 @@ import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/save';
 import { prisma } from 'src/prisma';
 import { saveMultipleProjectDetails } from 'src/projects/save';
 import { saveUITypes } from 'src/uiTypes/save';
-import { saveUsers } from 'src/users/save';
-import { UserType } from 'src/users/types';
+import { seedUsers as seedUsersFn } from 'src/users/save';
+import { SeedUserType } from 'src/users/types';
 
 async function main() {
   await seedUsers();
@@ -21,7 +21,7 @@ async function main() {
 async function seedUsers() {
   const data = await loadSpecificTestData({ name: 'Users' });
   console.log('seedUsers');
-  await saveUsers(data);
+  await seedUsersFn(data);
   console.log('done');
 }
 
@@ -40,7 +40,7 @@ async function seedBaseUITypes() {
 }
 
 async function seedProjects() {
-  const users: UserType = await loadSpecificTestData({ name: 'Users' });
+  const users: SeedUserType = await loadSpecificTestData({ name: 'Users' });
   const allProjects = await loadAllProjects({ forSavingToBackend: true });
   console.log('seedProjects');
   for (const user of Object.values(users)) {
@@ -53,7 +53,7 @@ async function seedProjects() {
 }
 
 async function seedUserCodeInfoMaps() {
-  const users: UserType = await loadSpecificTestData({ name: 'Users' });
+  const users: SeedUserType = await loadSpecificTestData({ name: 'Users' });
   const data = await loadSpecificTestData({ name: 'UserCodeInfoMaps' });
   console.log('seedUserCodeInfoMaps');
   for (const user of Object.values(users)) {

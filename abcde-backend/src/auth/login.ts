@@ -81,6 +81,7 @@ passport.deserializeUser(function (user, done) {
 function sendStatus(req, res) {
   if (req.isAuthenticated()) {
     res.sendStatus(200);
+    return;
   }
 }
 
