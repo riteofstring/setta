@@ -1,4 +1,4 @@
-import { DECK } from "abcde-utils/src/constants";
+import { DECK } from "./constants";
 
 export const REF_ID = "0595871f-4506-4bda-b6f1-9a3864e02a68";
 export const BASE = "base";
