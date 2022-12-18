@@ -31,7 +31,7 @@ export function login({ username, password }) {
 
   return post({
     address: "auth/login",
-    thenFn: (res) => loginSuccess(res),
+    thenFn: loginSuccess,
     catchFn: loginFail,
     withCredentials: true,
     auth: { username, password },
@@ -65,7 +65,7 @@ export function register({ username, password }) {
   return post({
     address: "auth/register",
     body: { username, password },
-    thenFn: (res) => loginSuccess(res.data),
+    thenFn: loginSuccess,
     catchFn: loginFail,
   });
 }

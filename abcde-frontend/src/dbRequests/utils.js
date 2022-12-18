@@ -21,18 +21,18 @@ export async function post({
     .catch(catchFn);
 }
 
-function tokenConfig(access_token) {
-  // Headers
-  const config = {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  };
+// function tokenConfig(access_token) {
+//   // Headers
+//   const config = {
+//     headers: {
+//       "Content-Type": "application/json",
+//     },
+//   };
 
-  // If token, add to headers config
-  if (access_token) {
-    config.headers["Authorization"] = `Bearer ${access_token}`;
-  }
+//   // If token, add to headers config
+//   if (access_token) {
+//     config.headers["Authorization"] = `Bearer ${access_token}`;
+//   }
 
-  return config;
-}
+//   return config;
+// }
