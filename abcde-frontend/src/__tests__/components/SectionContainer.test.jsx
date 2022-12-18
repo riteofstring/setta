@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SECTION } from "abcde-utils/src/constants";
+import { SECTION } from "utils/constants";
 import { createMainContainer } from "__tests__utils/createMainContainer";
 import {
   renderUseGetParamChildId,

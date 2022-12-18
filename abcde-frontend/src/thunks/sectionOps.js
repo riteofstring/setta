@@ -1,8 +1,7 @@
-import { isRoot, rootTypeToChildSubType } from "abcde-utils/src/constants";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { PANEID } from "utils/constants";
+import { isRoot, PANEID, rootTypeToChildSubType } from "utils/constants";
 import { REF_ID } from "utils/uiTypeConstants";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
 import { getSectionType } from "./sections";

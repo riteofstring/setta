@@ -1,15 +1,26 @@
-import { LOGIN, LOGOUT, REGISTER } from "abcde-utils/src/routes";
-import { AuthType } from "abcde-utils/src/types/auth";
 import { useAuth } from "models/auth";
 import { NO_AUTH } from "utils/constants";
 import {
+  noAuthAccessPage,
   noAuthLogin,
   noAuthLogout,
   noAuthRegister,
 } from "./noAuth/authentication";
 import { post } from "./utils";
 
-export function login({ username, password }: AuthType) {
+export function accessPage({ address }) {
+  const s = useAuth.getState();
+  const stayLoggedIn = s.stayLoggedIn;
+  const loginFail = s.loginFail;
+
+  if (NO_AUTH) {
+    return noAuthAccessPage({ stayLoggedIn });
+  }
+
+  return post({ address, thenFn: stayLoggedIn, catchFn: loginFail });
+}
+
+export function login({ username, password }) {
   const s = useAuth.getState();
   const loginSuccess = s.loginSuccess;
   const loginFail = s.loginFail;
@@ -19,7 +30,7 @@ export function login({ username, password }: AuthType) {
   }
 
   return post({
-    address: LOGIN,
+    address: "auth/login",
     body: { username, password },
     thenFn: loginSuccess,
     catchFn: loginFail,
@@ -36,14 +47,13 @@ export function logout() {
   }
 
   return post({
-    address: LOGOUT,
+    address: "auth/logout",
     thenFn: loginFail,
     catchFn: loginFail,
-    withCredentials: true,
   });
 }
 
-export function register({ username, password }: AuthType) {
+export function register({ username, password }) {
   const s = useAuth.getState();
   const loginSuccess = s.loginSuccess;
   const loginFail = s.loginFail;
@@ -53,7 +63,7 @@ export function register({ username, password }: AuthType) {
   }
 
   return post({
-    address: REGISTER,
+    address: "auth/register",
     body: { username, password },
     thenFn: loginSuccess,
     catchFn: loginFail,

@@ -1,4 +1,3 @@
-import { GENERATE_CODE } from "abcde-utils/src/routes";
 import { NO_AUTH } from "utils/constants";
 import { noAuthGenerateCode } from "./noAuth/codeGenerator";
 import { post } from "./utils";
@@ -9,7 +8,7 @@ export async function generateCode({ codeId, project }) {
   }
 
   return post({
-    address: GENERATE_CODE,
+    address: "codeGenerator/generateCode",
     body: { codeId, project },
     thenFn: (res) => res.data,
     catchFn: () => ({}),

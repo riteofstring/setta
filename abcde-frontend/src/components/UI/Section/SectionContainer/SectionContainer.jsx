@@ -1,10 +1,10 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { DECK } from "abcde-utils/src/constants";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
+import { DECK } from "utils/constants";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionTitle from "./Header/Title/SectionTitle";
 import SectionContainerCore from "./SectionContainerCore";
@@ -120,13 +120,10 @@ function Container({
 
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
-    editing: {
-      className: "nodrag w-[450px] font-bold text-4xl -mb-2 tracking-tighter",
-    },
-    notEditing: {
-      className: "font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
-      style: { fontFamily: "Work Sans" },
-    },
+    editing: "nodrag w-[450px] font-bold text-4xl -mb-2 tracking-tighter",
+
+    notEditing:
+      "font-heading font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

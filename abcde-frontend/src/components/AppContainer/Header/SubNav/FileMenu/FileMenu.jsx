@@ -12,7 +12,7 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
-import { twClasses as MenuBarButtonClasses } from "utils/atoms/buttons/MenuBarButton";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
@@ -67,8 +67,8 @@ export default function FileMenu() {
       currProjectId={currProjectId}
     >
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className={MenuBarButtonClasses}>
-          File
+        <DropdownMenu.Trigger asChild>
+          <MenuBarButton>File</MenuBarButton>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
