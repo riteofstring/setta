@@ -1,3 +1,18 @@
+import {
+  CREATE_PROJECT,
+  GENERATE_CODE,
+  GET_CODE,
+  GET_COLLECTIONS_AND_MODULES,
+  GET_COLLECTION_DETAILS,
+  LOAD_PROJECT,
+  LOGIN,
+  LOGOUT,
+  PROJECTS,
+  REGISTER,
+  SAVE_AS_EXISTING_PROJECT_CONFIG,
+  SAVE_AS_NEW_PROJECT_CONFIG,
+  SAVE_PROJECT,
+} from 'abcde-utils/src/routes';
 import express from 'express';
 import { login } from 'src/middleware/auth/login';
 import { logout } from 'src/middleware/auth/logout';
@@ -14,19 +29,16 @@ import { saveAsNewProjectConfig } from 'src/middleware/projects/saveAsNewProject
 import { saveProject } from 'src/middleware/projects/saveProject';
 export const router = express.Router();
 
-router.post('/auth/login', login);
-router.post('/auth/register', register);
-router.post('/auth/logout', logout);
-router.post('/projects', loadAllUsersProjects);
-router.post('/projects/load/:id/:configId', loadOneProject);
-router.post('/projects/save', saveProject);
-router.post('/projects/createProject', createProject);
-router.post('/projects/saveAsNewProjectConfig', saveAsNewProjectConfig);
-router.post(
-  '/projects/saveAsExistingProjectConfig',
-  saveAsExistingProjectConfig,
-);
-router.post('/codeInfo/getCollectionsAndModules', getCollectionsAndModules);
-router.post('/codeInfo/getCollectionDetails', getCollectionDetails);
-router.post('/codeGenerator/generateCode', generateCode);
-router.post('/codeGenerator/getCode', getCode);
+router.post(LOGIN, login);
+router.post(REGISTER, register);
+router.post(LOGOUT, logout);
+router.post(PROJECTS, loadAllUsersProjects);
+router.post(LOAD_PROJECT(':id', ':configId'), loadOneProject);
+router.post(SAVE_PROJECT, saveProject);
+router.post(CREATE_PROJECT, createProject);
+router.post(SAVE_AS_NEW_PROJECT_CONFIG, saveAsNewProjectConfig);
+router.post(SAVE_AS_EXISTING_PROJECT_CONFIG, saveAsExistingProjectConfig);
+router.post(GET_COLLECTIONS_AND_MODULES, getCollectionsAndModules);
+router.post(GET_COLLECTION_DETAILS, getCollectionDetails);
+router.post(GENERATE_CODE, generateCode);
+router.post(GET_CODE, getCode);
