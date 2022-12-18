@@ -1,13 +1,11 @@
-import Cors from '@koa/cors';
-import Koa from 'koa';
-import Parser from 'koa-bodyparser';
+import express from 'express';
 import { router } from './routers';
 
-const PORT = 8000;
-const app = new Koa();
+const app = express();
+const port = 8000;
 
-app.use(Parser());
-app.use(Cors());
-app.use(router.routes());
-app.use(router.allowedMethods());
-app.listen(PORT);
+app.use('/birds', router);
+
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`);
+});

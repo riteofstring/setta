@@ -48,6 +48,7 @@ model User {
   id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name             String                @unique @db.VarChar(255)
   password         String
+  salt             String
   projects         Project[] //Project.owner
   generatedCode    GeneratedCode[] //GeneratedCode.owner
   uiTypes          UIType[] //UIType.owner

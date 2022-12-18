@@ -1,7 +1,11 @@
-import Router from '@koa/router';
+import express from 'express';
+export const router = express.Router();
 
-export const router = new Router();
-
+// // middleware that is specific to this router
+// router.use((req, res, next) => {
+//   console.log('Time: ', Date.now());
+//   next();
+// });
 // router.post('/auth/login', login);
 // router.post('/auth/register', register);
 // router.post('/', verifyToken);
