@@ -44,6 +44,7 @@ export async function createProject({ name }) {
     body: { name },
     thenFn: (res) => res.data,
     catchFn: () => [],
+    withCredentials: true,
   });
 }
 
