@@ -57,6 +57,7 @@ export async function saveProject({ project }) {
     body: { project },
     thenFn: (res) => res.data,
     catchFn: () => [],
+    withCredentials: true,
   });
 }
 
