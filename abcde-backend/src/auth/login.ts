@@ -79,17 +79,13 @@ passport.deserializeUser(function (user, done) {
   done(null, user);
 });
 
-// export function login(req, res, next) {
-//   passport.authenticate('local', function (err, user, info) {
-//     if (err) {
-//       return next(err);
-//     }
-//     if (!user) {
-//       return res.redirect('/auth/login');
-//     }
-//     req.login(user, next);
-//     res.sendStatus(200);
-//   })(req, res, next);
-// }
+function sendStatus(req, res) {
+  if (req.isAuthenticated()) {
+    res.sendStatus(200);
+  }
+}
 
-export const login = passport.authenticate('basic', { session: true });
+export const login = [
+  passport.authenticate('basic', { session: true }),
+  sendStatus,
+];
