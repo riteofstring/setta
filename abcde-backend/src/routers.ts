@@ -5,6 +5,7 @@ import { register } from './auth/register';
 import { createProject } from './projects/createProject';
 import { loadAllUsersProjects } from './projects/loadAllUsersProjects';
 import { loadOneProject } from './projects/loadOneProject';
+import { saveAsNewProjectConfig } from './projects/saveAsNewProjectConfig';
 import { saveProject } from './projects/saveProject';
 export const router = express.Router();
 
@@ -15,7 +16,7 @@ router.post('/projects', loadAllUsersProjects);
 router.post('/projects/load/:id/:configId', loadOneProject);
 router.post('/projects/save', saveProject);
 router.post('/projects/createProject', createProject);
-// router.post('/projects/saveAsNewProjectConfig', saveAsNewProjectConfig);
+router.post('/projects/saveAsNewProjectConfig', saveAsNewProjectConfig);
 // router.post(
 //   '/projects/saveAsExistingProjectConfig',
 //   saveAsExistingProjectConfig,

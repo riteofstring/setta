@@ -14,19 +14,6 @@
 // import { getProject } from './load';
 // import { createProject, saveProjectDetails } from './save';
 
-//   async saveAsNewProjectConfig(
-//     user,
-//     project,
-//     newConfigName: string,
-//   ): Promise<any> {
-//     return await saveAsNewProjectConfig(
-//       this.prisma,
-//       user,
-//       project,
-//       newConfigName,
-//     );
-//   }
-
 //   async saveAsExistingProjectConfig(
 //     user,
 //     project,
@@ -39,11 +26,6 @@
 //       configId,
 //     );
 //   }
-
-//   async save(user, project): Promise<any> {
-//     await saveProjectDetails(this.prisma, user, project);
-//   }
-// }
 
 import * as _ from 'lodash';
 import { prisma } from 'src/prisma';

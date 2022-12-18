@@ -5,7 +5,7 @@ import { renameKeys } from 'src/utils/utils';
 import { copyProjectConfig } from './copy';
 
 export async function saveAsNewProjectConfig(
-  user,
+  userId,
   project,
   newConfigName: string,
 ) {
@@ -14,12 +14,12 @@ export async function saveAsNewProjectConfig(
     projectConfig: projectToSave.projectConfig,
     newConfigName,
   });
-  await saveProjectDetails(user, projectToSave);
+  await saveProjectDetails(userId, projectToSave);
   return projectToSave;
 }
 
 export async function saveAsExistingProjectConfig(
-  user,
+  userId,
   project,
   configId: string,
 ) {
@@ -37,6 +37,6 @@ export async function saveAsExistingProjectConfig(
     projectConfig: existingProjectConfig,
     doCreateNewId: false,
   });
-  await saveProjectDetails(user, projectToSave);
+  await saveProjectDetails(userId, projectToSave);
   return projectToSave;
 }
