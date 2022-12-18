@@ -31,9 +31,10 @@ export function login({ username, password }) {
 
   return post({
     address: "auth/login",
-    body: { username, password },
-    thenFn: (res) => loginSuccess(res.data),
+    thenFn: (res) => loginSuccess(res),
     catchFn: loginFail,
+    withCredentials: true,
+    auth: { username, password },
   });
 }
 

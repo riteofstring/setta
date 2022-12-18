@@ -1,16 +1,22 @@
 import axios from "axios";
-import { useAuth } from "models/auth";
 import { BACKEND } from "utils/constants";
 
 export async function post({
   address,
-  body = null,
+  body = {},
   thenFn = () => {},
   catchFn = () => {},
+  withCredentials = false,
+  auth = null,
 }) {
-  const access_token = useAuth.getState().access_token;
   return axios
-    .post(BACKEND + address, body, tokenConfig(access_token))
+    .post(BACKEND + address, body, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      withCredentials,
+      auth,
+    })
     .then(thenFn)
     .catch(catchFn);
 }
