@@ -58,8 +58,8 @@
     "l": "yarn eslint src --ext .js,.jsx,.ts --fix",
     "f": "yarn prettier src --write",
     "lf": "yarn l && yarn f",
-    "linkutils": "cd ../abcde-utils && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-utils",
-    "linktest": "cd ../abcde-test && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-test"
+    "linkutils": "cd ../abcde-utils && git pull && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-utils",
+    "linktest": "cd ../abcde-test && git pull && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-test"
   },
   "eslintConfig": {
     "extends": [
