@@ -65,6 +65,7 @@ const SearchInput = React.forwardRef(
         placeholder="Search"
         ref={ref}
         {...props}
+        tabindex="0"
       />
     );
   }
