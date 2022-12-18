@@ -1,9 +1,14 @@
-import React from "react";
+import { accessPage } from "dbRequests/authentication";
+import React, { useEffect } from "react";
 import { ReactFlowProvider } from "react-flow-renderer";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
 const AppContainer = () => {
+  useEffect(() => {
+    accessPage({ address: "" });
+  }, []);
+
   return (
     <ReactFlowProvider>
       <HeaderContainer />

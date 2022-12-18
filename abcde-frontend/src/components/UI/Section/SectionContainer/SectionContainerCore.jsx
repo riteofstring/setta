@@ -1,11 +1,10 @@
-import { isRoot, isSeriesElement } from "abcde-utils/src/constants";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
 import { setSectionConfigAttr } from "thunks/sections";
-import { SECTIONWIDTH } from "utils/constants";
+import { isRoot, isSeriesElement, SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
   KwargGroupContainer,

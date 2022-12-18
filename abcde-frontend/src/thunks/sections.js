@@ -1,8 +1,8 @@
-import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { DEFAULT_SECTION_UI_TYPE_ID } from "utils/constants";
 
 function getSectionConfigId(sectionId) {
   return useSectionInfos.getState().x[sectionId]?.configId;

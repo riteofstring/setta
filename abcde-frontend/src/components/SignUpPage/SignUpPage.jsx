@@ -1,5 +1,5 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
-import { register } from "dbRequests/authentication";
+import { register } from "dbRequests/authentication.js";
 import { useFormik } from "formik";
 import React from "react";
 import * as Yup from "yup";
@@ -30,6 +30,7 @@ const SignUpPage = () => {
         // alert(`email: ${email}, username: ${username}, password: ${password}`);
         register({
           username,
+          email,
           password,
         });
       },

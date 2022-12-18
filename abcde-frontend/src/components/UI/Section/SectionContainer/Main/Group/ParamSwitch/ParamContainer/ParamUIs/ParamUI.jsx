@@ -5,7 +5,7 @@ import {
   SECTION,
   SLIDER,
   SWITCH,
-} from "abcde-utils/src/constants";
+} from "utils/constants";
 
 import { NestedObjectInputConfig } from "./NestedObjectInput";
 import RefInput, { RefInputConfig } from "./RefInput";
