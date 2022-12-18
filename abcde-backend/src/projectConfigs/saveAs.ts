@@ -14,7 +14,7 @@ export async function saveAsNewProjectConfig(
     projectConfig: projectToSave.projectConfig,
     newConfigName,
   });
-  await saveProjectDetails(prisma, user, projectToSave);
+  await saveProjectDetails(user, projectToSave);
   return projectToSave;
 }
 
@@ -37,6 +37,6 @@ export async function saveAsExistingProjectConfig(
     projectConfig: existingProjectConfig,
     doCreateNewId: false,
   });
-  await saveProjectDetails(prisma, user, projectToSave);
+  await saveProjectDetails(user, projectToSave);
   return projectToSave;
 }

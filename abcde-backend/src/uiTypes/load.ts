@@ -1,7 +1,8 @@
 import * as _ from 'lodash';
+import { prisma } from 'src/prisma';
 import { SectionUITypeType } from './types';
 
-export async function getUITypeCols(prisma, sectionUITypes: SectionUITypeType) {
+export async function getUITypeCols(sectionUITypes: SectionUITypeType) {
   const ids = Object.values(sectionUITypes)
     .map((x) => x.config.uiTypeColId)
     .filter((x) => x);
@@ -16,15 +17,15 @@ export async function getUITypeCols(prisma, sectionUITypes: SectionUITypeType) {
   );
 }
 
-export async function getBaseUITypes(prisma) {
-  return await getUITypesByWhere(prisma, { presetType: 'base' });
+export async function getBaseUITypes() {
+  return await getUITypesByWhere({ presetType: 'base' });
 }
 
-export async function getPresetUITypes(prisma, ownerId) {
-  return await getUITypesByWhere(prisma, { presetType: 'user', ownerId });
+export async function getPresetUITypes(ownerId) {
+  return await getUITypesByWhere({ presetType: 'user', ownerId });
 }
 
-export async function getUITypesByWhere(prisma, where) {
+export async function getUITypesByWhere(where) {
   const uiTypes = await prisma.uIType.findMany({
     where,
     include: {
