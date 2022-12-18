@@ -1,5 +1,5 @@
+import { CALLABLE, COLLECTION, PARAMETER } from 'abcde-utils/src/constants';
 import * as _ from 'lodash';
-import { CALLABLE, COLLECTION, PARAMETER } from './constants';
 
 function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
   const output = {};

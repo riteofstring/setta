@@ -1,3 +1,4 @@
+import { FRONTEND } from 'abcde-utils/src/addresses';
 import cors from 'cors';
 import express from 'express';
 import 'express-async-errors';
@@ -9,7 +10,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: 'http://127.0.0.1:3000',
+    origin: FRONTEND,
     credentials: true,
   }),
 );
