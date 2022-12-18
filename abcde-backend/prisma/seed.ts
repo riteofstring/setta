@@ -2,13 +2,13 @@ import {
   loadAllProjects,
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
-import { saveCodeInfo } from 'src/codeInfo/save';
-import { saveAllUserCodeInfoMaps } from 'src/codeInfoMaps/save';
-import { prisma } from 'src/prisma';
-import { saveMultipleProjectDetails } from 'src/projects/save';
-import { saveUITypes } from 'src/uiTypes/save';
-import { seedUsers as seedUsersFn } from 'src/users/save';
-import { SeedUserType } from 'src/users/types';
+import { saveCodeInfo } from 'src/db/codeInfo/save';
+import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/save';
+import { prisma } from 'src/db/prisma';
+import { saveMultipleProjectDetails } from 'src/db/projects/save';
+import { saveUITypes } from 'src/db/uiTypes/save';
+import { seedUsers as seedUsersFn } from 'src/db/user/save';
+import { SeedUserType } from 'src/db/user/types';
 
 async function main() {
   await seedUsers();

@@ -1,5 +1,5 @@
 import { loadOneProject } from 'abcde-test/src/loadTestData';
-import { exportSelected } from 'src/codeGenerator/exportSelected';
+import { exportSelected } from 'src/actions/codeGenerator/exportSelected';
 
 test('export simpleTrainTest', async () => {
   const p = await loadOneProject({ forCodeGen: true });

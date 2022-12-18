@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { createNewId } from 'abcde-utils/src/utils';
 import * as _ from 'lodash';
-import { prisma } from 'src/prisma';
+import { prisma } from 'src/db/prisma';
 
 export function renameKeys<T>(x: T, toRename: object) {
   const output = _.cloneDeep(x);

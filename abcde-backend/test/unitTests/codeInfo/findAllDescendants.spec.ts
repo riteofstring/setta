@@ -1,6 +1,9 @@
 import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
 import * as _ from 'lodash';
-import { findAllCallables, findAllParameters } from 'src/codeInfo/infoFactory';
+import {
+  findAllCallables,
+  findAllParameters,
+} from 'src/db/codeInfo/infoFactory';
 
 test('find all callable descendants', async () => {
   const codeInfo = await loadSpecificTestData({ name: 'AllCodeInfo' });
