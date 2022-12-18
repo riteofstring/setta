@@ -1,17 +1,17 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from 'src/db/prisma';
 import { getSaltAndHash } from 'src/utils/authUtils';
-import { ExistingUserType, NewUserType, SeedUserType } from './types';
+import { SeedUserType, UserType } from './types';
 
-export async function createUser(data: NewUserType) {
+export async function createUser(data: UserType) {
   const { salt, password } = getSaltAndHash(data.password);
   return await prisma.user.create({ data: { ...data, salt, password } });
 }
 
-export async function updateUser(data: ExistingUserType) {
+export async function updateUser(data: UserType) {
   const { salt, password } = getSaltAndHash(data.password);
   return await prisma.user.update({
-    where: { id: data.id },
+    where: { name: data.name },
     data: { ...data, salt, password },
   });
 }
