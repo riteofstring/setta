@@ -7,5 +7,10 @@ export async function saveAsNewProjectConfig(req, res) {
     return;
   }
   const { project, newConfigName } = req.body;
-  return await saveAsNewProjectConfigFn(userId, project, newConfigName);
+  const savedProject = await saveAsNewProjectConfigFn(
+    userId,
+    project,
+    newConfigName,
+  );
+  res.json(savedProject).status(200);
 }
