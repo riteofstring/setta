@@ -1,5 +1,5 @@
-import { DECK_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useProjectConfig } from "models/info/projectConfig";
+import { DECK_UI_TYPE_ID } from "utils/constants";
 import { createDefaultSectionInfo } from "./sections";
 
 export function addSectionAtPosition({

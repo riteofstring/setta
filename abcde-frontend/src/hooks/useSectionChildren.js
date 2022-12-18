@@ -1,11 +1,10 @@
-import { isRoot } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
 import { setCurrChildren } from "thunks/sections";
-import { requiresNestedSection } from "utils/constants";
+import { isRoot, requiresNestedSection } from "utils/constants";
 import { defaultState } from "utils/utils";
 import { useGetManyParamEVs } from "./useEnteredValue";
 import { useGetManyParamUITypeIds } from "./useParamUIType";
