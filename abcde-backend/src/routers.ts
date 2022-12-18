@@ -8,6 +8,7 @@ export const router = express.Router();
 //   next();
 // });
 router.post('/auth/login', login);
+router.get('/auth/loginSuccess', (req, res) => res.send('success'));
 // router.post('/auth/register', register);
 // router.post('/', verifyToken);
 // router.post('/projects', getAllByOwner);

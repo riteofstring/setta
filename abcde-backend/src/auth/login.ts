@@ -44,36 +44,38 @@ import crypto from 'crypto';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
 import { prisma } from 'src/prisma';
-import { hashPasswordAsync } from './utils';
+import { hashPassword } from './utils';
 
-async function verify(username, password, doneFn) {
+async function verify(username, password, done) {
   const user = await prisma.user.findUnique({ where: { name: username } });
   if (!user) {
-    return doneFn(null, false);
+    return done(null, false);
   }
-  checkHash(password, user, doneFn);
+  checkHash(password, user, done);
+  console.log('verified!');
 }
 
-function checkHash(password, user, doneFn) {
-  hashPasswordAsync(password, user.salt, getCompareHashFn(user, doneFn));
-}
-
-function getCompareHashFn(user, doneFn) {
-  return (err, hashedPassword) => {
-    if (err) {
-      return doneFn(err);
-    }
+function checkHash(password, user, done) {
+  try {
+    const hashedPassword = hashPassword(password, user.salt);
     if (!crypto.timingSafeEqual(Buffer.from(user.password), hashedPassword)) {
-      return doneFn(null, false, {
+      return done(null, false, {
         message: 'Incorrect username or password.',
       });
     }
-    return doneFn(null, user);
-  };
+  } catch (err) {
+    return done(err);
+  }
+  return done(null, user);
 }
 
 passport.use(new LocalStrategy(verify));
+passport.serializeUser(function (user, done) {
+  console.log('serializeUser', user);
+  done(null, user.id);
+});
 
-export function login(...args) {
-  passport.authenticate('local')(...args);
-}
+export const login = passport.authenticate('local', {
+  successRedirect: '/auth/loginSuccess',
+  failureRedirect: '/auth/login',
+});
