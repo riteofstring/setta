@@ -14,7 +14,6 @@ test('should create new user ', async () => {
 
   prismaMock.user.create.mockResolvedValue(finalUser);
 
-  await createUser(user);
-
-  console.log(prismaMock.user.findFirst({}));
+  console.log(finalUser);
+  console.log(await createUser(user));
 });
