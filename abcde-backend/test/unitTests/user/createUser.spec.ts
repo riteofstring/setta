@@ -1,5 +1,5 @@
 import { prisma } from 'src/db/prisma';
-import { loadUser } from 'src/db/user/load';
+import { loadUserByName } from 'src/db/user/load';
 import { createUser, updateUser } from 'src/db/user/save';
 import { hashPassword } from 'src/utils/authUtils';
 import { clearDb } from 'test/clearDb';
@@ -19,7 +19,7 @@ describe('Create and Update User', () => {
   });
 
   test('password should be hashed', async () => {
-    const user = await loadUser(info.name);
+    const user = await loadUserByName(info.name);
     expect(user.password).toEqual(hashPassword(info.password, user.salt));
   });
 
@@ -28,7 +28,8 @@ describe('Create and Update User', () => {
   });
 
   test('update user password', async () => {
-    const newInfo = { ...info, password: '9000' };
+    const user = await loadUserByName(info.name);
+    const newInfo = { id: user.id, ...info, password: '9000' };
     const newUser = await updateUser(newInfo);
     expect(newUser.password).toEqual(
       hashPassword(newInfo.password, newUser.salt),

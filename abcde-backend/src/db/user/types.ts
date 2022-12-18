@@ -11,7 +11,12 @@ export interface SeedUserType {
     PasswordAsString;
 }
 
-export type UserType = Prisma.UserGetPayload<{
+export type NewUserType = Prisma.UserGetPayload<{
   select: { name: true };
 }> &
   PasswordAsString;
+
+export type ExistingUserType = Prisma.UserGetPayload<{
+  select: { id: true };
+}> &
+  NewUserType;

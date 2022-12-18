@@ -1,12 +1,12 @@
 import crypto from 'crypto';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
-import { loadUser } from 'src/db/user/load';
+import { loadUserByName } from 'src/db/user/load';
 import { hashPassword } from 'src/utils/authUtils';
 import { sendStatusOnLogin } from 'src/utils/httpUtils';
 
 async function verify(username: string, password: string, done) {
-  const user = await loadUser(username);
+  const user = await loadUserByName(username);
   if (!user) {
     return done(null, false);
   }
