@@ -6,7 +6,6 @@ import passport from 'passport';
 import { router } from './routers';
 
 const app = express();
-const port = 8000;
 
 app.use(
   cors({
@@ -31,6 +30,4 @@ app.use((req, res, next) => {
 });
 app.use('/', router);
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
-});
+export default app;
