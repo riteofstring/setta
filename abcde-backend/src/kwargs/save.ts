@@ -1,9 +1,12 @@
+import { PrismaClient } from '@prisma/client';
 import { saveCodeInfo } from 'src/codeInfo/save';
-import { prisma } from 'src/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
 import { KwargColsType } from './types';
 
-export async function saveKwargCols(kwargCols: KwargColsType) {
+export async function saveKwargCols(
+  prisma: PrismaClient,
+  kwargCols: KwargColsType,
+) {
   const ids = Object.keys(kwargCols);
   await prisma.kwargColId.createMany({
     data: ids.map((x) => ({ id: x })),
@@ -24,9 +27,9 @@ export async function saveKwargCols(kwargCols: KwargColsType) {
     }
   }
 
-  deleteThenCreateCol(prisma.kwargCol, ids, inDbFormat);
+  deleteThenCreateCol(prisma, prisma.kwargCol, ids, inDbFormat);
 }
 
-export async function saveKwargInfo(kwargInfo) {
-  await saveCodeInfo(kwargInfo, true);
+export async function saveKwargInfo(prisma, kwargInfo) {
+  await saveCodeInfo(prisma, kwargInfo, true);
 }

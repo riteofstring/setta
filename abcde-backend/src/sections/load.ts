@@ -1,9 +1,8 @@
 import * as _ from 'lodash';
-import { prisma } from 'src/prisma';
 import { getUITypeCols, getUITypesByWhere } from 'src/uiTypes/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
-export async function getSections(ids) {
+export async function getSections(prisma, ids) {
   const s = await prisma.section.findMany({
     where: { id: { in: ids } },
     include: {
@@ -39,7 +38,7 @@ export async function getSections(ids) {
   return { sections, sectionChildren };
 }
 
-export async function getSectionConfigs(ids) {
+export async function getSectionConfigs(prisma, ids) {
   const s = await prisma.sectionConfig.findMany({
     where: { id: { in: ids } },
     include: {
@@ -58,12 +57,12 @@ export async function getSectionConfigs(ids) {
     },
   });
 
-  const sectionUITypes = await getUITypesByWhere({
+  const sectionUITypes = await getUITypesByWhere(prisma, {
     id: { in: s.map((x) => x.uiTypeId) },
     presetType: null,
   });
 
-  const uiTypeCols = await getUITypeCols(sectionUITypes);
+  const uiTypeCols = await getUITypeCols(prisma, sectionUITypes);
 
   const sectionConfigs = _.keyBy(
     _.map(s, (x) => {

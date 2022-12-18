@@ -1,7 +1,6 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { createNewId } from 'abcde-utils/src/utils';
 import * as _ from 'lodash';
-import { prisma } from 'src/prisma';
 
 export function renameKeys<T>(x: T, toRename: object) {
   const output = _.cloneDeep(x);
@@ -23,7 +22,12 @@ export function prismaNullOrConnect(x) {
   return !x ? Prisma.DbNull : { connect: { id: x } };
 }
 
-export async function deleteThenCreateCol(db, allColIds, data) {
+export async function deleteThenCreateCol(
+  prisma: PrismaClient,
+  db,
+  allColIds,
+  data,
+) {
   await prisma.$transaction([
     db.deleteMany({
       where: { idid: { in: allColIds } },

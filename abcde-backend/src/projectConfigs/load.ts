@@ -1,9 +1,9 @@
+import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
-import { prisma } from 'src/prisma';
 import { getSectionPositions } from 'src/sections/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
-export async function getProjectConfig(id) {
+export async function getProjectConfig(prisma: PrismaClient, id) {
   const p = await prisma.projectConfig.findUnique({
     where: { id },
     select: {

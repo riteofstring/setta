@@ -1,5 +1,5 @@
+import { PrismaClient } from '@prisma/client';
 import * as _ from 'lodash';
-import { prisma } from 'src/prisma';
 
 function assembleUserCodeInfoMap(user, data, mapsFrom) {
   const inDbFormat = [];
@@ -13,7 +13,7 @@ function assembleUserCodeInfoMap(user, data, mapsFrom) {
   return inDbFormat;
 }
 
-async function saveUserCodeInfoTypeMaps(user, data) {
+async function saveUserCodeInfoTypeMaps(prisma: PrismaClient, user, data) {
   const inDbFormat = assembleUserCodeInfoMap(user, data, 'type');
 
   await prisma.$transaction(
@@ -32,7 +32,7 @@ async function saveUserCodeInfoTypeMaps(user, data) {
   );
 }
 
-async function saveUserCodeInfoMaps(user, data) {
+async function saveUserCodeInfoMaps(prisma: PrismaClient, user, data) {
   const inDbFormat = assembleUserCodeInfoMap(user, data, 'codeInfoId');
 
   await prisma.$transaction(
@@ -51,9 +51,13 @@ async function saveUserCodeInfoMaps(user, data) {
   );
 }
 
-export async function saveAllUserCodeInfoMaps(user, data) {
-  await saveUserCodeInfoMaps(user, data.codeInfoMaps);
-  await saveUserCodeInfoTypeMaps(user, data.codeInfoTypeMaps);
+export async function saveAllUserCodeInfoMaps(
+  prisma: PrismaClient,
+  user,
+  data,
+) {
+  await saveUserCodeInfoMaps(prisma, user, data.codeInfoMaps);
+  await saveUserCodeInfoTypeMaps(prisma, user, data.codeInfoTypeMaps);
 }
 
 function assembleProjectConfigCodeInfoMap(projectConfigId, data, mapsFrom) {
@@ -68,7 +72,11 @@ function assembleProjectConfigCodeInfoMap(projectConfigId, data, mapsFrom) {
   return inDbFormat;
 }
 
-async function saveProjectConfigCodeInfoTypeMaps(projectConfigId, data) {
+async function saveProjectConfigCodeInfoTypeMaps(
+  prisma: PrismaClient,
+  projectConfigId,
+  data,
+) {
   const inDbFormat = assembleProjectConfigCodeInfoMap(
     projectConfigId,
     data,
@@ -91,7 +99,11 @@ async function saveProjectConfigCodeInfoTypeMaps(projectConfigId, data) {
   );
 }
 
-async function saveProjectConfigCodeInfoMaps(projectConfigId, data) {
+async function saveProjectConfigCodeInfoMaps(
+  prisma: PrismaClient,
+  projectConfigId,
+  data,
+) {
   const inDbFormat = assembleProjectConfigCodeInfoMap(
     projectConfigId,
     data,
@@ -114,13 +126,22 @@ async function saveProjectConfigCodeInfoMaps(projectConfigId, data) {
   );
 }
 
-export async function saveAllProjectConfigCodeInfoMaps(projectConfigId, data) {
+export async function saveAllProjectConfigCodeInfoMaps(
+  prisma: PrismaClient,
+  projectConfigId,
+  data,
+) {
   if (_.isEmpty(data)) {
     return;
   }
 
-  await saveProjectConfigCodeInfoMaps(projectConfigId, data.codeInfoMaps);
+  await saveProjectConfigCodeInfoMaps(
+    prisma,
+    projectConfigId,
+    data.codeInfoMaps,
+  );
   await saveProjectConfigCodeInfoTypeMaps(
+    prisma,
     projectConfigId,
     data.codeInfoTypeMaps,
   );
