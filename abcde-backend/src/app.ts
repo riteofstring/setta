@@ -30,17 +30,6 @@ app.use((req, res, next) => {
 });
 app.use('/', router);
 
-// error handler
-app.use((err, req, res, next) => {
-  if (res.statusCode === 401) {
-    // To prevent 'sign in' dialog opening in browser
-    // https://stackoverflow.com/a/20221330
-    // https://stackoverflow.com/a/17473627
-    res.removeHeader('www-authenticate');
-    res.send();
-  }
-});
-
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
