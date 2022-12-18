@@ -1,4 +1,5 @@
 import React from "react";
+import { AiOutlineSearch } from "react-icons/ai";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 
 export const ComboboxInput = React.forwardRef(
@@ -15,7 +16,11 @@ export const ComboboxInput = React.forwardRef(
     ref
   ) => {
     return (
-      <div className="flex nodrag">
+      <div className="flex relative nodrag">
+        <div className="w-10 h-10 absolute left-0 grid place-items-center select-none">
+          <AiOutlineSearch className="text-gray-400" />
+        </div>
+
         <SearchInput
           simpleSearch={simpleSearch}
           height={height}
@@ -28,7 +33,7 @@ export const ComboboxInput = React.forwardRef(
           <button
             className={`${!simpleSearch ? "rounded-full" : "rounded-2xl"} ${
               !simpleSearch ? "bg-white" : "bg-transparent"
-            }`}
+            } grid place-items-center w-10 h-10 absolute right-0 hover:cursor-pointer hover:bg-gray-100`}
             {...toggleButtonProps}
             aria-label={"toggle menu"}
           >
