@@ -5,7 +5,7 @@ export function copyProjectConfig({
   projectConfig,
   newConfigName = null,
   doCreateNewId = true,
-}) {
+}: any) {
   const newProjectConfig = _.cloneDeep(projectConfig);
   const newVals = {
     sectionConfigCol: createNewId(),

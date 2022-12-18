@@ -10,7 +10,7 @@ export async function saveKwargCols(kwargCols: KwargColsType) {
     skipDuplicates: true,
   });
 
-  const inDbFormat = [];
+  const inDbFormat = [] as any;
   for (const idid of ids) {
     for (const [codeInfoId, kwargInfoList] of Object.entries(kwargCols[idid])) {
       for (const [order, kwargInfoId] of kwargInfoList.entries()) {

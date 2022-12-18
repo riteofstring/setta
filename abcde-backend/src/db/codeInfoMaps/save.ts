@@ -2,7 +2,7 @@ import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
 function assembleUserCodeInfoMap(user, data, mapsFrom) {
-  const inDbFormat = [];
+  const inDbFormat = [] as any;
   for (const [x, mapsTo] of Object.entries(data)) {
     inDbFormat.push({
       ownerId: user.id,
@@ -57,7 +57,7 @@ export async function saveAllUserCodeInfoMaps(user, data) {
 }
 
 function assembleProjectConfigCodeInfoMap(projectConfigId, data, mapsFrom) {
-  const inDbFormat = [];
+  const inDbFormat = [] as any;
   for (const [x, mapsTo] of Object.entries(data)) {
     inDbFormat.push({
       projectConfigId,
