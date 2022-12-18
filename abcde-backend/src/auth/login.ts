@@ -74,6 +74,10 @@ passport.serializeUser(function (user, done) {
   console.log('serializeUser', user);
   done(null, user.id);
 });
+passport.deserializeUser(function (user, done) {
+  console.log('deserializeUser', user);
+  done(null, user);
+});
 
 export const login = passport.authenticate('local', {
   successRedirect: '/auth/loginSuccess',

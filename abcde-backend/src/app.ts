@@ -12,10 +12,13 @@ app.use(
     secret: 'keyboard cat',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: true },
   }),
 );
-app.use(passport.authenticate('session'));
+app.use(passport.initialize());
+app.use((req, res, next) => {
+  console.log('authenticating session');
+  passport.authenticate('session')(req, res, next);
+});
 app.use('/', router);
 
 app.listen(port, () => {
