@@ -1,6 +1,7 @@
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-import { VscSave } from "react-icons/vsc";
+import { RiSave2Line } from "react-icons/ri";
 import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "thunks/kwargs";
+import IconButton from "utils/atoms/buttons/IconButton";
 
 export default function KwargsControls({ sectionId, objInfoId }) {
   function onClickAddKwarg() {
@@ -14,39 +15,21 @@ export default function KwargsControls({ sectionId, objInfoId }) {
   }
 
   return (
-    <div className="flex pt-4 pl-3">
-      <h2 className="text-gray-400 text-sm font-bold">kwargs</h2>
-      <KwargsButton
+    <div className="flex mt-4 ml-1 px-2 py-1">
+      <h2 className="text-gray-400 text-sm font-heading font-bold pr-1">
+        kwargs
+      </h2>
+      <IconButton
         icon={<AiOutlineMinus />}
         type="minus"
         onClick={onClickDeleteKwarg}
       />
-      <KwargsButton
+      <IconButton
         icon={<AiOutlinePlus />}
         onClick={onClickAddKwarg}
         type="add"
       />
-      <SaveAsCollection onClick={onClickSaveAsCollection} />
+      <IconButton icon={<RiSave2Line />} onClick={onClickSaveAsCollection} />
     </div>
-  );
-}
-
-function KwargsButton({ icon, onClick, type }) {
-  return (
-    <button
-      className="nodrag rounded-full ml-0.5"
-      onClick={onClick}
-      aria-label={type === "add" ? "Add Kwarg" : "Delete Kwarg"}
-    >
-      {icon}
-    </button>
-  );
-}
-
-function SaveAsCollection({ onClick }) {
-  return (
-    <button className="nodrag rounded-full ml-0.5" onClick={onClick}>
-      <VscSave />
-    </button>
   );
 }

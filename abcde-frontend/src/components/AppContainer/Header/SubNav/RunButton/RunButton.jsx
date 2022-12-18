@@ -1,6 +1,5 @@
 import { createNewId } from "abcde-utils/src/utils";
 import { useState } from "react";
-import { BiChevronDown } from "react-icons/bi";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { generateCode } from "thunks/generateCode";
 import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
@@ -31,7 +30,7 @@ export default function RunButton() {
         header={description}
         closeButton={true}
       />
-      <PopoverWrapper
+      {/* <PopoverWrapper
         trigger={
           <MenuBarButton aria-label="Run Options">
             <BiChevronDown />
@@ -40,7 +39,7 @@ export default function RunButton() {
         body={"Options..."}
         header={"Generate Options"}
         closeButton={true}
-      />
+      /> */}
     </>
   );
 }
