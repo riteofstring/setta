@@ -21,7 +21,7 @@ export default function TextInput({
       onChange={(e) => onChange(e.target.value)}
       onBlur={(e) => onBlur(e.target.value)}
       // className={_className}
-      className="border-0 border-b focus:border-b-2 border-gray-200 border-solid text-xs max-w-[10rem] pb-1 focus:border-blue-300"
+      className="border-0 border-b focus:border-b-2 cursor-auto border-gray-200 border-solid text-xs max-w-[10rem] pb-1 focus:border-blue-300"
     />
   );
 }
