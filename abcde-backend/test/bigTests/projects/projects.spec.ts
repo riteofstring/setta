@@ -2,6 +2,7 @@ import {
   loadAllProjects,
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
+import { LOGIN } from 'abcde-utils/src/routes';
 import app from 'src/app';
 import supertest from 'supertest';
 
@@ -20,7 +21,7 @@ describe('ProjectsService', () => {
 
     // login
     return await request
-      .post('/auth/login')
+      .post(LOGIN)
       .send({ username: testUser.name, password: testUser.password })
       .expect(200);
   });
