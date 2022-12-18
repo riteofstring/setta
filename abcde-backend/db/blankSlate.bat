@@ -1,5 +1,3 @@
-rm -rf prisma/migrations
-call db/reset.bat --skip-seed
-call db/migrate.bat init
+call db/resetAndMigrate.bat
 call db/alterTables.bat
 call db/seed.bat
