@@ -5,7 +5,7 @@ import { loadUser } from 'src/db/user/load';
 import { hashPassword } from 'src/utils/authUtils';
 import { sendStatusOnLogin } from 'src/utils/httpUtils';
 
-async function verify(username, password, done) {
+async function verify(username: string, password: string, done) {
   const user = await loadUser(username);
   if (!user) {
     return done(null, false);
@@ -13,7 +13,7 @@ async function verify(username, password, done) {
   checkHash(password, user, done);
 }
 
-function checkHash(password, user, done) {
+function checkHash(password: string, user, done) {
   try {
     const hashedPassword = hashPassword(password, user.salt);
     if (!crypto.timingSafeEqual(Buffer.from(user.password), hashedPassword)) {
