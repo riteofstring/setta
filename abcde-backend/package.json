@@ -15,8 +15,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "yarn test --config ./test/jest-e2e.json",
     "f": "yarn prettier src test prisma --write",
-    "linkutils": "cd ../abcde-utils && yarn && yarn link && cd ../abcde-backend && yarn link abcde-utils",
-    "linktest": "cd ../abcde-test && yarn && yarn link && cd ../abcde-backend && yarn link abcde-test"
+    "linkutils": "cd ../abcde-utils && git pull && yarn && yarn link && cd ../abcde-backend && yarn link abcde-utils",
+    "linktest": "cd ../abcde-test && git pull && yarn && yarn link && cd ../abcde-backend && yarn link abcde-test"
   },
   "dependencies": {
     "@prisma/client": "4.5.0",
