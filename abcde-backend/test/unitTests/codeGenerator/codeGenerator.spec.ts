@@ -1,4 +1,4 @@
-import { generateCode } from 'src/actions/codeGenerator/codeGenerator';
+import { generateCode } from 'src/middleware/codeGenerator/codeGenerator';
 import example1 from './example1';
 
 test('generateCode', () => {
