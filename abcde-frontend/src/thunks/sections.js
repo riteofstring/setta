@@ -41,7 +41,6 @@ export function createManySectionInfo({
     const { id, configId } = sectionInfo;
     newInfos[id] = sectionInfo;
     newConfigs[configId] = newSectionConfig({
-      id: configId,
       ...sectionConfigProps,
     });
   }
@@ -54,7 +53,6 @@ export function createDefaultSectionInfo({ sectionProps, configProps }) {
     ...sectionProps,
   });
   const sectionConfig = newSectionConfig({
-    id: sectionInfo.configId,
     uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
     ...configProps,
   });

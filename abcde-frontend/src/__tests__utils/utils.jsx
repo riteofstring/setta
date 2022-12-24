@@ -60,11 +60,11 @@ export function addSectionInfo(inputUIType = null) {
     uiType = addUIType({ type: SECTION });
   }
   const si = newSectionInfo({});
-  const siConfig = newSectionConfig({ id: si.configId, uiTypeId: uiType.id });
+  const siConfig = newSectionConfig({ uiTypeId: uiType.id });
   useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
-    [siConfig.id]: siConfig,
+    [si.configId]: siConfig,
   }));
   return { section: si, sectionConfig: siConfig };
 }
