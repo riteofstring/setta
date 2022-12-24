@@ -1,8 +1,8 @@
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { CodeInfoType } from './types';
+import { ManyCodeInfoType } from './types';
 
-export async function saveCodeInfo(codeInfo: CodeInfoType, upsert = false) {
+export async function saveCodeInfo(codeInfo: ManyCodeInfoType, upsert = false) {
   const vals = Object.values(codeInfo);
   const data = vals.map((v) =>
     _.pick(v, [

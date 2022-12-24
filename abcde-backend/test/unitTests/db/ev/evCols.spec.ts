@@ -1,4 +1,4 @@
-import { PARAMETER } from 'abcde-utils/src/constants';
+import { RCType } from 'abcde-utils/src/types/codeInfo';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
@@ -64,13 +64,12 @@ const _codeInfos = ['epochs', 'lr', 'batches'].map((name) => ({
   id: createNewId(),
   name,
   type: 'int',
-  rcType: PARAMETER,
+  rcType: RCType.PARAMETER,
   parentId: null,
   defaultVal: '',
   version: '',
   description: '',
   path: '',
-  inCodeParentId: null,
   children: [],
 }));
 const codeInfos = _.keyBy(_codeInfos, 'id');

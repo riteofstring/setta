@@ -1,4 +1,4 @@
-import { CALLABLE, COLLECTION, PARAMETER } from 'abcde-utils/src/constants';
+import { RCType } from 'abcde-utils/src/types/codeInfo';
 import * as _ from 'lodash';
 
 function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
@@ -34,7 +34,7 @@ function getParamCollections(allCodeInfo, allCollections) {
 }
 
 export function getCollections(allCodeInfo) {
-  return _.pickBy(allCodeInfo, (v) => v.rcType === COLLECTION);
+  return _.pickBy(allCodeInfo, (v) => v.rcType === RCType.COLLECTION);
 }
 
 export function createAllInfo(packages) {
@@ -75,20 +75,25 @@ export function findAllDescendants(
 }
 
 export function findAllCallables(allCodeInfo, collectionIds) {
-  return findAllDescendants(allCodeInfo, collectionIds, CALLABLE);
+  return findAllDescendants(allCodeInfo, collectionIds, RCType.CALLABLE);
 }
 
 export function findAllParameters(allCodeInfo, collectionIds) {
-  return findAllDescendants(allCodeInfo, collectionIds, PARAMETER);
+  return findAllDescendants(allCodeInfo, collectionIds, RCType.PARAMETER);
 }
 
 function findAllParameterCollections(allCodeInfo, collectionIds) {
   function condition(currInfo, rcType) {
     return (
       defaultCondition(currInfo, rcType) &&
-      allCodeInfo[currInfo.parentId].rcType === COLLECTION
+      allCodeInfo[currInfo.parentId].rcType === RCType.COLLECTION
     );
   }
 
-  return findAllDescendants(allCodeInfo, collectionIds, PARAMETER, condition);
+  return findAllDescendants(
+    allCodeInfo,
+    collectionIds,
+    RCType.PARAMETER,
+    condition,
+  );
 }

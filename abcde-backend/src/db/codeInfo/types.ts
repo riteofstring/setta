@@ -1,5 +1,5 @@
-import { Prisma } from '@prisma/client';
+import { CodeInfoType } from 'abcde-utils/src/types/codeInfo';
 
-export interface CodeInfoType {
-  [id: string]: Prisma.CodeInfoGetPayload<true> & { parentId: string | null };
+export interface ManyCodeInfoType {
+  [id: string]: CodeInfoType;
 }

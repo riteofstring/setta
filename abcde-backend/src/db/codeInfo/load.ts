@@ -1,3 +1,4 @@
+import { RCType } from 'abcde-utils/src/types/codeInfo';
 import * as _ from 'lodash';
 import { KwargColsType } from 'src/db/kwargs/types';
 import { prisma } from 'src/db/prisma';
@@ -68,7 +69,7 @@ export function processCodeInfo(codeInfo, childMap) {
 
 export async function getCollectionsAndModules(searchTerm: string) {
   const results = await prisma.codeInfo.findMany({
-    where: { name: { contains: searchTerm }, rcType: 'collection' },
+    where: { name: { contains: searchTerm }, rcType: RCType.COLLECTION },
     select: {
       id: true,
       name: true,
