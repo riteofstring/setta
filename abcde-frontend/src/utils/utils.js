@@ -75,3 +75,7 @@ export function checkboxChangeFn(checked, id) {
     return [id];
   };
 }
+
+export function xnor(a, b) {
+  return a == b;
+}

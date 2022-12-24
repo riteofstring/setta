@@ -1,4 +1,3 @@
-import { isBasePreset } from "abcde-utils/src/uiTypeConstants";
 import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -17,9 +16,7 @@ export function getProjectDataToGenerateCode() {
     allCodeInfo,
     paramCollections: codeInfoState.paramCollections,
   };
-  const baseUITypes = assembleUITypes(useUITypes.getState().x, (v) =>
-    isBasePreset(v)
-  );
+  const baseUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...baseUITypes };
   delete project.kwargInfo;
   return project;

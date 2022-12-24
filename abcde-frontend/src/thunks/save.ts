@@ -1,5 +1,6 @@
 import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
 import { ManySectionCoreInfoType } from "abcde-utils/src/types/sectionInfo";
+import { ManyUITypeType } from "abcde-utils/src/types/uiType";
 import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
@@ -17,6 +18,7 @@ import { useProjectToLoad } from "models/info/projectToLoad";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { xnor } from "utils/utils";
 import { loadProjectIntoState } from "./projects";
 
 export function getProjectData() {
@@ -25,10 +27,7 @@ export function getProjectData() {
 
   const ev = useEnteredValues.getState().x;
   const evCols = useParamInfos.getState().x;
-  const uiTypes = assembleUITypes(
-    useUITypes.getState().x,
-    (v) => !isBasePreset(v)
-  );
+  const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
 
   const kwargCols = useObjInfos.getState().x;
@@ -146,6 +145,9 @@ function assembleKwargInfos(kwargCols) {
   return kwargInfos;
 }
 
-export function assembleUITypes(s, pickBy) {
-  return _.pickBy(s, pickBy);
+export function assembleUITypes(
+  s: ManyUITypeType,
+  isBase: boolean
+): ManyUITypeType {
+  return _.pickBy(s, (v) => xnor(isBase, isBasePreset(v)));
 }
