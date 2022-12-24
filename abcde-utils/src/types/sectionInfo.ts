@@ -6,6 +6,7 @@ import { SectionConfigColType } from "./sectionConfigCol";
 import { SectionPositionType } from "./sectionPosition";
 
 export type SectionCoreInfoType = {
+  id: string;
   name: string;
   sectionChildrenId: string;
   paramInfoId: string | null;
