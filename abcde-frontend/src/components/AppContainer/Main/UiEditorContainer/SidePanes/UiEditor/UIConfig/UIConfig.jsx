@@ -1,3 +1,4 @@
+import { PresetType } from "abcde-utils/src/types/uiType";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -7,9 +8,7 @@ import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import StandardSearch from "utils/atoms/search/StandardSearch";
-import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
-import { USER } from "utils/uiTypeConstants";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -75,7 +74,7 @@ function UIElement({ sectionId, paramInfo }) {
     const newUIType = cloneNewUIType({
       uiType,
       name: presetName,
-      presetType: USER,
+      presetType: PresetType.USER,
     });
     setUIType({ uiType: newUIType });
     setParamUITypeId({
@@ -107,7 +106,6 @@ function UIElement({ sectionId, paramInfo }) {
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         paramChildId={paramChildId}
-        origin={SET_FROM_SIDEPANE}
       />
       <SaveLoadButtons onSubmit={onSaveAsSubmit} />
     </div>

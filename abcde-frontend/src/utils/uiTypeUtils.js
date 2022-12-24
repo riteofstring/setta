@@ -5,7 +5,6 @@ import {
 } from "abcde-utils/src/constants";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
-import { SET_FROM_SIDEPANE } from "./constants";
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
@@ -58,14 +57,14 @@ export function createOriginInfoId({
     return { sectionId: rootId };
   } else if (settingSectionConfig && paramInfoId) {
     return {
-      uiTypeColId: sectionTypeConfig?.uiTypeColId,
+      uiTypeColId: sectionTypeConfig.uiTypeColId,
       paramInfoId,
     };
   } else if (settingSectionConfig && !paramInfoId) {
     return { sectionId: childId };
   } else if (paramInfoId) {
     return {
-      uiTypeColId: sectionTypeConfig?.uiTypeColId,
+      uiTypeColId: sectionTypeConfig.uiTypeColId,
       paramInfoId,
     };
   } else {
@@ -77,7 +76,6 @@ export function cloneNewUIType({
   uiType,
   name = "",
   config,
-  origin = SET_FROM_SIDEPANE,
   presetType = null,
   originInfoId,
   isForChildOfOriginInfoId = false,
@@ -85,7 +83,6 @@ export function cloneNewUIType({
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
   newUIType.name = name;
-  newUIType.origin = origin;
   newUIType.presetType = presetType;
   newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {

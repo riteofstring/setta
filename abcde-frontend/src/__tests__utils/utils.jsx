@@ -2,7 +2,7 @@ import { loadOneProject } from "abcde-test/src/loadTestData";
 import { SECTION } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
-import { newUIType } from "classes/uiType";
+import { newUIType } from "abcde-utils/src/objs/uiType";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";

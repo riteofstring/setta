@@ -1,5 +1,6 @@
 import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
 import { ManySectionCoreInfoType } from "abcde-utils/src/types/sectionInfo";
+import { PresetType } from "abcde-utils/src/types/uiType";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
@@ -16,7 +17,6 @@ import { useProjectToLoad } from "models/info/projectToLoad";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { BASE, USER } from "utils/uiTypeConstants";
 import { loadProjectIntoState } from "./projects";
 
 export function getProjectData() {
@@ -27,7 +27,7 @@ export function getProjectData() {
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(
     useUITypes.getState().x,
-    (v) => v.presetType !== BASE
+    (v) => v.presetType !== PresetType.BASE
   );
   const uiTypeCols = useParamInfos.getState().y;
 
@@ -106,11 +106,11 @@ async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
   // and therefore aren't returned
   newProjectConfig.baseUITypes = _.pickBy(
     uiTypesState.x,
-    (x) => x.presetType === BASE
+    (x) => x.presetType === PresetType.BASE
   );
   newProjectConfig.presetUITypes = _.pickBy(
     uiTypesState.x,
-    (x) => x.presetType === USER
+    (x) => x.presetType === PresetType.USER
   );
   const zState = useProjectToLoad.getState();
   zState.setIsLoading(true);
@@ -149,6 +149,5 @@ function assembleKwargInfos(kwargCols) {
 }
 
 export function assembleUITypes(s, pickBy) {
-  const uiTypes = _.pickBy(s, pickBy);
-  return _.mapValues(uiTypes, (v) => _.omit(v, ["origin"]));
+  return _.pickBy(s, pickBy);
 }
