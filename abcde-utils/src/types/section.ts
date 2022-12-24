@@ -6,7 +6,7 @@ import { SectionConfigColType } from "./sectionConfigCol";
 import { SectionPositionType } from "./sectionPosition";
 import { ManyOf } from "./utils";
 
-export type SectionCoreInfoType = {
+export type SectionCoreType = {
   id: string;
   name: string;
   sectionChildrenId: string;
@@ -14,41 +14,41 @@ export type SectionCoreInfoType = {
   initialPosition: SectionPositionType;
 };
 
-export type ManySectionCoreInfoType = ManyOf<SectionCoreInfoType>;
+export type ManySectionCoreType = ManyOf<SectionCoreType>;
 
-export type SectionInfoType = SectionCoreInfoType & {
+export type SectionType = SectionCoreType & {
   configId: string;
   parentId: string | null;
 };
 
-export type ManySectionInfoType = ManyOf<SectionInfoType>;
+export type ManySectionType = ManyOf<SectionType>;
 
 export type SectionInfoStateType = {
-  x: ManySectionInfoType;
+  x: ManySectionType;
   allChildren: ManySectionChildrenType;
   currChildren: ManySectionChildrenType;
 };
 
 export type SectionInfoActionType = {
   resetAndSetAll: (payload: {
-    sections: ManySectionCoreInfoType;
+    sections: ManySectionCoreType;
     sectionConfigCol: SectionConfigColType;
     sectionChildren: ManySectionChildrenType;
   }) => void;
 
   setSectionInfo: (
-    newStateFn: (currState: ManySectionInfoType) => ManySectionInfoType
+    newStateFn: (currState: ManySectionType) => ManySectionType
   ) => void;
 
-  setSectionInfoAttr: <K extends keyof SectionInfoType>(payloa: {
+  setSectionInfoAttr: <K extends keyof SectionType>(payloa: {
     sectionId?: string;
     sectionIds?: string[];
     attr: K;
-    value: SectionInfoType[K];
+    value: SectionType[K];
   }) => void;
 
   setSectionInfoAttrObjInput: (payload: {
-    newValues: { [id: string]: Partial<SectionInfoType> };
+    newValues: { [id: string]: Partial<SectionType> };
   }) => void;
 
   setAllChildren: (payload: {

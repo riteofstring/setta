@@ -1,4 +1,4 @@
-import { SectionInfoType } from "../types/sectionInfo";
+import { SectionType } from "../types/section";
 import { maybeNewId } from "../utils";
 
 export function newSectionInfo({
@@ -10,7 +10,7 @@ export function newSectionInfo({
   initialPosition = { x: 0, y: 0 },
   parentId = null,
   parentName = "",
-}: Partial<SectionInfoType> & { parentName?: string }): SectionInfoType {
+}: Partial<SectionType> & { parentName?: string }): SectionType {
   return {
     id: maybeNewId(id),
     name: name ? name : parentName,
