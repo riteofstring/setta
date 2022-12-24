@@ -75,7 +75,7 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
       <div className="flex self-stretch [&:hover_*]:text-black">
         <input
           type="checkbox"
-          className="w-4 h-4 mr-2 mt-1 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 bg-gray-100 rounded border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
+          className="w-4 h-4 mr-2 mt-1 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
           //
           // checked={checked}
           // checked=""
