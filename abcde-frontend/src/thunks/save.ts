@@ -1,3 +1,5 @@
+import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
+import { ManySectionCoreInfoType } from "abcde-utils/src/types/sectionInfo";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
@@ -21,9 +23,7 @@ export function getProjectData() {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
-  const ev = _.mapValues(useEnteredValues.getState().getAll(), (v) =>
-    _.pick(v, ["value", "childId"])
-  );
+  const ev = useEnteredValues.getState().x;
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(
     useUITypes.getState().x,
@@ -31,23 +31,22 @@ export function getProjectData() {
   );
   const uiTypeCols = useParamInfos.getState().y;
 
-  const kwargCols = useObjInfos.getState().getAll();
+  const kwargCols = useObjInfos.getState().x;
   const kwargInfo = assembleKwargInfos(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();
-  const sections = _.mapValues(sectionInfosState.x, (x) =>
-    _.pick(x, [
-      "id",
-      "name",
-      "paramInfoId",
-      "sectionChildrenId",
-      "initialPosition",
-    ])
+  const sections: ManySectionCoreInfoType = _.mapValues(
+    sectionInfosState.x,
+    (x) =>
+      _.pick(x, ["name", "paramInfoId", "sectionChildrenId", "initialPosition"])
   );
 
   const sectionChildren = sectionInfosState.allChildren;
-  const sectionConfigs = useSectionConfigs.getState().getAll();
-  const sectionConfigCol = _.mapValues(sectionInfosState.x, (v) => v.configId);
+  const sectionConfigs = useSectionConfigs.getState().x;
+  const sectionConfigCol: SectionConfigColType = _.mapValues(
+    sectionInfosState.x,
+    (v) => v.configId
+  );
 
   return {
     project,

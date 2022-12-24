@@ -22,6 +22,5 @@ export const useSectionConfigs = create(
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
-    getAll: () => get().x,
   }))
 );

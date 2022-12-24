@@ -30,6 +30,5 @@ export const useEnteredValues = create(
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
-    getAll: () => get().x,
   }))
 );
