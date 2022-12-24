@@ -61,7 +61,7 @@ export async function saveSectionChildren(
       });
     }
   }
-  deleteThenCreateCol(prisma.sectionChildren, allColIds, inDbFormat);
+  await deleteThenCreateCol(prisma.sectionChildren, allColIds, inDbFormat);
 }
 
 function assembleSectionConfig(sectionConfigs: SectionConfigType) {
@@ -112,5 +112,5 @@ export async function saveSectionConfigCol(sectionConfigCol, colId) {
   });
 
   const inDbFormat = assembleSectionConfigCol(sectionConfigCol, colId);
-  deleteThenCreateCol(prisma.sectionConfigCol, [colId], inDbFormat);
+  await deleteThenCreateCol(prisma.sectionConfigCol, [colId], inDbFormat);
 }

@@ -13,7 +13,7 @@ describe('Create and Update User', () => {
 
   test('create user', async () => {
     await createUser(info);
-    const users = await prisma.user.findMany({});
+    const users = await prisma.user.findMany();
     expect(users.length).toEqual(1);
     expect(users[0].name).toEqual('Tom');
   });

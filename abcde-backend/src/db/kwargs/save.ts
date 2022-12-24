@@ -24,7 +24,7 @@ export async function saveKwargCols(kwargCols: KwargColsType) {
     }
   }
 
-  deleteThenCreateCol(prisma.kwargCol, ids, inDbFormat);
+  await deleteThenCreateCol(prisma.kwargCol, ids, inDbFormat);
 }
 
 export async function saveKwargInfo(kwargInfo) {

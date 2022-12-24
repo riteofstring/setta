@@ -18,7 +18,7 @@ describe('Creating code info', () => {
       ..._.pickBy(codeInfo, (x) => collection.children.includes(x.id)),
     };
     await saveCodeInfo(codeInfo);
-    const infoInDb = await prisma.codeInfo.findMany({});
+    const infoInDb = await prisma.codeInfo.findMany();
     expect(new Set(infoInDb.map((x) => x.id))).toEqual(
       new Set([collection.id, ...collection.children]),
     );

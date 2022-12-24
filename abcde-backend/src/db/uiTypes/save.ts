@@ -115,5 +115,5 @@ export async function saveUITypeCols(uiTypeCols) {
       });
     }
   }
-  deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
+  await deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
 }
