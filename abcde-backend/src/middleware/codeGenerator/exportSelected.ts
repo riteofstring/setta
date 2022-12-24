@@ -11,7 +11,7 @@ function paramInfoExportSelected(sectionId, paramInfo, evColId, p) {
   const { value, childId } = p.ev[evId];
   const sectionChildren = p.sectionCurrChildren[sectionId];
   if (sectionChildren && sectionChildren.includes(childId)) {
-    return sectionExportSelected(p.sections[childId], childId, p);
+    return sectionExportSelected(p.sections[childId], p);
   }
   return value;
 }
@@ -72,16 +72,17 @@ function objInfoExportSelected(sectionId, objInfo, evColId, p) {
   return { [objPrefix(objInfo.path)]: output };
 }
 
-function sectionExportSelected(section, sectionId, p) {
+function sectionExportSelected(section, p) {
   const { allCodeInfo, paramCollections } = p.codeInfo;
+  const { id: sectionId } = section;
   const { selectedItem, uiTypeId, evColId, kwargColId } = getSectionConfig(
-    sectionId,
+    section,
     p,
   );
   const sectionType = p.uiTypes[uiTypeId];
 
   if (isRoot(sectionType.type)) {
-    const currChildren = p.sectionCurrChildren[sectionId];
+    const currChildren = p.sectionCurrChildren[section.id];
     return multipleSectionExportSelected(currChildren, sectionType, p);
   }
 
@@ -117,8 +118,8 @@ function sectionExportSelected(section, sectionId, p) {
   return output;
 }
 
-function processSelected(currSection, currSectionId, selected, sectionType, p) {
-  const currSectionConfig = getSectionConfig(currSectionId, p);
+function processSelected(currSection, selected, sectionType, p) {
+  const currSectionConfig = getSectionConfig(currSection, p);
   const currSectionType = p.uiTypes[currSectionConfig.uiTypeId].type;
   const parentIsPane = !sectionType;
   const parentIsListRoot = sectionType?.type === LIST_ROOT;
@@ -147,8 +148,8 @@ function multipleSectionExportSelected(children, sectionType, p) {
   let output = parentIsListRoot ? [] : {};
   for (const c of children) {
     const currSection = p.sections[c];
-    let selected = sectionExportSelected(currSection, c, p);
-    selected = processSelected(currSection, c, selected, sectionType, p);
+    let selected = sectionExportSelected(currSection, p);
+    selected = processSelected(currSection, selected, sectionType, p);
     output = parentIsListRoot
       ? [...(output as any), ...(selected as any)]
       : { ...output, ...selected };
@@ -181,8 +182,8 @@ function maybeStringPrefix(x) {
   return _.isString(x) ? stringPrefix(x) : x;
 }
 
-function getSectionConfig(sectionId, p) {
-  return p.sectionConfigs[p.sectionConfigCol[sectionId]];
+function getSectionConfig(section, p) {
+  return p.sectionConfigs[p.sectionConfigCol[section.id]];
 }
 
 // Look at parent of deck to determine what to do with children of deck
