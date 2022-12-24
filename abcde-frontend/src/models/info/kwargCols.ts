@@ -8,7 +8,7 @@ import { setToDefault } from "./utils";
 
 const initialState: KwargColStateType = { x: {} };
 
-export const useObjInfos = create(
+export const useKwargCols = create(
   immer<KwargColZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

@@ -10,7 +10,7 @@ import {
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
-import { useObjInfos } from "models/info/objInfos";
+import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -30,7 +30,7 @@ export function getProjectData() {
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
 
-  const kwargCols = useObjInfos.getState().x;
+  const kwargCols = useKwargCols.getState().x;
   const kwargInfo = assembleKwargInfos(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();

@@ -3,7 +3,7 @@ import { RCType } from "abcde-utils/src/types/codeInfo";
 import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useObjInfos } from "models/info/objInfos";
+import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { deleteChild } from "./deleteChild";
 import { getParamChildId } from "./paramInfos";
@@ -16,7 +16,7 @@ export function addKwarg({ sectionId, objInfoId }) {
     rcType: RCType.PARAMETER,
   });
   useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
-  useObjInfos.getState().setKwargIds({
+  useKwargCols.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId: maybeUseNullId(objInfoId),
     newStateFn: (x) => [...x, kwargInfo.id],
@@ -29,7 +29,7 @@ export function deleteKwarg(payload) {
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
   objInfoId = maybeUseNullId(objInfoId);
   if (deleteLast) {
-    const kwargIds = useObjInfos.getState().x[kwargColId]?.[objInfoId];
+    const kwargIds = useKwargCols.getState().x[kwargColId]?.[objInfoId];
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
@@ -37,7 +37,7 @@ export function deleteKwarg(payload) {
     kwargId = kwargIds[numKwargs - 1];
   }
   const childId = getParamChildId(sectionId, kwargId);
-  useObjInfos.getState().setKwargIds({
+  useKwargCols.getState().setKwargIds({
     collectionId: kwargColId,
     objInfoId,
     newStateFn: (x) => x.filter((y) => y !== kwargId),
@@ -58,7 +58,7 @@ export function saveKwargsAsCollection({
 }) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargIds =
-    useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
+    useKwargCols.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
   const collection = newCodeInfo({
     name,
     rcType: RCType.COLLECTION,

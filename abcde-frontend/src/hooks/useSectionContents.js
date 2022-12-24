@@ -1,7 +1,7 @@
 import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useObjInfos } from "models/info/objInfos";
+import { useKwargCols } from "models/info/kwargCols";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
@@ -34,7 +34,7 @@ function useGetAllParamCollections(sectionId) {
 function useGetKwargIds(sectionId, objInfoId) {
   const [kwargColId] = useGetSectionConfig(sectionId, ["kwargColId"]);
   return defaultState(
-    useObjInfos((x) => x.x[kwargColId]?.[objInfoId]),
+    useKwargCols((x) => x.x[kwargColId]?.[objInfoId]),
     () => []
   );
 }

@@ -2,7 +2,7 @@ import { useProjectConfigCodeInfoMaps } from "./codeInfoMaps/projectConfigCodeIn
 import { useUserCodeInfoMaps } from "./codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "./info/codeInfo";
 import { useEnteredValues } from "./info/enteredValues";
-import { useObjInfos } from "./info/objInfos";
+import { useKwargCols } from "./info/kwargCols";
 import { useParamInfos } from "./info/paramInfos";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
@@ -39,7 +39,7 @@ export function loadSections({
     .getState()
     .resetAndSetAll(projectConfigCodeInfoMaps);
   useEnteredValues.getState().resetAndSetAll(ev);
-  useObjInfos.getState().resetAndSetAll(kwargCols);
+  useKwargCols.getState().resetAndSetAll(kwargCols);
   useSectionInfos.getState().resetAndSetAll({
     sections,
     sectionConfigCol,
