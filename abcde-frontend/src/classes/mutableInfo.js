@@ -34,22 +34,6 @@ export function newSectionInfo({
   };
 }
 
-export function newSectionConfig({
-  id,
-  uiTypeId,
-  evColId,
-  kwargColId,
-  selectedItem = null,
-}) {
-  return {
-    id: maybeNewId(id),
-    uiTypeId,
-    selectedItem,
-    evColId: maybeNewId(evColId),
-    kwargColId: maybeNewId(kwargColId),
-  };
-}
-
 export function newParamTypeInfo({ type, uiTypeId }) {
   return { type, uiTypeId };
 }
