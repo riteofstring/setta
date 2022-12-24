@@ -8,9 +8,13 @@ export function useGetSectionInfo(sectionId, props) {
   );
 }
 
-export function useGetManySectionInfos(sectionIds, props) {
+export function useGetManySectionInfos(sectionIds, props, prependId = false) {
+  const _props = prependId ? ["id", ...props] : props;
   return useSectionInfos(
-    (x) => sectionIds.map((id) => props.map((y) => x.x[id]?.[y])),
+    (x) =>
+      sectionIds.map((id) =>
+        _props.map((name) => (name === "id" ? id : x.x[id]?.[name]))
+      ),
     _.isEqual
   );
 }
