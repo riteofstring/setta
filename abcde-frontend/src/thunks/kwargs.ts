@@ -1,6 +1,6 @@
-import { COLLECTION, PARAMETER } from "abcde-utils/src/constants";
+import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
+import { RCType } from "abcde-utils/src/types/codeInfo";
 import { maybeUseNullId } from "abcde-utils/src/utils";
-import { newCodeInfo } from "classes/immutableInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useObjInfos } from "models/info/objInfos";
@@ -13,7 +13,7 @@ export function addKwarg({ sectionId, objInfoId }) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name: "",
-    rcType: PARAMETER,
+    rcType: RCType.PARAMETER,
   });
   useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
   useObjInfos.getState().setKwargIds({
@@ -61,7 +61,7 @@ export function saveKwargsAsCollection({
     useObjInfos.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
   const collection = newCodeInfo({
     name,
-    rcType: COLLECTION,
+    rcType: RCType.COLLECTION,
     children: kwargIds,
   });
 
