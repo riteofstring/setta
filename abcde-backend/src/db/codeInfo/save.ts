@@ -43,7 +43,7 @@ export async function saveCodeInfo(codeInfo: ManyCodeInfoType, upsert = false) {
       prisma.codeInfo.update({
         where: { id: v.id },
         data: {
-          inCodeParentId: v.parentId,
+          inCodeParentId: v.inCodeParentId,
         },
       }),
     ),

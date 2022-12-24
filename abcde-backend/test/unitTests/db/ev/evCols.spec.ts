@@ -65,7 +65,7 @@ const _codeInfos = ['epochs', 'lr', 'batches'].map((name) => ({
   name,
   type: 'int',
   rcType: RCType.PARAMETER,
-  parentId: null,
+  inCodeParentId: null,
   defaultVal: '',
   version: '',
   description: '',

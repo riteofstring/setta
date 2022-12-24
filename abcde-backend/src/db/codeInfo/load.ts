@@ -55,16 +55,11 @@ export async function getCodeInfo(ids: string[]) {
 }
 
 export function processCodeInfo(codeInfo, childMap) {
-  const { inCodeParentId, ...theRest } = codeInfo;
   let children = [] as any;
   if (codeInfo.id in childMap) {
     children = getOrderedChildren(childMap[codeInfo.id], 'childId');
   }
-  return {
-    ...theRest,
-    parentId: inCodeParentId,
-    children,
-  };
+  return { ...codeInfo, children };
 }
 
 export async function getCollectionsAndModules(searchTerm: string) {

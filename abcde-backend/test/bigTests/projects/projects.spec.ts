@@ -2,8 +2,9 @@ import {
   loadAllProjects,
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
-import { LOGIN } from 'abcde-utils/src/routes';
+import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
 import app from 'src/app';
+import { loadOne } from 'src/db/projects/load';
 import supertest from 'supertest';
 
 const TEST_USER = '25961114-6655-4e2c-b70f-e2e3aaa84131';
@@ -31,38 +32,48 @@ describe('ProjectsService', () => {
   });
 
   it('Get list of user projects', async () => {
-    const { body: projects } = await request.post('/projects');
+    const { body: projects } = await request.post(PROJECTS).expect(200);
     expect(Object.keys(projects).length).toEqual(3);
   });
 
-  it('Get a project with nested sections', async () => {
+  it('Get a project directly', async () => {
     const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
     const configId = '439f5590-fa98-4564-8f63-ec75b6dc89b2';
-    const { body: retrieved } = await request.post(
-      `/projects/load/${projectId}/${configId}`,
-    );
+    const retrieved = await loadOne(TEST_USER, projectId, configId);
+    await checkProject(retrieved, projectId);
+  });
 
-    const allProjects = await loadAllProjects({});
-    const correctOutput = allProjects.find((x) => x.project.id === projectId);
+  it('Get a project through middleware', async () => {
+    const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
+    const configId = '439f5590-fa98-4564-8f63-ec75b6dc89b2';
+    const { body: retrieved } = await request
+      .post(LOAD_PROJECT(projectId, configId))
+      .expect(200);
 
-    // TODO: figure out globalDefaults and projectDefaults
-    const { ...theRest } = retrieved;
-    const { projectDefaults, ...correctRest } = correctOutput;
-    correctOutput['userCodeInfoMaps'] =
-      correctOutput['userCodeInfoMaps'][TEST_USER];
-
-    // expect(theRest.project).toEqual(correctRest.project);
-    // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
-    // expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
-    // expect(theRest.sections).toEqual(correctRest.sections);
-    // expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
-    // expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
-    // expect(theRest.ev).toEqual(correctRest.ev);
-    // expect(theRest.evCols).toEqual(correctRest.evCols);
-    // expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
-    // expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
-    // expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
-
-    // expect(theRest).toEqual(correctRest);
+    await checkProject(retrieved, projectId);
   });
 });
+
+async function checkProject(retrieved, projectId) {
+  const allProjects = await loadAllProjects({});
+  const correctOutput = allProjects.find((x) => x.project.id === projectId);
+
+  // TODO: figure out globalDefaults and projectDefaults
+  const { projectDefaults, ...correctRest } = correctOutput;
+  correctOutput['userCodeInfoMaps'] =
+    correctOutput['userCodeInfoMaps'][TEST_USER];
+
+  // expect(theRest.project).toEqual(correctRest.project);
+  // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
+  // expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
+  // expect(theRest.sections).toEqual(correctRest.sections);
+  // expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
+  // expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
+  // expect(theRest.ev).toEqual(correctRest.ev);
+  // expect(theRest.evCols).toEqual(correctRest.evCols);
+  // expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
+  // expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
+  // expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
+
+  expect(retrieved).toEqual(correctRest);
+}

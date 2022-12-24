@@ -86,7 +86,7 @@ function findAllParameterCollections(allCodeInfo, collectionIds) {
   function condition(currInfo, rcType) {
     return (
       defaultCondition(currInfo, rcType) &&
-      allCodeInfo[currInfo.parentId].rcType === RCType.COLLECTION
+      allCodeInfo[currInfo.inCodeParentId].rcType === RCType.COLLECTION
     );
   }
 
