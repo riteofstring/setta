@@ -26,11 +26,12 @@ describe('Create, update, and copy entered value', () => {
   });
 
   test('copy ev', async () => {
-    const { newEv } = copyEV({ [info.id]: info });
+    const { newEv, evIdMap } = copyEV({ [info.id]: info });
     const copied = Object.values(newEv)[0];
     expect(copied.id).not.toEqual(info.id);
     expect(_.pick(copied, ['value', 'childId'])).toEqual(
       _.pick(info, ['value', 'childId']),
     );
+    expect(evIdMap).toEqual({ [info.id]: copied.id });
   });
 });
