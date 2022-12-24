@@ -2,7 +2,6 @@ import { loadOneProject } from "abcde-test/src/loadTestData";
 import { SECTION } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
-import { createNewId } from "abcde-utils/src/utils";
 import { newUIType } from "classes/uiType";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
@@ -33,10 +32,9 @@ export function getParameterToTestOn(sectionName, paramName) {
   let result = null;
 
   // get section
-  const sectionId = sectionIdFromName(sectionName);
   const sectionInfo = getSectionByName(sectionName);
 
-  const { configId } = sectionInfo;
+  const { id: sectionId, configId } = sectionInfo;
   const { uiTypeId: sectionTypeId } = useSectionConfigs.getState().x[configId];
   // get sectionType
   ({ result } = renderUseGetSectionType(sectionId, ["id", "config"]));
@@ -62,14 +60,13 @@ export function addSectionInfo(inputUIType = null) {
     uiType = addUIType({ type: SECTION });
   }
   const si = newSectionInfo({});
-  const siId = createNewId();
   const siConfig = newSectionConfig({ uiTypeId: uiType.id });
-  useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [siId]: si }));
+  useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
     [si.configId]: siConfig,
   }));
-  return { sectionId: siId, section: si, sectionConfig: siConfig };
+  return { section: si, sectionConfig: siConfig };
 }
 
 export function addUIType(props = {}) {
@@ -84,5 +81,5 @@ export function getReactFlowProvider() {
 
 export function sectionIdFromName(name) {
   const sections = useSectionInfos.getState().x;
-  return Object.keys(_.pickBy(sections, (x) => x.name === name))[0];
+  return _.find(sections, (x) => x.name === name).id;
 }

@@ -38,7 +38,13 @@ export function getProjectData() {
   const sections: ManySectionCoreInfoType = _.mapValues(
     sectionInfosState.x,
     (x) =>
-      _.pick(x, ["name", "paramInfoId", "sectionChildrenId", "initialPosition"])
+      _.pick(x, [
+        "id",
+        "name",
+        "paramInfoId",
+        "sectionChildrenId",
+        "initialPosition",
+      ])
   );
 
   const sectionChildren = sectionInfosState.allChildren;

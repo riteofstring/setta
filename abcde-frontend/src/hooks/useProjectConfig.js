@@ -3,5 +3,5 @@ import { useGetManySectionInfos } from "./useSectionInfo";
 
 export function useTopLevelSectionPositions() {
   const topLevelSectionIds = useProjectConfig((x) => x.children);
-  return useGetManySectionInfos(topLevelSectionIds, ["initialPosition"], true);
+  return useGetManySectionInfos(topLevelSectionIds, ["id", "initialPosition"]);
 }

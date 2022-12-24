@@ -1,7 +1,6 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
-import { createNewId } from "abcde-utils/src/utils";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -39,7 +38,7 @@ export function createManySectionInfo({
   const newConfigs = {};
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = newSectionInfo(sectionInfoProps);
-    newInfos[createNewId()] = sectionInfo;
+    newInfos[sectionInfo.id] = sectionInfo;
     newConfigs[sectionInfo.configId] = newSectionConfig({
       ...sectionConfigProps,
     });
@@ -56,14 +55,14 @@ export function createDefaultSectionInfo({ sectionProps, configProps }) {
     uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
     ...configProps,
   });
-  const id = createNewId();
+  const { id, configId } = sectionInfo;
 
   useSectionInfos
     .getState()
     .setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
-    [sectionInfo.configId]: sectionConfig,
+    [configId]: sectionConfig,
   }));
   return [id];
 }
