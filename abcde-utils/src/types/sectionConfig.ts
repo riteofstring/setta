@@ -1,4 +1,5 @@
 export type SectionConfigType = {
+  id: string;
   uiTypeId: string;
   evColId: string;
   kwargColId: string;
