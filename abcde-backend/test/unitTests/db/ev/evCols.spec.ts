@@ -18,7 +18,6 @@ describe('Create, update, and copy entered value collections', () => {
 
     const evColId = await prisma.eVColId.findMany();
     expect(evColId).toEqual([{ id: Object.keys(evCols)[0] }]);
-
     const evCol = await prisma.eVCol.findMany();
     expect(new Set(evCol.map((x) => x.codeInfoId))).toEqual(
       new Set(_codeInfos.map((x) => x.id)),
@@ -26,6 +25,20 @@ describe('Create, update, and copy entered value collections', () => {
     expect(new Set(evCol.map((x) => x.evId))).toEqual(
       new Set(_evs.map((x) => x.id)),
     );
+  });
+
+  test('Update an ev collection', async () => {
+    // update the evcol so that it only has 2 evs
+    const originalId = Object.keys(evCols)[0];
+    const _newEvCols = {};
+    _.range(2).forEach((x) => (_newEvCols[_codeInfos[x].id] = _evs[x].id));
+    const newEvCols = { [originalId]: _newEvCols };
+    await saveEVCols(newEvCols);
+
+    const evColId = await prisma.eVColId.findMany();
+    expect(evColId).toEqual([{ id: originalId }]);
+    const evCol = await prisma.eVCol.findMany();
+    expect(evCol.length).toEqual(2);
   });
 });
 
