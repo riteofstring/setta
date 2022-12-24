@@ -1,5 +1,5 @@
+import { maybeNewId } from "abcde-utils/src/utils";
 import { SET_FROM_SIDEPANE } from "utils/constants";
-import { maybeNewId } from "utils/utils";
 
 export function newUIType({
   id,
