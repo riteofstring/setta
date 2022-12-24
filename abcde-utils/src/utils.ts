@@ -8,3 +8,7 @@ export function maybeUseNullId(objInfoId) {
 export function createNewId() {
   return uuidv4();
 }
+
+export function maybeNewId(x) {
+  return x ? x : createNewId();
+}
