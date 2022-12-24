@@ -16,5 +16,3 @@ export enum RCType {
   CALLABLE = "callable",
   PARAMETER = "parameter",
 }
-
-
