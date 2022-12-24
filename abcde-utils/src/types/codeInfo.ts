@@ -6,7 +6,7 @@ export interface CodeInfoType {
   type: string;
   description: string | null;
   rcType: RCType;
-  parentId: string | null;
+  inCodeParentId: string | null;
   path: string;
   children: string[];
 }
