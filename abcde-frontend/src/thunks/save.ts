@@ -1,3 +1,5 @@
+import { ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
+import { ManyKwargColType } from "abcde-utils/src/types/kwargCol";
 import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
 import { ManySectionCoreInfoType } from "abcde-utils/src/types/sectionInfo";
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
@@ -132,8 +134,8 @@ function updateInitialPositions(reactFlowStore) {
   useSectionInfos.getState().setSectionInfoAttrObjInput({ newValues });
 }
 
-function assembleKwargInfos(kwargCols) {
-  let kwargInfos = {};
+function assembleKwargInfos(kwargCols: ManyKwargColType) {
+  const kwargInfos: ManyCodeInfoType = {};
   const codeInfoState = useCodeInfo.getState();
   for (const kwargCol of Object.values(kwargCols)) {
     for (const kwargIds of Object.values(kwargCol)) {
