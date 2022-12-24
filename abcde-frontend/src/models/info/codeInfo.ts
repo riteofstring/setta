@@ -17,8 +17,8 @@ const initialState: CodeInfoStateType = {
   paramCollections: {},
 };
 
-export const useCodeInfo = create<CodeInfoZustandType>(
-  immer((set, get) => ({
+export const useCodeInfo = create(
+  immer<CodeInfoZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
       const s = get();
