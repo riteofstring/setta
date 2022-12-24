@@ -1,4 +1,4 @@
-import { RCType } from 'abcde-utils/src/types/codeInfo';
+import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import * as _ from 'lodash';
 import { KwargColsType } from 'src/db/kwargs/types';
 import { prisma } from 'src/db/prisma';
@@ -20,7 +20,7 @@ export async function getCodeInfoForSectionsAndKwargs(
   return createAllInfo(allCodeInfo);
 }
 
-export async function getCodeInfo(ids: string[]) {
+export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
   const collectionIds = new Set(ids);
   let childMap = {};
   const allIds = new Set(collectionIds);

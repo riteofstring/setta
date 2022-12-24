@@ -1,4 +1,9 @@
-import { RCType } from 'abcde-utils/src/types/codeInfo';
+import {
+  CodeInfoStateType,
+  CodeInfoType,
+  ManyCodeInfoType,
+  RCType,
+} from 'abcde-utils/src/types/codeInfo';
 import * as _ from 'lodash';
 
 function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
@@ -37,7 +42,7 @@ export function getCollections(allCodeInfo) {
   return _.pickBy(allCodeInfo, (v) => v.rcType === RCType.COLLECTION);
 }
 
-export function createAllInfo(packages) {
+export function createAllInfo(packages: ManyCodeInfoType): CodeInfoStateType {
   const allCodeInfo = packages;
   const allCollections = getCollections(allCodeInfo);
   const callables = getCallables(allCodeInfo, allCollections);
@@ -46,7 +51,7 @@ export function createAllInfo(packages) {
   return { allCodeInfo, allCollections, callables, params, paramCollections };
 }
 
-function defaultCondition(currInfo, rcType) {
+function defaultCondition(currInfo: CodeInfoType, rcType: RCType) {
   return currInfo.rcType === rcType;
 }
 

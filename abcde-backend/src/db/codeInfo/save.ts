@@ -1,6 +1,6 @@
+import { CodeInfoType, ManyCodeInfoType } from 'abcde-utils/src/types/codeInfo';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { ManyCodeInfoType } from './types';
 
 export async function saveCodeInfo(codeInfo: ManyCodeInfoType, upsert = false) {
   const vals = Object.values(codeInfo);
@@ -50,7 +50,7 @@ export async function saveCodeInfo(codeInfo: ManyCodeInfoType, upsert = false) {
   );
 }
 
-function assembleCodeInfoChildren(codeInfoVals) {
+function assembleCodeInfoChildren(codeInfoVals: CodeInfoType[]) {
   const output = [] as any;
   for (const c of codeInfoVals) {
     for (const [order, child] of c.children.entries()) {
