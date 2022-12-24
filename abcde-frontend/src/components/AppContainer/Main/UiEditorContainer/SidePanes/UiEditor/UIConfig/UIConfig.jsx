@@ -1,4 +1,5 @@
 import { PresetType } from "abcde-utils/src/types/uiType";
+import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -83,7 +84,7 @@ function UIElement({ sectionId, paramInfo }) {
       paramInfoId,
     });
     // delete old uitype if its a non-preset
-    if (!uiType.presetType) {
+    if (!isPreset(uiType)) {
       deleteUIType({ uiTypeId: uiType.id });
     }
   }

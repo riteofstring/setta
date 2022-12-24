@@ -1,5 +1,9 @@
 import { isRoot, SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
-import { isBasePreset, isPreset } from "abcde-utils/src/uiTypeConstants";
+import {
+  isBasePreset,
+  isNotDeck,
+  isPreset,
+} from "abcde-utils/src/uiTypeConstants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
@@ -64,14 +68,19 @@ function filterUITypes(
       v.id === selectedId
   );
   const typesOfMatchesOrigin = _.map(matchesOriginOrIsSelected, (v) => v.type);
-  const presets = _.filter(uiTypes, (v) => filterFn(v) && isPreset(v));
+  const presets = _.filter(
+    uiTypes,
+    (v) => filterFn(v) && isPreset(v) && isNotDeck(v)
+  );
 
   // Remove base presets that have a corresponding uiType with a matching originInfoId
   const presetsFiltered = _.filter(
     presets,
     (v) =>
       !isBasePreset(v) ||
-      (isBasePreset(v) && !typesOfMatchesOrigin.includes(v.type))
+      (isBasePreset(v) &&
+        isNotDeck(v) &&
+        !typesOfMatchesOrigin.includes(v.type))
   );
 
   return _.uniq([...presetsFiltered, ...matchesOriginOrIsSelected]).map(

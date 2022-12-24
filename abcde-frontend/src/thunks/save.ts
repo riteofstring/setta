@@ -1,6 +1,6 @@
 import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
 import { ManySectionCoreInfoType } from "abcde-utils/src/types/sectionInfo";
-import { PresetType } from "abcde-utils/src/types/uiType";
+import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
@@ -27,7 +27,7 @@ export function getProjectData() {
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(
     useUITypes.getState().x,
-    (v) => v.presetType !== PresetType.BASE
+    (v) => !isBasePreset(v)
   );
   const uiTypeCols = useParamInfos.getState().y;
 
@@ -104,13 +104,11 @@ async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
   // load base and preset ui types from memory
   // because these weren't sent during saving
   // and therefore aren't returned
-  newProjectConfig.baseUITypes = _.pickBy(
-    uiTypesState.x,
-    (x) => x.presetType === PresetType.BASE
+  newProjectConfig.baseUITypes = _.pickBy(uiTypesState.x, (x) =>
+    isBasePreset(x)
   );
-  newProjectConfig.presetUITypes = _.pickBy(
-    uiTypesState.x,
-    (x) => x.presetType === PresetType.USER
+  newProjectConfig.presetUITypes = _.pickBy(uiTypesState.x, (x) =>
+    isUserPreset(x)
   );
   const zState = useProjectToLoad.getState();
   zState.setIsLoading(true);
