@@ -1,4 +1,14 @@
+import {
+  ManySectionChildrenType,
+  TopLevelSectionChildrenType,
+} from 'abcde-utils/src/types/sectionChildren';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
+import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
+import { ManySectionInfoType } from 'abcde-utils/src/types/sectionInfo';
+import {
+  ChildrenSectionPositionType,
+  TopLevelSectionPositionType,
+} from 'abcde-utils/src/types/sectionPosition';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import {
@@ -6,18 +16,20 @@ import {
   deleteThenCreateCol,
   prismaNullOrConnect,
 } from 'src/utils/utils';
-import { SectionChildrenType, SectionType } from './types';
 
-export async function saveSections(sections: SectionType, sectionChildren) {
+export async function saveSections(
+  sections: ManySectionInfoType,
+  sectionChildren: ManySectionChildrenType,
+) {
   await prisma.sectionChildrenId.createMany({
     data: Object.values(sections).map((x) => ({ id: x.sectionChildrenId })),
     skipDuplicates: true,
   });
 
   const inDbFormat = [] as any;
-  for (const v of Object.values(sections)) {
+  for (const [id, v] of Object.entries(sections)) {
     const curr = {
-      id: v.id,
+      id,
       name: v.name,
       childrenId: v.sectionChildrenId,
       paramInfoId: v.paramInfoId,
@@ -42,9 +54,11 @@ export async function saveSections(sections: SectionType, sectionChildren) {
 }
 
 export async function saveSectionChildren(
-  sectionChildren: SectionChildrenType,
+  sectionChildren: ManySectionChildrenType | TopLevelSectionChildrenType,
   sectionChildrenIds,
-  sectionPositions = {},
+  sectionPositions:
+    | ChildrenSectionPositionType
+    | TopLevelSectionPositionType = {},
 ) {
   const allColIds = Object.values(sectionChildrenIds);
   const inDbFormat = [] as any;
@@ -96,7 +110,10 @@ export async function saveSectionConfigs(
   );
 }
 
-function assembleSectionConfigCol(sectionConfigCol, colId) {
+function assembleSectionConfigCol(
+  sectionConfigCol: SectionConfigColType,
+  colId,
+) {
   const inDbFormat = [] as any;
   for (const [sectionId, configId] of Object.entries(sectionConfigCol)) {
     inDbFormat.push({
@@ -108,7 +125,10 @@ function assembleSectionConfigCol(sectionConfigCol, colId) {
   return inDbFormat;
 }
 
-export async function saveSectionConfigCol(sectionConfigCol, colId) {
+export async function saveSectionConfigCol(
+  sectionConfigCol: SectionConfigColType,
+  colId,
+) {
   await prisma.sectionConfigColId.createMany({
     data: [{ id: colId }],
     skipDuplicates: true,

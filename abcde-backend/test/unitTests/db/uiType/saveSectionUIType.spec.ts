@@ -34,7 +34,7 @@ describe('Create, update, and copy a section ui type', () => {
   test('create a section ui type', async () => {
     await saveCodeInfo(codeInfo);
     await seedUsers({ [user.id]: user });
-    await saveSections({ [section.id]: section }, []);
+    await saveSections({ [section.id]: section }, { [section.id]: [] });
     await saveUITypes(user.id, { [uiType.id]: uiType });
 
     // const uiTypes = await prisma.uIType.findMany();

@@ -19,7 +19,7 @@ export async function getSections(ids) {
   const idsAsKeys = _.keyBy(s, 'id');
 
   const sections = _.mapValues(idsAsKeys, (v) => {
-    const { children, ...theRest } = renameKeys(v, {
+    const { id, children, ...theRest } = renameKeys(v, {
       childrenId: 'sectionChildrenId',
     });
     return theRest;
