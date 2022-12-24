@@ -1,3 +1,5 @@
+import { newCodeInfo } from 'abcde-utils/src/objs/codeInfo';
+import { newEV } from 'abcde-utils/src/objs/ev';
 import { RCType } from 'abcde-utils/src/types/codeInfo';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
@@ -60,24 +62,18 @@ describe('Create, update, and copy entered value collections', () => {
 });
 
 // test data
-const _codeInfos = ['epochs', 'lr', 'batches'].map((name) => ({
-  id: createNewId(),
-  name,
-  type: 'int',
-  rcType: RCType.PARAMETER,
-  inCodeParentId: null,
-  defaultVal: '',
-  version: '',
-  description: '',
-  path: '',
-  children: [],
-}));
+const _codeInfos = ['epochs', 'lr', 'batches'].map((name) =>
+  newCodeInfo({
+    name,
+    rcType: RCType.PARAMETER,
+  }),
+);
 const codeInfos = _.keyBy(_codeInfos, 'id');
 
 const _evs = [
-  { id: createNewId(), value: '45', childId: null },
-  { id: createNewId(), value: '100', childId: null },
-  { id: createNewId(), value: '1234', childId: null },
+  newEV({ value: '45', childId: null }),
+  newEV({ value: '100', childId: null }),
+  newEV({ value: '1234', childId: null }),
 ];
 const evs = _.keyBy(_evs, 'id');
 
