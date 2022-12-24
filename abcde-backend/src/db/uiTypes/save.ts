@@ -1,4 +1,10 @@
-import { isSectionUIType } from 'abcde-utils/src/constants';
+import {
+  isSectionUIType,
+  REF,
+  SLIDER,
+  SWITCH,
+  TEXT,
+} from 'abcde-utils/src/constants';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
@@ -61,8 +67,11 @@ async function saveSectionUITypes(sectionUITypes) {
   );
 }
 
-async function saveRegularUIType(db, sliderUITypes) {
-  const data = sliderUITypes.map((x) => ({
+async function saveRegularUIType(db, uiTypes) {
+  if (uiTypes.length === 0) {
+    return;
+  }
+  const data = uiTypes.map((x) => ({
     idid: x.id,
     ...x.config,
   }));
@@ -82,19 +91,19 @@ export async function saveUITypes(userId, uiTypes) {
   await saveSectionUITypes(_.filter(uiTypes, (v) => isSectionUIType(v.type)));
   await saveRegularUIType(
     prisma.sliderUIType,
-    _.filter(uiTypes, (v) => v.type === 'SLIDER'),
+    _.filter(uiTypes, (v) => v.type === SLIDER),
   );
   await saveRegularUIType(
     prisma.textUIType,
-    _.filter(uiTypes, (v) => v.type === 'TEXT'),
+    _.filter(uiTypes, (v) => v.type === TEXT),
   );
   await saveRegularUIType(
     prisma.switchUIType,
-    _.filter(uiTypes, (v) => v.type === 'SWITCH'),
+    _.filter(uiTypes, (v) => v.type === SWITCH),
   );
   await saveRegularUIType(
     prisma.refUIType,
-    _.filter(uiTypes, (v) => v.type === 'REF'),
+    _.filter(uiTypes, (v) => v.type === REF),
   );
 }
 
