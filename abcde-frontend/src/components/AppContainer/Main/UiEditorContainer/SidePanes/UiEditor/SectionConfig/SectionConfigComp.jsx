@@ -71,13 +71,15 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
   }
 
   return (
-    <li className="px-5 py-4 border-r-4 cursor-pointer border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item">
-      <div className="flex flex-row self-stretch [&:hover_*]:text-black">
+    <li className="px-5 py-4 border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item">
+      <div className="flex self-stretch [&:hover_*]:text-black">
         <input
           type="checkbox"
-          className="h-4 w-4 border-2 rounded-full items-start mt-1 mr-2"
-          checked={checked}
-          onChange={onCheckboxChange}
+          className="w-4 h-4 mr-2 mt-1 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 bg-gray-100 rounded border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
+          //
+          // checked={checked}
+          // checked=""
+          // onChange={onCheckboxChange}
         />
         <label>
           <ObjCollectionDetails details={details}>
