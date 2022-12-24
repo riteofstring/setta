@@ -1,3 +1,4 @@
+import { ProjectType } from 'abcde-utils/src/types/project';
 import { saveAllProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/save';
 import { saveEV, saveEVCols } from 'src/db/enteredValues/save';
 import { saveKwargCols, saveKwargInfo } from 'src/db/kwargs/save';
@@ -44,7 +45,11 @@ export async function saveProjectDetails(userId, p, doSaveProject = true) {
   }
 }
 
-export async function saveProject(userId, project, projectConfigId) {
+export async function saveProject(
+  userId,
+  project: ProjectType,
+  projectConfigId,
+) {
   const data = {
     id: project.id,
     name: project.name,

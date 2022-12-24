@@ -1,3 +1,4 @@
+import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
 import { createNewId } from 'abcde-utils/src/utils';
 import * as _ from 'lodash';
 
@@ -5,7 +6,11 @@ export function copyProjectConfig({
   projectConfig,
   newConfigName = null,
   doCreateNewId = true,
-}: any) {
+}: {
+  projectConfig: ProjectConfigType;
+  newConfigName?: string | null;
+  doCreateNewId?: boolean;
+}) {
   const newProjectConfig = _.cloneDeep(projectConfig);
   const newVals = {
     sectionConfigCol: createNewId(),
