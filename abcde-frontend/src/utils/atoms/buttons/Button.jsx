@@ -12,7 +12,7 @@ export default React.forwardRef((props, ref) => {
     ? "grid place-items-center"
     : "inline-flex items-center";
 
-  const classes = `transition-colors duration-150 focus:ring-2 ${gridStatus} nodrag cursor-pointer ${tailwindClasses} `;
+  const classes = `transition-colors duration-150 focus-visible:ring-2 ${gridStatus} nodrag cursor-pointer ${tailwindClasses} `;
 
   if (as === "link") {
     return (

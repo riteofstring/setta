@@ -48,7 +48,7 @@ export default function SliderInput({
       <Slider.Track className="bg-gray-200 relative flex-grow rounded-full data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]">
         <Slider.Range className="absolute bg-blue-500 rounded-full h-full" />
       </Slider.Track>
-      <Slider.Thumb className="block w-3 h-3 bg-white shadow-md border-white rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 cursor-pointer" />
+      <Slider.Thumb className="block w-3 h-3 bg-white shadow-md border-white rounded-full hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 cursor-pointer" />
     </Slider.Root>
   );
 }

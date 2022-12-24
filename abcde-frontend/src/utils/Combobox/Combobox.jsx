@@ -57,7 +57,7 @@ const SearchInput = React.forwardRef(
       ? "bg-transparent"
       : "bg-white rounded-full border-0 shadow-sm";
 
-    const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0 cursor-auto focus:ring-2`;
+    const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0 cursor-auto focus-visible:ring-2`;
 
     return (
       <input

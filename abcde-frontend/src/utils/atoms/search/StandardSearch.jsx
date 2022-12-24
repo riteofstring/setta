@@ -13,7 +13,9 @@ export default function StandardSearch({
 
   const size = simpleSearch ? "w-4 h-4" : "w-10 h-10";
   const padding = simpleSearch ? "pl-6 py-1" : "pl-10";
-  const focus = simpleSearch ? "focus:border-blue-300" : "focus:ring-2";
+  const focus = simpleSearch
+    ? "focus-visible:border-blue-300"
+    : "focus-visible:ring-2";
 
   const className = `${otherStyling} ${textSize} ${padding} ${focus} w-full outline-0 cursor-auto `;
 
