@@ -74,8 +74,8 @@ function componentSetup({ forParent, numChildren }) {
     return (
       <SectionHeader
         parentId={parent.id}
-        sectionId={childIds[0].id}
-        nextId={childIds.length > 1 ? childIds[1].id : null}
+        sectionId={childIds[0]}
+        nextId={childIds.length > 1 ? childIds[1] : null}
         isSeriesElement={true}
         isRoot={false}
       />
