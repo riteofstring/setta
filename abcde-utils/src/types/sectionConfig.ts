@@ -1,5 +1,4 @@
 export type SectionConfigType = {
-  id: string;
   uiTypeId: string;
   evColId: string;
   kwargColId: string;
@@ -15,7 +14,7 @@ export type SectionConfigStateType = {
 };
 
 export type SectionConfigStateActionType = {
-  resetAndSetAll: (payload: SectionConfigStateType) => void;
+  resetAndSetAll: (payload: ManySectionConfigType) => void;
   setSectionConfig: (
     newStateFn: (currState: ManySectionConfigType) => ManySectionConfigType
   ) => void;
