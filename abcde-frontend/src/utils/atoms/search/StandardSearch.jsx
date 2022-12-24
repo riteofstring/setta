@@ -5,6 +5,9 @@ export default function StandardSearch({
   textSize = "text-base",
   placeholder = "Search",
   dropdown = false,
+  pad,
+  twClasses = "",
+  outerClasses = "",
   ...props
 }) {
   const otherStyling = simpleSearch
@@ -12,15 +15,15 @@ export default function StandardSearch({
     : "bg-white rounded-full shadow-sm";
 
   const size = simpleSearch ? "w-4 h-4" : "w-10 h-10";
-  const padding = simpleSearch ? "pl-6 py-1" : "pl-10";
+  const padding = pad ? pad : simpleSearch ? "pl-6 py-1" : "pl-10";
   const focus = simpleSearch
     ? "focus-visible:border-blue-300"
     : "focus-visible:ring-2";
 
-  const className = `${otherStyling} ${textSize} ${padding} ${focus} w-full outline-0 cursor-auto `;
+  const className = `${otherStyling} ${textSize} ${padding} ${focus} w-full outline-0 cursor-auto ${twClasses}`;
 
   return (
-    <div className="flex items-center relative nodrag">
+    <div className={`flex items-center relative nodrag ${outerClasses}`}>
       <div
         className={`${size} absolute left-0 grid place-items-center select-none`}
       >

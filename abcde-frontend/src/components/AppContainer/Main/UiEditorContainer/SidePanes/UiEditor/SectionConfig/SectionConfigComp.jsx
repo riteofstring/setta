@@ -6,6 +6,7 @@ import {
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import { useState } from "react";
+import StandardSearch from "utils/atoms/search/StandardSearch";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ sectionId, onConfigChange }) {
@@ -61,14 +62,7 @@ function Search({ onSubmit }) {
     onSubmit(text);
   }
 
-  return (
-    <div className="pb-4">
-      <input className="w-4/5" placeholder="Search" onChange={onChange} />
-      <button className="h-7" onClick={onClick}>
-        Go
-      </button>
-    </div>
-  );
+  return <StandardSearch simpleSearch={true} onChange={onChange} />;
 }
 
 function SearchItem({ id, name, description, details, checked, onChange }) {
