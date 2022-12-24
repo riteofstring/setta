@@ -9,7 +9,7 @@ export function newSectionInfo({
   initialPosition = { x: 0, y: 0 },
   parentId = null,
   parentName = "",
-}: Partial<SectionInfoType> & { parentName: string }): SectionInfoType {
+}: Partial<SectionInfoType> & { parentName?: string }): SectionInfoType {
   return {
     name: name ? name : parentName,
     configId: maybeNewId(configId),
