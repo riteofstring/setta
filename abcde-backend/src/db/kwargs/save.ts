@@ -1,9 +1,9 @@
+import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
-import { KwargColsType } from './types';
 
-export async function saveKwargCols(kwargCols: KwargColsType) {
+export async function saveKwargCols(kwargCols: ManyKwargColType) {
   const ids = Object.keys(kwargCols);
   await prisma.kwargColId.createMany({
     data: ids.map((x) => ({ id: x })),

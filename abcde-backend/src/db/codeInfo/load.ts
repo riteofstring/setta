@@ -1,13 +1,13 @@
 import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
+import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import * as _ from 'lodash';
-import { KwargColsType } from 'src/db/kwargs/types';
 import { prisma } from 'src/db/prisma';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
 
 export async function getCodeInfoForSectionsAndKwargs(
   sectionUITypes,
-  kwargCols: KwargColsType,
+  kwargCols: ManyKwargColType,
 ) {
   const collectionIds = [].concat(
     ..._.map(sectionUITypes, (x) => x.config.collections),

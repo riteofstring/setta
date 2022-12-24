@@ -1,4 +1,7 @@
-import { ManySectionUITypeType } from 'abcde-utils/src/types/uiType';
+import {
+  ManySectionUITypeType,
+  PresetType,
+} from 'abcde-utils/src/types/uiType';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
@@ -18,11 +21,11 @@ export async function getUITypeCols(sectionUITypes: ManySectionUITypeType) {
 }
 
 export async function getBaseUITypes() {
-  return await getUITypesByWhere({ presetType: 'base' });
+  return await getUITypesByWhere({ presetType: PresetType.BASE });
 }
 
 export async function getPresetUITypes(ownerId) {
-  return await getUITypesByWhere({ presetType: 'user', ownerId });
+  return await getUITypesByWhere({ presetType: PresetType.USER, ownerId });
 }
 
 export async function getUITypesByWhere(where) {
