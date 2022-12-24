@@ -1,10 +1,5 @@
 import { maybeNewId } from "abcde-utils/src/utils";
 
-// Entered Value
-export function newEVInfo({ id, value = "", childId }) {
-  return { id, value, childId };
-}
-
 export function newMutableParamUITypeInfo({ id, uiTypeId }) {
   return { id, uiTypeId };
 }
