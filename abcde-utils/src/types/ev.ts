@@ -1,12 +1,12 @@
+import { ManyOf } from "./utils";
+
 export type EVType = {
   id: string;
   value: string | null;
   childId: string | null;
 };
 
-export type ManyEVType = {
-  [id: string]: EVType;
-};
+export type ManyEVType = ManyOf<EVType>;
 
 export type EVStateType = {
   x: ManyEVType;

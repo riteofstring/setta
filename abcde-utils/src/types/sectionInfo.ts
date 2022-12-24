@@ -4,6 +4,7 @@ import {
 } from "./sectionChildren";
 import { SectionConfigColType } from "./sectionConfigCol";
 import { SectionPositionType } from "./sectionPosition";
+import { ManyOf } from "./utils";
 
 export type SectionCoreInfoType = {
   id: string;
@@ -13,18 +14,14 @@ export type SectionCoreInfoType = {
   initialPosition: SectionPositionType;
 };
 
-export type ManySectionCoreInfoType = {
-  [id: string]: SectionCoreInfoType;
-};
+export type ManySectionCoreInfoType = ManyOf<SectionCoreInfoType>;
 
 export type SectionInfoType = SectionCoreInfoType & {
   configId: string;
   parentId: string | null;
 };
 
-export type ManySectionInfoType = {
-  [id: string]: SectionInfoType;
-};
+export type ManySectionInfoType = ManyOf<SectionInfoType>;
 
 export type SectionInfoStateType = {
   x: ManySectionInfoType;

@@ -1,3 +1,5 @@
+import { ManyOf } from "./utils";
+
 export type CodeInfoType = {
   id: string;
   name: string;
@@ -17,11 +19,11 @@ export enum RCType {
   PARAMETER = "parameter",
 }
 
-export type ManyCodeInfoType = { [id: string]: CodeInfoType };
-export type ManyCollectionsType = { [id: string]: CodeInfoType };
-export type ManyCallablesType = { [id: string]: CodeInfoType[] };
-export type ManyParamsType = { [id: string]: CodeInfoType[] };
-export type ManyParamCollectionsType = { [id: string]: CodeInfoType[] };
+export type ManyCodeInfoType = ManyOf<CodeInfoType>;
+export type ManyCollectionsType = ManyOf<CodeInfoType>;
+export type ManyCallablesType = ManyOf<CodeInfoType[]>;
+export type ManyParamsType = ManyOf<CodeInfoType[]>;
+export type ManyParamCollectionsType = ManyOf<CodeInfoType[]>;
 
 export type CodeInfoStateType = {
   allCodeInfo: ManyCodeInfoType;

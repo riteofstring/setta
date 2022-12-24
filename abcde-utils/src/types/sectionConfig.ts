@@ -1,3 +1,5 @@
+import { ManyOf } from "./utils";
+
 export type SectionConfigType = {
   id: string;
   uiTypeId: string;
@@ -6,9 +8,7 @@ export type SectionConfigType = {
   selectedItem: string | null;
 };
 
-export type ManySectionConfigType = {
-  [id: string]: SectionConfigType;
-};
+export type ManySectionConfigType = ManyOf<SectionConfigType>;
 
 export type SectionConfigStateType = {
   x: ManySectionConfigType;
