@@ -1,3 +1,4 @@
+import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import {
@@ -5,7 +6,7 @@ import {
   deleteThenCreateCol,
   prismaNullOrConnect,
 } from 'src/utils/utils';
-import { SectionChildrenType, SectionConfigType, SectionType } from './types';
+import { SectionChildrenType, SectionType } from './types';
 
 export async function saveSections(sections: SectionType, sectionChildren) {
   await prisma.sectionChildrenId.createMany({
@@ -64,7 +65,7 @@ export async function saveSectionChildren(
   await deleteThenCreateCol(prisma.sectionChildren, allColIds, inDbFormat);
 }
 
-function assembleSectionConfig(sectionConfigs: SectionConfigType) {
+function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
   const inDbFormat = [] as any;
   for (const v of Object.values(sectionConfigs)) {
     const curr = {

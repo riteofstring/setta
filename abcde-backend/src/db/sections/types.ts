@@ -4,12 +4,6 @@ export interface SectionChildrenType {
   [id: string]: string[];
 }
 
-export interface SectionConfigType {
-  [id: string]: Prisma.SectionConfigGetPayload<{
-    include: { selectedItem: true };
-  }>;
-}
-
 export interface SectionConfigColType {
   [id: string]: string;
 }

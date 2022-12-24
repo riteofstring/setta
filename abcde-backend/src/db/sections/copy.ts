@@ -1,9 +1,10 @@
+import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import * as _ from 'lodash';
 import { createIdMap, renameKeys } from 'src/utils/utils';
-import { SectionConfigColType, SectionConfigType } from './types';
+import { SectionConfigColType } from './types';
 
 export function copySectionConfigs(
-  sectionConfigs: SectionConfigType,
+  sectionConfigs: ManySectionConfigType,
   evColIdMap,
 ) {
   const oldIds = Object.keys(sectionConfigs);
