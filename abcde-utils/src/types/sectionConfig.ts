@@ -20,8 +20,8 @@ export type SectionConfigStateActionType = {
     newStateFn: (currState: ManySectionConfigType) => ManySectionConfigType
   ) => void;
   setSectionConfigAttr: (payload: {
-    configId: string;
-    attr: string;
+    configId: keyof ManySectionConfigType;
+    attr: keyof SectionConfigType;
     value: string;
   }) => void;
   setAll: (payload: SectionConfigStateType) => void;
