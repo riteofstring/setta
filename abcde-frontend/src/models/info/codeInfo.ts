@@ -1,3 +1,7 @@
+import {
+  CodeInfoStateType,
+  CodeInfoZustandType,
+} from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
@@ -5,7 +9,7 @@ import { create } from "../utils";
 // allCodeInfo maps from every objInfo key to its objInfo
 // allCollections maps from every collection key to its objInfo
 // callables maps from every collection key to a list of objInfo that are callables
-const initialState = {
+const initialState: CodeInfoStateType = {
   allCodeInfo: {},
   allCollections: {},
   callables: {},
@@ -13,7 +17,7 @@ const initialState = {
   paramCollections: {},
 };
 
-export const useCodeInfo = create(
+export const useCodeInfo = create<CodeInfoZustandType>(
   immer((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

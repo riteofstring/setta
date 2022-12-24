@@ -1,12 +1,17 @@
 import { NO_AUTH } from "utils/constants";
-import _create from "zustand";
+import _create, { StateCreator, StoreApi, UseBoundStore } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 
-const resetters = [];
+const resetters: (() => void)[] = [];
 
-export const create = (createState) => {
-  const slice = _create(createState);
+export const create = <TState extends unknown>(
+  createState: StateCreator<TState> | StoreApi<TState>
+): UseBoundStore<StoreApi<TState>> => {
+  // We need to use createState as never to support StateCreator<TState> and
+  // StoreApi<TState> at the same time.
+  // We also need to re-type slice to UseBoundStore<StoreApi<TState>>
+  const slice: UseBoundStore<StoreApi<TState>> = _create(createState as never);
   const initialState = slice.getState();
 
   resetters.push(() => {
