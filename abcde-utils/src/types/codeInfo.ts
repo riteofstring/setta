@@ -1,4 +1,4 @@
-export interface CodeInfoType {
+export type CodeInfoType = {
   id: string;
   name: string;
   version: string | null;
@@ -9,10 +9,36 @@ export interface CodeInfoType {
   inCodeParentId: string | null;
   path: string;
   children: string[];
-}
+};
 
 export enum RCType {
   COLLECTION = "collection",
   CALLABLE = "callable",
   PARAMETER = "parameter",
 }
+
+export type ManyCodeInfoType = { [id: string]: CodeInfoType };
+export type ManyCollectionsType = { [id: string]: CodeInfoType };
+export type ManyCallablesType = { [id: string]: CodeInfoType[] };
+export type ManyParamsType = { [id: string]: CodeInfoType[] };
+export type ManyParamCollectionsType = { [id: string]: CodeInfoType[] };
+
+export type CodeInfoStateType = {
+  allCodeInfo: ManyCodeInfoType;
+  allCollections: ManyCollectionsType;
+  callables: ManyCallablesType;
+  params: ManyParamsType;
+  paramCollections: ManyParamCollectionsType;
+};
+
+export type CodeInfoStateActionTypes = {
+  resetAndSetAll: (payload: CodeInfoStateType) => void;
+  setCodeInfo: (payload: { info: CodeInfoType }) => void;
+  setName: (payload: { id: string; name: string }) => void;
+  deleteInfos: (payload: { ids: string[] }) => void;
+  updateInfos: (payload: CodeInfoStateType) => void;
+  setAll: (payload: CodeInfoStateType) => void;
+  reset: () => void;
+};
+
+export type CodeInfoZustandType = CodeInfoStateType & CodeInfoStateActionTypes;

@@ -1,4 +1,4 @@
-export interface AuthType {
+export type AuthType = {
   username: string;
   password: string;
-}
+};
