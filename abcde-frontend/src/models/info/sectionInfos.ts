@@ -1,20 +1,31 @@
 import { isListRoot } from "abcde-utils/src/constants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import {
+  SectionInfoStateType,
+  SectionInfoZustandType,
+} from "abcde-utils/src/types/sectionInfo";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
-function setDefaultAllChildren(state, sectionId) {
+function setDefaultAllChildren(
+  state: SectionInfoZustandType,
+  sectionId: string
+) {
   if (!(sectionId in state.allChildren)) {
     state.allChildren[sectionId] = [];
   }
   return state.allChildren[sectionId];
 }
 
-const initialState = { x: {}, allChildren: {}, currChildren: {} };
+const initialState: SectionInfoStateType = {
+  x: {},
+  allChildren: {},
+  currChildren: {},
+};
 
 export const useSectionInfos = create(
-  immer((set, get) => ({
+  immer<SectionInfoZustandType>((set, get) => ({
     ...initialState,
 
     resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
@@ -35,7 +46,11 @@ export const useSectionInfos = create(
       });
       const s = get();
       s.reset();
-      s.setAll({ x: sectionInfos, allChildren: sectionChildren });
+      s.setAll({
+        x: sectionInfos,
+        allChildren: sectionChildren,
+        currChildren: {},
+      });
     },
 
     setSectionInfo: (payload) => set((state) => ({ x: payload(state.x) })),
@@ -44,14 +59,14 @@ export const useSectionInfos = create(
       set((state) => {
         if (sectionIds) {
           sectionIds.forEach((id) => (state.x[id][attr] = value));
-        } else {
+        } else if (sectionId) {
           state.x[sectionId][attr] = value;
         }
       }),
 
     setSectionInfoAttrObjInput: ({ newValues }) =>
       set((state) => {
-        for (let sectionId of Object.keys(newValues)) {
+        for (const sectionId of Object.keys(newValues)) {
           state.x[sectionId] = Object.assign(
             state.x[sectionId],
             newValues[sectionId]
