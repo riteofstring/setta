@@ -5,12 +5,12 @@ import {
   SWITCH,
   TEXT,
 } from 'abcde-utils/src/constants';
+import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
-import { UITypeType } from './types';
 
-async function saveCoreUITypes(userId: string | null, uiTypes: UITypeType) {
+async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   const data = Object.values(uiTypes).map((x) => {
     return {
       id: x.id,

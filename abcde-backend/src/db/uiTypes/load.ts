@@ -1,8 +1,8 @@
+import { ManySectionUITypeType } from 'abcde-utils/src/types/uiType';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { SectionUITypeType } from './types';
 
-export async function getUITypeCols(sectionUITypes: SectionUITypeType) {
+export async function getUITypeCols(sectionUITypes: ManySectionUITypeType) {
   const ids = Object.values(sectionUITypes)
     .map((x) => x.config.uiTypeColId)
     .filter((x) => x);
