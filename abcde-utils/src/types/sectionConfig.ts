@@ -25,7 +25,6 @@ export type SectionConfigStateActionType = {
   }) => void;
   setAll: (payload: SectionConfigStateType) => void;
   reset: () => void;
-  getAll: () => ManySectionConfigType;
 };
 
 export type SectionConfigZustandType = SectionConfigStateType &

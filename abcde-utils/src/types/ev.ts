@@ -23,7 +23,6 @@ export type EVStateActionType = {
   }) => void;
   setAll: (payload: EVStateType) => void;
   reset: () => void;
-  getAll: () => ManyEVType;
 };
 
 export type EVZustandType = EVStateType & EVStateActionType;
