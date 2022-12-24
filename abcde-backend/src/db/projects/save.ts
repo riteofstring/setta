@@ -1,4 +1,5 @@
 import { ProjectType } from 'abcde-utils/src/types/project';
+import { ProjectSaveType } from 'abcde-utils/src/types/projectSaveLoad';
 import { saveAllProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/save';
 import { saveEV, saveEVCols } from 'src/db/enteredValues/save';
 import { saveKwargCols, saveKwargInfo } from 'src/db/kwargs/save';
@@ -21,7 +22,11 @@ export async function saveMultipleProjectDetails(userId, projects) {
   }
 }
 
-export async function saveProjectDetails(userId, p, doSaveProject = true) {
+export async function saveProjectDetails(
+  userId,
+  p: ProjectSaveType,
+  doSaveProject = true,
+) {
   await saveKwargInfo(p.kwargInfo);
   await saveKwargCols(p.kwargCols);
   await saveSections(p.sections, p.sectionChildren);

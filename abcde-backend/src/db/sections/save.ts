@@ -1,10 +1,10 @@
+import { ManySectionCoreType } from 'abcde-utils/src/types/section';
 import {
   ManySectionChildrenType,
   TopLevelSectionChildrenType,
 } from 'abcde-utils/src/types/sectionChildren';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
-import { ManySectionInfoType } from 'abcde-utils/src/types/sectionInfo';
 import {
   ChildrenSectionPositionType,
   TopLevelSectionPositionType,
@@ -18,7 +18,7 @@ import {
 } from 'src/utils/utils';
 
 export async function saveSections(
-  sections: ManySectionInfoType,
+  sections: ManySectionCoreType,
   sectionChildren: ManySectionChildrenType,
 ) {
   await prisma.sectionChildrenId.createMany({
