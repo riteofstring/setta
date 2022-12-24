@@ -1,4 +1,5 @@
 import { arrayMove } from "@dnd-kit/sortable";
+import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 
 export function clamp(number, min, max) {
@@ -74,4 +75,8 @@ export function checkboxChangeFn(checked, id) {
     }
     return [id];
   };
+}
+
+export function maybeNewId(x) {
+  return x ? x : createNewId();
 }

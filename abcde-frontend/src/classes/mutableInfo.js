@@ -1,4 +1,9 @@
-import { maybeNewId } from "abcde-utils/src/utils";
+import { maybeNewId } from "utils/utils";
+
+// Entered Value
+export function newEVInfo({ id, value = "", childId }) {
+  return { id, value, childId };
+}
 
 export function newMutableParamUITypeInfo({ id, uiTypeId }) {
   return { id, uiTypeId };
@@ -26,6 +31,22 @@ export function newSectionInfo({
     parentId,
     paramInfoId,
     initialPosition,
+  };
+}
+
+export function newSectionConfig({
+  id,
+  uiTypeId,
+  evColId,
+  kwargColId,
+  selectedItem = null,
+}) {
+  return {
+    id: maybeNewId(id),
+    uiTypeId,
+    selectedItem,
+    evColId: maybeNewId(evColId),
+    kwargColId: maybeNewId(kwargColId),
   };
 }
 
