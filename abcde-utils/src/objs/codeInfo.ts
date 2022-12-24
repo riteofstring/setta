@@ -9,7 +9,7 @@ export function newCodeInfo({
   type = "",
   description = "",
   rcType,
-  parentId = null,
+  inCodeParentId = null,
   path = "",
   children = [],
 }: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
@@ -21,7 +21,7 @@ export function newCodeInfo({
     type,
     rcType,
     description,
-    parentId,
+    inCodeParentId,
     path,
     children,
   };
