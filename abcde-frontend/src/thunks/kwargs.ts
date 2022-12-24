@@ -70,7 +70,7 @@ export function saveKwargsAsCollection({
   const paramInfos = _.keyBy(
     kwargIds.map((x) => ({
       ...codeInfoState.allCodeInfo[x],
-      parentId: collection.id,
+      inCodeParentId: collection.id,
     })),
     "id"
   );
