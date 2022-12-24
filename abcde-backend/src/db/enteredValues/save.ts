@@ -46,7 +46,5 @@ export async function saveEVCols(evCols: EVColType) {
   });
 
   const inDbFormat = assembleEVCols(evCols);
-  console.log("ids", ids)
-  console.log("inDbFormat", inDbFormat)
   await deleteThenCreateCol(prisma.eVCol, ids, inDbFormat);
 }
