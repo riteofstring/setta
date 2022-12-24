@@ -67,10 +67,10 @@ export async function getSectionConfigs(ids) {
 
   const sectionConfigs = {};
   for (const x of s) {
-    const { id, evCol, kwargCol, ...theRest } = renameKeys(x, {
+    const { evCol, kwargCol, ...theRest } = renameKeys(x, {
       selectedItemId: 'selectedItem',
     });
-    sectionConfigs[id] = theRest;
+    sectionConfigs[x.id] = theRest;
   }
 
   let ev = {};
