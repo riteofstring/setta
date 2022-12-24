@@ -1,8 +1,9 @@
+import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
-import { EVColType, EVType } from './types';
+import { EVColType } from './types';
 
-function assembleEV(ev: EVType) {
+function assembleEV(ev: ManyEVType) {
   const inDbFormat = [] as any;
   for (const [id, v] of Object.entries(ev)) {
     const curr = {
@@ -15,7 +16,7 @@ function assembleEV(ev: EVType) {
   return inDbFormat;
 }
 
-export async function saveEV(ev: EVType) {
+export async function saveEV(ev: ManyEVType) {
   const inDbFormat = assembleEV(ev);
   await prisma.$transaction(
     inDbFormat.map((v) =>
