@@ -33,7 +33,7 @@ export type CodeInfoStateType = {
   paramCollections: ManyParamCollectionsType;
 };
 
-export type CodeInfoStateActionTypes = {
+export type CodeInfoActionTypes = {
   resetAndSetAll: (payload: CodeInfoStateType) => void;
   setCodeInfo: (payload: { info: CodeInfoType }) => void;
   setName: (payload: { id: string; name: string }) => void;
@@ -43,4 +43,4 @@ export type CodeInfoStateActionTypes = {
   reset: () => void;
 };
 
-export type CodeInfoZustandType = CodeInfoStateType & CodeInfoStateActionTypes;
+export type CodeInfoZustandType = CodeInfoStateType & CodeInfoActionTypes;

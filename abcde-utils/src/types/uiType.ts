@@ -49,7 +49,7 @@ export type UITypeStateType = {
   x: ManyUITypeType;
 };
 
-export type UITypeStateActionType = {
+export type UITypeActionType = {
   resetAndSetAll: (payload: ManyUITypeType) => void;
   setUIType: (payload: { uiType: UITypeType }) => void;
   setConfig: (payload: {
@@ -66,4 +66,4 @@ export type UITypeStateActionType = {
   reset: () => void;
 };
 
-export type UITypeZustandType = UITypeStateType & UITypeStateActionType;
+export type UITypeZustandType = UITypeStateType & UITypeActionType;

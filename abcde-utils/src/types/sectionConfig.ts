@@ -14,7 +14,7 @@ export type SectionConfigStateType = {
   x: ManySectionConfigType;
 };
 
-export type SectionConfigStateActionType = {
+export type SectionConfigActionType = {
   resetAndSetAll: (payload: ManySectionConfigType) => void;
   setSectionConfig: (
     newStateFn: (currState: ManySectionConfigType) => ManySectionConfigType
@@ -29,4 +29,4 @@ export type SectionConfigStateActionType = {
 };
 
 export type SectionConfigZustandType = SectionConfigStateType &
-  SectionConfigStateActionType;
+  SectionConfigActionType;

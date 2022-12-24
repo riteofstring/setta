@@ -29,7 +29,7 @@ export type SectionInfoStateType = {
   currChildren: ManySectionChildrenType;
 };
 
-export type SectionInfoStateActionType = {
+export type SectionInfoActionType = {
   resetAndSetAll: (payload: {
     sections: ManySectionCoreInfoType;
     sectionConfigCol: SectionConfigColType;
@@ -74,4 +74,4 @@ export type SectionInfoStateActionType = {
 };
 
 export type SectionInfoZustandType = SectionInfoStateType &
-  SectionInfoStateActionType;
+  SectionInfoActionType;

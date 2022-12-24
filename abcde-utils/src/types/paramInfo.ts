@@ -6,7 +6,7 @@ export type ParamInfoStateType = {
   y: ManyUITypeColType;
 };
 
-export type ParamInfoStateActionType = {
+export type ParamInfoActionType = {
   resetAndSetAll: (payload: {
     evCols: ManyEVColType;
     uiTypeCols: ManyUITypeColType;
@@ -35,5 +35,4 @@ export type ParamInfoStateActionType = {
   reset: () => void;
 };
 
-export type ParamInfoZustandType = ParamInfoStateType &
-  ParamInfoStateActionType;
+export type ParamInfoZustandType = ParamInfoStateType & ParamInfoActionType;

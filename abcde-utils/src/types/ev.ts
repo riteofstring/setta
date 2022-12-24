@@ -12,7 +12,7 @@ export type EVStateType = {
   x: ManyEVType;
 };
 
-export type EVStateActionType = {
+export type EVActionType = {
   resetAndSetAll: (payload: ManyEVType) => void;
   setEnteredValue: (payload: {
     enteredValueId: string;
@@ -26,4 +26,4 @@ export type EVStateActionType = {
   reset: () => void;
 };
 
-export type EVZustandType = EVStateType & EVStateActionType;
+export type EVZustandType = EVStateType & EVActionType;
