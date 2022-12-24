@@ -65,15 +65,13 @@ export async function getSectionConfigs(ids) {
 
   const uiTypeCols = await getUITypeCols(sectionUITypes);
 
-  const sectionConfigs = _.keyBy(
-    _.map(s, (x) => {
-      const { evCol, kwargCol, ...theRest } = renameKeys(x, {
-        selectedItemId: 'selectedItem',
-      });
-      return theRest;
-    }),
-    'id',
-  );
+  const sectionConfigs = {};
+  for (const x of s) {
+    const { id, evCol, kwargCol, ...theRest } = renameKeys(x, {
+      selectedItemId: 'selectedItem',
+    });
+    sectionConfigs[id] = theRest;
+  }
 
   let ev = {};
   for (const config of s) {

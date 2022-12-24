@@ -12,7 +12,6 @@ export function copySectionConfigs(
   const newSectionConfigs = renameKeys(sectionConfigs, sectionConfigIdMap);
 
   for (const curr of Object.values(newSectionConfigs)) {
-    curr.id = sectionConfigIdMap[curr.id];
     if (curr.evColId in evColIdMap) {
       curr.evColId = evColIdMap[curr.evColId];
     }

@@ -67,9 +67,9 @@ export async function saveSectionChildren(
 
 function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
   const inDbFormat = [] as any;
-  for (const v of Object.values(sectionConfigs)) {
+  for (const [id, v] of Object.entries(sectionConfigs)) {
     const curr = {
-      id: v.id,
+      id,
       evCol: connectOrCreateColId(v.evColId),
       kwargCol: connectOrCreateColId(v.kwargColId),
       selectedItem: prismaNullOrConnect(v.selectedItem),
@@ -80,7 +80,9 @@ function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
   return inDbFormat;
 }
 
-export async function saveSectionConfigs(sectionConfigs) {
+export async function saveSectionConfigs(
+  sectionConfigs: ManySectionConfigType,
+) {
   const inDbFormat = assembleSectionConfig(sectionConfigs);
 
   await prisma.$transaction(
