@@ -77,10 +77,7 @@ export async function getSectionConfigs(ids) {
   for (const config of s) {
     const allCurrEvs = config.evCol.children.map((x) => x.ev);
     const keyByEVId = _.keyBy(allCurrEvs, 'id');
-    const correctFormat = _.mapValues(keyByEVId, (x) =>
-      _.pick(x, ['value', 'childId']),
-    );
-    ev = { ...ev, ...correctFormat };
+    ev = { ...ev, ...keyByEVId };
   }
 
   const evCols = {};
