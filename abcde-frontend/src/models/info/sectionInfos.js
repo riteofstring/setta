@@ -1,5 +1,5 @@
 import { isListRoot } from "abcde-utils/src/constants";
-import { newSectionInfo } from "classes/mutableInfo";
+import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
@@ -18,10 +18,10 @@ export const useSectionInfos = create(
     ...initialState,
 
     resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
-      const sectionInfos = _.mapValues(sections, (x) => {
+      const sectionInfos = _.mapValues(sections, (x, id) => {
         let parentId = null;
         for (const [k, v] of Object.entries(sectionChildren)) {
-          if (v.includes(x.id)) {
+          if (v.includes(id)) {
             parentId = k;
             break;
           }
@@ -29,7 +29,7 @@ export const useSectionInfos = create(
         const y = newSectionInfo({
           ...x,
           parentId,
-          configId: sectionConfigCol[x.id],
+          configId: sectionConfigCol[id],
         });
         return y;
       });

@@ -3,9 +3,9 @@ import { EVStateType, EVZustandType } from "abcde-utils/src/types/ev";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
-function getEVInfo(state, evId) {
+function getEVInfo(state: EVZustandType, evId: string) {
   if (!(evId in state.x)) {
-    state.x[evId] = newEV({});
+    state.x[evId] = newEV({ value: null, childId: null });
   }
   return state.x[evId];
 }
