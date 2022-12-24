@@ -60,7 +60,7 @@ export function addSectionInfo(inputUIType = null) {
     uiType = addUIType({ type: SECTION });
   }
   const si = newSectionInfo({});
-  const siConfig = newSectionConfig({ uiTypeId: uiType.id });
+  const siConfig = newSectionConfig({ id: si.configId, uiTypeId: uiType.id });
   useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
