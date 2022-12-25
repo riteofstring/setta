@@ -8,7 +8,7 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
     <div ref={ref}>
       <DropdownMenu.Root open={isOpen} modal={false}>
         <DropdownMenu.Content
-          className="flex flex-col gap-1 z-10 absolute bg-white px-2 py-2 rounded-md shadow-xl cursor-pointer items-stretch"
+          className="flex flex-col gap-1 z-10 absolute bg-white px-2 py-2 rounded-md shadow-xl cursor-pointer w-[clamp(5rem,_20vw,_10rem)]"
           style={{
             left: x,
             top: y,
@@ -24,7 +24,7 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
 export function ContextMenuItem({ onClick, children }) {
   return (
     <DropdownMenu.Item
-      className="flex-shrink-0 self-stretch min-w-min hover:bg-gray-100 py-1 px-2 rounded-md"
+      className="self-stretch min-w-min hover:bg-gray-100 py-1 px-2 rounded-md"
       onClick={onClick}
     >
       {children}
