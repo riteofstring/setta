@@ -3,6 +3,7 @@ import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
+import { PrismaKwargColType } from './types';
 
 export async function saveKwargCols(kwargCols: ManyKwargColType) {
   const ids = Object.keys(kwargCols);
@@ -11,7 +12,7 @@ export async function saveKwargCols(kwargCols: ManyKwargColType) {
     skipDuplicates: true,
   });
 
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaKwargColType[] = [];
   for (const idid of ids) {
     for (const [codeInfoId, kwargInfoList] of Object.entries(kwargCols[idid])) {
       for (const [order, kwargInfoId] of kwargInfoList.entries()) {

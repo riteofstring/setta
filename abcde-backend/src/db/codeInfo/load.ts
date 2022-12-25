@@ -4,6 +4,7 @@ import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
+import { ParentChildPairsType } from './types';
 
 export async function getCodeInfoForSectionsAndKwargs(
   sectionUITypes,
@@ -12,7 +13,7 @@ export async function getCodeInfoForSectionsAndKwargs(
   const collectionIds = [].concat(
     ..._.map(sectionUITypes, (x) => x.config.collections),
   );
-  const kwargIds = [] as any;
+  const kwargIds: string[] = [];
   _.forEach(kwargCols, (x) =>
     _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
@@ -26,7 +27,7 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
   const allIds = new Set(collectionIds);
 
   for (const c of collectionIds) {
-    const parentChildPairs: any = await prisma.$queryRaw`
+    const parentChildPairs: ParentChildPairsType = await prisma.$queryRaw`
           with recursive descendants as (
               select "parentId", "childId", "order"
               from "CodeInfoChildren"
@@ -55,7 +56,7 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
 }
 
 export function processCodeInfo(codeInfo, childMap) {
-  let children = [] as any;
+  let children: string[] = [];
   if (codeInfo.id in childMap) {
     children = getOrderedChildren(childMap[codeInfo.id], 'childId');
   }

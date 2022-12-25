@@ -2,16 +2,16 @@ import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
+import { PrismaEVColType, PrismaEVType } from './types';
 
 function assembleEV(ev: ManyEVType) {
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaEVType[] = [];
   for (const [id, v] of Object.entries(ev)) {
-    const curr = {
+    inDbFormat.push({
       id,
       value: v.value ? v.value.toString() : null,
       childId: v.childId,
-    };
-    inDbFormat.push(curr);
+    });
   }
   return inDbFormat;
 }
@@ -30,9 +30,9 @@ export async function saveEV(ev: ManyEVType) {
 }
 
 function assembleEVCols(evCols: ManyEVColType) {
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaEVColType[] = [];
   for (const [idid, evCol] of Object.entries(evCols)) {
-    for (const [codeInfoId, evId] of Object.entries(evCol as any)) {
+    for (const [codeInfoId, evId] of Object.entries(evCol)) {
       inDbFormat.push({ idid, codeInfoId, evId });
     }
   }

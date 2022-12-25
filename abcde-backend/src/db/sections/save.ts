@@ -16,6 +16,7 @@ import {
   deleteThenCreateCol,
   prismaNullOrConnect,
 } from 'src/utils/utils';
+import { PrismaSectionChildrenType, PrismaSectionType } from './types';
 
 export async function saveSections(
   sections: ManySectionCoreType,
@@ -26,15 +27,14 @@ export async function saveSections(
     skipDuplicates: true,
   });
 
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaSectionType[] = [];
   for (const [id, v] of Object.entries(sections)) {
-    const curr = {
+    inDbFormat.push({
       id,
       name: v.name,
       childrenId: v.sectionChildrenId,
       paramInfoId: v.paramInfoId,
-    };
-    inDbFormat.push(curr);
+    });
   }
 
   await prisma.$transaction(
@@ -61,7 +61,7 @@ export async function saveSectionChildren(
     | TopLevelSectionPositionType = {},
 ) {
   const allColIds = Object.values(sectionChildrenIds);
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaSectionChildrenType[] = [];
   for (const [parentSectionId, currChildren] of Object.entries(
     sectionChildren,
   )) {
