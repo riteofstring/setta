@@ -8,7 +8,7 @@ import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
-import StandardSearch from "utils/atoms/search/StandardSearch";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -27,11 +27,15 @@ function UIConfig() {
     500
   );
 
+  const inputStyles =
+    "w-full outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
+
   return (
     <div className="items-stretch">
       <div className="pb-10">
         <StandardSearch
-          simpleSearch={true}
+          inputStyles={inputStyles}
+          leftElementStyles="pl-1"
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>

@@ -1,5 +1,5 @@
 import { IoClose } from "react-icons/io5";
-import IconButton from "utils/atoms/buttons/IconButton";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export default function CustomCloseButton(props) {
   return (
