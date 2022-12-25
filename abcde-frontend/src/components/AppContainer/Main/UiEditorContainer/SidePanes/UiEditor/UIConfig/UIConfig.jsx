@@ -8,7 +8,6 @@ import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
-import { Button } from "utils/atoms/buttons/Button";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { cloneNewUIType } from "utils/uiTypeUtils";
@@ -124,9 +123,9 @@ function SaveLoadButtons({ onSubmit }) {
       <div className="flex-1" />
       <PopoverWrapper
         trigger={
-          <Button twClasses="uicfg-save text-xs text-gray-500 invisible opacity-0 hover:bg-gray-200 text-xs font-bold text-gray-500 py-1 px-2 rounded-md gap-1 select-none">
+          <button className="uicfg-save text-xs text-gray-500 invisible opacity-0">
             Save As
-          </Button>
+          </button>
         }
         body={<SubmitAsPreset onSubmit={onSubmit} />}
       />
@@ -148,7 +147,7 @@ function SubmitAsPreset({ onSubmit }) {
   return (
     <>
       <input placeholder="Preset Name" onChange={onChange} value={presetName} />
-      <Button onClick={localOnSubmit}>Done</Button>
+      <button onClick={localOnSubmit}>Done</button>
     </>
   );
 }

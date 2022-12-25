@@ -5,7 +5,7 @@ import { createDefaultSectionInfo } from "./sections";
 export function addSectionAtPosition({
   isDeck,
   initialPosition,
-  fnAfterAddSection = () => {},
+  fnAfterAddSection = () => undefined,
 }) {
   const addChildren = useProjectConfig.getState().addChildren;
   const sectionProps = { initialPosition };

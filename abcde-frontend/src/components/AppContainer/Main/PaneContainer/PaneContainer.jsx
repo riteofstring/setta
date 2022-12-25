@@ -4,7 +4,7 @@ import { usePanes } from "models/panes";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
-import { Button } from "utils/atoms/buttons/Button";
+import Button from "utils/atoms/buttons/Button";
 import { MIN_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
@@ -63,7 +63,7 @@ export default function PaneContainer({
 
   const variants = {
     open: { x: "0rem" },
-    closed: { x: `${!right ? `-` : ``}${width / 16 - 2.5}rem` },
+    closed: { x: `${!right ? "-" : ""}${width / 16 - 2.5}rem` },
   };
 
   function localOnResizeStop(e, direction, ref, d) {

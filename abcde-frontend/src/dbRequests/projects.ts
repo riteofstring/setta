@@ -44,7 +44,7 @@ export async function loadProject({
     body: {},
     address: LOAD_PROJECT(id, configId),
     thenFn: (res) => res.data,
-    catchFn: () => {},
+    catchFn: () => undefined,
   });
 }
 
