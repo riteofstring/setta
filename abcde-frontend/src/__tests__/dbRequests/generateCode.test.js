@@ -6,7 +6,6 @@ test("The output of getProjectDataToGenerateCode should match the test data", as
   await createMainContainer({});
   const output = getProjectDataToGenerateCode();
   const correctOutput = await loadOneProject({ forCodeGen: true });
-  const { userCodeInfoMaps, projectConfigCodeInfoMaps, ...theRest } =
-    correctOutput;
+  const { userCodeInfoMaps, ...theRest } = correctOutput;
   expect(output).toEqual(theRest);
 });
