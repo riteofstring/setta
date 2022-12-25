@@ -3,7 +3,7 @@ import { Item } from "../dropdown/item";
 
 export function DialogTriggerItem({ children, onClick }) {
   return (
-    <Dialog.Trigger>
+    <Dialog.Trigger asChild>
       <Item onClick={onClick}>{children}</Item>
     </Dialog.Trigger>
   );

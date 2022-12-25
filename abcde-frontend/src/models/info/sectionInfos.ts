@@ -30,7 +30,7 @@ export const useSectionInfos = create(
 
     resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
       const sectionInfos = _.mapValues(sections, (x, id) => {
-        let parentId: string | null = null;
+        let parentId = null;
         for (const [k, v] of Object.entries(sectionChildren)) {
           if (v.includes(id)) {
             parentId = k;

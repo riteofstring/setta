@@ -6,7 +6,7 @@ import _create, { StateCreator } from "zustand";
 
 const resetters: (() => void)[] = [];
 
-export const create = (<T>(f: StateCreator<T> | undefined) => {
+export const create = (<T extends unknown>(f: StateCreator<T> | undefined) => {
   if (f === undefined) {
     return create;
   }

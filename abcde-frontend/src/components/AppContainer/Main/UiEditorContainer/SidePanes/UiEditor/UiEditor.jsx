@@ -48,7 +48,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="[border-bottom:3px_solid_transparent] cursor-pointer my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
+      className="[border-bottom:3px_solid_transparent] cursor-pointer select-none my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
