@@ -1,7 +1,8 @@
 import { loadOneProject } from "abcde-test/src/loadTestData";
 import { SECTION } from "abcde-utils/src/constants";
-import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
-import { newUIType } from "classes/uiType";
+import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
+import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { newUIType } from "abcde-utils/src/objs/uiType";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
@@ -63,7 +64,7 @@ export function addSectionInfo(inputUIType = null) {
   useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
-    [siConfig.id]: siConfig,
+    [si.configId]: siConfig,
   }));
   return { section: si, sectionConfig: siConfig };
 }

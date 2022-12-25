@@ -1,12 +1,20 @@
+import { ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
+import { ManyKwargColType } from "abcde-utils/src/types/kwargCol";
+import { ProjectSaveType } from "abcde-utils/src/types/projectSaveLoad";
+import { ManySectionCoreType } from "abcde-utils/src/types/section";
+import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
+import { ManyUITypeType } from "abcde-utils/src/types/uiType";
+import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import _ from "lodash";
+import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
-import { useObjInfos } from "models/info/objInfos";
+import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -14,28 +22,23 @@ import { useProjectToLoad } from "models/info/projectToLoad";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { BASE, USER } from "utils/uiTypeConstants";
+import { xnor } from "utils/utils";
 import { loadProjectIntoState } from "./projects";
 
-export function getProjectData() {
+export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
-  const ev = _.mapValues(useEnteredValues.getState().getAll(), (v) =>
-    _.pick(v, ["value", "childId"])
-  );
+  const ev = useEnteredValues.getState().x;
   const evCols = useParamInfos.getState().x;
-  const uiTypes = assembleUITypes(
-    useUITypes.getState().x,
-    (v) => v.presetType !== BASE
-  );
+  const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
 
-  const kwargCols = useObjInfos.getState().getAll();
+  const kwargCols = useKwargCols.getState().x;
   const kwargInfo = assembleKwargInfos(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();
-  const sections = _.mapValues(sectionInfosState.x, (x) =>
+  const sections: ManySectionCoreType = _.mapValues(sectionInfosState.x, (x) =>
     _.pick(x, [
       "id",
       "name",
@@ -46,8 +49,15 @@ export function getProjectData() {
   );
 
   const sectionChildren = sectionInfosState.allChildren;
-  const sectionConfigs = useSectionConfigs.getState().getAll();
-  const sectionConfigCol = _.mapValues(sectionInfosState.x, (v) => v.configId);
+  const sectionConfigs = useSectionConfigs.getState().x;
+  const sectionConfigCol: SectionConfigColType = _.mapValues(
+    sectionInfosState.x,
+    (v) => v.configId
+  );
+
+  const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
+    .getState()
+    .exportForDb();
 
   return {
     project,
@@ -62,6 +72,7 @@ export function getProjectData() {
     sectionChildren,
     sectionConfigs,
     sectionConfigCol,
+    projectConfigCodeInfoMaps,
   };
 }
 
@@ -99,13 +110,11 @@ async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
   // load base and preset ui types from memory
   // because these weren't sent during saving
   // and therefore aren't returned
-  newProjectConfig.baseUITypes = _.pickBy(
-    uiTypesState.x,
-    (x) => x.presetType === BASE
+  newProjectConfig.baseUITypes = _.pickBy(uiTypesState.x, (x) =>
+    isBasePreset(x)
   );
-  newProjectConfig.presetUITypes = _.pickBy(
-    uiTypesState.x,
-    (x) => x.presetType === USER
+  newProjectConfig.presetUITypes = _.pickBy(uiTypesState.x, (x) =>
+    isUserPreset(x)
   );
   const zState = useProjectToLoad.getState();
   zState.setIsLoading(true);
@@ -130,8 +139,8 @@ function updateInitialPositions(reactFlowStore) {
   useSectionInfos.getState().setSectionInfoAttrObjInput({ newValues });
 }
 
-function assembleKwargInfos(kwargCols) {
-  let kwargInfos = {};
+function assembleKwargInfos(kwargCols: ManyKwargColType) {
+  const kwargInfos: ManyCodeInfoType = {};
   const codeInfoState = useCodeInfo.getState();
   for (const kwargCol of Object.values(kwargCols)) {
     for (const kwargIds of Object.values(kwargCol)) {
@@ -143,7 +152,9 @@ function assembleKwargInfos(kwargCols) {
   return kwargInfos;
 }
 
-export function assembleUITypes(s, pickBy) {
-  const uiTypes = _.pickBy(s, pickBy);
-  return _.mapValues(uiTypes, (v) => _.omit(v, ["origin"]));
+export function assembleUITypes(
+  s: ManyUITypeType,
+  isBase: boolean
+): ManyUITypeType {
+  return _.pickBy(s, (v) => xnor(isBase, isBasePreset(v)));
 }
