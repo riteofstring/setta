@@ -33,7 +33,7 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
     >
       <Search onSubmit={onSubmit} />
       <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
-        <div className="flex flex-col pt-1">
+        <div className="flex flex-col pt-1 w-full">
           <ul className="flex flex-col flex-grow gap-3">
             {Object.values(allResults).map((x) => (
               <SearchItem
@@ -74,23 +74,21 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
   }
 
   return (
-    <li className="px-5 py-4 border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item">
-      <div className="flex self-stretch [&:hover_*]:text-black">
-        <input
-          type="checkbox"
-          className="w-4 h-4 mr-2 mt-1 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
-          checked={checked}
-          onChange={onCheckboxChange}
-        />
-        <label>
-          <ObjCollectionDetails details={details}>
-            <div className="flex flex-col self-stretch">
-              <h2 className="text-md font-bold text-gray-500">{name}</h2>
-              <p className="text-sm mt-1">{description}</p>
-            </div>
-          </ObjCollectionDetails>
-        </label>
-      </div>
+    <li className="px-5 py-4 w-full border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item flex [&:hover_*]:text-black">
+      <input
+        type="checkbox"
+        className="w-4 h-4 mr-2 mt-1 flex-shrink-0 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
+        checked={checked}
+        onChange={onCheckboxChange}
+      />
+      <label className="w-full">
+        <ObjCollectionDetails details={details}>
+          <div className="flex flex-col self-stretch cursor-pointer">
+            <h2 className="text-md font-bold text-gray-500">{name}</h2>
+            <p className="text-sm mt-1">{description}</p>
+          </div>
+        </ObjCollectionDetails>
+      </label>
     </li>
   );
 }
@@ -100,7 +98,7 @@ function ObjCollectionDetails({ children, details }) {
 
   return (
     <Collapsible.Root>
-      <Collapsible.Trigger>{children}</Collapsible.Trigger>
+      <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
       <Collapsible.Content>
         <div className="p-[40px] text-white mt-2 bg-teal-500 rounded-md shadow-md">
           {Object.entries(groupedDetails).map(([k, v]) => (

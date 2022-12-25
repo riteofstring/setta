@@ -117,7 +117,7 @@ export default function PaneContainer({
           </h2>
           {children}
           <Button
-            tailwindClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+            twClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
             tabIndex="-1"
             onClick={uiToggle}
           >
