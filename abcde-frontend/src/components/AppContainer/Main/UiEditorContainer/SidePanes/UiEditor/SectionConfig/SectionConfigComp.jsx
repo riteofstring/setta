@@ -74,7 +74,7 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
   }
 
   return (
-    <li className="px-5 py-4 w-full border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item flex [&:hover_*]:text-black select-none">
+    <li className="px-3 py-2 w-full border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-gray-100 rounded-lg  hover:border-white transition edit-list-item flex [&:hover_*]:text-black select-none">
       <input
         type="checkbox"
         className="w-4 h-4 mr-2 mt-1 flex-shrink-0 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
@@ -100,7 +100,7 @@ function ObjCollectionDetails({ children, details }) {
     <Collapsible.Root>
       <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
       <Collapsible.Content>
-        <div className="py-4 px-6 mt-2 bg-gray-100 rounded-md shadow-md select-text">
+        <div className="py-3 px-5 mt-2 bg-white rounded-md select-text">
           {Object.entries(groupedDetails).map(([k, v]) => (
             <div key={`ObjCollectionDetails-${k}`}>
               <h3 className="font-bold text-sm">{k}</h3>
