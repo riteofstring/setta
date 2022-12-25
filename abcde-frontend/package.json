@@ -10,6 +10,7 @@
     "@emotion/styled": "11",
     "@fontsource/inter": "4.5.7",
     "@fontsource/jetbrains-mono": "4.5.10",
+    "@fontsource/source-code-pro": "^4.5.12",
     "@fontsource/work-sans": "4.5.7",
     "@monaco-editor/react": "4.0.10",
     "@radix-ui/react-collapsible": "1.0.1",
