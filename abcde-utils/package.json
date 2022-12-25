@@ -5,13 +5,8 @@
   "dependencies": {
     "uuid": "9.0.0"
   },
-  "scripts": {
-    "f": "yarn prettier src --write"
-  },
+  "scripts": {},
   "devDependencies": {
-    "@types/uuid": "9.0.0",
-    "prettier": "2.8.1",
-    "prettier-plugin-organize-imports": "3.2.1",
-    "typescript": "4.9.4"
+    "@types/uuid": "9.0.0"
   }
 }
