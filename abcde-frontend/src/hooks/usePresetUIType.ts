@@ -103,10 +103,9 @@ export function useAvailablePresetUITypes({
   paramInfoId,
   settingSectionConfig,
 }) {
-  const [parentId, sectionParamInfoId] = useGetSectionInfo(sectionId, [
-    "parentId",
-    "paramInfoId",
-  ]);
+  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const sectionParamInfoId = useGetSectionInfo(sectionId, "paramInfoId");
+
   const [sectionTypeId, sectionTypeConfig] = useGetSectionType(sectionId, [
     "id",
     "config",
@@ -125,12 +124,12 @@ export function useAvailablePresetUITypes({
   } else {
     originInfoId = paramInfoId
       ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
-      : createParamOriginInfoId(parentTypeConfig, sectionParamInfoId);
+      : createParamOriginInfoId(parentTypeConfig, sectionParamInfoId as any); //TODO remove typecast
   }
 
   const parentInfo = {
     type: parentType,
-    originInfoId: createSectionOriginInfoId(parentId),
+    originInfoId: createSectionOriginInfoId(parentId as any), //TODO remove typecast
   };
   const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
   const filterFn = paramInfoId ? () => true : isSectionType;

@@ -9,7 +9,7 @@ export function useGetParamUIType(sectionId, paramInfoId) {
   const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
   return defaultState(
     useUITypes((x) => x.x[uiTypeId]),
-    () => ({})
+    {}
   );
 }
 

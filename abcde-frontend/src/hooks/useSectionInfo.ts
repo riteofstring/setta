@@ -1,11 +1,12 @@
+import { SectionType } from "abcde-utils/src/types/section";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 
-export function useGetSectionInfo(sectionId, props) {
-  return useSectionInfos(
-    (x) => props.map((y) => x.x[sectionId]?.[y]),
-    _.isEqual
-  );
+export function useGetSectionInfo<K extends keyof SectionType>(
+  sectionId: string,
+  key: K
+) {
+  return useSectionInfos((x) => x.x[sectionId][key]);
 }
 
 export function useGetManySectionInfos(sectionIds, props) {

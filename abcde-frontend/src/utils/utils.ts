@@ -40,8 +40,8 @@ export function curryAction(action, args, key) {
   };
 }
 
-export function defaultState(state, valueFn) {
-  return state === undefined ? valueFn() : state;
+export function defaultState(state, defaultValue) {
+  return state === undefined ? defaultValue : state;
 }
 
 export function updateWithArrayMove(active, over) {

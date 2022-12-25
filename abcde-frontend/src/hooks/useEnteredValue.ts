@@ -8,7 +8,7 @@ export function useParamEnteredValue(sectionId, paramInfoId) {
   const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
   const enteredValue = defaultState(
     useEnteredValues((x) => x.x[enteredValueId]?.value),
-    () => ""
+    ""
   );
   const setEnteredValue = curryAction(
     useEnteredValues((x) => x.setEnteredValue),
