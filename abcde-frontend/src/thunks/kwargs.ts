@@ -77,5 +77,5 @@ export function saveKwargsAsCollection({
   );
 
   // TODO fix this call
-  codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
+  // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 }
