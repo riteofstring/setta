@@ -1,3 +1,5 @@
+import { ManySectionCoreType } from 'abcde-utils/src/types/section';
+import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getUITypeCols, getUITypesByWhere } from 'src/db/uiTypes/load';
@@ -6,6 +8,7 @@ import {
   getOrderedChildrenFull,
   renameKeys,
 } from 'src/utils/utils';
+import { PrismaSectionChildrenType } from './types';
 
 export async function getSections(ids) {
   const s = await prisma.section.findMany({
@@ -22,23 +25,22 @@ export async function getSections(ids) {
   });
   const idsAsKeys = _.keyBy(s, 'id');
 
-  const sections = _.mapValues(idsAsKeys, (v) => {
-    const { children, ...theRest } = renameKeys(v, {
-      childrenId: 'sectionChildrenId',
-    });
-    return theRest;
-  });
+  const sections: ManySectionCoreType = _.mapValues(idsAsKeys, (v) => ({
+    id: v.id,
+    name: v.name,
+    paramInfoId: v.paramInfoId,
+    sectionChildrenId: v.childrenId,
+    initialPosition: { x: 0, y: 0 },
+  }));
 
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>
     getOrderedChildren(v.children.children, 'sectionId'),
   );
-  const sectionPositions = {};
 
   _.forEach(idsAsKeys, (v) => {
     const s = getSectionPositions(v.children.children);
-    Object.assign(sectionPositions, s);
+    setSectionPositions(sections, s);
   });
-  _.merge(sections, sectionPositions);
 
   return { sections, sectionChildren };
 }
@@ -104,9 +106,19 @@ export async function getSectionConfigs(ids) {
   return { sectionConfigs, ev, evCols, kwargCols, sectionUITypes, uiTypeCols };
 }
 
-export function getSectionPositions(children) {
+export function getSectionPositions(
+  children: Omit<PrismaSectionChildrenType, 'idid'>[],
+) {
   const byId = _.keyBy(children, (s) => s.sectionId);
-  return _.mapValues(byId, (s) => ({
-    initialPosition: { x: s.x, y: s.y },
-  }));
+  return _.mapValues(byId, (s) => ({ x: s.x, y: s.y }));
+}
+
+export function setSectionPositions(
+  sections: ManySectionCoreType,
+  sectionPositions: SiblingSectionPositionType,
+) {
+  _.forEach(
+    sectionPositions,
+    (pos, id) => (sections[id].initialPosition = pos),
+  );
 }

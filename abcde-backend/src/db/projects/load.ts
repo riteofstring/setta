@@ -6,7 +6,11 @@ import {
 } from 'src/db/codeInfoMaps/load';
 import { prisma } from 'src/db/prisma';
 import { getProjectConfig } from 'src/db/projectConfigs/load';
-import { getSectionConfigs, getSections } from 'src/db/sections/load';
+import {
+  getSectionConfigs,
+  getSections,
+  setSectionPositions,
+} from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 
 export async function getProject(id: string) {
@@ -50,7 +54,7 @@ export async function loadOne(
   );
 
   // put top-level initialPosition into sections
-  _.merge(sections, sectionPositions);
+  setSectionPositions(sections, sectionPositions);
 
   return {
     project,

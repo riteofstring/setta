@@ -1,10 +1,10 @@
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getSectionPositions } from 'src/db/sections/load';
-import { getOrderedChildren, renameKeys } from 'src/utils/utils';
+import { getOrderedChildren } from 'src/utils/utils';
 
 export async function getProjectConfig(id) {
-  let p = await prisma.projectConfig.findUniqueOrThrow({
+  const p = await prisma.projectConfig.findUniqueOrThrow({
     where: { id },
     select: {
       id: true,
@@ -29,20 +29,13 @@ export async function getProjectConfig(id) {
   );
   const sectionPositions = getSectionPositions(p.sectionChildren.children);
 
-  p['children'] = getOrderedChildren(p.sectionChildren.children, 'sectionId');
-
-  p = renameKeys(p, {
-    sectionConfigColId: 'sectionConfigCol',
-    sectionChildrenId: 'childrenId',
-  });
-
-  const projectConfig = _.pick(p, [
-    'id',
-    'name',
-    'sectionConfigCol',
-    'childrenId',
-    'children',
-  ]);
+  const projectConfig = {
+    id: p.id,
+    name: p.name,
+    sectionConfigCol: p.sectionConfigColId,
+    childrenId: p.sectionChildrenId,
+    children: getOrderedChildren(p.sectionChildren.children, 'sectionId'),
+  };
 
   return { projectConfig, sectionConfigCol, sectionPositions };
 }
