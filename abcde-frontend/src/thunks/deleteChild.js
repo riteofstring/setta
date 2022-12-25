@@ -2,11 +2,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { deleteSections } from "./sectionOps";
 
-function getNewStateFn(
-  deletedChildren: string[],
-  numChildren: number,
-  startId: string | null
-) {
+function getNewStateFn(deletedChildren, numChildren, startId) {
   return (x) => {
     if (x.length === 0) {
       return x;
@@ -21,11 +17,7 @@ function getNewStateFn(
   };
 }
 
-export function deleteChild({
-  sectionId,
-  numChildren = 1,
-  startId = null,
-}: DeleteChildFnType) {
+export function deleteChild({ sectionId, numChildren = 1, startId = null }) {
   // For deleting root sections, in which case the parent (sectionid) is "null"
   if (_.isNil(sectionId)) {
     deleteSections({ sectionIds: [startId] });
@@ -34,7 +26,7 @@ export function deleteChild({
 
   // deletedChildren is a list so that it can be operated on by reference
   // deletedChildren[0] is set to be the list of the children to delete
-  let deletedChildren = [];
+  let deletedChildren = [null];
   useSectionInfos.getState().setAllChildren({
     sectionId,
     newStateFn: getNewStateFn(deletedChildren, numChildren, startId),
@@ -42,16 +34,3 @@ export function deleteChild({
 
   deleteSections({ sectionIds: deletedChildren[0] });
 }
-
-// if sectionId is null, then startId must be specified
-type DeleteChildFnType =
-  | {
-      sectionId: string;
-      numChildren?: number;
-      startId?: string | null;
-    }
-  | {
-      sectionId: null | undefined;
-      numChildren?: number;
-      startId: string;
-    };

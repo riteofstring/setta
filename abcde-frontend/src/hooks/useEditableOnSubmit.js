@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-export function useEditableOnSubmit<T>(
-  initialValue: T,
-  onSetTitle: (x: T) => void,
-  condition: (x: T) => boolean = () => true
+export function useEditableOnSubmit(
+  initialValue,
+  onSetTitle,
+  condition = () => true
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
 

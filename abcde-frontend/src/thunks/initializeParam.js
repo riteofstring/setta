@@ -8,8 +8,8 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
+import { curryAction } from "utils/utils";
 import { addChild } from "./addChild";
-import { getSectionTypeConfig } from "./sections";
 
 export function initializeParam({ sectionId, paramInfo }) {
   const enteredValueId = initializeParamEnteredValue(sectionId, paramInfo);
@@ -30,12 +30,18 @@ function initializeParamEnteredValue(sectionId, paramInfo) {
   let { enteredValueId, evColId } = getEnteredValueId(sectionId, paramInfo);
 
   if (!enteredValueId) {
+    const setEnteredValueId = curryAction(
+      useParamInfos.getState().setEnteredValueId,
+      {
+        collectionId: evColId,
+        paramInfoId: paramInfo.id,
+      },
+      "enteredValueId"
+    );
+
     enteredValueId = createNewId();
-    useParamInfos.getState().setEnteredValueId({
-      collectionId: evColId,
-      paramInfoId: paramInfo.id,
-      enteredValueId,
-    });
+
+    setEnteredValueId(enteredValueId);
     useEnteredValues
       .getState()
       .setEnteredValue({ enteredValueId, value: null });
@@ -46,7 +52,9 @@ function initializeParamEnteredValue(sectionId, paramInfo) {
 
 function initializeParamUIType(sectionId, paramInfo) {
   const uiTypesState = useUITypes.getState();
-  const { uiTypeColId } = getSectionTypeConfig(sectionId);
+  const configId = useSectionInfos.getState().x[sectionId].configId;
+  const sectionTypeId = useSectionConfigs.getState().x[configId].uiTypeId;
+  const uiTypeColId = uiTypesState.x[sectionTypeId].config.uiTypeColId;
   let uiTypeId = useParamInfos.getState().y[uiTypeColId]?.[paramInfo.id];
 
   if (!uiTypeId) {
@@ -59,6 +67,15 @@ function initializeParamUIType(sectionId, paramInfo) {
       useUserCodeInfoMaps.getState().codeInfoTypeMaps[paramInfo.type]?.uiTypeId;
     const globalDefaultUIType = uiTypesState.x[globalDefaultUITypeId];
 
+    const setUITypeId = curryAction(
+      useParamInfos.getState().setUITypeId,
+      {
+        collectionId: uiTypeColId,
+        paramInfoId: paramInfo.id,
+      },
+      "uiTypeId"
+    );
+
     if (projectDefaultUIType) {
       uiTypeId = projectDefaultUIType.id;
     } else if (globalDefaultUIType) {
@@ -67,11 +84,7 @@ function initializeParamUIType(sectionId, paramInfo) {
       uiTypeId = DEFAULT_BASE_UI_TYPE_ID;
     }
 
-    useParamInfos.getState().setUITypeId({
-      collectionId: uiTypeColId,
-      paramInfoId: paramInfo.id,
-      uiTypeId,
-    });
+    setUITypeId(uiTypeId);
   }
   return uiTypeId;
 }
