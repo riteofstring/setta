@@ -1,7 +1,12 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { ManySectionType } from "abcde-utils/src/types/section";
+import { ManySectionConfigType } from "abcde-utils/src/types/sectionConfig";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
+import _ from "lodash";
+import { useKwargCols } from "models/info/kwargCols";
+import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -58,16 +63,13 @@ export function createDefaultSectionInfo({ sectionProps, configProps }) {
     uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
     ...configProps,
   });
-  const { id, configId } = sectionInfo;
 
-  useSectionInfos
-    .getState()
-    .setSectionInfo((x) => ({ ...x, [id]: sectionInfo }));
-  useSectionConfigs.getState().setSectionConfig((x) => ({
-    ...x,
-    [configId]: sectionConfig,
-  }));
-  return [id];
+  addSectionsToState(
+    { [sectionInfo.id]: sectionInfo },
+    { [sectionConfig.id]: sectionConfig }
+  );
+
+  return [sectionInfo.id];
 }
 
 export function setCurrChildren({ sectionId, currChildren }) {
@@ -75,4 +77,24 @@ export function setCurrChildren({ sectionId, currChildren }) {
   sectionInfosState.setCurrChildren({ sectionId, currChildren });
   const sectionType = getSectionType(sectionId);
   sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
+}
+
+export function addSectionsToState(
+  sectionInfos: ManySectionType,
+  sectionConfigs: ManySectionConfigType
+) {
+  useSectionInfos.getState().setSectionInfo((x) => ({ ...x, ...sectionInfos }));
+
+  useSectionConfigs.getState().setSectionConfig((x) => ({
+    ...x,
+    ...sectionConfigs,
+  }));
+
+  useParamInfos.getState().initManyEvColIds({
+    collectionIds: _.map(sectionConfigs, (x) => x.evColId),
+  });
+
+  useKwargCols.getState().initManyKwargColIds({
+    collectionIds: _.map(sectionConfigs, (x) => x.kwargColId),
+  });
 }

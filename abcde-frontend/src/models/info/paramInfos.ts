@@ -17,13 +17,17 @@ export const useParamInfos = create(
       s.reset();
       s.setAll({ x: evCols, y: uiTypeCols });
     },
-    setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
+    initManyEvColIds: ({ collectionIds }) =>
       set((state) => {
-        setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
+        _.forEach(collectionIds, (id) => (state.x[id] = {}));
       }),
     setEnteredValueId: ({ collectionId, paramInfoId, enteredValueId }) =>
       set((state) => {
         setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;
+      }),
+    setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
+      set((state) => {
+        setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
       }),
     deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
       set((state) => {
