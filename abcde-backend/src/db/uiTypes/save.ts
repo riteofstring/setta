@@ -6,6 +6,7 @@ import {
   TEXT,
 } from 'abcde-utils/src/constants';
 import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
+import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
@@ -86,7 +87,7 @@ async function saveRegularUIType(db, uiTypes) {
   );
 }
 
-export async function saveUITypes(userId, uiTypes) {
+export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
   await saveCoreUITypes(userId, uiTypes);
   await saveSectionUITypes(_.filter(uiTypes, (v) => isSectionUIType(v.type)));
   await saveRegularUIType(
@@ -107,7 +108,7 @@ export async function saveUITypes(userId, uiTypes) {
   );
 }
 
-export async function saveUITypeCols(uiTypeCols) {
+export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
   const ids = Object.keys(uiTypeCols);
   await prisma.uITypeColId.createMany({
     data: ids.map((x) => ({ id: x })),

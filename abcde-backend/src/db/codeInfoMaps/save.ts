@@ -1,3 +1,4 @@
+import { CodeInfoMapStateType } from 'abcde-utils/src/types/codeInfoMap';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
@@ -114,7 +115,10 @@ async function saveProjectConfigCodeInfoMaps(projectConfigId, data) {
   );
 }
 
-export async function saveAllProjectConfigCodeInfoMaps(projectConfigId, data) {
+export async function saveAllProjectConfigCodeInfoMaps(
+  projectConfigId: string,
+  data: CodeInfoMapStateType,
+) {
   if (_.isEmpty(data)) {
     return;
   }

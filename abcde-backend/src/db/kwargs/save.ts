@@ -1,3 +1,4 @@
+import { ManyCodeInfoType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { prisma } from 'src/db/prisma';
@@ -27,6 +28,6 @@ export async function saveKwargCols(kwargCols: ManyKwargColType) {
   await deleteThenCreateCol(prisma.kwargCol, ids, inDbFormat);
 }
 
-export async function saveKwargInfo(kwargInfo) {
+export async function saveKwargInfo(kwargInfo: ManyCodeInfoType) {
   await saveCodeInfo(kwargInfo, true);
 }
