@@ -54,11 +54,3 @@ export function getOrderedChildrenFull<T extends { order: number }>(
 export function createIdMap(oldIds: string[]) {
   return _.fromPairs(oldIds.map((x) => [x, createNewId()]));
 }
-
-export function connectIfNotNull(existingObj, otherObj) {
-  for (const [key, value] of Object.entries(otherObj)) {
-    if (value) {
-      existingObj[key] = { connect: { id: value } };
-    }
-  }
-}

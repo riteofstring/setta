@@ -11,14 +11,11 @@ import {
 } from 'abcde-utils/src/types/sectionPosition';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import {
-  connectOrCreateColId,
-  deleteThenCreateCol,
-  prismaNullOrConnect,
-} from 'src/utils/utils';
+import { deleteThenCreateCol } from 'src/utils/utils';
 import {
   PrismaSectionChildrenType,
   PrismaSectionConfigColType,
+  PrismaSectionConfigType,
   PrismaSectionType,
 } from './types';
 
@@ -84,14 +81,14 @@ export async function saveSectionChildren(
 }
 
 function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaSectionConfigType[] = [];
   for (const v of Object.values(sectionConfigs)) {
     inDbFormat.push({
       id: v.id,
-      evCol: connectOrCreateColId(v.evColId),
-      kwargCol: connectOrCreateColId(v.kwargColId),
-      selectedItem: prismaNullOrConnect(v.selectedItem),
-      uiType: prismaNullOrConnect(v.uiTypeId),
+      evColId: v.evColId,
+      kwargColId: v.kwargColId,
+      selectedItemId: v.selectedItem,
+      uiTypeId: v.uiTypeId,
     });
   }
   return inDbFormat;
