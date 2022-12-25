@@ -39,7 +39,7 @@ export function StandardSearch({
           ref={ref}
           {...props}
           tabIndex="0"
-          onKeyDown={handleKeyPress}
+          // onKeyDown={handleKeyPress}
         />
       )}
 

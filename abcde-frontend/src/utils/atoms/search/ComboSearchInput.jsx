@@ -1,6 +1,6 @@
 import { StandardSearch } from "./StandardSearch";
 
-export default function StandardSearch({
+export function ComboboxSearchInput({
   textSize = "text-base",
   pad,
   twClasses = "",

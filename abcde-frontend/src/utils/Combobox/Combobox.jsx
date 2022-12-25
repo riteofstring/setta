@@ -1,5 +1,5 @@
 import React from "react";
-import { ComboboxSearch } from "./ComboboxSearch";
+import { ComboboxSearchInput } from "utils/atoms/search/ComboSearchInput";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -41,7 +41,7 @@ export const ComboboxInput = React.forwardRef(
       //     />
       //   )}
       // </div>
-      <ComboboxSearch {...props} {...toggleButtonProps} ref={ref} />
+      <ComboboxSearchInput {...props} {...toggleButtonProps} ref={ref} />
     );
   }
 );
