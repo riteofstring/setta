@@ -6,7 +6,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { SimpleSearch } from "utils/atoms/search/SimpleSearch";
 import { OVERVIEW } from "utils/constants";
 import { getOverviewListing } from "utils/sectionIds";
 import SectionListItems from "./SectionList/SectionListItems";
@@ -41,8 +41,8 @@ export default function Overview() {
       onResizeStop={onResizeStop}
     >
       <div className="pb-4">
-        <StandardSearch
-          simpleSearch={true}
+        <SimpleSearch
+          // simpleSearch={true}
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Overview Search"
         />

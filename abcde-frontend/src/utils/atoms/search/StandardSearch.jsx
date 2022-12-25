@@ -37,7 +37,11 @@ export const StandardSearch = React.forwardRef(
 
     return (
       <div className={`flex items-center relative nodrag ${outerClasses}`}>
-        <div className="w-10 h-10 absolute left-0 grid place-items-center select-none">
+        <div
+          className={`${
+            simpleSearch ? "w-8 h-8" : "w-10 h-10"
+          } absolute left-0 grid place-items-center select-none`}
+        >
           {leftElement || <AiOutlineSearch className="text-gray-400" />}
         </div>
         {input || (

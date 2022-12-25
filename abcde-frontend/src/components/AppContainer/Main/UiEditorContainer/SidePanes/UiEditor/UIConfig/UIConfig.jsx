@@ -6,7 +6,6 @@ import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { SET_FROM_SIDEPANE } from "utils/constants";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { USER } from "utils/uiTypeConstants";
@@ -30,7 +29,7 @@ function UIConfig() {
   return (
     <div className="items-stretch">
       <div className="pb-10">
-        <StandardSearch
+        <SimpleSearch
           simpleSearch={true}
           onChange={(e) => setFilter(e.target.value)}
         />
