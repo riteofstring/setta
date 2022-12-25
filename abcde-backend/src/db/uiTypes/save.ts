@@ -5,11 +5,15 @@ import {
   SWITCH,
   TEXT,
 } from 'abcde-utils/src/constants';
-import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
+import {
+  ManyUITypeType,
+  SectionUITypeType,
+  UITypeType,
+} from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
+import { deleteThenCreateCol } from 'src/utils/utils';
 import { PrismaUITypeColType } from './types';
 
 async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
@@ -38,7 +42,7 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   );
 }
 
-async function saveSectionUITypes(sectionUITypes) {
+async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
   const uiTypeCols = sectionUITypes
     .filter((x) => x.config.uiTypeColId)
     .map((x) => ({ id: x.config.uiTypeColId }));
@@ -50,8 +54,8 @@ async function saveSectionUITypes(sectionUITypes) {
 
   const data = sectionUITypes.map((x) => ({
     idid: x.id,
-    uiTypeColId: nullNotUndefined(x.config.uiTypeColId),
-    childUITypeId: nullNotUndefined(x.config.childUITypeId),
+    uiTypeColId: x.config.uiTypeColId,
+    childUITypeId: x.config.childUITypeId,
     subType: x.config.subType,
   }));
 
@@ -69,7 +73,7 @@ async function saveSectionUITypes(sectionUITypes) {
   );
 }
 
-async function saveRegularUIType(db, uiTypes) {
+async function saveRegularUIType(db, uiTypes: UITypeType[]) {
   if (uiTypes.length === 0) {
     return;
   }
@@ -90,7 +94,7 @@ async function saveRegularUIType(db, uiTypes) {
 
 export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
   await saveCoreUITypes(userId, uiTypes);
-  await saveSectionUITypes(_.filter(uiTypes, (v) => isSectionUIType(v.type)));
+  await saveSectionUITypes(extractSectionUITypes(uiTypes));
   await saveRegularUIType(
     prisma.sliderUIType,
     _.filter(uiTypes, (v) => v.type === SLIDER),
@@ -127,4 +131,14 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
     }
   }
   await deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
+}
+
+function extractSectionUITypes(uiTypes: ManyUITypeType) {
+  const sectionUITypes: SectionUITypeType[] = [];
+  _.forEach(uiTypes, (v) => {
+    if (isSectionUIType(v)) {
+      sectionUITypes.push(v);
+    }
+  });
+  return sectionUITypes;
 }

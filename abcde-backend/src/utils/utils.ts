@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
@@ -15,14 +14,6 @@ export function renameKeys<T>(x: T, toRename: object) {
   return output;
 }
 
-export function nullNotUndefined(x) {
-  return x === undefined ? null : x;
-}
-
-export function prismaNullOrConnect(x) {
-  return !x ? Prisma.DbNull : { connect: { id: x } };
-}
-
 export async function deleteThenCreateCol(db, allColIds, data) {
   await prisma.$transaction([
     db.deleteMany({
@@ -31,10 +22,6 @@ export async function deleteThenCreateCol(db, allColIds, data) {
 
     db.createMany({ data }),
   ]);
-}
-
-export function connectOrCreateColId(x) {
-  return { connectOrCreate: { where: { id: x }, create: { id: x } } };
 }
 
 export function getOrderedChildren<
