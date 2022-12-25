@@ -8,7 +8,6 @@ import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
-import { Button } from "utils/atoms/buttons/Button";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { cloneNewUIType } from "utils/uiTypeUtils";
@@ -96,10 +95,10 @@ function UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black [&:hover_.uicfg-save]:visible [&:hover_.uicfg-save]:opacity-100 [&:hover_.uicfg-save]:duration-500"
+      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-save]:visible [&:hover_.uicfg-save]:opacity-100 [&:hover_.uicfg-save]:duration-500"
       data-testid={`UIElement ${paramName}`}
     >
-      <h3 className="uicfg-title text-sm pb-1 text-gray-500 uppercase tracking-widest">
+      <h3 className="text-sm text-gray-500 uppercase tracking-widest">
         {paramName}
       </h3>
 
@@ -120,12 +119,13 @@ function UIElement({ sectionId, paramInfo }) {
 
 function SaveLoadButtons({ onSubmit }) {
   return (
-    <div className="flex flex-row pb-4 justify-end">
+    <div className="flex flex-row pb-6">
+      <div className="flex-1" />
       <PopoverWrapper
         trigger={
-          <Button twClasses="uicfg-save mt-2 text-xs text-gray-500 invisible opacity-0 hover:bg-gray-200 text-xs font-bold text-gray-500 py-1 px-2 rounded-md gap-1 select-none">
+          <button className="uicfg-save text-xs text-gray-500 invisible opacity-0">
             Save As
-          </Button>
+          </button>
         }
         body={<SubmitAsPreset onSubmit={onSubmit} />}
       />
@@ -147,7 +147,7 @@ function SubmitAsPreset({ onSubmit }) {
   return (
     <>
       <input placeholder="Preset Name" onChange={onChange} value={presetName} />
-      <Button onClick={localOnSubmit}>Done</Button>
+      <button onClick={localOnSubmit}>Done</button>
     </>
   );
 }
