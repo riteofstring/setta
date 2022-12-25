@@ -1,4 +1,4 @@
-import { ManyCodeInfoType } from "./codeInfo";
+import { CodeInfoStateType, ManyCodeInfoType } from "./codeInfo";
 import { CodeInfoMapStateType } from "./codeInfoMap";
 import { ManyEVType } from "./ev";
 import { ManyEVColType } from "./evCol";
@@ -26,4 +26,9 @@ export type ProjectSaveType = {
   sectionConfigs: ManySectionConfigType;
   sectionConfigCol: SectionConfigColType;
   projectConfigCodeInfoMaps: CodeInfoMapStateType;
+};
+
+export type ProjectLoadType = Omit<ProjectSaveType, "kwargInfo"> & {
+  codeInfo: CodeInfoStateType;
+  userCodeInfoMaps: CodeInfoMapStateType;
 };
