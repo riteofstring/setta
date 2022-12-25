@@ -1,7 +1,8 @@
+import { ProjectSaveType } from 'abcde-utils/src/types/projectSaveLoad';
 import { copyEV, copyEVCols } from 'src/db/enteredValues/copy';
 import { copySectionConfigCol, copySectionConfigs } from 'src/db/sections/copy';
 
-export function copyProjectDetails(project) {
+export function copyProjectDetails(project: ProjectSaveType): ProjectSaveType {
   const { ev, evCols, sectionConfigs, sectionConfigCol, ...theRest } = project;
 
   const { newEv, evIdMap } = copyEV(ev);

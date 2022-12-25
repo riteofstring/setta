@@ -16,7 +16,11 @@ import {
   deleteThenCreateCol,
   prismaNullOrConnect,
 } from 'src/utils/utils';
-import { PrismaSectionChildrenType, PrismaSectionType } from './types';
+import {
+  PrismaSectionChildrenType,
+  PrismaSectionConfigColType,
+  PrismaSectionType,
+} from './types';
 
 export async function saveSections(
   sections: ManySectionCoreType,
@@ -113,7 +117,7 @@ function assembleSectionConfigCol(
   sectionConfigCol: SectionConfigColType,
   colId,
 ) {
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaSectionConfigColType[] = [];
   for (const [sectionId, configId] of Object.entries(sectionConfigCol)) {
     inDbFormat.push({
       idid: colId,

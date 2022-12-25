@@ -11,3 +11,5 @@ export type PrismaSectionConfigType = Prisma.SectionConfigGetPayload<{
     uiType: true;
   };
 }>;
+export type PrismaSectionConfigColType =
+  Prisma.SectionConfigColGetPayload<true>;

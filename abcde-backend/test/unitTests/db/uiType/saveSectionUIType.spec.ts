@@ -1,4 +1,5 @@
 import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
+import { newSectionInfo } from 'abcde-utils/src/objs/sectionInfo';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
@@ -10,12 +11,12 @@ import { clearDb } from 'test/clearDb';
 describe('Create, update, and copy a section ui type', () => {
   let uiType, user, codeInfo;
 
-  const section = {
+  const section = newSectionInfo({
     id: createNewId(),
     name: 'New Section',
     paramInfoId: null,
     sectionChildrenId: createNewId(),
-  } as any;
+  });
 
   beforeAll(async () => {
     await clearDb();
