@@ -9,12 +9,12 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { loadSections } from "models/master";
-import { resetAllSlices } from "models/utils";
+import { resetAllStores } from "models/utils";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { renderUseGetSectionType } from "./renderHooks";
 
 export async function loadTestDataIntoState() {
-  resetAllSlices();
+  resetAllStores();
   const testData = await loadOneProject({});
   loadSections(testData);
 }

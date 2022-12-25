@@ -1,28 +1,24 @@
 import { NO_AUTH } from "utils/constants";
-import _create, { StateCreator, StoreMutatorIdentifier } from "zustand";
+import _create, { StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
 
 const resetters: (() => void)[] = [];
 
-export const create = <
-  TState,
-  Mos extends [StoreMutatorIdentifier, unknown][] = []
->(
-  createState: StateCreator<TState, [], Mos>
-) => {
-  const slice = _create<TState, Mos>(createState);
-  const initialState = slice.getState();
-
+export const create = (<T extends unknown>(f: StateCreator<T> | undefined) => {
+  if (f === undefined) {
+    return create;
+  }
+  const store = _create(f);
+  const initialState = store.getState();
   resetters.push(() => {
-    slice.setState(getInitialStateForResetter(initialState), true);
+    store.setState(getInitialStateForResetter(initialState), true);
   });
+  return store;
+}) as typeof _create;
 
-  return slice;
-};
-
-export const resetAllSlices = () => {
+export const resetAllStores = () => {
   for (const resetter of resetters) {
     resetter();
   }

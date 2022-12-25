@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { resetAllSlices } from "models/utils";
+import { resetAllStores } from "models/utils";
 import { addChild } from "thunks/addChild";
 import { addSectionInfo } from "__tests__utils/utils";
 
@@ -61,7 +61,7 @@ test("Incrementer: click delete N children", async () => {
 });
 
 function componentSetup({ forParent, numChildren }) {
-  resetAllSlices();
+  resetAllStores();
   const { section: parent } = addSectionInfo();
   _.range(numChildren).forEach(() => {
     addChild({ parentId: parent.id });
