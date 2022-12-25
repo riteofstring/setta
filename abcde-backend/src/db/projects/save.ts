@@ -1,6 +1,6 @@
 import { ProjectType } from 'abcde-utils/src/types/project';
 import { ProjectSaveType } from 'abcde-utils/src/types/projectSaveLoad';
-import { saveAllProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/save';
+import { saveAllProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/save';
 import { saveEV, saveEVCols } from 'src/db/enteredValues/save';
 import { saveKwargCols, saveKwargInfo } from 'src/db/kwargs/save';
 import { prisma } from 'src/db/prisma';

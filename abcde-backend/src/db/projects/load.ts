@@ -1,10 +1,8 @@
 import { ProjectLoadType } from 'abcde-utils/src/types/projectSaveLoad';
 import _ from 'lodash';
 import { getCodeInfoForSectionsAndKwargs } from 'src/db/codeInfo/load';
-import {
-  getProjectConfigCodeInfoMaps,
-  getUserCodeInfoMaps,
-} from 'src/db/codeInfoMaps/load';
+import { getProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/load';
+import { getUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/load';
 import { prisma } from 'src/db/prisma';
 import { getProjectConfig } from 'src/db/projectConfigs/load';
 import {

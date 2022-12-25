@@ -3,7 +3,7 @@ import {
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
-import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/save';
+import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';
 import { prisma } from 'src/db/prisma';
 import { saveMultipleProjectDetails } from 'src/db/projects/save';
 import { saveUITypes } from 'src/db/uiTypes/save';
