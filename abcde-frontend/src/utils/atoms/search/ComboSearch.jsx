@@ -14,7 +14,6 @@ export default function StandardSearch({
   isOpen,
   leftElement = false,
   rightElement = false,
-  ...props
 }) {
   // prettier-ignore
   const className = `w-full outline-0 cursor-auto bg-white rounded-full shadow-sm ${textSize} ${pad || "pl-10"} focus-visible:ring-2 ${twClasses}`;
@@ -24,5 +23,5 @@ export default function StandardSearch({
     }
   };
 
-  return <StandardSearch />;
+  return <StandardSearch className={className} />;
 }

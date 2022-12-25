@@ -6,7 +6,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import StandardSearch from "utils/atoms/search/StandardSearch";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
 import { getOverviewListing } from "utils/sectionIds";
 import SectionListItems from "./SectionList/SectionListItems";

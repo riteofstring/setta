@@ -1,5 +1,5 @@
 import { AiOutlineSearch } from "react-icons/ai";
-
+import { StandardSearchRightButtons } from "./StandardSearchRightButtons";
 export function StandardSearch({
   simpleSearch = false,
   textSize = "text-base",
@@ -14,10 +14,11 @@ export function StandardSearch({
   isOpen,
   leftElement = false,
   rightElement = false,
+  className,
   ...props
 }) {
   // prettier-ignore
-  const className = `w-full outline-0 cursor-auto ${otherStyles(simpleSearch)} ${textSize} ${padStyle(pad, simpleSearch)} ${focusStyles(simpleSearch)} ${twClasses}`;
+  const classes = `w-full outline-0 cursor-auto ${textSize} ${pad} ${twClasses}`;
 
   const handleKeyPress = (event) => {
     if (event.key === "Enter") {
@@ -26,63 +27,18 @@ export function StandardSearch({
 
   return (
     <div className={`flex items-center relative nodrag ${outerClasses}`}>
-      <div
-        className={`${size(
-          simpleSearch
-        )} absolute left-0 grid place-items-center select-none`}
-      >
+      <div className="absolute left-0 grid place-items-center select-none">
         {leftElement || <AiOutlineSearch className="text-gray-400" />}
       </div>
       <input
-        className={className}
+        className={className || classes}
         placeholder={placeholder}
         {...props}
-        tabindex="0"
-        onKeyPress={handleKeyPress}
+        tabIndex="0"
+        onKeyDown={handleKeyPress}
       />
 
-      {rightElement || (
-        <StandardButtons
-          dropdown={dropdown}
-          goButton={goButton}
-          simpleSearch={simpleSearch}
-          size={size}
-          toggleButtonProps={toggleButtonProps}
-          twClasses={twClasses}
-          isOpen={isOpen}
-        />
-      )}
+      {rightElement || <StandardSearchRightButtons />}
     </div>
   );
-}
-
-function otherStyles(simpleSearch) {
-  if (simpleSearch) {
-    return "bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300";
-  }
-  return "bg-white rounded-full shadow-sm";
-}
-
-function padStyle(pad, simpleSearch) {
-  if (pad) {
-    return pad;
-  }
-  if (simpleSearch) {
-    return "pl-6 py-1";
-  }
-  return "pl-10";
-}
-
-function focusStyles(simpleSearch) {
-  if (simpleSearch) {
-    return "focus-visible:border-blue-300";
-  }
-  return "focus-visible:ring-2";
-}
-
-function size(simpleSearch) {
-  if (simpleSearch) {
-    return "w-4 h-4";
-  }
-  return "w-10 h-10";
 }

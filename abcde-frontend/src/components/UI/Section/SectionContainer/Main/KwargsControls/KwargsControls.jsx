@@ -1,7 +1,7 @@
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { RiSave2Line } from "react-icons/ri";
 import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "thunks/kwargs";
-import IconButton from "utils/atoms/buttons/IconButton";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export default function KwargsControls({ sectionId, objInfoId }) {
   function onClickAddKwarg() {

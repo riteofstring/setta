@@ -6,7 +6,7 @@ import {
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import { useState } from "react";
-import StandardSearch from "utils/atoms/search/StandardSearch";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { checkboxChangeFn } from "utils/utils";
 
 export default function SectionConfigComp({ sectionId, onConfigChange }) {

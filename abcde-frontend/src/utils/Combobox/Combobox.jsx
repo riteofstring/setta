@@ -1,7 +1,7 @@
 import React from "react";
 import { AiOutlineSearch } from "react-icons/ai";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
-import IconButton from "utils/atoms/buttons/IconButton";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -65,7 +65,7 @@ const SearchInput = React.forwardRef(
         placeholder="Search"
         ref={ref}
         {...props}
-        tabindex="0"
+        tabIndex="0"
       />
     );
   }
