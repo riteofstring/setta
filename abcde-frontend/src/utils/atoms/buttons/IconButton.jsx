@@ -13,7 +13,7 @@ export function IconButton({
 }) {
   return (
     <Button
-      tailwindClasses={`${bg} ${color} ${rounded} ${padding} ${size} ${twClasses}`}
+      twClasses={`${bg} ${color} ${rounded} ${padding} ${size} ${twClasses}`}
       {...theRest}
     >
       {icon}
