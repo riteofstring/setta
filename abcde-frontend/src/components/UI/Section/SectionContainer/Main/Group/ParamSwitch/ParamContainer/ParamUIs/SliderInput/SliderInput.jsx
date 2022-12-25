@@ -1,12 +1,8 @@
 import * as Slider from "@radix-ui/react-slider";
 import SimpleConfig from "../SimpleConfig";
 
-function defaultIfNotNumber(x) {
-  return isNaN(x) ? 0 : x;
-}
-
-function tryParseFloat(x) {
-  return x ? parseFloat(x) : x;
+function defaultIfNotNumber(x, min) {
+  return isNaN(x) ? min : x;
 }
 
 export function SliderInputConfig({ onChange, savedConfig }) {
@@ -36,11 +32,11 @@ export default function SliderInput({
     <Slider.Root
       className="relative flex items-center select-none touch-none w-40 data-[orientation='horizontal']:h-5 data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot"
       aria-label="slider"
-      value={[defaultIfNotNumber(tryParseFloat(value))]}
-      defaultValue={[defaultIfNotNumber(tryParseFloat(defaultVal))]}
-      min={tryParseFloat(min)}
-      max={tryParseFloat(max)}
-      step={tryParseFloat(step)}
+      value={[defaultIfNotNumber(parseFloat(value), min)]}
+      defaultValue={[defaultIfNotNumber(parseFloat(defaultVal), min)]}
+      min={parseFloat(min)}
+      max={parseFloat(max)}
+      step={parseFloat(step)}
       disabled={isDisabled}
       onValueChange={onChange}
       onValueCommit={onBlur}
