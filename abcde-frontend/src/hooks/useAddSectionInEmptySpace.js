@@ -3,7 +3,7 @@ import { useStoreApi } from "react-flow-renderer";
 import { addSectionAtPosition } from "thunks/addSectionAtPosition";
 import { OVERVIEW } from "utils/constants";
 
-export function useAddSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
+export function useAddSectionInEmptySpace({ isDeck }) {
   const store = useStoreApi();
   //   const reactFlowRef = useStoreState((x) => x.reactFlowRef.ref);
   const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
