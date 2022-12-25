@@ -5,7 +5,7 @@ import { useProjectToLoad } from "models/info/projectToLoad";
 import React, { useEffect, useState } from "react";
 import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
-import { Button } from "utils/atoms/buttons/Button";
+import Button from "utils/atoms/buttons/Button";
 import { UI } from "utils/pageNames";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 

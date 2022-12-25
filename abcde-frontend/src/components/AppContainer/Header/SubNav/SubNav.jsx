@@ -1,6 +1,6 @@
 import { useAuth } from "models/auth";
 import { useCurrPage } from "models/currPage";
-import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import VerticalLine from "utils/atoms/dividers/VerticalLine";
 import { LOGIN, SIGN_UP, UI } from "utils/pageNames";
 import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
