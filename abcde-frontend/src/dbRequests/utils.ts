@@ -3,13 +3,13 @@ import axios, { AxiosResponse } from "axios";
 
 export async function post<S, R>({
   address,
-  body = {},
+  body,
   thenFn,
   catchFn,
   withCredentials = false,
 }: {
   address: string;
-  body?: object;
+  body: S;
   thenFn: (res: AxiosResponse<R>) => R;
   catchFn: (res: AxiosResponse<R>) => void;
   withCredentials?: boolean;

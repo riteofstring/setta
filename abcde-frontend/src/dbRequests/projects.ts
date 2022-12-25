@@ -24,6 +24,7 @@ export async function getProjects() {
   }
 
   return post({
+    body: {},
     address: PROJECTS,
     thenFn: (res) => res.data,
     catchFn: () => [],
@@ -39,7 +40,8 @@ export async function loadProject({
     return await noAuthLoadProject({ id, configId });
   }
 
-  return post<{}, ProjectLoadType>({
+  return post({
+    body: {},
     address: LOAD_PROJECT(id, configId),
     thenFn: (res) => res.data,
     catchFn: () => {},
