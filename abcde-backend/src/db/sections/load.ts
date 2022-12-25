@@ -1,13 +1,13 @@
+import { ManyEVType } from 'abcde-utils/src/types/ev';
+import { ManyEVColType } from 'abcde-utils/src/types/evCol';
+import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManySectionCoreType } from 'abcde-utils/src/types/section';
+import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getUITypeCols, getUITypesByWhere } from 'src/db/uiTypes/load';
-import {
-  getOrderedChildren,
-  getOrderedChildrenFull,
-  renameKeys,
-} from 'src/utils/utils';
+import { getOrderedChildren, getOrderedChildrenFull } from 'src/utils/utils';
 import { PrismaSectionChildrenType } from './types';
 
 export async function getSections(ids) {
@@ -71,22 +71,25 @@ export async function getSectionConfigs(ids) {
 
   const uiTypeCols = await getUITypeCols(sectionUITypes);
 
-  const sectionConfigs = {};
+  const sectionConfigs: ManySectionConfigType = {};
   for (const x of s) {
-    const { evCol, kwargCol, ...theRest } = renameKeys(x, {
-      selectedItemId: 'selectedItem',
-    });
-    sectionConfigs[x.id] = theRest;
+    sectionConfigs[x.id] = {
+      id: x.id,
+      uiTypeId: x.uiTypeId,
+      evColId: x.evColId,
+      kwargColId: x.kwargColId,
+      selectedItem: x.selectedItemId,
+    };
   }
 
-  let ev = {};
+  const ev: ManyEVType = {};
   for (const config of s) {
     const allCurrEvs = config.evCol.children.map((x) => x.ev);
     const keyByEVId = _.keyBy(allCurrEvs, 'id');
-    ev = { ...ev, ...keyByEVId };
+    _.forEach(keyByEVId, (v, id) => (ev[id] = v));
   }
 
-  const evCols = {};
+  const evCols: ManyEVColType = {};
   for (const config of s) {
     evCols[config.evColId] = _.mapValues(
       _.keyBy(config.evCol.children, 'codeInfoId'),
@@ -94,7 +97,7 @@ export async function getSectionConfigs(ids) {
     );
   }
 
-  const kwargCols = {};
+  const kwargCols: ManyKwargColType = {};
   for (const config of s) {
     const ordered = getOrderedChildrenFull(config.kwargCol.children);
     kwargCols[config.kwargColId] = _.mapValues(

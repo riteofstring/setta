@@ -1,3 +1,4 @@
+import { ProjectLoadType } from 'abcde-utils/src/types/projectSaveLoad';
 import _ from 'lodash';
 import { getCodeInfoForSectionsAndKwargs } from 'src/db/codeInfo/load';
 import {
@@ -29,10 +30,10 @@ export async function loadAllUsersProjects(ownerId) {
 }
 
 export async function loadOne(
-  userId,
+  userId: string,
   id: string,
   configId: string,
-): Promise<any> {
+): Promise<ProjectLoadType> {
   const project = await getProject(id);
   const { projectConfig, sectionConfigCol, sectionPositions } =
     await getProjectConfig(configId);
