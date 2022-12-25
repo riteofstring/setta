@@ -6,6 +6,7 @@ test("The output of getProjectData should match the test data", async () => {
   await createMainContainer();
   const output = getProjectData();
   const correctOutput = await loadOneProject({ forSavingToBackend: true });
-  const { userCodeInfoMaps, ...theRest } = correctOutput;
+  const { userCodeInfoMaps, projectConfigCodeInfoMaps, ...theRest } =
+    correctOutput;
   expect(output).toEqual(theRest);
 });

@@ -1,6 +1,5 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
-import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
-import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -38,9 +37,10 @@ export function createManySectionInfo({
   const newConfigs = {};
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = newSectionInfo(sectionInfoProps);
-    newInfos[sectionInfo.id] = sectionInfo;
-    newConfigs[sectionInfo.configId] = newSectionConfig({
-      id: sectionInfo.configId,
+    const { id, configId } = sectionInfo;
+    newInfos[id] = sectionInfo;
+    newConfigs[configId] = newSectionConfig({
+      id: configId,
       ...sectionConfigProps,
     });
   }

@@ -33,7 +33,7 @@ export default function StandardSearch({
         className={className}
         placeholder={placeholder}
         {...props}
-        tabIndex="0"
+        tabindex="0"
       />
       {dropdown && (
         <IconButton

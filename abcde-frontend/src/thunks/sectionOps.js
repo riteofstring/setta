@@ -1,12 +1,9 @@
-import {
-  isRoot,
-  REF_UI_TYPE_ID,
-  rootTypeToChildSubType,
-} from "abcde-utils/src/constants";
+import { isRoot, rootTypeToChildSubType } from "abcde-utils/src/constants";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { PANEID } from "utils/constants";
+import { REF_ID } from "utils/uiTypeConstants";
 import { setParamChildId, setParamEnteredValue } from "./paramInfos";
 import { getSectionType } from "./sections";
 import { setParamUITypeId, setSectionUITypeConfig } from "./uiTypes";
@@ -160,7 +157,7 @@ function maybeChangeOldParamUIType({ oldParentId, sectionId }) {
   });
 
   setParamUITypeId({
-    uiTypeId: REF_UI_TYPE_ID,
+    uiTypeId: REF_ID,
     sectionId: oldParentId,
     paramInfoId,
   });

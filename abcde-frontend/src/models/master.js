@@ -1,9 +1,8 @@
-import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "./codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "./codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "./info/codeInfo";
 import { useEnteredValues } from "./info/enteredValues";
-import { useKwargCols } from "./info/kwargCols";
+import { useObjInfos } from "./info/objInfos";
 import { useParamInfos } from "./info/paramInfos";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
@@ -27,7 +26,7 @@ export function loadSections({
   uiTypeCols,
   kwargCols,
   excludeCodeInfo,
-}: ProjectLoadType & { excludeCodeInfo: boolean }) {
+}) {
   if (!excludeCodeInfo) {
     useCodeInfo.getState().resetAndSetAll(codeInfo);
   }
@@ -40,7 +39,7 @@ export function loadSections({
     .getState()
     .resetAndSetAll(projectConfigCodeInfoMaps);
   useEnteredValues.getState().resetAndSetAll(ev);
-  useKwargCols.getState().resetAndSetAll(kwargCols);
+  useObjInfos.getState().resetAndSetAll(kwargCols);
   useSectionInfos.getState().resetAndSetAll({
     sections,
     sectionConfigCol,

@@ -1,19 +1,18 @@
-import {
-  UITypeStateType,
-  UITypeZustandType,
-} from "abcde-utils/src/types/uiType";
+import { newUIType } from "classes/uiType";
+import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
-const initialState: UITypeStateType = { x: {} };
+const initialState = { x: {} };
 
 export const useUITypes = create(
-  immer<UITypeZustandType>((set, get) => ({
+  immer((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
+      const uiTypes = _.mapValues(payload, (v) => newUIType(v));
       const s = get();
       s.reset();
-      s.setAll({ x: payload });
+      s.setAll({ x: uiTypes });
     },
     setUIType: ({ uiType }) =>
       set((state) => {
@@ -35,5 +34,6 @@ export const useUITypes = create(
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
+    getAll: () => get().x,
   }))
 );
