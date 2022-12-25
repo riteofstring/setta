@@ -1,8 +1,13 @@
 import {
+  isSectionUIType,
   rootTypeToChildSubType,
   SECTION,
-  SECTION_TYPE_NAMES,
 } from "abcde-utils/src/constants";
+import {
+  OriginInfoIdType,
+  SectionUITypeConfigType,
+  UITypeType,
+} from "abcde-utils/src/types/uiType";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 
@@ -13,10 +18,7 @@ function cloneRootUIType(parentUIType, parentId) {
   uiType.config.uiTypeColId = createNewId();
   uiType.config.subType = rootTypeToChildSubType[parentUIType.type];
   uiType.presetType = null;
-  uiType.originInfoId = createOriginInfoId({
-    isChildOfRoot: true,
-    rootId: parentId,
-  });
+  uiType.originInfoId = createSectionOriginInfoId(parentId);
   uiType.isForChildOfOriginInfoId = true;
   return uiType;
 }
@@ -45,31 +47,19 @@ export function getChildUITypeId(
   return id;
 }
 
-export function createOriginInfoId({
-  settingSectionConfig,
-  sectionTypeConfig,
-  childId,
-  paramInfoId,
-  isChildOfRoot,
-  rootId,
-}) {
-  if (isChildOfRoot) {
-    return { sectionId: rootId };
-  } else if (settingSectionConfig && paramInfoId) {
-    return {
-      uiTypeColId: sectionTypeConfig.uiTypeColId,
-      paramInfoId,
-    };
-  } else if (settingSectionConfig && !paramInfoId) {
-    return { sectionId: childId };
-  } else if (paramInfoId) {
-    return {
-      uiTypeColId: sectionTypeConfig.uiTypeColId,
-      paramInfoId,
-    };
-  } else {
-    return {};
-  }
+export function createSectionOriginInfoId(sectionId: string): OriginInfoIdType {
+  return { sectionId, uiTypeColId: null, paramInfoId: null };
+}
+
+export function createParamOriginInfoId(
+  sectionTypeConfig: SectionUITypeConfigType,
+  paramInfoId: string
+): OriginInfoIdType {
+  return {
+    sectionId: null,
+    uiTypeColId: sectionTypeConfig.uiTypeColId,
+    paramInfoId,
+  };
 }
 
 export function cloneNewUIType({
@@ -77,9 +67,9 @@ export function cloneNewUIType({
   name = "",
   config,
   presetType = null,
-  originInfoId,
+  originInfoId = { sectionId: null, uiTypeColId: null, paramInfoId: null },
   isForChildOfOriginInfoId = false,
-}) {
+}: Partial<UITypeType> & { uiType: UITypeType }) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
   newUIType.name = name;
@@ -87,7 +77,7 @@ export function cloneNewUIType({
   newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {
     newUIType.config = config;
-    if (SECTION_TYPE_NAMES.includes(newUIType.type)) {
+    if (isSectionUIType(newUIType)) {
       newUIType.config.uiTypeColId = createNewId();
     }
   }
