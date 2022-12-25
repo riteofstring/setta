@@ -4,9 +4,15 @@ export type CodeInfoMapType = {
   };
 };
 
+export type CodeInfoTypeMapType = {
+  [codeInfoType: string]: {
+    uiTypeId: string;
+  };
+};
+
 export type CodeInfoMapStateType = {
   codeInfoMaps: CodeInfoMapType;
-  codeInfoTypeMaps: CodeInfoMapType;
+  codeInfoTypeMaps: CodeInfoTypeMapType;
 };
 
 export type CodeInfoMapActionType = {
