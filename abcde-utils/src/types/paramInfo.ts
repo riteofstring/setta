@@ -12,16 +12,18 @@ export type ParamInfoActionType = {
     uiTypeCols: ManyUITypeColType;
   }) => void;
 
-  setUITypeId: (payload: {
-    collectionId: string;
-    paramInfoId: string;
-    uiTypeId: string;
-  }) => void;
+  initManyEvColIds: (payload: { collectionIds: string[] }) => void;
 
   setEnteredValueId: (payload: {
     collectionId: string;
     paramInfoId: string;
     enteredValueId: string;
+  }) => void;
+
+  setUITypeId: (payload: {
+    collectionId: string;
+    paramInfoId: string;
+    uiTypeId: string;
   }) => void;
 
   deleteParamInfo: (payload: {
