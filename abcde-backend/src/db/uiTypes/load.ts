@@ -4,6 +4,7 @@ import {
 } from 'abcde-utils/src/types/uiType';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
+import { ManyXUITypeType, UITypeNames, UITypeNameToIncludeObj } from './types';
 
 export async function getUITypeCols(sectionUITypes: ManySectionUITypeType) {
   const ids = Object.values(sectionUITypes)
@@ -21,25 +22,28 @@ export async function getUITypeCols(sectionUITypes: ManySectionUITypeType) {
 }
 
 export async function getBaseUITypes() {
-  return await getUITypesByWhere({ presetType: PresetType.BASE });
+  return await getUITypesByWhere(
+    { presetType: PresetType.BASE },
+    UITypeNames.all,
+  );
 }
 
-export async function getPresetUITypes(ownerId) {
-  return await getUITypesByWhere({ presetType: PresetType.USER, ownerId });
+export async function getPresetUITypes(ownerId: string) {
+  return await getUITypesByWhere(
+    { presetType: PresetType.USER, ownerId },
+    UITypeNames.all,
+  );
 }
 
-export async function getUITypesByWhere(where) {
+export async function getUITypesByWhere<T extends UITypeNames>(
+  where,
+  include: T,
+) {
   const uiTypes = await prisma.uIType.findMany({
     where,
-    include: {
-      sectionUIType: { include: { collections: { select: { id: true } } } },
-      sliderUIType: true,
-      switchUIType: true,
-      textUIType: true,
-      refUIType: true,
-    },
+    include: UITypeNameToIncludeObj(include),
   });
-  const output = {};
+  const output: ManyXUITypeType<T> = {};
   for (const u of uiTypes) {
     output[u.id] = processUIType(u);
   }

@@ -8,6 +8,7 @@ import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getUITypeCols, getUITypesByWhere } from 'src/db/uiTypes/load';
 import { getOrderedChildren, getOrderedChildrenFull } from 'src/utils/utils';
+import { UITypeNames } from '../uiTypes/types';
 import { PrismaSectionChildrenType } from './types';
 
 export async function getSections(ids) {
@@ -64,10 +65,13 @@ export async function getSectionConfigs(ids) {
     },
   });
 
-  const sectionUITypes = await getUITypesByWhere({
-    id: { in: s.map((x) => x.uiTypeId) },
-    presetType: null,
-  });
+  const sectionUITypes = await getUITypesByWhere(
+    {
+      id: { in: s.map((x) => x.uiTypeId) },
+      presetType: null,
+    },
+    UITypeNames.sectionUIType,
+  );
 
   const uiTypeCols = await getUITypeCols(sectionUITypes);
 
