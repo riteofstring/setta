@@ -1,7 +1,7 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { AiOutlineClose } from "react-icons/ai";
 import { deleteKwarg } from "thunks/kwargs";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import IconButton from "utils/atoms/buttons/IconButton";
 import ParamContainer from "../ParamContainer/ParamContainer";
 import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
 

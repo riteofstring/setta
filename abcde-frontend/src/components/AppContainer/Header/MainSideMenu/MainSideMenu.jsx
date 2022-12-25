@@ -1,20 +1,20 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { logout } from "dbRequests/authentication";
-import { resetAllSlices } from "models/utils";
+import { resetAllStores } from "models/utils";
 import { FiMenu } from "react-icons/fi";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import IconButton from "utils/atoms/buttons/IconButton";
 import { Item } from "utils/atoms/dropdown/item";
 
 export default function MainSideMenu() {
   const onClickLogout = () => {
     logout();
-    resetAllSlices();
+    resetAllStores();
   };
 
   return (
     <div className="flex flex-1 justify-end content-center">
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
+        <DropdownMenu.Trigger>
           <IconButton icon={<FiMenu />} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>

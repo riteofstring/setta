@@ -1,19 +1,20 @@
 import { loadOneProject } from "abcde-test/src/loadTestData";
 import { SECTION } from "abcde-utils/src/constants";
-import { newSectionConfig, newSectionInfo } from "classes/mutableInfo";
-import { newUIType } from "classes/uiType";
+import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
+import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { newUIType } from "abcde-utils/src/objs/uiType";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { loadSections } from "models/master";
-import { resetAllSlices } from "models/utils";
+import { resetAllStores } from "models/utils";
 import { ReactFlowProvider } from "react-flow-renderer";
 import { renderUseGetSectionType } from "./renderHooks";
 
 export async function loadTestDataIntoState() {
-  resetAllSlices();
+  resetAllStores();
   const testData = await loadOneProject({});
   loadSections(testData);
 }
@@ -63,7 +64,7 @@ export function addSectionInfo(inputUIType = null) {
   useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
-    [siConfig.id]: siConfig,
+    [si.configId]: siConfig,
   }));
   return { section: si, sectionConfig: siConfig };
 }

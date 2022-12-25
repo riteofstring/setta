@@ -58,6 +58,7 @@ export function ComboboxSearch({
         isOpen={isOpen}
         dropdown={true}
         textSize={textSize}
+        simpleSearch={simpleSearch}
       />
 
       <div className="flex flex-col items-stretch" style={{ width }}>

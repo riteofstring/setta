@@ -10,7 +10,6 @@ export function UIConfigDropdownAndFields({
   paramInfoId,
   savedConfig,
   paramChildId,
-  origin,
 }) {
   const availableTypesProps = {
     sectionId,
@@ -33,7 +32,6 @@ export function UIConfigDropdownAndFields({
         paramChildId={paramChildId}
         savedConfig={savedConfig}
         onChange={onConfigChange}
-        origin={origin}
       />
     </>
   );

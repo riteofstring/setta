@@ -1,7 +1,7 @@
 import { useProjectConfig } from "models/info/projectConfig";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
-export function useTopLevelSectionInfos(props) {
+export function useTopLevelSectionPositions() {
   const topLevelSectionIds = useProjectConfig((x) => x.children);
-  return useGetManySectionInfos(topLevelSectionIds, props);
+  return useGetManySectionInfos(topLevelSectionIds, ["id", "initialPosition"]);
 }

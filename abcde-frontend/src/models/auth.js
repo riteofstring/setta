@@ -13,5 +13,4 @@ export const useAuth = create((set) => ({
       sessionStorage.clear();
       return { isAuthenticated: false };
     }),
-  stayLoggedIn: () => set(() => ({ isAuthenticated: true })),
 }));

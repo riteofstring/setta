@@ -1,52 +1,53 @@
-import React from "react";
 import { AiOutlineSearch } from "react-icons/ai";
-export const StandardSearch = React.forwardRef(
-  (
-    {
-      placeholder = "Search",
-      twClasses = "",
-      outerClasses = "",
-      onKeyPress,
-      toggleButtonProps,
-      leftElement = false,
-      leftElementStyles,
-      rightElement = false,
-      inputStyles = false,
-      input,
-      onChange,
-      ...props
-    },
-    ref
-  ) => {
-    // prettier-ignore
-    const classes = `w-full outline-0 cursor-auto ${twClasses}`;
 
-    const handleKeyPress = (event) => {
-      if (event.key === "Enter") {
-      }
-    };
+export default function StandardSearch({
+  simpleSearch = false,
+  textSize = "text-base",
+  placeholder = "Search",
+  dropdown = false,
+  pad,
+  twClasses = "",
+  outerClasses = "",
+  ...props
+}) {
+  const otherStyling = simpleSearch
+    ? "bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300"
+    : "bg-white rounded-full shadow-sm";
 
-    return (
-      <div className={`flex items-center relative nodrag ${outerClasses}`}>
-        <div
-          className={`absolute left-0 grid place-items-center select-none
-           ${leftElementStyles}`}
-        >
-          {leftElement || <AiOutlineSearch className="text-gray-400" />}
-        </div>
-        {input || (
-          <input
-            className={inputStyles || classes}
-            placeholder={placeholder}
-            ref={ref}
-            {...props}
-            tabIndex="0"
-            onChange={onChange}
-          />
-        )}
+  const size = simpleSearch ? "w-4 h-4" : "w-10 h-10";
+  const padding = pad ? pad : simpleSearch ? "pl-6 py-1" : "pl-10";
+  const focus = simpleSearch
+    ? "focus-visible:border-blue-300"
+    : "focus-visible:ring-2";
 
-        {rightElement}
+  const className = `${otherStyling} ${textSize} ${padding} ${focus} w-full outline-0 cursor-auto ${twClasses}`;
+
+  return (
+    <div className={`flex items-center relative nodrag ${outerClasses}`}>
+      <div
+        className={`${size} absolute left-0 grid place-items-center select-none`}
+      >
+        <AiOutlineSearch className="text-gray-400" />
       </div>
-    );
-  }
-);
+      <input
+        className={className}
+        placeholder={placeholder}
+        {...props}
+        tabIndex="0"
+      />
+      {dropdown && (
+        <IconButton
+          rounded={`${!simpleSearch ? "rounded-full" : "rounded-2xl"}`}
+          bg={` ${!simpleSearch ? "bg-white" : "bg-transparent"}`}
+          size={size}
+          padding="p-0"
+          grid={true}
+          twClasses="absolute right-0 hover:bg-gray-100"
+          {...toggleButtonProps}
+          aria-label={"toggle menu"}
+          icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
+        />
+      )}
+    </div>
+  );
+}

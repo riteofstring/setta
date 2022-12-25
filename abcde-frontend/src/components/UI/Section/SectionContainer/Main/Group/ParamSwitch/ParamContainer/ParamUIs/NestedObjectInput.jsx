@@ -1,14 +1,8 @@
-import SectionConfigComp from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/SectionConfig/SectionConfigComp";
 import { useActiveSection } from "models/activeSection";
 import { SECTION_CONFIG_TAB, useUIEditor } from "models/uiEditor";
-import { SET_FROM_SIDEPANE } from "utils/constants";
 
-export function NestedObjectInputConfig({ origin, ...props }) {
-  return origin === SET_FROM_SIDEPANE ? (
-    <ButtonGoToSectionConfig {...props} />
-  ) : (
-    <SectionConfigComp {...props} />
-  );
+export function NestedObjectInputConfig(props) {
+  return <ButtonGoToSectionConfig {...props} />;
 }
 
 function ButtonGoToSectionConfig({ paramChildId }) {

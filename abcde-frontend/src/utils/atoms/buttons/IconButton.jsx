@@ -1,6 +1,6 @@
 import Button from "./Button";
 
-export function IconButton({
+export default function IconButton({
   twClasses = "",
   size = "w-3 h-3",
   padding = "py-1 px-1",

@@ -6,7 +6,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import StandardSearch from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
 import { getOverviewListing } from "utils/sectionIds";
 import SectionListItems from "./SectionList/SectionListItems";
@@ -34,9 +34,6 @@ export default function Overview() {
 
   const onResizeStop = useUpdateMapPosition();
 
-  const inputStyles =
-    "w-full outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
-
   return (
     <PaneContainer
       paneProps={paneProps}
@@ -45,8 +42,7 @@ export default function Overview() {
     >
       <div className="pb-4">
         <StandardSearch
-          inputStyles={inputStyles}
-          leftElementStyles="pl-1"
+          simpleSearch={true}
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Overview Search"
         />
