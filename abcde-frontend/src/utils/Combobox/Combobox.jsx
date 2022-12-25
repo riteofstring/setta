@@ -1,5 +1,6 @@
 import React from "react";
-import { ComboboxSearchInput } from "utils/atoms/search/ComboSearchInput";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { DropdownButton } from "utils/atoms/search/StandardSearchRightButtons";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -14,15 +15,23 @@ export const ComboboxInput = React.forwardRef(
     },
     ref
   ) => {
+    const searchStyles =
+      "w-full outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm h-[40px] pl-10 focus-visible:ring-2";
+
     return (
-      <ComboboxSearchInput
+      <StandardSearch
+        inputStyles={searchStyles}
+        leftElementStyles="pl-3"
+        ref={ref}
         {...props}
         {...toggleButtonProps}
-        ref={ref}
-        dropdown={true}
-        simpleSearch={simpleSearch}
-        isOpen={isOpen}
-        size="w-10 h-10"
+        rightElement={
+          <DropdownButton
+            toggleButtonProps={toggleButtonProps}
+            isOpen={isOpen}
+            size="w-10 h-10"
+          />
+        }
       />
     );
   }
