@@ -14,7 +14,6 @@ import {
 } from "thunks/save";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
-import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
@@ -73,7 +72,7 @@ export default function FileMenu() {
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
-            className="bg-white p-1 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
+            className="bg-white p-2 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
           >
             <Items
               onClickLoad={onClickLoad}
@@ -98,10 +97,10 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
         {/* <GrDocumentDownload /> */}
         Load
       </DialogTriggerItem>
-      <Item onClick={onClickSave}>
+      <DialogTriggerItem onClick={onClickSave}>
         <VscSave className="text-gray-500" />
         Save
-      </Item>
+      </DialogTriggerItem>
       <DialogTriggerItem onClick={onClickSaveAs}>
         <VscSaveAs className="text-gray-500" />
         Save As

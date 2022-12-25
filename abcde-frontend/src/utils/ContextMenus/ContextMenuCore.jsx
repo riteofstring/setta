@@ -21,17 +21,6 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
   );
 }
 
-export function ContextMenuItem({ onClick, children }) {
-  return (
-    <DropdownMenu.Item
-      className="hover:bg-gray-100 py-1 px-2 rounded-md font-body text-xs font-bold gray-700"
-      onClick={onClick}
-    >
-      {children}
-    </DropdownMenu.Item>
-  );
-}
-
 // https://stackoverflow.com/a/42234988
 function useOutsideAlerter(isOpen, closeContextMenu) {
   const ref = useRef(null);

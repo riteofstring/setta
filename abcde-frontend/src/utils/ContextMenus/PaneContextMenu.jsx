@@ -1,4 +1,5 @@
-import { ContextMenuCore, ContextMenuItem } from "./ContextMenuCore";
+import { Item } from "utils/atoms/dropdown/item";
+import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
 
 export function PaneContextMenu({
@@ -17,10 +18,8 @@ export function PaneContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <ContextMenuItem onClick={() => onClick(false)}>
-        New Section
-      </ContextMenuItem>
-      <ContextMenuItem onClick={() => onClick(true)}>New Deck</ContextMenuItem>
+      <Item onClick={() => onClick(false)}>New Section</Item>
+      <Item onClick={() => onClick(true)}>New Deck</Item>
     </ContextMenuCore>
   );
 }

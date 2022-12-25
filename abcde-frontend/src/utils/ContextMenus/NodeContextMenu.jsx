@@ -1,8 +1,9 @@
 import { DECK } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useUndeck } from "hooks/useUndeck";
+import { Item } from "utils/atoms/dropdown/item";
 
-import { ContextMenuCore, ContextMenuItem } from "./ContextMenuCore";
+import { ContextMenuCore } from "./ContextMenuCore";
 
 export function NodeContextMenu(props) {
   const { nodeId, closeContextMenu } = props;
@@ -17,7 +18,7 @@ export function NodeContextMenu(props) {
 
   return nodeIsDeck ? (
     <ContextMenuCore {...props}>
-      <ContextMenuItem onClick={onClick}>Undeck</ContextMenuItem>
+      <Item onClick={onClick}>Undeck</Item>
     </ContextMenuCore>
   ) : null;
 }

@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 export function Item({ children, onClick }) {
   return (
     <DropdownMenu.Item
-      className="text-xs font-bold text-gray-700 flex flex-row items-center gap-2 px-2 py-1 hover:bg-gray-200 rounded-md cursor-pointer font-body"
+      className="flex flex-row items-center gap-2 hover:bg-gray-100 py-1 px-2 rounded-md font-body text-xs font-bold gray-700 outline-none focus-visible:ring-2 hover:ring-0 cursor-pointer"
       onClick={onClick}
     >
       {children}
