@@ -1,4 +1,4 @@
-import { Button } from "./Button";
+import Button from "./Button";
 
 export function IconButton({
   twClasses = "",
@@ -13,7 +13,7 @@ export function IconButton({
 }) {
   return (
     <Button
-      twClasses={`${bg} ${color} ${rounded} ${padding} ${size} ${twClasses}`}
+      tailwindClasses={`${bg} ${color} ${rounded} ${padding} ${size} ${twClasses}`}
       {...theRest}
     >
       {icon}

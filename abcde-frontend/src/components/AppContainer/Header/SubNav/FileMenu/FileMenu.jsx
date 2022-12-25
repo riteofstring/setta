@@ -12,7 +12,7 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
-import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
+import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
