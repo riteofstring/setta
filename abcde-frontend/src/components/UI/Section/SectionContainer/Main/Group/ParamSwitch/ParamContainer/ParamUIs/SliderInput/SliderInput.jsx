@@ -49,7 +49,7 @@ export default function SliderInput({
         <Slider.Range className="absolute bg-blue-500 rounded-full h-full" />
       </Slider.Track>
       <Slider.Thumb
-        className="block w-3 h-3 bg-gray-100
+        className="block w-3 h-3 bg-white
       border-2 border-gray-300 shadow-sm drop-shadow-md rounded-full hover:bg-gray-100 focus-visible:outline-none focus:border-blue-500 cursor-pointer"
       />
     </Slider.Root>

@@ -1,9 +1,8 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { DECK } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useUndeck } from "hooks/useUndeck";
 
-import { ContextMenuCore } from "./ContextMenuCore";
+import { ContextMenuCore, ContextMenuItem } from "./ContextMenuCore";
 
 export function NodeContextMenu(props) {
   const { nodeId, closeContextMenu } = props;
@@ -18,7 +17,7 @@ export function NodeContextMenu(props) {
 
   return nodeIsDeck ? (
     <ContextMenuCore {...props}>
-      <DropdownMenu.Item onClick={onClick}>Undeck</DropdownMenu.Item>
+      <ContextMenuItem onClick={onClick}>Undeck</ContextMenuItem>
     </ContextMenuCore>
   ) : null;
 }
