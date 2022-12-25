@@ -49,6 +49,14 @@ export type UITypeStateType = {
   x: ManyUITypeType;
 };
 
+export type NewValueFnType<T> = (currValue: T) => T;
+
+export type UITypeSetOneConfigPayloadType<T> = {
+  uiTypeId: string;
+  configName: string;
+  newValueFn: NewValueFnType<T>;
+};
+
 export type UITypeActionType = {
   resetAndSetAll: (payload: ManyUITypeType) => void;
   setUIType: (payload: { uiType: UITypeType }) => void;
@@ -56,11 +64,7 @@ export type UITypeActionType = {
     uiTypeId: string;
     newStateFn: (currConfig: UITypeConfigType) => UITypeConfigType;
   }) => void;
-  setOneConfig: <T, K extends keyof T>(payload: {
-    uiTypeId: string;
-    configName: K;
-    newValueFn: (currValue: T[K]) => T[K];
-  }) => void;
+  setOneConfig: <T>(payload: UITypeSetOneConfigPayloadType<T>) => void;
   deleteUIType: (payload: { uiTypeId: string }) => void;
   setAll: (payload: UITypeStateType) => void;
   reset: () => void;
