@@ -1,4 +1,5 @@
 import { ManyCodeInfoType } from "./codeInfo";
+import { CodeInfoMapStateType } from "./codeInfoMap";
 import { ManyEVType } from "./ev";
 import { ManyEVColType } from "./evCol";
 import { ManyKwargColType } from "./kwargCol";
@@ -24,4 +25,5 @@ export type ProjectSaveType = {
   sectionChildren: ManySectionChildrenType;
   sectionConfigs: ManySectionConfigType;
   sectionConfigCol: SectionConfigColType;
+  projectConfigCodeInfoMaps: CodeInfoMapStateType;
 };
