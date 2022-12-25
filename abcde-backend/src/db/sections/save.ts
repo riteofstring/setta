@@ -82,14 +82,13 @@ export async function saveSectionChildren(
 function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
   const inDbFormat = [] as any;
   for (const v of Object.values(sectionConfigs)) {
-    const curr = {
+    inDbFormat.push({
       id: v.id,
       evCol: connectOrCreateColId(v.evColId),
       kwargCol: connectOrCreateColId(v.kwargColId),
       selectedItem: prismaNullOrConnect(v.selectedItem),
       uiType: prismaNullOrConnect(v.uiTypeId),
-    };
-    inDbFormat.push(curr);
+    });
   }
   return inDbFormat;
 }

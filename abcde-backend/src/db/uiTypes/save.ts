@@ -10,6 +10,7 @@ import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
+import { PrismaUITypeColType } from './types';
 
 async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   const data = Object.values(uiTypes).map((x) => {
@@ -115,7 +116,7 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
     skipDuplicates: true,
   });
 
-  const inDbFormat = [] as any;
+  const inDbFormat: PrismaUITypeColType[] = [];
   for (const idid of ids) {
     for (const [codeInfoId, uiTypeId] of Object.entries(uiTypeCols[idid])) {
       inDbFormat.push({

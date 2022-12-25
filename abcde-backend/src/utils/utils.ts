@@ -37,7 +37,7 @@ export function connectOrCreateColId(x) {
   return { connectOrCreate: { where: { id: x }, create: { id: x } } };
 }
 
-export function getOrderedChildren(children, toReturn: any = null) {
+export function getOrderedChildren(children, toReturn: string | null = null) {
   const output = _.orderBy(children, (v) => v.order);
   if (toReturn) {
     return output.map((x) => (toReturn ? x[toReturn] : x));
