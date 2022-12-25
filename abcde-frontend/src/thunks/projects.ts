@@ -21,4 +21,5 @@ export async function loadProject({ id, configId }) {
   if (projectInfo) {
     return loadProjectIntoState({ projectInfo });
   }
+  return false;
 }

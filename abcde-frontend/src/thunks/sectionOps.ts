@@ -3,6 +3,10 @@ import {
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
 } from "abcde-utils/src/constants";
+import {
+  SectionUITypeConfigType,
+  UITypeSetOneConfigPayloadType,
+} from "abcde-utils/src/types/uiType";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -133,16 +137,20 @@ function setSectionAttrBasedOnNewParent({
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(newParentId);
-  const parentIsRoot = isRoot(newParentUIType?.type);
 
-  let configProps = null;
-  if (parentIsRoot) {
+  let configProps: Partial<
+    UITypeSetOneConfigPayloadType<SectionUITypeConfigType["subType"]>
+  >;
+  if (newParentUIType && isRoot(newParentUIType.type)) {
     configProps = {
       configName: "subType",
       newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
     };
   } else {
-    configProps = { configName: "subType", newValueFn: () => null };
+    configProps = {
+      configName: "subType",
+      newValueFn: () => null,
+    };
   }
 
   setSectionUITypeConfig({ sectionId, configProps });

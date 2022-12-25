@@ -1,6 +1,7 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -21,7 +22,7 @@ export function getSectionType(sectionId) {
 }
 
 export function getSectionTypeConfig(sectionId) {
-  return getSectionType(sectionId).config;
+  return getSectionType(sectionId).config as SectionUITypeConfigType;
 }
 
 export function setSectionConfigAttr({ sectionId, attr, value }) {

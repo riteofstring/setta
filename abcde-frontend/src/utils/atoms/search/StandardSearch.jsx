@@ -7,6 +7,7 @@ export const StandardSearch = React.forwardRef(
       twClasses = "",
       outerClasses = "",
       onKeyPress,
+      toggleButtonProps,
       leftElement = false,
       leftElementStyles,
       rightElement = false,
