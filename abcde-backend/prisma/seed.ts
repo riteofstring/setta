@@ -58,7 +58,7 @@ async function seedUserCodeInfoMaps() {
   console.log('seedUserCodeInfoMaps');
   for (const user of Object.values(users)) {
     const usersMaps = data[user.id];
-    await saveAllUserCodeInfoMaps(user, usersMaps);
+    await saveAllUserCodeInfoMaps(user.id, usersMaps);
   }
   console.log('done');
 }

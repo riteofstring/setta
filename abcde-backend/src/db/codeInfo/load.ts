@@ -77,9 +77,8 @@ export async function getCollectionsAndModules(searchTerm: string) {
     },
   });
   const processed = results.map((x) => {
-    const output = { ...x, children: x.asParent.map((y) => y.child) } as any;
-    delete output.asParent;
-    return output;
+    const { asParent, ...theRest } = x;
+    return { ...theRest, children: asParent.map((y) => y.child) };
   });
   return _.keyBy(processed, 'id');
 }
