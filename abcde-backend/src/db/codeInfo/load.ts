@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
-import { ParentChildPairsType } from './types';
+import { ChildMapType, ParentChildPairsType } from './types';
 
 export async function getCodeInfoForSectionsAndKwargs(
   sectionUITypes,
@@ -55,7 +55,7 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
   return output;
 }
 
-export function processCodeInfo(codeInfo, childMap) {
+export function processCodeInfo(codeInfo, childMap: ChildMapType) {
   let children: string[] = [];
   if (codeInfo.id in childMap) {
     children = getOrderedChildren(childMap[codeInfo.id], 'childId');

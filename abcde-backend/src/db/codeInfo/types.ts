@@ -5,3 +5,11 @@ export type OrderedParentChildPairsType = {
   childId: string;
   order: number;
 }[];
+
+export type ChildMapType = {
+  [parentId: string]: {
+    parentId: string;
+    childId: string;
+    order: number;
+  }[];
+};

@@ -1,7 +1,11 @@
 import * as _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getUITypeCols, getUITypesByWhere } from 'src/db/uiTypes/load';
-import { getOrderedChildren, renameKeys } from 'src/utils/utils';
+import {
+  getOrderedChildren,
+  getOrderedChildrenFull,
+  renameKeys,
+} from 'src/utils/utils';
 
 export async function getSections(ids) {
   const s = await prisma.section.findMany({
@@ -90,7 +94,7 @@ export async function getSectionConfigs(ids) {
 
   const kwargCols = {};
   for (const config of s) {
-    const ordered = getOrderedChildren(config.kwargCol.children);
+    const ordered = getOrderedChildrenFull(config.kwargCol.children);
     kwargCols[config.kwargColId] = _.mapValues(
       _.groupBy(ordered, (x) => x.codeInfoId),
       (y) => y.map((z) => z.kwargInfoId),

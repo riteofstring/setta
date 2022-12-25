@@ -37,12 +37,18 @@ export function connectOrCreateColId(x) {
   return { connectOrCreate: { where: { id: x }, create: { id: x } } };
 }
 
-export function getOrderedChildren(children, toReturn: string | null = null) {
-  const output = _.orderBy(children, (v) => v.order);
-  if (toReturn) {
-    return output.map((x) => (toReturn ? x[toReturn] : x));
-  }
-  return output;
+export function getOrderedChildren<
+  T extends { order: number },
+  K extends keyof T,
+>(children: T[], toReturn: K) {
+  const output = getOrderedChildrenFull(children);
+  return output.map((x) => x[toReturn]);
+}
+
+export function getOrderedChildrenFull<T extends { order: number }>(
+  children: T[],
+) {
+  return _.orderBy(children, (v) => v.order);
 }
 
 export function createIdMap(oldIds: string[]) {

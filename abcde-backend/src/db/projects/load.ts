@@ -9,8 +9,8 @@ import { getProjectConfig } from 'src/db/projectConfigs/load';
 import { getSectionConfigs, getSections } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 
-export async function getProject(id) {
-  return await prisma.project.findUnique({
+export async function getProject(id: string) {
+  return await prisma.project.findUniqueOrThrow({
     where: { id },
     select: { id: true, name: true, defaultConfigId: true },
   });

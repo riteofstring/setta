@@ -4,7 +4,7 @@ import { getSectionPositions } from 'src/db/sections/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
 
 export async function getProjectConfig(id) {
-  const p = (await prisma.projectConfig.findUnique({
+  let p = await prisma.projectConfig.findUniqueOrThrow({
     where: { id },
     select: {
       id: true,
@@ -22,20 +22,27 @@ export async function getProjectConfig(id) {
         },
       },
     },
-  })) as any;
+  });
   const sectionConfigCol = _.mapValues(
     _.keyBy(p.sectionConfigCol.children, 'sectionId'),
     (v) => v.configId,
   );
-  delete p.sectionConfigCol;
+  const sectionPositions = getSectionPositions(p.sectionChildren.children);
 
   p['children'] = getOrderedChildren(p.sectionChildren.children, 'sectionId');
-  const sectionPositions = getSectionPositions(p.sectionChildren.children);
-  delete p.sectionChildren;
-  const projectConfig = renameKeys(p, {
+
+  p = renameKeys(p, {
     sectionConfigColId: 'sectionConfigCol',
     sectionChildrenId: 'childrenId',
   });
+
+  const projectConfig = _.pick(p, [
+    'id',
+    'name',
+    'sectionConfigCol',
+    'childrenId',
+    'children',
+  ]);
 
   return { projectConfig, sectionConfigCol, sectionPositions };
 }
