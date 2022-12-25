@@ -15,6 +15,8 @@ export function StandardSearch({
   leftElement = false,
   rightElement = false,
   className,
+  input,
+  ref,
   ...props
 }) {
   // prettier-ignore
@@ -30,13 +32,16 @@ export function StandardSearch({
       <div className="absolute left-0 grid place-items-center select-none">
         {leftElement || <AiOutlineSearch className="text-gray-400" />}
       </div>
-      <input
-        className={className || classes}
-        placeholder={placeholder}
-        {...props}
-        tabIndex="0"
-        onKeyDown={handleKeyPress}
-      />
+      {input || (
+        <input
+          className={className || classes}
+          placeholder={placeholder}
+          ref={ref}
+          {...props}
+          tabIndex="0"
+          onKeyDown={handleKeyPress}
+        />
+      )}
 
       {rightElement || <StandardSearchRightButtons />}
     </div>

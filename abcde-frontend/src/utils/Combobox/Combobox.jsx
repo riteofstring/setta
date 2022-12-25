@@ -1,7 +1,5 @@
 import React from "react";
-import { AiOutlineSearch } from "react-icons/ai";
-import { HiChevronDown, HiChevronUp } from "react-icons/hi";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { ComboboxSearch } from "./ComboboxSearch";
 
 export const ComboboxInput = React.forwardRef(
   (
@@ -17,59 +15,59 @@ export const ComboboxInput = React.forwardRef(
     ref
   ) => {
     return (
-      <div className="flex relative nodrag">
-        <div className="w-10 h-10 absolute left-0 grid place-items-center select-none">
-          <AiOutlineSearch className="text-gray-400" />
-        </div>
-
-        <SearchInput
-          simpleSearch={simpleSearch}
-          height={height}
-          textSize={textSize}
-          {...props}
-          {...toggleButtonProps}
-          ref={ref}
-        />
-        {dropdown && (
-          <IconButton
-            rounded={`${!simpleSearch ? "rounded-full" : "rounded-2xl"}`}
-            bg={` ${!simpleSearch ? "bg-white" : "bg-transparent"}`}
-            size="w-10 h-10"
-            padding="p-0"
-            grid={true}
-            twClasses="absolute right-0 hover:bg-gray-100"
-            {...toggleButtonProps}
-            aria-label={"toggle menu"}
-            icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
-          />
-        )}
-      </div>
+      // <div className="flex relative nodrag">
+      //   <div className="w-10 h-10 absolute left-0 grid place-items-center select-none">
+      //     <AiOutlineSearch className="text-gray-400" />
+      //   </div>
+      //   <SearchInput
+      //   simpleSearch={simpleSearch}
+      //   height={height}
+      //   textSize={textSize}
+      //   {...props}
+      //   {...toggleButtonProps}
+      //   ref={ref}
+      // />
+      //   {dropdown && (
+      //     <IconButton
+      //       rounded={`${!simpleSearch ? "rounded-full" : "rounded-2xl"}`}
+      //       bg={` ${!simpleSearch ? "bg-white" : "bg-transparent"}`}
+      //       size="w-10 h-10"
+      //       padding="p-0"
+      //       grid={true}
+      //       twClasses="absolute right-0 hover:bg-gray-100"
+      //       {...toggleButtonProps}
+      //       aria-label={"toggle menu"}
+      //       icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
+      //     />
+      //   )}
+      // </div>
+      <ComboboxSearch {...props} {...toggleButtonProps} ref={ref} />
     );
   }
 );
 
-const SearchInput = React.forwardRef(
-  (
-    { textSize = "text-sm", height = "h-[40px]", simpleSearch, ...props },
-    ref
-  ) => {
-    const otherStyling = simpleSearch
-      ? "bg-transparent"
-      : "bg-white rounded-full border-0 shadow-sm";
+// const SearchInput = React.forwardRef(
+//   (
+//     { textSize = "text-sm", height = "h-[40px]", simpleSearch, ...props },
+//     ref
+//   ) => {
+//     const otherStyling = simpleSearch
+//       ? "bg-transparent"
+//       : "bg-white rounded-full border-0 shadow-sm";
 
-    const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0 cursor-auto focus-visible:ring-2`;
+//     const className = `${otherStyling} ${height} ${textSize} pl-10 w-full outline-0 cursor-auto focus-visible:ring-2`;
 
-    return (
-      <input
-        className={className}
-        placeholder="Search"
-        ref={ref}
-        {...props}
-        tabIndex="0"
-      />
-    );
-  }
-);
+//     return (
+//       <input
+//         className={className}
+//         placeholder="Search"
+//         ref={ref}
+//         {...props}
+//         tabIndex="0"
+//       />
+//     );
+//   }
+// );
 
 export const ComboboxList = React.forwardRef(
   ({ isOpen, children, ...props }, ref) => {
