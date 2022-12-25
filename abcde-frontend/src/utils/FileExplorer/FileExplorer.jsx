@@ -1,7 +1,7 @@
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
 import { useRef } from "react";
-import Button from "../../utils/atoms/buttons/Button";
+import { Button } from "../../utils/atoms/buttons/Button";
 import { FileListItem, SelectableFileListItem } from "./FileListItem";
 import "./radioItem.css";
 
