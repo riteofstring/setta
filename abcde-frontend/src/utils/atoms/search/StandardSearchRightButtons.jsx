@@ -16,7 +16,7 @@ export function DropdownButton({
       size={size}
       isOpen={isOpen}
       icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
-      {...toggleButtonProps}
+      toggleButtonProps={toggleButtonProps}
     />
   );
 }

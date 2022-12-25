@@ -24,7 +24,6 @@ export const ComboboxInput = React.forwardRef(
         leftElementStyles="pl-3"
         ref={ref}
         {...props}
-        {...toggleButtonProps}
         rightElement={
           <DropdownButton
             toggleButtonProps={toggleButtonProps}
