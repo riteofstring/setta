@@ -11,6 +11,7 @@ import {
   saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import _ from "lodash";
+import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
@@ -54,6 +55,10 @@ export function getProjectData(): ProjectSaveType {
     (v) => v.configId
   );
 
+  const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
+    .getState()
+    .exportForDb();
+
   return {
     project,
     projectConfig,
@@ -67,6 +72,7 @@ export function getProjectData(): ProjectSaveType {
     sectionChildren,
     sectionConfigs,
     sectionConfigCol,
+    projectConfigCodeInfoMaps,
   };
 }
 

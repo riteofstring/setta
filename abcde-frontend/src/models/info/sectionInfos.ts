@@ -3,7 +3,7 @@ import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import {
   SectionInfoStateType,
   SectionInfoZustandType,
-} from "abcde-utils/src/types/sectionInfo";
+} from "abcde-utils/src/types/section";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
