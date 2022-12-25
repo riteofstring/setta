@@ -14,7 +14,7 @@ export function addSectionAtPosition({
 }: {
   isDeck: boolean;
   initialPosition: SectionPositionType;
-  fnAfterAddSection: fnAfterAddSectionType;
+  fnAfterAddSection?: fnAfterAddSectionType;
 }) {
   const addChildren = useProjectConfig.getState().addChildren;
   const sectionProps: Parameters<typeof newSectionInfo>[0] = {
