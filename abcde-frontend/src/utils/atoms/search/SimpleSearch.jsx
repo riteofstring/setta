@@ -1,4 +1,5 @@
 import { StandardSearch } from "./StandardSearch";
+import { GoButton } from "./StandardSearchRightButtons";
 
 export function SimpleSearch({
   textSize = "text-base",
@@ -16,6 +17,7 @@ export function SimpleSearch({
     <StandardSearch
       inputClasses={inputClasses}
       simpleSearch={simpleSearch}
+      rightElement={<GoButton />}
       {...props}
     />
   );

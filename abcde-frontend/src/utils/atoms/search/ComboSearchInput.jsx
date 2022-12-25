@@ -1,5 +1,6 @@
 import React from "react";
 import { StandardSearch } from "./StandardSearch";
+import { DropdownButton } from "./StandardSearchRightButtons";
 
 export const ComboboxSearchInput = React.forwardRef(
   (
@@ -11,6 +12,7 @@ export const ComboboxSearchInput = React.forwardRef(
       simpleSearch,
       size,
       isOpen,
+      toggleButtonProps,
       ...props
     },
     ref
@@ -31,6 +33,14 @@ export const ComboboxSearchInput = React.forwardRef(
         simpleSearch={simpleSearch}
         size={size}
         isOpen={isOpen}
+        rightElement={
+          <DropdownButton
+            toggleButtonProps={toggleButtonProps}
+            isOpen={isOpen}
+            size={size}
+            simpleSearch={simpleSearch}
+          />
+        }
         {...props}
       />
     );

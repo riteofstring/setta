@@ -1,6 +1,5 @@
 import React from "react";
 import { AiOutlineSearch } from "react-icons/ai";
-import { StandardSearchRightButtons } from "./StandardSearchRightButtons";
 export const StandardSearch = React.forwardRef(
   (
     {
@@ -32,9 +31,6 @@ export const StandardSearch = React.forwardRef(
       }
     };
 
-    // NOT WORKING
-    console.log("inputClasses: ", inputClasses);
-
     return (
       <div className={`flex items-center relative nodrag ${outerClasses}`}>
         <div
@@ -55,16 +51,15 @@ export const StandardSearch = React.forwardRef(
           />
         )}
 
-        {rightElement || (
-          <StandardSearchRightButtons
+        {rightElement}
+        {/* <StandardSearchRightButtons
             dropdown={dropdown}
             goButton={goButton}
             simpleSearch={simpleSearch}
             size={size}
             isOpen={isOpen}
             {...props}
-          />
-        )}
+          /> */}
       </div>
     );
   }

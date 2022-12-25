@@ -1,32 +1,12 @@
 import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { IconButton } from "../buttons/IconButton";
 
-export function StandardSearchRightButtons({
-  dropdown,
-  goButton,
+export function DropdownButton({
   simpleSearch,
   size,
   toggleButtonProps,
-  twClasses,
   isOpen,
 }) {
-  return (
-    <>
-      {dropdown && (
-        <DropdownButton
-          simpleSearch={simpleSearch}
-          size={size}
-          toggleButtonProps={toggleButtonProps}
-          isOpen={isOpen}
-          twClasses={twClasses}
-        />
-      )}
-      {goButton && <GoButton size={size} simpleSearch={simpleSearch} />}
-    </>
-  );
-}
-
-function DropdownButton({ simpleSearch, size, toggleButtonProps, isOpen }) {
   return (
     <IconButton
       rounded={!simpleSearch ? "rounded-full" : "rounded-2xl"}
@@ -36,13 +16,13 @@ function DropdownButton({ simpleSearch, size, toggleButtonProps, isOpen }) {
       grid={true}
       twClasses="absolute right-0 hover:bg-gray-100"
       {...toggleButtonProps}
-      aria-label={"toggle menu"}
+      aria-label="toggle menu"
       icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
     />
   );
 }
 
-function GoButton({ simpleSearch, size }) {
+export function GoButton({ simpleSearch, size }) {
   return (
     <IconButton
       rounded={!simpleSearch ? "rounded-full" : "rounded-2xl"}
