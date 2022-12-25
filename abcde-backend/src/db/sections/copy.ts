@@ -1,6 +1,6 @@
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { createIdMap, renameKeys } from 'src/utils/utils';
 
 export function copySectionConfigs(

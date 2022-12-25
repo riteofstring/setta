@@ -1,5 +1,5 @@
 import { CodeInfoMapStateType } from 'abcde-utils/src/types/codeInfoMap';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
 function assembleUserCodeInfoMap(user, data, mapsFrom) {

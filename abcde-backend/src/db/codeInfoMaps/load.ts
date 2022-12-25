@@ -1,4 +1,4 @@
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
 export async function getUserCodeInfoMaps(ownerId) {

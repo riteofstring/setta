@@ -2,7 +2,7 @@ import {
   ManySectionUITypeType,
   PresetType,
 } from 'abcde-utils/src/types/uiType';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
 export async function getUITypeCols(sectionUITypes: ManySectionUITypeType) {

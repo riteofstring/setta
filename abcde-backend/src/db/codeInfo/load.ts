@@ -1,6 +1,6 @@
 import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';

@@ -7,7 +7,7 @@ import {
 } from 'abcde-utils/src/constants';
 import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol, nullNotUndefined } from 'src/utils/utils';
 import { PrismaUITypeColType } from './types';

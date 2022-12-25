@@ -1,5 +1,5 @@
 import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import {
   findAllCallables,
   findAllParameters,

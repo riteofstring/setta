@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { createNewId } from 'abcde-utils/src/utils';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
 export function renameKeys<T>(x: T, toRename: object) {

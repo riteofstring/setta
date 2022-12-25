@@ -1,5 +1,5 @@
 import { OBJ, REF, STRING, VARIABLE } from 'abcde-utils/src/codeGenConstants';
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 class Variable {
   name: string;

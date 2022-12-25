@@ -1,7 +1,7 @@
 import { OBJ, PARAM, STRING, VARIABLE } from 'abcde-utils/src/codeGenConstants';
 import { DECK, isRoot, LIST_ROOT } from 'abcde-utils/src/constants';
 import { maybeUseNullId } from 'abcde-utils/src/utils';
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 function paramInfoExportSelected(sectionId, paramInfo, evColId, p) {
   const evId = p.evCols[evColId]?.[paramInfo.id];

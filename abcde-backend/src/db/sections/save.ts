@@ -9,7 +9,7 @@ import {
   ChildrenSectionPositionType,
   TopLevelSectionPositionType,
 } from 'abcde-utils/src/types/sectionPosition';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import {
   connectOrCreateColId,

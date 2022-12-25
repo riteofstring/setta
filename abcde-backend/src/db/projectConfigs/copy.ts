@@ -1,6 +1,6 @@
 import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
 import { createNewId } from 'abcde-utils/src/utils';
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 export function copyProjectConfig({
   projectConfig,

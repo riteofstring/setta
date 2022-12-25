@@ -4,7 +4,7 @@ import {
   ManyCodeInfoType,
   RCType,
 } from 'abcde-utils/src/types/codeInfo';
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
   const output = {};

@@ -1,4 +1,4 @@
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getSectionPositions } from 'src/db/sections/load';
 import { getOrderedChildren, renameKeys } from 'src/utils/utils';
