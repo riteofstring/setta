@@ -17,8 +17,9 @@ export const StandardSearch = React.forwardRef(
       isOpen,
       leftElement = false,
       rightElement = false,
-      className,
+      inputClasses = false,
       input,
+      size,
       ...props
     },
     ref
@@ -31,14 +32,17 @@ export const StandardSearch = React.forwardRef(
       }
     };
 
+    // NOT WORKING
+    console.log("inputClasses: ", inputClasses);
+
     return (
       <div className={`flex items-center relative nodrag ${outerClasses}`}>
-        <div className="absolute left-0 grid place-items-center select-none">
+        <div className="w-10 h-10 absolute left-0 grid place-items-center select-none">
           {leftElement || <AiOutlineSearch className="text-gray-400" />}
         </div>
         {input || (
           <input
-            className={className || classes}
+            className={inputClasses || classes}
             placeholder={placeholder}
             ref={ref}
             {...props}
@@ -47,7 +51,16 @@ export const StandardSearch = React.forwardRef(
           />
         )}
 
-        {rightElement || <StandardSearchRightButtons />}
+        {rightElement || (
+          <StandardSearchRightButtons
+            dropdown={dropdown}
+            goButton={goButton}
+            simpleSearch={simpleSearch}
+            size={size}
+            isOpen={isOpen}
+            {...props}
+          />
+        )}
       </div>
     );
   }

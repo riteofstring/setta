@@ -41,7 +41,15 @@ export const ComboboxInput = React.forwardRef(
       //     />
       //   )}
       // </div>
-      <ComboboxSearchInput {...props} {...toggleButtonProps} ref={ref} />
+      <ComboboxSearchInput
+        {...props}
+        {...toggleButtonProps}
+        ref={ref}
+        dropdown={true}
+        simpleSearch={simpleSearch}
+        isOpen={isOpen}
+        size="w-10 h-10"
+      />
     );
   }
 );
