@@ -10,7 +10,7 @@ export type UITypeType = {
   isForChildOfOriginInfoId: boolean;
 };
 
-export type SectionUITypeType = UITypeType & {
+export type SectionUITypeType = Omit<UITypeType, "config"> & {
   config: SectionUITypeConfigType;
 };
 
