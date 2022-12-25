@@ -24,7 +24,7 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
 export function ContextMenuItem({ onClick, children }) {
   return (
     <DropdownMenu.Item
-      className="self-stretch min-w-min hover:bg-gray-100 py-1 px-2 rounded-md"
+      className="hover:bg-gray-100 py-1 px-2 rounded-md"
       onClick={onClick}
     >
       {children}
