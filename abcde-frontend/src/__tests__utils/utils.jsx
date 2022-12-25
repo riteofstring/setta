@@ -11,7 +11,6 @@ import { useUITypes } from "models/info/uiTypes";
 import { loadSections } from "models/master";
 import { resetAllStores } from "models/utils";
 import { ReactFlowProvider } from "react-flow-renderer";
-import { addSectionsToState } from "thunks/sections";
 import { renderUseGetSectionType } from "./renderHooks";
 
 export async function loadTestDataIntoState() {
@@ -62,7 +61,11 @@ export function addSectionInfo(inputUIType = null) {
   }
   const si = newSectionInfo({});
   const siConfig = newSectionConfig({ id: si.configId, uiTypeId: uiType.id });
-  addSectionsToState({ [si.id]: si }, { [siConfig.id]: siConfig });
+  useSectionInfos.getState().setSectionInfo((x) => ({ ...x, [si.id]: si }));
+  useSectionConfigs.getState().setSectionConfig((x) => ({
+    ...x,
+    [si.configId]: siConfig,
+  }));
   return { section: si, sectionConfig: siConfig };
 }
 

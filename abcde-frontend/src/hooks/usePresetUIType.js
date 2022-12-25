@@ -7,10 +7,7 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
-import {
-  createParamOriginInfoId,
-  createSectionOriginInfoId,
-} from "utils/uiTypeUtils";
+import { createOriginInfoId } from "utils/uiTypeUtils";
 import { useParamUITypeId } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
@@ -103,9 +100,10 @@ export function useAvailablePresetUITypes({
   paramInfoId,
   settingSectionConfig,
 }) {
-  const parentId = useGetSectionInfo(sectionId, "parentId");
-  const sectionParamInfoId = useGetSectionInfo(sectionId, "paramInfoId");
-
+  const [parentId, sectionParamInfoId] = useGetSectionInfo(sectionId, [
+    "parentId",
+    "paramInfoId",
+  ]);
   const [sectionTypeId, sectionTypeConfig] = useGetSectionType(sectionId, [
     "id",
     "config",
@@ -115,21 +113,15 @@ export function useAvailablePresetUITypes({
     "config",
   ]);
   const paramUITypeId = useParamUITypeId(sectionId, paramInfoId);
-
-  let originInfoId;
-  if (settingSectionConfig) {
-    originInfoId = paramInfoId
-      ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
-      : createSectionOriginInfoId(sectionId);
-  } else {
-    originInfoId = paramInfoId
-      ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
-      : createParamOriginInfoId(parentTypeConfig, sectionParamInfoId as any); //TODO remove typecast
-  }
-
+  const originInfoId = createOriginInfoId({
+    settingSectionConfig,
+    sectionTypeConfig: paramInfoId ? sectionTypeConfig : parentTypeConfig,
+    childId: sectionId,
+    paramInfoId: paramInfoId ? paramInfoId : sectionParamInfoId,
+  });
   const parentInfo = {
     type: parentType,
-    originInfoId: createSectionOriginInfoId(parentId as any), //TODO remove typecast
+    originInfoId: createOriginInfoId({ isChildOfRoot: true, rootId: parentId }),
   };
   const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
   const filterFn = paramInfoId ? () => true : isSectionType;

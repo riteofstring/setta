@@ -1,16 +1,18 @@
-import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { defaultState } from "utils/utils";
 import { useGetSectionInfo, useSomeSectionInfoNames } from "./useSectionInfo";
 
 export function useSectionSiblingNames(sectionId) {
-  const sectionName = useGetSectionInfo(sectionId, "name");
-  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const [sectionName, parentId] = useGetSectionInfo(sectionId, [
+    "name",
+    "parentId",
+  ]);
   const topLevelSectionIds = useProjectConfig((x) => x.children);
   const isTopLevel = topLevelSectionIds.includes(sectionId);
-  const potentialSiblingIds = useSectionInfos(
-    (x) => (parentId ? x.currChildren[parentId] : []),
-    _.isEqual
+  const potentialSiblingIds = defaultState(
+    useSectionInfos((x) => x.currChildren[parentId]),
+    () => []
   );
   const siblingIds = isTopLevel ? topLevelSectionIds : potentialSiblingIds;
   const siblingNames = useSomeSectionInfoNames(siblingIds);

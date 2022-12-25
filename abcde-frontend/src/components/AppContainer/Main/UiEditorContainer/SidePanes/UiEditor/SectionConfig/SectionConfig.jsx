@@ -15,7 +15,7 @@ function SectionConfig() {
   const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
   const setTab = useUIEditor((x) => x.setTab);
-  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
   const [currTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
 
   const onGoBackClick = () => {

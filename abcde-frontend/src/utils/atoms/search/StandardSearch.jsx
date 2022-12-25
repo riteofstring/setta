@@ -1,30 +1,23 @@
 import React from "react";
 import { AiOutlineSearch } from "react-icons/ai";
+
 export const StandardSearch = React.forwardRef(
   (
     {
       placeholder = "Search",
       twClasses = "",
       outerClasses = "",
-      onKeyPress,
-      toggleButtonProps,
       leftElement = false,
       leftElementStyles,
       rightElement = false,
       inputStyles = false,
-      input,
       onChange,
+      onFormSubmit,
       ...props
     },
     ref
   ) => {
-    // prettier-ignore
     const classes = `w-full outline-0 cursor-auto ${twClasses}`;
-
-    const handleKeyPress = (event) => {
-      if (event.key === "Enter") {
-      }
-    };
 
     return (
       <div className={`flex items-center relative nodrag ${outerClasses}`}>
@@ -34,19 +27,26 @@ export const StandardSearch = React.forwardRef(
         >
           {leftElement || <AiOutlineSearch className="text-gray-400" />}
         </div>
-        {input || (
+        <MaybeForm onFormSubmit={onFormSubmit}>
           <input
             className={inputStyles || classes}
             placeholder={placeholder}
-            ref={ref}
             {...props}
+            ref={ref}
             tabIndex="0"
             onChange={onChange}
           />
-        )}
-
+        </MaybeForm>
         {rightElement}
       </div>
     );
   }
 );
+
+function MaybeForm({ onFormSubmit, children }) {
+  return onFormSubmit ? (
+    <form onSubmit={onFormSubmit}>{children}</form>
+  ) : (
+    children
+  );
+}

@@ -24,8 +24,7 @@ export function addKwarg({ sectionId, objInfoId }) {
 }
 
 export function deleteKwarg(payload) {
-  const { sectionId, deleteLast } = payload;
-  let { objInfoId, kwargId } = payload;
+  let { sectionId, objInfoId, kwargId, deleteLast } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
   objInfoId = maybeUseNullId(objInfoId);
@@ -77,5 +76,5 @@ export function saveKwargsAsCollection({
   );
 
   // TODO fix this call
-  // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
+  codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 }

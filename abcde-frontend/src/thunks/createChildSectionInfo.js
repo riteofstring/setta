@@ -1,7 +1,7 @@
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { addSectionsToState, createManySectionInfo } from "thunks/sections";
+import { createManySectionInfo } from "thunks/sections";
 import { getChildUITypeId } from "utils/uiTypeUtils";
 
 function maybeGetChildUITypeId(
@@ -45,7 +45,8 @@ export function createChildSectionInfo({
     numChildren,
   });
 
-  addSectionsToState(newInfos, newConfigs);
+  sectionInfosState.setSectionInfo((x) => ({ ...x, ...newInfos }));
+  sectionConfigState.setSectionConfig((x) => ({ ...x, ...newConfigs }));
 
   return Object.keys(newInfos);
 }

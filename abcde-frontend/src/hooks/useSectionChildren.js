@@ -15,7 +15,7 @@ import { useGetManySectionInfos } from "./useSectionInfo";
 export function useGetAllChildren(sectionId) {
   return defaultState(
     useSectionInfos((x) => x.allChildren[sectionId]),
-    []
+    () => []
   );
 }
 
