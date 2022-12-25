@@ -1,11 +1,9 @@
-import { CodeInfoMapZustandType } from "abcde-utils/src/types/codeInfoMap";
-import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 import { initialState, setAll } from "./utils";
 
-export const useProjectConfigCodeInfoMaps = create(
-  immer<CodeInfoMapZustandType>((set, get) => ({
+export const useUserCodeInfoMaps = create(
+  immer((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
       const s = get();
@@ -14,6 +12,5 @@ export const useProjectConfigCodeInfoMaps = create(
     },
     setAll: (payload) => set((state) => setAll(state, payload)),
     reset: () => set(initialState),
-    exportForDb: () => _.pick(get(), ["codeInfoMaps", "codeInfoTypeMaps"]),
   }))
 );

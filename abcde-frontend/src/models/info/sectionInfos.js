@@ -1,38 +1,27 @@
 import { isListRoot } from "abcde-utils/src/constants";
-import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
-import {
-  SectionInfoStateType,
-  SectionInfoZustandType,
-} from "abcde-utils/src/types/section";
+import { newSectionInfo } from "classes/mutableInfo";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
-function setDefaultAllChildren(
-  state: SectionInfoZustandType,
-  sectionId: string
-) {
+function setDefaultAllChildren(state, sectionId) {
   if (!(sectionId in state.allChildren)) {
     state.allChildren[sectionId] = [];
   }
   return state.allChildren[sectionId];
 }
 
-const initialState: SectionInfoStateType = {
-  x: {},
-  allChildren: {},
-  currChildren: {},
-};
+const initialState = { x: {}, allChildren: {}, currChildren: {} };
 
 export const useSectionInfos = create(
-  immer<SectionInfoZustandType>((set, get) => ({
+  immer((set, get) => ({
     ...initialState,
 
     resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
-      const sectionInfos = _.mapValues(sections, (x, id) => {
+      const sectionInfos = _.mapValues(sections, (x) => {
         let parentId = null;
         for (const [k, v] of Object.entries(sectionChildren)) {
-          if (v.includes(id)) {
+          if (v.includes(x.id)) {
             parentId = k;
             break;
           }
@@ -40,17 +29,13 @@ export const useSectionInfos = create(
         const y = newSectionInfo({
           ...x,
           parentId,
-          configId: sectionConfigCol[id],
+          configId: sectionConfigCol[x.id],
         });
         return y;
       });
       const s = get();
       s.reset();
-      s.setAll({
-        x: sectionInfos,
-        allChildren: sectionChildren,
-        currChildren: {},
-      });
+      s.setAll({ x: sectionInfos, allChildren: sectionChildren });
     },
 
     setSectionInfo: (payload) => set((state) => ({ x: payload(state.x) })),
@@ -59,14 +44,14 @@ export const useSectionInfos = create(
       set((state) => {
         if (sectionIds) {
           sectionIds.forEach((id) => (state.x[id][attr] = value));
-        } else if (sectionId) {
+        } else {
           state.x[sectionId][attr] = value;
         }
       }),
 
     setSectionInfoAttrObjInput: ({ newValues }) =>
       set((state) => {
-        for (const sectionId of Object.keys(newValues)) {
+        for (let sectionId of Object.keys(newValues)) {
           state.x[sectionId] = Object.assign(
             state.x[sectionId],
             newValues[sectionId]

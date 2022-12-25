@@ -1,19 +1,20 @@
-import {
-  SectionConfigStateType,
-  SectionConfigZustandType,
-} from "abcde-utils/src/types/sectionConfig";
+import { newSectionConfig } from "classes/mutableInfo";
+import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
-const initialState: SectionConfigStateType = { x: {} };
+const initialState = { x: {} };
 
 export const useSectionConfigs = create(
-  immer<SectionConfigZustandType>((set, get) => ({
+  immer((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
+      const sectionConfigInfos = _.mapValues(payload, (x) =>
+        newSectionConfig(x)
+      );
       const s = get();
       s.reset();
-      s.setAll({ x: payload });
+      s.setAll({ x: sectionConfigInfos });
     },
     setSectionConfig: (payload) => set((state) => ({ x: payload(state.x) })),
     setSectionConfigAttr: ({ configId, attr, value }) =>
@@ -22,5 +23,6 @@ export const useSectionConfigs = create(
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
+    getAll: () => get().x,
   }))
 );

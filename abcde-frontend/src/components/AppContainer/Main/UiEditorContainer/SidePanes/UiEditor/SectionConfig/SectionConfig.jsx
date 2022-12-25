@@ -1,5 +1,5 @@
-import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useGetSectionType } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { UI_CONFIG_TAB, useUIEditor } from "models/uiEditor";
 import React from "react";
@@ -16,7 +16,7 @@ function SectionConfig() {
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
   const setTab = useUIEditor((x) => x.setTab);
   const [parentId] = useGetSectionInfo(sectionId, ["parentId"]);
-  const [currTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
+  const [currTypeId] = useGetSectionType(sectionId, ["id"]);
 
   const onGoBackClick = () => {
     setActiveSection(parentId);

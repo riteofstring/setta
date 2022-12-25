@@ -2,6 +2,7 @@ import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { BASE } from "utils/uiTypeConstants";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode() {
@@ -16,7 +17,10 @@ export function getProjectDataToGenerateCode() {
     allCodeInfo,
     paramCollections: codeInfoState.paramCollections,
   };
-  const baseUITypes = assembleUITypes(useUITypes.getState().x, true);
+  const baseUITypes = assembleUITypes(
+    useUITypes.getState().x,
+    (v) => v.presetType === BASE
+  );
   project.uiTypes = { ...project.uiTypes, ...baseUITypes };
   delete project.kwargInfo;
   return project;

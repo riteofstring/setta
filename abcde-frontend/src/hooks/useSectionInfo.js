@@ -10,7 +10,7 @@ export function useGetSectionInfo(sectionId, props) {
 
 export function useGetManySectionInfos(sectionIds, props) {
   return useSectionInfos(
-    (x) => sectionIds.map((id) => props.map((name) => x.x[id]?.[name])),
+    (x) => sectionIds.map((id) => props.map((y) => x.x[id]?.[y])),
     _.isEqual
   );
 }

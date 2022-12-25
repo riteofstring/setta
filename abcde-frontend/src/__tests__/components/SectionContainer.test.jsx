@@ -1,7 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SECTION } from "abcde-utils/src/constants";
-import { isBasePreset } from "abcde-utils/src/uiTypeConstants";
 import { createMainContainer } from "__tests__utils/createMainContainer";
 import {
   renderUseGetParamChildId,
@@ -44,7 +43,7 @@ test("A nested section should appear when a parameter uitype becomes section", a
 
   ({ result } = renderUseGetParamUIType(sectionId, paramInfoId));
   expect(result.current.type).toEqual(SECTION);
-  expect(isBasePreset(result.current)).toEqual(true);
+  expect(result.current.presetType).toEqual("base");
 
   ({ result } = renderUseGetParamChildId(sectionId, paramInfoId));
   expect(result.current).toBeTruthy();

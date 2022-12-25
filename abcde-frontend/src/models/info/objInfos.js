@@ -1,15 +1,11 @@
-import {
-  KwargColStateType,
-  KwargColZustandType,
-} from "abcde-utils/src/types/kwargCol";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 import { setToDefault } from "./utils";
 
-const initialState: KwargColStateType = { x: {} };
+const initialState = { x: {} };
 
-export const useKwargCols = create(
-  immer<KwargColZustandType>((set, get) => ({
+export const useObjInfos = create(
+  immer((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
       const s = get();
@@ -26,5 +22,6 @@ export const useKwargCols = create(
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
+    getAll: () => get().x,
   }))
 );

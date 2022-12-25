@@ -36,7 +36,6 @@ export function logout() {
   }
 
   return post({
-    body: {},
     address: LOGOUT,
     thenFn: loginFail,
     catchFn: loginFail,

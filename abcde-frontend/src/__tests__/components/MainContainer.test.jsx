@@ -29,8 +29,8 @@ test("Overview listing should be filtered by text in search bar", async () => {
   const sections = useSectionInfos.getState().x;
   let overviewListings = getAllOverviewListings();
   expect(overviewListings.length).toEqual(Object.values(sections).length);
-  for (const sid of Object.keys(sections)) {
-    expect(screen.getByTestId(`Overview Listing ${sid}`)).toBeTruthy();
+  for (let s of Object.values(sections)) {
+    expect(screen.getByTestId(`Overview Listing ${s.id}`)).toBeTruthy();
   }
 
   // Now test filtering via search
