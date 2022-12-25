@@ -6,6 +6,7 @@ import {
   SAVE_AS_NEW_PROJECT_CONFIG,
   SAVE_PROJECT,
 } from "abcde-utils/src/routes";
+import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
 import { NO_AUTH } from "utils/constants";
 import {
   noAuthCreateProject,
@@ -30,15 +31,18 @@ export async function getProjects() {
   });
 }
 
-export async function loadProject({ id, configId }) {
+export async function loadProject({
+  id,
+  configId,
+}): Promise<ProjectLoadType | void> {
   if (NO_AUTH) {
     return await noAuthLoadProject({ id, configId });
   }
 
-  return post({
+  return post<{}, ProjectLoadType>({
     address: LOAD_PROJECT(id, configId),
     thenFn: (res) => res.data,
-    catchFn: () => [],
+    catchFn: () => {},
   });
 }
 

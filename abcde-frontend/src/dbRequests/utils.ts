@@ -1,15 +1,21 @@
 import { BACKEND } from "abcde-utils/src/addresses";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 
-export async function post({
+export async function post<S, R>({
   address,
   body = {},
-  thenFn = () => {},
-  catchFn = () => {},
+  thenFn,
+  catchFn,
   withCredentials = false,
+}: {
+  address: string;
+  body?: object;
+  thenFn: (res: AxiosResponse<R>) => R;
+  catchFn: (res: AxiosResponse<R>) => void;
+  withCredentials?: boolean;
 }) {
   return axios
-    .post(`${BACKEND}${address}`, body, {
+    .post<S, AxiosResponse<R>>(`${BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },

@@ -1,3 +1,4 @@
+import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "./codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "./codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "./info/codeInfo";
@@ -26,7 +27,7 @@ export function loadSections({
   uiTypeCols,
   kwargCols,
   excludeCodeInfo,
-}) {
+}: ProjectLoadType & { excludeCodeInfo: boolean }) {
   if (!excludeCodeInfo) {
     useCodeInfo.getState().resetAndSetAll(codeInfo);
   }
