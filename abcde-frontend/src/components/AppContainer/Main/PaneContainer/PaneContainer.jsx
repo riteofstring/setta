@@ -63,7 +63,7 @@ export default function PaneContainer({
 
   const variants = {
     open: { x: "0rem" },
-    closed: { x: `${!right ? "-" : ""}${width / 16 - 2.5}rem` },
+    closed: { x: `${!right ? `-` : ``}${width / 16 - 2.5}rem` },
   };
 
   function localOnResizeStop(e, direction, ref, d) {
