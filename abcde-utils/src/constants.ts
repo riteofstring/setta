@@ -1,3 +1,5 @@
+import { SectionUITypeType, UITypeType } from "./types/uiType";
+
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
@@ -35,6 +37,8 @@ export const rootTypeToChildSubType = {
   [DECK]: null,
 };
 
-export function isSectionUIType(type) {
-  return [SECTION, LIST_ROOT, DICT_ROOT, DECK].includes(type);
+export function isSectionUIType(
+  uiType: UITypeType
+): uiType is SectionUITypeType {
+  return [SECTION, LIST_ROOT, DICT_ROOT, DECK].includes(uiType.type);
 }
