@@ -7,22 +7,17 @@ export const StandardSearch = React.forwardRef(
       placeholder = "Search",
       twClasses = "",
       outerClasses = "",
-      onKeyPress,
       leftElement = false,
       leftElementStyles,
       rightElement = false,
       inputStyles = false,
       onChange,
+      onFormSubmit,
       ...props
     },
     ref
   ) => {
     const classes = `w-full outline-0 cursor-auto ${twClasses}`;
-
-    const handleKeyPress = (event) => {
-      if (event.key === "Enter") {
-      }
-    };
 
     return (
       <div className={`flex items-center relative nodrag ${outerClasses}`}>
@@ -32,16 +27,26 @@ export const StandardSearch = React.forwardRef(
         >
           {leftElement || <AiOutlineSearch className="text-gray-400" />}
         </div>
-        <input
-          className={inputStyles || classes}
-          placeholder={placeholder}
-          {...props}
-          ref={ref}
-          tabIndex="0"
-          onChange={onChange}
-        />
+        <MaybeForm onFormSubmit={onFormSubmit}>
+          <input
+            className={inputStyles || classes}
+            placeholder={placeholder}
+            {...props}
+            ref={ref}
+            tabIndex="0"
+            onChange={onChange}
+          />
+        </MaybeForm>
         {rightElement}
       </div>
     );
   }
 );
+
+function MaybeForm({ onFormSubmit, children }) {
+  return onFormSubmit ? (
+    <form onSubmit={onFormSubmit}>{children}</form>
+  ) : (
+    children
+  );
+}
