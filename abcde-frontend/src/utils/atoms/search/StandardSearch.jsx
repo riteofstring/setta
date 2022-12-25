@@ -1,5 +1,6 @@
 import React from "react";
 import { AiOutlineSearch } from "react-icons/ai";
+
 export const StandardSearch = React.forwardRef(
   (
     {
@@ -11,13 +12,11 @@ export const StandardSearch = React.forwardRef(
       leftElementStyles,
       rightElement = false,
       inputStyles = false,
-      input,
       onChange,
       ...props
     },
     ref
   ) => {
-    // prettier-ignore
     const classes = `w-full outline-0 cursor-auto ${twClasses}`;
 
     const handleKeyPress = (event) => {
@@ -33,17 +32,14 @@ export const StandardSearch = React.forwardRef(
         >
           {leftElement || <AiOutlineSearch className="text-gray-400" />}
         </div>
-        {input || (
-          <input
-            className={inputStyles || classes}
-            placeholder={placeholder}
-            ref={ref}
-            {...props}
-            tabIndex="0"
-            onChange={onChange}
-          />
-        )}
-
+        <input
+          className={inputStyles || classes}
+          placeholder={placeholder}
+          {...props}
+          ref={ref}
+          tabIndex="0"
+          onChange={onChange}
+        />
         {rightElement}
       </div>
     );
