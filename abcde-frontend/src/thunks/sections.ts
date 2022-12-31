@@ -83,7 +83,12 @@ export function addSectionsToState(
   sectionInfos: ManySectionType,
   sectionConfigs: ManySectionConfigType
 ) {
-  useSectionInfos.getState().setSectionInfo((x) => ({ ...x, ...sectionInfos }));
+  const siState = useSectionInfos.getState();
+  siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
+
+  const sectionIds = _.map(sectionInfos, (x) => x.id);
+  siState.initManyAllChildren({ sectionIds });
+  siState.initManyCurrChildren({ sectionIds });
 
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,

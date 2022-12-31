@@ -80,6 +80,11 @@ export const useSectionInfos = create(
         state.allChildren[sectionId] = newStateFn(currState);
       }),
 
+    initManyAllChildren: ({ sectionIds }) =>
+      set((state) => {
+        sectionIds.forEach((id) => (state.allChildren[id] = []));
+      }),
+
     setCurrChildrenNames: ({ currChildren, sectionType }) =>
       set((state) => {
         if (isListRoot(sectionType.type)) {
@@ -87,6 +92,11 @@ export const useSectionInfos = create(
             state.x[currChildren[idx]].name = `[${idx}]`;
           }
         }
+      }),
+
+    initManyCurrChildren: ({ sectionIds }) =>
+      set((state) => {
+        sectionIds.forEach((id) => (state.currChildren[id] = []));
       }),
 
     setCurrChildren: ({ sectionId, currChildren }) =>
