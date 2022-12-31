@@ -4,7 +4,7 @@ import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
-import { setSectionConfigAttr } from "thunks/sections";
+import { setSelectedItem } from "thunks/sections";
 import { SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -15,22 +15,16 @@ import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
-  const [sectionTypeName, config] = useGetSectionType(sectionId, [
-    "type",
-    "config",
-  ]);
+  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
+  const sectionTypeName = useGetSectionType(sectionId, "type");
+  const config = useGetSectionType(sectionId, "config");
   const _isSeriesElement = isSeriesElement(config.subType);
   const _isRoot = isRoot(sectionTypeName);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
 
   function onSelectedItemChange(value) {
-    setSectionConfigAttr({
-      sectionId,
-      attr: "selectedItem",
-      value,
-    });
+    setSelectedItem(sectionId, value);
   }
 
   const boxShadow = isActiveSection

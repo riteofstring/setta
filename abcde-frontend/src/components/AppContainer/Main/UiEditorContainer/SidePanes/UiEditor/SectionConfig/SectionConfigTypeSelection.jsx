@@ -10,11 +10,14 @@ export default function SectionConfigTypeSelection({
     settingSectionConfig: true,
   };
 
+  const comboboxProps = { simpleSearch: true };
+
   return (
     <UITypeCombobox
       onDropdownSelect={onDropdownSelect}
       selectedId={selectedId}
       availableTypesProps={availableTypesProps}
+      comboboxProps={comboboxProps}
     />
   );
 }

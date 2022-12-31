@@ -10,7 +10,7 @@ export default function SectionItem({ sectionId, sectionHeading }) {
 
   return (
     <p
-      className="py-0.5 px-3 rounded text-gray-500 cursor-pointer hover:bg-white hover:shadow-sm hover:border-white"
+      className="py-0.5 px-3 w-full rounded text-gray-500 cursor-pointer hover:bg-white hover:shadow-sm hover:border-white"
       onClick={onClick}
       data-testid={`Overview Listing ${sectionId}`}
     >

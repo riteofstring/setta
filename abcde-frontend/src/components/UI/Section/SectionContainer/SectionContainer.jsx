@@ -16,7 +16,7 @@ function SectionContainer({
   depth,
   dragListeners,
 }) {
-  const [sectionType] = useGetSectionType(sectionId, ["type"]);
+  const sectionType = useGetSectionType(sectionId, "type");
   const isDeck = sectionType === DECK;
   const currChildren = useGetCurrChildren(sectionId);
   const hasNested = currChildren.length > 0;
@@ -84,7 +84,7 @@ function Container({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${isDraggingSortable && "nodrag"}`;
+  const className = `${isDraggingSortable && "nodrag"} mt-2`;
 
   function totalRef(e) {
     refForPosition.current = e;
