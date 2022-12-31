@@ -8,16 +8,6 @@ import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
-function setDefaultAllChildren(
-  state: SectionInfoZustandType,
-  sectionId: string
-) {
-  if (!(sectionId in state.allChildren)) {
-    state.allChildren[sectionId] = [];
-  }
-  return state.allChildren[sectionId];
-}
-
 const initialState: SectionInfoStateType = {
   x: {},
   allChildren: {},
@@ -76,8 +66,7 @@ export const useSectionInfos = create(
 
     setAllChildren: ({ sectionId, newStateFn }) =>
       set((state) => {
-        const currState = setDefaultAllChildren(state, sectionId);
-        state.allChildren[sectionId] = newStateFn(currState);
+        state.allChildren[sectionId] = newStateFn(state.allChildren[sectionId]);
       }),
 
     initManyAllChildren: ({ sectionIds }) =>
