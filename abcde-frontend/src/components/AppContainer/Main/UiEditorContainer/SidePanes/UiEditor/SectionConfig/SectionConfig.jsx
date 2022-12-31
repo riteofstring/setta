@@ -3,7 +3,9 @@ import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useActiveSection } from "models/activeSection";
 import { UI_CONFIG_TAB, useUIEditor } from "models/uiEditor";
 import React from "react";
+import { IoArrowBack } from "react-icons/io5";
 import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
+import { Button } from "utils/atoms/buttons/Button";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
@@ -37,9 +39,16 @@ function SectionConfig() {
     });
   };
 
+  const goBackBtnStyles =
+    "mt-2 border border-solid border-gray-300 font-bold text-sm self-stretch justify-center text-gray-800 hover:bg-gray-200 hover:text-gray-900 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
+
   return (
     <>
-      {cameFromUIConfig && <button onClick={onGoBackClick}>Go back</button>}
+      {cameFromUIConfig && (
+        <Button twClasses={goBackBtnStyles} onClick={onGoBackClick}>
+          <IoArrowBack className="w-5 h-5" /> Go back
+        </Button>
+      )}
       <SectionConfigCore
         onSectionTypeChange={onSectionTypeChange}
         currTypeId={currTypeId}
@@ -58,7 +67,7 @@ function SectionConfigCore({
 }) {
   return (
     <div className="flex flex-col flex-grow gap-1">
-      <h3 className="text-xs uppercase text-gray-400 font-semibold">
+      <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
         Card Types
       </h3>
       <SectionConfigTypeSelection
