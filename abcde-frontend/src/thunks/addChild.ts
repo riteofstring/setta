@@ -22,7 +22,7 @@ export function addChild({
   numChildren = 1,
   parentParamInfoId = null,
   startId = null,
-}: any) {
+}) {
   const newIds = createChildSectionInfo({
     parentId,
     name,
@@ -43,13 +43,11 @@ export function addChild({
     const { evColId: collectionId } = useSectionConfigs.getState().x[configId];
 
     const enteredValueId =
-      useParamInfos.getState().x[collectionId][parentParamInfoId];
+      useParamInfos.getState().x[collectionId]?.[parentParamInfoId];
 
     useEnteredValues.getState().setChildId({
       enteredValueId,
       childId: newIds[0],
     });
   }
-
-  return newIds;
 }
