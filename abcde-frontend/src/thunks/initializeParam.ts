@@ -107,6 +107,11 @@ function initializeParamUIType(
   return paramIdToUITypeId;
 }
 
+function getChildIds(paramIdToEvId) {
+  const evState = useEnteredValues.getState();
+  return _.mapValues(paramIdToEvId, (v) => evState.x[v].childId);
+}
+
 export function initializeChild(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
@@ -114,26 +119,27 @@ export function initializeChild(
   paramIdToEvId: { [id: string]: string }
 ) {
   const uiTypesState = useUITypes.getState();
-  const evState = useEnteredValues.getState();
-  const needsNewChild: ManyOf<string> = {};
+  const paramIdToChildId = getChildIds(paramIdToEvId);
+  const newUITypeIds: ManyOf<string> = {};
 
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     const uiType = uiTypesState.x[uiTypeId];
     if (requiresNestedSection(uiType.type)) {
-      const childId = evState.x[paramIdToEvId[paramId]].childId;
-      if (!childId) {
-        needsNewChild[paramId] = uiTypeId;
+      if (!paramIdToChildId[paramId]) {
+        newUITypeIds[paramId] = uiTypeId;
       }
     }
   }
 
   // TODO: create a new function 'addChildren' to avoid this loop
-  for (const [paramId, uiTypeId] of Object.entries(needsNewChild)) {
-    addChild({
+  for (const [paramId, uiTypeId] of Object.entries(newUITypeIds)) {
+    paramIdToChildId[paramId] = addChild({
       parentId: sectionId,
       name: paramInfos[paramId].name,
       uiTypeId,
       parentParamInfoId: paramInfos[paramId].id,
-    });
+    })[0];
   }
+
+  return { paramIdToChildId, newUITypeIds };
 }

@@ -9,12 +9,6 @@ function _ParamSwitch(props) {
   const uiType = useGetParamUIType(sectionId, paramInfo.id);
   const isNested = requiresNestedSection(uiType.type);
 
-  // useEffect(() => {
-  //   if (isNested) {
-  //     initializeChild({ sectionId, paramInfo, uiTypeId: uiType.id });
-  //   }
-  // }, [isNested]);
-
   return (
     !isNested &&
     (props.isKwarg ? (

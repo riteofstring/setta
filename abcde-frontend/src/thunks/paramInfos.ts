@@ -3,7 +3,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-function getParamEVId(sectionId, paramInfoId) {
+export function getParamEVId(sectionId, paramInfoId) {
   const { evColId } = getSectionConfig(sectionId);
   return useParamInfos.getState().x[evColId][paramInfoId];
 }

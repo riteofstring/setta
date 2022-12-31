@@ -43,11 +43,15 @@ export function addChild({
     const { evColId: collectionId } = useSectionConfigs.getState().x[configId];
 
     const enteredValueId =
-      useParamInfos.getState().x[collectionId]?.[parentParamInfoId];
+      useParamInfos.getState().x[collectionId][parentParamInfoId];
+
+    console.log("addChild", enteredValueId, newIds[0]);
 
     useEnteredValues.getState().setChildId({
       enteredValueId,
       childId: newIds[0],
     });
   }
+
+  return newIds;
 }
