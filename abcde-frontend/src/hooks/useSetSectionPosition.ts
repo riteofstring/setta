@@ -1,7 +1,7 @@
 import { useSectionPositions } from "models/sectionPositions";
 import { useEffect, useRef } from "react";
 
-export function useSetSectionPosition(sectionId: string) {
+export function useSetSectionPosition(sectionId) {
   const refForPosition = useRef<HTMLDivElement>(null);
 
   const setSectionPosition = useSectionPositions((x) => x.setSectionPosition);

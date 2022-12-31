@@ -4,7 +4,7 @@ export function useUpdateMapPosition() {
   const store = useStoreApi();
   const { setViewport } = useReactFlow();
 
-  return (widthDiff: number) => {
+  return (widthDiff) => {
     const {
       transform: [x, y, zoom],
     } = store.getState();

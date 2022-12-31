@@ -11,14 +11,12 @@ import {
   getSectionTypeConfig,
   setSectionConfigAttr,
 } from "thunks/sections";
-import { requiresNestedSection } from "utils/constants";
 import {
   cloneNewUIType,
   createParamOriginInfoId,
   createSectionOriginInfoId,
 } from "utils/uiTypeUtils";
-import { initializeChild } from "./initializeParam";
-import { getParamEVId, getParamUIType } from "./paramInfos";
+import { getParamChildId, getParamUIType } from "./paramInfos";
 
 export function setSectionUITypeId({ uiTypeId, sectionId }) {
   const { parentId, paramInfoId } = useSectionInfos.getState().x[sectionId];
@@ -35,6 +33,7 @@ export function setSectionUITypeId({ uiTypeId, sectionId }) {
 }
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId }) {
+  const childId = getParamChildId(sectionId, paramInfoId);
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
 
   useParamInfos.getState().setUITypeId({
@@ -43,22 +42,9 @@ export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId }) {
     uiTypeId,
   });
 
-  const isNested = requiresNestedSection(
-    useUITypes.getState().x[uiTypeId].type
-  );
-
-  if (isNested) {
-    const paramInfo = useCodeInfo.getState().allCodeInfo[paramInfoId];
-    const evId = getParamEVId(sectionId, paramInfoId);
-    const { paramIdToChildId } = initializeChild(
-      sectionId,
-      { [paramInfoId]: paramInfo },
-      { [paramInfoId]: uiTypeId },
-      { [paramInfoId]: evId }
-    );
-
+  if (childId) {
     setSectionConfigAttr({
-      sectionId: paramIdToChildId[paramInfoId],
+      sectionId: childId,
       attr: "uiTypeId",
       value: uiTypeId,
     });

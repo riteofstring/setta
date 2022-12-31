@@ -1,5 +1,5 @@
 import { ParamUIConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
-import { UIConfigUITypeCombobox } from "utils/Combobox/UITypeCombobox";
+import UITypeCombobox from "utils/Combobox/UITypeCombobox";
 
 export function UIConfigDropdownAndFields({
   onDropdownSelect,
@@ -11,15 +11,20 @@ export function UIConfigDropdownAndFields({
   savedConfig,
   paramChildId,
 }) {
+  const availableTypesProps = {
+    sectionId,
+    paramInfoId,
+    settingSectionConfig: false,
+  };
+
   const comboboxProps = { size: "small" };
 
   return (
     <>
-      <UIConfigUITypeCombobox
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
+      <UITypeCombobox
         onDropdownSelect={onDropdownSelect}
         selectedId={selectedId}
+        availableTypesProps={availableTypesProps}
         comboboxProps={comboboxProps}
       />
       <ParamUIConfig

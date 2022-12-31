@@ -2,7 +2,7 @@ import { useDndMonitor } from "@dnd-kit/core";
 import { useState } from "react";
 import { useDragActivation } from "./useDragActivation";
 
-export function useHighlightDroppable(sectionId: string) {
+export function useHighlightDroppable(sectionId) {
   const { isMovingFree } = useDragActivation();
   const [highlight, setHighlight] = useState(false);
 
@@ -42,7 +42,7 @@ export function useHighlightDroppable(sectionId: string) {
   return { className, style };
 }
 
-export function useDisableSort(sectionId: string) {
+export function useDisableSort(sectionId) {
   const { isSorting, isMovingFree } = useDragActivation();
   const [disabled, setDisabled] = useState(false);
 

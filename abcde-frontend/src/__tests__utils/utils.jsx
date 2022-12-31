@@ -38,10 +38,9 @@ export function getParameterToTestOn(sectionName, paramName) {
   const { id: sectionId, configId } = sectionInfo;
   const { uiTypeId: sectionTypeId } = useSectionConfigs.getState().x[configId];
   // get sectionType
-  ({ result } = renderUseGetSectionType(sectionId, "id"));
-  expect(result.current).toEqual(sectionTypeId);
-  ({ result } = renderUseGetSectionType(sectionId, "config"));
-  const evColId = result.current.collections[0];
+  ({ result } = renderUseGetSectionType(sectionId, ["id", "config"]));
+  expect(result.current[0]).toEqual(sectionTypeId);
+  const evColId = result.current[1].collections[0];
 
   // get the param collection that the section contains
   const allCodeInfo = useCodeInfo.getState().allCodeInfo;

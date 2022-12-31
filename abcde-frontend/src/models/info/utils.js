@@ -1,5 +1,6 @@
-export function initValue(state, id, value) {
+export function setToDefault(state, id) {
   if (!(id in state)) {
-    state[id] = value;
+    state[id] = {};
   }
+  return state[id];
 }

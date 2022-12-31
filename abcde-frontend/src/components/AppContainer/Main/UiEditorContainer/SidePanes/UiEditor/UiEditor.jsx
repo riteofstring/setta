@@ -1,6 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
   SECTION_CONFIG_TAB,
@@ -17,7 +16,6 @@ const paneProps = {
 };
 
 export default function UiEditor() {
-  const sectionId = useActiveSection((x) => x.id);
   const vis = usePanes((x) => x.vis[paneProps.paneName]);
   const tab = useUIEditor((x) => x.tab);
   const setTab = useUIEditor((x) => x.setTab);
@@ -35,10 +33,10 @@ export default function UiEditor() {
           <TabItem name="Parameters" value={UI_CONFIG_TAB} />
         </Tabs.List>
         <TabContent value={SECTION_CONFIG_TAB}>
-          {sectionId && <SectionConfig sectionId={sectionId} />}
+          <SectionConfig />
         </TabContent>
         <TabContent value={UI_CONFIG_TAB}>
-          {sectionId && <UIConfig sectionId={sectionId} />}
+          <UIConfig />
         </TabContent>
       </Tabs.Root>
     </PaneContainer>
