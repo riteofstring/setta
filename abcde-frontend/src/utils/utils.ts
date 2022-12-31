@@ -1,12 +1,7 @@
 import { arrayMove } from "@dnd-kit/sortable";
-import _ from "lodash";
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
-}
-
-export function allDefined(...x) {
-  return x.every((a) => !_.isNil(a));
 }
 
 // https://stackoverflow.com/a/38181008
@@ -50,19 +45,6 @@ export function updateWithArrayMove(active, over) {
     const overIndex = x.indexOf(over.id);
     return arrayMove(x, activeIndex, overIndex);
   };
-}
-
-// https://stackoverflow.com/a/21822316/16941290
-export function findSortedIndex(array, value) {
-  var low = 0,
-    high = array.length;
-
-  while (low < high) {
-    var mid = (low + high) >>> 1;
-    if (array[mid] < value) low = mid + 1;
-    else high = mid;
-  }
-  return low;
 }
 
 export function checkboxChangeFn(checked, id) {

@@ -5,11 +5,13 @@ import { ManySectionType } from "abcde-utils/src/types/section";
 import { ManySectionConfigType } from "abcde-utils/src/types/sectionConfig";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { initializeParam } from "./initializeParam";
 
 function getSectionConfigId(sectionId) {
   return useSectionInfos.getState().x[sectionId]?.configId;
@@ -114,4 +116,7 @@ export function setSelectedItem(sectionId, selectedItem) {
   useKwargCols
     .getState()
     .initObjInfoId({ collectionId: kwargColId, objInfoId: selectedItem });
+
+  const params = useCodeInfo.getState().params[selectedItem];
+  _.forEach(params, (p) => initializeParam({ sectionId, paramInfo: p }));
 }
