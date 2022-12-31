@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { deleteSections, moveSections } from "thunks/sectionOps";
 import { PANEID } from "utils/constants";
@@ -10,7 +9,12 @@ import {
 } from "./useGetSectionPosition";
 import { useGetAllChildren } from "./useSectionChildren";
 
-function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
+function useMakeChildrenTopLevel(
+  deckId,
+  childIds,
+  requesterName,
+  doneCallback
+) {
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {
     const positions = {};
@@ -24,26 +28,17 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
       positions,
     });
     deleteSections({ sectionIds: [deckId] });
+    doneCallback();
   }
 
   useGetSectionPosition(childIds, requesterName, onCoordsReceived);
 }
 
-export function useUndeck(sectionId) {
-  const [deckId, setDeckId] = useState(null);
+export function useUndeck(deckId, doneCallback = () => undefined) {
   const requesterName = `useUndeck-${deckId}`;
   const childIds = useGetAllChildren(deckId);
   const requestPositionUpdate = useRequestSectionPositionUpdate();
-  useMakeChildrenTopLevel(deckId, childIds, requesterName);
-
-  // closeContextMenu() happens before state updates.
-  // So sectionId ends up being null by the time onCoordsReceived is called
-  // Therefore, only update deckId when sectionId is not null
-  useEffect(() => {
-    if (sectionId) {
-      setDeckId(sectionId);
-    }
-  }, [sectionId]);
+  useMakeChildrenTopLevel(deckId, childIds, requesterName, doneCallback);
 
   return () => {
     requestPositionUpdate(childIds, requesterName);

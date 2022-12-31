@@ -38,7 +38,7 @@ function _SortableSectionContainer({ sectionId, ...props }) {
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="mt-2" {...stackProps}>
+    <div {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
         {...props}

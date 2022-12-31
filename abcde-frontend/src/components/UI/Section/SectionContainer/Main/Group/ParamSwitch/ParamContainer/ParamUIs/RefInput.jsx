@@ -6,6 +6,7 @@ export function RefInputConfig() {
 }
 
 export default function RefInput({ value, onBlur, className }) {
+  // TODO set an equalityFn here to reduce renders
   const availableSections = useSectionInfos((x) => x.x);
 
   return (

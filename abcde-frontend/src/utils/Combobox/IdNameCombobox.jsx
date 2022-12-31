@@ -1,3 +1,4 @@
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import _ from "lodash";
 import { ComboboxSearch } from "./ComboboxSearch";
 
@@ -5,6 +6,8 @@ export function IdNameCombobox({
   allItems,
   onSelectedItemChange,
   initialSelection,
+  textSize,
+  simpleSearch,
   width,
   itemStyleGetter,
 }) {
@@ -16,9 +19,8 @@ export function IdNameCombobox({
     newSelectedItem,
     setSelection
   ) => {
-    // Don't do ?. operator here because I want null, not undefined
-    const sid = newSelectedItem ? newSelectedItem.id : null;
-    const currId = currSelectedItem ? currSelectedItem.id : null;
+    const sid = newSelectedItem ? newSelectedItem.id : NULL_OBJ_ID;
+    const currId = currSelectedItem ? currSelectedItem.id : NULL_OBJ_ID;
     if (sid !== currId) {
       setSelection(newSelectedItem);
     }
@@ -34,6 +36,7 @@ export function IdNameCombobox({
       itemToString={itemToString}
       onSelectedItemChange={localOnSelectedItemChange}
       matchSorterProps={{ keys: ["name"] }}
+      // textSize={textSize}
       width={width}
       itemStyleGetter={itemStyleGetter}
     />

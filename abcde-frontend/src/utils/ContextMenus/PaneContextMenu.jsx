@@ -1,4 +1,4 @@
-import { Item } from "utils/atoms/dropdown/item";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
 
@@ -18,8 +18,12 @@ export function PaneContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <Item onClick={() => onClick(false)}>New Section</Item>
-      <Item onClick={() => onClick(true)}>New Deck</Item>
+      <DropdownMenu.Item onClick={() => onClick(false)}>
+        New Section
+      </DropdownMenu.Item>
+      <DropdownMenu.Item onClick={() => onClick(true)}>
+        New Deck
+      </DropdownMenu.Item>
     </ContextMenuCore>
   );
 }

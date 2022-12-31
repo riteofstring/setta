@@ -3,6 +3,15 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
+import type { UserConfig as VitestUserConfigInterface } from "vitest/config";
+
+const vitestConfig: VitestUserConfigInterface = {
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: "./src/setupTests.js",
+  },
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -15,9 +24,5 @@ export default defineConfig({
       allow: [searchForWorkspaceRoot(process.cwd()), "../abcde-test"],
     },
   },
-  test: {
-    globals: true,
-    environment: "jsdom",
-    setupFiles: "./src/setupTests.js",
-  },
+  test: vitestConfig.test,
 });

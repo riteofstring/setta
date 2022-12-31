@@ -28,23 +28,27 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
 
   return (
     <div
-      className="py-2 px-3 rounded-2xl flex-grow bg-white shadow-inner border border-white flex flex-col [&>form]:items-start [&>form]:flex-grow-0"
+      className="py-2 px-3 rounded-2xl bg-white shadow-inner border border-white grow mb-10 flex flex-col"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSubmit} />
-      <ul className="flex flex-col flex-grow gap-3 pt-1">
-        {Object.values(allResults).map((x) => (
-          <SearchItem
-            id={x.id}
-            name={x.name}
-            description={x.description}
-            details={x.children}
-            checked={x.id in selectedCollections}
-            onChange={onChange}
-            key={`SearchItem-${x.id}`}
-          />
-        ))}
-      </ul>
+      <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
+        <div className="flex flex-col pt-1">
+          <ul className="flex flex-col flex-grow gap-3">
+            {Object.values(allResults).map((x) => (
+              <SearchItem
+                id={x.id}
+                name={x.name}
+                description={x.description}
+                details={x.children}
+                checked={x.id in selectedCollections}
+                onChange={onChange}
+                key={`SearchItem-${x.id}`}
+              />
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
@@ -54,21 +58,14 @@ function Search({ onSubmit }) {
   function onChange(e) {
     setText(e.target.value);
   }
-  function onFormSubmit(e) {
-    e.preventDefault();
+  function onClick() {
     onSubmit(text);
   }
 
   const inputStyles =
-    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
+    "w-full text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
-  return (
-    <StandardSearch
-      inputStyles={inputStyles}
-      onChange={onChange}
-      onFormSubmit={onFormSubmit}
-    />
-  );
+  return <StandardSearch inputStyles={inputStyles} onChange={onChange} />;
 }
 
 function SearchItem({ id, name, description, details, checked, onChange }) {
@@ -77,21 +74,23 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
   }
 
   return (
-    <li className="px-3 py-2 w-full border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-gray-100 rounded-lg  hover:border-white transition edit-list-item flex [&:hover_*]:text-black select-none">
-      <input
-        type="checkbox"
-        className="w-4 h-4 mr-2 mt-1 flex-shrink-0 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
-        checked={checked}
-        onChange={onCheckboxChange}
-      />
-      <label className="w-full">
-        <ObjCollectionDetails details={details}>
-          <div className="flex flex-col self-stretch cursor-pointer">
-            <h2 className="text-md font-bold text-gray-500">{name}</h2>
-            <p className="text-sm mt-1">{description}</p>
-          </div>
-        </ObjCollectionDetails>
-      </label>
+    <li className="px-5 py-4 border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-white hover:shadow-sm hover:border-white transition edit-list-item">
+      <div className="flex self-stretch [&:hover_*]:text-black">
+        <input
+          type="checkbox"
+          className="w-4 h-4 mr-2 mt-1 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
+          checked={checked}
+          onChange={onCheckboxChange}
+        />
+        <label>
+          <ObjCollectionDetails details={details}>
+            <div className="flex flex-col self-stretch">
+              <h2 className="text-md font-bold text-gray-500">{name}</h2>
+              <p className="text-sm mt-1">{description}</p>
+            </div>
+          </ObjCollectionDetails>
+        </label>
+      </div>
     </li>
   );
 }
@@ -101,12 +100,12 @@ function ObjCollectionDetails({ children, details }) {
 
   return (
     <Collapsible.Root>
-      <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
+      <Collapsible.Trigger>{children}</Collapsible.Trigger>
       <Collapsible.Content>
-        <div className="py-3 px-5 mt-2 bg-white rounded-md select-text">
+        <div className="p-[40px] text-white mt-2 bg-teal-500 rounded-md shadow-md">
           {Object.entries(groupedDetails).map(([k, v]) => (
             <div key={`ObjCollectionDetails-${k}`}>
-              <h3 className="font-bold text-sm">{k}</h3>
+              {k}
               <ObjListText objList={v} />
             </div>
           ))}
