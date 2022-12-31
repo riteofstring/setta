@@ -16,7 +16,7 @@ export function ButtonGoToSectionConfig({ paramChildId }) {
   };
   return (
     <Button
-      twClasses="mt-2 text-xs text-gray-500 border-2 border-red-500 hover:bg-gray-200 text-xs font-bold text-gray-500 py-1 px-2 rounded-md gap-1 select-none"
+      twClasses="mt-2 text-xs text-gray-600 hover:bg-gray-200 hover:text-gray-900 py-1 px-2 rounded-md gap-1 select-none mr-2 self-start"
       onClick={onClick}
     >
       Configure Section
