@@ -4,7 +4,7 @@ import { useGetSectionType } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
-import { setSectionConfigAttr } from "thunks/sections";
+import { setSelectedItem } from "thunks/sections";
 import { SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -24,11 +24,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const setActiveSection = useActiveSection((x) => x.setId);
 
   function onSelectedItemChange(value) {
-    setSectionConfigAttr({
-      sectionId,
-      attr: "selectedItem",
-      value,
-    });
+    setSelectedItem(sectionId, value);
   }
 
   const boxShadow = isActiveSection

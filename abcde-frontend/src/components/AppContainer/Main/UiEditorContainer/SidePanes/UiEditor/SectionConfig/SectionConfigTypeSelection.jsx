@@ -1,23 +1,27 @@
-import UITypeCombobox from "utils/Combobox/UITypeCombobox";
+import { useIsTopLevelSection } from "hooks/useProjectConfig";
+import {
+  NestedSectionUITypeCombobox,
+  TopLevelSectionUITypeCombobox,
+} from "utils/Combobox/UITypeCombobox";
 
 export default function SectionConfigTypeSelection({
   onDropdownSelect,
   selectedId,
   sectionId,
 }) {
-  const availableTypesProps = {
-    sectionId,
-    settingSectionConfig: true,
-  };
+  const isTopLevel = useIsTopLevelSection(sectionId);
 
-  const comboboxProps = { simpleSearch: true };
-
-  return (
-    <UITypeCombobox
+  return isTopLevel ? (
+    <TopLevelSectionUITypeCombobox
+      sectionId={sectionId}
       onDropdownSelect={onDropdownSelect}
       selectedId={selectedId}
-      availableTypesProps={availableTypesProps}
-      comboboxProps={comboboxProps}
+    />
+  ) : (
+    <NestedSectionUITypeCombobox
+      sectionId={sectionId}
+      onDropdownSelect={onDropdownSelect}
+      selectedId={selectedId}
     />
   );
 }
