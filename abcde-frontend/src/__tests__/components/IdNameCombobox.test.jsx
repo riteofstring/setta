@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 test("Test IdNameCombobox", async () => {
@@ -73,5 +74,5 @@ test("Test IdNameCombobox", async () => {
     allItems.pop();
   }
   rerender(<IdNameCombobox {...props} />);
-  expect(state.selected).toEqual(null);
+  expect(state.selected).toEqual(NULL_OBJ_ID);
 });

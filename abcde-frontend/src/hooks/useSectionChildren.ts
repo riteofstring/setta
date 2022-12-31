@@ -6,29 +6,23 @@ import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
 import { setCurrChildren } from "thunks/sections";
 import { requiresNestedSection } from "utils/constants";
-import { defaultState } from "utils/utils";
 import { useGetManyParamEVs } from "./useEnteredValue";
 import { useGetManyParamUITypeIds } from "./useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
-export function useGetAllChildren(sectionId) {
-  return defaultState(
-    useSectionInfos((x) => x.allChildren[sectionId]),
-    () => []
-  );
+export function useGetAllChildren(sectionId: string) {
+  return useSectionInfos((x) => x.allChildren[sectionId], _.isEqual);
 }
 
-export function useGetCurrChildren(sectionId) {
+export function useGetCurrChildren(sectionId: string) {
   const allChildrenIds = useGetAllChildren(sectionId);
-  const allParamInfoIds = useGetManySectionInfos(allChildrenIds, [
-    "paramInfoId",
-  ]);
+  const allParamInfoIds = useGetManySectionInfos(allChildrenIds, "paramInfoId");
   const currParamChildIds = useChildIdHelper(sectionId);
-  const [sectionTypeName] = useGetSectionType(sectionId, ["type"]);
+  const sectionTypeName = useGetSectionType(sectionId, "type");
   const currChildren = isRoot(sectionTypeName)
     ? // keep sections that aren't associated with any parameter
-      allChildrenIds.filter((x, idx) => !allParamInfoIds[idx][0])
+      allChildrenIds.filter((x, idx) => !allParamInfoIds[idx])
     : // keep sections that are associated with current parameters
       _.intersection(allChildrenIds, currParamChildIds);
 
@@ -39,12 +33,12 @@ export function useGetCurrChildren(sectionId) {
   return currChildren;
 }
 
-function useChildIdHelper(sectionId) {
+function useChildIdHelper(sectionId: string) {
   const infos = useGetCurrObjParamKwargInfos(sectionId);
   const uiTypeIds = useGetManyParamUITypeIds(sectionId, infos);
   const hasNested = useUITypes(
     (x) =>
-      infos.filter((y, i) => requiresNestedSection(x.x[uiTypeIds[i]]?.type)),
+      infos.filter((y, i) => requiresNestedSection(x.x[uiTypeIds[i]].type)),
     _.isEqual
   );
   return useGetManyParamEVs(sectionId, hasNested, "childId");

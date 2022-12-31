@@ -1,15 +1,39 @@
-import { PANEID } from "utils/constants";
+import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import { immer } from "zustand/middleware/immer";
 import { create } from "./utils";
 
-function relativePos(sectionPositions, sectionId) {
-  const sectionP = sectionPositions[sectionId];
-  const paneP = sectionPositions[PANEID];
-  return { y: sectionP.y - paneP.y, x: sectionP.x - paneP.x };
-}
+type SectionPositionsStateType = {
+  sectionPositions: { [id: string]: SectionPositionType };
+  positionUpdateRequested: { [id: string]: boolean };
+  positionUpdated: { [id: string]: boolean };
+  whoRequested: string | null;
+};
+
+type SectionPositionsActionType = {
+  setSectionPosition: (payload: {
+    sectionId: string;
+    x: number;
+    y: number;
+  }) => void;
+
+  setPositionUpdateRequested: (payload: {
+    sectionIds: string[];
+    positionUpdateRequested: boolean;
+  }) => void;
+
+  setPositionUpdated: (payload: {
+    sectionIds: string[];
+    positionUpdated: boolean;
+  }) => void;
+
+  setWhoRequested: (payload: string | null) => void;
+};
+
+type SectionPositionsZustandType = SectionPositionsStateType &
+  SectionPositionsActionType;
 
 export const useSectionPositions = create(
-  immer((set, get) => ({
+  immer<SectionPositionsZustandType>((set) => ({
     sectionPositions: {},
     positionUpdateRequested: {},
     positionUpdated: {},
@@ -32,13 +56,5 @@ export const useSectionPositions = create(
       set((state) => {
         state.whoRequested = payload;
       }),
-    getCurrPositionOfSection: ({ sectionIds }) => {
-      return Object.assign(
-        {},
-        ...sectionIds.map((x) => ({
-          [x]: relativePos(get().sectionPositions, x),
-        }))
-      );
-    },
   }))
 );

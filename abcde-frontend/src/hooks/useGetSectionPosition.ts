@@ -2,10 +2,11 @@ import _ from "lodash";
 import { usePanes } from "models/panes";
 import { useSectionPositions } from "models/sectionPositions";
 import { useReactFlow, useStoreApi } from "react-flow-renderer";
+import { getCurrPositionOfSection } from "thunks/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW, PANEID } from "utils/constants";
 
-export function useGoToSection(sectionId, requesterName) {
+export function useGoToSection(sectionId: string, requesterName: string) {
   const requestPositionUpdate = useRequestSectionPositionUpdate();
   useSetGoToCoordinates(sectionId, requesterName);
   return () => requestPositionUpdate([sectionId], requesterName);
@@ -17,7 +18,7 @@ export function useRequestSectionPositionUpdate() {
   const setPositionUpdateRequested = useSectionPositions(
     (x) => x.setPositionUpdateRequested
   );
-  return (sectionIds, requesterName) => {
+  return (sectionIds: string[], requesterName: string) => {
     setWhoRequested(requesterName);
     setPositionUpdateRequested({
       sectionIds: [...sectionIds, PANEID],
@@ -27,18 +28,13 @@ export function useRequestSectionPositionUpdate() {
 }
 
 export function useGetSectionPosition(
-  sectionIds,
-  requesterName,
+  sectionIds: string[],
+  requesterName: string,
   onCoordsReceived
 ) {
   const allIds = sectionIds ? [...sectionIds, PANEID] : null;
   const whoRequested = useSectionPositions((x) => x.whoRequested);
   const setWhoRequested = useSectionPositions((x) => x.setWhoRequested);
-
-  const getCurrPositionOfSection = useSectionPositions(
-    (x) => x.getCurrPositionOfSection
-  );
-
   const sectionPositionUpdated = useSectionPositions(
     (x) => (allIds ? allIds.map((y) => x.positionUpdated[y]) : [false]), //don't return empty array because _.every will evaluate to true
     _.isEqual
@@ -48,7 +44,7 @@ export function useGetSectionPosition(
 
   useDeepCompareEffect(() => {
     if (whoRequested === requesterName && _.every(sectionPositionUpdated)) {
-      const allCoords = getCurrPositionOfSection({ sectionIds });
+      const allCoords = getCurrPositionOfSection(sectionIds);
       onCoordsReceived(allCoords);
       setPositionUpdated({ sectionIds, positionUpdated: false });
       setWhoRequested(null);
@@ -56,7 +52,7 @@ export function useGetSectionPosition(
   }, [sectionPositionUpdated]);
 }
 
-function useSetGoToCoordinates(sectionId, requesterName) {
+function useSetGoToCoordinates(sectionId: string, requesterName: string) {
   const { project, setCenter } = useReactFlow();
   const store = useStoreApi(); // height and width of the react flow container
   const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);

@@ -1,6 +1,10 @@
+import { ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 
-export function assembleCollectionsForSectionConfig(allCodeInfo, collections) {
+export function assembleCollectionsForSectionConfig(
+  allCodeInfo: ManyCodeInfoType,
+  collections
+) {
   // keep only necessary keys
   const results = _.mapValues(collections, (x) =>
     _.pick(x, ["id", "name", "description", "path", "children"])

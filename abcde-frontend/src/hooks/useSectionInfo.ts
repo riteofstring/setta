@@ -1,24 +1,29 @@
+import { SectionType } from "abcde-utils/src/types/section";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 
-export function useGetSectionInfo(sectionId, props) {
-  return useSectionInfos(
-    (x) => props.map((y) => x.x[sectionId]?.[y]),
-    _.isEqual
-  );
+export function useGetSectionInfo<K extends keyof SectionType>(
+  sectionId: string,
+  key: K
+) {
+  const equalityFn = key === "initialPosition" ? _.isEqual : undefined;
+  return useSectionInfos((x) => x.x[sectionId][key], equalityFn);
 }
 
-export function useGetManySectionInfos(sectionIds, props) {
+export function useGetManySectionInfos<K extends keyof SectionType>(
+  sectionIds: string[],
+  key: K
+) {
   return useSectionInfos(
-    (x) => sectionIds.map((id) => props.map((name) => x.x[id]?.[name])),
+    (x) => sectionIds.map((id) => x.x[id][key]),
     _.isEqual
   );
 }
 
 export function useSectionInfoNames() {
-  return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name));
+  return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name), _.isEqual);
 }
 
-export function useSomeSectionInfoNames(sectionIds) {
-  return useSectionInfos((x) => sectionIds.map((y) => x.x[y].name));
+export function useSomeSectionInfoNames(sectionIds: string[]) {
+  return useSectionInfos((x) => sectionIds.map((y) => x.x[y].name), _.isEqual);
 }
