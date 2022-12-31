@@ -20,11 +20,11 @@ export default function ManyNestedSections({
       <div className="flex items-stretch">
         {!isDeck && (
           <div
-            className="w-[12px] mt-2 mr-2 bg-white opacity-[.16] rounded-full min-h-full hover:opacity-[.36] hover:cursor-pointer z-[200]"
+            className="w-[12px] bg-white opacity-[.16] rounded-full min-h-full hover:opacity-[.36] hover:cursor-pointer mb-1 z-[200]"
             onClick={onClick}
           />
         )}
-        <div className="items-start [&:not(first-child):mt-2]">
+        <div className="space-y-2 items-start">
           {childIds.map((e, idx) => (
             <NestedSection
               parentId={sectionId}

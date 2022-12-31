@@ -16,12 +16,12 @@ function getReducerModifications(
   type,
   state,
   changes,
+  changeTypes,
   setFilteredItems,
   allItems,
   filteredItems,
   matchSorterProps
 ) {
-  const changeTypes = useCombobox.stateChangeTypes;
   let latestItems = filteredItems;
 
   if (
@@ -41,9 +41,7 @@ function getReducerModifications(
     case changeTypes.InputChange:
     case changeTypes.ToggleButtonClick:
       return {
-        highlightedIndex: changes.selectedItem
-          ? _.findIndex(latestItems, changes.selectedItem)
-          : -1,
+        highlightedIndex: _.findIndex(latestItems, changes.selectedItem),
       };
     case changeTypes.InputKeyDownEscape:
       return resetToPreviousVal(state);
@@ -62,11 +60,13 @@ export function useComboboxStateReducer({ allItems, matchSorterProps }) {
 
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
+    const changeTypes = useCombobox.stateChangeTypes;
 
     const mods = getReducerModifications(
       type,
       state,
       changes,
+      changeTypes,
       setFilteredItems,
       allItems,
       filteredItems,

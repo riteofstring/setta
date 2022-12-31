@@ -35,7 +35,7 @@ function useGetKwargIds(sectionId, objInfoId) {
   const [kwargColId] = useGetSectionConfig(sectionId, ["kwargColId"]);
   return defaultState(
     useKwargCols((x) => x.x[kwargColId]?.[objInfoId]),
-    () => []
+    []
   );
 }
 

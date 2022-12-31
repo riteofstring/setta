@@ -3,7 +3,7 @@ import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
-export function useMatchSorterFilter(completeList, keys, delay = null) {
+export function useMatchSorterFilter(completeList, keys, delay = undefined) {
   const [filter, setFilter] = useState("");
   const [filteredList, setFilteredList] = useState([]);
 

@@ -34,16 +34,14 @@ export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
   }
 }
 
-export function curryAction(action, args, key = null) {
-  const fn = (newState) => {
-    const asArg = key ? { [key]: newState } : newState;
-    return action({ ...args, ...asArg });
+export function curryAction(action, args, key) {
+  return (newState) => {
+    return action({ ...args, [key]: newState });
   };
-  return fn;
 }
 
-export function defaultState(state, valueFn) {
-  return state === undefined ? valueFn() : state;
+export function defaultState(state, defaultValue) {
+  return state === undefined ? defaultValue : state;
 }
 
 export function updateWithArrayMove(active, over) {

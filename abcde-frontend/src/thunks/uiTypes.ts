@@ -11,7 +11,11 @@ import {
   getSectionTypeConfig,
   setSectionConfigAttr,
 } from "thunks/sections";
-import { cloneNewUIType, createOriginInfoId } from "utils/uiTypeUtils";
+import {
+  cloneNewUIType,
+  createParamOriginInfoId,
+  createSectionOriginInfoId,
+} from "utils/uiTypeUtils";
 import { getParamChildId, getParamUIType } from "./paramInfos";
 
 export function setSectionUITypeId({ uiTypeId, sectionId }) {
@@ -58,16 +62,10 @@ export function setSectionUITypeConfig({
     paramInfoId,
   } = useSectionInfos.getState().x[sectionId];
   const currUIType = getSectionType(sectionId);
-  const parentSectionTypeConfig = paramInfoId
-    ? getSectionTypeConfig(parentId)
-    : null;
 
-  const originInfoId = createOriginInfoId({
-    settingSectionConfig: true,
-    sectionTypeConfig: parentSectionTypeConfig,
-    paramInfoId,
-    childId: sectionId,
-  });
+  const originInfoId = paramInfoId
+    ? createParamOriginInfoId(getSectionTypeConfig(parentId), paramInfoId)
+    : createSectionOriginInfoId(sectionId);
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
 
@@ -91,11 +89,7 @@ export function setParamUITypeConfig({
   const sectionTypeConfig = getSectionTypeConfig(sectionId);
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
-  const originInfoId = createOriginInfoId({
-    settingSectionConfig: false,
-    sectionTypeConfig,
-    paramInfoId,
-  });
+  const originInfoId = createParamOriginInfoId(sectionTypeConfig, paramInfoId);
   const setUITypeId = (uiTypeId) =>
     setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
 
