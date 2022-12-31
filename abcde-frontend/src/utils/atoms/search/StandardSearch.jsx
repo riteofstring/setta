@@ -17,7 +17,7 @@ export const StandardSearch = React.forwardRef(
     },
     ref
   ) => {
-    const classes = `w-full flex outline-0 cursor-auto ${twClasses}`;
+    const classes = `w-full flex-grow outline-0 cursor-auto ${twClasses}`;
 
     return (
       <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>
@@ -42,7 +42,7 @@ export const StandardSearch = React.forwardRef(
 );
 
 function MaybeForm({ onFormSubmit, children, outerClasses }) {
-  const styles = `flex items-center relative nodrag ${outerClasses}`;
+  const styles = `flex items-center relative nodrag flex-grow ${outerClasses}`;
   return onFormSubmit ? (
     <form className={styles} onSubmit={onFormSubmit}>
       {children}

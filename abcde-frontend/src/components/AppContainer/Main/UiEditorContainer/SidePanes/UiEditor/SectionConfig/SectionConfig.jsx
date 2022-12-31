@@ -57,26 +57,23 @@ function SectionConfigCore({
   onConfigChange,
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-xs uppercase text-gray-400 font-semibold">
-          Card Types
-        </h3>
-        <SectionConfigTypeSelection
-          onDropdownSelect={onSectionTypeChange}
-          selectedId={currTypeId}
-          sectionId={sectionId}
-        />
-      </div>
-      <div>
-        <h3 className="text-xs uppercase text-gray-400 font-semibold">
-          Contents
-        </h3>
-        <SectionConfigComp
-          sectionId={sectionId}
-          onConfigChange={onConfigChange}
-        />
-      </div>
+    <div className="flex flex-col flex-grow gap-1">
+      <h3 className="text-xs uppercase text-gray-400 font-semibold">
+        Card Types
+      </h3>
+      <SectionConfigTypeSelection
+        onDropdownSelect={onSectionTypeChange}
+        selectedId={currTypeId}
+        sectionId={sectionId}
+      />
+
+      <h3 className="text-xs uppercase text-gray-400 font-semibold mt-4">
+        Contents
+      </h3>
+      <SectionConfigComp
+        sectionId={sectionId}
+        onConfigChange={onConfigChange}
+      />
     </div>
   );
 }

@@ -29,7 +29,7 @@ function UIConfig() {
   );
 
   const inputStyles =
-    "w-full outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
     <div className="items-stretch">

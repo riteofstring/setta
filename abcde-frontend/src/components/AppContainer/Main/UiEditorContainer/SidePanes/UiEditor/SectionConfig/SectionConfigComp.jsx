@@ -28,27 +28,23 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
 
   return (
     <div
-      className="py-2 px-3 rounded-2xl bg-white shadow-inner border border-white grow mb-10 flex flex-col"
+      className="py-2 px-3 rounded-2xl flex-grow bg-white shadow-inner border border-white flex flex-col [&>form]:items-start [&>form]:flex-grow-0"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSubmit} />
-      <div className="flex flex-row mt-4 flex-grow h-[calc(100vh_-_26rem)] overflow-y-auto">
-        <div className="flex flex-col pt-1 w-full">
-          <ul className="flex flex-col flex-grow gap-3">
-            {Object.values(allResults).map((x) => (
-              <SearchItem
-                id={x.id}
-                name={x.name}
-                description={x.description}
-                details={x.children}
-                checked={x.id in selectedCollections}
-                onChange={onChange}
-                key={`SearchItem-${x.id}`}
-              />
-            ))}
-          </ul>
-        </div>
-      </div>
+      <ul className="flex flex-col flex-grow gap-3 pt-1">
+        {Object.values(allResults).map((x) => (
+          <SearchItem
+            id={x.id}
+            name={x.name}
+            description={x.description}
+            details={x.children}
+            checked={x.id in selectedCollections}
+            onChange={onChange}
+            key={`SearchItem-${x.id}`}
+          />
+        ))}
+      </ul>
     </div>
   );
 }
@@ -64,7 +60,7 @@ function Search({ onSubmit }) {
   }
 
   const inputStyles =
-    "w-full text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
+    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
     <StandardSearch

@@ -88,7 +88,7 @@ export default function PaneContainer({
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
   return (
     <motion.div
-      className={`h-full col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 z-10 ${rightCondition} `}
+      className={`flex col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 z-10 ${rightCondition} [&>div]:flex-grow [&>div]:flex [&>div]:flex-col [&>div]:border-r [&>div]:border-gray-200  [&>div]:shadow-md [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:bg-gray-50`}
       animate={vis ? "open" : "closed"}
       variants={variants}
       initial={vis ? "open" : "closed"}
@@ -111,19 +111,17 @@ export default function PaneContainer({
           topLeft: false,
         }}
       >
-        <div className="h-[inherit] w-full border-r border-gray-200 shadow-md inline-block py-8 px-[2.66rem] bg-gray-50">
-          <h2 className="text-base font-bold text-gray-400  pb-3 uppercase tracking-widest">
-            {paneTitle}
-          </h2>
-          {children}
-          <Button
-            twClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
-            tabIndex="-1"
-            onClick={uiToggle}
-          >
-            {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
-          </Button>
-        </div>
+        <h2 className="text-base font-bold text-gray-400  pb-3 uppercase tracking-widest">
+          {paneTitle}
+        </h2>
+        {children}
+        <Button
+          twClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+          tabIndex="-1"
+          onClick={uiToggle}
+        >
+          {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
+        </Button>
       </Resizable>
     </motion.div>
   );

@@ -23,7 +23,7 @@ export default function UiEditor() {
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
       <Tabs.Root
-        className={vis ? "visible" : "invisible"}
+        className={`flex flex-col flex-grow ${vis ? "visible" : "invisible"}`}
         defaultValue={SECTION_CONFIG_TAB}
         value={tab}
         onValueChange={setTab}
@@ -62,7 +62,8 @@ function TabContent(props) {
   const { children, value } = props;
   return (
     <Tabs.Content
-      className="flex-grow grid h-[inherit] overflow-y-auto"
+      // className="flex-grow grid h-[inherit] overflow-y-auto"
+      asChild
       value={value}
     >
       {children}
