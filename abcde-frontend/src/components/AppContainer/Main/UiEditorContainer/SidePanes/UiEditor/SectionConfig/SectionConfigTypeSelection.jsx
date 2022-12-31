@@ -9,6 +9,7 @@ export default function SectionConfigTypeSelection({
 
   return (
     <SectionConfigUITypeCombobox
+      sectionId={sectionId}
       onDropdownSelect={onDropdownSelect}
       selectedId={selectedId}
       comboboxProps={comboboxProps}

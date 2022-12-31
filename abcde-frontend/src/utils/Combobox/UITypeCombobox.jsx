@@ -1,6 +1,9 @@
 import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import { usePaneComboboxWidth } from "hooks/usePaneComboboxWidth";
-import { useAvailableUITypesForUIConfig } from "hooks/usePresetUIType";
+import {
+  useAvailableUITypesForSectionConfig,
+  useAvailableUITypesForUIConfig,
+} from "hooks/usePresetUIType";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({
@@ -9,6 +12,7 @@ function UITypeCombobox({
   availableUITypes,
   comboboxProps,
 }) {
+  console.log("UIConfigUITypeCombobox")
   const comboboxWidth = usePaneComboboxWidth();
 
   function itemStyleGetter(item) {
@@ -39,6 +43,8 @@ export function SectionConfigUITypeCombobox({
   selectedId,
   comboboxProps,
 }) {
+  // const availableUITypes = useAvailableUITypesForSectionConfig(sectionId);
+
   return (
     <UITypeCombobox
       availableUITypes={[]}
@@ -56,6 +62,7 @@ export function UIConfigUITypeCombobox({
   selectedId,
   comboboxProps,
 }) {
+  console.log("UIConfigUITypeCombobox")
   const availableUITypes = useAvailableUITypesForUIConfig(
     sectionId,
     paramInfoId
