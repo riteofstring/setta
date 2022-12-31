@@ -3,7 +3,7 @@ import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import { useProjectConfig } from "models/info/projectConfig";
-import { createDefaultSectionInfo } from "./sections";
+import { createDefaultSectionInfo } from "./createSectionInfo";
 
 type fnAfterAddSectionType = (newId: string) => void;
 
