@@ -1,6 +1,5 @@
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
-import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
@@ -18,17 +17,16 @@ export function addKwarg({ sectionId, objInfoId }) {
   useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
   useKwargCols.getState().setKwargIds({
     collectionId: kwargColId,
-    objInfoId: maybeUseNullId(objInfoId),
+    objInfoId: objInfoId,
     newStateFn: (x) => [...x, kwargInfo.id],
   });
 }
 
 export function deleteKwarg(payload) {
-  const { sectionId, deleteLast } = payload;
-  let { objInfoId, kwargId } = payload;
+  const { sectionId, objInfoId, deleteLast } = payload;
+  let { kwargId } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
-  objInfoId = maybeUseNullId(objInfoId);
   if (deleteLast) {
     const kwargIds = useKwargCols.getState().x[kwargColId]?.[objInfoId];
     const numKwargs = kwargIds.length;
@@ -58,8 +56,7 @@ export function saveKwargsAsCollection({
   name = "test",
 }) {
   const { kwargColId } = getSectionConfig(sectionId);
-  const kwargIds =
-    useKwargCols.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
+  const kwargIds = useKwargCols.getState().x[kwargColId]?.[objInfoId];
   const collection = newCodeInfo({
     name,
     rcType: RCType.COLLECTION,

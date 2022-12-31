@@ -103,3 +103,15 @@ export function addSectionsToState(
     collectionIds: _.map(sectionConfigs, (x) => x.kwargColId),
   });
 }
+
+export function setSelectedItem(sectionId, selectedItem) {
+  setSectionConfigAttr({
+    sectionId,
+    attr: "selectedItem",
+    value: selectedItem,
+  });
+  const { kwargColId } = getSectionConfig(sectionId);
+  useKwargCols
+    .getState()
+    .initObjInfoId({ collectionId: kwargColId, objInfoId: selectedItem });
+}
