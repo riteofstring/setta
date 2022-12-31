@@ -10,8 +10,6 @@ export function ComboboxSearch({
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
-  textSize,
-  simpleSearch,
   width,
   itemStyleGetter,
 }) {
@@ -56,8 +54,6 @@ export function ComboboxSearch({
         {...getInputProps()}
         toggleButtonProps={getToggleButtonProps()}
         isOpen={isOpen}
-        dropdown={true}
-        textSize={textSize}
       />
 
       <div className="flex flex-col items-stretch" style={{ width }}>

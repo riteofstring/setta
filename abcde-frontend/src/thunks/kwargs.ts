@@ -1,15 +1,15 @@
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
+import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { deleteChild } from "./deleteChild";
-import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-export function addKwarg(sectionId: string, objInfoId: string) {
+export function addKwarg({ sectionId, objInfoId }) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name: "",
@@ -18,26 +18,18 @@ export function addKwarg(sectionId: string, objInfoId: string) {
   useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
   useKwargCols.getState().setKwargIds({
     collectionId: kwargColId,
-    objInfoId: objInfoId,
+    objInfoId: maybeUseNullId(objInfoId),
     newStateFn: (x) => [...x, kwargInfo.id],
   });
-  initializeParam(sectionId, [kwargInfo]);
 }
 
-type DeleteKwargPayload = {
-  sectionId: string;
-  objInfoId: string;
-  deleteLast?: boolean;
-  kwargId?: string;
-};
-
-export function deleteKwarg(payload: DeleteKwargPayload) {
-  const { sectionId, objInfoId, deleteLast = false } = payload;
-  let { kwargId = "" } = payload;
+export function deleteKwarg(payload) {
+  let { sectionId, objInfoId, kwargId, deleteLast } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
+  objInfoId = maybeUseNullId(objInfoId);
   if (deleteLast) {
-    const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
+    const kwargIds = useKwargCols.getState().x[kwargColId]?.[objInfoId];
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
@@ -65,7 +57,8 @@ export function saveKwargsAsCollection({
   name = "test",
 }) {
   const { kwargColId } = getSectionConfig(sectionId);
-  const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
+  const kwargIds =
+    useKwargCols.getState().x[kwargColId]?.[maybeUseNullId(objInfoId)];
   const collection = newCodeInfo({
     name,
     rcType: RCType.COLLECTION,
@@ -83,5 +76,5 @@ export function saveKwargsAsCollection({
   );
 
   // TODO fix this call
-  // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
+  codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 }

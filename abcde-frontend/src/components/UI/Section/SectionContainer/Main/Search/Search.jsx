@@ -1,4 +1,3 @@
-import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { useGetAllCallables } from "hooks/useSectionContents";
 import { useEffect } from "react";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
@@ -9,17 +8,16 @@ export default function SectionSearch({
   initialSelection,
 }) {
   const searchableItems = useGetAllCallables(sectionId);
-  const numSearchableItems = searchableItems.length;
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
-    if (numSearchableItems === 0 && initialSelection) {
-      onSelectedItemChange(NULL_OBJ_ID);
+    if (searchableItems.length === 0 && initialSelection) {
+      onSelectedItemChange(null);
     }
-  }, [numSearchableItems]);
+  }, [searchableItems.length]);
 
   return (
-    numSearchableItems > 0 && (
+    searchableItems.length > 0 && (
       <IdNameCombobox
         allItems={searchableItems}
         onSelectedItemChange={onSelectedItemChange}

@@ -82,7 +82,12 @@ function Body({
   setConfigName,
 }) {
   return modalType === "Load" ? (
-    <LoadBody files={files} selected={selected} setSelected={setSelected} />
+    <LoadBody
+      files={files}
+      selected={selected}
+      setSelected={setSelected}
+      modalType={modalType}
+    />
   ) : (
     <SaveBody
       files={files}
@@ -91,13 +96,19 @@ function Body({
       selected={selected}
       configName={configName}
       setConfigName={setConfigName}
+      modalType={modalType}
     />
   );
 }
 
-function LoadBody({ files, selected, setSelected }) {
+function LoadBody({ files, selected, setSelected, modalType }) {
   return (
-    <FileExplorer files={files} selected={selected} setSelected={setSelected} />
+    <FileExplorer
+      files={files}
+      selected={selected}
+      setSelected={setSelected}
+      modalType={modalType}
+    />
   );
 }
 
@@ -108,6 +119,7 @@ function SaveBody({
   selected,
   configName,
   setConfigName,
+  modalType,
 }) {
   const currFiles = files[currProjectId];
   const currFilesAsObj = currFiles ? { [currProjectId]: currFiles } : {};
@@ -132,6 +144,7 @@ function SaveBody({
         files={currFilesAsObj}
         selected={selected}
         setSelected={setSelected}
+        modalType={modalType}
       />
       <FileNameInput
         placeholder="Config Name"
@@ -144,11 +157,17 @@ function SaveBody({
 
 function Footer({ onClose, onClick, buttonText }) {
   return (
-    <div className="mb-2">
-      <DialogCloseButton className="rounded bg-gray-200" onClick={onClick}>
+    <div className="flex gap-2 mb-2 mt-4 justify-end">
+      <DialogCloseButton
+        twClasses="bg-gray-200 hover:bg-gray-300 text-gray-600"
+        onClick={onClick}
+      >
         {buttonText}
       </DialogCloseButton>
-      <DialogCloseButton className="rounded bg-gray-200" onClick={onClose}>
+      <DialogCloseButton
+        twClasses="border border-solid border-gray-200 text-gray-400 hover:border-gray-500 hover-text-gray-600"
+        onClick={onClose}
+      >
         Close
       </DialogCloseButton>
     </div>

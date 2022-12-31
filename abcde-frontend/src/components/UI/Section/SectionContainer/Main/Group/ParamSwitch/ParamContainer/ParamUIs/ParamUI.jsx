@@ -7,7 +7,6 @@ import {
   SWITCH,
 } from "abcde-utils/src/constants";
 
-import { NestedObjectInputConfig } from "./NestedObjectInput";
 import RefInput, { RefInputConfig } from "./RefInput";
 import SliderInput, { SliderInputConfig } from "./SliderInput/SliderInput";
 import SwitchInput, { SwitchInputConfig } from "./SwitchInput/SwitchInput";
@@ -26,7 +25,8 @@ export function ParamUIConfig({ name, ...props }) {
     case SECTION:
     case LIST_ROOT:
     case DICT_ROOT:
-      return <NestedObjectInputConfig {...props} />;
+      return null;
+    // <NestedObjectInputConfig {...props} />
   }
 }
 

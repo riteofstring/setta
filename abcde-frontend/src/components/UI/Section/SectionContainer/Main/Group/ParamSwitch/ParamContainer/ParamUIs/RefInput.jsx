@@ -6,7 +6,6 @@ export function RefInputConfig() {
 }
 
 export default function RefInput({ value, onBlur, className }) {
-  // TODO set an equalityFn here to reduce renders
   const availableSections = useSectionInfos((x) => x.x);
 
   return (
@@ -15,7 +14,7 @@ export default function RefInput({ value, onBlur, className }) {
       initialSelection={value}
       onSelectedItemChange={onBlur}
       className={className}
-      width="424px"
+      // width="424px"
     />
   );
 }
