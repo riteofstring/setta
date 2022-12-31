@@ -9,14 +9,14 @@ export const getOverviewListing = (topLevelIds, currChildren, idNames) => {
 };
 
 const getOverviewListingHelper = (sectionId, currChildren, idNames, depth) => {
-  let outputList = [];
+  const outputList = [];
   outputList.push({
     sectionId,
     sectionHeading: idNames[sectionId],
     depth: depth,
   });
   if (currChildren[sectionId]) {
-    for (let childId of currChildren[sectionId]) {
+    for (const childId of currChildren[sectionId]) {
       outputList.push(
         ...getOverviewListingHelper(childId, currChildren, idNames, depth + 1)
       );
