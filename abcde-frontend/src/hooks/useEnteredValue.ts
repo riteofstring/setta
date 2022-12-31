@@ -15,7 +15,7 @@ export function useParamEnteredValue(sectionId: string, paramInfoId: string) {
     { enteredValueId },
     "value"
   );
-  return [enteredValue, setEnteredValue];
+  return { enteredValue, setEnteredValue };
 }
 
 export function useGetParamChildId(sectionId: string, paramInfoId: string) {
