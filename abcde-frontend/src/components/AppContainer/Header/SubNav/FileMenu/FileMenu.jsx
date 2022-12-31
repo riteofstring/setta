@@ -4,17 +4,16 @@ import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
-import { GrDocumentDownload } from "react-icons/gr";
-import { IoDocumentTextOutline } from "react-icons/io5";
+// import { GrDocumentDownload } from "react-icons/gr";
+// import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
-import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
+import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
-import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
@@ -73,7 +72,7 @@ export default function FileMenu() {
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
-            className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
+            className="bg-white p-2 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
           >
             <Items
               onClickLoad={onClickLoad}
@@ -91,19 +90,19 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
       <DialogTriggerItem>
-        <IoDocumentTextOutline />
+        {/* <IoDocumentTextOutline /> */}
         New Project
       </DialogTriggerItem>
       <DialogTriggerItem onClick={onClickLoad}>
-        <GrDocumentDownload />
+        {/* <GrDocumentDownload /> */}
         Load
       </DialogTriggerItem>
-      <Item onClick={onClickSave}>
-        <VscSave />
+      <DialogTriggerItem onClick={onClickSave}>
+        <VscSave className="text-gray-500" />
         Save
-      </Item>
+      </DialogTriggerItem>
       <DialogTriggerItem onClick={onClickSaveAs}>
-        <VscSaveAs />
+        <VscSaveAs className="text-gray-500" />
         Save As
       </DialogTriggerItem>
     </>

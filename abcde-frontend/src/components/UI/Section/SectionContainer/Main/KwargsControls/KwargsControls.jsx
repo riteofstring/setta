@@ -5,7 +5,7 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export default function KwargsControls({ sectionId, objInfoId }) {
   function onClickAddKwarg() {
-    addKwarg(sectionId, objInfoId);
+    addKwarg({ sectionId, objInfoId });
   }
   function onClickDeleteKwarg() {
     deleteKwarg({ sectionId, objInfoId, deleteLast: true });

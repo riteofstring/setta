@@ -1,52 +1,54 @@
 import React from "react";
 import { AiOutlineSearch } from "react-icons/ai";
+
 export const StandardSearch = React.forwardRef(
   (
     {
       placeholder = "Search",
       twClasses = "",
       outerClasses = "",
-      onKeyPress,
-      toggleButtonProps,
       leftElement = false,
       leftElementStyles,
       rightElement = false,
       inputStyles = false,
-      input,
       onChange,
+      onFormSubmit,
       ...props
     },
     ref
   ) => {
-    // prettier-ignore
-    const classes = `w-full outline-0 cursor-auto ${twClasses}`;
-
-    const handleKeyPress = (event) => {
-      if (event.key === "Enter") {
-      }
-    };
+    const classes = `w-full flex-grow outline-0 cursor-auto ${twClasses}`;
 
     return (
-      <div className={`flex items-center relative nodrag ${outerClasses}`}>
+      <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>
         <div
-          className={`absolute left-0 grid place-items-center select-none
-           ${leftElementStyles}`}
+          className={`absolute left-0 grid place-items-center select-none ${leftElementStyles}`}
         >
-          {leftElement || <AiOutlineSearch className="text-gray-400" />}
+          {leftElement || (
+            <AiOutlineSearch className="text-gray-400 self-center" />
+          )}
         </div>
-        {input || (
-          <input
-            className={inputStyles || classes}
-            placeholder={placeholder}
-            ref={ref}
-            {...props}
-            tabIndex="0"
-            onChange={onChange}
-          />
-        )}
-
+        <input
+          className={inputStyles || classes}
+          placeholder={placeholder}
+          {...props}
+          ref={ref}
+          tabIndex="0"
+          onChange={onChange}
+        />
         {rightElement}
-      </div>
+      </MaybeForm>
     );
   }
 );
+
+function MaybeForm({ onFormSubmit, children, outerClasses }) {
+  const styles = `flex items-center relative nodrag flex-grow ${outerClasses}`;
+  return onFormSubmit ? (
+    <form className={styles} onSubmit={onFormSubmit}>
+      {children}
+    </form>
+  ) : (
+    <div className={styles}>{children}</div>
+  );
+}
