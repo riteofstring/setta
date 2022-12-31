@@ -25,7 +25,7 @@ export function useGetCurrChildren(sectionId) {
     "paramInfoId",
   ]);
   const currParamChildIds = useChildIdHelper(sectionId);
-  const [sectionTypeName] = useGetSectionType(sectionId, ["type"]);
+  const sectionTypeName = useGetSectionType(sectionId, "type");
   const currChildren = isRoot(sectionTypeName)
     ? // keep sections that aren't associated with any parameter
       allChildrenIds.filter((x, idx) => !allParamInfoIds[idx][0])

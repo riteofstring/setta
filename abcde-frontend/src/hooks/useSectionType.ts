@@ -1,4 +1,7 @@
-import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
+import {
+  SectionUITypeConfigType,
+  SectionUITypeType,
+} from "abcde-utils/src/types/uiType";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { useGetSectionConfig } from "./useSectionConfig";
@@ -14,7 +17,12 @@ export function useGetSectionTypeConfig<
   );
 }
 
-export function useGetSectionType(sectionId, props) {
+export function useGetSectionType<K extends keyof SectionUITypeType>(
+  sectionId: string,
+  key: K
+) {
   const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
-  return useUITypes((x) => props.map((y) => x.x[uiTypeId]?.[y]), _.isEqual);
+  const nonScalars: (keyof SectionUITypeType)[] = ["config", "originInfoId"];
+  const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
+  return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }

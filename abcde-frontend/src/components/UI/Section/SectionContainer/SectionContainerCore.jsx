@@ -16,10 +16,8 @@ import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
-  const [sectionTypeName, config] = useGetSectionType(sectionId, [
-    "type",
-    "config",
-  ]);
+  const sectionTypeName = useGetSectionType(sectionId, "type");
+  const config = useGetSectionType(sectionId, "config");
   const _isSeriesElement = isSeriesElement(config.subType);
   const _isRoot = isRoot(sectionTypeName);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
