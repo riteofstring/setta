@@ -5,10 +5,11 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { deleteChild } from "./deleteChild";
+import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-export function addKwarg({ sectionId, objInfoId }) {
+export function addKwarg(sectionId: string, objInfoId: string) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name: "",
@@ -20,15 +21,23 @@ export function addKwarg({ sectionId, objInfoId }) {
     objInfoId: objInfoId,
     newStateFn: (x) => [...x, kwargInfo.id],
   });
+  initializeParam(sectionId, [kwargInfo]);
 }
 
-export function deleteKwarg(payload) {
-  const { sectionId, objInfoId, deleteLast } = payload;
-  let { kwargId } = payload;
+type DeleteKwargPayload = {
+  sectionId: string;
+  objInfoId: string;
+  deleteLast?: boolean;
+  kwargId?: string;
+};
+
+export function deleteKwarg(payload: DeleteKwargPayload) {
+  const { sectionId, objInfoId, deleteLast = false } = payload;
+  let { kwargId = "" } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
   if (deleteLast) {
-    const kwargIds = useKwargCols.getState().x[kwargColId]?.[objInfoId];
+    const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
@@ -56,7 +65,7 @@ export function saveKwargsAsCollection({
   name = "test",
 }) {
   const { kwargColId } = getSectionConfig(sectionId);
-  const kwargIds = useKwargCols.getState().x[kwargColId]?.[objInfoId];
+  const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
   const collection = newCodeInfo({
     name,
     rcType: RCType.COLLECTION,

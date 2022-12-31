@@ -3,19 +3,19 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-function getParamEVId(sectionId, paramInfoId) {
+export function getParamEVId(sectionId, paramInfoId) {
   const { evColId } = getSectionConfig(sectionId);
-  return useParamInfos.getState().x[evColId]?.[paramInfoId];
+  return useParamInfos.getState().x[evColId][paramInfoId];
 }
 
 export function getParamChildId(sectionId, paramInfoId) {
   const evId = getParamEVId(sectionId, paramInfoId);
-  return useEnteredValues.getState().x[evId]?.childId;
+  return useEnteredValues.getState().x[evId].childId;
 }
 
 export function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionTypeConfig(sectionId);
-  return useParamInfos.getState().y[uiTypeColId]?.[paramInfoId];
+  return useParamInfos.getState().y[uiTypeColId][paramInfoId];
 }
 
 export function getParamUIType(sectionId, paramInfoId) {
