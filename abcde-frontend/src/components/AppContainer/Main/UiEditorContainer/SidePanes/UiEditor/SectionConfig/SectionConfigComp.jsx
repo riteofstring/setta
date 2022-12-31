@@ -79,7 +79,7 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
   }
 
   return (
-    <li className="border-r-4 border border-[rgba(0,_0,_0,_0)] px-3 py-2 hover:bg-gray-100 rounded-lg hover:border-white transition edit-list-item flex [&:hover_*]:text-black select-none">
+    <li className="border border-solid border-transparent px-3 py-2 hover:bg-gray-100 hover:shadow-md rounded-lg transition edit-list-item flex [&:hover_*]:text-black select-none">
       <input
         type="checkbox"
         className="w-4 h-4 mr-2 mt-1 flex-shrink-0 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"

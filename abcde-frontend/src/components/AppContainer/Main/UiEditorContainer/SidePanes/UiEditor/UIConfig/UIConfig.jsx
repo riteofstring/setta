@@ -119,7 +119,7 @@ function UIElement({ sectionId, paramInfo }) {
         paramInfoId={paramInfoId}
         paramChildId={paramChildId}
       />
-      <ButtonGoToSectionConfig paramChildId={paramChildId} />
+      <ButtonGoToSectionConfig uiType={uiType} paramChildId={paramChildId} />
     </div>
   );
 }
