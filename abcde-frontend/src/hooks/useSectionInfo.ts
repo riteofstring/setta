@@ -10,17 +10,20 @@ export function useGetSectionInfo<K extends keyof SectionType>(
   return useSectionInfos((x) => x.x[sectionId][key], equalityFn);
 }
 
-export function useGetManySectionInfos(sectionIds, props) {
+export function useGetManySectionInfos<K extends keyof SectionType>(
+  sectionIds: string[],
+  key: K
+) {
   return useSectionInfos(
-    (x) => sectionIds.map((id) => props.map((name) => x.x[id]?.[name])),
+    (x) => sectionIds.map((id) => x.x[id][key]),
     _.isEqual
   );
 }
 
 export function useSectionInfoNames() {
-  return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name));
+  return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name), _.isEqual);
 }
 
-export function useSomeSectionInfoNames(sectionIds) {
-  return useSectionInfos((x) => sectionIds.map((y) => x.x[y].name));
+export function useSomeSectionInfoNames(sectionIds: string[]) {
+  return useSectionInfos((x) => sectionIds.map((y) => x.x[y].name), _.isEqual);
 }

@@ -6,7 +6,7 @@ import { useGetSectionInfo, useSomeSectionInfoNames } from "./useSectionInfo";
 export function useSectionSiblingNames(sectionId) {
   const sectionName = useGetSectionInfo(sectionId, "name");
   const parentId = useGetSectionInfo(sectionId, "parentId");
-  const topLevelSectionIds = useProjectConfig((x) => x.children);
+  const topLevelSectionIds = useProjectConfig((x) => x.children, _.isEqual);
   const isTopLevel = topLevelSectionIds.includes(sectionId);
   const potentialSiblingIds = useSectionInfos(
     (x) => (parentId ? x.currChildren[parentId] : []),

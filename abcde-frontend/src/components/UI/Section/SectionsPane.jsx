@@ -33,11 +33,11 @@ function setInitialToCurrent(initialNodes, nodes) {
 
 function SectionsPane() {
   const reactFlowRef = useSetSectionPosition(PANEID);
-  const topLevelSectionPositions = useTopLevelSectionPositions();
+  const [topLevelIds, topLevelPositions] = useTopLevelSectionPositions();
 
-  const initialNodes = topLevelSectionPositions.map((x) => ({
-    id: x[0],
-    position: x[1],
+  const initialNodes = topLevelIds.map((x, idx) => ({
+    id: x,
+    position: topLevelPositions[idx],
     type: "sectionContainerNode",
   }));
 
