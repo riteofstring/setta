@@ -45,8 +45,6 @@ export function addChild({
     const enteredValueId =
       useParamInfos.getState().x[collectionId][parentParamInfoId];
 
-    console.log("addChild", enteredValueId, newIds[0]);
-
     useEnteredValues.getState().setChildId({
       enteredValueId,
       childId: newIds[0],
