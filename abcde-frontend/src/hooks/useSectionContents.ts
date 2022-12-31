@@ -1,24 +1,30 @@
+import {
+  CodeInfoStateType,
+  CodeInfoType,
+} from "abcde-utils/src/types/codeInfo";
 import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
-import { defaultState } from "utils/utils";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useGetCurrObjParamKwargInfos(sectionId) {
+export function useGetCurrObjParamKwargInfos(sectionId: string) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
   return [...paramInfos, ...kwargInfos];
 }
 
-function useGetCollectionChildren(sectionId, type) {
-  const _collectionIds = useGetSectionTypeConfig(sectionId, "collections");
-  const collectionIds = _collectionIds ? _collectionIds : [];
+function useGetCollectionChildren<K extends keyof CodeInfoStateType>(
+  sectionId: string,
+  type: K
+) {
+  const collectionIds = useGetSectionTypeConfig(sectionId, "collections");
   return useCodeInfo(
-    (x) => [].concat(...collectionIds.map((y) => x[type][y])),
+    (x) =>
+      ([] as CodeInfoType[]).concat(...collectionIds.map((y) => x[type][y])),
     _.isEqual
   );
 }
@@ -31,15 +37,15 @@ function useGetAllParamCollections(sectionId) {
   return useGetCollectionChildren(sectionId, "paramCollections");
 }
 
-function useGetKwargIds(sectionId, objInfoId) {
+function useGetKwargIds(sectionId: string, objInfoId: string) {
   const kwargColId = useGetSectionConfig(sectionId, "kwargColId");
-  return defaultState(
-    useKwargCols((x) => x.x[kwargColId]?.[objInfoId]),
-    []
+  return useKwargCols(
+    (x) => (objInfoId in x.x[kwargColId] ? x.x[kwargColId][objInfoId] : []),
+    _.isEqual
   );
 }
 
-export function useGetKwargInfos(sectionId, objInfoId) {
+export function useGetKwargInfos(sectionId: string, objInfoId) {
   const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
   return useCodeInfo((x) => kwargIds.map((y) => x.allCodeInfo[y]), _.isEqual);
 }
@@ -53,12 +59,12 @@ export function useGetParamInfos(sectionId, objInfoId) {
   return [...objParamInfos, ...paramCollections];
 }
 
-export function useGetSelectedCollections(sectionId) {
-  const collections = useGetSectionTypeConfig(sectionId, "collections");
-  return useCodeInfo((x) => _.pick(x.allCollections, collections), _.isEqual);
+export function useGetSelectedCollections(sectionId: string) {
+  const collectionIds = useGetSectionTypeConfig(sectionId, "collections");
+  return useCodeInfo((x) => _.pick(x.allCollections, collectionIds), _.isEqual);
 }
 
-export function useGetSelectedCollectionsForSectionConfig(sectionId) {
+export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
   const collections = useGetSelectedCollections(sectionId);
   return useCodeInfo(
     (x) => assembleCollectionsForSectionConfig(x.allCodeInfo, collections),
