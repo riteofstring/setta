@@ -2,7 +2,7 @@ import { createNewId } from "abcde-utils/src/utils";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { generateCode } from "thunks/generateCode";
-import MenuBarButton from "utils/atoms/buttons/MenuBarButton";
+import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
 export default function RunButton() {
@@ -23,7 +23,7 @@ export default function RunButton() {
         trigger={
           <MenuBarButton onClick={runExport}>
             <RiPlayMiniFill />
-            Generate
+            Generate Command
           </MenuBarButton>
         }
         body={command}

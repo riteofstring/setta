@@ -7,7 +7,6 @@ export default function UITypeCombobox({
   onDropdownSelect,
   selectedId,
   availableTypesProps,
-  comboboxProps,
 }) {
   const availableUITypes = useAvailablePresetUITypes(availableTypesProps);
   const comboboxWidth = usePaneComboboxWidth();
@@ -29,7 +28,6 @@ export default function UITypeCombobox({
       onSelectedItemChange={onDropdownSelect}
       width={comboboxWidth}
       itemStyleGetter={itemStyleGetter}
-      {...comboboxProps}
     />
   );
 }
