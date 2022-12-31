@@ -28,11 +28,11 @@ function useGetCollectionChildren<K extends keyof CodeInfoStateType>(
   );
 }
 
-export function useGetAllCallables(sectionId) {
+export function useGetAllCallables(sectionId: string) {
   return useGetCollectionChildren(sectionId, "callables");
 }
 
-function useGetAllParamCollections(sectionId) {
+function useGetAllParamCollections(sectionId: string) {
   return useGetCollectionChildren(sectionId, "paramCollections");
 }
 
@@ -41,12 +41,12 @@ function useGetKwargIds(sectionId: string, objInfoId: string) {
   return useKwargCols((x) => x.x[kwargColId][objInfoId], _.isEqual);
 }
 
-export function useGetKwargInfos(sectionId: string, objInfoId) {
+export function useGetKwargInfos(sectionId: string, objInfoId: string) {
   const kwargIds = useGetKwargIds(sectionId, objInfoId);
   return useCodeInfo((x) => kwargIds.map((y) => x.allCodeInfo[y]), _.isEqual);
 }
 
-export function useGetParamInfos(sectionId, objInfoId) {
+export function useGetParamInfos(sectionId: string, objInfoId: string) {
   const objParamInfos = useCodeInfo((x) => x.params[objInfoId], _.isEqual);
   const paramCollections = useGetAllParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
