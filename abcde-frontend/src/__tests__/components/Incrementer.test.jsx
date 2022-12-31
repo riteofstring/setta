@@ -130,8 +130,8 @@ function assertNChildrenAdded(parent, numInitialChildren, N) {
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren + N);
-  // 1 parent so only 1 entry in allChildren
-  expect(_.size(state.allChildren)).toEqual(1);
+  // every section gets an entry in allChildren, so parent plus children
+  expect(_.size(state.allChildren)).toEqual(1 + numInitialChildren + N);
   expect(_.size(state.allChildren[parent.id])).toEqual(numInitialChildren + N);
 }
 
@@ -140,8 +140,8 @@ function assertNChildrenDeleted(parent, numInitialChildren, N) {
 
   // parent plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
-  // 1 parent so only 1 entry in allChildren
-  expect(_.size(state.allChildren)).toEqual(1);
+  // every section gets an entry in allChildren, so parent plus children
+  expect(_.size(state.allChildren)).toEqual(1 + numInitialChildren - N);
   expect(_.size(state.allChildren[parent.id])).toEqual(numInitialChildren - N);
 }
 
