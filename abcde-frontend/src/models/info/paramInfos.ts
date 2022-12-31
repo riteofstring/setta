@@ -5,7 +5,7 @@ import {
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
-import { initValue, setToDefault } from "./utils";
+import { setToDefault } from "./utils";
 
 const initialState: ParamInfoStateType = { x: {}, y: {} };
 
@@ -17,17 +17,13 @@ export const useParamInfos = create(
       s.reset();
       s.setAll({ x: evCols, y: uiTypeCols });
     },
-    initManyEvColIds: ({ collectionIds }) =>
+    setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
       set((state) => {
-        _.forEach(collectionIds, (id) => initValue(state.x, id, {}));
+        setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
       }),
     setEnteredValueId: ({ collectionId, paramInfoId, enteredValueId }) =>
       set((state) => {
         setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;
-      }),
-    setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
-      set((state) => {
-        setToDefault(state.y, collectionId)[paramInfoId] = uiTypeId;
       }),
     deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
       set((state) => {

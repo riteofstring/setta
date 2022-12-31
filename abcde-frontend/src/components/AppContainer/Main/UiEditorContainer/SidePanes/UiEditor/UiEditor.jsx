@@ -1,6 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
   SECTION_CONFIG_TAB,
@@ -17,7 +16,6 @@ const paneProps = {
 };
 
 export default function UiEditor() {
-  const sectionId = useActiveSection((x) => x.id);
   const vis = usePanes((x) => x.vis[paneProps.paneName]);
   const tab = useUIEditor((x) => x.tab);
   const setTab = useUIEditor((x) => x.setTab);
@@ -35,10 +33,10 @@ export default function UiEditor() {
           <TabItem name="Parameters" value={UI_CONFIG_TAB} />
         </Tabs.List>
         <TabContent value={SECTION_CONFIG_TAB}>
-          {sectionId && <SectionConfig sectionId={sectionId} />}
+          <SectionConfig />
         </TabContent>
         <TabContent value={UI_CONFIG_TAB}>
-          {sectionId && <UIConfig sectionId={sectionId} />}
+          <UIConfig />
         </TabContent>
       </Tabs.Root>
     </PaneContainer>
@@ -50,7 +48,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="[border-bottom:3px_solid_transparent] cursor-pointer my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
+      className="[border-bottom:3px_solid_transparent] cursor-pointer select-none my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
