@@ -1,11 +1,8 @@
 import { useActiveSection } from "models/activeSection";
 import { SECTION_CONFIG_TAB, useUIEditor } from "models/uiEditor";
+import { Button } from "utils/atoms/buttons/Button";
 
-export function NestedObjectInputConfig(props) {
-  return <ButtonGoToSectionConfig {...props} />;
-}
-
-function ButtonGoToSectionConfig({ paramChildId }) {
+export function ButtonGoToSectionConfig({ paramChildId }) {
   const setTab = useUIEditor((x) => x.setTab);
   const setActiveSection = useActiveSection((x) => x.setId);
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
@@ -17,5 +14,12 @@ function ButtonGoToSectionConfig({ paramChildId }) {
       setTab(SECTION_CONFIG_TAB);
     }
   };
-  return <button onClick={onClick}>Configure section</button>;
+  return (
+    <Button
+      twClasses="mt-2 text-xs text-gray-500 border-2 border-red-500 hover:bg-gray-200 text-xs font-bold text-gray-500 py-1 px-2 rounded-md gap-1 select-none"
+      onClick={onClick}
+    >
+      Configure Section
+    </Button>
+  );
 }

@@ -26,13 +26,15 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
     onConfigChange({ newValueFn });
   }
 
+  // shadow-inner bg-white  border border-white py-2 px-3
+
   return (
     <div
-      className="py-2 px-3 rounded-2xl flex-grow bg-white shadow-inner border border-white flex flex-col [&>form]:items-start [&>form]:flex-grow-0"
+      className="rounded-2xl flex-grow flex flex-col [&>form]:flex-grow-0"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSubmit} />
-      <ul className="flex flex-col flex-grow gap-3 pt-1">
+      <ul className="flex flex-col flex-grow gap-4 pt-4">
         {Object.values(allResults).map((x) => (
           <SearchItem
             id={x.id}
@@ -77,7 +79,7 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
   }
 
   return (
-    <li className="px-3 py-2 w-full border-r-4 border border-[rgba(0,_0,_0,_0)] hover:bg-gray-100 rounded-lg  hover:border-white transition edit-list-item flex [&:hover_*]:text-black select-none">
+    <li className="border-r-4 border border-[rgba(0,_0,_0,_0)] px-3 py-2 hover:bg-gray-100 rounded-lg hover:border-white transition edit-list-item flex [&:hover_*]:text-black select-none">
       <input
         type="checkbox"
         className="w-4 h-4 mr-2 mt-1 flex-shrink-0 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"

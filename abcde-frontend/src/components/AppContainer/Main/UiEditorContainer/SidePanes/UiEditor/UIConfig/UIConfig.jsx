@@ -1,5 +1,6 @@
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
+import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -113,14 +114,15 @@ function UIElement({ sectionId, paramInfo }) {
         paramInfoId={paramInfoId}
         paramChildId={paramChildId}
       />
-      <SaveLoadButtons onSubmit={onSaveAsSubmit} />
+      <SaveAndConfig paramChildId={paramChildId} onSubmit={onSaveAsSubmit} />
     </div>
   );
 }
 
-function SaveLoadButtons({ onSubmit }) {
+function SaveAndConfig({ onSubmit, paramChildId }) {
   return (
-    <div className="flex flex-row pb-4 justify-end">
+    <div className="flex flex-row flex-grow pb-4 justify-between">
+      <ButtonGoToSectionConfig paramChildId={paramChildId} />
       <PopoverWrapper
         trigger={
           <Button twClasses="uicfg-save mt-2 text-xs text-gray-500 invisible opacity-0 hover:bg-gray-200 text-xs font-bold text-gray-500 py-1 px-2 rounded-md gap-1 select-none">

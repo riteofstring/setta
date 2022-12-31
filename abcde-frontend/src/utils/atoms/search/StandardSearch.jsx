@@ -22,10 +22,11 @@ export const StandardSearch = React.forwardRef(
     return (
       <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>
         <div
-          className={`absolute left-0 grid place-items-center select-none
-           ${leftElementStyles}`}
+          className={`absolute left-0 grid place-items-center select-none ${leftElementStyles}`}
         >
-          {leftElement || <AiOutlineSearch className="text-gray-400" />}
+          {leftElement || (
+            <AiOutlineSearch className="text-gray-400 self-center" />
+          )}
         </div>
         <input
           className={inputStyles || classes}
