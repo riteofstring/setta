@@ -1,17 +1,11 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
 import { useRef } from "react";
-import { Button } from "../../utils/atoms/buttons/Button";
-import { FileListItem } from "./FileListItem";
+import Button from "../../utils/atoms/buttons/Button";
+import { FileListItem, SelectableFileListItem } from "./FileListItem";
 import "./radioItem.css";
 
-export default function FileExplorer({
-  files,
-  selected,
-  setSelected,
-  modalType,
-}) {
+export default function FileExplorer({ files, selected, setSelected }) {
   function onChange(v) {
     if (v) {
       setSelected(JSON.parse(v));
@@ -19,18 +13,10 @@ export default function FileExplorer({
   }
 
   return (
-    <div className="items-stretch overflow-y-auto">
-      <Dialog.Title className="font-bold uppercase tracking-widest text-gray-500 mb-2">
-        {modalType === "Load" && "Load Project"}
-        {modalType === "Save As" && "Save Project As"}
-      </Dialog.Title>
-      <div className="flex justify-between p-0 mb-3 pb-1 border-b border-gray-200">
-        <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md">
-          Name
-        </Button>
-        <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md">
-          Date
-        </Button>
+    <div className="h-[inherit] border border-gray-200 rounded-lg items-stretch px-6 py-4 overflow-y-auto">
+      <div className="flex justify-between p-0 mb-3 border-b border-gray-200">
+        <Button>Name</Button>
+        <Button>Date</Button>
       </div>
       <RadioGroup.Root
         value={JSON.stringify(selected)}
@@ -79,14 +65,14 @@ function ConfigListing({ id, name, onClick }) {
   }
 
   return (
-    <div className="flex flex-grow ml-6">
+    <div style={{ marginLeft: "20px" }}>
       <RadioGroup.Item
         value={id}
         ref={itemRef}
         onClick={_onClick}
-        className="group/radioitem flex-grow rounded-md "
+        className="RadioItem"
       >
-        <FileListItem isProject={false} name={name} />
+        <SelectableFileListItem isProject={false} name={name} />
       </RadioGroup.Item>
     </div>
   );

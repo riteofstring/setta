@@ -1,17 +1,12 @@
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
-import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
 import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
-import { VscSaveAs } from "react-icons/vsc";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
-import { Button } from "utils/atoms/buttons/Button";
-import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { cloneNewUIType } from "utils/uiTypeUtils";
@@ -19,8 +14,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 export default React.memo(UIConfig);
 
-function UIConfig() {
-  const sectionId = useActiveSection((x) => x.id);
+function UIConfig({ sectionId }) {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
     (x) => x.name
   );
@@ -32,25 +26,25 @@ function UIConfig() {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1";
+    "w-full outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
     <div className="items-stretch">
-      <StandardSearch
-        inputStyles={inputStyles}
-        leftElementStyles="pl-1"
-        onChange={(e) => setFilter(e.target.value)}
-      />
-      <div className="flex flex-col gap-8 mt-4">
-        {sectionId &&
-          filteredList.map((e, idx) => (
-            <UIElement
-              sectionId={sectionId}
-              paramInfo={e}
-              key={`${e.name}-${idx}`}
-            />
-          ))}
+      <div className="pb-10">
+        <StandardSearch
+          inputStyles={inputStyles}
+          leftElementStyles="pl-1"
+          onChange={(e) => setFilter(e.target.value)}
+        />
       </div>
+      {sectionId &&
+        filteredList.map((e, idx) => (
+          <UIElement
+            sectionId={sectionId}
+            paramInfo={e}
+            key={`${e.name}-${idx}`}
+          />
+        ))}
     </div>
   );
 }
@@ -99,15 +93,12 @@ function UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black"
+      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-save]:visible [&:hover_.uicfg-save]:opacity-100 [&:hover_.uicfg-save]:duration-500"
       data-testid={`UIElement ${paramName}`}
     >
-      <div className="grid grid-cols-1 grid-rows-1 items-center mb-2">
-        <h3 className="uicfg-title text-sm text-gray-500 uppercase tracking-widest row-start-1 row-end-2 col-start-1 col-end-2">
-          {paramName}
-        </h3>
-        <SaveAndConfig paramChildId={paramChildId} onSubmit={onSaveAsSubmit} />
-      </div>
+      <h3 className="text-sm text-gray-500 uppercase tracking-widest">
+        {paramName}
+      </h3>
 
       <UIConfigDropdownAndFields
         onDropdownSelect={onSelect}
@@ -119,25 +110,24 @@ function UIElement({ sectionId, paramInfo }) {
         paramInfoId={paramInfoId}
         paramChildId={paramChildId}
       />
-      <ButtonGoToSectionConfig uiType={uiType} paramChildId={paramChildId} />
+      <SaveLoadButtons onSubmit={onSaveAsSubmit} />
     </div>
   );
 }
 
-function SaveAndConfig({ onSubmit, paramChildId }) {
+function SaveLoadButtons({ onSubmit }) {
   return (
-    <PopoverWrapper
-      trigger={
-        <IconButton
-          twClasses="row-start-1 row-end-2 col-start-1 col-end-2 place-self-end"
-          size="w-4 h-4"
-          padding="py-2 px-2"
-        >
-          <VscSaveAs className="text-gray-500" />
-        </IconButton>
-      }
-      body={<SubmitAsPreset onSubmit={onSubmit} />}
-    />
+    <div className="flex flex-row pb-6">
+      <div className="flex-1" />
+      <PopoverWrapper
+        trigger={
+          <button className="uicfg-save text-xs text-gray-500 invisible opacity-0">
+            Save As
+          </button>
+        }
+        body={<SubmitAsPreset onSubmit={onSubmit} />}
+      />
+    </div>
   );
 }
 
@@ -155,7 +145,7 @@ function SubmitAsPreset({ onSubmit }) {
   return (
     <>
       <input placeholder="Preset Name" onChange={onChange} value={presetName} />
-      <Button onClick={localOnSubmit}>Done</Button>
+      <button onClick={localOnSubmit}>Done</button>
     </>
   );
 }
