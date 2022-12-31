@@ -1,3 +1,4 @@
+import { NULL_OBJ_ID } from "../constants";
 import { SectionConfigType } from "../types/sectionConfig";
 import { maybeNewId } from "../utils";
 
@@ -6,7 +7,7 @@ export function newSectionConfig({
   uiTypeId,
   evColId,
   kwargColId,
-  selectedItem = null,
+  selectedItem = NULL_OBJ_ID,
 }: Partial<SectionConfigType>): SectionConfigType {
   return {
     id: maybeNewId(id),
