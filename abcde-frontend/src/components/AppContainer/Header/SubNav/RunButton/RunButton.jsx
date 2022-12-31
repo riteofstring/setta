@@ -23,7 +23,7 @@ export default function RunButton() {
         trigger={
           <MenuBarButton onClick={runExport}>
             <RiPlayMiniFill />
-            Generate
+            Generate Command
           </MenuBarButton>
         }
         body={command}

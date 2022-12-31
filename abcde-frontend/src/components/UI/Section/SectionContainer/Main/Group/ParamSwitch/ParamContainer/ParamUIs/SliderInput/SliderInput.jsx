@@ -8,13 +8,11 @@ function defaultIfNotNumber(x, min) {
 export function SliderInputConfig({ onChange, savedConfig }) {
   const options = ["min", "max", "step"];
   return (
-    <div className="flex">
-      <SimpleConfig
-        options={options}
-        onChange={onChange}
-        savedConfig={savedConfig}
-      />
-    </div>
+    <SimpleConfig
+      options={options}
+      onChange={onChange}
+      savedConfig={savedConfig}
+    />
   );
 }
 
