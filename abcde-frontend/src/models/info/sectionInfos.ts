@@ -7,6 +7,7 @@ import {
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
+import { initValue } from "./utils";
 
 const initialState: SectionInfoStateType = {
   x: {},
@@ -71,7 +72,9 @@ export const useSectionInfos = create(
 
     initManyAllChildren: ({ sectionIds }) =>
       set((state) => {
-        sectionIds.forEach((id) => (state.allChildren[id] = []));
+        sectionIds.forEach((id) => {
+          initValue(state.allChildren, id, []);
+        });
       }),
 
     setCurrChildrenNames: ({ currChildren, sectionType }) =>
@@ -85,7 +88,9 @@ export const useSectionInfos = create(
 
     initManyCurrChildren: ({ sectionIds }) =>
       set((state) => {
-        sectionIds.forEach((id) => (state.currChildren[id] = []));
+        sectionIds.forEach((id) => {
+          initValue(state.currChildren, id, []);
+        });
       }),
 
     setCurrChildren: ({ sectionId, currChildren }) =>
