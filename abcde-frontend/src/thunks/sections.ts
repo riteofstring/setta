@@ -118,5 +118,5 @@ export function setSelectedItem(sectionId, selectedItem) {
     .initObjInfoId({ collectionId: kwargColId, objInfoId: selectedItem });
 
   const params = useCodeInfo.getState().params[selectedItem];
-  _.forEach(params, (p) => initializeParam({ sectionId, paramInfo: p }));
+  initializeParam(sectionId, params);
 }

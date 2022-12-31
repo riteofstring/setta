@@ -22,7 +22,7 @@ export function addChild({
   numChildren = 1,
   parentParamInfoId = null,
   startId = null,
-}) {
+}: any) {
   const newIds = createChildSectionInfo({
     parentId,
     name,

@@ -21,9 +21,20 @@ export const useParamInfos = create(
       set((state) => {
         _.forEach(collectionIds, (id) => initValue(state.x, id, {}));
       }),
+    setManyEnteredValueIds: ({ collectionId, paramIdToEvId }) =>
+      set((state) => {
+        state.x[collectionId] = { ...state.x[collectionId], ...paramIdToEvId };
+      }),
     setEnteredValueId: ({ collectionId, paramInfoId, enteredValueId }) =>
       set((state) => {
         setToDefault(state.x, collectionId)[paramInfoId] = enteredValueId;
+      }),
+    setManyUITypeIds: ({ collectionId, paramIdToUITypeId }) =>
+      set((state) => {
+        state.y[collectionId] = {
+          ...state.y[collectionId],
+          ...paramIdToUITypeId,
+        };
       }),
     setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
       set((state) => {
