@@ -14,12 +14,12 @@ export function useGetParamUIType(sectionId, paramInfoId) {
 }
 
 export function useParamUITypeId(sectionId, paramInfoId) {
-  const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
+  const uiTypeColId = useGetSectionTypeConfig(sectionId, "uiTypeColId");
   return useParamInfos((x) => x.y[uiTypeColId]?.[paramInfoId]);
 }
 
 export function useGetManyParamUITypeIds(sectionId, paramInfos) {
-  const [uiTypeColId] = useGetSectionTypeConfig(sectionId, ["uiTypeColId"]);
+  const uiTypeColId = useGetSectionTypeConfig(sectionId, "uiTypeColId");
   return useParamInfos(
     (x) => paramInfos.map((y) => x.y[uiTypeColId]?.[y.id]),
     _.isEqual

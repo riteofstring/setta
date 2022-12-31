@@ -15,7 +15,7 @@ export function useGetCurrObjParamKwargInfos(sectionId) {
 }
 
 function useGetCollectionChildren(sectionId, type) {
-  const [_collectionIds] = useGetSectionTypeConfig(sectionId, ["collections"]);
+  const _collectionIds = useGetSectionTypeConfig(sectionId, "collections");
   const collectionIds = _collectionIds ? _collectionIds : [];
   return useCodeInfo(
     (x) => [].concat(...collectionIds.map((y) => x[type][y])),
@@ -54,7 +54,7 @@ export function useGetParamInfos(sectionId, objInfoId) {
 }
 
 export function useGetSelectedCollections(sectionId) {
-  const [collections] = useGetSectionTypeConfig(sectionId, ["collections"]);
+  const collections = useGetSectionTypeConfig(sectionId, "collections");
   return useCodeInfo((x) => _.pick(x.allCollections, collections), _.isEqual);
 }
 

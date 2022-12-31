@@ -4,7 +4,7 @@ import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useTitleIsEditable(sectionId) {
   const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
-  const [sectionSubType] = useGetSectionTypeConfig(sectionId, ["subType"]);
+  const sectionSubType = useGetSectionTypeConfig(sectionId, "subType");
 
   return requiresKeyInput(sectionSubType) && !paramInfoId;
 }
