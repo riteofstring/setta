@@ -11,3 +11,7 @@ export function useTopLevelSectionPositions() {
   );
   return [ids, initialPositions];
 }
+
+export function useIsTopLevelSection(sectionId: string) {
+  return useProjectConfig((x) => x.children.includes(sectionId));
+}

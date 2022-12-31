@@ -12,9 +12,14 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
-import { createParamOriginInfoId } from "utils/uiTypeUtils";
+import {
+  createParamOriginInfoId,
+  createSectionOriginInfoId,
+} from "utils/uiTypeUtils";
 import { useGetParamChildId } from "./useEnteredValue";
 import { useParamUITypeId } from "./useParamUIType";
+import { useGetSectionConfig } from "./useSectionConfig";
+import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
 function createName(uiType) {
@@ -29,26 +34,39 @@ function isFromSelf(v: UITypeType, originInfoId: OriginInfoIdType) {
   return _.isEqual(v.originInfoId, originInfoId) && !v.isForChildOfOriginInfoId;
 }
 
-function isFromChild(v: UITypeType, childId) {
+function isFromChild(v: UITypeType, childId: string | null) {
   return (
-    _.isEqual(v.originInfoId, {
-      sectionId: childId,
-      uiTypeColId: null,
-      paramInfoId: null,
-    }) && !v.isForChildOfOriginInfoId
+    childId &&
+    _.isEqual(v.originInfoId, createSectionOriginInfoId(childId)) &&
+    !v.isForChildOfOriginInfoId
   );
 }
 
-function isFromParent(v, parentInfo) {
+function isFromParam(
+  v: UITypeType,
+  parentSectionConfigType: SectionUITypeConfigType,
+  paramInfoId: string | null
+) {
   return (
-    _.isEqual(v.originInfoId, parentInfo.originInfoId) &&
-    isRoot(parentInfo.type) &&
+    parentSectionConfigType &&
+    paramInfoId &&
+    _.isEqual(
+      v.originInfoId,
+      createParamOriginInfoId(parentSectionConfigType, paramInfoId)
+    )
+  );
+}
+
+function isFromRoot(
+  v: UITypeType,
+  parentOriginInfoId: OriginInfoIdType,
+  parentUITypeType: string
+) {
+  return (
+    _.isEqual(v.originInfoId, parentOriginInfoId) &&
+    isRoot(parentUITypeType) &&
     v.isForChildOfOriginInfoId
   );
-}
-
-function matchesOriginInfoId(v, originInfoId, parentInfo = {}) {
-  return isFromSelf(v, originInfoId) || isFromParent(v, parentInfo);
 }
 
 export function isFromSelfAndMatchesType(v, originInfoId, type) {
@@ -86,20 +104,42 @@ function filterUITypes(uiTypes, generalFilterFn, originFilterFn, selectedId) {
   );
 }
 
-export function useAvailableUITypesForSectionConfig(sectionId: string) {
-  // const parentId = useGetSectionInfo(sectionId, "parentId");
-  // const selectedId = useGetSectionConfig(sectionId, "uiTypeId");
-  // const parentType = useGetSectionType(parentId, "type");
-  // const originInfoId = createSectionOriginInfoId(sectionId);
-  // const parentInfo = {
-  //   type: parentType,
-  //   originInfoId: createSectionOriginInfoId(parentId as any), //TODO remove typecast
-  // };
-  // const filterFn = isSectionType;
-  // return useUITypes(
-  //   (x) => filterUITypes(x.x, filterFn, selectedId, originInfoId, parentInfo),
-  //   _.isEqual
-  // );
+export function useAvailableUITypesForNestedSection(sectionId: string) {
+  const parentId = useGetSectionInfo(sectionId, "parentId") as string;
+  const parentOriginInfoId = useGetSectionType(parentId, "originInfoId");
+  const parentUITypeType = useGetSectionType(parentId, "type");
+  const parentSectionTypeConfig = useGetSectionType(
+    parentId,
+    "config"
+  ) as SectionUITypeConfigType;
+  const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
+  const selectedId = useGetSectionConfig(sectionId, "uiTypeId");
+  const originInfoId = createSectionOriginInfoId(sectionId);
+
+  const generalFilterFn = isSectionType;
+  const originFilterFn = (uiType: UITypeType) =>
+    isFromSelf(uiType, originInfoId) ||
+    isFromParam(uiType, parentSectionTypeConfig, paramInfoId) ||
+    isFromRoot(uiType, parentOriginInfoId, parentUITypeType);
+
+  return useUITypes(
+    (x) => filterUITypes(x.x, generalFilterFn, originFilterFn, selectedId),
+    _.isEqual
+  );
+}
+
+export function useAvailableUITypesForTopLevelSection(sectionId: string) {
+  const selectedId = useGetSectionConfig(sectionId, "uiTypeId");
+  const originInfoId = createSectionOriginInfoId(sectionId);
+
+  const generalFilterFn = isSectionType;
+  const originFilterFn = (uiType: UITypeType) =>
+    isFromSelf(uiType, originInfoId);
+
+  return useUITypes(
+    (x) => filterUITypes(x.x, generalFilterFn, originFilterFn, selectedId),
+    _.isEqual
+  );
 }
 
 export function useAvailableUITypesForUIConfig(
