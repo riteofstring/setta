@@ -17,7 +17,7 @@ export default function KwargParam(props) {
   };
 
   return (
-    <div className="flex flex-grow items-center">
+    <div className="flex items-center">
       <IconButton
         onClick={onClick}
         icon={<AiOutlineClose />}

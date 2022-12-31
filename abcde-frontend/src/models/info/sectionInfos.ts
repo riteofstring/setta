@@ -7,16 +7,7 @@ import {
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
-
-function setDefaultAllChildren(
-  state: SectionInfoZustandType,
-  sectionId: string
-) {
-  if (!(sectionId in state.allChildren)) {
-    state.allChildren[sectionId] = [];
-  }
-  return state.allChildren[sectionId];
-}
+import { initValue } from "./utils";
 
 const initialState: SectionInfoStateType = {
   x: {},
@@ -30,7 +21,7 @@ export const useSectionInfos = create(
 
     resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
       const sectionInfos = _.mapValues(sections, (x, id) => {
-        let parentId = null;
+        let parentId: string | null = null;
         for (const [k, v] of Object.entries(sectionChildren)) {
           if (v.includes(id)) {
             parentId = k;
@@ -76,8 +67,14 @@ export const useSectionInfos = create(
 
     setAllChildren: ({ sectionId, newStateFn }) =>
       set((state) => {
-        const currState = setDefaultAllChildren(state, sectionId);
-        state.allChildren[sectionId] = newStateFn(currState);
+        state.allChildren[sectionId] = newStateFn(state.allChildren[sectionId]);
+      }),
+
+    initManyAllChildren: ({ sectionIds }) =>
+      set((state) => {
+        sectionIds.forEach((id) => {
+          initValue(state.allChildren, id, []);
+        });
       }),
 
     setCurrChildrenNames: ({ currChildren, sectionType }) =>
@@ -87,6 +84,13 @@ export const useSectionInfos = create(
             state.x[currChildren[idx]].name = `[${idx}]`;
           }
         }
+      }),
+
+    initManyCurrChildren: ({ sectionIds }) =>
+      set((state) => {
+        sectionIds.forEach((id) => {
+          initValue(state.currChildren, id, []);
+        });
       }),
 
     setCurrChildren: ({ sectionId, currChildren }) =>

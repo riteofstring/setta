@@ -1,7 +1,5 @@
-import * as Tooltip from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-import { FiCornerRightDown } from "react-icons/fi";
 import { addChild } from "thunks/addChild";
 import { deleteChild } from "thunks/deleteChild";
 
@@ -45,47 +43,33 @@ export default function Incrementer({
 
   const [numSections, setNumSections] = useState(1);
   return (
-    <Tooltip.Provider>
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <div className="flex max-w-xs bg-gray-200 rounded-lg gap-2 py-1 px-2">
-            {isRoot && (
-              <h3 className="text-xs font-bold text-gray-600">Children</h3>
-            )}
-            {isRoot && <FiCornerRightDown className="text-gray-600" />}
-            <input
-              className="nodrag max-w-[5ch] bg-white rounded-md text-center text-xs focus-visible:ring-2"
-              value={numSections}
-              onChange={(e) => numSectionsOnChange(e.target.value)}
-              aria-label="Number of sections"
-            />
+    <div className="flex max-w-xs bg-gray-100 rounded-xl py-1 px-2">
+      <h3 style={{ fontSize: ".75em", color: "#A0AEC0" }}>
+        {isRoot && "Children: "}
+      </h3>
+      <input
+        className="nodrag max-w-[5ch] bg-white rounded-md text-center text-xs"
+        value={numSections}
+        onChange={(e) => numSectionsOnChange(e.target.value)}
+        aria-label="Number of sections"
+      />
 
-            <button
-              className="nodrag rounded-full focus-visible:ring-2"
-              onClick={() => deleteChildren(numSections)}
-              disabled={!decrementButtonCondition()}
-              aria-label="Delete child section"
-            >
-              <AiOutlineMinus />
-            </button>
+      <button
+        className="nodrag rounded-full"
+        onClick={() => deleteChildren(numSections)}
+        disabled={!decrementButtonCondition()}
+        aria-label="Delete child section"
+      >
+        <AiOutlineMinus />
+      </button>
 
-            <button
-              className="nodrag rounded-full focus-visible:ring-2"
-              onClick={() => addSections(numSections)}
-              aria-label="Add child section"
-            >
-              <AiOutlinePlus />
-            </button>
-          </div>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content className="bg-white px-3 py-2 rounded-md shadow-md z-30 text-xs font-bold">
-            {isRoot ? "Add / Remove Children" : "Add / Remove Siblings"}
-
-            <Tooltip.Arrow className="[fill:white]" />
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    </Tooltip.Provider>
+      <button
+        className="nodrag rounded-full"
+        onClick={() => addSections(numSections)}
+        aria-label="Add child section"
+      >
+        <AiOutlinePlus />
+      </button>
+    </div>
   );
 }

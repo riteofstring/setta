@@ -7,9 +7,8 @@ module.exports = {
         body: ["Inter", "sans-serif"],
         heading: ["Work Sans", "sans-serif"],
         logo: ["JetBrains Mono", "sans-serif"],
-        code: ["Source Code Pro", "monospace"],
       },
     },
   },
-  // plugins: [],
+  plugins: [],
 };
