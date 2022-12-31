@@ -38,7 +38,7 @@ function useChildIdHelper(sectionId: string) {
   const uiTypeIds = useGetManyParamUITypeIds(sectionId, infos);
   const hasNested = useUITypes(
     (x) =>
-      infos.filter((y, i) => requiresNestedSection(x.x[uiTypeIds[i]].type)),
+      infos.filter((y, i) => requiresNestedSection(x.x[uiTypeIds[i]]?.type)),
     _.isEqual
   );
   return useGetManyParamEVs(sectionId, hasNested, "childId");

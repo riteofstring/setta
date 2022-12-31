@@ -29,10 +29,16 @@ export default function PaneContainer({
       onResizeStop(newVis ? widthDiff : -widthDiff);
     }
   }
-  const [btnDir, setBtnDir] = useState(right ? vis : !vis);
+  const [btnDir, setBtnDir] = useState(vis);
   function btnDirFlip() {
     setBtnDir(!btnDir);
   }
+
+  useEffect(() => {
+    if (!right) {
+      btnDirFlip();
+    }
+  }, []);
 
   const [vMax, setVMax] = useState(50);
   const [vMin, setVMin] = useState(50);

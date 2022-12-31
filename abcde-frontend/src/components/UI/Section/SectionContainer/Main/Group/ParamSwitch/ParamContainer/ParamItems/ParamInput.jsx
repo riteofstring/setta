@@ -10,7 +10,7 @@ export default function ParamInput({
   uiType,
   isDisabled,
 }) {
-  const { enteredValue, setEnteredValue } = useParamEnteredValue(
+  const [enteredValue, setEnteredValue] = useParamEnteredValue(
     sectionId,
     paramInfoId
   );

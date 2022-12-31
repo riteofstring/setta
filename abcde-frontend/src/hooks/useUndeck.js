@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useEffect, useState } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { deleteSections, moveSections } from "thunks/sectionOps";
 import { PANEID } from "utils/constants";
@@ -34,11 +35,21 @@ function useMakeChildrenTopLevel(
   useGetSectionPosition(childIds, requesterName, onCoordsReceived);
 }
 
-export function useUndeck(deckId, doneCallback = () => undefined) {
+export function useUndeck(sectionId, doneCallback = () => undefined) {
+  const [deckId, setDeckId] = useState(null);
   const requesterName = `useUndeck-${deckId}`;
   const childIds = useGetAllChildren(deckId);
   const requestPositionUpdate = useRequestSectionPositionUpdate();
   useMakeChildrenTopLevel(deckId, childIds, requesterName, doneCallback);
+
+  // closeContextMenu() happens before state updates.
+  // So sectionId ends up being null by the time onCoordsReceived is called
+  // Therefore, only update deckId when sectionId is not null
+  useEffect(() => {
+    if (sectionId) {
+      setDeckId(sectionId);
+    }
+  }, [sectionId]);
 
   return () => {
     requestPositionUpdate(childIds, requesterName);

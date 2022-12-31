@@ -1,4 +1,3 @@
-import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import _ from "lodash";
 import { ComboboxSearch } from "./ComboboxSearch";
 
@@ -19,8 +18,9 @@ export function IdNameCombobox({
     newSelectedItem,
     setSelection
   ) => {
-    const sid = newSelectedItem ? newSelectedItem.id : NULL_OBJ_ID;
-    const currId = currSelectedItem ? currSelectedItem.id : NULL_OBJ_ID;
+    // Don't do ?. operator here because I want null, not undefined
+    const sid = newSelectedItem ? newSelectedItem.id : null;
+    const currId = currSelectedItem ? currSelectedItem.id : null;
     if (sid !== currId) {
       setSelection(newSelectedItem);
     }

@@ -2,7 +2,6 @@ import _ from "lodash";
 import { usePanes } from "models/panes";
 import { useSectionPositions } from "models/sectionPositions";
 import { useReactFlow, useStoreApi } from "react-flow-renderer";
-import { getCurrPositionOfSection } from "thunks/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW, PANEID } from "utils/constants";
 
@@ -35,6 +34,11 @@ export function useGetSectionPosition(
   const allIds = sectionIds ? [...sectionIds, PANEID] : null;
   const whoRequested = useSectionPositions((x) => x.whoRequested);
   const setWhoRequested = useSectionPositions((x) => x.setWhoRequested);
+
+  const getCurrPositionOfSection = useSectionPositions(
+    (x) => x.getCurrPositionOfSection
+  );
+
   const sectionPositionUpdated = useSectionPositions(
     (x) => (allIds ? allIds.map((y) => x.positionUpdated[y]) : [false]), //don't return empty array because _.every will evaluate to true
     _.isEqual
@@ -44,7 +48,7 @@ export function useGetSectionPosition(
 
   useDeepCompareEffect(() => {
     if (whoRequested === requesterName && _.every(sectionPositionUpdated)) {
-      const allCoords = getCurrPositionOfSection(sectionIds);
+      const allCoords = getCurrPositionOfSection({ sectionIds });
       onCoordsReceived(allCoords);
       setPositionUpdated({ sectionIds, positionUpdated: false });
       setWhoRequested(null);

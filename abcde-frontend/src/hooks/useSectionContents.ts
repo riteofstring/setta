@@ -2,6 +2,7 @@ import {
   CodeInfoStateType,
   CodeInfoType,
 } from "abcde-utils/src/types/codeInfo";
+import { maybeUseNullId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
@@ -28,26 +29,32 @@ function useGetCollectionChildren<K extends keyof CodeInfoStateType>(
   );
 }
 
-export function useGetAllCallables(sectionId: string) {
+export function useGetAllCallables(sectionId) {
   return useGetCollectionChildren(sectionId, "callables");
 }
 
-function useGetAllParamCollections(sectionId: string) {
+function useGetAllParamCollections(sectionId) {
   return useGetCollectionChildren(sectionId, "paramCollections");
 }
 
 function useGetKwargIds(sectionId: string, objInfoId: string) {
   const kwargColId = useGetSectionConfig(sectionId, "kwargColId");
-  return useKwargCols((x) => x.x[kwargColId][objInfoId], _.isEqual);
+  return useKwargCols(
+    (x) => (objInfoId in x.x[kwargColId] ? x.x[kwargColId][objInfoId] : []),
+    _.isEqual
+  );
 }
 
-export function useGetKwargInfos(sectionId: string, objInfoId: string) {
-  const kwargIds = useGetKwargIds(sectionId, objInfoId);
+export function useGetKwargInfos(sectionId: string, objInfoId) {
+  const kwargIds = useGetKwargIds(sectionId, maybeUseNullId(objInfoId));
   return useCodeInfo((x) => kwargIds.map((y) => x.allCodeInfo[y]), _.isEqual);
 }
 
-export function useGetParamInfos(sectionId: string, objInfoId: string) {
-  const objParamInfos = useCodeInfo((x) => x.params[objInfoId], _.isEqual);
+export function useGetParamInfos(sectionId, objInfoId) {
+  const objParamInfos = useCodeInfo(
+    (x) => (objInfoId ? x.params[objInfoId] : []),
+    _.isEqual
+  );
   const paramCollections = useGetAllParamCollections(sectionId);
   return [...objParamInfos, ...paramCollections];
 }
