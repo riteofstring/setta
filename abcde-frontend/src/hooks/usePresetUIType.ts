@@ -1,4 +1,5 @@
 import { isRoot, SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
+import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import {
   isBasePreset,
   isNotDeck,
@@ -7,6 +8,9 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
+import { createParamOriginInfoId } from "utils/uiTypeUtils";
+import { useParamUITypeId } from "./useParamUIType";
+import { useGetSectionType } from "./useSectionType";
 
 export function usePresetUIType(uiTypeId) {
   const uiType = useUITypes((x) => x.x[uiTypeId]);
@@ -133,4 +137,23 @@ export function useAvailablePresetUITypes({
   //   _.isEqual
   // );
   return useUITypes((x) => _.filter(x.x, () => true), _.isEqual);
+}
+
+export function useAvailableUITypesForSectionConfig() {}
+
+export function useAvailableUITypesForUIConfig(
+  sectionId: string,
+  paramInfoId: string
+) {
+  const sectionTypeConfig = useGetSectionType(
+    sectionId,
+    "config"
+  ) as SectionUITypeConfigType;
+  const selectedId = useParamUITypeId(sectionId, paramInfoId);
+  const originInfoId = createParamOriginInfoId(sectionTypeConfig, paramInfoId);
+  const filterFn = () => true;
+  return useUITypes(
+    (x) => filterUITypes(x.x, filterFn, selectedId, originInfoId, {}),
+    _.isEqual
+  );
 }

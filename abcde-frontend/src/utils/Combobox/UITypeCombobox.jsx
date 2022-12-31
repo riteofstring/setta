@@ -1,15 +1,14 @@
 import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import { usePaneComboboxWidth } from "hooks/usePaneComboboxWidth";
-import { useAvailablePresetUITypes } from "hooks/usePresetUIType";
+import { useAvailableUITypesForUIConfig } from "hooks/usePresetUIType";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
-export default function UITypeCombobox({
+function UITypeCombobox({
   onDropdownSelect,
   selectedId,
-  availableTypesProps,
+  availableUITypes,
   comboboxProps,
 }) {
-  const availableUITypes = useAvailablePresetUITypes(availableTypesProps);
   const comboboxWidth = usePaneComboboxWidth();
 
   function itemStyleGetter(item) {
@@ -30,6 +29,44 @@ export default function UITypeCombobox({
       width={comboboxWidth}
       itemStyleGetter={itemStyleGetter}
       {...comboboxProps}
+    />
+  );
+}
+
+export function SectionConfigUITypeCombobox({
+  sectionId,
+  onDropdownSelect,
+  selectedId,
+  comboboxProps,
+}) {
+  return (
+    <UITypeCombobox
+      availableUITypes={[]}
+      onDropdownSelect={onDropdownSelect}
+      selectedId={selectedId}
+      comboboxProps={comboboxProps}
+    />
+  );
+}
+
+export function UIConfigUITypeCombobox({
+  sectionId,
+  paramInfoId,
+  onDropdownSelect,
+  selectedId,
+  comboboxProps,
+}) {
+  const availableUITypes = useAvailableUITypesForUIConfig(
+    sectionId,
+    paramInfoId
+  );
+
+  return (
+    <UITypeCombobox
+      availableUITypes={availableUITypes}
+      onDropdownSelect={onDropdownSelect}
+      selectedId={selectedId}
+      comboboxProps={comboboxProps}
     />
   );
 }
