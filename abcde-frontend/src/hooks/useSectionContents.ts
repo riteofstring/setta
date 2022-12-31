@@ -8,7 +8,7 @@ import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetCurrObjParamKwargInfos(sectionId) {
-  const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
+  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
   return [...paramInfos, ...kwargInfos];
@@ -32,7 +32,7 @@ function useGetAllParamCollections(sectionId) {
 }
 
 function useGetKwargIds(sectionId, objInfoId) {
-  const [kwargColId] = useGetSectionConfig(sectionId, ["kwargColId"]);
+  const kwargColId = useGetSectionConfig(sectionId, "kwargColId");
   return defaultState(
     useKwargCols((x) => x.x[kwargColId]?.[objInfoId]),
     []

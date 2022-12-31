@@ -3,7 +3,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { useGetSectionConfig } from "./useSectionConfig";
 
 export function useGetSectionTypeConfig(sectionId, props) {
-  const [uiTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
   return useUITypes(
     (x) => props.map((y) => x.x[uiTypeId]?.["config"]?.[y]),
     _.isEqual
@@ -11,6 +11,6 @@ export function useGetSectionTypeConfig(sectionId, props) {
 }
 
 export function useGetSectionType(sectionId, props) {
-  const [uiTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
   return useUITypes((x) => props.map((y) => x.x[uiTypeId]?.[y]), _.isEqual);
 }

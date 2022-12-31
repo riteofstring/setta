@@ -15,7 +15,7 @@ import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const [selectedItem] = useGetSectionConfig(sectionId, ["selectedItem"]);
+  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const [sectionTypeName, config] = useGetSectionType(sectionId, [
     "type",
     "config",

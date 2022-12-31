@@ -24,12 +24,12 @@ export function useGetParamChildId(sectionId, paramInfoId) {
 }
 
 export function useGetParamEnteredValueId(sectionId, paramInfoId) {
-  const [evColId] = useGetSectionConfig(sectionId, ["evColId"]);
+  const evColId = useGetSectionConfig(sectionId, "evColId");
   return useParamInfos((x) => x.x[evColId]?.[paramInfoId]);
 }
 
 export function useGetManyParamEVs(sectionId, paramInfos, key) {
-  const [evColId] = useGetSectionConfig(sectionId, ["evColId"]);
+  const evColId = useGetSectionConfig(sectionId, "evColId");
   const enteredValueIds = useParamInfos(
     (x) => paramInfos.map((y) => x.x[evColId]?.[y.id]),
     _.isEqual

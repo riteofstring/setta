@@ -96,10 +96,12 @@ function SectionsPane() {
           closeContextMenu={closeSelectionCtxMenu}
           reactFlowRef={reactFlowRef}
         />
-        <NodeContextMenu
-          {...nodeCtxMenuDetails}
-          closeContextMenu={closeNodeCtxMenu}
-        />
+        {nodeCtxMenuDetails.nodeId && (
+          <NodeContextMenu
+            {...nodeCtxMenuDetails}
+            closeContextMenu={closeNodeCtxMenu}
+          />
+        )}
         <ResponsiveMiniMap />
         <ResponsiveControls />
         <Background color="#b3bfd1" size={0.75} gap={16} />

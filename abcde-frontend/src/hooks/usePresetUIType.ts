@@ -7,13 +7,6 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
-import {
-  createParamOriginInfoId,
-  createSectionOriginInfoId,
-} from "utils/uiTypeUtils";
-import { useParamUITypeId } from "./useParamUIType";
-import { useGetSectionInfo } from "./useSectionInfo";
-import { useGetSectionType } from "./useSectionType";
 
 export function usePresetUIType(uiTypeId) {
   const uiType = useUITypes((x) => x.x[uiTypeId]);
@@ -103,39 +96,41 @@ export function useAvailablePresetUITypes({
   paramInfoId,
   settingSectionConfig,
 }) {
-  const parentId = useGetSectionInfo(sectionId, "parentId");
-  const sectionParamInfoId = useGetSectionInfo(sectionId, "paramInfoId");
+  //TODO FIX THIS SHIT
+  // const parentId = useGetSectionInfo(sectionId, "parentId");
+  // const sectionParamInfoId = useGetSectionInfo(sectionId, "paramInfoId");
 
-  const [sectionTypeId, sectionTypeConfig] = useGetSectionType(sectionId, [
-    "id",
-    "config",
-  ]);
-  const [parentType, parentTypeConfig] = useGetSectionType(parentId, [
-    "type",
-    "config",
-  ]);
-  const paramUITypeId = useParamUITypeId(sectionId, paramInfoId);
+  // const [sectionTypeId, sectionTypeConfig] = useGetSectionType(sectionId, [
+  //   "id",
+  //   "config",
+  // ]);
+  // const [parentType, parentTypeConfig] = useGetSectionType(parentId, [
+  //   "type",
+  //   "config",
+  // ]);
+  // const paramUITypeId = useParamUITypeId(sectionId, paramInfoId);
 
-  let originInfoId;
-  if (settingSectionConfig) {
-    originInfoId = paramInfoId
-      ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
-      : createSectionOriginInfoId(sectionId);
-  } else {
-    originInfoId = paramInfoId
-      ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
-      : createParamOriginInfoId(parentTypeConfig, sectionParamInfoId as any); //TODO remove typecast
-  }
+  // let originInfoId;
+  // if (settingSectionConfig) {
+  //   originInfoId = paramInfoId
+  //     ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
+  //     : createSectionOriginInfoId(sectionId);
+  // } else {
+  //   originInfoId = paramInfoId
+  //     ? createParamOriginInfoId(sectionTypeConfig, paramInfoId)
+  //     : createParamOriginInfoId(parentTypeConfig, sectionParamInfoId as any); //TODO remove typecast
+  // }
 
-  const parentInfo = {
-    type: parentType,
-    originInfoId: createSectionOriginInfoId(parentId as any), //TODO remove typecast
-  };
-  const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
-  const filterFn = paramInfoId ? () => true : isSectionType;
+  // const parentInfo = {
+  //   type: parentType,
+  //   originInfoId: createSectionOriginInfoId(parentId as any), //TODO remove typecast
+  // };
+  // const selectedId = paramInfoId ? paramUITypeId : sectionTypeId;
+  // const filterFn = paramInfoId ? () => true : isSectionType;
 
-  return useUITypes(
-    (x) => filterUITypes(x.x, filterFn, selectedId, originInfoId, parentInfo),
-    _.isEqual
-  );
+  // return useUITypes(
+  //   (x) => filterUITypes(x.x, filterFn, selectedId, originInfoId, parentInfo),
+  //   _.isEqual
+  // );
+  return useUITypes((x) => _.filter(x.x, () => true), _.isEqual);
 }

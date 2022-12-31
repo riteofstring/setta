@@ -9,14 +9,13 @@ import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
 export default React.memo(SectionConfig);
 
-function SectionConfig() {
-  const sectionId = useActiveSection((x) => x.id);
+function SectionConfig({ sectionId }) {
   const setActiveSection = useActiveSection((x) => x.setId);
   const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
   const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
   const setTab = useUIEditor((x) => x.setTab);
   const parentId = useGetSectionInfo(sectionId, "parentId");
-  const [currTypeId] = useGetSectionConfig(sectionId, ["uiTypeId"]);
+  const currTypeId = useGetSectionConfig(sectionId, "uiTypeId");
 
   const onGoBackClick = () => {
     setActiveSection(parentId);

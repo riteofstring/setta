@@ -71,26 +71,32 @@ function componentSetup({ forParent, numChildren }) {
 
   // increment for one of the children
   function SectionHeaderForChild() {
+    const sectionExists = useSectionInfos((x) => x.x[childIds[0]]);
     return (
-      <SectionHeader
-        parentId={parent.id}
-        sectionId={childIds[0]}
-        nextId={childIds.length > 1 ? childIds[1] : null}
-        isSeriesElement={true}
-        isRoot={false}
-      />
+      sectionExists && (
+        <SectionHeader
+          parentId={parent.id}
+          sectionId={childIds[0]}
+          nextId={childIds.length > 1 ? childIds[1] : null}
+          isSeriesElement={true}
+          isRoot={false}
+        />
+      )
     );
   }
 
   // increment for one of the children
   function SectionHeaderForParent() {
+    const sectionExists = useSectionInfos((x) => x.x[parent.id]);
     return (
-      <SectionHeader
-        sectionId={parent.id}
-        isSeriesElement={false}
-        isRoot={true}
-        hasNested={true}
-      />
+      sectionExists && (
+        <SectionHeader
+          sectionId={parent.id}
+          isSeriesElement={false}
+          isRoot={true}
+          hasNested={true}
+        />
+      )
     );
   }
 

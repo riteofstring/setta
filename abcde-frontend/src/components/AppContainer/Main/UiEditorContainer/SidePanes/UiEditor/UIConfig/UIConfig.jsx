@@ -4,7 +4,6 @@ import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { useActiveSection } from "models/activeSection";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
@@ -15,8 +14,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 export default React.memo(UIConfig);
 
-function UIConfig() {
-  const sectionId = useActiveSection((x) => x.id);
+function UIConfig({ sectionId }) {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
     (x) => x.name
   );

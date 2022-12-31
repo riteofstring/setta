@@ -6,7 +6,8 @@ export function useGetSectionInfo<K extends keyof SectionType>(
   sectionId: string,
   key: K
 ) {
-  return useSectionInfos((x) => x.x[sectionId][key]);
+  const equalityFn = key === "initialPosition" ? _.isEqual : undefined;
+  return useSectionInfos((x) => x.x[sectionId][key], equalityFn);
 }
 
 export function useGetManySectionInfos(sectionIds, props) {
