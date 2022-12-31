@@ -1,5 +1,6 @@
 import { useTopLevelSectionPositions } from "hooks/useProjectConfig";
 import React from "react";
+import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import SectionsPane from "./Section/SectionsPane";
 
 const UiPage = () => {
@@ -10,7 +11,11 @@ const UiPage = () => {
     type: "sectionContainerNode",
   }));
 
-  return <SectionsPane initialNodes={initialNodes} />;
+  return (
+    <GlobalDndContext>
+      <SectionsPane initialNodes={initialNodes} />
+    </GlobalDndContext>
+  );
 };
 
 export default React.memo(UiPage);
