@@ -1,4 +1,5 @@
-import { BiFile, BiGitBranch } from "react-icons/bi";
+import * as RadioGroup from "@radix-ui/react-dropdown-menu";
+import { BiFile } from "react-icons/bi";
 import { HiCheckCircle } from "react-icons/hi";
 
 // export function SelectableFileListItem({ isProject, name }) {
@@ -13,7 +14,7 @@ import { HiCheckCircle } from "react-icons/hi";
 export function FileListItem({ isProject, name }) {
   return (
     <div className="flex items-center gap-2 cursor-pointer py-1 rounded-md flex-grow hover:bg-gray-50 hover:shadow-sm px-2 focus-visible:ring-1">
-      <GetFileIcon isProject={isProject} />
+      <GetFileIcon isProject={isProject} isChecked={isChecked} />
       <h4 className="text-gray-600 flex-1 group-checked/radioitem:text-white">
         {name}
       </h4>
@@ -22,15 +23,15 @@ export function FileListItem({ isProject, name }) {
 }
 
 function GetFileIcon({ isProject }) {
-  const styles = " text-gray-400 group-hover:text-gray-800";
+  const styles = "text-gray-400 group-hover:text-gray-800";
+
   return isProject ? (
     <BiFile className={styles} />
   ) : (
-    <>
-      <HiCheckCircle className="checkicon  text-green-500 checked:visible" />
-      <BiGitBranch
-        className={`configicon ${styles} invisible checked:visible`}
-      />
-    </>
+    <RadioGroup.Indicator>
+      <HiCheckCircle className="checkicon  text-green-500" />
+    </RadioGroup.Indicator>
   );
+
+  // <BiGitBranch className={`configicon ${styles}`} />
 }
