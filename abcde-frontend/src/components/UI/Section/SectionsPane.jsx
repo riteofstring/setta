@@ -1,4 +1,3 @@
-import { useTopLevelSectionPositions } from "hooks/useProjectConfig";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
 import React from "react";
@@ -31,15 +30,8 @@ function setInitialToCurrent(initialNodes, nodes) {
   return newNodeStates;
 }
 
-function SectionsPane() {
+function SectionsPane({ initialNodes }) {
   const reactFlowRef = useSetSectionPosition(PANEID);
-  const [topLevelIds, topLevelPositions] = useTopLevelSectionPositions();
-
-  const initialNodes = topLevelIds.map((x, idx) => ({
-    id: x,
-    position: topLevelPositions[idx],
-    type: "sectionContainerNode",
-  }));
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
