@@ -3,7 +3,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useGetSectionInfo, useSomeSectionInfoNames } from "./useSectionInfo";
 
-export function useSectionSiblingNames(sectionId) {
+export function useSectionSiblingNames(sectionId: string) {
   const sectionName = useGetSectionInfo(sectionId, "name");
   const parentId = useGetSectionInfo(sectionId, "parentId");
   const topLevelSectionIds = useProjectConfig((x) => x.children, _.isEqual);

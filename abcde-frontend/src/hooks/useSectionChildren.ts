@@ -33,7 +33,7 @@ export function useGetCurrChildren(sectionId: string) {
   return currChildren;
 }
 
-function useChildIdHelper(sectionId) {
+function useChildIdHelper(sectionId: string) {
   const infos = useGetCurrObjParamKwargInfos(sectionId);
   const uiTypeIds = useGetManyParamUITypeIds(sectionId, infos);
   const hasNested = useUITypes(
