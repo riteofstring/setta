@@ -19,7 +19,7 @@ function StandardGrid({ gridProps, children }) {
 function FlexForm({ flexFormWrap = false, children }) {
   if (flexFormWrap) {
     return (
-      <div className="flex flex-col min-h-[200px] justify-center items-center">
+      <div className="flex flex-col w-full min-h-[200px] justify-center items-center">
         {children}
       </div>
     );

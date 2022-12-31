@@ -10,7 +10,12 @@ import {
 } from "./useGetSectionPosition";
 import { useGetAllChildren } from "./useSectionChildren";
 
-function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
+function useMakeChildrenTopLevel(
+  deckId,
+  childIds,
+  requesterName,
+  doneCallback
+) {
   const { project } = useReactFlow();
   function onCoordsReceived(coords) {
     const positions = {};
@@ -24,17 +29,18 @@ function useMakeChildrenTopLevel(deckId, childIds, requesterName) {
       positions,
     });
     deleteSections({ sectionIds: [deckId] });
+    doneCallback();
   }
 
   useGetSectionPosition(childIds, requesterName, onCoordsReceived);
 }
 
-export function useUndeck(sectionId) {
+export function useUndeck(sectionId, doneCallback = () => undefined) {
   const [deckId, setDeckId] = useState(null);
   const requesterName = `useUndeck-${deckId}`;
   const childIds = useGetAllChildren(deckId);
   const requestPositionUpdate = useRequestSectionPositionUpdate();
-  useMakeChildrenTopLevel(deckId, childIds, requesterName);
+  useMakeChildrenTopLevel(deckId, childIds, requesterName, doneCallback);
 
   // closeContextMenu() happens before state updates.
   // So sectionId ends up being null by the time onCoordsReceived is called

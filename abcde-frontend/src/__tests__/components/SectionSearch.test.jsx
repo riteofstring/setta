@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
@@ -15,8 +16,8 @@ test("Test SectionSearch", async () => {
   const { rerender } = render(<SectionContainer {...props} />);
 
   // Expect that this section doesn't have any selection
-  let { result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]);
-  expect(result.current[0]).toEqual(null);
+  let { result } = renderUseGetSectionConfig(sectionId, "selectedItem");
+  expect(result.current).toEqual(NULL_OBJ_ID);
 
   // search box should be empty
   let searchBox = screen.getByRole("textbox");
@@ -30,8 +31,8 @@ test("Test SectionSearch", async () => {
 
   // Expect that the SGD object is now selected
   const idSGD = "0c264e90-eb09-4dfb-bb5b-b357037b2a08";
-  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
-  expect(result.current[0]).toEqual(idSGD);
+  ({ result } = renderUseGetSectionConfig(sectionId, "selectedItem"));
+  expect(result.current).toEqual(idSGD);
 
   // Get another collection
   const newCollection = _.find(
@@ -54,8 +55,8 @@ test("Test SectionSearch", async () => {
   rerender(<SectionContainer {...props} />);
 
   // Expect selectedItem to be unchanged
-  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
-  expect(result.current[0]).toEqual(idSGD);
+  ({ result } = renderUseGetSectionConfig(sectionId, "selectedItem"));
+  expect(result.current).toEqual(idSGD);
 
   // Make section only have models
   await waitFor(() =>
@@ -72,8 +73,8 @@ test("Test SectionSearch", async () => {
   rerender(<SectionContainer {...props} />);
 
   // Expect selectedItem to be null now that its item is no longer available in the combobox
-  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
-  expect(result.current[0]).toEqual(null);
+  ({ result } = renderUseGetSectionConfig(sectionId, "selectedItem"));
+  expect(result.current).toEqual(NULL_OBJ_ID);
 
   // search box should be empty
   searchBox = screen.getByRole("textbox");
@@ -100,6 +101,6 @@ test("Test SectionSearch", async () => {
   rerender(<SectionContainer {...props} />);
 
   // Expect selectedItem to be null now that its item is no longer available in the combobox
-  ({ result } = renderUseGetSectionConfig(sectionId, ["selectedItem"]));
-  expect(result.current[0]).toEqual(null);
+  ({ result } = renderUseGetSectionConfig(sectionId, "selectedItem"));
+  expect(result.current).toEqual(NULL_OBJ_ID);
 });
