@@ -5,10 +5,11 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { deleteChild } from "./deleteChild";
+import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
-export function addKwarg({ sectionId, objInfoId }) {
+export function addKwarg(sectionId: string, objInfoId: string) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name: "",
@@ -20,6 +21,7 @@ export function addKwarg({ sectionId, objInfoId }) {
     objInfoId: objInfoId,
     newStateFn: (x) => [...x, kwargInfo.id],
   });
+  initializeParam(sectionId, [kwargInfo]);
 }
 
 export function deleteKwarg(payload) {

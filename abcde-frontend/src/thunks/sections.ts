@@ -14,7 +14,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { initializeParam } from "./initializeParam";
 
 function getSectionConfigId(sectionId) {
-  return useSectionInfos.getState().x[sectionId]?.configId;
+  return useSectionInfos.getState().x[sectionId].configId;
 }
 
 export function getSectionConfig(sectionId) {
