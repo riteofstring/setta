@@ -7,6 +7,7 @@ import {
   UI_CONFIG_TAB,
   useUIEditor,
 } from "models/uiEditor";
+import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
 import SectionConfig from "./SectionConfig/SectionConfig";
 import UIConfig from "./UIConfig/UIConfig";
@@ -34,11 +35,16 @@ export default function UiEditor() {
           <TabItem name="Card" value={SECTION_CONFIG_TAB} />
           <TabItem name="Parameters" value={UI_CONFIG_TAB} />
         </Tabs.List>
-        <TabContent value={SECTION_CONFIG_TAB}>
+        <TabContent
+          value={SECTION_CONFIG_TAB}
+          className={`${!sectionId && "h-full"}`}
+        >
           {sectionId && <SectionConfig sectionId={sectionId} />}
+          {!sectionId && <Placeholder />}
         </TabContent>
         <TabContent value={UI_CONFIG_TAB}>
           {sectionId && <UIConfig sectionId={sectionId} />}
+          {!sectionId && <Placeholder />}
         </TabContent>
       </Tabs.Root>
     </PaneContainer>
@@ -63,4 +69,17 @@ function TabItem({ name, value }) {
 function TabContent(props) {
   const { children, value } = props;
   return <Tabs.Content value={value}>{children}</Tabs.Content>;
+}
+
+function Placeholder() {
+  return (
+    <div className="grid min-h-[60vh]">
+      <div className="place-self-center flex flex-col items-center gap-4">
+        <FiEdit3 className="w-20 h-20 text-gray-300 " />
+        <h4 className="font-bold text-gray-300 tracking-widest text-lg">
+          Select A Card to Edit
+        </h4>
+      </div>
+    </div>
+  );
 }
