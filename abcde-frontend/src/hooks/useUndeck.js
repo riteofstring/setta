@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useReactFlow } from "react-flow-renderer";
-import { deleteSections, moveSections } from "thunks/sections/sectionOps";
+import { deleteSections, moveSections } from "thunks/sectionOps";
 import { PANEID } from "utils/constants";
 
 import {

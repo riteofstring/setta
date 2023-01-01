@@ -1,5 +1,5 @@
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
-import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { addSectionAtPosition } from "thunks/addSectionAtPosition";
 
 export function useOnClickAddSection({
   x,
