@@ -1,7 +1,10 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setParamChildId } from "thunks/paramInfos";
 import { insertIntoArrayOrXpend } from "utils/utils";
-import { createChildSectionInfo } from "./createSectionInfo";
+import {
+  createChildForSeries,
+  createManySectionInfo,
+} from "./createSectionInfo";
 
 function getNewStateFn(startId: string | null, newIds: string[]) {
   return (x) => {
@@ -13,7 +16,7 @@ function getNewStateFn(startId: string | null, newIds: string[]) {
   };
 }
 
-export function addChildViaIncrementer({
+export function addChildForSeries({
   parentId,
   numChildren,
   startId = null,
@@ -22,7 +25,7 @@ export function addChildViaIncrementer({
   numChildren: number;
   startId: string | null;
 }) {
-  const newIds = createChildSectionInfo({
+  const newIds = createChildForSeries({
     parentId,
     numChildren,
   });
@@ -35,34 +38,28 @@ export function addChildViaIncrementer({
   return newIds;
 }
 
-export function addChild({
+export function addChildForParam({
   parentId,
-  name = null,
+  name,
   uiTypeId,
-  numChildren = 1,
-  parentParamInfoId = null,
-  startId = null,
+  paramInfoId,
 }: any) {
-  const newIds = createChildSectionInfo({
-    parentId,
-    name,
-    uiTypeId,
-    numChildren,
-    paramInfoId: parentParamInfoId,
-  });
+  const newId = createManySectionInfo({
+    sectionInfoProps: { name, parentId, paramInfoId },
+    sectionConfigProps: { uiTypeId },
+    numChildren: 1,
+  })[0];
 
   useSectionInfos.getState().setAllChildren({
     sectionId: parentId,
-    newStateFn: getNewStateFn(startId, newIds),
+    newStateFn: getNewStateFn(null, [newId]),
   });
 
-  if (parentParamInfoId) {
-    setParamChildId({
-      sectionId: parentId,
-      paramInfoId: parentParamInfoId,
-      childId: newIds[0],
-    });
-  }
+  setParamChildId({
+    sectionId: parentId,
+    paramInfoId,
+    childId: newId,
+  });
 
-  return newIds;
+  return newId;
 }

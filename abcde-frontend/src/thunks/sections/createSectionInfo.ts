@@ -10,36 +10,17 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getChildUITypeId } from "utils/uiTypeUtils";
+import { getSectionType } from "./sections";
 
-function maybeGetChildUITypeId(
-  uiTypeId,
-  parentUIType,
-  parentId,
-  setUIType,
-  setOneConfig
-) {
-  if (uiTypeId) {
-    return uiTypeId;
-  }
-  return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
-}
-
-export function createChildSectionInfo({
-  parentId,
-  numChildren,
-  ...sectionInfoProps
-}) {
-  const sectionConfigState = useSectionConfigs.getState();
+export function createChildForSeries({ parentId, numChildren }) {
   const uiTypesState = useUITypes.getState();
   const sectionInfosState = useSectionInfos.getState();
 
-  const { name: parentName, configId } = sectionInfosState.x[parentId];
-  const { uiTypeId: parentUITypeId } = sectionConfigState.x[configId];
-  const parentUIType = uiTypesState.x[parentUITypeId];
+  const { name: parentName } = sectionInfosState.x[parentId];
+  const parentUIType = getSectionType(parentId);
   const { setUIType, setOneConfig } = uiTypesState;
 
-  const uiTypeId = maybeGetChildUITypeId(
-    sectionInfoProps.uiTypeId,
+  const uiTypeId = getChildUITypeId(
     parentUIType,
     parentId,
     setUIType,
@@ -47,7 +28,7 @@ export function createChildSectionInfo({
   );
 
   const newIds = createManySectionInfo({
-    sectionInfoProps: { ...sectionInfoProps, parentId, parentName },
+    sectionInfoProps: { parentId, parentName },
     sectionConfigProps: { uiTypeId },
     numChildren,
   });

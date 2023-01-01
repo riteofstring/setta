@@ -2,7 +2,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { FiCornerRightDown } from "react-icons/fi";
-import { addChildViaIncrementer } from "thunks/sections/addChild";
+import { addChildForSeries } from "thunks/sections/addChild";
 import { deleteChild } from "thunks/sections/deleteChild";
 
 export default function Incrementer({
@@ -18,9 +18,9 @@ export default function Incrementer({
 
   const addSections = (numSections) => {
     if (isRoot) {
-      addChildViaIncrementer({ parentId: sectionId, numChildren: numSections });
+      addChildForSeries({ parentId: sectionId, numChildren: numSections });
     } else {
-      addChildViaIncrementer({
+      addChildForSeries({
         parentId,
         numChildren: numSections,
         startId: sectionId,

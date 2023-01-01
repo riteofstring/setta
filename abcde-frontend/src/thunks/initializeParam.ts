@@ -9,7 +9,7 @@ import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
-import { addChild } from "./sections/addChild";
+import { addChildForParam } from "./sections/addChild";
 import { getSectionConfig } from "./sections/sections";
 
 export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
@@ -133,12 +133,12 @@ export function initializeChild(
 
   // TODO: create a new function 'addChildren' to avoid this loop
   for (const [paramId, uiTypeId] of Object.entries(newUITypeIds)) {
-    paramIdToChildId[paramId] = addChild({
+    paramIdToChildId[paramId] = addChildForParam({
       parentId: sectionId,
       name: paramInfos[paramId].name,
       uiTypeId,
-      parentParamInfoId: paramInfos[paramId].id,
-    })[0];
+      paramInfoId: paramInfos[paramId].id,
+    });
   }
 
   return { paramIdToChildId, newUITypeIds };
