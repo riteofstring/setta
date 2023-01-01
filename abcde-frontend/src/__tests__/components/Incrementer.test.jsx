@@ -4,7 +4,7 @@ import { SectionHeader } from "components/UI/Section/SectionContainer/Header/Sec
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { resetAllStores } from "models/utils";
-import { addChild } from "thunks/addChild";
+import { addChildForSeries } from "thunks/sections/addChild";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { addSectionInfo } from "__tests__utils/utils";
 
@@ -68,7 +68,7 @@ function componentSetup({ forParent, numChildren }) {
   resetAllStores();
   const { section: parent } = addSectionInfo();
   _.range(numChildren).forEach(() => {
-    addChild({ parentId: parent.id });
+    addChildForSeries({ parentId: parent.id, numChildren: 1 });
   });
   const state = useSectionInfos.getState();
   const childIds = state.allChildren[parent.id];
