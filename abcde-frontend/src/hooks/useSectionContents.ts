@@ -38,7 +38,10 @@ function useGetAllParamCollections(sectionId: string) {
 
 function useGetKwargIds(sectionId: string, objInfoId: string) {
   const kwargColId = useGetSectionConfig(sectionId, "kwargColId");
-  return useKwargCols((x) => x.x[kwargColId][objInfoId], _.isEqual);
+  return useKwargCols(
+    (x) => (objInfoId in x.x[kwargColId] ? x.x[kwargColId][objInfoId] : []),
+    _.isEqual
+  );
 }
 
 export function useGetKwargInfos(sectionId: string, objInfoId: string) {

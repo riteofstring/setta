@@ -1,9 +1,5 @@
 import { isRoot, SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
-import {
-  OriginInfoIdType,
-  SectionUITypeConfigType,
-  UITypeType,
-} from "abcde-utils/src/types/uiType";
+import { OriginInfoIdType, UITypeType } from "abcde-utils/src/types/uiType";
 import {
   isBasePreset,
   isNotDeck,
@@ -44,15 +40,14 @@ function isFromChild(v: UITypeType, childId: string | null) {
 
 function isFromParam(
   v: UITypeType,
-  parentSectionConfigType: SectionUITypeConfigType,
+  parentUITypeColId: string,
   paramInfoId: string | null
 ) {
   return (
-    parentSectionConfigType &&
     paramInfoId &&
     _.isEqual(
       v.originInfoId,
-      createParamOriginInfoId(parentSectionConfigType, paramInfoId)
+      createParamOriginInfoId(parentUITypeColId, paramInfoId)
     )
   );
 }
@@ -108,10 +103,7 @@ export function useAvailableUITypesForNestedSection(sectionId: string) {
   const parentId = useGetSectionInfo(sectionId, "parentId") as string;
   const parentOriginInfoId = useGetSectionType(parentId, "originInfoId");
   const parentUITypeType = useGetSectionType(parentId, "type");
-  const parentSectionTypeConfig = useGetSectionType(
-    parentId,
-    "config"
-  ) as SectionUITypeConfigType;
+  const parentUITypeColId = useGetSectionConfig(parentId, "uiTypeColId");
   const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
   const selectedId = useGetSectionConfig(sectionId, "uiTypeId");
   const originInfoId = createSectionOriginInfoId(sectionId);
@@ -119,7 +111,7 @@ export function useAvailableUITypesForNestedSection(sectionId: string) {
   const generalFilterFn = isSectionType;
   const originFilterFn = (uiType: UITypeType) =>
     isFromSelf(uiType, originInfoId) ||
-    isFromParam(uiType, parentSectionTypeConfig, paramInfoId) ||
+    isFromParam(uiType, parentUITypeColId, paramInfoId) ||
     isFromRoot(uiType, parentOriginInfoId, parentUITypeType);
 
   return useUITypes(
@@ -146,13 +138,10 @@ export function useAvailableUITypesForUIConfig(
   sectionId: string,
   paramInfoId: string
 ) {
-  const sectionTypeConfig = useGetSectionType(
-    sectionId,
-    "config"
-  ) as SectionUITypeConfigType;
+  const uiTypeColId = useGetSectionConfig(sectionId, "uiTypeColId");
   const childId = useGetParamChildId(sectionId, paramInfoId);
   const selectedId = useParamUITypeId(sectionId, paramInfoId);
-  const originInfoId = createParamOriginInfoId(sectionTypeConfig, paramInfoId);
+  const originInfoId = createParamOriginInfoId(uiTypeColId, paramInfoId);
 
   const generalFilterFn = () => true;
   const originFilterFn = (uiType: UITypeType) =>

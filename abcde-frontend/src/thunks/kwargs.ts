@@ -7,7 +7,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { deleteChild } from "./deleteChild";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
-import { getSectionConfig, getSectionTypeConfig } from "./sections";
+import { getSectionConfig } from "./sections";
 
 export function addKwarg(sectionId: string, objInfoId: string) {
   const { kwargColId } = getSectionConfig(sectionId);
@@ -35,7 +35,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   const { sectionId, objInfoId, deleteLast = false } = payload;
   let { kwargId = "" } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
-  const { uiTypeColId } = getSectionTypeConfig(sectionId);
+  const { uiTypeColId } = getSectionConfig(sectionId);
   if (deleteLast) {
     const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
     const numKwargs = kwargIds.length;

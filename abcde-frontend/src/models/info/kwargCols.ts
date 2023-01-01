@@ -1,4 +1,3 @@
-import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import {
   KwargColStateType,
   KwargColZustandType,
@@ -22,17 +21,13 @@ export const useKwargCols = create(
       set((state) => {
         _.forEach(collectionIds, (id) => {
           initValue(state.x, id, {});
-          initValue(state.x[id], NULL_OBJ_ID, []);
         });
-      }),
-    initObjInfoId: ({ collectionId, objInfoId }) =>
-      set((state) => {
-        initValue(state.x[collectionId], objInfoId, []);
       }),
     setKwargIds: ({ collectionId, objInfoId, newStateFn }) =>
       set((state) => {
         const currState = state.x[collectionId];
-        currState[objInfoId] = newStateFn(currState[objInfoId]);
+        const currIds = currState[objInfoId];
+        currState[objInfoId] = newStateFn(currIds ? currIds : []);
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
