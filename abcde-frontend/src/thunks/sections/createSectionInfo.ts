@@ -76,6 +76,10 @@ export function addSectionsToState(
     collectionIds: _.map(sectionConfigs, (x) => x.evColId),
   });
 
+  useParamInfos.getState().initManyUITypeColIds({
+    collectionIds: _.map(sectionConfigs, (x) => x.uiTypeColId),
+  });
+
   useKwargCols.getState().initManyKwargColIds({
     collectionIds: _.map(sectionConfigs, (x) => x.kwargColId),
   });
