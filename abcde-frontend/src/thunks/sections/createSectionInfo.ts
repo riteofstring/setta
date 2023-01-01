@@ -8,32 +8,19 @@ import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useUITypes } from "models/info/uiTypes";
 import { getChildUITypeId } from "utils/uiTypeUtils";
 import { getSectionType } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
-  const uiTypesState = useUITypes.getState();
-  const sectionInfosState = useSectionInfos.getState();
-
-  const { name: parentName } = sectionInfosState.x[parentId];
+  const { name: parentName } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
-  const { setUIType, setOneConfig } = uiTypesState;
+  const uiTypeId = getChildUITypeId(parentUIType, parentId);
 
-  const uiTypeId = getChildUITypeId(
-    parentUIType,
-    parentId,
-    setUIType,
-    setOneConfig
-  );
-
-  const newIds = createManySectionInfo({
+  return createManySectionInfo({
     sectionInfoProps: { parentId, parentName },
     sectionConfigProps: { uiTypeId },
     numChildren,
   });
-
-  return newIds;
 }
 
 export function createManySectionInfo({
