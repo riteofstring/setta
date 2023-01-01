@@ -15,7 +15,7 @@ export default function RefInput({ value, onBlur, className }) {
       initialSelection={value}
       onSelectedItemChange={onBlur}
       className={className}
-      width="424px"
+      // width="424px"
     />
   );
 }

@@ -11,8 +11,6 @@ export function UIConfigDropdownAndFields({
   savedConfig,
   paramChildId,
 }) {
-  const comboboxProps = { size: "small" };
-
   return (
     <>
       <UIConfigUITypeCombobox
@@ -20,7 +18,6 @@ export function UIConfigDropdownAndFields({
         paramInfoId={paramInfoId}
         onDropdownSelect={onDropdownSelect}
         selectedId={selectedId}
-        comboboxProps={comboboxProps}
       />
       <ParamUIConfig
         name={selectedType}

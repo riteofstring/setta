@@ -521,6 +521,11 @@
   resolved "https://registry.yarnpkg.com/@fontsource/jetbrains-mono/-/jetbrains-mono-4.5.10.tgz#c237505aeea535cf6ce1462c4ea39258f0677c2b"
   integrity sha512-dylbkBmAWL0fkjDpDoDbQCwTQ/W3DzLtVXmwGyAyttfKliPGSP2WpAmmMFYp9NpqFMF7CLprFyzppe8u39Orkw==
 
+"@fontsource/source-code-pro@^4.5.12":
+  version "4.5.12"
+  resolved "https://registry.yarnpkg.com/@fontsource/source-code-pro/-/source-code-pro-4.5.12.tgz#4ca4dffb485f3f2768dd13157cb09a9b134a9cd1"
+  integrity sha512-6r1dykX7SH1Orm7xUh4sA8pjM1uNPKo9fV+y9/wxS+y/fwN+sMf6b1jHDUTmfEtw1OxlTaHGrr2I7dGeNqxdPA==
+
 "@fontsource/work-sans@4.5.7":
   version "4.5.7"
   resolved "https://registry.yarnpkg.com/@fontsource/work-sans/-/work-sans-4.5.7.tgz#e8d070896af8d751ca4064e9b0dd134faad3536b"
@@ -1062,6 +1067,25 @@
     "@radix-ui/react-roving-focus" "1.0.1"
     "@radix-ui/react-use-controllable-state" "1.0.0"
 
+"@radix-ui/react-tooltip@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-tooltip/-/react-tooltip-1.0.2.tgz#8e10b075767f785bf013146fdc954ac6885efda3"
+  integrity sha512-11gUlok2rv5mu+KBtxniOKKNKjqC/uTbgFHWoQdbF46vMV+zjDaBvCtVDK9+MTddlpmlisGPGvvojX7Qm0yr+g==
+  dependencies:
+    "@babel/runtime" "^7.13.10"
+    "@radix-ui/primitive" "1.0.0"
+    "@radix-ui/react-compose-refs" "1.0.0"
+    "@radix-ui/react-context" "1.0.0"
+    "@radix-ui/react-dismissable-layer" "1.0.2"
+    "@radix-ui/react-id" "1.0.0"
+    "@radix-ui/react-popper" "1.0.1"
+    "@radix-ui/react-portal" "1.0.1"
+    "@radix-ui/react-presence" "1.0.0"
+    "@radix-ui/react-primitive" "1.0.1"
+    "@radix-ui/react-slot" "1.0.1"
+    "@radix-ui/react-use-controllable-state" "1.0.0"
+    "@radix-ui/react-visually-hidden" "1.0.1"
+
 "@radix-ui/react-use-callback-ref@1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-use-callback-ref/-/react-use-callback-ref-1.0.0.tgz#9e7b8b6b4946fe3cbe8f748c82a2cce54e7b6a90"
@@ -1122,6 +1146,14 @@
   dependencies:
     "@babel/runtime" "^7.13.10"
     "@radix-ui/react-use-layout-effect" "1.0.0"
+
+"@radix-ui/react-visually-hidden@1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-visually-hidden/-/react-visually-hidden-1.0.1.tgz#9a4ac4fc97ae8d72a10e727f16b3121b5f0aa469"
+  integrity sha512-K1hJcCMfWfiYUibRqf3V8r5Drpyf7rh44jnrwAbdvI5iCCijilBBeyQv9SKidYNZIopMdCyR9FnIjkHxHN0FcQ==
+  dependencies:
+    "@babel/runtime" "^7.13.10"
+    "@radix-ui/react-primitive" "1.0.1"
 
 "@radix-ui/rect@1.0.0":
   version "1.0.0"

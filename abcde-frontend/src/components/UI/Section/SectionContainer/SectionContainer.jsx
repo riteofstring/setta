@@ -84,7 +84,7 @@ function Container({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${isDraggingSortable && "nodrag"} mt-2`;
+  const className = `${isDraggingSortable && "nodrag"}`;
 
   function totalRef(e) {
     refForPosition.current = e;

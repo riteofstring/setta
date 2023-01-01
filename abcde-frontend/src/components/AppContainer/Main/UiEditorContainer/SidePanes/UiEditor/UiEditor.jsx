@@ -25,7 +25,7 @@ export default function UiEditor() {
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
       <Tabs.Root
-        className={vis ? "visible" : "invisible"}
+        className={`flex flex-col flex-grow ${vis ? "visible" : "invisible"}`}
         defaultValue={SECTION_CONFIG_TAB}
         value={tab}
         onValueChange={setTab}
@@ -50,7 +50,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="[border-bottom:3px_solid_transparent] cursor-pointer my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
+      className="[border-bottom:3px_solid_transparent] cursor-pointer select-none my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
@@ -64,7 +64,8 @@ function TabContent(props) {
   const { children, value } = props;
   return (
     <Tabs.Content
-      className="flex-grow grid h-[inherit] overflow-y-auto"
+      // className="flex-grow grid h-[inherit] overflow-y-auto"
+      asChild
       value={value}
     >
       {children}

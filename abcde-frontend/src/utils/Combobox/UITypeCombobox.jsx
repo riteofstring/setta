@@ -7,12 +7,7 @@ import {
 } from "hooks/usePresetUIType";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
-function UITypeCombobox({
-  onDropdownSelect,
-  selectedId,
-  availableUITypes,
-  comboboxProps,
-}) {
+function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   const comboboxWidth = usePaneComboboxWidth();
 
   function itemStyleGetter(item) {
@@ -32,7 +27,6 @@ function UITypeCombobox({
       onSelectedItemChange={onDropdownSelect}
       width={comboboxWidth}
       itemStyleGetter={itemStyleGetter}
-      {...comboboxProps}
     />
   );
 }
