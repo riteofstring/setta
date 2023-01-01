@@ -5,7 +5,11 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { resetAllStores } from "models/utils";
 import { addChild } from "thunks/addChild";
+import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { addSectionInfo } from "__tests__utils/utils";
+
+// required to avoid "ReferenceError: ResizeObserver is not defined"
+global.ResizeObserver = ResizeObserver;
 
 test("Incrementer: click add sibling N times", async () => {
   const { parent } = componentSetup({
