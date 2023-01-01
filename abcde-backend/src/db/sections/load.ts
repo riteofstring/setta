@@ -4,9 +4,10 @@ import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManySectionCoreType } from 'abcde-utils/src/types/section';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
+import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { getUITypeCols, getUITypesByWhere } from 'src/db/uiTypes/load';
+import { getUITypesByWhere } from 'src/db/uiTypes/load';
 import { getOrderedChildren, getOrderedChildrenFull } from 'src/utils/utils';
 import { UITypeNames } from '../uiTypes/types';
 import { PrismaSectionChildrenType } from './types';
@@ -62,6 +63,13 @@ export async function getSectionConfigs(ids) {
           },
         },
       },
+      uiTypeCol: {
+        select: {
+          children: {
+            select: { codeInfoId: true, uiTypeId: true },
+          },
+        },
+      },
     },
   });
 
@@ -73,8 +81,6 @@ export async function getSectionConfigs(ids) {
     UITypeNames.sectionUIType,
   );
 
-  const uiTypeCols = await getUITypeCols(sectionUITypes);
-
   const sectionConfigs: ManySectionConfigType = {};
   for (const x of s) {
     sectionConfigs[x.id] = {
@@ -82,6 +88,7 @@ export async function getSectionConfigs(ids) {
       uiTypeId: x.uiTypeId,
       evColId: x.evColId,
       kwargColId: x.kwargColId,
+      uiTypeColId: x.uiTypeColId,
       selectedItem: x.selectedItemId,
     };
   }
@@ -110,7 +117,15 @@ export async function getSectionConfigs(ids) {
     );
   }
 
-  return { sectionConfigs, ev, evCols, kwargCols, sectionUITypes, uiTypeCols };
+  const uiTypeCols: ManyUITypeColType = {};
+  for (const config of s) {
+    uiTypeCols[config.uiTypeColId] = _.mapValues(
+      _.keyBy(config.uiTypeCol.children, 'codeInfoId'),
+      (x) => x.uiTypeId,
+    );
+  }
+
+  return { sectionConfigs, ev, evCols, kwargCols, uiTypeCols, sectionUITypes };
 }
 
 export function getSectionPositions(

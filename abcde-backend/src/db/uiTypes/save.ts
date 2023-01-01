@@ -43,18 +43,8 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
 }
 
 async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
-  const uiTypeCols = sectionUITypes
-    .filter((x) => x.config.uiTypeColId)
-    .map((x) => ({ id: x.config.uiTypeColId }));
-
-  await prisma.uITypeColId.createMany({
-    data: uiTypeCols,
-    skipDuplicates: true,
-  });
-
   const data = sectionUITypes.map((x) => ({
     idid: x.id,
-    uiTypeColId: x.config.uiTypeColId,
     childUITypeId: x.config.childUITypeId,
     subType: x.config.subType,
   }));
