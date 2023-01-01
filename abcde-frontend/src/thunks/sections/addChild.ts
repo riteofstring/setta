@@ -8,10 +8,7 @@ import {
 
 function getNewStateFn(startId: string | null, newIds: string[]) {
   return (x) => {
-    let insertIdx = null;
-    if (startId !== null) {
-      insertIdx = x.indexOf(startId) + 1;
-    }
+    const insertIdx = startId !== null ? x.indexOf(startId) + 1 : null;
     return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
   };
 }

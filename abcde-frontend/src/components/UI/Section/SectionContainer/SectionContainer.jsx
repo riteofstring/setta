@@ -8,13 +8,7 @@ import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionTitle from "./Header/Title/SectionTitle";
 import SectionContainerCore from "./SectionContainerCore";
 
-function SectionContainer({
-  sectionId,
-  parentId,
-  nextId,
-  depth,
-  dragListeners,
-}) {
+function SectionContainer({ sectionId, parentId, depth, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
   const currChildren = useGetCurrChildren(sectionId);
   const hasNested = currChildren.length > 0;
@@ -32,7 +26,6 @@ function SectionContainer({
         <SectionContainerCore
           sectionId={sectionId}
           parentId={parentId}
-          nextId={nextId}
           hasNested={hasNested}
         />
       )}
@@ -51,7 +44,7 @@ function SectionContainer({
   );
 }
 export default React.memo(SectionContainer, (p, n) => {
-  return p.nextId === n.nextId;
+  return p === n;
 });
 
 function Container({

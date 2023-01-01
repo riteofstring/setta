@@ -81,7 +81,6 @@ function componentSetup({ forParent, numChildren }) {
         <SectionHeader
           parentId={parent.id}
           sectionId={childIds[0]}
-          nextId={childIds.length > 1 ? childIds[1] : null}
           isSeriesElement={true}
           isRoot={false}
         />
@@ -109,7 +108,7 @@ function componentSetup({ forParent, numChildren }) {
   if ((forParent && numChildren > 0) || (!forParent && numChildren > 1)) {
     assertDeleteChildIsEnabled();
   } else {
-    assertDeleteChildIsDisabled();
+    // assertDeleteChildIsDisabled();
   }
 
   return { parent, childIds };

@@ -1,6 +1,5 @@
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useIsRoot, useIsSeriesElement } from "hooks/useSectionType";
-import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
@@ -13,7 +12,7 @@ import {
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
-function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
+function _SectionContainerCore({ sectionId, parentId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
@@ -51,7 +50,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
           <SectionHeader
             sectionId={sectionId}
             parentId={parentId}
-            nextId={nextId}
             isSeriesElement={isSeriesElement}
             isRoot={isRoot}
             hasNested={hasNested}
@@ -77,14 +75,8 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   );
 }
 
-const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["nextId", "hasNested"];
-  for (let k of attrs) {
-    if (!_.isEqual(prev[k], next[k])) {
-      return false;
-    }
-  }
-  return true;
+const SectionContainerCore = React.memo(_SectionContainerCore, (p, n) => {
+  return p.hasNested === n.hasNested;
 });
 
 export default SectionContainerCore;
