@@ -1,6 +1,6 @@
 import { usePanes } from "models/panes";
 import { useStoreApi } from "react-flow-renderer";
-import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { addSectionAtPosition } from "thunks/addSectionAtPosition";
 import { OVERVIEW } from "utils/constants";
 
 export function useAddSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {

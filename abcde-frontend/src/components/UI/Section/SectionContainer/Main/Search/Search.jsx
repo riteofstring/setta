@@ -13,7 +13,7 @@ export default function SectionSearch({
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
-    if (numSearchableItems === 0 && initialSelection !== NULL_OBJ_ID) {
+    if (numSearchableItems === 0 && initialSelection) {
       onSelectedItemChange(NULL_OBJ_ID);
     }
   }, [numSearchableItems]);
