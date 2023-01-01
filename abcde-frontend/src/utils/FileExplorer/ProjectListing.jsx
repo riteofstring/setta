@@ -1,36 +1,95 @@
+// import * as Accordion from "@radix-ui/react-accordion";
+// import * as RadioGroup from "@radix-ui/react-radio-group";
+// import { BiFile } from "react-icons/bi";
+// import { HiCheckCircle } from "react-icons/hi";
+// import "./style.css";
+
+// export function ProjectListing({ name, project, onClick }) {
+//   return (
+//     <Accordion.Item>
+//       <Accordion.Header>
+//         <Accordion.Trigger>
+//           <div className="flex items-center select-none gap-2 py-1 rounded-md flex-grow px-2">
+//             <BiFile className="text-gray-400 group-hover:text-gray-800" />
+//             <h4 className="text-xs font-bold text-gray-500 tracking-wider">
+//               {name}
+//             </h4>
+//           </div>
+//         </Accordion.Trigger>
+//       </Accordion.Header>
+//       <Accordion.Content className="GRR data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]">
+//         <ConfigListings project={project} onClick={onClick} />
+//       </Accordion.Content>
+//     </Accordion.Item>
+//   );
+// }
+
+// function ConfigListings({ project, onClick }) {
+//   return project.configs.map((x, idx) => {
+//     const id = JSON.stringify({ id: project.id, configId: x.id });
+//     return (
+//       <ConfigListing
+//         id={id}
+//         name={x.name}
+//         onClick={onClick}
+//         key={`File config ${idx} ${x}`}
+//       />
+//     );
+//   });
+// }
+
 import * as Accordion from "@radix-ui/react-accordion";
 import * as RadioGroup from "@radix-ui/react-radio-group";
+import React from "react";
 import { BiFile } from "react-icons/bi";
 import { HiCheckCircle } from "react-icons/hi";
+import "./style.css";
 
 export function ProjectListing({ name, project, onClick }) {
   return (
     <Accordion.Item>
-      <Accordion.Header>
-        <Accordion.Trigger>
-          <div className="flex items-center select-none gap-2 py-1 rounded-md flex-grow px-2">
-            <BiFile className="text-gray-400 group-hover:text-gray-800" />
-            <h4 className="text-xs font-bold text-gray-500 tracking-wider">
-              {name}
-            </h4>
-          </div>
-        </Accordion.Trigger>
-      </Accordion.Header>
+      <AccordionTrigger name={name} />
       <ConfigListings project={project} onClick={onClick} />
     </Accordion.Item>
   );
 }
 
-function ConfigListings({ project, onClick }) {
-  return project.configs.map((x, idx) => {
-    const id = JSON.stringify({ id: project.id, configId: x.id });
-    return (
-      <Accordion.Content key={`File config ${idx} ${x}`}>
-        <ConfigListing id={id} name={x.name} onClick={onClick} />
-      </Accordion.Content>
-    );
-  });
-}
+const AccordionTrigger = React.forwardRef(({ name }, ref) => {
+  return (
+    <Accordion.Header>
+      <Accordion.Trigger ref={ref}>
+        <div className="flex items-center select-none gap-2 py-1 rounded-md flex-grow px-2">
+          <BiFile className="text-gray-400 group-hover:text-gray-800" />
+          <h4 className="text-xs font-bold text-gray-500 tracking-wider">
+            {name}
+          </h4>
+        </div>
+      </Accordion.Trigger>
+    </Accordion.Header>
+  );
+});
+
+const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
+  return (
+    <Accordion.Content
+      ref={ref}
+      className="GRR data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]"
+    >
+      {project.configs.map((x, idx) => {
+        const id = JSON.stringify({ id: project.id, configId: x.id });
+        return (
+          <>{id}</>
+          // <ConfigListing
+          //   id={id}
+          //   name={x.name}
+          //   onClick={onClick}
+          //   key={`File config ${idx} ${x}`}
+          // />
+        );
+      })}
+    </Accordion.Content>
+  );
+});
 
 function ConfigListing({ id, name, onClick }) {
   const itemRef = useRef();

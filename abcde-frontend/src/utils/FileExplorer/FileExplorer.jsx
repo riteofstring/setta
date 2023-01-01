@@ -1,6 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
-import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
 import { Button } from "../../utils/atoms/buttons/Button";
 import { ProjectListing } from "./ProjectListing";
@@ -31,22 +30,22 @@ export default function FileExplorer({
           Date
         </Button>
       </div>
-      <RadioGroup.Root
+      {/* <RadioGroup.Root
         value={JSON.stringify(selected)}
         onValueChange={onChange}
         className="flex flex-col p-1 rounded-lg border border-solid border-gray-100"
-      >
-        <Accordion.Root>
-          {_.map(files, (x, idx) => (
-            <ProjectListing
-              project={x}
-              name={x.name}
-              key={`File ${idx}`}
-              onClick={onChange}
-            />
-          ))}
-        </Accordion.Root>
-      </RadioGroup.Root>
+      > */}
+      <Accordion.Root>
+        {_.map(files, (x, idx) => (
+          <ProjectListing
+            project={x}
+            name={x.name}
+            key={`File ${idx}`}
+            onClick={onChange}
+          />
+        ))}
+      </Accordion.Root>
+      {/* </RadioGroup.Root> */}
     </div>
   );
 }
