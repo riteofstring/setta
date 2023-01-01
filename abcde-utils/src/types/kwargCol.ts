@@ -11,6 +11,8 @@ export type KwargColStateType = { x: ManyKwargColType };
 export type KwargColActionType = {
   resetAndSetAll: (payload: ManyKwargColType) => void;
 
+  initManyKwargColIds: (payload: { collectionIds: string[] }) => void;
+
   setKwargIds: (payload: {
     collectionId: string;
     objInfoId: string;
