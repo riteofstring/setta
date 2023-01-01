@@ -38,7 +38,7 @@ export async function loadOne(
   const { sections, sectionChildren } = await getSections(
     Object.keys(sectionConfigCol),
   );
-  const { sectionConfigs, ev, evCols, kwargCols, uiTypeCols, sectionUITypes } =
+  const { sectionConfigs, ev, evCols, kwargCols, sectionUITypes, uiTypeCols } =
     await getSectionConfigs(Object.values(sectionConfigCol));
 
   const baseUITypes = await getBaseUITypes();

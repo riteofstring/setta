@@ -87,7 +87,6 @@ function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
       id: v.id,
       evColId: v.evColId,
       kwargColId: v.kwargColId,
-      uiTypeColId: v.uiTypeColId,
       selectedItemId: v.selectedItem,
       uiTypeId: v.uiTypeId,
     });

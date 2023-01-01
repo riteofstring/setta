@@ -1,10 +1,6 @@
 import { OBJ, PARAM, STRING, VARIABLE } from 'abcde-utils/src/codeGenConstants';
-import {
-  DECK,
-  isRoot,
-  LIST_ROOT,
-  NULL_OBJ_ID,
-} from 'abcde-utils/src/constants';
+import { DECK, isRoot, LIST_ROOT } from 'abcde-utils/src/constants';
+import { maybeUseNullId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 
 function paramInfoExportSelected(sectionId, paramInfo, evColId, p) {
@@ -58,7 +54,7 @@ function paramCollectionExportSelected(
 }
 
 function kwargsExportSelected(sectionId, objInfoId, evColId, kwargColId, p) {
-  const kwargIds = p.kwargCols[kwargColId][objInfoId];
+  const kwargIds = p.kwargCols[kwargColId]?.[maybeUseNullId(objInfoId)];
   if (!kwargIds) {
     return {};
   }
@@ -108,7 +104,7 @@ function sectionExportSelected(section, p) {
   );
 
   let output = { ...nonObjParams, ...kwargs };
-  if (selectedItem !== NULL_OBJ_ID) {
+  if (selectedItem) {
     const objParams = objInfoExportSelected(
       sectionId,
       allCodeInfo[selectedItem],

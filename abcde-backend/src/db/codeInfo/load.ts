@@ -1,4 +1,3 @@
-import { NULL_OBJ_ID } from 'abcde-utils/src/constants';
 import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import _ from 'lodash';
@@ -18,11 +17,7 @@ export async function getCodeInfoForSectionsAndKwargs(
   _.forEach(kwargCols, (x) =>
     _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
-  const allCodeInfo = await getCodeInfo([
-    ...collectionIds,
-    ...kwargIds,
-    NULL_OBJ_ID,
-  ]);
+  const allCodeInfo = await getCodeInfo([...collectionIds, ...kwargIds]);
   return createAllInfo(allCodeInfo);
 }
 
