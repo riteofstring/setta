@@ -5,6 +5,7 @@ export type SectionConfigType = {
   uiTypeId: string;
   evColId: string;
   kwargColId: string;
+  uiTypeColId: string;
   selectedItem: string;
 };
 
