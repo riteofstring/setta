@@ -8,6 +8,52 @@ import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useUITypes } from "models/info/uiTypes";
+import { getChildUITypeId } from "utils/uiTypeUtils";
+
+function maybeGetChildUITypeId(
+  uiTypeId,
+  parentUIType,
+  parentId,
+  setUIType,
+  setOneConfig
+) {
+  if (uiTypeId) {
+    return uiTypeId;
+  }
+  return getChildUITypeId(parentUIType, parentId, setUIType, setOneConfig);
+}
+
+export function createChildSectionInfo({
+  parentId,
+  numChildren,
+  ...sectionInfoProps
+}) {
+  const sectionConfigState = useSectionConfigs.getState();
+  const uiTypesState = useUITypes.getState();
+  const sectionInfosState = useSectionInfos.getState();
+
+  const { name: parentName, configId } = sectionInfosState.x[parentId];
+  const { uiTypeId: parentUITypeId } = sectionConfigState.x[configId];
+  const parentUIType = uiTypesState.x[parentUITypeId];
+  const { setUIType, setOneConfig } = uiTypesState;
+
+  const uiTypeId = maybeGetChildUITypeId(
+    sectionInfoProps.uiTypeId,
+    parentUIType,
+    parentId,
+    setUIType,
+    setOneConfig
+  );
+
+  const newIds = createManySectionInfo({
+    sectionInfoProps: { ...sectionInfoProps, parentId, parentName },
+    sectionConfigProps: { uiTypeId },
+    numChildren,
+  });
+
+  return newIds;
+}
 
 export function createManySectionInfo({
   sectionInfoProps,
@@ -24,7 +70,8 @@ export function createManySectionInfo({
       ...sectionConfigProps,
     });
   }
-  return { newInfos, newConfigs };
+  addSectionsToState(newInfos, newConfigs);
+  return Object.keys(newInfos);
 }
 
 export function createDefaultSectionInfo({ sectionProps, configProps }) {

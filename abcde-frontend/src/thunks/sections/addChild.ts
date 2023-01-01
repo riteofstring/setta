@@ -1,9 +1,7 @@
-import { useEnteredValues } from "models/info/enteredValues";
-import { useParamInfos } from "models/info/paramInfos";
-import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { setParamChildId } from "thunks/paramInfos";
 import { insertIntoArrayOrXpend } from "utils/utils";
-import { createChildSectionInfo } from "./createChildSectionInfo";
+import { createChildSectionInfo } from "./createSectionInfo";
 
 function getNewStateFn(startId, newIds) {
   return (x) => {
@@ -31,22 +29,15 @@ export function addChild({
     paramInfoId: parentParamInfoId,
   });
 
-  const sectionInfosState = useSectionInfos.getState();
-
-  sectionInfosState.setAllChildren({
+  useSectionInfos.getState().setAllChildren({
     sectionId: parentId,
     newStateFn: getNewStateFn(startId, newIds),
   });
 
   if (parentParamInfoId) {
-    const { configId } = sectionInfosState.x[parentId];
-    const { evColId: collectionId } = useSectionConfigs.getState().x[configId];
-
-    const enteredValueId =
-      useParamInfos.getState().x[collectionId][parentParamInfoId];
-
-    useEnteredValues.getState().setChildId({
-      enteredValueId,
+    setParamChildId({
+      sectionId: parentId,
+      paramInfoId: parentParamInfoId,
       childId: newIds[0],
     });
   }
