@@ -17,25 +17,25 @@ export function createChildForSeries({ parentId, numChildren }) {
   const uiTypeId = getChildUITypeId(parentUIType, parentId);
 
   return createManySectionInfo({
-    sectionInfoProps: { parentId, parentName },
-    sectionConfigProps: { uiTypeId },
+    sectionProps: { parentId, parentName },
+    configProps: { uiTypeId },
     numChildren,
   });
 }
 
 export function createManySectionInfo({
-  sectionInfoProps,
-  sectionConfigProps,
+  sectionProps,
+  configProps,
   numChildren,
 }) {
   const newInfos = {};
   const newConfigs = {};
   for (let i = 0; i < numChildren; i++) {
-    const sectionInfo = newSectionInfo(sectionInfoProps);
+    const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
     newConfigs[sectionInfo.configId] = newSectionConfig({
       id: sectionInfo.configId,
-      ...sectionConfigProps,
+      ...configProps,
     });
   }
   addSectionsToState(newInfos, newConfigs);
@@ -43,22 +43,17 @@ export function createManySectionInfo({
 }
 
 export function createDefaultSectionInfo({ sectionProps, configProps }) {
-  const sectionInfo = newSectionInfo({
-    name: "New Section",
-    ...sectionProps,
+  return createManySectionInfo({
+    sectionProps: {
+      name: "New Section",
+      ...sectionProps,
+    },
+    configProps: {
+      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+      ...configProps,
+    },
+    numChildren: 1,
   });
-  const sectionConfig = newSectionConfig({
-    id: sectionInfo.configId,
-    uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
-    ...configProps,
-  });
-
-  addSectionsToState(
-    { [sectionInfo.id]: sectionInfo },
-    { [sectionConfig.id]: sectionConfig }
-  );
-
-  return [sectionInfo.id];
 }
 
 export function addSectionsToState(
