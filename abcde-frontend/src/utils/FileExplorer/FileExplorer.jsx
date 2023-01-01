@@ -34,7 +34,7 @@ export default function FileExplorer({
       <RadioGroup.Root
         value={JSON.stringify(selected)}
         onValueChange={onChange}
-        className="flex flex-col p-1 rounded-lg border border-solid border-gray-100"
+        className="flex flex-col p-1 rounded-lg border border-solid border-gray-100 overflow-y-scroll"
       >
         <Accordion.Root type="multiple">
           {_.map(files, (x, idx) => (
