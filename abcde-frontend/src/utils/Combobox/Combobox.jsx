@@ -42,22 +42,23 @@ export const ComboboxList = React.forwardRef(
   }
 );
 
-export const ComboboxItem = React.forwardRef(
+const _ComboboxItem = React.forwardRef(
   (
-    { itemIndex, highlightedIndex, itemStyle = "", children, ...props },
+    { getItemProps, item, index, isHighlighted, itemStyle, itemString },
     ref
   ) => {
-    const isActive = itemIndex === highlightedIndex;
-    const bg = isActive ? "bg-gray-100" : "";
+    const bg = isHighlighted ? "bg-gray-100" : "";
     return (
       <div
         className={`px-4 py-2 cursor-pointer rounded-xl mx-1 my-0.5 ${bg} ${itemStyle}`}
-        {...props}
+        {...getItemProps({ item, index })}
         ref={ref}
         data-testid={"ComboboxListItem"}
       >
-        {children}
+        {itemString}
       </div>
     );
   }
 );
+
+export const ComboboxItem = React.memo(_ComboboxItem);
