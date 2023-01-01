@@ -3,7 +3,7 @@ import { setParamChildId } from "thunks/paramInfos";
 import { insertIntoArrayOrXpend } from "utils/utils";
 import { createChildSectionInfo } from "./createSectionInfo";
 
-function getNewStateFn(startId, newIds) {
+function getNewStateFn(startId: string | null, newIds: string[]) {
   return (x) => {
     let insertIdx = null;
     if (startId !== null) {
@@ -11,6 +11,28 @@ function getNewStateFn(startId, newIds) {
     }
     return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
   };
+}
+
+export function addChildViaIncrementer({
+  parentId,
+  numChildren,
+  startId = null,
+}: {
+  parentId: string;
+  numChildren: number;
+  startId: string | null;
+}) {
+  const newIds = createChildSectionInfo({
+    parentId,
+    numChildren,
+  });
+
+  useSectionInfos.getState().setAllChildren({
+    sectionId: parentId,
+    newStateFn: getNewStateFn(startId, newIds),
+  });
+
+  return newIds;
 }
 
 export function addChild({
