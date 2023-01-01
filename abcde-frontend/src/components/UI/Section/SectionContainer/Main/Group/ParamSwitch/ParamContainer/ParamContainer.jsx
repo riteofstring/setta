@@ -4,7 +4,7 @@ import ParamInput from "./ParamItems/ParamInput";
 
 function _ParamContainer({ sectionId, paramInfo, uiType, children }) {
   return (
-    <div className="flex flex-grow justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]">
+    <div className="w-full flex justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]">
       {children}
       <ParamInput
         sectionId={sectionId}

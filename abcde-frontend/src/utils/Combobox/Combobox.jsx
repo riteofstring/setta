@@ -1,10 +1,20 @@
 import React from "react";
-import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
+import { DropdownButton } from "utils/atoms/search/StandardSearchRightButtons";
 
 export const ComboboxInput = React.forwardRef(
-  ({ toggleButtonProps, isOpen, ...props }, ref) => {
+  (
+    {
+      toggleButtonProps,
+      dropdown,
+      isOpen,
+      textSize,
+      height,
+      simpleSearch = false,
+      ...props
+    },
+    ref
+  ) => {
     const searchStyles =
       "w-full outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm h-[40px] pl-10 focus-visible:ring-2";
 
@@ -12,13 +22,13 @@ export const ComboboxInput = React.forwardRef(
       <StandardSearch
         inputStyles={searchStyles}
         leftElementStyles="pl-3"
-        {...toggleButtonProps}
-        {...props}
         ref={ref}
+        {...props}
+        {...toggleButtonProps}
         rightElement={
-          <StandardSearchRightBtn
-            {...toggleButtonProps}
-            icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
+          <DropdownButton
+            toggleButtonProps={toggleButtonProps}
+            isOpen={isOpen}
             size="w-10 h-10"
           />
         }

@@ -1,15 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Button } from "../buttons/Button";
 
-export function DialogCloseButton({ children, twClasses, onClick }) {
+export function DialogCloseButton({ children, className, onClick }) {
   return (
     <Dialog.Close asChild>
-      <Button
-        twClasses={`rounded-full text-sm px-3 py-1 font-bold ${twClasses}`}
-        onClick={onClick}
-      >
+      <button className={className} onClick={onClick}>
         {children}
-      </Button>
+      </button>
     </Dialog.Close>
   );
 }
