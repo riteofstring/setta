@@ -9,7 +9,6 @@ export default {
         "0671b39c-8479-4831-8627-8b37f12ef635",
         "bb751616-d554-4ec8-84c1-8760078956d3",
       ],
-      uiTypeColId: "b5778288-2163-4212-8f0f-4744644c62b5",
       subType: null,
       childUITypeId: null,
     },
@@ -25,7 +24,6 @@ export default {
     presetType: null,
     config: {
       collections: ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
-      uiTypeColId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
       subType: null,
       childUITypeId: null,
     },
@@ -41,7 +39,6 @@ export default {
     presetType: null,
     config: {
       collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
-      uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
       subType: null,
       childUITypeId: null,
     },
@@ -57,7 +54,6 @@ export default {
     presetType: null,
     config: {
       collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
-      uiTypeColId: "76e6a946-446b-4fcb-a803-db01482ed97e",
       subType: null,
       childUITypeId: null,
     },
@@ -73,7 +69,6 @@ export default {
     presetType: null,
     config: {
       collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
-      uiTypeColId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
       subType: null,
       childUITypeId: null,
     },
@@ -89,7 +84,6 @@ export default {
     presetType: null,
     config: {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
-      uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
       subType: null,
       childUITypeId: null,
     },
@@ -105,7 +99,6 @@ export default {
     presetType: null,
     config: {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
-      uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
       subType: null,
       childUITypeId: null,
     },
@@ -121,7 +114,6 @@ export default {
     presetType: null,
     config: {
       collections: ["f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86"],
-      uiTypeColId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
       subType: null,
       childUITypeId: null,
     },
@@ -136,7 +128,6 @@ export default {
     name: "torchvision transforms",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
-      uiTypeColId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
       childUITypeId: null,
       subType: "LIST",
     },

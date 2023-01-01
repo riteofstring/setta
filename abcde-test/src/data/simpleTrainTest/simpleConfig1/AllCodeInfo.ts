@@ -1,4 +1,16 @@
 export default {
+  "c838c2c2-0a33-4738-8307-dd01179fbeac": {
+    id: "c838c2c2-0a33-4738-8307-dd01179fbeac",
+    name: "",
+    version: "",
+    type: "",
+    children: [],
+    rcType: "callable",
+    defaultVal: null,
+    description: null,
+    inCodeParentId: null,
+    path: "",
+  },
   "0671b39c-8479-4831-8627-8b37f12ef635": {
     id: "0671b39c-8479-4831-8627-8b37f12ef635",
     name: "Torchvision Models",
