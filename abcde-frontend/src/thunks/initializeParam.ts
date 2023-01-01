@@ -9,8 +9,8 @@ import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
-import { addChild } from "./addChild";
-import { getSectionConfig } from "./sections";
+import { addChild } from "./sections/addChild";
+import { getSectionConfig } from "./sections/sections";
 
 export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");

@@ -4,7 +4,7 @@ import { useUITypes } from "models/info/uiTypes";
 import {
   addSectionsToState,
   createManySectionInfo,
-} from "thunks/createSectionInfo";
+} from "thunks/sections/createSectionInfo";
 import { getChildUITypeId } from "utils/uiTypeUtils";
 
 function maybeGetChildUITypeId(

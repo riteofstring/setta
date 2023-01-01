@@ -2,8 +2,8 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { FiCornerRightDown } from "react-icons/fi";
-import { addChild } from "thunks/addChild";
-import { deleteChild } from "thunks/deleteChild";
+import { addChild } from "thunks/sections/addChild";
+import { deleteChild } from "thunks/sections/deleteChild";
 
 export default function Incrementer({
   parentId,

@@ -2,7 +2,7 @@ import { useIsRoot } from "hooks/useSectionType";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect } from "react";
-import { setCurrChildren } from "thunks/sections";
+import { setCurrChildren } from "thunks/sections/sections";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 import { useGetManySectionInfos } from "./useSectionInfo";
 

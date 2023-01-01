@@ -4,7 +4,7 @@ import { SectionHeader } from "components/UI/Section/SectionContainer/Header/Sec
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { resetAllStores } from "models/utils";
-import { addChild } from "thunks/addChild";
+import { addChild } from "thunks/sections/addChild";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { addSectionInfo } from "__tests__utils/utils";
 
