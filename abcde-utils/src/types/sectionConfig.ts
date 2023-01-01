@@ -5,8 +5,7 @@ export type SectionConfigType = {
   uiTypeId: string;
   evColId: string;
   kwargColId: string;
-  uiTypeColId: string;
-  selectedItem: string;
+  selectedItem: string | null;
 };
 
 export type ManySectionConfigType = ManyOf<SectionConfigType>;

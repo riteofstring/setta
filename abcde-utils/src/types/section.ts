@@ -51,8 +51,6 @@ export type SectionInfoActionType = {
     newValues: { [id: string]: Partial<SectionType> };
   }) => void;
 
-  initManyAllChildren: (payload: { sectionIds: string[] }) => void;
-
   setAllChildren: (payload: {
     sectionId: string;
     newStateFn: (currState: SectionChildrenType) => SectionChildrenType;
@@ -62,8 +60,6 @@ export type SectionInfoActionType = {
     currChildren: SectionChildrenType;
     sectionType: any;
   }) => void;
-
-  initManyCurrChildren: (payload: { sectionIds: string[] }) => void;
 
   setCurrChildren: (payload: {
     sectionId: string;
