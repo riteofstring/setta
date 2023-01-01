@@ -42,6 +42,7 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
+      uiTypeColId: null,
       subType: null,
       childUITypeId: null,
     },
@@ -55,6 +56,7 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
+      uiTypeColId: null,
       subType: null,
       childUITypeId: null,
     },
@@ -68,6 +70,7 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
+      uiTypeColId: null,
       subType: null,
       childUITypeId: null,
     },
@@ -81,6 +84,7 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
+      uiTypeColId: null,
       subType: null,
       childUITypeId: null,
     },

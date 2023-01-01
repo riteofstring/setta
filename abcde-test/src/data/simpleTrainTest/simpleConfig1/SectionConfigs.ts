@@ -4,7 +4,6 @@ export default {
     uiTypeId: "ad41e56e-0c81-413d-8a63-ccfa59107c79",
     evColId: "10a2f61d-f615-4b94-9c8e-ad34f5c540e0",
     kwargColId: "f12edae3-5e1e-4099-b4bd-42caa4c01087",
-    uiTypeColId: "b5778288-2163-4212-8f0f-4744644c62b5",
     selectedItem: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
   },
   "166cae4e-8c52-4940-9491-62dea959b7f8": {
@@ -12,7 +11,6 @@ export default {
     uiTypeId: "aca715a7-e487-4151-8099-5823b9f54637",
     evColId: "bef53f28-38fa-4d52-8808-23a80687dee1",
     kwargColId: "4211281f-f083-4267-9efd-0b18f864ffd6",
-    uiTypeColId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "142c96fa-2cf4-4cfe-aad5-0278d0e9e60c": {
@@ -20,7 +18,6 @@ export default {
     uiTypeId: "4dfce153-7c8a-427e-bc86-31802494166d",
     evColId: "ab160897-4517-49e4-aa45-85a3f50d49b1",
     kwargColId: "3cadca06-32c8-4b99-b757-be5550102ae6",
-    uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "4aecec1f-8068-403d-8a74-f73373b7a718": {
@@ -28,7 +25,6 @@ export default {
     uiTypeId: "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5",
     evColId: "0ad7437c-e83c-42ef-9342-06c86da976eb",
     kwargColId: "baae52ba-fd6d-4bb9-8caa-c4aeac228b2b",
-    uiTypeColId: "76e6a946-446b-4fcb-a803-db01482ed97e",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "e8cc7046-44b2-45a1-8c89-3b7305097e06": {
@@ -36,7 +32,6 @@ export default {
     uiTypeId: "861265e9-2701-42dd-821b-d80734ec0db1",
     evColId: "6f4c33cd-ee7e-461e-85ba-d6ffca593419",
     kwargColId: "05b595f9-0c73-4443-a32d-93a46e44378c",
-    uiTypeColId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "c5aa959c-6969-40e2-b507-e442f059eaba": {
@@ -44,7 +39,6 @@ export default {
     uiTypeId: "2b157b97-4424-4831-83a5-836c7dc17a6e",
     evColId: "d1bbe482-89e0-4ba9-aed7-9fa097311bb8",
     kwargColId: "38c72ae9-8dc2-4545-bf0c-966c52f7cfe7",
-    uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "3fe3c7f3-16ed-4f5e-b717-7c62ae99a7aa": {
@@ -52,7 +46,6 @@ export default {
     uiTypeId: "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
     evColId: "b5be702c-0234-417c-9e5f-41129a603196",
     kwargColId: "65251bf1-7f34-4270-ae1d-a31fa85f8238",
-    uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "36be3cb2-421d-4155-862b-95405b2b0efd": {
@@ -60,7 +53,6 @@ export default {
     uiTypeId: "58f123d7-8a82-44d8-9d83-06d1659052c7",
     evColId: "8b509cf5-7fb2-4f4f-b584-86191a90853b",
     kwargColId: "247c4262-7933-490b-a4fb-1a95983215f8",
-    uiTypeColId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "f58c45ff-4552-4d7e-a02b-ec04367c33f9": {
@@ -68,7 +60,6 @@ export default {
     uiTypeId: "4dfce153-7c8a-427e-bc86-31802494166d",
     evColId: "e4fb1cd9-a548-4883-8cbe-02f98b35345b",
     kwargColId: "31a4580d-c6c8-439e-8b04-e98b3893c4ad",
-    uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
     selectedItem: "ac679940-4a07-4fc0-9fa4-4b5498405693",
   },
   "d4b62e02-cc8b-4559-8705-0123b7c81b19": {
@@ -76,7 +67,6 @@ export default {
     uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "c87d7bdd-f382-4f14-80df-8060b2024a58",
     kwargColId: "60ee4958-dab1-4a3a-8ca1-7e023513d16b",
-    uiTypeColId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
   "cacb8f26-108d-4cda-ba1a-a9a68b01fb17": {
@@ -84,7 +74,6 @@ export default {
     uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
     evColId: "1411b61a-201a-4674-befa-826f6dbfeb88",
     kwargColId: "f740f58e-b2bc-414b-8a10-adbb1b0ff433",
-    uiTypeColId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
     selectedItem: "fe8ec1e4-e978-40b2-8764-146b39e62269",
   },
   "54c330a0-b0bd-4ade-8993-0b3199c6cc4c": {
@@ -92,7 +81,6 @@ export default {
     uiTypeId: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     evColId: "22993613-9638-4172-a197-3be020a9a603",
-    uiTypeColId: "037a26ac-5585-45d7-9000-5d49590ebb6c",
     kwargColId: "e60f0507-7e25-4049-ae2f-16fc33a0a1fa",
   },
 };
