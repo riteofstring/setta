@@ -25,10 +25,11 @@ export default function ManyNestedSections({
           />
         )}
         <div className="items-start [&:not(first-child):mt-2]">
-          {childIds.map((e) => (
+          {childIds.map((e, idx) => (
             <SortableSectionContainer
               parentId={sectionId}
               sectionId={e}
+              nextId={childIds[idx + 1]}
               key={`Nested-Sec-${e}`}
               depth={depth + 1}
             />

@@ -8,11 +8,12 @@ import { deleteChild } from "thunks/sections/deleteChild";
 export default function Incrementer({
   parentId,
   sectionId,
+  nextId,
   isRoot,
   hasNested,
 }) {
   const decrementButtonCondition = () => {
-    return (isRoot && hasNested) || !isRoot;
+    return (isRoot && hasNested) || (!isRoot && nextId);
   };
 
   const addSections = (numSections) => {
@@ -34,7 +35,7 @@ export default function Incrementer({
       deleteChild({
         parentId,
         numChildren: numSections,
-        startId: sectionId,
+        startId: nextId,
       });
     }
   };
