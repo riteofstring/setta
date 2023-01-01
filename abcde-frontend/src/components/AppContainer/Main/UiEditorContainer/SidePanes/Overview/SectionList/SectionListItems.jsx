@@ -1,4 +1,4 @@
-import SectionItem from "./SectionItem/SectionItem";
+import { SectionItem } from "./SectionItem/SectionItem";
 
 export default function SectionListItems({ listOfSectionIdsAndNames = [] }) {
   return listOfSectionIdsAndNames.map((e, idx) => (

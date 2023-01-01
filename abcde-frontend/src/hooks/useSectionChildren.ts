@@ -1,13 +1,8 @@
-import { isRoot } from "abcde-utils/src/constants";
-import { useGetSectionType } from "hooks/useSectionType";
+import { useIsRoot } from "hooks/useSectionType";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
 import { setCurrChildren } from "thunks/sections";
-import { requiresNestedSection } from "utils/constants";
-import { useGetManyParamEVs } from "./useEnteredValue";
-import { useGetManyParamUITypeIds } from "./useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
@@ -18,13 +13,16 @@ export function useGetAllChildren(sectionId: string) {
 export function useGetCurrChildren(sectionId: string) {
   const allChildrenIds = useGetAllChildren(sectionId);
   const allParamInfoIds = useGetManySectionInfos(allChildrenIds, "paramInfoId");
-  const currParamChildIds = useChildIdHelper(sectionId);
-  const sectionTypeName = useGetSectionType(sectionId, "type");
-  const currChildren = isRoot(sectionTypeName)
+  const currParamChildIds = useChildIdHelper(
+    sectionId,
+    allChildrenIds,
+    allParamInfoIds
+  );
+  const currChildren = useIsRoot(sectionId)
     ? // keep sections that aren't associated with any parameter
       allChildrenIds.filter((x, idx) => !allParamInfoIds[idx])
     : // keep sections that are associated with current parameters
-      _.intersection(allChildrenIds, currParamChildIds);
+      currParamChildIds;
 
   useEffect(() => {
     setCurrChildren({ sectionId, currChildren });
@@ -33,13 +31,15 @@ export function useGetCurrChildren(sectionId: string) {
   return currChildren;
 }
 
-function useChildIdHelper(sectionId: string) {
-  const infos = useGetCurrObjParamKwargInfos(sectionId);
-  const uiTypeIds = useGetManyParamUITypeIds(sectionId, infos);
-  const hasNested = useUITypes(
-    (x) =>
-      infos.filter((y, i) => requiresNestedSection(x.x[uiTypeIds[i]].type)),
-    _.isEqual
+function useChildIdHelper(
+  sectionId: string,
+  allChildrenIds: string[],
+  allParamInfoIds: (string | null)[]
+) {
+  const currParamInfoIds = useGetCurrObjParamKwargInfos(sectionId).map(
+    (x) => x.id
   );
-  return useGetManyParamEVs(sectionId, hasNested, "childId");
+  return _.intersection(allParamInfoIds, currParamInfoIds).map(
+    (x, idx) => allChildrenIds[idx]
+  );
 }

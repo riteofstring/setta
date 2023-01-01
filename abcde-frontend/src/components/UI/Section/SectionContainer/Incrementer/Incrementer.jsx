@@ -47,7 +47,7 @@ export default function Incrementer({
   return (
     <Tooltip.Provider>
       <Tooltip.Root>
-        <Tooltip.Trigger>
+        <Tooltip.Trigger asChild>
           <div className="flex max-w-xs bg-gray-200 rounded-lg gap-2 py-1 px-2">
             {isRoot && (
               <h3 className="text-xs font-bold text-gray-600">Children</h3>

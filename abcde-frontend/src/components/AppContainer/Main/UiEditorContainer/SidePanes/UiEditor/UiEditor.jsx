@@ -62,13 +62,5 @@ function TabItem({ name, value }) {
 
 function TabContent(props) {
   const { children, value } = props;
-  return (
-    <Tabs.Content
-      // className="flex-grow grid h-[inherit] overflow-y-auto"
-      asChild
-      value={value}
-    >
-      {children}
-    </Tabs.Content>
-  );
+  return <Tabs.Content value={value}>{children}</Tabs.Content>;
 }

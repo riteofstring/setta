@@ -34,7 +34,7 @@ export function deleteChild({
 
   // deletedChildren is a list so that it can be operated on by reference
   // deletedChildren[0] is set to be the list of the children to delete
-  let deletedChildren = [];
+  const deletedChildren = [];
   useSectionInfos.getState().setAllChildren({
     sectionId,
     newStateFn: getNewStateFn(deletedChildren, numChildren, startId),
