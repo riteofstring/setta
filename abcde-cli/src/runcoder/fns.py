@@ -6,8 +6,22 @@ from subprocess import PIPE, Popen
 import click
 import requests
 import yaml
+from requests.adapters import HTTPAdapter, Retry
+from requests.exceptions import RetryError
 
 from .constants import BACKEND, CODE_FOLDER, CONFIG_FILENAME, CONFIG_FOLDER
+
+
+def _get_retry_session(total=5, backoff_factor=0.1, status_forcelist=(404,)):
+    s = requests.Session()
+    retries = Retry(
+        total=total,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+        method_whitelist=frozenset(["GET", "POST"]),
+    )
+    s.mount("http://", HTTPAdapter(max_retries=retries))
+    return s
 
 
 def _get_config_path():
@@ -37,8 +51,8 @@ def _login(username, password):
         f"{BACKEND}auth/login",
         json={"username": username, "password": password},
     )
-    login_fail = r.status_code != 200
-    if login_fail:
+    failed = r.status_code != 200
+    if failed:
         click.echo("Incorrect username/password combination\n")
         sys.exit()
     else:
@@ -47,11 +61,24 @@ def _login(username, password):
 
 
 def _run(access_token, code_id):
-    r = requests.post(
-        f"{BACKEND}codeGenerator/getCode",
-        data={"codeId": code_id},
-        cookies={"connect.sid": access_token},
-    )
+    s = _get_retry_session()
+    failed = True
+    try:
+        r = s.post(
+            f"{BACKEND}codeGenerator/getCode",
+            json={"codeId": code_id},
+            cookies={"connect.sid": access_token},
+        )
+        failed = r.status_code != 200
+    except RetryError:
+        click.echo("Could not retrieve code")
+        return
+
+    if failed:
+        if r.status_code == 422:
+            click.echo("Invalid code id")
+        return
+
     click.echo("Received code")
     code = r.json()["code"]
 
