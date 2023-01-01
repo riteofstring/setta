@@ -55,7 +55,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
   if (childId) {
-    deleteChild({ sectionId, startId: childId });
+    deleteChild({ parentId: sectionId, startId: childId });
   }
 }
 

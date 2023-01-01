@@ -30,10 +30,10 @@ export default function Incrementer({
 
   const deleteChildren = (numSections) => {
     if (isRoot) {
-      deleteChild({ sectionId, numChildren: numSections });
+      deleteChild({ parentId: sectionId, numChildren: numSections });
     } else {
       deleteChild({
-        sectionId: parentId,
+        parentId,
         numChildren: numSections,
         startId: nextId,
       });

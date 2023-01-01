@@ -16,7 +16,7 @@ function _SectionHeader({
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
     e.stopPropagation();
-    deleteChild({ sectionId: parentId, startId: sectionId });
+    deleteChild({ parentId, startId: sectionId });
   };
 
   return (
