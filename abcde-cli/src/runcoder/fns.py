@@ -35,22 +35,22 @@ def _read_config_file():
 def _login(username, password):
     r = requests.post(
         f"{BACKEND}auth/login",
-        data={"username": username, "password": password},
+        json={"username": username, "password": password},
     )
-    login_fail = r.status_code != 201
+    login_fail = r.status_code != 200
     if login_fail:
         click.echo("Incorrect username/password combination\n")
         sys.exit()
     else:
         click.echo("Login success")
-    return r.json()["access_token"]
+    return r.cookies.get_dict()["connect.sid"]
 
 
 def _run(access_token, code_id):
     r = requests.post(
         f"{BACKEND}codeGenerator/getCode",
         data={"codeId": code_id},
-        headers={"Authorization": f"Bearer {access_token}"},
+        cookies={"connect.sid": access_token},
     )
     click.echo("Received code")
     code = r.json()["code"]

@@ -1,4 +1,4 @@
-BACKEND = "http://localhost:8000/"
+BACKEND = "http://127.0.0.1:8000/"
 CONFIG_FOLDER = "runcoder"
 CONFIG_FILENAME = "config.yaml"
 KEYRING_NAME = "runcoder.io"
