@@ -1,5 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import { BiFile } from "react-icons/bi";
+import { HiCheckCircle } from "react-icons/hi";
 
 export function ProjectListing({ name, project, onClick }) {
   return (
@@ -23,13 +25,8 @@ function ConfigListings({ project, onClick }) {
   return project.configs.map((x, idx) => {
     const id = JSON.stringify({ id: project.id, configId: x.id });
     return (
-      <Accordion.Content>
-        <ConfigListing
-          id={id}
-          name={x.name}
-          key={`File config ${idx} ${x}`}
-          onClick={onClick}
-        />
+      <Accordion.Content key={`File config ${idx} ${x}`}>
+        <ConfigListing id={id} name={x.name} onClick={onClick} />
       </Accordion.Content>
     );
   });
