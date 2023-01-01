@@ -39,7 +39,10 @@ def configure(username, password):
 def run(code_id):
     username = _read_config_file()["username"]
     access_token = keyring.get_password(KEYRING_NAME, username)
-    _run(access_token, code_id)
+    if not access_token:
+        click.echo("access_token not found")
+    else:
+        _run(access_token, code_id)
 
 
 @click.group()

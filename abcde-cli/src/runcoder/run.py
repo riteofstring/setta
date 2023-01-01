@@ -21,6 +21,8 @@ def _try_getting_code(access_token, code_id):
         failed = r.status_code != 200
         if r.status_code == 422:
             click.echo("Invalid code id")
+        if r.status_code == 401:
+            click.echo("Unauthorized")
 
     except RetryError:
         click.echo("Could not retrieve code")
