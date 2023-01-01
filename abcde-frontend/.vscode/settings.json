@@ -8,5 +8,8 @@
     "**/Thumbs.db": true,
     "**/node_modules": true
   },
-  "task.allowAutomaticTasks": "on"
+  "task.allowAutomaticTasks": "on",
+  "terminal.integrated.automationProfile.windows": {
+    "path": "cmd.exe"
+  }
 }
