@@ -40,14 +40,14 @@
 
 import * as Accordion from "@radix-ui/react-accordion";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import React from "react";
+import React, { useRef } from "react";
 import { BiFile } from "react-icons/bi";
 import { HiCheckCircle } from "react-icons/hi";
 import "./style.css";
 
 export function ProjectListing({ name, project, onClick }) {
   return (
-    <Accordion.Item>
+    <Accordion.Item value={name}>
       <AccordionTrigger name={name} />
       <ConfigListings project={project} onClick={onClick} />
     </Accordion.Item>
@@ -78,13 +78,12 @@ const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
       {project.configs.map((x, idx) => {
         const id = JSON.stringify({ id: project.id, configId: x.id });
         return (
-          <>{id}</>
-          // <ConfigListing
-          //   id={id}
-          //   name={x.name}
-          //   onClick={onClick}
-          //   key={`File config ${idx} ${x}`}
-          // />
+          <ConfigListing
+            id={id}
+            name={x.name}
+            onClick={onClick}
+            key={`File config ${idx} ${x}`}
+          />
         );
       })}
     </Accordion.Content>
