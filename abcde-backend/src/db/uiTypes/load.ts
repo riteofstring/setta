@@ -1,25 +1,7 @@
-import {
-  ManySectionUITypeType,
-  PresetType,
-} from 'abcde-utils/src/types/uiType';
+import { PresetType } from 'abcde-utils/src/types/uiType';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { ManyXUITypeType, UITypeNames, UITypeNameToIncludeObj } from './types';
-
-export async function getUITypeCols(sectionUITypes: ManySectionUITypeType) {
-  const ids = Object.values(sectionUITypes)
-    .map((x) => x.config.uiTypeColId)
-    .filter((x) => x);
-
-  const uiTypeCols = await prisma.uITypeColId.findMany({
-    where: { id: { in: ids } },
-    include: { children: true },
-  });
-
-  return _.mapValues(_.keyBy(uiTypeCols, 'id'), (x) =>
-    _.mapValues(_.keyBy(x.children, 'codeInfoId'), (y) => y.uiTypeId),
-  );
-}
 
 export async function getBaseUITypes() {
   return await getUITypesByWhere(
