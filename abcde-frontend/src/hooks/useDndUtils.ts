@@ -28,7 +28,9 @@ export function useHighlightDroppable(sectionId: string) {
     onDragCancel: onDragDone,
   });
 
-  const className = "rounded-3xl relative z-[100] py-3 px-3 -my-3 -mx-3";
+  const className = `rounded-3xl relative py-3 px-3 -my-3 -mx-3 ${
+    highlight ? "z-[100]" : ""
+  }`;
   const style = {
     backgroundColor: highlight ? "hsla(95, 100%, 0%, 0.1)" : "",
     outline: `${
