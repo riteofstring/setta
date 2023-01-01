@@ -51,24 +51,24 @@ export function ComboboxSearch({
       {...getComboboxProps()}
     >
       <ComboboxInput
-        getInputProps={getInputProps}
-        getToggleButtonProps={getToggleButtonProps}
+        {...getInputProps()}
+        toggleButtonProps={getToggleButtonProps()}
         isOpen={isOpen}
       />
 
       <div className="flex flex-col items-stretch" style={{ width }}>
-        <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
+        <ComboboxList isOpen={isOpen} {...getMenuProps()}>
           <div className="max-h-full m-3 w-full overflow-y-scroll">
             {filteredItems.map((item, index) => (
               <ComboboxItem
-                getItemProps={getItemProps}
-                item={item}
-                index={index}
-                isHighlighted={index === highlightedIndex}
-                itemStyle={itemStyleGetter?.(item)}
-                itemString={itemToString(item)}
+                {...getItemProps({ item, index })}
+                itemIndex={index}
+                highlightedIndex={highlightedIndex}
                 key={index}
-              />
+                itemStyle={itemStyleGetter?.(item)}
+              >
+                {itemToString(item)}
+              </ComboboxItem>
             ))}
           </div>
         </ComboboxList>

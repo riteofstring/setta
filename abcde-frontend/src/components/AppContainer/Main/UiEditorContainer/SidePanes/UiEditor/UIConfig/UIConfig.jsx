@@ -5,7 +5,6 @@ import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { VscSaveAs } from "react-icons/vsc";
@@ -18,7 +17,6 @@ import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 export default React.memo(UIConfig);
-const UIElement = React.memo(_UIElement, (p, n) => _.isEqual(p, n));
 
 function UIConfig({ sectionId }) {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
@@ -55,7 +53,7 @@ function UIConfig({ sectionId }) {
   );
 }
 
-function _UIElement({ sectionId, paramInfo }) {
+function UIElement({ sectionId, paramInfo }) {
   const setUIType = useUITypes((x) => x.setUIType);
   const deleteUIType = useUITypes((x) => x.deleteUIType);
   const paramInfoId = paramInfo.id;

@@ -1,8 +1,7 @@
 import { useGoToSection } from "hooks/useGetSectionPosition";
-import React from "react";
 import { OVERVIEW } from "utils/constants";
 
-function _SectionItem({ sectionId, sectionHeading }) {
+export default function SectionItem({ sectionId, sectionHeading }) {
   const goToSection = useGoToSection(sectionId, OVERVIEW);
 
   const onClick = () => {
@@ -19,5 +18,3 @@ function _SectionItem({ sectionId, sectionHeading }) {
     </p>
   );
 }
-
-export const SectionItem = React.memo(_SectionItem);

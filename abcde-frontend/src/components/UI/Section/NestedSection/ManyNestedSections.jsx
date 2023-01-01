@@ -1,7 +1,7 @@
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { INDICATOR_GOTO_PARENT } from "utils/constants";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
-import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
+import { NestedSection } from "./NestedSection";
 
 export default function ManyNestedSections({
   childIds,
@@ -26,7 +26,7 @@ export default function ManyNestedSections({
         )}
         <div className="items-start [&:not(first-child):mt-2]">
           {childIds.map((e, idx) => (
-            <SortableSectionContainer
+            <NestedSection
               parentId={sectionId}
               sectionId={e}
               nextId={childIds[idx + 1]}
