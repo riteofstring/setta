@@ -13,6 +13,8 @@ export type KwargColActionType = {
 
   initManyKwargColIds: (payload: { collectionIds: string[] }) => void;
 
+  initObjInfoId: (payload: { collectionId: string; objInfoId: string }) => void;
+
   setKwargIds: (payload: {
     collectionId: string;
     objInfoId: string;
