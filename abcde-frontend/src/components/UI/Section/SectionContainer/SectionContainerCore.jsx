@@ -1,6 +1,5 @@
-import { isRoot, isSeriesElement } from "abcde-utils/src/constants";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
-import { useGetSectionType } from "hooks/useSectionType";
+import { useIsRoot, useIsSeriesElement } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
@@ -16,10 +15,8 @@ import SectionDescription from "./Main/SectionDescription/SectionDescription";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
-  const sectionTypeName = useGetSectionType(sectionId, "type");
-  const config = useGetSectionType(sectionId, "config");
-  const _isSeriesElement = isSeriesElement(config.subType);
-  const _isRoot = isRoot(sectionTypeName);
+  const isRoot = useIsRoot(sectionId);
+  const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
 
@@ -55,11 +52,11 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             sectionId={sectionId}
             parentId={parentId}
             nextId={nextId}
-            isSeriesElement={_isSeriesElement}
-            isRoot={_isRoot}
+            isSeriesElement={isSeriesElement}
+            isRoot={isRoot}
             hasNested={hasNested}
           />
-          {!_isRoot && (
+          {!isRoot && (
             <>
               <SectionSearch
                 sectionId={sectionId}

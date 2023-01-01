@@ -1,3 +1,4 @@
+import { isRoot, isSeriesElement } from "abcde-utils/src/constants";
 import {
   SectionUITypeConfigType,
   SectionUITypeType,
@@ -25,4 +26,18 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
   const nonScalars: (keyof SectionUITypeType)[] = ["config", "originInfoId"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
+}
+
+export function useIsSeriesElement(sectionId: string) {
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  return useUITypes((x) =>
+    isSeriesElement(
+      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType
+    )
+  );
+}
+
+export function useIsRoot(sectionId: string) {
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  return useUITypes((x) => isRoot(x.x[uiTypeId].type));
 }
