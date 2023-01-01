@@ -27,8 +27,6 @@
 #     return output
 
 
-
-
 # def main():
 #     module_name = "torch.nn"
 #     module = importlib.import_module(module_name)
@@ -41,18 +39,37 @@
 #     main()
 
 
-import yaml
 import importlib
 import inspect
+import uuid
+
+import yaml
+
+from .constants import PARAMETER
+from pprint import pprint
+
 
 def get_args(x):
-    x = x.split(".")
-    module = importlib.import_module(".".join(x[:-1]))
-    fn = getattr(module, x[-1])
-    print(f"\n\n\n**** {fn} ****")
-    print(inspect.signature(fn).parameters)
+    xs = x.split(".")
+    module = importlib.import_module(".".join(xs[:-1]))
+    fn = getattr(module, xs[-1])
+    output = {}
+    for v in inspect.signature(fn).parameters.values():
+        id = str(uuid.uuid4())
+        output[id] = {
+            "id": id,
+            "name": v.name,
+            "version": None,
+            "defaultVal": v.default,
+            "type": v.annotation,
+            "description": None,
+            "rcType": PARAMETER,
+            "inCodeParentId": None,
+            "path": f"{x}.{v.name}",
+            "children": [],
+        }
 
-
+    pprint(output)
 
 
 def _info(yaml_path):
