@@ -41,16 +41,17 @@
 
 import importlib
 import inspect
+import json
 import uuid
 
 import yaml
 
 from .constants import PARAMETER
-from pprint import pprint
 
 
 def get_args(x):
     xs = x.split(".")
+    version = importlib.metadata.version(xs[0])
     module = importlib.import_module(".".join(xs[:-1]))
     fn = getattr(module, xs[-1])
     output = {}
@@ -59,9 +60,9 @@ def get_args(x):
         output[id] = {
             "id": id,
             "name": v.name,
-            "version": None,
+            "version": version,
             "defaultVal": v.default,
-            "type": v.annotation,
+            "type": str(v.annotation),
             "description": None,
             "rcType": PARAMETER,
             "inCodeParentId": None,
@@ -69,11 +70,15 @@ def get_args(x):
             "children": [],
         }
 
-    pprint(output)
+    return output
 
 
-def _info(yaml_path):
+def _info(yaml_path, output_path):
     with open(yaml_path, "r") as f:
         specs = yaml.safe_load(f)
+    output = {}
     for x in specs:
-        get_args(x)
+        output = {**output, **get_args(x)}
+
+    with open(output_path, "w") as f:
+        json.dump(output, f, indent=2)

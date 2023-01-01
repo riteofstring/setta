@@ -10,8 +10,9 @@ from .run import _run
 
 @click.command()
 @click.argument("yaml_path")
-def info(yaml_path):
-    _info(yaml_path)
+@click.argument("output_path")
+def info(yaml_path, output_path):
+    _info(yaml_path, output_path)
 
 
 @click.command()
