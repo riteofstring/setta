@@ -1,8 +1,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { DECK } from "abcde-utils/src/constants";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useGetCurrChildren } from "hooks/useSectionChildren";
-import { useGetSectionType } from "hooks/useSectionType";
+import { useIsDeck } from "hooks/useSectionType";
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import React from "react";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
@@ -16,8 +15,7 @@ function SectionContainer({
   depth,
   dragListeners,
 }) {
-  const sectionType = useGetSectionType(sectionId, "type");
-  const isDeck = sectionType === DECK;
+  const isDeck = useIsDeck(sectionId);
   const currChildren = useGetCurrChildren(sectionId);
   const hasNested = currChildren.length > 0;
 
