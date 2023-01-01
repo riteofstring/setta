@@ -1,7 +1,7 @@
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionConfig } from "./sections";
+import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
 export function getParamEVId(sectionId, paramInfoId) {
   const { evColId } = getSectionConfig(sectionId);
@@ -14,7 +14,7 @@ export function getParamChildId(sectionId, paramInfoId) {
 }
 
 export function getParamUITypeId(sectionId, paramInfoId) {
-  const { uiTypeColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(sectionId);
   return useParamInfos.getState().y[uiTypeColId][paramInfoId];
 }
 

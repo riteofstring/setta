@@ -1,5 +1,13 @@
-import { rootTypeToChildSubType, SECTION } from "abcde-utils/src/constants";
-import { OriginInfoIdType, UITypeType } from "abcde-utils/src/types/uiType";
+import {
+  isSectionUIType,
+  rootTypeToChildSubType,
+  SECTION,
+} from "abcde-utils/src/constants";
+import {
+  OriginInfoIdType,
+  SectionUITypeConfigType,
+  UITypeType,
+} from "abcde-utils/src/types/uiType";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 
@@ -44,12 +52,12 @@ export function createSectionOriginInfoId(sectionId: string): OriginInfoIdType {
 }
 
 export function createParamOriginInfoId(
-  uiTypeColId: string,
+  sectionTypeConfig: SectionUITypeConfigType,
   paramInfoId: string
 ): OriginInfoIdType {
   return {
     sectionId: null,
-    uiTypeColId,
+    uiTypeColId: sectionTypeConfig.uiTypeColId,
     paramInfoId,
   };
 }
@@ -69,6 +77,9 @@ export function cloneNewUIType({
   newUIType.originInfoId = originInfoId;
   if (!_.isNil(config)) {
     newUIType.config = config;
+    if (isSectionUIType(newUIType)) {
+      newUIType.config.uiTypeColId = createNewId();
+    }
   }
   newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
   return newUIType;

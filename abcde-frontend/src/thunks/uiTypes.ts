@@ -7,8 +7,8 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import {
-  getSectionConfig,
   getSectionType,
+  getSectionTypeConfig,
   setSectionConfigAttr,
 } from "thunks/sections";
 import { requiresNestedSection } from "utils/constants";
@@ -35,7 +35,7 @@ export function setSectionUITypeId({ uiTypeId, sectionId }) {
 }
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId }) {
-  const { uiTypeColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(sectionId);
 
   useParamInfos.getState().setUITypeId({
     collectionId: uiTypeColId,
@@ -78,10 +78,7 @@ export function setSectionUITypeConfig({
   const currUIType = getSectionType(sectionId);
 
   const originInfoId = paramInfoId
-    ? createParamOriginInfoId(
-        getSectionConfig(parentId).uiTypeColId,
-        paramInfoId
-      )
+    ? createParamOriginInfoId(getSectionTypeConfig(parentId), paramInfoId)
     : createSectionOriginInfoId(sectionId);
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
@@ -103,10 +100,10 @@ export function setParamUITypeConfig({
   configProps,
 }) {
   const defaultName = useCodeInfo.getState().allCodeInfo[paramInfoId].name;
-  const uiTypeColId = getSectionConfig(sectionId).uiTypeColId;
+  const sectionTypeConfig = getSectionTypeConfig(sectionId);
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
-  const originInfoId = createParamOriginInfoId(uiTypeColId, paramInfoId);
+  const originInfoId = createParamOriginInfoId(sectionTypeConfig, paramInfoId);
   const setUITypeId = (uiTypeId) =>
     setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
 

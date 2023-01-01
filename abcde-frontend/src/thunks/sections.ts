@@ -1,5 +1,6 @@
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useKwargCols } from "models/info/kwargCols";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -42,6 +43,11 @@ export function setSelectedItem(sectionId, selectedItem) {
     attr: "selectedItem",
     value: selectedItem,
   });
+  const { kwargColId } = getSectionConfig(sectionId);
+  useKwargCols
+    .getState()
+    .initObjInfoId({ collectionId: kwargColId, objInfoId: selectedItem });
+
   const params = useCodeInfo.getState().params[selectedItem];
   initializeParam(sectionId, params);
 }

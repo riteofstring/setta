@@ -10,7 +10,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
 import { addChild } from "./addChild";
-import { getSectionConfig } from "./sections";
+import { getSectionConfig, getSectionTypeConfig } from "./sections";
 
 export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
@@ -54,7 +54,7 @@ function initializeParamEnteredValue(
 }
 
 function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
-  const { uiTypeColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionTypeConfig(sectionId);
   const uiTypeCol = useParamInfos.getState().y[uiTypeColId];
   return {
     paramIdToUITypeId: _.mapValues(paramInfos, (v) => uiTypeCol[v.id]),
