@@ -1,44 +1,3 @@
-# import argparse
-# from inspect import getmembers, isfunction, ismodule, isclass, signature
-# from pprint import pprint
-# import importlib
-# import uuid
-
-
-# def get_code_info(items, parent_path, depth):
-#     output = {}
-#     for (name, obj) in items:
-#         id = str(uuid.uuid4())
-#         path = f"{parent_path}.{name}"
-#         output[id] = {"id": id, "name": name, "path": path}
-#         output.update(get_children(obj, path, depth+1))
-#     return output
-
-
-# def get_children(x, path, depth):
-#     if depth == 2:
-#         return {}
-#     output = {}
-#     if isclass(x):
-#         get_code_info(signature(x).parameters, path, 100)
-#     else:
-#         for predicate in [isfunction, ismodule, isclass]:
-#             output.update(get_code_info(getmembers(x, predicate), path, depth))
-#     return output
-
-
-# def main():
-#     module_name = "torch.nn"
-#     module = importlib.import_module(module_name)
-#     output = get_children(module, module_name, 0)
-#     pprint(len(output))
-
-
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(allow_abbrev=False)
-#     main()
-
-
 import importlib
 import inspect
 import json
@@ -49,15 +8,56 @@ import yaml
 from .constants import PARAMETER
 
 
-def get_args(x):
-    xs = x.split(".")
-    version = importlib.metadata.version(xs[0])
-    module = importlib.import_module(".".join(xs[:-1]))
-    fn = getattr(module, xs[-1])
-    output = {}
-    for v in inspect.signature(fn).parameters.values():
+class KeyAlreadyExists(Exception):
+    pass
+
+
+# https://stackoverflow.com/a/73143659
+class InfoDict(dict):
+    def __setitem__(self, key, value):
+        if key not in self:
+            super().__setitem__(key, value)
+        else:
+            raise KeyAlreadyExists(f"{key} already exists in dict")
+
+
+def id_as_key(info_dict):
+    return {info["id"]: info for info in info_dict.values()}
+
+
+def construct_path(import_from, import_this):
+    return f"{import_from}.{import_this}" if import_this else import_from
+
+
+def module_info(import_from, import_this, version, output):
+    path = construct_path(import_from, import_this)
+    if path in output:
+        return
+
+    name = import_this if import_this else import_from
+    id = str(uuid.uuid4())
+    info = {
+        "id": id,
+        "name": name,
+        "version": version,
+        "defaultVal": None,
+        "type": "module",
+        "description": None,
+        "rcType": PARAMETER,
+        "path": path,
+        "children": [],
+    }
+    output[path] = info
+
+
+def callable_info(obj, import_from, import_this, version, output):
+    obj_path = construct_path(import_from, import_this)
+    for v in inspect.signature(obj).parameters.values():
+        path = f"{obj_path}.{v.name}"
+        if path in output:
+            continue
         id = str(uuid.uuid4())
-        output[id] = {
+        info = {
             "id": id,
             "name": v.name,
             "version": version,
@@ -65,20 +65,44 @@ def get_args(x):
             "type": str(v.annotation),
             "description": None,
             "rcType": PARAMETER,
-            "inCodeParentId": None,
-            "path": f"{x}.{v.name}",
+            "path": path,
             "children": [],
         }
+        output[path] = info
 
-    return output
+
+def get_args(path, version, output):
+    xs = path.split(".")
+    if len(xs) == 1:
+        import_from, import_this = xs[0], None
+    else:
+        import_from, import_this = ".".join(xs[:-1]), xs[-1]
+
+    obj = importlib.import_module(import_from)
+    if import_this:
+        obj = getattr(obj, import_this)
+
+    if inspect.ismodule(obj):
+        module_info(import_from, import_this, version, output)
+    elif inspect.isclass(obj) or inspect.isfunction(obj):
+        callable_info(obj, import_from, import_this, version, output)
+
+
+def get_args_for_all_subpaths(x, output):
+    xs = x.split(".")
+    version = importlib.metadata.version(xs[0])
+    for i in range(1, len(xs) + 1):
+        get_args(".".join(xs[:i]), version, output)
 
 
 def _info(yaml_path, output_path):
     with open(yaml_path, "r") as f:
         specs = yaml.safe_load(f)
-    output = {}
+    output = InfoDict()
     for x in specs:
-        output = {**output, **get_args(x)}
+        get_args_for_all_subpaths(x, output)
+
+    output = id_as_key(output)
 
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
