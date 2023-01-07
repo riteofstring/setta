@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { deleteSections, moveSections } from "thunks/sectionOps";
+import { deleteSections, moveSections } from "thunks/sections/sectionOps";
 import { PANEID } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
