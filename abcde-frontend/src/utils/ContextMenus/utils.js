@@ -5,6 +5,7 @@ export function useOnClickAddSection({
   x,
   y,
   closeContextMenu,
+  reactFlowRef,
   afterAddSection,
 }) {
   function fnAfterAddSection(newId) {
@@ -14,7 +15,7 @@ export function useOnClickAddSection({
     closeContextMenu();
   }
 
-  const getPosition = useMouseToReactFlowPosition();
+  const getPosition = useMouseToReactFlowPosition(reactFlowRef);
 
   return (isDeck) => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
