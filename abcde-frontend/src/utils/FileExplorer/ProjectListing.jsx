@@ -1,6 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import { motion } from "framer-motion";
 import React, { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 import "./style.css";
@@ -32,9 +31,12 @@ const AccordionTrigger = React.forwardRef(({ name }, ref) => {
 });
 
 const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
-  // transition-transform flex-grow data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]
+  //
   return (
-    <Accordion.Content as={motion.div} ref={ref} className="flex flex-col">
+    <Accordion.Content
+      ref={ref}
+      className="flex flex-col transition-transform flex-grow data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]"
+    >
       {project.configs.map((x, idx) => {
         const id = JSON.stringify({ id: project.id, configId: x.id });
         return (
