@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
@@ -63,6 +64,10 @@ function Container({
   depth,
   children,
 }) {
+  const {
+    className: highlightDroppableClassName,
+    style: highlightDroppableStyle,
+  } = useHighlightDroppable(sectionId);
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
     useDraggable({
@@ -83,13 +88,15 @@ function Container({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${isDraggingSortable && "nodrag"}`;
+  const className = `${
+    isDraggingSortable && "nodrag"
+  } ${highlightDroppableClassName}`;
 
   function totalRef(e) {
     refForPosition.current = e;
-    if (isDeck && !hasNested && !isSorting) {
-      droppableRef(e);
-    }
+    // if (isDeck && !hasNested && !isSorting) {
+    droppableRef(e);
+    // }
     if (depth === 0) {
       draggableRef(e);
     }
@@ -106,14 +113,21 @@ function Container({
       {isDeck ? (
         <div
           className={`${className} pt-3 px-8 pb-6 rounded-3xl`}
-          style={{ backgroundColor: "hsla(212, 22%, 50%, 0.2)" }}
+          style={{
+            backgroundColor: "hsla(212, 22%, 50%, 0.2)",
+            ...highlightDroppableStyle,
+          }}
           {...commonProps}
         >
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
       ) : (
-        <div className={className} {...commonProps}>
+        <div
+          className={className}
+          style={highlightDroppableStyle}
+          {...commonProps}
+        >
           {children}
         </div>
       )}

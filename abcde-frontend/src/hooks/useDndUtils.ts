@@ -13,8 +13,8 @@ export function useHighlightDroppable(sectionId: string) {
   function highlightArea({ active, over }) {
     if (
       isMovingFree &&
-      over?.data?.current?.sortable?.containerId === sectionId &&
-      active.id !== sectionId // Can't drop a deck into itself
+      over?.id === sectionId &&
+      active.id !== sectionId // Can't drop a section into itself
     ) {
       setHighlight(true);
     } else {
