@@ -76,6 +76,7 @@ function SectionsPane({ initialNodes }) {
       onNodeContextMenu={openNodeCtxMenu}
       onPaneClick={closeCtxMenus}
       onMoveStart={closeCtxMenus}
+      proOptions={{ hideAttribution: true }}
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}
