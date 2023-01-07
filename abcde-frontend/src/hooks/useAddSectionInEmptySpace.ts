@@ -1,5 +1,5 @@
 import { usePanes } from "models/panes";
-import { useStoreApi } from "react-flow-renderer";
+import { useStoreApi } from "reactflow";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { OVERVIEW } from "utils/constants";
 

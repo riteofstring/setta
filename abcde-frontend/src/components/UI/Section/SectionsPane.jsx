@@ -1,7 +1,8 @@
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
 import React from "react";
-import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
+import ReactFlow, { Background, useNodesState } from "reactflow";
+import "reactflow/dist/style.css";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
