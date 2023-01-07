@@ -8,7 +8,6 @@ export function SelectionContextMenu({
   x,
   y,
   closeContextMenu,
-  reactFlowRef,
   nodeIds,
   ...props
 }) {
@@ -24,7 +23,6 @@ export function SelectionContextMenu({
     x,
     y,
     closeContextMenu,
-    reactFlowRef,
     afterAddSection,
   });
 
