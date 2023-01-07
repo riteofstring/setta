@@ -10,7 +10,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReactFlow } from "react-flow-renderer";
-import { moveSection } from "thunks/sectionOps";
+import { moveSection } from "thunks/sections/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { DummySection } from "./DummySection";
