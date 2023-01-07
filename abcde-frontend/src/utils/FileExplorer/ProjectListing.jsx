@@ -1,5 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as RadioGroup from "@radix-ui/react-radio-group";
+import { motion } from "framer-motion";
 import React, { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 import "./style.css";
@@ -15,25 +16,25 @@ export function ProjectListing({ name, project, onClick }) {
 
 const AccordionTrigger = React.forwardRef(({ name }, ref) => {
   return (
-    <Accordion.Header>
-      <Accordion.Trigger ref={ref} asChild>
-        <div className="flex flex-grow items-center select-none gap-2 py-1 rounded-md px-2 cursor-pointer">
-          <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
+    <Accordion.Trigger ref={ref} asChild>
+      <div className="flex flex-grow items-center select-none gap-2 py-1 rounded-md px-2 cursor-pointer ">
+        <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
+
+        <div className="flex flex-grow justify-between bg-white">
           <h4 className="text-xs font-bold text-gray-500 tracking-wider hover:text-gray-900">
             {name}
           </h4>
+          <div className="text-xs text-gray-400">2023/01/01</div>
         </div>
-      </Accordion.Trigger>
-    </Accordion.Header>
+      </div>
+    </Accordion.Trigger>
   );
 });
 
 const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
+  // transition-transform flex-grow data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]
   return (
-    <Accordion.Content
-      ref={ref}
-      className="flex flex-col flex-grow data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]"
-    >
+    <Accordion.Content as={motion.div} ref={ref} className="flex flex-col">
       {project.configs.map((x, idx) => {
         const id = JSON.stringify({ id: project.id, configId: x.id });
         return (
@@ -74,7 +75,7 @@ function ConfigListing({ id, name, onClick }) {
       </span>
       <div className="flex flex-grow justify-between">
         <label className="cursor-pointer">{name}</label>
-        <div className="text-xs text-gray-500">2023/01/01</div>
+        <div className="text-xs text-gray-400">2023/01/01</div>
       </div>
     </RadioGroup.Item>
   );
