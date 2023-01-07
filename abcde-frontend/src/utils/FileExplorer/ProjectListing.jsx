@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import React, { useRef } from "react";
-import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
+import { HiCheckCircle, HiChevronDown, HiOutlineFolder } from "react-icons/hi";
 import "./style.css";
 
 export function ProjectListing({ name, project, onClick }) {
@@ -20,9 +20,13 @@ const AccordionTrigger = React.forwardRef(({ name }, ref) => {
         <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
 
         <div className="flex flex-grow justify-between bg-white">
-          <h4 className="text-xs font-bold text-gray-500 tracking-wider hover:text-gray-900">
-            {name}
-          </h4>
+          <div className="flex gap-2">
+            <h4 className="text-xs font-bold text-gray-500 tracking-wider hover:text-gray-900">
+              {name}
+            </h4>
+            <HiChevronDown />
+          </div>
+
           <div className="text-xs text-gray-400">2023/01/01</div>
         </div>
       </div>
