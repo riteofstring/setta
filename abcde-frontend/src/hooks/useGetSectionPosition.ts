@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { usePanes } from "models/panes";
 import { useSectionPositions } from "models/sectionPositions";
-import { useReactFlow, useStoreApi } from "reactflow";
+import { useReactFlow, useStoreApi } from "react-flow-renderer";
 import { getCurrPositionOfSection } from "thunks/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW, PANEID } from "utils/constants";

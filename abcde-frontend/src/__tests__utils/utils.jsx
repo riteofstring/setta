@@ -10,7 +10,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { loadSections } from "models/master";
 import { resetAllStores } from "models/utils";
-import { ReactFlowProvider } from "reactflow";
+import { ReactFlowProvider } from "react-flow-renderer";
 import { addSectionsToState } from "thunks/sections/createSectionInfo";
 import { renderUseGetSectionType } from "./renderHooks";
 

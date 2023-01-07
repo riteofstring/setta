@@ -1,8 +1,7 @@
 import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
 import React from "react";
-import ReactFlow, { Background, useNodesState } from "reactflow";
-import "reactflow/dist/style.css";
+import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
@@ -76,7 +75,6 @@ function SectionsPane({ initialNodes }) {
       onNodeContextMenu={openNodeCtxMenu}
       onPaneClick={closeCtxMenus}
       onMoveStart={closeCtxMenus}
-      proOptions={{ hideAttribution: true }}
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}

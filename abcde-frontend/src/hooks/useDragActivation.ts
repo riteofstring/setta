@@ -1,4 +1,4 @@
-import { useKeyPress } from "reactflow";
+import { useKeyPress } from "react-flow-renderer";
 
 export function useDragActivation() {
   const isSorting = useKeyPress("Control");
