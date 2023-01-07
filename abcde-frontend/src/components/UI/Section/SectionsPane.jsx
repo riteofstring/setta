@@ -1,8 +1,7 @@
+import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
-import { useSectionRefs } from "models/sectionRefs";
-import React, { useEffect, useRef } from "react";
-import ReactFlow, { Background, useNodesState } from "reactflow";
-import "reactflow/dist/style.css";
+import React from "react";
+import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
@@ -31,11 +30,7 @@ function setInitialToCurrent(initialNodes, nodes) {
 }
 
 function SectionsPane({ initialNodes }) {
-  const reactFlowRef = useRef(PANEID);
-  const setSectionRef = useSectionRefs((x) => x.setRef);
-  useEffect(() => {
-    setSectionRef({ sectionId: PANEID, ref: reactFlowRef.current });
-  }, []);
+  const reactFlowRef = useSetSectionPosition(PANEID);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
@@ -80,15 +75,16 @@ function SectionsPane({ initialNodes }) {
       onNodeContextMenu={openNodeCtxMenu}
       onPaneClick={closeCtxMenus}
       onMoveStart={closeCtxMenus}
-      proOptions={{ hideAttribution: true }}
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}
         closeContextMenu={closePaneCtxMenu}
+        reactFlowRef={reactFlowRef}
       />
       <SelectionContextMenu
         {...selectionCtxMenuDetails}
         closeContextMenu={closeSelectionCtxMenu}
+        reactFlowRef={reactFlowRef}
       />
       {nodeCtxMenuDetails.nodeId && (
         <NodeContextMenu

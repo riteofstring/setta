@@ -29,10 +29,6 @@ export const useParamInfos = create(
       set((state) => {
         state.x[collectionId][paramInfoId] = enteredValueId;
       }),
-    initManyUITypeColIds: ({ collectionIds }) =>
-      set((state) => {
-        _.forEach(collectionIds, (id) => initValue(state.y, id, {}));
-      }),
     setManyUITypeIds: ({ collectionId, paramIdToUITypeId }) =>
       set((state) => {
         state.y[collectionId] = {

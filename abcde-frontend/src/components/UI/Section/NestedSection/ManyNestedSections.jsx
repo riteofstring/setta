@@ -1,4 +1,5 @@
 import { useGoToSection } from "hooks/useGetSectionPosition";
+import { INDICATOR_GOTO_PARENT } from "utils/constants";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
@@ -8,7 +9,7 @@ export default function ManyNestedSections({
   depth,
   isDeck,
 }) {
-  const goToSection = useGoToSection(sectionId);
+  const goToSection = useGoToSection(sectionId, INDICATOR_GOTO_PARENT);
 
   const onClick = () => {
     goToSection();
