@@ -4,7 +4,7 @@ import { PANEID } from "utils/constants";
 import { relativePos } from "./useGetSectionPosition";
 import { useGetAllChildren } from "./useSectionChildren";
 
-export function useUndeck(deckId, doneCallback = () => undefined) {
+export function useUndeck(deckId) {
   const childIds = useGetAllChildren(deckId);
   const { project } = useReactFlow();
 
@@ -21,6 +21,5 @@ export function useUndeck(deckId, doneCallback = () => undefined) {
       positions,
     });
     deleteSections({ sectionIds: [deckId] });
-    doneCallback();
   };
 }
