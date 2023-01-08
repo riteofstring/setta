@@ -58,6 +58,7 @@ export const customCollisionDetection = ({
 }) => {
   const collisions = [];
   const left = collisionRect.left;
+  const centerY = collisionRect.top + collisionRect.height / 2;
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
@@ -71,6 +72,7 @@ export const customCollisionDetection = ({
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
         const currLeft = rect.left;
+        const currCenterY = rect.top + rect.height / 2;
         const dist = left - currLeft;
         collisions.push({
           id,
@@ -79,6 +81,7 @@ export const customCollisionDetection = ({
             absLeftDist: Math.abs(dist),
             leftDist: dist,
             intersectionRatio: ratio,
+            centerYDist: centerY - currCenterY,
           },
         });
       }

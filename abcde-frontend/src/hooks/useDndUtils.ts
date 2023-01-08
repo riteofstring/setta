@@ -5,7 +5,8 @@ import { useDragActivation } from "./useDragActivation";
 enum HType {
   NONE = "NONE",
   BOX = "BOX",
-  LINE = "LINE",
+  LINE_ABOVE = "LINE_ABOVE",
+  LINE_BELOW = "LINE_BELOW",
 }
 
 export function useHighlightDroppable(sectionId: string) {
@@ -18,12 +19,14 @@ export function useHighlightDroppable(sectionId: string) {
 
   function onDragMove({ active, over, collisions }) {
     if (isMovingFree && active.id !== sectionId && over) {
-      const leftOffsetCondition = collisions[0]?.data.leftDist > 50;
+      const leftDistCondition = collisions[0]?.data.leftDist > 50;
+      const centerYCondition = collisions[0]?.data.centerYDist < 0;
+      const isThisSection = over.id === sectionId;
 
       // Draw box around section if leftOffset is large enough or if there is no parent
       if (
-        over.id === sectionId &&
-        (leftOffsetCondition || !over.data?.current?.sortable)
+        isThisSection &&
+        (leftDistCondition || !over.data?.current?.sortable)
       ) {
         highlight !== HType.BOX && setHighlight(HType.BOX);
         return;
@@ -31,14 +34,19 @@ export function useHighlightDroppable(sectionId: string) {
       // Draw box around parent of current section if leftOffset is small
       if (
         over.data?.current?.sortable?.containerId === sectionId &&
-        !leftOffsetCondition
+        !leftDistCondition
       ) {
         highlight !== HType.BOX && setHighlight(HType.BOX);
         return;
       }
-      // Draw line under section
-      if (over.id === sectionId) {
-        highlight !== HType.LINE && setHighlight(HType.LINE);
+      // Draw line above section
+      if (isThisSection && centerYCondition) {
+        highlight !== HType.LINE_ABOVE && setHighlight(HType.LINE_ABOVE);
+        return;
+      }
+      // Draw line below section
+      if (isThisSection && !centerYCondition) {
+        highlight !== HType.LINE_BELOW && setHighlight(HType.LINE_BELOW);
         return;
       }
     }
@@ -70,13 +78,24 @@ export function useHighlightDroppable(sectionId: string) {
           "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
-  } else if (highlight === HType.LINE) {
+  } else if (highlight === HType.LINE_ABOVE) {
     return {
       className: `${className} z-[100]`,
       style: {
         transition,
         backgroundColor: "hsla(95, 100%, 0%, 0.1)",
         outline: "hsla(0, 50%, 50%, 1) solid 5px",
+        boxShadow:
+          "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
+      },
+    };
+  } else if (highlight === HType.LINE_BELOW) {
+    return {
+      className: `${className} z-[100]`,
+      style: {
+        transition,
+        backgroundColor: "hsla(95, 100%, 0%, 0.1)",
+        outline: "hsla(50, 100%, 50%, 1) solid 5px",
         boxShadow:
           "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
