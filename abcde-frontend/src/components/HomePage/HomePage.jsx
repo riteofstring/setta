@@ -8,9 +8,10 @@ import { BiGitBranch, BiPlus } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
 import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
+import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { UI } from "utils/pageNames";
-import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
+import "./homepage.css";
 
 function HomePage() {
   const { projects, getProjects, createProject } = useGetOrCreateProjects();
@@ -39,7 +40,7 @@ function RightColumn({ projects, createProject }) {
   return (
     <div className="overflow-y-auto px-10 py-8">
       <div className="flex gap-4">
-        <PopoverWrapper
+        <CodeGenPopover
           trigger={
             <StandardButton twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-gray-600 border border-solid border-gray-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-gray-900 gap-2">
               <BiPlus />
@@ -95,7 +96,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
     <div onClick={onClick} ref={forwardedRef}>
       <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
         <div className="[place-self:flex-start_flex-end]">
-          <PopoverWrapper
+          <CodeGenPopover
             trigger={
               <div
                 className="flex items-center bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
@@ -119,20 +120,40 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
         </div>
       </div>
       <div className="absolute bottom-0 top-0 left-0 w-full p-4 row-start-2 row-end-3 col-start-1 col-end-2 bg-white ">
-        <h3 className="font-bold font-heading text-gray-600 overflow-hidden overflow-ellipsis whitespace-nowrap">
+        <h3 className="font-bold font-heading text-gray-600 overflow-hidden overflow-ellipsis whitespace-nowrap text-xs">
           {name}
         </h3>
-        <div className="flex flex-row gap-[0.15rem] mt-1 [background:linear-gradient(to right,  rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)]">
-          <Badge twClasses="bg-green-100 text-green-800">PyTorch 2.9</Badge>
-          <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
-          <Badge twClasses="bg-green-100 text-green-800">PyTorch 2.9</Badge>
-          <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
-          <Badge twClasses="bg-green-100 text-green-800">PyTorch 2.9</Badge>
-          <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
-          <Badge twClasses="bg-green-100 text-green-800">PyTorch 2.9</Badge>
-          <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
-          <Badge twClasses="bg-green-100 text-green-800">PyTorch 2.9</Badge>
-          <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
+        <div className="flex flex-row gap-[0.15rem] mt-1 [background:linear-gradient(to right,  rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade">
+          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+            PyTorch 2.9
+          </Badge>
+          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+            NumPy
+          </Badge>
+          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+            PyTorch 2.9
+          </Badge>
+          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+            NumPy
+          </Badge>
+          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+            PyTorch 2.9
+          </Badge>
+          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+            NumPy
+          </Badge>
+          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+            PyTorch 2.9
+          </Badge>
+          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+            NumPy
+          </Badge>
+          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+            PyTorch 2.9
+          </Badge>
+          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+            NumPy
+          </Badge>
         </div>
       </div>
     </div>
@@ -150,7 +171,7 @@ function ToolTipWrapper({ project, children }) {
         <Tooltip.Portal>
           <Tooltip.Content className="bg-white rounded-md shadow-md py-2 px-3 text-sm text-gray-700">
             <Tooltip.Arrow className="[fill:white]" />
-            <h4 className="font-bold font-heading">
+            <h4 className="font-bold font-heading text-xs">
               {name + name + " " + name + name}
             </h4>
             <h5 className="mt-2">Libraries</h5>
