@@ -5,7 +5,7 @@ import uuid
 
 import yaml
 
-from .constants import PARAMETER
+from .constants import PARAMETER, COLLECTION
 
 
 class KeyAlreadyExists(Exception):
@@ -43,7 +43,7 @@ def module_info(import_from, import_this, version, output):
         "defaultVal": None,
         "type": "module",
         "description": None,
-        "rcType": PARAMETER,
+        "rcType": COLLECTION,
         "path": path,
         "children": [],
     }
