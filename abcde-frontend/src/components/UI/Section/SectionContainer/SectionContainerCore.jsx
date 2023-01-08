@@ -35,49 +35,45 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
-    <>
-      <div className="border-t-4 border-dotted border-white mb-2 -mt-[.36rem] opacity-0 sectiondndtop " />
+    <div
+      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150`}
+      style={{
+        width: `${SECTIONWIDTH}px`,
+      }}
+      onClick={() => setActiveSection(sectionId)}
+      data-testid={`${sectionId} section core`}
+    >
       <div
-        className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150`}
-        style={{
-          width: `${SECTIONWIDTH}px`,
-        }}
-        onClick={() => setActiveSection(sectionId)}
-        data-testid={`${sectionId} section core`}
+        className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
+        style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <div
-          className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
-          style={{ zIndex: isActiveSection ? 150 : 10 }}
-        >
-          <div className="flex flex-col gap-2 px-1 py-4 w-full">
-            <SectionHeader
-              sectionId={sectionId}
-              parentId={parentId}
-              nextId={nextId}
-              isSeriesElement={isSeriesElement}
-              isRoot={isRoot}
-              hasNested={hasNested}
-            />
-            {!isRoot && (
-              <>
-                <SectionSearch
-                  sectionId={sectionId}
-                  initialSelection={selectedItem}
-                  onSelectedItemChange={onSelectedItemChange}
-                />
-                {tempBoolDesc && <SectionDescription />}
-                <ParamGroupContainer
-                  sectionId={sectionId}
-                  objInfoId={selectedItem}
-                />
-              </>
-            )}
-          </div>
+        <div className="flex flex-col gap-2 px-1 py-4 w-full">
+          <SectionHeader
+            sectionId={sectionId}
+            parentId={parentId}
+            nextId={nextId}
+            isSeriesElement={isSeriesElement}
+            isRoot={isRoot}
+            hasNested={hasNested}
+          />
+          {!isRoot && (
+            <>
+              <SectionSearch
+                sectionId={sectionId}
+                initialSelection={selectedItem}
+                onSelectedItemChange={onSelectedItemChange}
+              />
+              {tempBoolDesc && <SectionDescription />}
+              <ParamGroupContainer
+                sectionId={sectionId}
+                objInfoId={selectedItem}
+              />
+            </>
+          )}
         </div>
-        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </div>
-      <div className="border-t-4 border-dotted border-white mt-2 -mb-[.36rem] opacity-0 sectiondndbtm " />
-    </>
+      <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+    </div>
   );
 }
 

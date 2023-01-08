@@ -108,7 +108,9 @@ function Container({
           }}
           {...commonProps}
         >
+          <div className="border-t-4 border-dotted border-white mb-2 -mt-[.36rem] opacity-0 sectiondndtop " />
           <DeckSectionTitle sectionId={sectionId} />
+          <div className="border-t-4 border-dotted border-white mt-2 -mb-[.36rem] opacity-0 sectiondndbtm " />
           {children}
         </div>
       ) : (
