@@ -1,9 +1,4 @@
-import {
-  closestCorners,
-  DndContext,
-  DragOverlay,
-  rectIntersection,
-} from "@dnd-kit/core";
+import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -13,6 +8,7 @@ import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
+import { customCollisionDetection } from "./collisionDetection";
 import { DummySection } from "./DummySection";
 
 import { useDNDSensors } from "./useDNDSensors";
@@ -95,7 +91,9 @@ export function GlobalDndContext({ children }) {
   }
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
-  const collisionDetection = isMovingFree ? rectIntersection : closestCorners;
+  const collisionDetection = isMovingFree
+    ? customCollisionDetection
+    : closestCorners;
 
   return (
     <DndContext
