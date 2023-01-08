@@ -17,7 +17,11 @@ export default function ManyNestedSections({
   const newAncestorSet = { ...ancestorSet, [sectionId]: true };
 
   return (
-    <DNDSortable sectionId={sectionId} items={childIds}>
+    <DNDSortable
+      sectionId={sectionId}
+      items={childIds}
+      ancestorSet={newAncestorSet}
+    >
       <div className="flex items-stretch">
         {!isDeck && (
           <div
@@ -26,17 +30,15 @@ export default function ManyNestedSections({
           />
         )}
         <div className="items-start [&:not(first-child):mt-2]">
-          {childIds.map((e, idx) => {
-            return (
-              <SortableSectionContainer
-                parentId={sectionId}
-                sectionId={e}
-                nextId={childIds[idx + 1]}
-                key={`Nested-Sec-${e}`}
-                ancestorSet={newAncestorSet}
-              />
-            );
-          })}
+          {childIds.map((e, idx) => (
+            <SortableSectionContainer
+              parentId={sectionId}
+              sectionId={e}
+              nextId={childIds[idx + 1]}
+              key={`Nested-Sec-${e}`}
+              ancestorSet={newAncestorSet}
+            />
+          ))}
         </div>
       </div>
     </DNDSortable>

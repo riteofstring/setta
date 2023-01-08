@@ -103,24 +103,31 @@ export function useHighlightDroppable(sectionId: string) {
   }
 }
 
-export function useDisableSort(sectionId: string) {
+export function useDisableSortable(sectionId: string, ancestorSet) {
   const { isSorting, isMovingFree } = useDragActivation();
-  const [disabled, setDisabled] = useState(false);
+  const [disabled, setDisabled] = useState({
+    draggable: false,
+    droppable: false,
+  });
 
   function disableSort({ active }) {
-    const sortableInfo = active?.data.current.sortable;
-    if (
-      //Freely moving a child of this section
-      (isMovingFree && sortableInfo?.containerId === sectionId) ||
-      //Sorting a child of different section
-      (isSorting && sortableInfo?.containerId !== sectionId)
-    ) {
-      setDisabled(true);
+    const containerId = active?.data.current.sortable?.containerId;
+    // Freemly moving this section or ancestor of this section
+    if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
+      setDisabled({ draggable: true, droppable: true });
+    }
+    // Freely moving a child of this section
+    else if (isMovingFree && containerId === sectionId) {
+      setDisabled({ draggable: true, droppable: false });
+    }
+    // Sorting a child of different section
+    else if (isSorting && containerId !== sectionId) {
+      setDisabled({ draggable: true, droppable: true });
     }
   }
 
   function onDragDone() {
-    setDisabled(false);
+    setDisabled({ draggable: false, droppable: false });
   }
 
   useDndMonitor({

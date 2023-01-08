@@ -46,18 +46,6 @@ function getIntersectionRatio(entry, target) {
   return 0;
 }
 
-// function isIntersecting(entry, target) {
-//   const top = Math.max(target.top, entry.top);
-//   const left = Math.max(target.left, entry.left);
-//   const right = Math.min(target.left + target.width, entry.left + entry.width);
-//   const bottom = Math.min(target.top + target.height, entry.top + entry.height);
-//   return left < right && top < bottom;
-// }
-
-// for each droppable area
-// if rect intersection greater than 0
-// find distance to top and bottom of droppable area
-// and return minimum
 export const customCollisionDetection = ({
   active,
   collisionRect,
@@ -72,17 +60,9 @@ export const customCollisionDetection = ({
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    console.log("droppableContainer", droppableContainer)
-
-    if (
-      active.id !== id &&
-      !(active.id in droppableContainer.data.current.ancestorSet) &&
-      rect
-    ) {
-      console.log("past 1st")
+    if (active.id !== id && rect) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        console.log("past 2nd")
         const currLeft = rect.left;
         const currCenterY = rect.top + rect.height / 2;
         const dist = left - currLeft;
