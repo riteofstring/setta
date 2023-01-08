@@ -7,12 +7,20 @@ function sortCollisionsAsc(
   // When comparing two nested sections, first check if they are left-aligned.
   // If they are not left-aligned, then prioritize the section that has the smallest left distance.
   // If they are left-aligned, then prioritize the section with most intersection.
-  if (
-    dca.data.current?.sortable?.containerId &&
-    dcb.data.current?.sortable?.containerId
-  ) {
+  const cidA = dca.data.current?.sortable?.containerId;
+  const cidB = dcb.data.current?.sortable?.containerId;
+  if (cidA && cidB) {
     return la - lb || rb - ra;
   }
+  // sortable A prioritized before non-sortable B
+  if (cidA && !cidB) {
+    return -1;
+  }
+  // sortable B prioritized before non-sortable A
+  if (!cidA && cidB) {
+    return 1;
+  }
+  // for two non-sortables, use intersection area
   return rb - ra;
 }
 
