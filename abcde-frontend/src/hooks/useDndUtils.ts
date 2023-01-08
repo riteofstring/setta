@@ -13,23 +13,48 @@ function getLeftDistCondition(collisions) {
   return collisions[0]?.data.leftDist > 50;
 }
 
-export function getDropType(over, collisions) {
-  const leftDistCondition = getLeftDistCondition(collisions);
-  const centerYCondition = collisions[0]?.data.centerYDist < 0;
+export function getDropType(active, over, collisions) {
+  // avoid weird case where collisions[0] doesn't agree with over.id)
+  if (collisions[0]?.id !== over.id) {
+    return DropType.NONE;
+  }
 
   // Drop into section if leftOffset is large enough or if there is no parent
-  if (leftDistCondition || !over.data?.current?.sortable) {
+  if (!over.data.current.sortable || getLeftDistCondition(collisions)) {
     return DropType.INTO;
   }
+
+  const siblings =
+    collisions[0].data.droppableContainer.data.current.sortable?.items;
+  const overIndex = siblings.indexOf(over.id);
+
+  // Is effectively sorting
+  if (
+    active.data.current.sortable?.containerId ===
+    over.data.current.sortable?.containerId
+  ) {
+    const activeIndex = siblings.indexOf(active.id);
+    // Drop below the target if moving down the list
+    if (activeIndex < overIndex) {
+      return DropType.BELOW;
+    }
+    // Drop above the target if moving up the list
+    return DropType.ABOVE;
+  }
+
+  // Dropping into a list from outside
+  // If the target is anything other than the first element, then drop below it
+  if (overIndex > 0) {
+    return DropType.BELOW;
+  }
+  // If the target is the first element
+  const centerYCondition = collisions[0].data.centerYDist < 0;
   // Drop above section
   if (centerYCondition) {
     return DropType.ABOVE;
   }
   // Drop below section
-  if (!centerYCondition) {
-    return DropType.BELOW;
-  }
-  return DropType.NONE;
+  return DropType.BELOW;
 }
 
 export function useHighlightDroppable(sectionId: string) {
@@ -41,19 +66,14 @@ export function useHighlightDroppable(sectionId: string) {
   }
 
   function onDragMove({ active, over, collisions }) {
-    if (
-      isMovingFree &&
-      active.id !== sectionId &&
-      over &&
-      collisions[0]?.id === over.id //avoid weird case where collisions[0] doesn't agree with over.id
-    ) {
+    if (isMovingFree && active.id !== sectionId && over) {
       let dropType = DropType.NONE;
       // Highlight for this section
       if (over.id === sectionId) {
-        dropType = getDropType(over, collisions);
+        dropType = getDropType(active, over, collisions);
       } else if (
         // Highlight for parent section
-        over.data.current?.sortable?.containerId === sectionId &&
+        over.data.current.sortable?.containerId === sectionId &&
         !getLeftDistCondition(collisions)
       ) {
         dropType = DropType.INTO;
@@ -90,7 +110,7 @@ export function useHighlightDroppable(sectionId: string) {
         transition,
         backgroundColor: "hsla(245, 100%, 78%, 1)",
         // backgroundImage: dotted
-        // outline: "hsla(95, 100%, 50%, 1) solid 5px",
+        outline: "hsla(95, 100%, 50%, 1) solid 5px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
@@ -102,7 +122,7 @@ export function useHighlightDroppable(sectionId: string) {
         transition,
         // backgroundColor: "hsla(176, 100%, 78%, 1)",
         // backgroundImage: dotted
-        // outline: "hsla(0, 50%, 50%, 1) solid 5px",
+        outline: "hsla(0, 50%, 50%, 1) solid 5px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
@@ -114,7 +134,7 @@ export function useHighlightDroppable(sectionId: string) {
         transition,
         // backgroundColor: "hsla(126, 100%, 78%, 1)",
         // backgroundImage: dotted
-        // outline: "hsla(50, 100%, 50%, 1) solid 5px",
+        outline: "hsla(50, 100%, 50%, 1) solid 5px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
@@ -130,7 +150,7 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
   });
 
   function disableSort({ active }) {
-    const containerId = active?.data.current.sortable?.containerId;
+    const containerId = active.data.current.sortable?.containerId;
     // Freely moving this section or ancestor of this section
     if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });

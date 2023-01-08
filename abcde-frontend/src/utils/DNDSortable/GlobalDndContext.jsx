@@ -36,7 +36,7 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (over) {
-    const dropType = getDropType(over, collisions);
+    const dropType = getDropType(active, over, collisions);
     if (dropType === DropType.INTO) {
       newParentId = over.id;
       newIndex = 0;
