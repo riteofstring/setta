@@ -3,8 +3,6 @@ import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
-// import { GrDocumentDownload } from "react-icons/gr";
-// import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,
@@ -82,14 +80,8 @@ export default function FileMenu() {
 function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
-      <DialogTriggerItem>
-        {/* <IoDocumentTextOutline /> */}
-        New Project
-      </DialogTriggerItem>
-      <DialogTriggerItem onClick={onClickLoad}>
-        {/* <GrDocumentDownload /> */}
-        Load
-      </DialogTriggerItem>
+      <DialogTriggerItem>New Project</DialogTriggerItem>
+      <DialogTriggerItem onClick={onClickLoad}>Load</DialogTriggerItem>
       <DialogTriggerItem onClick={onClickSave}>
         <VscSave className="text-gray-500" />
         Save

@@ -37,13 +37,17 @@ function RightColumn({ projects, createProject }) {
 
   const inputStyles =
     "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300 max-w-[30rem] focus-visible:border-blue-300 pl-7 py-1";
+  const stdbtnStyles =
+    "py-2 px-4 rounded-full font-bold font-heading text-white bg-gray-600 border border-solid border-gray-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-gray-900 gap-2";
+  const gridStyles =
+    "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
 
   return (
     <div className="overflow-y-auto px-10 py-8">
       <div className="flex gap-4">
         <CodeGenPopover
           trigger={
-            <StandardButton twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-gray-600 border border-solid border-gray-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-gray-900 gap-2">
+            <StandardButton twClasses={stdbtnStyles}>
               <BiPlus />
               New Project
             </StandardButton>
@@ -56,10 +60,8 @@ function RightColumn({ projects, createProject }) {
           aria-label="Overview Search"
         />
       </div>
-      <h3 className="font-bold font-heading text-gray-600 overflow-hidden overflow-ellipsis whitespace-nowrap">
-        {name + name + name}
-      </h3>
-      <div className="grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start">
+
+      <div className={gridStyles}>
         {Object.values(projects).map((x, i) => (
           <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
         ))}
@@ -91,37 +93,17 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
   // bg-[url('https://via.placeholder.com/400')]
 
+  const itemStyles =
+    "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0";
+
   return (
-    <div
-      onClick={onClick}
-      ref={forwardedRef}
-      className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0"
-    >
-      <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
-        <div className="[place-self:flex-start_flex-end]">
-          <StandardDropdown
-            trigger={
-              <div
-                className="flex items-center bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
-                onClick={onClickConfigsButton}
-              >
-                <BiGitBranch />
-                Configs
-              </div>
-            }
-            content={
-              <Body
-                configs={configs}
-                defaultConfigId={defaultConfigId}
-                onClick={onConfigClick}
-              />
-            }
-            align="end"
-            // open={openConfigs}
-            // onOpenChange={setOpenConfigs}
-          />
-        </div>
-      </div>
+    <div onClick={onClick} ref={forwardedRef} className={itemStyles}>
+      <ThumbnailArea
+        onClickConfigsButton={onClickConfigsButton}
+        configs={configs}
+        defaultConfigId={defaultConfigId}
+        onConfigClick={onConfigClick}
+      />
       <div className="absolute bottom-0 top-0 left-0 w-full p-4 row-start-2 row-end-3 col-start-1 col-end-2 bg-white ">
         <h3 className="font-bold font-heading text-gray-600 overflow-hidden overflow-ellipsis whitespace-nowrap text-xs">
           {name}
@@ -131,6 +113,39 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
     </div>
   );
 });
+
+function ThumbnailArea({
+  onClickConfigsButton,
+  configs,
+  defaultConfigId,
+  onConfigClick,
+}) {
+  return (
+    <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
+      <StandardDropdown
+        trigger={
+          <div
+            className="[place-self:flex-start_flex-end] flex items-center bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
+            onClick={onClickConfigsButton}
+          >
+            <BiGitBranch />
+            Configs
+          </div>
+        }
+        content={
+          <Body
+            configs={configs}
+            defaultConfigId={defaultConfigId}
+            onClick={onConfigClick}
+          />
+        }
+        align="end"
+        // open={openConfigs}
+        // onOpenChange={setOpenConfigs}
+      />
+    </div>
+  );
+}
 
 function Body({ configs, defaultConfigId, onClick }) {
   return configs.map((x, idx) => (
