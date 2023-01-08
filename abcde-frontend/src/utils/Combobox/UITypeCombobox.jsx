@@ -31,58 +31,20 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   );
 }
 
-export function TopLevelSectionUITypeCombobox({
-  sectionId,
-  selectedId,
-  ...props
-}) {
-  const availableUITypes = useAvailableUITypesForTopLevelSection(
-    sectionId,
-    selectedId
-  );
-  return (
-    <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
-    />
-  );
+export function TopLevelSectionUITypeCombobox({ sectionId, ...props }) {
+  const availableUITypes = useAvailableUITypesForTopLevelSection(sectionId);
+  return <UITypeCombobox availableUITypes={availableUITypes} {...props} />;
 }
 
-export function NestedSectionUITypeCombobox({
-  sectionId,
-  selectedId,
-  ...props
-}) {
-  const availableUITypes = useAvailableUITypesForNestedSection(
-    sectionId,
-    selectedId
-  );
-  return (
-    <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
-    />
-  );
+export function NestedSectionUITypeCombobox({ sectionId, ...props }) {
+  const availableUITypes = useAvailableUITypesForNestedSection(sectionId);
+  return <UITypeCombobox availableUITypes={availableUITypes} {...props} />;
 }
 
-export function UIConfigUITypeCombobox({
-  sectionId,
-  paramInfoId,
-  selectedId,
-  ...props
-}) {
+export function UIConfigUITypeCombobox({ sectionId, paramInfoId, ...props }) {
   const availableUITypes = useAvailableUITypesForUIConfig(
     sectionId,
-    paramInfoId,
-    selectedId
+    paramInfoId
   );
-  return (
-    <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
-    />
-  );
+  return <UITypeCombobox availableUITypes={availableUITypes} {...props} />;
 }

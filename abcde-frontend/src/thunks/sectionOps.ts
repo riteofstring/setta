@@ -11,9 +11,9 @@ import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { PANEID } from "utils/constants";
-import { setParamChildId, setParamEnteredValue } from "../paramInfos";
-import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
+import { setParamChildId, setParamEnteredValue } from "./paramInfos";
 import { getSectionType } from "./sections";
+import { setParamUITypeId, setSectionUITypeConfig } from "./uiTypes";
 
 export function deleteSections({ sectionIds }) {
   for (const sid of sectionIds) {

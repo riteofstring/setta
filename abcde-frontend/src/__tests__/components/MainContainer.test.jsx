@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionPositions } from "models/sectionPositions";
+import { PANEID } from "utils/constants";
 import {
   createMainContainer,
   getAllOverviewListings,
@@ -39,6 +41,22 @@ test("Overview listing should be filtered by text in search bar", async () => {
   expect(
     screen.getByTestId(`Overview Listing ${optimizerSectionId}`)
   ).toBeTruthy();
+});
+
+test("Jump to section", async () => {
+  await createMainContainer();
+  const modelSectionId = sectionIdFromName("Model");
+  const modelListing = screen.getByTestId(`Overview Listing ${modelSectionId}`);
+  await userEvent.click(modelListing);
+
+  const sectionPositions = useSectionPositions.getState().sectionPositions;
+  // Upon clicking section name, the sectionPosition is updated.
+  // Since this is the first click on any section, sectionPositions
+  // will contain only this section's position and the pane's position.
+  expect(Object.keys(sectionPositions)).toEqual([
+    modelSectionId,
+    PANEID.toString(),
+  ]);
 });
 
 test("Section names should be unique among siblings.", async () => {

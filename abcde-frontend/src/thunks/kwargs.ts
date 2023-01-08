@@ -4,10 +4,10 @@ import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
+import { deleteChild } from "./deleteChild";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
-import { deleteChild } from "./sections/deleteChild";
-import { getSectionConfig } from "./sections/sections";
+import { getSectionConfig } from "./sections";
 
 export function addKwarg(sectionId: string, objInfoId: string) {
   const { kwargColId } = getSectionConfig(sectionId);
@@ -55,7 +55,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
   if (childId) {
-    deleteChild({ parentId: sectionId, startId: childId });
+    deleteChild({ sectionId, startId: childId });
   }
 }
 
