@@ -16,30 +16,37 @@ export function useHighlightDroppable(sectionId: string) {
     setHighlight(HType.NONE);
   }
 
-  function highlightArea({ active, over }) {
-    if (
-      isMovingFree &&
-      active.id !== sectionId // Can't drop a section into itself)
-    ) {
-      // Draw box around parent of current section
-      // Draw box around current section if it doesn't have a parent
+  function onDragMove({ active, over, collisions }) {
+    if (isMovingFree && active.id !== sectionId && over) {
+      const leftOffsetCondition = collisions[0]?.data.rawValue > 100;
+
+      // Draw box around section if leftOffset is large enough or if there is no parent
       if (
-        over?.data?.current?.sortable?.containerId === sectionId
-        // (over?.id === sectionId && !over?.data?.current?.sortable)
+        over.id === sectionId &&
+        (leftOffsetCondition || !over.data?.current?.sortable)
       ) {
-        setHighlight(HType.BOX);
+        highlight !== HType.BOX && setHighlight(HType.BOX);
         return;
       }
-      if (over?.id === sectionId) {
-        setHighlight(HType.LINE);
+      // Draw box around parent of current section if leftOffset is small
+      if (
+        over.data?.current?.sortable?.containerId === sectionId &&
+        !leftOffsetCondition
+      ) {
+        highlight !== HType.BOX && setHighlight(HType.BOX);
+        return;
+      }
+      // Draw line under section
+      if (over.id === sectionId) {
+        highlight !== HType.LINE && setHighlight(HType.LINE);
         return;
       }
     }
-    setHighlight(HType.NONE);
+    highlight !== HType.NONE && setHighlight(HType.NONE);
   }
 
   useDndMonitor({
-    onDragOver: highlightArea,
+    onDragMove,
     onDragEnd: onDragDone,
     onDragCancel: onDragDone,
   });

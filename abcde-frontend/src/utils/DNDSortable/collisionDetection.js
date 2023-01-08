@@ -17,21 +17,25 @@ function isIntersecting(entry, target) {
 // find distance to top and bottom of droppable area
 // and return minimum
 export const customCollisionDetection = ({
+  active,
   collisionRect,
   droppableRects,
   droppableContainers,
 }) => {
   const collisions = [];
-  const left = collisionRect.left
+  const left = collisionRect.left;
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    if (rect && isIntersecting(rect, collisionRect)) {
-      const currLeft = rect.left
-      const dist = Math.abs(left - currLeft);
-      collisions.push({ id, data: { droppableContainer, value: dist } });
+    if (active.id !== id && rect && isIntersecting(rect, collisionRect)) {
+      const currLeft = rect.left;
+      const dist = left - currLeft;
+      collisions.push({
+        id,
+        data: { droppableContainer, value: Math.abs(dist), rawValue: dist },
+      });
     }
   }
 
