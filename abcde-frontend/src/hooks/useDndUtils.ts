@@ -54,7 +54,9 @@ export function useHighlightDroppable(sectionId: string) {
         dropType = DropType.INTO;
       }
       highlight !== dropType && setHighlight(dropType);
+      return;
     }
+    highlight !== DropType.NONE && setHighlight(DropType.NONE);
   }
 
   useDndMonitor({
