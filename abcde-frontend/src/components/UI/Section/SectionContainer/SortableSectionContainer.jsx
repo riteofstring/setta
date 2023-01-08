@@ -4,7 +4,12 @@ import React from "react";
 import { useStore } from "react-flow-renderer";
 import SectionContainer from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId, parentId, nextId, depth }) {
+function _SortableSectionContainer({
+  sectionId,
+  parentId,
+  nextId,
+  ancestorSet,
+}) {
   const zoom = useStore((x) => x.transform[2]);
 
   function transformWithZoom(transform) {
@@ -20,7 +25,7 @@ function _SortableSectionContainer({ sectionId, parentId, nextId, depth }) {
 
   const sortableProps = useSortable({
     id: sectionId,
-    data: { zoom },
+    data: { zoom, ancestorSet },
   });
 
   const { attributes, listeners, setNodeRef, transform, transition } =
@@ -40,7 +45,7 @@ function _SortableSectionContainer({ sectionId, parentId, nextId, depth }) {
         sectionId={sectionId}
         parentId={parentId}
         nextId={nextId}
-        depth={depth}
+        ancestorSet={ancestorSet}
         dragListeners={listeners}
       />
     </div>

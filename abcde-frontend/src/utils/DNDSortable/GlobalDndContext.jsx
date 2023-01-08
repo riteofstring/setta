@@ -1,6 +1,7 @@
 import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useDragActivation } from "hooks/useDragActivation";
+import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -37,6 +38,7 @@ export function GlobalDndContext({ children }) {
     setActive(active);
   }
 
+  // TODO: setActive(null) in here
   function onDragEnd({ active, over }) {
     if (!active) {
       return;
@@ -100,12 +102,12 @@ export function GlobalDndContext({ children }) {
       sensors={sensors}
       collisionDetection={collisionDetection}
       onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      // onDragEnd={onDragEnd}
       modifiers={modifiers}
     >
       {children}
       {active?.id &&
-        active.data.current.depth !== 0 &&
+        _.size(active.data.current.ancestorSet) > 0 &&
         createPortal(
           <DragOverlay dropAnimation={null}>
             <DummySection zoom={active.data.current.zoom} ref={dummyRef} />

@@ -24,7 +24,7 @@ function sortCollisionsAsc(
   return rb - ra;
 }
 
-export function getIntersectionRatio(entry, target) {
+function getIntersectionRatio(entry, target) {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);
@@ -72,13 +72,17 @@ export const customCollisionDetection = ({
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
+    console.log("droppableContainer", droppableContainer)
+
     if (
       active.id !== id &&
+      !(active.id in droppableContainer.data.current.ancestorSet) &&
       rect
-      // !droppableContainer.data.current.hasNested
     ) {
+      console.log("past 1st")
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
+        console.log("past 2nd")
         const currLeft = rect.left;
         const currCenterY = rect.top + rect.height / 2;
         const dist = left - currLeft;
