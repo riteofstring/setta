@@ -92,55 +92,53 @@ export function useHighlightDroppable(sectionId: string) {
   });
   // before:content-none before:absolute before:left-0 before:bottom-0 before:h-[100px] before:w-1/2
 
-  const topborder = "[&>_.sectiondndtop]:opacity-100";
-  const bottomborder = "[&>_.sectiondndbtm]:opacity-100";
-
   const className = "rounded-3xl relative py-3 px-3 -my-3 -mx-3";
-
   const transition = "background-color 0.2s";
 
   if (highlight === DropType.NONE) {
     return {
-      className,
+      className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0`,
       style: { transition, outline: "rgba(0, 0, 0, 0) solid 5px" },
     };
   } else if (highlight === DropType.INTO) {
     return {
-      className: `${className} z-[100]`,
+      className: `${className}  z-[100]`,
       style: {
         transition,
-        backgroundColor: "hsla(245, 100%, 78%, 1)",
+        backgroundColor: "hsla(245, 100%, 78%, .5)",
         // backgroundImage: dotted
-        outline: "hsla(95, 100%, 50%, 1) solid 5px",
+        // outline: "hsla(95, 100%, 50%, 1) solid 5px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
   } else if (highlight === DropType.ABOVE) {
     return {
-      className: `${className} ${topborder} z-[100] `,
+      className: `${className} [&_.dndline::before]:opacity-100 z-[100] `,
       style: {
         transition,
         // backgroundColor: "hsla(176, 100%, 78%, 1)",
         // backgroundImage: dotted
-        outline: "hsla(0, 50%, 50%, 1) solid 5px",
+        // outline: "hsla(0, 50%, 50%, 1) solid 5px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
   } else if (highlight === DropType.BELOW) {
     return {
-      className: `${className} ${bottomborder} z-[100]`,
+      className: `${className} [&_.dndline::after]:opacity-100 z-[100]`,
       style: {
         transition,
         // backgroundColor: "hsla(126, 100%, 78%, 1)",
         // backgroundImage: dotted
-        outline: "hsla(50, 100%, 50%, 1) solid 5px",
+        // outline: "hsla(50, 100%, 50%, 1) solid 5px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
+
   }
+
 }
 
 export function useDisableSortable(sectionId: string, ancestorSet) {
