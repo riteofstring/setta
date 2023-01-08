@@ -4,7 +4,7 @@ import React from "react";
 import { useStore } from "react-flow-renderer";
 import SectionContainer from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId, ...props }) {
+function _SortableSectionContainer({ sectionId, parentId, nextId, depth }) {
   const zoom = useStore((x) => x.transform[2]);
 
   function transformWithZoom(transform) {
@@ -41,7 +41,9 @@ function _SortableSectionContainer({ sectionId, ...props }) {
     <div className="mt-2" {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
-        {...props}
+        parentId={parentId}
+        nextId={nextId}
+        depth={depth}
         dragListeners={listeners}
       />
     </div>
