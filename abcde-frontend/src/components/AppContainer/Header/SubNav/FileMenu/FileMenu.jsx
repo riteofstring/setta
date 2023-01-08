@@ -1,4 +1,3 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
@@ -14,6 +13,7 @@ import {
 } from "thunks/save";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
+import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
@@ -65,23 +65,16 @@ export default function FileMenu() {
       onClickSaveAsProject={onClickSaveAsProject}
       currProjectId={currProjectId}
     >
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <MenuBarButton>File</MenuBarButton>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="start"
-            className="bg-white p-2 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
-          >
-            <Items
-              onClickLoad={onClickLoad}
-              onClickSave={onClickSave}
-              onClickSaveAs={onClickSaveAs}
-            />
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      <StandardDropdown
+        trigger={<MenuBarButton>File</MenuBarButton>}
+        content={
+          <Items
+            onClickLoad={onClickLoad}
+            onClickSave={onClickSave}
+            onClickSaveAs={onClickSaveAs}
+          />
+        }
+      />
     </SaveLoadModal>
   );
 }

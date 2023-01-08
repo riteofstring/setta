@@ -1,4 +1,3 @@
-import * as Tooltip from "@radix-ui/react-tooltip";
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrPage } from "models/currPage";
@@ -8,6 +7,8 @@ import { BiGitBranch, BiPlus } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
 import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
+import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
+import { Item } from "utils/atoms/dropdown/item";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { UI } from "utils/pageNames";
@@ -60,9 +61,7 @@ function RightColumn({ projects, createProject }) {
       </h3>
       <div className="grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start">
         {Object.values(projects).map((x, i) => (
-          <ToolTipWrapper project={x} key={`Project ${i} ${x.name}`}>
-            <ProjectItem project={x} />
-          </ToolTipWrapper>
+          <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
         ))}
       </div>
     </div>
@@ -93,10 +92,14 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
   // bg-[url('https://via.placeholder.com/400')]
 
   return (
-    <div onClick={onClick} ref={forwardedRef}>
+    <div
+      onClick={onClick}
+      ref={forwardedRef}
+      className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0"
+    >
       <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
         <div className="[place-self:flex-start_flex-end]">
-          <CodeGenPopover
+          <StandardDropdown
             trigger={
               <div
                 className="flex items-center bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
@@ -106,16 +109,16 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
                 Configs
               </div>
             }
-            body={
+            content={
               <Body
                 configs={configs}
                 defaultConfigId={defaultConfigId}
                 onClick={onConfigClick}
               />
             }
-            header="Configs"
-            open={openConfigs}
-            onOpenChange={setOpenConfigs}
+            align="end"
+            // open={openConfigs}
+            // onOpenChange={setOpenConfigs}
           />
         </div>
       </div>
@@ -123,82 +126,22 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
         <h3 className="font-bold font-heading text-gray-600 overflow-hidden overflow-ellipsis whitespace-nowrap text-xs">
           {name}
         </h3>
-        <div className="flex flex-row gap-[0.15rem] mt-1 [background:linear-gradient(to right,  rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade">
-          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-            PyTorch 2.9
-          </Badge>
-          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
-            NumPy
-          </Badge>
-          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-            PyTorch 2.9
-          </Badge>
-          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
-            NumPy
-          </Badge>
-          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-            PyTorch 2.9
-          </Badge>
-          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
-            NumPy
-          </Badge>
-          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-            PyTorch 2.9
-          </Badge>
-          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
-            NumPy
-          </Badge>
-          <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-            PyTorch 2.9
-          </Badge>
-          <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
-            NumPy
-          </Badge>
-        </div>
+        <Badges />
       </div>
     </div>
   );
 });
 
-function ToolTipWrapper({ project, children }) {
-  const { name } = project;
-  return (
-    <Tooltip.Provider>
-      <Tooltip.Root>
-        <Tooltip.Trigger className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0">
-          {children}
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content className="bg-white rounded-md shadow-md py-2 px-3 text-sm text-gray-700">
-            <Tooltip.Arrow className="[fill:white]" />
-            <h4 className="font-bold font-heading text-xs">
-              {name + name + " " + name + name}
-            </h4>
-            <h5 className="mt-2">Libraries</h5>
-            <ul className="list-none flex flex-col ml-2">
-              <li>Numpy</li>
-              <li>PyTorch 2.9</li>
-              <li>Pandas</li>
-              <li>SciKit-Learn</li>
-              <li>SciPy</li>
-            </ul>
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    </Tooltip.Provider>
-  );
-}
-
 function Body({ configs, defaultConfigId, onClick }) {
   return configs.map((x, idx) => (
-    <div
+    <Item
       className="flex flex-row"
       key={`Config ${idx}`}
       onClick={(e) => onClick(e, x.id)}
     >
-      <p>{x.name}</p>
+      {x.name}
       <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
-    </div>
+    </Item>
   ));
 }
 
@@ -227,7 +170,34 @@ function ProjectNameSetter({ onClick }) {
 export function DefaultConfigBadge({ config, defaultConfigId }) {
   return (
     config.id === defaultConfigId && (
-      <Badge tailwindClasses="bg-green-100 text-green-800">Default</Badge>
+      <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
     )
+  );
+}
+
+function Badges() {
+  return (
+    <div className="flex flex-row gap-[0.15rem] mt-1 [background:linear-gradient(to right,  rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade">
+      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+        PyTorch 2.9
+      </Badge>
+      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
+      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+        PyTorch 2.9
+      </Badge>
+      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
+      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+        PyTorch 2.9
+      </Badge>
+      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
+      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+        PyTorch 2.9
+      </Badge>
+      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
+      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+        PyTorch 2.9
+      </Badge>
+      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
+    </div>
   );
 }
