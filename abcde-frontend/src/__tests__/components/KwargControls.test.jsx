@@ -12,7 +12,7 @@ global.ResizeObserver = ResizeObserver;
 test("Adding kwarg on parameter-only section should work", async () => {
   await loadTestDataIntoState();
   const sectionId = sectionIdFromName("The2ndOtherParameters");
-  const props = { sectionId, parentId: null, ancestorSet: {} };
+  const props = { sectionId, parentId: null, depth: 0 };
 
   render(<SectionContainer {...props} />);
 
