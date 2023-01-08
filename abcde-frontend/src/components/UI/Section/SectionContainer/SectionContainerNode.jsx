@@ -8,8 +8,6 @@ export function SectionContainerNode({ id }) {
   // For example, id might have been deleted, but topLevelSectionPositions hasn't yet updated.
   const sectionInfo = useSectionInfos((x) => !_.isUndefined(x.x[id]));
   return (
-    sectionInfo && (
-      <SectionContainer sectionId={id} parentId={null} ancestorSet={{}} />
-    )
+    sectionInfo && <SectionContainer sectionId={id} parentId={null} depth={0} />
   );
 }
