@@ -41,12 +41,7 @@ export function useHighlightDroppable(sectionId: string) {
   }
 
   function onDragMove({ active, over, collisions }) {
-    if (
-      isMovingFree &&
-      active.id !== sectionId &&
-      over &&
-      collisions[0]?.id === over.id //avoid weird case where collisions[0] doesn't agree with over.id
-    ) {
+    if (isMovingFree && active.id !== sectionId && over) {
       let dropType = DropType.NONE;
       // Highlight for this section
       if (over.id === sectionId) {
@@ -71,8 +66,8 @@ export function useHighlightDroppable(sectionId: string) {
   });
   // before:content-none before:absolute before:left-0 before:bottom-0 before:h-[100px] before:w-1/2
 
-  const topborder = "[&>_.sectiondndtop]:opacity-100";
-  const bottomborder = "[&>_.sectiondndbtm]:opacity-100";
+  const topborder = "[&>_.sectiondndtop]:opacity-100"
+  const bottomborder = "[&>_.sectiondndbtm]:opacity-100"
 
   const className = "rounded-3xl relative py-3 px-3 -my-3 -mx-3";
 
