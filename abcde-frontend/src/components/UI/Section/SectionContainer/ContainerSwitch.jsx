@@ -4,6 +4,7 @@ import { useDragActivation } from "hooks/useDragActivation";
 import _ from "lodash";
 import { useSectionRefs } from "models/sectionRefs";
 import { useEffect, useRef } from "react";
+import "./dndline.css";
 import SectionTitle from "./Header/Title/SectionTitle";
 
 export function ContainerSwitch({
@@ -109,18 +110,15 @@ function Container({
           {...commonProps}
         >
           <DeckSectionTitle sectionId={sectionId} />
-          <div className="border-t-4 border-dotted border-white mb-2 -mt-[.36rem] opacity-0 sectiondndtop " />
           {children}
         </div>
       ) : (
         <div
-          className={className}
+          className={`${className} dndline`}
           style={highlightDroppableStyle}
           {...commonProps}
         >
-          <div className="border-t-4 border-dotted border-white mb-2 -mt-[.36rem] opacity-0 sectiondndtop " />
           {children}
-          <div className="border-t-4 border-dotted border-white mt-2 -mb-[.36rem] opacity-0 sectiondndbtm " />
         </div>
       )}
     </>
