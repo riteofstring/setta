@@ -43,12 +43,11 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
     } else if (dropType === DropType.ABOVE || dropType === DropType.BELOW) {
       newParentId = s[over.id].parentId;
       const overIndex = over.data.current.sortable.items.indexOf(over.id);
-      const dropBelow = dropType === DropType.BELOW;
       // moving section within a list
       if (oldParentId === newParentId) {
-        newIndex = dropBelow ? overIndex : Math.max(0, overIndex - 1);
+        newIndex = overIndex;
       } else {
-        newIndex = overIndex + dropBelow;
+        newIndex = overIndex + (dropType === DropType.BELOW);
       }
     }
   }
