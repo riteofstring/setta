@@ -1,12 +1,8 @@
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useHighlightDroppable } from "hooks/useDndUtils";
-import { useDragActivation } from "hooks/useDragActivation";
 import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
-import { useSectionRefs } from "models/sectionRefs";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
-import SectionTitle from "./Header/Title/SectionTitle";
+import { ContainerSwitch } from "./ContainerSwitch";
 import SectionContainerCore from "./SectionContainerCore";
 
 function SectionContainer({
@@ -21,7 +17,7 @@ function SectionContainer({
   const hasNested = currChildren.length > 0;
 
   return (
-    <Container
+    <ContainerSwitch
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
@@ -48,100 +44,9 @@ function SectionContainer({
           />
         </div>
       )}
-    </Container>
+    </ContainerSwitch>
   );
 }
 export default React.memo(SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });
-
-function Container({
-  isDeck,
-  sectionId,
-  parentId,
-  dragListeners,
-  hasNested,
-  depth,
-  children,
-}) {
-  const {
-    className: highlightDroppableClassName,
-    style: highlightDroppableStyle,
-  } = useHighlightDroppable(sectionId);
-  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
-  const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
-    useDraggable({
-      id: sectionId,
-      data: { depth },
-    });
-  const refForPosition = useRef(null);
-  const { isSorting, isMovingFree } = useDragActivation();
-  const isDraggingSortable = parentId && (isSorting || isMovingFree);
-  const isDraggingTopLevel = depth === 0 && isMovingFree;
-  let trueDragListeners = {};
-  if (isDraggingSortable) {
-    trueDragListeners = dragListeners;
-  } else if (isDraggingTopLevel) {
-    trueDragListeners = topLevelDragListeners;
-  }
-  const setSectionRef = useSectionRefs((x) => x.setRef);
-
-  // Don't want the react-flow node (which contains this child)
-  // to move when sorting
-  const className = `${
-    isDraggingSortable && "nodrag"
-  } ${highlightDroppableClassName}`;
-
-  function totalRef(e) {
-    refForPosition.current = e;
-    // if (isDeck && !hasNested && !isSorting) {
-    droppableRef(e);
-    // }
-    if (depth === 0) {
-      draggableRef(e);
-    }
-  }
-
-  const commonProps = { ref: totalRef, ...trueDragListeners };
-
-  useEffect(() => {
-    setSectionRef({ sectionId, ref: refForPosition.current });
-  }, []);
-
-  return (
-    <>
-      {isDeck ? (
-        <div
-          className={`${className} pt-3 px-8 pb-6 rounded-3xl`}
-          style={{
-            backgroundColor: "hsla(212, 22%, 50%, 0.2)",
-            ...highlightDroppableStyle,
-          }}
-          {...commonProps}
-        >
-          <DeckSectionTitle sectionId={sectionId} />
-          {children}
-        </div>
-      ) : (
-        <div
-          className={className}
-          style={highlightDroppableStyle}
-          {...commonProps}
-        >
-          {children}
-        </div>
-      )}
-    </>
-  );
-}
-
-function DeckSectionTitle({ sectionId }) {
-  const titleProps = {
-    editing: "nodrag w-[450px] font-bold text-4xl -mb-2 tracking-tighter",
-
-    notEditing:
-      "font-heading font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
-  };
-
-  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
-}
