@@ -60,7 +60,6 @@ function getIntersectionRatio(entry, target) {
 }
 
 export const customCollisionDetection = ({
-  active,
   collisionRect,
   droppableRects,
   droppableContainers,
@@ -73,7 +72,7 @@ export const customCollisionDetection = ({
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    if (active.id !== id && rect) {
+    if (rect) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
         const currLeft = rect.left;

@@ -14,8 +14,9 @@ function getLeftDistCondition(collisions) {
 }
 
 export function getDropType(active, over, collisions) {
-  // avoid weird case where collisions[0] doesn't agree with over.id)
-  if (collisions[0]?.id !== over.id) {
+  // Weird case where collisions[0] doesn't agree with over.id).
+  // Or if active === over
+  if (collisions[0]?.id !== over.id || active.id === over.id) {
     return DropType.NONE;
   }
 
