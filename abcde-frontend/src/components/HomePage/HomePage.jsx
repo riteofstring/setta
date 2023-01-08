@@ -61,7 +61,7 @@ function RightColumn({ projects, createProject }) {
         {Object.values(projects).map((x, i) => (
           <Tooltip.Provider project={x} key={`Project ${i} ${x.name}`}>
             <Tooltip.Root>
-              <Tooltip.Trigger asChild>
+              <Tooltip.Trigger className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0">
                 <ProjectItem project={x} />
               </Tooltip.Trigger>
               <Tooltip.Portal>
@@ -102,11 +102,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
   // bg-[url('https://via.placeholder.com/400')]
 
   return (
-    <button
-      className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0"
-      onClick={onClick}
-      ref={forwardedRef}
-    >
+    <div onClick={onClick} ref={forwardedRef}>
       <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
         <div className="[place-self:flex-start_flex-end]">
           <PopoverWrapper
@@ -149,7 +145,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
           <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
         </div>
       </div>
-    </button>
+    </div>
   );
 });
 
