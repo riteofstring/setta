@@ -5,7 +5,7 @@ import uuid
 
 import yaml
 
-from .constants import PARAMETER, COLLECTION
+from .constants import CALLABLE, COLLECTION, PARAMETER
 
 
 class KeyAlreadyExists(Exception):
@@ -17,8 +17,6 @@ class InfoDict(dict):
     def __setitem__(self, key, value):
         if key not in self:
             super().__setitem__(key, value)
-        else:
-            raise KeyAlreadyExists(f"{key} already exists in dict")
 
 
 def id_as_key(info_dict):
@@ -31,9 +29,6 @@ def construct_path(import_from, import_this):
 
 def module_info(import_from, import_this, version, output):
     path = construct_path(import_from, import_this)
-    if path in output:
-        return
-
     name = import_this if import_this else import_from
     id = str(uuid.uuid4())
     info = {
@@ -51,24 +46,39 @@ def module_info(import_from, import_this, version, output):
 
 
 def callable_info(obj, import_from, import_this, version, output):
-    obj_path = construct_path(import_from, import_this)
+    path = construct_path(import_from, import_this)
+    id = str(uuid.uuid4())
+    info = {
+        "id": id,
+        "name": import_this,
+        "version": version,
+        "defaultVal": None,
+        "type": "callable",
+        "description": None,
+        "rcType": CALLABLE,
+        "path": path,
+        "children": [],
+    }
+    output[path] = info
     for v in inspect.signature(obj).parameters.values():
-        path = f"{obj_path}.{v.name}"
-        if path in output:
-            continue
-        id = str(uuid.uuid4())
-        info = {
-            "id": id,
-            "name": v.name,
-            "version": version,
-            "defaultVal": v.default,
-            "type": str(v.annotation),
-            "description": None,
-            "rcType": PARAMETER,
-            "path": path,
-            "children": [],
-        }
-        output[path] = info
+        parameter_info(path, v, version, output)
+
+
+def parameter_info(obj_path, param, version, output):
+    path = f"{obj_path}.{param.name}"
+    id = str(uuid.uuid4())
+    info = {
+        "id": id,
+        "name": param.name,
+        "version": version,
+        "defaultVal": param.default,
+        "type": str(param.annotation),
+        "description": None,
+        "rcType": PARAMETER,
+        "path": path,
+        "children": [],
+    }
+    output[path] = info
 
 
 def get_args(path, version, output):
