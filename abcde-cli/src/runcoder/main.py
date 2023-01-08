@@ -3,8 +3,16 @@ import keyring
 
 from .configure import _read_config_file, _setup_config_file
 from .constants import KEYRING_NAME
+from .info import _info
 from .login import _login
 from .run import _run
+
+
+@click.command()
+@click.argument("yaml_path")
+@click.argument("output_path")
+def info(yaml_path, output_path):
+    _info(yaml_path, output_path)
 
 
 @click.command()
@@ -53,3 +61,4 @@ def cli():
 cli.add_command(run)
 cli.add_command(login)
 cli.add_command(configure)
+cli.add_command(info)
