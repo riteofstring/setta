@@ -2,18 +2,11 @@ import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { useOnClickAddSection } from "./utils";
 
-export function PaneContextMenu({
-  x,
-  y,
-  closeContextMenu,
-  reactFlowRef,
-  ...props
-}) {
+export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
   const onClick = useOnClickAddSection({
     x,
     y,
     closeContextMenu,
-    reactFlowRef,
   });
 
   return (

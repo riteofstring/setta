@@ -1,22 +1,27 @@
 import { useGoToSection } from "hooks/useGetSectionPosition";
-import { INDICATOR_GOTO_PARENT } from "utils/constants";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export default function ManyNestedSections({
   childIds,
   sectionId,
-  depth,
+  ancestorSet,
   isDeck,
 }) {
-  const goToSection = useGoToSection(sectionId, INDICATOR_GOTO_PARENT);
+  const goToSection = useGoToSection(sectionId);
 
   const onClick = () => {
     goToSection();
   };
 
+  const newAncestorSet = { ...ancestorSet, [sectionId]: true };
+
   return (
-    <DNDSortable sectionId={sectionId} items={childIds}>
+    <DNDSortable
+      sectionId={sectionId}
+      items={childIds}
+      ancestorSet={newAncestorSet}
+    >
       <div className="flex items-stretch">
         {!isDeck && (
           <div
@@ -31,7 +36,7 @@ export default function ManyNestedSections({
               sectionId={e}
               nextId={childIds[idx + 1]}
               key={`Nested-Sec-${e}`}
-              depth={depth + 1}
+              ancestorSet={newAncestorSet}
             />
           ))}
         </div>
