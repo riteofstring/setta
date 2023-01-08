@@ -23,9 +23,6 @@ function _SortableSectionContainer({ sectionId, parentId, nextId, depth }) {
     data: { zoom },
   });
 
-  // Possible TODO:
-  // Use isOver (available in sortableProps) to do some styling when
-  // another element is hovering over this element.
   const { attributes, listeners, setNodeRef, transform, transition } =
     sortableProps;
 

@@ -71,7 +71,10 @@ function Container({
   const refForPosition = useRef(null);
   const { isSorting, isMovingFree } = useDragActivation();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
+  const isDraggingTopLevel = !parentId && isMovingFree;
   const setSectionRef = useSectionRefs((x) => x.setRef);
+  const trueDragListeners =
+    isDraggingSortable || isDraggingTopLevel ? dragListeners : {};
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
@@ -85,7 +88,7 @@ function Container({
     draggableRef && draggableRef(e);
   }
 
-  const commonProps = { ref: totalRef, ...dragListeners };
+  const commonProps = { ref: totalRef, ...trueDragListeners };
 
   useEffect(() => {
     setSectionRef({ sectionId, ref: refForPosition.current });
