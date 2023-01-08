@@ -71,7 +71,7 @@ export function useHighlightDroppable(sectionId: string) {
 
   const className = "rounded-3xl relative py-3 px-3 -my-3 -mx-3";
 
-  const transition = "box-shadow 0.2s, background-color 0.2s, outline 0.2s";
+  const transition = "background-color 0.2s";
 
   if (highlight === DropType.NONE) {
     return {
