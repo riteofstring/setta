@@ -8,8 +8,20 @@ import yaml
 from .constants import CALLABLE, COLLECTION, PARAMETER
 
 
-class KeyAlreadyExists(Exception):
-    pass
+def child_path_condition(parent_path, child_path):
+    return (
+        child_path.startswith(parent_path)
+        and len(child_path.split(".")) == len(parent_path.split(".")) + 1
+    )
+
+
+def set_children(output):
+    for v in output.values():
+        v["children"] = [
+            c["id"]
+            for c in output.values()
+            if child_path_condition(v["path"], c["path"])
+        ]
 
 
 # https://stackoverflow.com/a/73143659
@@ -113,6 +125,7 @@ def _info(yaml_path, output_path):
         get_args_for_all_subpaths(x, output)
 
     output = id_as_key(output)
+    set_children(output)
 
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
