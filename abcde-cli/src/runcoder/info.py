@@ -23,6 +23,15 @@ def set_children(output):
             if child_path_condition(v["path"], c["path"])
         ]
 
+        v["inCodeParentId"] = next(
+            (
+                p["id"]
+                for p in output.values()
+                if child_path_condition(p["path"], v["path"])
+            ),
+            None,
+        )
+
 
 # https://stackoverflow.com/a/73143659
 class InfoDict(dict):
@@ -51,6 +60,7 @@ def module_info(import_from, import_this, version, output):
         "type": "module",
         "description": None,
         "rcType": COLLECTION,
+        "inCodeParentId": None,
         "path": path,
         "children": [],
     }
@@ -68,6 +78,7 @@ def callable_info(obj, import_from, import_this, version, output):
         "type": "callable",
         "description": None,
         "rcType": CALLABLE,
+        "inCodeParentId": None,
         "path": path,
         "children": [],
     }
@@ -87,6 +98,7 @@ def parameter_info(obj_path, param, version, output):
         "type": str(param.annotation),
         "description": None,
         "rcType": PARAMETER,
+        "inCodeParentId": None,
         "path": path,
         "children": [],
     }
