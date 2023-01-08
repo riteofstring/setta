@@ -18,7 +18,7 @@ export function useHighlightDroppable(sectionId: string) {
 
   function onDragMove({ active, over, collisions }) {
     if (isMovingFree && active.id !== sectionId && over) {
-      const leftOffsetCondition = collisions[0]?.data.rawValue > 100;
+      const leftOffsetCondition = collisions[0]?.data.leftDist > 50;
 
       // Draw box around section if leftOffset is large enough or if there is no parent
       if (
