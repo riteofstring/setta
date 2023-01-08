@@ -1,5 +1,5 @@
 import React from "react";
-import { deleteChild } from "thunks/deleteChild";
+import { deleteChild } from "thunks/sections/deleteChild";
 import Incrementer from "../Incrementer/Incrementer";
 import CustomCloseButton from "./CustomCloseButton/CustomCloseButton";
 import SectionTitle from "./Title/SectionTitle";
@@ -16,7 +16,7 @@ function _SectionHeader({
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
     e.stopPropagation();
-    deleteChild({ sectionId: parentId, startId: sectionId });
+    deleteChild({ parentId, startId: sectionId });
   };
 
   return (
