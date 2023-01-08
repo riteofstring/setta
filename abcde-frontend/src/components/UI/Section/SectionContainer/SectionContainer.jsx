@@ -1,9 +1,10 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
-import React from "react";
+import { useSectionRefs } from "models/sectionRefs";
+import React, { useEffect, useRef } from "react";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import SectionTitle from "./Header/Title/SectionTitle";
 import SectionContainerCore from "./SectionContainerCore";
@@ -63,13 +64,17 @@ function Container({
   depth,
   children,
 }) {
+  const {
+    className: highlightDroppableClassName,
+    style: highlightDroppableStyle,
+  } = useHighlightDroppable(sectionId);
   const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
   const { listeners: topLevelDragListeners, setNodeRef: draggableRef } =
     useDraggable({
       id: sectionId,
       data: { depth },
     });
-  const refForPosition = useSetSectionPosition(sectionId);
+  const refForPosition = useRef(null);
   const { isSorting, isMovingFree } = useDragActivation();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
   const isDraggingTopLevel = depth === 0 && isMovingFree;
@@ -79,16 +84,19 @@ function Container({
   } else if (isDraggingTopLevel) {
     trueDragListeners = topLevelDragListeners;
   }
+  const setSectionRef = useSectionRefs((x) => x.setRef);
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${isDraggingSortable && "nodrag"}`;
+  const className = `${
+    isDraggingSortable && "nodrag"
+  } ${highlightDroppableClassName}`;
 
   function totalRef(e) {
     refForPosition.current = e;
-    if (isDeck && !hasNested && !isSorting) {
-      droppableRef(e);
-    }
+    // if (isDeck && !hasNested && !isSorting) {
+    droppableRef(e);
+    // }
     if (depth === 0) {
       draggableRef(e);
     }
@@ -96,19 +104,30 @@ function Container({
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
 
+  useEffect(() => {
+    setSectionRef({ sectionId, ref: refForPosition.current });
+  }, []);
+
   return (
     <>
       {isDeck ? (
         <div
           className={`${className} pt-3 px-8 pb-6 rounded-3xl`}
-          style={{ backgroundColor: "hsla(212, 22%, 50%, 0.2)" }}
+          style={{
+            backgroundColor: "hsla(212, 22%, 50%, 0.2)",
+            ...highlightDroppableStyle,
+          }}
           {...commonProps}
         >
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
       ) : (
-        <div className={className} {...commonProps}>
+        <div
+          className={className}
+          style={highlightDroppableStyle}
+          {...commonProps}
+        >
           {children}
         </div>
       )}

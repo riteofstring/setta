@@ -10,7 +10,7 @@ import {
   getSectionConfig,
   getSectionType,
   setSectionConfigAttr,
-} from "thunks/sections";
+} from "thunks/sections/sections";
 import { requiresNestedSection } from "utils/constants";
 import {
   cloneNewUIType,

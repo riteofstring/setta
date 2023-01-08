@@ -3,10 +3,9 @@ import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrPage } from "models/currPage";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import React, { useEffect, useState } from "react";
-import { BiGitBranch, BiPlus } from "react-icons/bi";
+import { BiAddToQueue, BiGitBranch } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
 import { Button } from "utils/atoms/buttons/Button";
-import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { UI } from "utils/pageNames";
 import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 
@@ -18,7 +17,7 @@ function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridProps="bg-gray-100">
+    <GridWrapper gridProps=" bg-gray-100">
       <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
@@ -32,13 +31,13 @@ function RightColumn({ projects, createProject }) {
   }
 
   return (
-    <div className="overflow-y-auto py-8">
+    <div className="overflow-y-auto">
       <PopoverWrapper
         trigger={
-          <StandardButton twClasses="py-2 px-4 mx-10 rounded-full font-bold font-heading text-white bg-gray-600 border border-solid border-gray-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-gray-900 gap-2">
-            <BiPlus />
+          <Button tailwindClasses="py-2 px-4 mt-10 mx-10 rounded-full font-bold text-green-900 bg-green-300 hover:bg-green-400 gap-2">
+            <BiAddToQueue />
             Create New Project
-          </StandardButton>
+          </Button>
         }
         body={<ProjectNameSetter onClick={onClick} />}
       />
@@ -74,19 +73,17 @@ function ProjectItem({ project }) {
     setProjectToLoad({ id, configId });
   }
 
-  // bg-[url('https://via.placeholder.com/400')]
-
   return (
     <div
-      className="grid grid-rows-[1fr_5rem] rounded-3xl border border-solid min-h-[15rem] sm:w-80 overflow-hidden hover:transition-all hover:shadow-xl  hover:cursor-pointer hover:border-white"
+      className="grid grid-rows-[1fr_5rem] rounded-3xl border border-gray-300 min-h-[15rem] sm:w-80 overflow-hidden hover:transition-all hover:shadow-lg hover:border-white hover:cursor-pointer"
       onClick={onClick}
     >
-      <div className="grid p-4 bg-gray-300  bg-center">
+      <div className="grid p-4 bg-gray-300 bg-[url('https://via.placeholder.com/400')] bg-center">
         <div className="[place-self:flex-start_flex-end]">
           <PopoverWrapper
             trigger={
               <Button
-                twClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
+                tailwindClasses="bg-gray-200 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
                 onClick={onClickConfigsButton}
               >
                 <BiGitBranch />
@@ -107,10 +104,12 @@ function ProjectItem({ project }) {
         </div>
       </div>
       <div className="p-4 bg-white">
-        <h3 className="font-bold font-heading text-gray-600">{name}</h3>
+        <h3 className="text-base">{name}</h3>
         <div className="flex flex-row gap-[0.15rem] mt-1">
-          <Badge twClasses="bg-green-100 text-green-800 ">PyTorch 2.9</Badge>
-          <Badge twClasses="bg-red-100 text-red-800">NumPy</Badge>
+          <Badge tailwindClasses="bg-green-100 text-green-800">
+            PyTorch 2.9
+          </Badge>
+          <Badge tailwindClasses="bg-red-100 text-red-800">NumPy</Badge>
         </div>
       </div>
     </div>

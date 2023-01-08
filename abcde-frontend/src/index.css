@@ -11,7 +11,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* overflow: hidden; */
+  overflow: hidden;
   scrollbar-width: thin;
   scrollbar-color: gray transparent;
 }
@@ -35,7 +35,7 @@ body *::-webkit-scrollbar {
 
 body * {
   scrollbar-width: thin;
-  /* scrollbar-height: thin; */
+  scrollbar-height: thin;
   scrollbar-color: gray transparent;
 }
 
