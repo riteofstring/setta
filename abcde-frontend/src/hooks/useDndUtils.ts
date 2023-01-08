@@ -2,61 +2,55 @@ import { useDndMonitor } from "@dnd-kit/core";
 import { useState } from "react";
 import { useDragActivation } from "./useDragActivation";
 
-export enum DropType {
+enum HType {
   NONE = "NONE",
-  INTO = "INTO",
-  ABOVE = "ABOVE",
-  BELOW = "BELOW",
-}
-
-function getLeftDistCondition(collisions) {
-  return collisions[0]?.data.leftDist > 50;
-}
-
-export function getDropType(over, collisions) {
-  const leftDistCondition = getLeftDistCondition(collisions);
-  const centerYCondition = collisions[0]?.data.centerYDist < 0;
-
-  // Drop into section if leftOffset is large enough or if there is no parent
-  if (leftDistCondition || !over.data?.current?.sortable) {
-    return DropType.INTO;
-  }
-  // Drop above section
-  if (centerYCondition) {
-    return DropType.ABOVE;
-  }
-  // Drop below section
-  if (!centerYCondition) {
-    return DropType.BELOW;
-  }
-  return DropType.NONE;
+  BOX = "BOX",
+  LINE_ABOVE = "LINE_ABOVE",
+  LINE_BELOW = "LINE_BELOW",
 }
 
 export function useHighlightDroppable(sectionId: string) {
   const { isMovingFree } = useDragActivation();
-  const [highlight, setHighlight] = useState<DropType>(DropType.NONE);
+  const [highlight, setHighlight] = useState<HType>(HType.NONE);
 
   function onDragDone() {
-    setHighlight(DropType.NONE);
+    setHighlight(HType.NONE);
   }
 
   function onDragMove({ active, over, collisions }) {
     if (isMovingFree && active.id !== sectionId && over) {
-      let dropType = DropType.NONE;
-      // Highlight for this section
-      if (over.id === sectionId) {
-        dropType = getDropType(over, collisions);
-      } else if (
-        // Highlight for parent section
-        over.data.current?.sortable?.containerId === sectionId &&
-        !getLeftDistCondition(collisions)
+      const leftDistCondition = collisions[0]?.data.leftDist > 50;
+      const centerYCondition = collisions[0]?.data.centerYDist < 0;
+      const isThisSection = over.id === sectionId;
+
+      // Draw box around section if leftOffset is large enough or if there is no parent
+      if (
+        isThisSection &&
+        (leftDistCondition || !over.data?.current?.sortable)
       ) {
-        dropType = DropType.INTO;
+        highlight !== HType.BOX && setHighlight(HType.BOX);
+        return;
       }
-      highlight !== dropType && setHighlight(dropType);
-      return;
+      // Draw box around parent of current section if leftOffset is small
+      if (
+        over.data?.current?.sortable?.containerId === sectionId &&
+        !leftDistCondition
+      ) {
+        highlight !== HType.BOX && setHighlight(HType.BOX);
+        return;
+      }
+      // Draw line above section
+      if (isThisSection && centerYCondition) {
+        highlight !== HType.LINE_ABOVE && setHighlight(HType.LINE_ABOVE);
+        return;
+      }
+      // Draw line below section
+      if (isThisSection && !centerYCondition) {
+        highlight !== HType.LINE_BELOW && setHighlight(HType.LINE_BELOW);
+        return;
+      }
     }
-    highlight !== DropType.NONE && setHighlight(DropType.NONE);
+    highlight !== HType.NONE && setHighlight(HType.NONE);
   }
 
   useDndMonitor({
@@ -68,12 +62,12 @@ export function useHighlightDroppable(sectionId: string) {
   const className = "rounded-3xl relative py-3 px-3 -my-3 -mx-3";
   const transition = "box-shadow 0.2s, background-color 0.2s, outline 0.2s";
 
-  if (highlight === DropType.NONE) {
+  if (highlight === HType.NONE) {
     return {
       className,
       style: { transition, outline: "rgba(0, 0, 0, 0) solid 5px" },
     };
-  } else if (highlight === DropType.INTO) {
+  } else if (highlight === HType.BOX) {
     return {
       className: `${className} z-[100]`,
       style: {
@@ -84,7 +78,7 @@ export function useHighlightDroppable(sectionId: string) {
           "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
-  } else if (highlight === DropType.ABOVE) {
+  } else if (highlight === HType.LINE_ABOVE) {
     return {
       className: `${className} z-[100]`,
       style: {
@@ -95,7 +89,7 @@ export function useHighlightDroppable(sectionId: string) {
           "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
-  } else if (highlight === DropType.BELOW) {
+  } else if (highlight === HType.LINE_BELOW) {
     return {
       className: `${className} z-[100]`,
       style: {
@@ -109,31 +103,26 @@ export function useHighlightDroppable(sectionId: string) {
   }
 }
 
-export function useDisableSortable(sectionId: string, ancestorSet) {
+export function useDisableSort(sectionId: string) {
   const { isSorting, isMovingFree } = useDragActivation();
-  const [disabled, setDisabled] = useState({
-    draggable: false,
-    droppable: false,
-  });
+  const [disabled, setDisabled] = useState(false);
 
   function disableSort({ active }) {
-    const containerId = active?.data.current.sortable?.containerId;
-    // Freely moving this section or ancestor of this section
-    if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
-      setDisabled({ draggable: true, droppable: true });
-    }
-    // Freely moving a child of this section
-    else if (isMovingFree && containerId === sectionId) {
-      setDisabled({ draggable: true, droppable: false });
-    }
-    // Sorting a child of different section
-    else if (isSorting && containerId !== sectionId) {
-      setDisabled({ draggable: true, droppable: true });
+    const sortableInfo = active?.data.current.sortable;
+    if (
+      //The currently dragged section is a child of this section
+      (isMovingFree && sortableInfo?.containerId === sectionId) ||
+      //The currently dragged section is this section (e.g. a deck)
+      (isMovingFree && active.id === sectionId) ||
+      //The currently dragged section is not a child of this section
+      (isSorting && sortableInfo?.containerId !== sectionId)
+    ) {
+      setDisabled(true);
     }
   }
 
   function onDragDone() {
-    setDisabled({ draggable: false, droppable: false });
+    setDisabled(false);
   }
 
   useDndMonitor({

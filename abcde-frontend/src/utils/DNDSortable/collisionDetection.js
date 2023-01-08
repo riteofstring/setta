@@ -1,43 +1,30 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
-function compareCollisions(a, b) {
-  if (!a) {
-    return b;
-  }
-  if (!b) {
-    return a;
-  }
-
+function sortCollisionsAsc(
+  { data: { intersectionRatio: ra, absLeftDist: la, droppableContainer: dca } },
+  { data: { intersectionRatio: rb, absLeftDist: lb, droppableContainer: dcb } }
+) {
   // When comparing two nested sections, first check if they are left-aligned.
   // If they are not left-aligned, then prioritize the section that has the smallest left distance.
   // If they are left-aligned, then prioritize the section with most intersection.
-  const cidA = a.data.droppableContainer.data.current?.sortable?.containerId;
-  const cidB = b.data.droppableContainer.data.current?.sortable?.containerId;
+  const cidA = dca.data.current?.sortable?.containerId;
+  const cidB = dcb.data.current?.sortable?.containerId;
+  if (cidA && cidB) {
+    return la - lb || rb - ra;
+  }
   // sortable A prioritized before non-sortable B
   if (cidA && !cidB) {
-    return a;
+    return -1;
   }
   // sortable B prioritized before non-sortable A
   if (!cidA && cidB) {
-    return b;
-  }
-
-  const ra = a.data.intersectionRatio;
-  const rb = b.data.intersectionRatio;
-
-  if (cidA && cidB) {
-    const la = a.data.absLeftDist;
-    const lb = b.data.absLeftDist;
-    if (la - lb === 0) {
-      return rb - ra > 0 ? b : a;
-    }
-    return la - lb > 0 ? b : a;
+    return 1;
   }
   // for two non-sortables, use intersection area
-  return rb - ra > 0 ? b : a;
+  return rb - ra;
 }
 
-function getIntersectionRatio(entry, target) {
+export function getIntersectionRatio(entry, target) {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);
@@ -59,13 +46,25 @@ function getIntersectionRatio(entry, target) {
   return 0;
 }
 
+// function isIntersecting(entry, target) {
+//   const top = Math.max(target.top, entry.top);
+//   const left = Math.max(target.left, entry.left);
+//   const right = Math.min(target.left + target.width, entry.left + entry.width);
+//   const bottom = Math.min(target.top + target.height, entry.top + entry.height);
+//   return left < right && top < bottom;
+// }
+
+// for each droppable area
+// if rect intersection greater than 0
+// find distance to top and bottom of droppable area
+// and return minimum
 export const customCollisionDetection = ({
   active,
   collisionRect,
   droppableRects,
   droppableContainers,
 }) => {
-  let bestCollision = null;
+  const collisions = [];
   const left = collisionRect.left;
   const centerY = collisionRect.top + collisionRect.height / 2;
 
@@ -73,13 +72,17 @@ export const customCollisionDetection = ({
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    if (active.id !== id && rect) {
+    if (
+      active.id !== id &&
+      rect
+      // !droppableContainer.data.current.hasNested
+    ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
         const currLeft = rect.left;
         const currCenterY = rect.top + rect.height / 2;
         const dist = left - currLeft;
-        bestCollision = compareCollisions(bestCollision, {
+        collisions.push({
           id,
           data: {
             droppableContainer,
@@ -93,5 +96,5 @@ export const customCollisionDetection = ({
     }
   }
 
-  return bestCollision ? [bestCollision] : [];
+  return collisions.sort(sortCollisionsAsc);
 };

@@ -1,7 +1,6 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
-import _ from "lodash";
 import { useSectionRefs } from "models/sectionRefs";
 import { useEffect, useRef } from "react";
 import SectionTitle from "./Header/Title/SectionTitle";
@@ -11,10 +10,10 @@ export function ContainerSwitch({
   sectionId,
   parentId,
   dragListeners,
-  ancestorSet,
+  depth,
   children,
 }) {
-  return _.size(ancestorSet) === 0 ? (
+  return depth === 0 ? (
     <TopLevelContainer
       isDeck={isDeck}
       sectionId={sectionId}
@@ -35,13 +34,11 @@ export function ContainerSwitch({
 }
 
 function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
-  const dndProps = {
+  const { setNodeRef: droppableRef } = useDroppable({ id: sectionId });
+  const { listeners: dragListeners, setNodeRef: draggableRef } = useDraggable({
     id: sectionId,
-    data: { isTopLevel: true },
-  };
-  const { setNodeRef: droppableRef } = useDroppable(dndProps);
-  const { listeners: dragListeners, setNodeRef: draggableRef } =
-    useDraggable(dndProps);
+    data: { depth: 0 },
+  });
 
   return (
     <Container

@@ -9,7 +9,7 @@ function SectionContainer({
   sectionId,
   parentId,
   nextId,
-  ancestorSet,
+  depth,
   dragListeners,
 }) {
   const isDeck = useIsDeck(sectionId);
@@ -22,7 +22,7 @@ function SectionContainer({
       sectionId={sectionId}
       parentId={parentId}
       dragListeners={dragListeners}
-      ancestorSet={ancestorSet}
+      depth={depth}
     >
       {!isDeck && (
         <SectionContainerCore
@@ -38,7 +38,7 @@ function SectionContainer({
           <ManyNestedSections
             childIds={currChildren}
             sectionId={sectionId}
-            ancestorSet={ancestorSet}
+            depth={depth}
             isDeck={isDeck}
           />
         </div>
