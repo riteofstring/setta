@@ -10,10 +10,16 @@ export function DNDSortable({ sectionId, items, children }) {
     <SortableContext
       id={sectionId}
       items={items}
-      strategy={verticalListSortingStrategy}
-      disabled={disabled}
+      strategy={
+        disabled ? DisabledSortingStrategy : verticalListSortingStrategy
+      }
+      disabled={{ draggable: disabled, droppable: false }}
     >
       {children}
     </SortableContext>
   );
+}
+
+function DisabledSortingStrategy() {
+  return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
 }
