@@ -37,7 +37,7 @@ export function ContainerSwitch({
 function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
   const dndProps = {
     id: sectionId,
-    data: { ancestorSet: {} },
+    data: { isTopLevel: true },
   };
   const { setNodeRef: droppableRef } = useDroppable(dndProps);
   const { listeners: dragListeners, setNodeRef: draggableRef } =

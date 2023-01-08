@@ -112,7 +112,7 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   function disableSort({ active }) {
     const containerId = active?.data.current.sortable?.containerId;
-    // Freemly moving this section or ancestor of this section
+    // Freely moving this section or ancestor of this section
     if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });
     }
