@@ -11,7 +11,7 @@ import { loadTestDataIntoState, sectionIdFromName } from "__tests__utils/utils";
 test("Test SectionSearch", async () => {
   await loadTestDataIntoState();
   const sectionId = sectionIdFromName("Optimizer");
-  const props = { sectionId, parentId: null, ancestorSet: {} };
+  const props = { sectionId, parentId: null, depth: 0 };
 
   const { rerender } = render(<SectionContainer {...props} />);
 

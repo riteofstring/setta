@@ -2,7 +2,6 @@ import { rootTypeToChildSubType, SECTION } from "abcde-utils/src/constants";
 import { OriginInfoIdType, UITypeType } from "abcde-utils/src/types/uiType";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
-import { useUITypes } from "models/info/uiTypes";
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
@@ -16,24 +15,27 @@ function cloneRootUIType(parentUIType, parentId) {
   return uiType;
 }
 
-export function getChildUITypeId(parentUIType, parentId) {
+export function getChildUITypeId(
+  parentUIType,
+  parentId,
+  setUIType,
+  setOneConfig
+) {
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
     return childUITypeId;
   }
 
-  const uiTypesState = useUITypes.getState();
-
   // Otherwise, a child ui type needs to be created
   const newUIType = cloneRootUIType(parentUIType, parentId);
   const id = newUIType.id;
-  uiTypesState.setOneConfig({
+  setOneConfig({
     uiTypeId: parentUIType.id,
     configName: "childUITypeId",
     newValueFn: () => id,
   });
-  uiTypesState.setUIType({ uiType: newUIType });
+  setUIType({ uiType: newUIType });
   return id;
 }
 

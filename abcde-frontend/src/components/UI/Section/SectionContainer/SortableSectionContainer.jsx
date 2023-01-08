@@ -4,12 +4,7 @@ import React from "react";
 import { useStore } from "react-flow-renderer";
 import SectionContainer from "./SectionContainer";
 
-function _SortableSectionContainer({
-  sectionId,
-  parentId,
-  nextId,
-  ancestorSet,
-}) {
+function _SortableSectionContainer({ sectionId, ...props }) {
   const zoom = useStore((x) => x.transform[2]);
 
   function transformWithZoom(transform) {
@@ -25,9 +20,12 @@ function _SortableSectionContainer({
 
   const sortableProps = useSortable({
     id: sectionId,
-    data: { zoom, isTopLevel: false },
+    data: { zoom },
   });
 
+  // Possible TODO:
+  // Use isOver (available in sortableProps) to do some styling when
+  // another element is hovering over this element.
   const { attributes, listeners, setNodeRef, transform, transition } =
     sortableProps;
 
@@ -43,9 +41,7 @@ function _SortableSectionContainer({
     <div className="mt-2" {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
-        parentId={parentId}
-        nextId={nextId}
-        ancestorSet={ancestorSet}
+        {...props}
         dragListeners={listeners}
       />
     </div>

@@ -3,7 +3,7 @@ import { useIsRoot, useIsSeriesElement } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
-import { setSelectedItem } from "thunks/sections/sections";
+import { setSelectedItem } from "thunks/sections";
 import { SECTIONWIDTH } from "utils/constants";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
