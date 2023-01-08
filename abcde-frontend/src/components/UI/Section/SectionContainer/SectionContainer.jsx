@@ -21,7 +21,6 @@ function SectionContainer({
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
-      hasNested={hasNested}
       dragListeners={dragListeners}
       depth={depth}
     >
