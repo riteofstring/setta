@@ -40,7 +40,7 @@ function _SortableSectionContainer({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="mt-2" {...stackProps}>
+    <div className="first:mt-2" {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
         parentId={parentId}

@@ -9,6 +9,14 @@ module.exports = {
         logo: ["JetBrains Mono", "sans-serif"],
         code: ["Source Code Pro", "monospace"],
       },
+      keyframes: {
+        dash: {
+          to: { backgroundPosition: "100% 0%, 0% 100%, 0% 0%, 100% 100%" },
+        },
+      },
+      animation: {
+        "slow-dash": "animation: dash 40s linear infinite",
+      },
     },
   },
   // plugins: [],
