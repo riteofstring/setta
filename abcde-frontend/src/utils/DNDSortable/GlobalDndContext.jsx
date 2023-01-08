@@ -1,5 +1,6 @@
 import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { DropType, getDropType } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useRef, useState } from "react";
@@ -13,18 +14,6 @@ import { DummySection } from "./DummySection";
 
 import { useDNDSensors } from "./useDNDSensors";
 
-function getNewIndex(active, over) {
-  const isBelowOverItem =
-    over &&
-    active.rect.current.translated &&
-    active.rect.current.translated.top > over.rect.top + over.rect.height / 2;
-
-  const modifier = isBelowOverItem ? 1 : 0;
-  const overItems = over.data.current.sortable.items;
-  const overIndex = overItems.indexOf(over.id);
-  return overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
-}
-
 function onSortEnd({ active, over }) {
   useSectionInfos.getState().setAllChildren({
     sectionId: active.data.current.sortable?.containerId,
@@ -32,24 +21,33 @@ function onSortEnd({ active, over }) {
   });
 }
 
-function onFreeMoveEnd({ active, over, dummyRef, project }) {
+function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
   const sectionId = active.id;
-  const oldParentId = useSectionInfos.getState().x[sectionId].parentId;
+  const s = useSectionInfos.getState().x;
+  const oldParentId = s[sectionId].parentId ? s[sectionId].parentId : PANEID;
   let newParentId = null;
   let newIndex = null;
   let position = null;
 
   // dropping nested section onto pane
-  if (oldParentId && !over) {
+  if (oldParentId !== PANEID && !over) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (over) {
-    newParentId = useSectionInfos.getState().x[over.id].parentId;
-    console.log("newParentId", newParentId);
-    return;
-  } else {
+    const dropType = getDropType(over, collisions);
+    if (dropType === DropType.INTO) {
+      newParentId = over.id;
+      newIndex = 0;
+    } else if (dropType === DropType.ABOVE || dropType === DropType.BELOW) {
+      newParentId = s[over.id].parentId;
+      const overIndex = over.data.current.sortable.items.indexOf(over.id);
+      newIndex = overIndex + (dropType === DropType.BELOW);
+    }
+  }
+
+  if (!newParentId) {
     return;
   }
 
@@ -74,11 +72,11 @@ export function GlobalDndContext({ children }) {
   }
 
   // TODO: setActive(null) in here
-  function onDragEnd({ active, over }) {
+  function onDragEnd({ active, over, collisions }) {
     if (isSorting) {
       onSortEnd({ active, over });
     } else if (isMovingFree) {
-      onFreeMoveEnd({ active, over, dummyRef, project });
+      onFreeMoveEnd({ active, over, collisions, dummyRef, project });
     }
     setActive(null);
   }
