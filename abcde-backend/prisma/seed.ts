@@ -1,5 +1,6 @@
 import {
   loadAllProjects,
+  loadGlobalCodeInfo,
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
@@ -26,7 +27,7 @@ async function seedUsers() {
 }
 
 async function seedCodeInfo() {
-  const data = await loadSpecificTestData({ name: 'AllCodeInfo' });
+  const data = await loadGlobalCodeInfo();
   console.log('seedCodeInfo');
   await saveCodeInfo(data);
   console.log('done');

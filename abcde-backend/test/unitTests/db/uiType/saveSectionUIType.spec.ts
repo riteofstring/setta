@@ -1,4 +1,7 @@
-import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
+import {
+  loadGlobalCodeInfo,
+  loadSpecificTestData,
+} from 'abcde-test/src/loadTestData';
 import { newSectionInfo } from 'abcde-utils/src/objs/sectionInfo';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
@@ -29,7 +32,7 @@ describe('Create, update, and copy a section ui type', () => {
     uiType.originInfoId.sectionId = section.id;
     user = await loadSpecificTestData({ name: 'Users' });
     user = _.find(user, (x) => x.name === 'Kevin');
-    codeInfo = await loadSpecificTestData({ name: 'AllCodeInfo' });
+    codeInfo = await loadGlobalCodeInfo();
   });
 
   test('create a section ui type', async () => {

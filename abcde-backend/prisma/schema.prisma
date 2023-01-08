@@ -13,7 +13,7 @@ model CodeInfo {
   name                      String                     @db.VarChar(255)
   version                   String?                    @db.VarChar(255)
   defaultVal                String?                    @db.VarChar(255)
-  type                      String                     @db.VarChar(255)
+  type                      String                     @db.Text
   rcType                    String                     @db.VarChar(255)
   description               String?                    @db.VarChar(255)
   path                      String?                    @db.VarChar(255)

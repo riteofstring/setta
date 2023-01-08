@@ -1,4 +1,4 @@
-import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
+import { loadGlobalCodeInfo } from 'abcde-test/src/loadTestData';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { prisma } from 'src/db/prisma';
@@ -10,7 +10,7 @@ describe('Creating code info', () => {
   });
 
   test('Create collection and its children', async () => {
-    let codeInfo = await loadSpecificTestData({ name: 'AllCodeInfo' });
+    let codeInfo = await loadGlobalCodeInfo();
     const collection = _.find(codeInfo, (x) => x.name === 'Various Params');
     // get collection's children
     codeInfo = {
