@@ -59,9 +59,19 @@ function RightColumn({ projects, createProject }) {
       </h3>
       <div className="grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start">
         {Object.values(projects).map((x, i) => (
-          <ToolTipWrapper project={x} key={`Project ${i} ${x.name}`}>
-            <ProjectItem project={x} />
-          </ToolTipWrapper>
+          <Tooltip.Provider project={x} key={`Project ${i} ${x.name}`}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <ProjectItem project={x} />
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content>
+                  <Tooltip.Arrow />
+                  {x.name}
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
         ))}
       </div>
     </div>
@@ -101,13 +111,13 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
         <div className="[place-self:flex-start_flex-end]">
           <PopoverWrapper
             trigger={
-              <Button
-                twClasses="bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
+              <div
+                className="flex items-center bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
                 onClick={onClickConfigsButton}
               >
                 <BiGitBranch />
                 Configs
-              </Button>
+              </div>
             }
             body={
               <Body
@@ -198,7 +208,7 @@ function ProjectNameSetter({ onClick }) {
 export function DefaultConfigBadge({ config, defaultConfigId }) {
   return (
     config.id === defaultConfigId && (
-      <Badge tailwindClasses="bg-green-100 text-green-800">Default</Badge>
+      <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
     )
   );
 }
