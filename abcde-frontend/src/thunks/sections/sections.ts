@@ -3,7 +3,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { initializeParam } from "./initializeParam";
+import { initializeParam } from "../initializeParam";
 
 function getSectionConfigId(sectionId) {
   return useSectionInfos.getState().x[sectionId].configId;

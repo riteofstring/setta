@@ -17,7 +17,6 @@ export const NAVBAR_HEIGHT = 64;
 export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
-export const INDICATOR_GOTO_PARENT = "indicator_goto_parent";
 
 export const SET_FROM_SIDEPANE = 3;
 export const PROJECT_DEFAULT = 2;

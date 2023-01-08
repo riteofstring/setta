@@ -11,10 +11,7 @@ function getNewStateFn(
     if (x.length === 0) {
       return x;
     }
-    let startIdx = 0;
-    if (startId !== null) {
-      startIdx = x.indexOf(startId);
-    }
+    const startIdx = startId !== null ? x.indexOf(startId) : 0;
     const endIdx = startIdx + numChildren;
     deletedChildren[0] = x.filter((e, idx) => idx >= startIdx && idx < endIdx);
     return _.difference(x, deletedChildren[0]);
@@ -22,12 +19,12 @@ function getNewStateFn(
 }
 
 export function deleteChild({
-  sectionId,
+  parentId,
   numChildren = 1,
   startId = null,
 }: DeleteChildFnType) {
   // For deleting root sections, in which case the parent (sectionid) is "null"
-  if (_.isNil(sectionId)) {
+  if (_.isNil(parentId)) {
     deleteSections({ sectionIds: [startId] });
     return;
   }
@@ -36,7 +33,7 @@ export function deleteChild({
   // deletedChildren[0] is set to be the list of the children to delete
   const deletedChildren = [];
   useSectionInfos.getState().setAllChildren({
-    sectionId,
+    sectionId: parentId,
     newStateFn: getNewStateFn(deletedChildren, numChildren, startId),
   });
 
@@ -46,12 +43,12 @@ export function deleteChild({
 // if sectionId is null, then startId must be specified
 type DeleteChildFnType =
   | {
-      sectionId: string;
+      parentId: string;
       numChildren?: number;
       startId?: string | null;
     }
   | {
-      sectionId: null | undefined;
+      parentId: null | undefined;
       numChildren?: number;
       startId: string;
     };
