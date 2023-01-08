@@ -59,19 +59,9 @@ function RightColumn({ projects, createProject }) {
       </h3>
       <div className="grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start">
         {Object.values(projects).map((x, i) => (
-          <Tooltip.Provider project={x} key={`Project ${i} ${x.name}`}>
-            <Tooltip.Root>
-              <Tooltip.Trigger className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0">
-                <ProjectItem project={x} />
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content>
-                  <Tooltip.Arrow />
-                  {x.name}
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
+          <ToolTipWrapper project={x} key={`Project ${i} ${x.name}`}>
+            <ProjectItem project={x} />
+          </ToolTipWrapper>
         ))}
       </div>
     </div>
@@ -154,11 +144,23 @@ function ToolTipWrapper({ project, children }) {
   return (
     <Tooltip.Provider>
       <Tooltip.Root>
-        <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
+        <Tooltip.Trigger className="relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0">
+          {children}
+        </Tooltip.Trigger>
         <Tooltip.Portal>
-          <Tooltip.Content>
-            <Tooltip.Arrow />
-            {name}
+          <Tooltip.Content className="bg-white rounded-md shadow-md py-2 px-3 text-sm text-gray-700">
+            <Tooltip.Arrow className="[fill:white]" />
+            <h4 className="font-bold font-heading">
+              {name + name + " " + name + name}
+            </h4>
+            <h5 className="mt-2">Libraries</h5>
+            <ul className="list-none flex flex-col ml-2">
+              <li>Numpy</li>
+              <li>PyTorch 2.9</li>
+              <li>Pandas</li>
+              <li>SciKit-Learn</li>
+              <li>SciPy</li>
+            </ul>
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
@@ -204,7 +206,7 @@ function ProjectNameSetter({ onClick }) {
 export function DefaultConfigBadge({ config, defaultConfigId }) {
   return (
     config.id === defaultConfigId && (
-      <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
+      <Badge tailwindClasses="bg-green-100 text-green-800">Default</Badge>
     )
   );
 }
