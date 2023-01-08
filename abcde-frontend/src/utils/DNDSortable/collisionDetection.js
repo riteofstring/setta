@@ -1,27 +1,40 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
-function sortCollisionsAsc(
-  { data: { intersectionRatio: ra, absLeftDist: la, droppableContainer: dca } },
-  { data: { intersectionRatio: rb, absLeftDist: lb, droppableContainer: dcb } }
-) {
+function compareCollisions(a, b) {
+  if (!a) {
+    return b;
+  }
+  if (!b) {
+    return a;
+  }
+
   // When comparing two nested sections, first check if they are left-aligned.
   // If they are not left-aligned, then prioritize the section that has the smallest left distance.
   // If they are left-aligned, then prioritize the section with most intersection.
-  const cidA = dca.data.current?.sortable?.containerId;
-  const cidB = dcb.data.current?.sortable?.containerId;
-  if (cidA && cidB) {
-    return la - lb || rb - ra;
-  }
+  const cidA = a.data.droppableContainer.data.current?.sortable?.containerId;
+  const cidB = b.data.droppableContainer.data.current?.sortable?.containerId;
   // sortable A prioritized before non-sortable B
   if (cidA && !cidB) {
-    return -1;
+    return a;
   }
   // sortable B prioritized before non-sortable A
   if (!cidA && cidB) {
-    return 1;
+    return b;
+  }
+
+  const ra = a.data.intersectionRatio;
+  const rb = b.data.intersectionRatio;
+
+  if (cidA && cidB) {
+    const la = a.data.absLeftDist;
+    const lb = b.data.absLeftDist;
+    if (la - lb === 0) {
+      return rb - ra > 0 ? b : a;
+    }
+    return la - lb > 0 ? b : a;
   }
   // for two non-sortables, use intersection area
-  return rb - ra;
+  return rb - ra > 0 ? b : a;
 }
 
 function getIntersectionRatio(entry, target) {
@@ -52,7 +65,7 @@ export const customCollisionDetection = ({
   droppableRects,
   droppableContainers,
 }) => {
-  const collisions = [];
+  let bestCollision = null;
   const left = collisionRect.left;
   const centerY = collisionRect.top + collisionRect.height / 2;
 
@@ -66,7 +79,7 @@ export const customCollisionDetection = ({
         const currLeft = rect.left;
         const currCenterY = rect.top + rect.height / 2;
         const dist = left - currLeft;
-        collisions.push({
+        bestCollision = compareCollisions(bestCollision, {
           id,
           data: {
             droppableContainer,
@@ -80,5 +93,5 @@ export const customCollisionDetection = ({
     }
   }
 
-  return collisions.sort(sortCollisionsAsc);
+  return bestCollision ? [bestCollision] : [];
 };
