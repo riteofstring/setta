@@ -94,7 +94,7 @@ def parameter_info(obj_path, param, version, output):
         "id": id,
         "name": param.name,
         "version": version,
-        "defaultVal": param.default,
+        "defaultVal": str(param.default),
         "type": str(param.annotation),
         "description": None,
         "rcType": PARAMETER,
