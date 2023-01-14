@@ -1,20 +1,19 @@
 import importlib
 import inspect
-import json
 import os
 import pathlib
 import sys
 import uuid
 
 import yaml
-from runcoder_test.load_test_data import load_global_code_info
+from runcoder_test.load_test_data import load_global_code_info, write_ts_file
 
 from .utils.constants import CALLABLE, COLLECTION, PARAMETER
 
 
 class InfoDict:
-    def __init__(self, output_path):
-        self.output_path = output_path
+    def __init__(self, yaml_path):
+        self.yaml_name = pathlib.Path(yaml_path).stem
         self.output = {}
         self.db = {k: path_as_key(v) for k, v in load_global_code_info().items()}
 
@@ -69,8 +68,18 @@ class InfoDict:
             self.output[key] = value
 
     def save(self):
-        with open(self.output_path, "w") as f:
-            json.dump(self.output, f, indent=2)
+        all_paths = set(self.db.keys())
+        output_folder = pathlib.Path(list(self.db.keys())[0]).parent
+        all_paths.add((output_folder / self.yaml_name).with_suffix(".ts"))
+        for p in all_paths:
+            if p.stem == self.yaml_name:
+                if p in self.db:
+                    curr_output = {**self.db[p], **self.output}
+                else:
+                    curr_output = self.output
+            else:
+                curr_output = self.db[p]
+            write_ts_file(curr_output, p)
 
 
 def id_as_key(info_dict):
@@ -176,16 +185,13 @@ def get_args_for_all_subpaths(x, output):
         get_args(".".join(xs[:i]), version, output)
 
 
-def _info(yaml_path, output_path):
-    if output_path is None:
-        output_path = pathlib.Path(yaml_path).with_suffix(".json")
-
+def _info(yaml_path):
     sys.path.insert(0, os.getcwd())
 
     with open(yaml_path, "r") as f:
         specs = yaml.safe_load(f)
 
-    output = InfoDict(output_path)
+    output = InfoDict(yaml_path)
     for x in specs:
         get_args_for_all_subpaths(x, output)
 

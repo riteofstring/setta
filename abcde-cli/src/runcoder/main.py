@@ -10,9 +10,8 @@ from .utils.constants import KEYRING_NAME
 
 @click.command()
 @click.argument("yaml_path", type=click.Path(exists=True))
-@click.argument("output_path", required=False, type=click.Path(exists=False))
-def info(yaml_path, output_path):
-    _info(yaml_path, output_path)
+def info(yaml_path):
+    _info(yaml_path)
 
 
 @click.command()
