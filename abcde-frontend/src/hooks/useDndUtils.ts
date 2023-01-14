@@ -102,7 +102,7 @@ export function useHighlightDroppable(sectionId: string) {
     };
   } else if (highlight === DropType.INTO) {
     return {
-      className: `${className}  z-[100]`,
+      className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0 z-[100]`,
       style: {
         transition,
         backgroundColor: "hsla(245, 100%, 78%, 1)",
