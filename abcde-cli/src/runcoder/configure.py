@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from .constants import CONFIG_FILENAME, CONFIG_FOLDER
+from .utils.constants import CONFIG_FILENAME, CONFIG_FOLDER
 
 
 def _get_config_path():

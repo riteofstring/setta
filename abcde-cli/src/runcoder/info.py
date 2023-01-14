@@ -7,44 +7,78 @@ import sys
 import uuid
 
 import yaml
+from runcoder_test.load_test_data import load_global_code_info
 
-from .constants import CALLABLE, COLLECTION, PARAMETER
-
-
-def child_path_condition(parent_path, child_path):
-    return (
-        child_path.startswith(parent_path)
-        and len(child_path.split(".")) == len(parent_path.split(".")) + 1
-    )
+from .utils.constants import CALLABLE, COLLECTION, PARAMETER
 
 
-def set_children(output):
-    for v in output.values():
-        v["children"] = [
-            c["id"]
-            for c in output.values()
-            if child_path_condition(v["path"], c["path"])
-        ]
+class InfoDict:
+    def __init__(self, output_path):
+        self.output_path = output_path
+        self.output = {}
+        self.db = {k: path_as_key(v) for k, v in load_global_code_info().items()}
 
-        v["inCodeParentId"] = next(
+    def child_path_condition(self, parent_path, child_path):
+        return (
+            parent_path
+            and child_path
+            and child_path.startswith(parent_path)
+            and len(child_path.split(".")) == len(parent_path.split(".")) + 1
+        )
+
+    def get_inCodeParentId(self, parent_source, child):
+        return next(
             (
                 p["id"]
-                for p in output.values()
-                if child_path_condition(p["path"], v["path"])
+                for p in parent_source.values()
+                if self.child_path_condition(p["path"], child["path"])
             ),
             None,
         )
 
+    def finalize(self):
+        self.output = id_as_key(self.output)
+        self.db = {k: id_as_key(v) for k, v in self.db.items()}
 
-# https://stackoverflow.com/a/73143659
-class InfoDict(dict):
+        for v in self.output.values():
+            v["children"] = [
+                c["id"]
+                for c in self.output.values()
+                if self.child_path_condition(v["path"], c["path"])
+            ]
+            v["inCodeParentId"] = self.get_inCodeParentId(self.output, v)
+
+        for v in self.output.values():
+            if v["inCodeParentId"]:
+                continue
+            for db_val in self.db.values():
+                id = self.get_inCodeParentId(db_val, v)
+                if id:
+                    v["inCodeParentId"] = id
+                    db_val[id]["children"].append(v["id"])
+                    break
+
+    def is_in_db(self, key):
+        for v in self.db.values():
+            if key in v:
+                return True
+        return False
+
     def __setitem__(self, key, value):
-        if key not in self:
-            super().__setitem__(key, value)
+        if not self.is_in_db(key) and key not in self.output:
+            self.output[key] = value
+
+    def save(self):
+        with open(self.output_path, "w") as f:
+            json.dump(self.output, f, indent=2)
 
 
 def id_as_key(info_dict):
     return {info["id"]: info for info in info_dict.values()}
+
+
+def path_as_key(info_dict):
+    return {info["path"]: info for info in info_dict.values()}
 
 
 def construct_path(import_from, import_this):
@@ -150,12 +184,10 @@ def _info(yaml_path, output_path):
 
     with open(yaml_path, "r") as f:
         specs = yaml.safe_load(f)
-    output = InfoDict()
+
+    output = InfoDict(output_path)
     for x in specs:
         get_args_for_all_subpaths(x, output)
 
-    output = id_as_key(output)
-    set_children(output)
-
-    with open(output_path, "w") as f:
-        json.dump(output, f, indent=2)
+    output.finalize()
+    output.save()

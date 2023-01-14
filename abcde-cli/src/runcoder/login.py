@@ -3,7 +3,7 @@ import sys
 import click
 import requests
 
-from .constants import BACKEND
+from .utils.constants import BACKEND
 
 
 def _login(username, password):

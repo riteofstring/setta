@@ -5,8 +5,8 @@ from subprocess import PIPE, Popen
 import click
 from requests.exceptions import RetryError
 
-from .constants import BACKEND, CODE_FOLDER
-from .utils import _get_retry_session
+from .utils.constants import BACKEND, CODE_FOLDER
+from .utils.utils import _get_retry_session
 
 
 def _try_getting_code(access_token, code_id):

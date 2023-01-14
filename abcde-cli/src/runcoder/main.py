@@ -2,10 +2,10 @@ import click
 import keyring
 
 from .configure import _read_config_file, _setup_config_file
-from .constants import KEYRING_NAME
 from .info import _info
 from .login import _login
 from .run import _run
+from .utils.constants import KEYRING_NAME
 
 
 @click.command()
