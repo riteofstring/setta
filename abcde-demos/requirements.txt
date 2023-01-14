@@ -1,1 +1,2 @@
 -e ../abcde-cli
+-e ../abcde-test
