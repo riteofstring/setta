@@ -1,6 +1,7 @@
 import glob
 import pathlib
 import pyjson5
+import json
 
 def read_ts_file(filename):
     with open(filename, 'r') as f:
@@ -10,6 +11,15 @@ def read_ts_file(filename):
     if x[-1] == ";":
         x = x[:-1]
     return pyjson5.decode(x)
+
+
+def write_ts_file(obj, filename):
+    with open(filename, "w") as f:
+        json.dump(obj, f, indent=2)
+    with open(filename, "r") as f:
+        x = f.read()
+    with open(filename, "w") as f:
+        f.write(f"export default {x}")
 
 
 def load_global_code_info():
