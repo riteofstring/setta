@@ -22,7 +22,7 @@ function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridProps="bg-gray-100">
+    <GridWrapper gridStyles="bg-gray-100">
       <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
