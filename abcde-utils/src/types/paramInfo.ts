@@ -25,6 +25,8 @@ export type ParamInfoActionType = {
     enteredValueId: string;
   }) => void;
 
+  initManyUITypeColIds: (payload: { collectionIds: string[] }) => void;
+
   setManyUITypeIds: (payload: {
     collectionId: string;
     paramIdToUITypeId: { [id: string]: string };
