@@ -5,6 +5,8 @@ import { useFormik } from "formik";
 import React, { useState } from "react";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
+import { FormInput } from "utils/atoms/input/FormInput";
+import { PasswordInput } from "utils/atoms/input/PasswordInput";
 
 const LoginPage = () => {
   const [show, setShow] = useState(false);
@@ -29,42 +31,21 @@ const LoginPage = () => {
             <SiteLogo />
             <h1 className="font-heading text-gray-600 text-3xl font-bold select-none">Login</h1>
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs select-none">Username</label>
-            <input
-              id="username"
-              name="username"
-              placeholder="user@email.com"
-              value={values.username}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="[border-width:0_0_2px_0] border-solid border-gray-100 py-2 focus-visible:border-blue-500"
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs select-none">Password</label>
-            <div className="[&:has(input:focus-visible)]:border-blue-500 flex [border-width:0_0_2px_0] border-solid border-gray-100">
-              <input
-                id="password"
-                name="password"
+          <FormInput label="Username" id="username" placeholder="user@email.com" value={values.username} onChange={handleChange}
+              onBlur={handleBlur} />
+          <PasswordInput id="password"
                 placeholder="********"
-                type={show ? "text" : "password"}
+                show={show}
                 value={values.password}
                 onChange={handleChange}
-                onBlur={handleBlur} 
-                className="py-2 flex-grow"
-              />
-              <MenuBarButton onClick={handleClick}>
-                {show ? "Hide" : "Show"}
-              </MenuBarButton>
-            </div>
-          </div>
+                onBlur={handleBlur}  />
+          
           <div className="flex flex-col gap-2">
             <StandardButton align="self-stretch" inactive="bg-gray-400" text="text-white font-bold" hover="hover:bg-blue-500" type="submit">
               Login
             </StandardButton>
-            <StandardButton stdBtnStyles="border border-solid border-gray-400" inactive="bg-transparent" align="self-stretch" hover="hover:bg-gray-200 hover:border-gray-200" type="submit">
-              Register
+            <StandardButton type="button" stdBtnStyles="border border-solid border-gray-400" inactive="bg-transparent" align="self-stretch" hover="hover:bg-gray-200 hover:border-gray-200">
+              Sign Up
             </StandardButton>
           </div>
           <a href="#" className="text-xs focus-visible:ring-2 hover:underline">I forgot my password.</a>
