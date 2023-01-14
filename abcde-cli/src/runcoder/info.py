@@ -1,6 +1,8 @@
 import importlib
 import inspect
 import json
+import os
+import sys
 import uuid
 
 import yaml
@@ -112,9 +114,16 @@ def get_args(path, version, output):
     else:
         import_from, import_this = ".".join(xs[:-1]), xs[-1]
 
-    obj = importlib.import_module(import_from)
     if import_this:
-        obj = getattr(obj, import_this)
+        # try import_from as a package
+        try:
+            obj = importlib.import_module(f".{import_this}", import_from)
+        # try import_from as a module
+        except ModuleNotFoundError:
+            obj = importlib.import_module(import_from)
+            obj = getattr(obj, import_this)
+    else:
+        obj = importlib.import_module(import_from)
 
     if inspect.ismodule(obj):
         module_info(import_from, import_this, version, output)
@@ -124,12 +133,17 @@ def get_args(path, version, output):
 
 def get_args_for_all_subpaths(x, output):
     xs = x.split(".")
-    version = importlib.metadata.version(xs[0])
+    try:
+        version = importlib.metadata.version(xs[0])
+    except importlib.metadata.PackageNotFoundError:
+        version = None
     for i in range(1, len(xs) + 1):
         get_args(".".join(xs[:i]), version, output)
 
 
 def _info(yaml_path, output_path):
+    sys.path.insert(0, os.getcwd())
+
     with open(yaml_path, "r") as f:
         specs = yaml.safe_load(f)
     output = InfoDict()
