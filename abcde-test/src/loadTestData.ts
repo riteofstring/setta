@@ -148,17 +148,6 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadGlobalCodeInfo() {
-  const output: any = {};
-  for (const k of ["pytorch", "pytorchLightning"]) {
-    Object.assign(
-      output,
-      await loadSpecificTestData({ name: k, projectName: "_codeInfo" })
-    );
-  }
-  return output;
-}
-
 export async function loadAllProjects({ forSavingToBackend = false }) {
   const output: any[] = [];
   for (const type of ["inFile", "inMem"]) {
