@@ -2,6 +2,8 @@ import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { login } from "dbRequests/authentication";
 import { useFormik } from "formik";
 import React, { useState } from "react";
+import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
+import { StandardButton } from "utils/atoms/buttons/StandardButton";
 
 const LoginPage = () => {
   const [show, setShow] = useState(false);
@@ -18,12 +20,14 @@ const LoginPage = () => {
       },
     });
 
+    // [border-width:0_0_1px_0]
+
   return (
-    <GridWrapper flexFormWrap={true}>
-      <p className="mb-4 text-4xl">Login</p>
-      <form onSubmit={handleSubmit}>
-        <div className="-mr[10vw] gap-4">
-          <p className="self-center ">Username</p>
+    <GridWrapper  flexFormWrap={true}>
+      
+      <form className="grid gap-2 w-[clamp(400px, 80vw, 960px)] px-14 py-12 rounded-2xl border border-solid border-white shadow-2xl" onSubmit={handleSubmit}>
+      <h1 className="font-heading text-gray-500 text-4xl">Login</h1>
+          {/* <label className="self-center text-xs">Username</label> */}
           <input
             id="username"
             name="username"
@@ -31,10 +35,10 @@ const LoginPage = () => {
             value={values.username}
             onChange={handleChange}
             onBlur={handleBlur}
-            className="w-80"
+            className="border border-solid border-gray-100 py-2 px-4 rounded-full"
           />
-          <p className="self-center ">Password</p>
-          <div className="w-96">
+          {/* <label className="self-center text-xs ">Password</label> */}
+          <div className="border border-solid border-gray-100 py-2 px-4 rounded-full">
             <input
               id="password"
               name="password"
@@ -43,16 +47,16 @@ const LoginPage = () => {
               value={values.password}
               onChange={handleChange}
               onBlur={handleBlur}
-              className="w-80"
+              
             />
-            <button className="h-7 text-sm" onClick={handleClick}>
+            <MenuBarButton onClick={handleClick}>
               {show ? "Hide" : "Show"}
-            </button>
+            </MenuBarButton>
           </div>
-          <button className="mt-4 self-end" type="submit">
+          <StandardButton type="submit">
             Login
-          </button>
-        </div>
+          </StandardButton>
+
       </form>
     </GridWrapper>
   );
