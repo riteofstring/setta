@@ -60,10 +60,10 @@ const LoginPage = () => {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <StandardButton stdBtnStyles="w-full" inactive="bg-gray-400" text="text-white font-bold" hover="hover:bg-blue-500" type="submit">
+            <StandardButton stdBtnStyles="self-stretch" inactive="bg-gray-400" text="text-white font-bold" hover="hover:bg-blue-500" type="submit">
               Login
             </StandardButton>
-            <StandardButton stdBtnStyles="w-full border border-solid border-gray-400" inactive="bg-transparent"  hover="hover:bg-gray-200 hover:border-gray-200" type="submit">
+            <StandardButton stdBtnStyles="self-stretch border border-solid border-gray-400" inactive="bg-transparent"  hover="hover:bg-gray-200 hover:border-gray-200" type="submit">
               Register
             </StandardButton>
           </div>
