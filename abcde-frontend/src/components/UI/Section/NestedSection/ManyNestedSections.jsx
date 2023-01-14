@@ -5,7 +5,7 @@ import { SortableSectionContainer } from "../SectionContainer/SortableSectionCon
 export default function ManyNestedSections({
   childIds,
   sectionId,
-  ancestorSet,
+  depth,
   isDeck,
 }) {
   const goToSection = useGoToSection(sectionId);
@@ -14,14 +14,8 @@ export default function ManyNestedSections({
     goToSection();
   };
 
-  const newAncestorSet = { ...ancestorSet, [sectionId]: true };
-
   return (
-    <DNDSortable
-      sectionId={sectionId}
-      items={childIds}
-      ancestorSet={newAncestorSet}
-    >
+    <DNDSortable sectionId={sectionId} items={childIds}>
       <div className="flex items-stretch">
         {!isDeck && (
           <div
@@ -29,14 +23,14 @@ export default function ManyNestedSections({
             onClick={onClick}
           />
         )}
-        <div className="items-start flex flex-col gap-2 ">
+        <div className="items-start [&:not(first-child):mt-2]">
           {childIds.map((e, idx) => (
             <SortableSectionContainer
               parentId={sectionId}
               sectionId={e}
               nextId={childIds[idx + 1]}
               key={`Nested-Sec-${e}`}
-              ancestorSet={newAncestorSet}
+              depth={depth + 1}
             />
           ))}
         </div>
