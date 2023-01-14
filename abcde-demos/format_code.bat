@@ -1,2 +1,2 @@
-black src tests
-isort src tests --profile black
+black src
+isort src --profile black
