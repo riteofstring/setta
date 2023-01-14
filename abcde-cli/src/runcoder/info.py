@@ -2,6 +2,7 @@ import importlib
 import inspect
 import json
 import os
+import pathlib
 import sys
 import uuid
 
@@ -142,6 +143,9 @@ def get_args_for_all_subpaths(x, output):
 
 
 def _info(yaml_path, output_path):
+    if output_path is None:
+        output_path = pathlib.Path(yaml_path).with_suffix(".json")
+
     sys.path.insert(0, os.getcwd())
 
     with open(yaml_path, "r") as f:
