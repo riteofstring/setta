@@ -8,42 +8,52 @@ import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { getChildUITypeId } from "utils/uiTypeUtils";
+import { getSectionType } from "./sections";
+
+export function createChildForSeries({ parentId, numChildren }) {
+  const { name: parentName } = useSectionInfos.getState().x[parentId];
+  const parentUIType = getSectionType(parentId);
+  const uiTypeId = getChildUITypeId(parentUIType, parentId);
+
+  return createManySectionInfo({
+    sectionProps: { parentId, parentName },
+    configProps: { uiTypeId },
+    numChildren,
+  });
+}
 
 export function createManySectionInfo({
-  sectionInfoProps,
-  sectionConfigProps,
+  sectionProps,
+  configProps,
   numChildren,
 }) {
   const newInfos = {};
   const newConfigs = {};
   for (let i = 0; i < numChildren; i++) {
-    const sectionInfo = newSectionInfo(sectionInfoProps);
+    const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
     newConfigs[sectionInfo.configId] = newSectionConfig({
       id: sectionInfo.configId,
-      ...sectionConfigProps,
+      ...configProps,
     });
   }
-  return { newInfos, newConfigs };
+  addSectionsToState(newInfos, newConfigs);
+  return Object.keys(newInfos);
 }
 
 export function createDefaultSectionInfo({ sectionProps, configProps }) {
-  const sectionInfo = newSectionInfo({
-    name: "New Section",
-    ...sectionProps,
+  return createManySectionInfo({
+    sectionProps: {
+      name: "New Section",
+      ...sectionProps,
+    },
+    configProps: {
+      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+      ...configProps,
+    },
+    numChildren: 1,
   });
-  const sectionConfig = newSectionConfig({
-    id: sectionInfo.configId,
-    uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
-    ...configProps,
-  });
-
-  addSectionsToState(
-    { [sectionInfo.id]: sectionInfo },
-    { [sectionConfig.id]: sectionConfig }
-  );
-
-  return [sectionInfo.id];
 }
 
 export function addSectionsToState(
@@ -64,6 +74,10 @@ export function addSectionsToState(
 
   useParamInfos.getState().initManyEvColIds({
     collectionIds: _.map(sectionConfigs, (x) => x.evColId),
+  });
+
+  useParamInfos.getState().initManyUITypeColIds({
+    collectionIds: _.map(sectionConfigs, (x) => x.uiTypeColId),
   });
 
   useKwargCols.getState().initManyKwargColIds({

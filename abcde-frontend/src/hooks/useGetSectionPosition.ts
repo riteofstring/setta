@@ -1,73 +1,29 @@
-import _ from "lodash";
 import { usePanes } from "models/panes";
-import { useSectionPositions } from "models/sectionPositions";
+import { useSectionRefs } from "models/sectionRefs";
 import { useReactFlow, useStoreApi } from "react-flow-renderer";
-import { getCurrPositionOfSection } from "thunks/sectionPositions";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { OVERVIEW, PANEID } from "utils/constants";
 
-export function useGoToSection(sectionId: string, requesterName: string) {
-  const requestPositionUpdate = useRequestSectionPositionUpdate();
-  useSetGoToCoordinates(sectionId, requesterName);
-  return () => requestPositionUpdate([sectionId], requesterName);
+export function relativePos(sectionId) {
+  const s = useSectionRefs.getState();
+  const ref = s.x[sectionId].getBoundingClientRect();
+  const paneRef = s.x[PANEID].getBoundingClientRect();
+  return { y: ref.y - paneRef.y, x: ref.x - paneRef.x };
 }
 
-export function useRequestSectionPositionUpdate() {
-  const setWhoRequested = useSectionPositions((x) => x.setWhoRequested);
-
-  const setPositionUpdateRequested = useSectionPositions(
-    (x) => x.setPositionUpdateRequested
-  );
-  return (sectionIds: string[], requesterName: string) => {
-    setWhoRequested(requesterName);
-    setPositionUpdateRequested({
-      sectionIds: [...sectionIds, PANEID],
-      positionUpdateRequested: true,
-    });
-  };
-}
-
-export function useGetSectionPosition(
-  sectionIds: string[],
-  requesterName: string,
-  onCoordsReceived
-) {
-  const allIds = sectionIds ? [...sectionIds, PANEID] : null;
-  const whoRequested = useSectionPositions((x) => x.whoRequested);
-  const setWhoRequested = useSectionPositions((x) => x.setWhoRequested);
-  const sectionPositionUpdated = useSectionPositions(
-    (x) => (allIds ? allIds.map((y) => x.positionUpdated[y]) : [false]), //don't return empty array because _.every will evaluate to true
-    _.isEqual
-  );
-
-  const setPositionUpdated = useSectionPositions((x) => x.setPositionUpdated);
-
-  useDeepCompareEffect(() => {
-    if (whoRequested === requesterName && _.every(sectionPositionUpdated)) {
-      const allCoords = getCurrPositionOfSection(sectionIds);
-      onCoordsReceived(allCoords);
-      setPositionUpdated({ sectionIds, positionUpdated: false });
-      setWhoRequested(null);
-    }
-  }, [sectionPositionUpdated]);
-}
-
-function useSetGoToCoordinates(sectionId: string, requesterName: string) {
+export function useGoToSection(sectionId: string) {
   const { project, setCenter } = useReactFlow();
   const store = useStoreApi(); // height and width of the react flow container
-  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
-  const margin = 20;
 
-  function onCoordsReceived(coords) {
+  return () => {
+    const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
+    const margin = 20;
     const { width, height } = store.getState();
-    const { x, y } = project(coords[sectionId]);
+    const { x, y } = project(relativePos(sectionId));
     const newX = x + width / 2 - overviewWidth - margin;
     const newY = y + height / 2 - margin;
     setCenter(newX, newY, {
       zoom: 1,
-      duration: 100,
+      duration: 25,
     });
-  }
-
-  useGetSectionPosition([sectionId], requesterName, onCoordsReceived);
+  };
 }

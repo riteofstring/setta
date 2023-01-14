@@ -12,8 +12,8 @@ import { VscSaveAs } from "react-icons/vsc";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -126,7 +126,7 @@ function _UIElement({ sectionId, paramInfo }) {
 
 function SaveAndConfig({ onSubmit, paramChildId }) {
   return (
-    <CodeGenPopover
+    <PopoverWrapper
       trigger={
         <IconButton
           twClasses="row-start-1 row-end-2 col-start-1 col-end-2 place-self-end"

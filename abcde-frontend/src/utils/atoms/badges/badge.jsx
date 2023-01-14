@@ -1,13 +1,7 @@
 export default function Badge(props) {
-  const {
-    twClasses,
-    text = "text-xs font-bold",
-    padding = "px-1 py-[0.1rem]",
-    rounded = "rounded-md",
-    children,
-  } = props;
+  const { tailwindClasses, children } = props;
 
-  const classes = `inline-block whitespace-nowrap align-middle ${twClasses} ${text} ${padding} ${rounded}`;
+  const classes = `${tailwindClasses} inline-block whitespace-nowrap align-middle px-1 uppercase text-xs rounded-sm font-bold`;
 
   return <span className={classes}>{children}</span>;
 }
