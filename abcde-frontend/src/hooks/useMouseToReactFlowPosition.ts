@@ -1,9 +1,12 @@
+import { useSectionRefs } from "models/sectionRefs";
 import { useReactFlow } from "react-flow-renderer";
+import { PANEID } from "utils/constants";
 
-export function useMouseToReactFlowPosition(reactFlowRef) {
+export function useMouseToReactFlowPosition() {
   const { project } = useReactFlow();
   return (x: number, y: number) => {
-    const reactFlowBounds = reactFlowRef.current.getBoundingClientRect();
+    const ref = useSectionRefs.getState().x[PANEID];
+    const reactFlowBounds = ref.getBoundingClientRect();
     return project({
       x: x - reactFlowBounds.left,
       y: y - reactFlowBounds.top,

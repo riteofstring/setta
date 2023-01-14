@@ -1,6 +1,6 @@
-import { useSetSectionPosition } from "hooks/useSetSectionPosition";
 import _ from "lodash";
-import React from "react";
+import { useSectionRefs } from "models/sectionRefs";
+import React, { useEffect, useRef } from "react";
 import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
@@ -30,7 +30,11 @@ function setInitialToCurrent(initialNodes, nodes) {
 }
 
 function SectionsPane({ initialNodes }) {
-  const reactFlowRef = useSetSectionPosition(PANEID);
+  const reactFlowRef = useRef(PANEID);
+  const setSectionRef = useSectionRefs((x) => x.setRef);
+  useEffect(() => {
+    setSectionRef({ sectionId: PANEID, ref: reactFlowRef.current });
+  }, []);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
@@ -79,12 +83,10 @@ function SectionsPane({ initialNodes }) {
       <PaneContextMenu
         {...paneCtxMenuDetails}
         closeContextMenu={closePaneCtxMenu}
-        reactFlowRef={reactFlowRef}
       />
       <SelectionContextMenu
         {...selectionCtxMenuDetails}
         closeContextMenu={closeSelectionCtxMenu}
-        reactFlowRef={reactFlowRef}
       />
       {nodeCtxMenuDetails.nodeId && (
         <NodeContextMenu
