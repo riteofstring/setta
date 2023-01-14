@@ -11,7 +11,7 @@ import { ProjectName } from "./ProjectName/ProjectName";
 import RunButton from "./RunButton/RunButton";
 export default function SubNav() {
   return (
-    <div className="flex space-x-2">
+    <div className="flex ml-4 space-x-2">
       <VerticalLine />
       <NavSwitch />
     </div>

@@ -2,10 +2,17 @@ import { forwardRef } from "react";
 import { Button } from "./Button";
 
 export const StandardButton = forwardRef((props, ref) => {
-  const { children, ...theRest } = props;
+  const {
+    children,
+    stdBtnStyles,
+    inactive = "bg-gray-50",
+    hover = "hover:bg-gray-200",
+    text = "text-gray-700 font-bold",
+    ...theRest
+  } = props;
   return (
     <Button
-      twClasses="bg-gray-50 hover:bg-gray-200 white font-bold py-2 px-4 rounded-full gap-1"
+      twClasses={`grid place-items-center self-center py-2 px-4 rounded-full gap-1 ${inactive} ${hover} ${text} ${stdBtnStyles}`}
       {...theRest}
       ref={ref}
     >

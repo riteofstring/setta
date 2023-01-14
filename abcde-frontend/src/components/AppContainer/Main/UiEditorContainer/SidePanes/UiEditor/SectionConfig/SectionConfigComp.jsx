@@ -30,11 +30,11 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
 
   return (
     <div
-      className="rounded-2xl flex-grow flex flex-col [&>form]:flex-grow-0"
+      className="flex-grow flex flex-col [&>form]:flex-grow-0 h-[inherit]"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSubmit} />
-      <ul className="flex flex-col flex-grow gap-4 pt-4">
+      <ul className="flex flex-col flex-grow gap-4 pt-4 ">
         {Object.values(allResults).map((x) => (
           <SearchItem
             id={x.id}

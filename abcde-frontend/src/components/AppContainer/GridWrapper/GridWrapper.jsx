@@ -1,25 +1,34 @@
-export default function GridWrapper({ children, ...props }) {
+export default function GridWrapper({
+  gridStyles = "",
+  flexStyles = "",
+  children,
+  ...props
+}) {
   return (
-    <StandardGrid {...props}>
-      <FlexForm {...props}>{children}</FlexForm>
+    <StandardGrid gridStyles={gridStyles} {...props}>
+      <FlexForm flexStyles={flexStyles} {...props}>
+        {children}
+      </FlexForm>
     </StandardGrid>
   );
 }
 
-function StandardGrid({ gridProps, children }) {
+function StandardGrid({ gridStyles, children }) {
   return (
     <div
-      className={`grid grid-col-[1fr] grid-row-[1fr] col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 h-full ${gridProps}`}
+      className={`grid grid-col-[1fr] grid-row-[1fr] col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 h-full ${gridStyles}`}
     >
       {children}
     </div>
   );
 }
 
-function FlexForm({ flexFormWrap = false, children }) {
+function FlexForm({ flexFormWrap = false, flexStyles, children }) {
   if (flexFormWrap) {
     return (
-      <div className="flex flex-col min-h-[200px] justify-center items-center">
+      <div
+        className={`flex flex-col min-h-[200px] justify-center items-center ${flexStyles}`}
+      >
         {children}
       </div>
     );
