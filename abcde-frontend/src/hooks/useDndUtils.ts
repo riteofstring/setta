@@ -105,16 +105,18 @@ export function useHighlightDroppable(sectionId: string) {
       className: `${className}  z-[100]`,
       style: {
         transition,
-        backgroundColor: "hsla(245, 100%, 78%, .5)",
+        backgroundColor: "hsla(245, 100%, 78%, 1)",
         // backgroundImage: dotted
         // outline: "hsla(95, 100%, 50%, 1) solid 5px",
+        // outline: "hsla(245, 100%, 100%, 1) solid 1px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
+
       },
     };
   } else if (highlight === DropType.ABOVE) {
     return {
-      className: `${className} [&_.dndline::before]:opacity-100 z-[100] `,
+      className: `${className} [&>.dndline::before]:opacity-100 z-[100]`,
       style: {
         transition,
         // backgroundColor: "hsla(176, 100%, 78%, 1)",
@@ -126,7 +128,7 @@ export function useHighlightDroppable(sectionId: string) {
     };
   } else if (highlight === DropType.BELOW) {
     return {
-      className: `${className} [&_.dndline::after]:opacity-100 z-[100]`,
+      className: `${className} [&>.dndline::after]:opacity-100 z-[100]`,
       style: {
         transition,
         // backgroundColor: "hsla(126, 100%, 78%, 1)",

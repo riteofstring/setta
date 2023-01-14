@@ -4,7 +4,6 @@ import { useDragActivation } from "hooks/useDragActivation";
 import _ from "lodash";
 import { useSectionRefs } from "models/sectionRefs";
 import { useEffect, useRef } from "react";
-import "./dndline.css";
 import SectionTitle from "./Header/Title/SectionTitle";
 
 export function ContainerSwitch({
@@ -114,7 +113,7 @@ function Container({
         </div>
       ) : (
         <div
-          className={`${className} dndline`}
+          className={`${className}`}
           style={highlightDroppableStyle}
           {...commonProps}
         >

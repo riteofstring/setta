@@ -5,6 +5,7 @@ import { useActiveSection } from "models/activeSection";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
 import { SECTIONWIDTH } from "utils/constants";
+import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
   KwargGroupContainer,
@@ -12,7 +13,6 @@ import {
 } from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
-
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
@@ -36,7 +36,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const tempBoolDesc = false;
   return (
     <div
-      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150`}
+      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline`}
       style={{
         width: `${SECTIONWIDTH}px`,
       }}
