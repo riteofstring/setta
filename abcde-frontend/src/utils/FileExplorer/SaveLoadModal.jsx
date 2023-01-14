@@ -146,11 +146,13 @@ function SaveBody({
         setSelected={setSelected}
         modalType={modalType}
       />
-      <FileNameInput
-        placeholder="Config Name"
-        value={configName}
-        onChange={onChange}
-      />
+      <div className="px-3">
+        <FileNameInput
+          placeholder="Config Name"
+          value={configName}
+          onChange={onChange}
+        />
+      </div>
     </>
   );
 }
@@ -158,12 +160,15 @@ function SaveBody({
 function Footer({ onClose, onClick, buttonText }) {
   return (
     <div className="flex gap-2 mb-2 mt-4 justify-end">
-      <DialogCloseButton
-        twClasses="bg-gray-200 hover:bg-gray-300 text-gray-600"
-        onClick={onClick}
-      >
-        {buttonText}
-      </DialogCloseButton>
+      {buttonText && (
+        <DialogCloseButton
+          twClasses="bg-gray-200 hover:bg-gray-300 text-gray-600"
+          onClick={onClick}
+        >
+          {buttonText}
+        </DialogCloseButton>
+      )}
+
       <DialogCloseButton
         twClasses="border border-solid border-gray-200 text-gray-400 hover:border-gray-500 hover-text-gray-600"
         onClick={onClose}

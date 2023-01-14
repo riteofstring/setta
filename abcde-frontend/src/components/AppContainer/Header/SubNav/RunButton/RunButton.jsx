@@ -3,7 +3,7 @@ import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { generateCode } from "thunks/generateCode";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
-import { PopoverWrapper } from "utils/PopoverWrapper/PopoverWrapper";
+import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 
 export default function RunButton() {
   const [description, setDescription] = useState("Generating...");
@@ -19,7 +19,7 @@ export default function RunButton() {
 
   return (
     <>
-      <PopoverWrapper
+      <CodeGenPopover
         trigger={
           <MenuBarButton onClick={runExport}>
             <RiPlayMiniFill />

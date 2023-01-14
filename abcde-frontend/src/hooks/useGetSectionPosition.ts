@@ -23,7 +23,7 @@ export function useGoToSection(sectionId: string) {
     const newY = y + height / 2 - margin;
     setCenter(newX, newY, {
       zoom: 1,
-      duration: 25,
+      duration: 100,
     });
   };
 }
