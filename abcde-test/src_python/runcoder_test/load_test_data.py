@@ -19,6 +19,6 @@ def load_global_code_info():
     
     x = {}
     for filename in files:
-        x.update(read_ts_file(filename))
+        x[pathlib.Path(filename).stem] = read_ts_file(filename)
 
     return x
