@@ -23,12 +23,12 @@ def write_ts_file(obj, filename):
 
 
 def load_global_code_info():
-    this_dir = pathlib.Path(__file__).parent.resolve()
+    this_dir = pathlib.Path(__file__).parent
     data_path = this_dir / ".." / ".." / "src" / "data" / "_codeInfo" / "*"
     files = glob.glob(str(data_path))
     
     x = {}
     for filename in files:
-        x[pathlib.Path(filename).stem] = read_ts_file(filename)
+        x[pathlib.Path(filename).resolve()] = read_ts_file(filename)
 
     return x
