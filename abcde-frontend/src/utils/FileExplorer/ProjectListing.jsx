@@ -24,6 +24,7 @@ const AccordionTrigger = React.forwardRef(({ name }, ref) => {
             <h4 className="text-xs font-bold text-gray-500 tracking-wider hover:text-gray-900">
               {name}
             </h4>
+            {/* { ? <HiChevronDown /> : <HiChevronUp />} */}
             <HiChevronDown />
           </div>
 

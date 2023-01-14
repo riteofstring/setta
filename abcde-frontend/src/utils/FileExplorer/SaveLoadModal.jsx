@@ -146,11 +146,13 @@ function SaveBody({
         setSelected={setSelected}
         modalType={modalType}
       />
-      <FileNameInput
-        placeholder="Config Name"
-        value={configName}
-        onChange={onChange}
-      />
+      <div className="px-3">
+        <FileNameInput
+          placeholder="Config Name"
+          value={configName}
+          onChange={onChange}
+        />
+      </div>
     </>
   );
 }

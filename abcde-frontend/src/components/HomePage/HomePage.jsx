@@ -140,8 +140,6 @@ function ThumbnailArea({
           />
         }
         align="end"
-        // open={openConfigs}
-        // onOpenChange={setOpenConfigs}
       />
     </div>
   );
