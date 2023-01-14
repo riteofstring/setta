@@ -6,13 +6,14 @@ import sys
 import uuid
 
 import yaml
-from runcoder_test.load_test_data import load_global_code_info, write_ts_file
 
 from .utils.constants import CALLABLE, COLLECTION, PARAMETER
 
 
 class InfoDict:
     def __init__(self, yaml_path):
+        from runcoder_test.load_test_data import load_global_code_info
+
         self.yaml_name = pathlib.Path(yaml_path).stem
         self.output = {}
         self.db = {k: path_as_key(v) for k, v in load_global_code_info().items()}
@@ -68,6 +69,8 @@ class InfoDict:
             self.output[key] = value
 
     def save(self):
+        from runcoder_test.load_test_data import write_ts_file
+
         all_paths = set(self.db.keys())
         output_folder = pathlib.Path(list(self.db.keys())[0]).parent
         all_paths.add((output_folder / self.yaml_name).with_suffix(".ts"))
