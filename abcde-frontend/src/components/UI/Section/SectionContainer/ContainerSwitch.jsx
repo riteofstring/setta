@@ -113,7 +113,7 @@ function Container({
         </div>
       ) : (
         <div
-          className={`${className}`}
+          className={className}
           style={highlightDroppableStyle}
           {...commonProps}
         >

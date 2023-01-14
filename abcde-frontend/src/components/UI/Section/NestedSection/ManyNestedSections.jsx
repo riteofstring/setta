@@ -29,7 +29,7 @@ export default function ManyNestedSections({
             onClick={onClick}
           />
         )}
-        <div className="items-start flex flex-col gap-2 ">
+        <div className="items-start [&:not(first-child):mt-2]">
           {childIds.map((e, idx) => (
             <SortableSectionContainer
               parentId={sectionId}

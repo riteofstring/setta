@@ -11,8 +11,8 @@ function compareCollisions(a, b) {
   // When comparing two nested sections, first check if they are left-aligned.
   // If they are not left-aligned, then prioritize the section that has the smallest left distance.
   // If they are left-aligned, then prioritize the section with most intersection.
-  const cidA = a.data.droppableContainer.data.current.sortable?.containerId;
-  const cidB = b.data.droppableContainer.data.current.sortable?.containerId;
+  const cidA = a.data.droppableContainer.data.current?.sortable?.containerId;
+  const cidB = b.data.droppableContainer.data.current?.sortable?.containerId;
   // sortable A prioritized before non-sortable B
   if (cidA && !cidB) {
     return a;
@@ -73,12 +73,7 @@ export const customCollisionDetection = ({
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    // if not in list, then ignore self
-    // if in list, keep self (makes sorting experience better)
-    if (
-      !(!active.data.current.sortable?.containerId && active.id === id) &&
-      rect
-    ) {
+    if (active.id !== id && rect) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
         const currLeft = rect.left;

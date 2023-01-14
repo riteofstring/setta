@@ -36,19 +36,14 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (over) {
-    const dropType = getDropType(active, over, collisions);
+    const dropType = getDropType(over, collisions);
     if (dropType === DropType.INTO) {
       newParentId = over.id;
       newIndex = 0;
     } else if (dropType === DropType.ABOVE || dropType === DropType.BELOW) {
       newParentId = s[over.id].parentId;
       const overIndex = over.data.current.sortable.items.indexOf(over.id);
-      // moving section within a list
-      if (oldParentId === newParentId) {
-        newIndex = overIndex;
-      } else {
-        newIndex = overIndex + (dropType === DropType.BELOW);
-      }
+      newIndex = overIndex + (dropType === DropType.BELOW);
     }
   }
 

@@ -16,7 +16,7 @@ const AppContainer = () => {
 
 function GridContainer({ children }) {
   return (
-    <main className="h-full w-screen overflow-hidden grid grid-cols-[1fr] grid-rows-[min-content]">
+    <main className="h-full w-screen border border-gray-200 overflow-hidden grid grid-cols-[1fr] grid-rows-[min-content]">
       {children}
     </main>
   );
