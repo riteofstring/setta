@@ -1,3 +1,5 @@
+import { AuthInputTypes } from "./AuthInputTypes";
+
 export function FormInput({
   label,
   id,
@@ -6,7 +8,7 @@ export function FormInput({
   value,
   onChange,
   onBlur,
-}) {
+}: AuthInputTypes) {
   return (
     <div className="flex flex-col">
       <label className="text-xs select-none">{label}</label>

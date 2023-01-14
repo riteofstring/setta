@@ -35,7 +35,6 @@ const LoginPage = () => {
               onBlur={handleBlur} />
           <PasswordInput id="password"
                 placeholder="********"
-                show={show}
                 value={values.password}
                 onChange={handleChange}
                 onBlur={handleBlur}  />

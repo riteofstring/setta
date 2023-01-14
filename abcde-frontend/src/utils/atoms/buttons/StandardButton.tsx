@@ -1,10 +1,15 @@
 import { forwardRef } from "react";
 import { Button } from "./Button";
 
-export const StandardButton = forwardRef((props, ref) => {
+interface StandardButtonTypes {
+  children?: any, stdBtnStyles?: string, type?: string, inactive?: string, hover?: string, text?: string, align?: string, theRest?: any
+}
+
+export const StandardButton = forwardRef<HTMLButtonElement, StandardButtonTypes>((props, ref) => {
   const {
     children,
     stdBtnStyles,
+    type,
     inactive = "bg-gray-50",
     hover = "hover:bg-gray-200",
     text = "text-gray-700 font-bold",

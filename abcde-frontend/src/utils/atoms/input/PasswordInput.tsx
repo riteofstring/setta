@@ -1,17 +1,18 @@
+import { useState } from "react";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
+import { AuthInputTypes } from "./AuthInputTypes";
 
 export function PasswordInput({
   label = "Password",
   id,
   name,
   placeholder,
-  show,
   value,
   onChange,
   onBlur,
-  onClick,
-}) {
-  console.log("show: ", show);
+}: AuthInputTypes) {
+  const [show, setShow] = useState(false);
+  const handleClick = () => setShow(!show);
   return (
     <div className="flex flex-col">
       <label className="text-xs select-none">{label}</label>
@@ -26,7 +27,7 @@ export function PasswordInput({
           onBlur={onBlur}
           className="py-2 flex-grow"
         />
-        <MenuBarButton type="button" onClick={onClick}>
+        <MenuBarButton type="button" onClick={handleClick}>
           {show ? "Hide" : "Show"}
         </MenuBarButton>
       </div>
