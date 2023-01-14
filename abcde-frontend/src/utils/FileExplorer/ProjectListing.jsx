@@ -1,36 +1,61 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import { BiFile } from "react-icons/bi";
-import { HiCheckCircle } from "react-icons/hi";
+import React, { useRef } from "react";
+import { HiCheckCircle, HiChevronDown, HiOutlineFolder } from "react-icons/hi";
+import "./style.css";
 
 export function ProjectListing({ name, project, onClick }) {
   return (
-    <Accordion.Item>
-      <Accordion.Header>
-        <Accordion.Trigger>
-          <div className="flex items-center select-none gap-2 py-1 rounded-md flex-grow px-2">
-            <BiFile className="text-gray-400 group-hover:text-gray-800" />
-            <h4 className="text-xs font-bold text-gray-500 tracking-wider">
-              {name}
-            </h4>
-          </div>
-        </Accordion.Trigger>
-      </Accordion.Header>
+    <Accordion.Item value={name}>
+      <AccordionTrigger name={name} />
       <ConfigListings project={project} onClick={onClick} />
     </Accordion.Item>
   );
 }
 
-function ConfigListings({ project, onClick }) {
-  return project.configs.map((x, idx) => {
-    const id = JSON.stringify({ id: project.id, configId: x.id });
-    return (
-      <Accordion.Content key={`File config ${idx} ${x}`}>
-        <ConfigListing id={id} name={x.name} onClick={onClick} />
-      </Accordion.Content>
-    );
-  });
-}
+const AccordionTrigger = React.forwardRef(({ name }, ref) => {
+  return (
+    <Accordion.Trigger ref={ref} asChild>
+      <div className="flex flex-grow items-center select-none gap-2 py-1 rounded-md px-2 cursor-pointer ">
+        <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
+
+        <div className="flex flex-grow justify-between bg-white">
+          <div className="flex gap-2">
+            <h4 className="text-xs font-bold text-gray-500 tracking-wider hover:text-gray-900">
+              {name}
+            </h4>
+            {/* { ? <HiChevronDown /> : <HiChevronUp />} */}
+            <HiChevronDown />
+          </div>
+
+          <div className="text-xs text-gray-400">2023/01/01</div>
+        </div>
+      </div>
+    </Accordion.Trigger>
+  );
+});
+
+const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
+  //
+  return (
+    <Accordion.Content
+      ref={ref}
+      className="flex flex-col transition-transform flex-grow data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]"
+    >
+      {project.configs.map((x, idx) => {
+        const id = JSON.stringify({ id: project.id, configId: x.id });
+        return (
+          <ConfigListing
+            id={id}
+            name={x.name}
+            onClick={onClick}
+            key={`File config ${idx} ${x}`}
+          />
+        );
+      })}
+    </Accordion.Content>
+  );
+});
 
 function ConfigListing({ id, name, onClick }) {
   const itemRef = useRef();
@@ -55,7 +80,10 @@ function ConfigListing({ id, name, onClick }) {
           <HiCheckCircle className="checkicon cursor-pointer text-green-500" />
         </RadioGroup.Indicator>
       </span>
-      <label className="cursor-pointer">{name}</label>
+      <div className="flex flex-grow justify-between">
+        <label className="cursor-pointer">{name}</label>
+        <div className="text-xs text-gray-400">2023/01/01</div>
+      </div>
     </RadioGroup.Item>
   );
 }

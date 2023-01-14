@@ -18,25 +18,30 @@ export default function FileExplorer({
   }
 
   return (
-    <div className="items-stretch overflow-y-auto">
-      <Dialog.Title className="font-bold uppercase tracking-widest text-gray-400 mb-4">
+    <>
+      <Dialog.Title className="font-bold uppercase tracking-widest text-gray-400 mb-4 mx-3">
         {modalType === "Load" && "Load Project"}
         {modalType === "Save As" && "Save Project As"}
       </Dialog.Title>
-      <div className="flex justify-between mb-2">
-        <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md">
+
+      <div className="flex justify-between mb-2 mx-3 border-b pb-2 border-solid border-gray-200">
+        <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md ring-0">
           Name
         </Button>
-        <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md">
-          Date
+        <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md ring-0">
+          Last Modified
         </Button>
       </div>
+
       <RadioGroup.Root
         value={JSON.stringify(selected)}
         onValueChange={onChange}
-        className="flex flex-col p-1 rounded-lg border border-solid border-gray-100"
+        asChild
       >
-        <Accordion.Root>
+        <Accordion.Root
+          type="multiple"
+          className="overflow-y-scroll flex flex-col max-h-[25rem] h-[30vh] p-1"
+        >
           {_.map(files, (x, idx) => (
             <ProjectListing
               project={x}
@@ -47,6 +52,6 @@ export default function FileExplorer({
           ))}
         </Accordion.Root>
       </RadioGroup.Root>
-    </div>
+    </>
   );
 }

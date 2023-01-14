@@ -1,11 +1,8 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectId } from "hooks/useProject";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
-// import { GrDocumentDownload } from "react-icons/gr";
-// import { IoDocumentTextOutline } from "react-icons/io5";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,
@@ -14,6 +11,7 @@ import {
 } from "thunks/save";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
+import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
 
 export default function FileMenu() {
@@ -65,23 +63,16 @@ export default function FileMenu() {
       onClickSaveAsProject={onClickSaveAsProject}
       currProjectId={currProjectId}
     >
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <MenuBarButton>File</MenuBarButton>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="start"
-            className="bg-white p-2 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
-          >
-            <Items
-              onClickLoad={onClickLoad}
-              onClickSave={onClickSave}
-              onClickSaveAs={onClickSaveAs}
-            />
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      <StandardDropdown
+        trigger={<MenuBarButton>File</MenuBarButton>}
+        content={
+          <Items
+            onClickLoad={onClickLoad}
+            onClickSave={onClickSave}
+            onClickSaveAs={onClickSaveAs}
+          />
+        }
+      />
     </SaveLoadModal>
   );
 }
@@ -89,14 +80,8 @@ export default function FileMenu() {
 function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
-      <DialogTriggerItem>
-        {/* <IoDocumentTextOutline /> */}
-        New Project
-      </DialogTriggerItem>
-      <DialogTriggerItem onClick={onClickLoad}>
-        {/* <GrDocumentDownload /> */}
-        Load
-      </DialogTriggerItem>
+      <DialogTriggerItem>New Project</DialogTriggerItem>
+      <DialogTriggerItem onClick={onClickLoad}>Load</DialogTriggerItem>
       <DialogTriggerItem onClick={onClickSave}>
         <VscSave className="text-gray-500" />
         Save
