@@ -33,7 +33,14 @@ router.post(LOGIN, login);
 router.post(REGISTER, register);
 router.post(LOGOUT, logout);
 router.post(PROJECTS, loadAllUsersProjects);
-router.post(LOAD_PROJECT(':id', ':configId'), loadOneProject);
+router.post(
+  LOAD_PROJECT({
+    username: ':username',
+    projectName: ':projectName',
+    configName: ':configName',
+  }),
+  loadOneProject,
+);
 router.post(SAVE_PROJECT, saveProject);
 router.post(CREATE_PROJECT, createProject);
 router.post(SAVE_AS_NEW_PROJECT_CONFIG, saveAsNewProjectConfig);

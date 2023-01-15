@@ -12,6 +12,28 @@ import {
 } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 
+async function getIds({ username, projectName, configName }) {
+  const owner = await prisma.user.findUniqueOrThrow({
+    where: { name: username },
+    select: {
+      id: true,
+    },
+  });
+
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { name_ownerId: { name: projectName, ownerId: owner.id } },
+    select: { id: true },
+  });
+
+  const config = await prisma.projectConfig.findUniqueOrThrow({
+    where: {
+      name_projectId: { name: configName, projectId: project.id },
+    },
+    select: { id: true },
+  });
+  return { projectId: project.id, configId: config.id };
+}
+
 export async function getProject(id: string) {
   return await prisma.project.findUniqueOrThrow({
     where: { id },
@@ -27,12 +49,19 @@ export async function loadAllUsersProjects(ownerId) {
   return _.keyBy(ps, 'id');
 }
 
-export async function loadOne(
-  userId: string,
-  id: string,
-  configId: string,
-): Promise<ProjectLoadType> {
-  const project = await getProject(id);
+export async function loadOne({
+  reqUserId,
+  username,
+  projectName,
+  configName,
+}): Promise<ProjectLoadType> {
+  const { projectId, configId } = await getIds({
+    username,
+    projectName,
+    configName,
+  });
+
+  const project = await getProject(projectId);
   const { projectConfig, sectionConfigCol, sectionPositions } =
     await getProjectConfig(configId);
   const { sections, sectionChildren } = await getSections(
@@ -42,12 +71,12 @@ export async function loadOne(
     await getSectionConfigs(Object.values(sectionConfigCol));
 
   const baseUITypes = await getBaseUITypes();
-  const presetUITypes = await getPresetUITypes(userId);
+  const presetUITypes = await getPresetUITypes(reqUserId);
   const codeInfo = await getCodeInfoForSectionsAndKwargs(
     sectionUITypes,
     kwargCols,
   );
-  const userCodeInfoMaps = await getUserCodeInfoMaps(userId);
+  const userCodeInfoMaps = await getUserCodeInfoMaps(reqUserId);
   const projectConfigCodeInfoMaps = await getProjectConfigCodeInfoMaps(
     projectConfig.id,
   );

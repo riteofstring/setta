@@ -1,6 +1,6 @@
 export function sendStatusOnLogin(req, res) {
   if (req.isAuthenticated()) {
-    res.sendStatus(200);
+    res.json({ username: req.user.name }).status(200);
     return;
   }
   res.sendStatus(401);

@@ -5,7 +5,10 @@ import { ExistingUserType, NewUserType, SeedUserType } from './types';
 
 export async function createUser(data: NewUserType) {
   const { salt, password } = getSaltAndHash(data.password);
-  return await prisma.user.create({ data: { ...data, salt, password } });
+  return await prisma.user.create({
+    data: { ...data, salt, password },
+    select: { id: true, name: true },
+  });
 }
 
 export async function updateUser(data: ExistingUserType) {

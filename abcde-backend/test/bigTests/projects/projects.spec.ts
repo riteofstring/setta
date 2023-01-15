@@ -44,13 +44,13 @@ describe('ProjectsService', () => {
   });
 
   it('Get a project through middleware', async () => {
-    const projectId = '61e089c8-62bf-4e8c-915e-111b4587da81';
-    const configId = '439f5590-fa98-4564-8f63-ec75b6dc89b2';
+    const projectName = 'simpleTrainTest';
+    const configName = 'simpleConfig1';
     const { body: retrieved } = await request
-      .post(LOAD_PROJECT(projectId, configId))
+      .post(LOAD_PROJECT({ projectName, configName }))
       .expect(200);
 
-    await checkProject(retrieved, projectId);
+    await checkProject(retrieved, projectName);
   });
 });
 
