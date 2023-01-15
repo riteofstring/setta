@@ -6,8 +6,8 @@ import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
-  const { projectName, configName } = useParams();
-  const doneLoading = useLoadProject(projectName, configName);
+  const { username, projectName, configName } = useParams();
+  const doneLoading = useLoadProject({ username, projectName, configName });
 
   return (
     doneLoading && (

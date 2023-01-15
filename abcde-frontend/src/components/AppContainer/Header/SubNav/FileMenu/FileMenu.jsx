@@ -1,5 +1,6 @@
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectName } from "hooks/useProject";
+import { useAuth } from "models/auth";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
@@ -17,6 +18,7 @@ import { router } from "utils/Routes/router";
 
 export default function FileMenu() {
   const reactFlowStore = useStoreApi();
+  const username = useAuth((x) => x.username);
   const { projects, getProjects } = useGetOrCreateProjects();
   const { projectName: currProjectName, configName: currConfigName } =
     useCurrProjectName();
@@ -37,7 +39,7 @@ export default function FileMenu() {
   }
 
   function onClickLoadProject({ projectName, configName }) {
-    router.navigate(`${projectName}/${configName}`);
+    router.navigate(`${username}/${projectName}/${configName}`);
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {

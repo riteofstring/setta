@@ -33,6 +33,7 @@ export async function getProjects() {
 }
 
 export async function loadProject({
+  username,
   projectName,
   configName,
 }): Promise<ProjectLoadType | void> {
@@ -42,7 +43,7 @@ export async function loadProject({
 
   return post({
     body: {},
-    address: LOAD_PROJECT(projectName, configName),
+    address: LOAD_PROJECT({ username, projectName, configName }),
     thenFn: (res) => res.data,
     catchFn: () => undefined,
   });

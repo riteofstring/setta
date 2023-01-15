@@ -1,5 +1,6 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
+import { useAuth } from "models/auth";
 import React, { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
@@ -68,12 +69,13 @@ function RightColumn({ projects, createProject }) {
   );
 }
 const ProjectItem = forwardRef((props, forwardedRef) => {
+  const username = useAuth((x) => x.username);
   const { name, configs, defaultConfigId } = props.project;
   const [openConfigs, setOpenConfigs] = useState(false);
 
   function goToProject(configId) {
     const configName = configs.find((x) => x.id === configId).name;
-    const address = `${name}/${configName}`;
+    const address = `${username}/${name}/${configName}`;
     router.navigate(address);
   }
 

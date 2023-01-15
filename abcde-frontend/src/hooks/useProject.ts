@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { loadProject } from "thunks/projects";
 
 // setDoneLoading sets the doneLoading state in MainContainer
-export function useLoadProject(projectName, configName) {
+export function useLoadProject({ username, projectName, configName }) {
   const [doneLoading, setDoneLoading] = useState(false);
   const isAuthenticated = useAuth((x) => x.isAuthenticated);
   const isLoading = useProjectToLoad((x) => x.isLoading);
@@ -15,6 +15,7 @@ export function useLoadProject(projectName, configName) {
     async function fn() {
       setDoneLoading(false);
       const result = await loadProject({
+        username,
         projectName,
         configName,
       });

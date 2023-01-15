@@ -4,7 +4,7 @@ import { ReactFlowProvider } from "react-flow-renderer";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 
 export const projectRoute = {
-  path: ":projectName/:configName",
+  path: ":username/:projectName/:configName",
   element: (
     <ReactFlowProvider>
       <HeaderContainer />

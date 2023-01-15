@@ -1,20 +1,24 @@
 import { NO_AUTH } from "utils/constants";
 import { create } from "./utils";
 
-type AuthStateType = { isAuthenticated: boolean };
-type AuthActionType = { loginSuccess: () => void; loginFail: () => void };
+type AuthStateType = { username: string; isAuthenticated: boolean };
+type AuthActionType = {
+  loginSuccess: (payload) => void;
+  loginFail: () => void;
+};
 type AuthZustandType = AuthStateType & AuthActionType;
 
 export const useAuth = create<AuthZustandType>((set) => ({
+  username: NO_AUTH ? "Kevin" : "",
   isAuthenticated: NO_AUTH ? true : false,
-  loginSuccess: () =>
+  loginSuccess: (payload) =>
     set(() => {
-      return { isAuthenticated: true };
+      return { username: payload.data.username, isAuthenticated: true };
     }),
   loginFail: () =>
     set(() => {
       localStorage.clear();
       sessionStorage.clear();
-      return { isAuthenticated: false };
+      return { username: "", isAuthenticated: false };
     }),
 }));
