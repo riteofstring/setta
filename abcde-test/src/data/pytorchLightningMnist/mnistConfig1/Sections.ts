@@ -25,8 +25,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "26612e65-48c2-4122-87c8-ff29b8c4f866",
     initialPosition: {
-      x: 692.2682590876391,
-      y: 180.06637302451537,
+      x: 837.2682590876391,
+      y: 33.06637302451537,
     },
   },
   "de2caec1-254d-486e-aa86-b00029a52683": {
@@ -47,6 +47,16 @@ export default {
     initialPosition: {
       x: 722.5314446651364,
       y: 764.397219199873,
+    },
+  },
+  "c49578eb-dd0a-43bd-ba4a-9bf687d04b14": {
+    id: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
+    name: "transform",
+    paramInfoId: "014763c4-c1c2-4712-b72e-6c2425435007",
+    sectionChildrenId: "8f034016-ceb6-40e3-9e10-0d3df1df4ee5",
+    initialPosition: {
+      x: 0,
+      y: 0,
     },
   },
 };

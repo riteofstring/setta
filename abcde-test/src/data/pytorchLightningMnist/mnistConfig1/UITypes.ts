@@ -84,4 +84,21 @@ export default {
       paramInfoId: null,
     },
   },
+  "24d5fc47-3047-4c92-86ec-d086c74bce9e": {
+    id: "24d5fc47-3047-4c92-86ec-d086c74bce9e",
+    type: "SECTION",
+    name: "transform",
+    presetType: null,
+    config: {
+      collections: ["978f9dd3-f675-47f1-b37a-bae12d45c194"],
+      subType: null,
+      childUITypeId: null,
+    },
+    originInfoId: {
+      sectionId: null,
+      uiTypeColId: "0d7cb175-dd61-4806-8f4f-b9b25f1d9bde",
+      paramInfoId: "014763c4-c1c2-4712-b72e-6c2425435007",
+    },
+    isForChildOfOriginInfoId: false,
+  },
 };
