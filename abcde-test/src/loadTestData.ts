@@ -257,15 +257,15 @@ export function createInMemProject(name) {
   const project = {
     id: fakeId,
     name,
-    defaultConfigId: fakeId,
   };
 
   const projectConfig = {
-    id: project.defaultConfigId,
+    id: fakeId,
     name: configName,
     sectionConfigCol: fakeId,
     childrenId: fakeId,
     children: [],
+    isDefault: true,
   };
 
   IN_MEM_PROJECTS[name] = project;

@@ -10,4 +10,5 @@ export default {
     "de2caec1-254d-486e-aa86-b00029a52683",
     "7f6aca35-b44c-489e-80f8-261c80f61405",
   ],
+  isDefault: true,
 };

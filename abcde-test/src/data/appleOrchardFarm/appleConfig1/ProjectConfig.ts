@@ -4,4 +4,5 @@ export default {
   sectionConfigCol: "4adf7504-993c-4ac2-8d34-c3208d673276",
   childrenId: "fc4833cc-0f6e-4374-b514-e525cb151e24",
   children: [],
+  isDefault: true,
 };
