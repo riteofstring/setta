@@ -41,7 +41,7 @@ def _run(access_token, code_id):
     code = r.json()["code"]
 
     cwd = os.getcwd()
-    code_folder_path = Path(cwd)  # / CODE_FOLDER
+    code_folder_path = Path(cwd) / CODE_FOLDER
     code_folder_path.mkdir(parents=True, exist_ok=True)
 
     code_file_path = code_folder_path / f"{code_id}.py"
