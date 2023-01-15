@@ -221,8 +221,8 @@ export async function loadAllProjectsMetadata() {
     }
   }
 
-  // groupby project name, and put configs into a list for each project
-  output = _.groupBy(output, (v) => v.project.name);
+  // groupby project id, and put configs into a list for each project
+  output = _.groupBy(output, (v) => v.project.id);
   for (const [k, v] of Object.entries(output)) {
     output[k] = { ...v[0].project, configs: v.map((x) => x.projectConfig) };
   }
