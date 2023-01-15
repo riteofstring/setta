@@ -1,149 +1,5 @@
-// function paramInfoExportSelected(sectionId, paramInfo, evColId, p) {
-
 import { DECK, DICT_ROOT, LIST_ROOT, SECTION } from 'abcde-utils/src/constants';
-
-// function multipleParamInfoExportSelected(sectionId, paramInfos, evColId, p) {
-//   const output = {};
-//   for (const param of paramInfos) {
-//     let paramSelection = paramInfoExportSelected(sectionId, param, evColId, p);
-//     if (!_.isNil(paramSelection)) {
-//       paramSelection = maybeStringPrefix(paramSelection);
-//       output[paramPrefix(param.name)] = paramSelection;
-//     }
-//   }
-//   return output;
-// }
-
-// function paramCollectionExportSelected(
-//   sectionId,
-//   sectionType,
-//   allCodeInfo,
-//   paramCollections,
-//   evColId,
-//   p,
-// ) {
-//   const {
-//     config: { collections },
-//   } = sectionType;
-//   let currParamCollections = [] as any;
-//   for (const c of collections) {
-//     if (c in paramCollections) {
-//       currParamCollections = [...currParamCollections, ...paramCollections[c]];
-//     }
-//   }
-//   return multipleParamInfoExportSelected(
-//     sectionId,
-//     currParamCollections.map((x) => allCodeInfo[x.id]),
-//     evColId,
-//     p,
-//   );
-// }
-
-// function kwargsExportSelected(sectionId, objInfoId, evColId, kwargColId, p) {
-//   const kwargIds = p.kwargCols[kwargColId][objInfoId];
-//   if (!kwargIds) {
-//     return {};
-//   }
-//   const kwargInfos = kwargIds.map((y) => p.codeInfo.allCodeInfo[y]);
-//   return multipleParamInfoExportSelected(sectionId, kwargInfos, evColId, p);
-// }
-
-// function objInfoExportSelected(sectionId, objInfo, evColId, p) {
-//   const output = multipleParamInfoExportSelected(
-//     sectionId,
-//     objInfo.children.map((x) => p.codeInfo.allCodeInfo[x]),
-//     evColId,
-//     p,
-//   );
-//   return { [objPrefix(objInfo.path)]: output };
-// }
-
-// function sectionExportSelected(section, p) {
-//   const { allCodeInfo, paramCollections } = p.codeInfo;
-//   const { id: sectionId } = section;
-//   const { selectedItem, uiTypeId, evColId, kwargColId } = getSectionConfig(
-//     section,
-//     p,
-//   );
-//   const sectionType = p.uiTypes[uiTypeId];
-
-//   if (isRoot(sectionType.type)) {
-//     const currChildren = p.sectionCurrChildren[section.id];
-//     return multipleSectionExportSelected(currChildren, sectionType, p);
-//   }
-
-//   const nonObjParams = paramCollectionExportSelected(
-//     sectionId,
-//     sectionType,
-//     allCodeInfo,
-//     paramCollections,
-//     evColId,
-//     p,
-//   );
-
-//   const kwargs = kwargsExportSelected(
-//     sectionId,
-//     selectedItem,
-//     evColId,
-//     kwargColId,
-//     p,
-//   );
-
-//   let output = { ...nonObjParams, ...kwargs };
-//   if (selectedItem !== NULL_OBJ_ID) {
-//     const objParams = objInfoExportSelected(
-//       sectionId,
-//       allCodeInfo[selectedItem],
-//       evColId,
-//       p,
-//     );
-//     const [key, value] = Object.entries(objParams)[0];
-//     output = { [key]: { ...value, ...output } };
-//   }
-
-//   return output;
-// }
-
-// function processSelected(currSection, selected, sectionType, p) {
-//   const currSectionConfig = getSectionConfig(currSection, p);
-//   const currSectionType = p.uiTypes[currSectionConfig.uiTypeId].type;
-//   const parentIsPane = !sectionType;
-//   const parentIsListRoot = sectionType?.type === LIST_ROOT;
-//   if (parentIsListRoot) {
-//     if (currSectionType === DECK) {
-//       return Object.values(selected);
-//     } else {
-//       return [selected];
-//     }
-//   } else {
-//     // the "section" is the pane, and the children are top-level sections
-//     if (currSectionType === DECK) {
-//       return parentIsPane
-//         ? _.mapKeys(selected, (v, k) => topLevelPrefix(k))
-//         : selected;
-//     } else {
-//       return parentIsPane
-//         ? { [topLevelPrefix(currSection.name)]: selected }
-//         : { [currSection.name]: selected };
-//     }
-//   }
-// }
-
-// function multipleSectionExportSelected(children, sectionType, p) {
-// const parentIsListRoot = sectionType?.type === LIST_ROOT;
-// let output = parentIsListRoot ? [] : {};
-// for (const c of children) {
-//   const currSection = p.sections[c];
-//   let selected = sectionExportSelected(currSection, p);
-//   selected = processSelected(currSection, selected, sectionType, p);
-//   output = parentIsListRoot
-//     ? [...(output as any), ...(selected as any)]
-//     : { ...output, ...selected };
-// }
-// return output;
-// }
-
-const UITYPE_TO_VARTYPE = { [SECTION]: 'obj' };
+import _ from 'lodash';
 
 function getSectionConfig(p, id) {
   return p.sectionConfigs[p.sectionConfigCol[id]];
@@ -160,15 +16,28 @@ function getSelectedItem(p, id) {
 }
 
 function getParamIds(p, id) {
-  const { selectedItem, evColId, kwargColId } = getSectionConfig(p, id);
-  const paramIds = Object.keys(p.evCols[evColId]);
-  const kwargIds = p.kwargCols[kwargColId][selectedItem];
-  return [...paramIds, ...(kwargIds ? kwargIds : [])];
+  const { evColId } = getSectionConfig(p, id);
+  return Object.keys(p.evCols[evColId]);
 }
 
 function getParamUIType(p, sectionId, id) {
   const { uiTypeColId } = getSectionConfig(p, sectionId);
-  return p.uiTypeCols[uiTypeColId][id];
+  return p.uiTypes[p.uiTypeCols[uiTypeColId][id]].type;
+}
+
+function getSectionVarName(sectionVarNames, id) {
+  if (id in sectionVarNames) {
+    return sectionVarNames[id];
+  }
+  const name = `s${_.size(sectionVarNames)}`;
+  sectionVarNames[id] = name;
+  return name;
+}
+
+function getParamVarName(paramVarNames) {
+  const name = `p${paramVarNames.size}`;
+  paramVarNames.add(name);
+  return name;
 }
 
 export function exportSelected(p) {
@@ -180,10 +49,14 @@ export function exportSelected(p) {
 class Exporter {
   output: Record<string, any>;
   p: any;
+  sectionVarNames: Record<string, string>;
+  paramVarNames: Set<string>;
 
   constructor(p) {
     this.output = {};
     this.p = p;
+    this.sectionVarNames = {};
+    this.paramVarNames = new Set();
   }
 
   export() {
@@ -195,13 +68,13 @@ class Exporter {
   }
 
   exportSection(id) {
-    this.output[id] = {
-      id,
+    const varName = getSectionVarName(this.sectionVarNames, id);
+    this.output[varName] = {
       name: this.p.sections[id].name,
       value: this.exportSectionValue(id),
-      type: UITYPE_TO_VARTYPE[getSectionType(this.p, id)],
+      type: getSectionType(this.p, id),
     };
-    return id;
+    return varName;
   }
 
   exportSectionValue(id) {
@@ -217,17 +90,21 @@ class Exporter {
   }
 
   exportParams(sectionId, ids) {
-    return ids.map((x) => this.exportParam(sectionId, x));
+    return ids.map((x) => this.exportParam(sectionId, x)).filter((x) => x);
   }
 
   exportParam(sectionId, id) {
-    this.output[id] = {
-      id,
+    const value = this.exportParamValue(sectionId, id);
+    if (_.isNil(value)) {
+      return null;
+    }
+    const varName = getParamVarName(this.paramVarNames);
+    this.output[varName] = {
       name: this.p.codeInfo.allCodeInfo[id].name,
-      value: this.exportParamValue(sectionId, id),
-      type: UITYPE_TO_VARTYPE[getParamUIType(this.p, sectionId, id)],
+      value,
+      type: getParamUIType(this.p, sectionId, id),
     };
-    return id;
+    return varName;
   }
 
   exportParamValue(sectionId, id) {
