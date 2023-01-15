@@ -24,13 +24,13 @@ body {
 body::-webkit-scrollbar {
   width: 0.5rem;
   height: 0.5rem;
-  background-color: transparent;
+  background-color: white;
 }
 
 body *::-webkit-scrollbar {
   width: 0.5rem;
   height: 0.5rem;
-  background-color: transparent;
+  background-color: white;
 }
 
 body * {
@@ -48,7 +48,7 @@ body::-webkit-scrollbar-track {
 }
 
 body *::-webkit-scrollbar-track {
-  background: transparent;
+  background: white;
 }
 
 body::-webkit-scrollbar-thumb {
