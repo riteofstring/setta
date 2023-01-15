@@ -2,7 +2,15 @@ import React from "react";
 import { Button } from "./Button";
 
 interface IconButtonTypes {
-  twClasses?: string, size?: string, padding?: string, bg?: string, color?: string, rounded?: string, icon?: any, children?: any, theRest?: any
+  twClasses?: string;
+  size?: string;
+  padding?: string;
+  bg?: string;
+  color?: string;
+  rounded?: string;
+  icon?: any;
+  children?: any;
+  theRest?: any;
 }
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonTypes>(
