@@ -1,4 +1,11 @@
-import { DECK, DICT_ROOT, LIST_ROOT, SECTION } from 'abcde-utils/src/constants';
+import {
+  DECK,
+  DICT_ROOT,
+  isSectionUIType,
+  LIST_ROOT,
+  REF,
+  SECTION,
+} from 'abcde-utils/src/constants';
 import _ from 'lodash';
 
 function getSectionConfig(p, id) {
@@ -22,7 +29,11 @@ function getParamIds(p, id) {
 
 function getParamUIType(p, sectionId, id) {
   const { uiTypeColId } = getSectionConfig(p, sectionId);
-  return p.uiTypes[p.uiTypeCols[uiTypeColId][id]].type;
+  const uiType = p.uiTypes[p.uiTypeCols[uiTypeColId][id]];
+  if (isSectionUIType(uiType)) {
+    return REF;
+  }
+  return uiType.type;
 }
 
 function getSectionVarName(sectionVarNames, id) {
