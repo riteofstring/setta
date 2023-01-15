@@ -1,4 +1,3 @@
-import { OBJ, REF, STRING, VARIABLE } from 'abcde-utils/src/codeGenConstants';
 import _ from 'lodash';
 
 class Variable {
