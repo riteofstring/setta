@@ -48,13 +48,20 @@ export default function FileMenu() {
     const currProject = _.find(projects, (x) => x.name === currProjectName);
     if (configName === currConfigName) {
       onClickSave();
-    } else if (currProject.configs.find((x) => x.name === configName)) {
-      saveAsExistingProjectConfig({ reactFlowStore, configName });
     } else {
-      const newProjectConfig = await saveAsNewProjectConfig({
-        reactFlowStore,
-        newConfigName,
-      });
+      const matchingConfig = currProject.configs.find(
+        (x) => x.name === configName
+      );
+      const newProjectConfig = matchingConfig
+        ? await saveAsExistingProjectConfig({
+            reactFlowStore,
+            configId: matchingConfig.id,
+          })
+        : await saveAsNewProjectConfig({
+            reactFlowStore,
+            newConfigName,
+          });
+
       router.navigate(`${username}/${projectName}/${configName}`, {
         state: { newProjectConfig },
       });
