@@ -1,0 +1,42 @@
+export default {
+  "03cc2b45-cecf-4bf8-9c58-bf564cee914a": {
+    id: "03cc2b45-cecf-4bf8-9c58-bf564cee914a",
+    uiTypeId: "81ee0a64-ca39-4676-a1c7-8f017ace888f",
+    evColId: "51f3a3ec-ca80-4c15-9dfb-349e94dd5f41",
+    kwargColId: "fa1da6df-19b9-44f3-896a-b57798f04736",
+    uiTypeColId: "7f299be1-7cc8-452f-a736-cdd060077c60",
+    selectedItem: "a18b4e95-7c7f-4a69-8322-6e84501a35eb",
+  },
+  "6f8b23fd-5eee-4d20-aabc-5275ad6e6754": {
+    id: "6f8b23fd-5eee-4d20-aabc-5275ad6e6754",
+    uiTypeId: "d23fae1c-c113-4648-8f51-0e15ee78322a",
+    evColId: "5e523222-7426-42de-b90c-f99de954a94b",
+    kwargColId: "da502a8c-ea2b-4ab8-9404-645dbdae618f",
+    uiTypeColId: "4ac36b33-f301-4427-bd5b-bdc278383dc7",
+    selectedItem: "f2f8c557-7e6d-4f35-9a99-4304066c3294",
+  },
+  "7cb3fd22-7d51-4995-9c09-a9af5e8ce9ec": {
+    id: "7cb3fd22-7d51-4995-9c09-a9af5e8ce9ec",
+    uiTypeId: "655bf82b-24e1-4283-bab3-77dc86a5eda0",
+    evColId: "3393d920-1ee2-46ac-b229-c94af5bca889",
+    kwargColId: "1261a41e-0a0b-410b-84bf-680c7301c88e",
+    uiTypeColId: "0d7cb175-dd61-4806-8f4f-b9b25f1d9bde",
+    selectedItem: "c63599bc-f49a-44ad-bbef-32e4a8c6b5fc",
+  },
+  "9a508319-4b23-42aa-bb5f-a7d4132472db": {
+    id: "9a508319-4b23-42aa-bb5f-a7d4132472db",
+    uiTypeId: "e51351bb-731b-40f1-a4d8-63b1ab1a3fa6",
+    evColId: "cd7a34de-8333-424d-adb7-c8675ffc5045",
+    kwargColId: "e8d70830-8649-4876-9735-392628777142",
+    uiTypeColId: "57a8b5f4-9aee-4ade-a46d-c8f47431116c",
+    selectedItem: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
+  },
+  "e3ede0c0-2337-45d3-b06c-4734fa5d6d81": {
+    id: "e3ede0c0-2337-45d3-b06c-4734fa5d6d81",
+    uiTypeId: "452ce274-77e7-40a9-b205-88ffb5a6f3a1",
+    evColId: "0103b853-e13d-4b26-8f4d-3056db1dd23b",
+    kwargColId: "744ea5d5-b0c3-4ae1-b9cd-7d655a747402",
+    uiTypeColId: "6fe54b72-392e-41a6-91e9-c5708223352f",
+    selectedItem: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
+  },
+};

@@ -7,6 +7,7 @@ export default {
       "45121316-4a0b-44be-aa6a-7b7c12b56f0f",
       "d7d82407-46bf-4a08-b36e-4a34350c51d5",
       "61e089c8-62bf-4e8c-915e-111b4587da81",
+      "b8d1a09b-9319-492f-8204-f5d79594747a",
     ],
     uiTypes: [
       "9520d638-b662-44d0-97a3-e1dfabeb2939",

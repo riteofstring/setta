@@ -3,13 +3,19 @@ import _ from "lodash";
 type projectNamesType = { inFile: string[]; inMem: string[] };
 
 const PROJECT_NAMES: projectNamesType = {
-  inFile: ["simpleTrainTest", "appleOrchardFarm", "diffusionDrops"],
+  inFile: [
+    "simpleTrainTest",
+    "appleOrchardFarm",
+    "diffusionDrops",
+    "pytorchLightningMnist",
+  ],
   inMem: [],
 };
 const PROJECT_CONFIG_NAMES = {
   simpleTrainTest: ["simpleConfig1"],
   appleOrchardFarm: ["appleConfig1"],
   diffusionDrops: ["diffusionConfig1", "diffusionConfig2"],
+  pytorchLightningMnist: ["mnistConfig1"],
 };
 const IN_MEM_PROJECTS = {};
 const IN_MEM_PROJECT_CONFIGS = {};
