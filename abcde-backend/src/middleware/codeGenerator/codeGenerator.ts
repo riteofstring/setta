@@ -33,6 +33,10 @@ function getCallableParams(ids, selected) {
   return params.join(', ');
 }
 
+function getBoolean(value) {
+  return value ? 'True' : 'False';
+}
+
 // x is the details of a var
 function getVarDeclaration(varName, x, selected) {
   switch (x.type) {
@@ -41,7 +45,7 @@ function getVarDeclaration(varName, x, selected) {
     case SLIDER:
       return `${varName} = ${x.value}`;
     case SWITCH:
-      return `${varName} = ${x.value}`;
+      return `${varName} = ${getBoolean(x.value)}`;
     case SECTION:
       if (!x.value.callable) {
         return `${varName} = {${getDictContents(x.value.params, selected)}}`;
