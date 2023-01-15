@@ -1,8 +1,8 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { useProjectToLoad } from "models/info/projectToLoad";
 import React, { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
+import { useNavigate } from "react-router-dom";
 import Badge from "utils/atoms/badges/badge";
 import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
@@ -68,12 +68,18 @@ function RightColumn({ projects, createProject }) {
   );
 }
 const ProjectItem = forwardRef((props, forwardedRef) => {
-  const { name, id, configs, defaultConfigId } = props.project;
-  const setProjectToLoad = useProjectToLoad((x) => x.setProject);
+  const { name, configs, defaultConfigId } = props.project;
   const [openConfigs, setOpenConfigs] = useState(false);
+  const navigate = useNavigate();
+
+  function goToProject(configId) {
+    const configName = configs.find((x) => x.id === configId).name;
+    const address = `${name}/${configName}`;
+    navigate(address);
+  }
 
   function onClick() {
-    setProjectToLoad({ id, configId: defaultConfigId });
+    goToProject(defaultConfigId);
   }
 
   function onClickConfigsButton(e) {
@@ -83,7 +89,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
   function onConfigClick(e, configId) {
     e.stopPropagation();
-    setProjectToLoad({ id, configId });
+    goToProject(configId);
   }
 
   // bg-[url('https://via.placeholder.com/400')]
