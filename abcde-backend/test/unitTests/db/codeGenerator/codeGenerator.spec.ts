@@ -1,12 +1,14 @@
-import { loadOneProject } from 'abcde-test/src/loadTestData';
+import simpleExample from 'abcde-test/src/codegenData/simple';
 import { generateCode } from 'src/middleware/codeGenerator/codeGenerator';
-import { exportSelected } from 'src/middleware/codeGenerator/exportSelected';
+import { clearDb } from 'test/clearDb';
 
 describe('generateCode', () => {
-  test('test generateCode function', async () => {
-    const p = await loadOneProject({ forCodeGen: true });
-    const selected = exportSelected(p);
-    const code = generateCode(selected);
+  beforeAll(async () => {
+    await clearDb();
+  });
+
+  test('test generateCode function', () => {
+    const code = generateCode(simpleExample);
     console.log(code);
   });
 });
