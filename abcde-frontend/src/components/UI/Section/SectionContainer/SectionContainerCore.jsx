@@ -38,38 +38,36 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   return (
     <CustomResizable>
       <div
-        className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[${SECTIONWIDTH}px]`}
+        className={`flex flex-col flex-grow rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[${SECTIONWIDTH}px]`}
         onClick={() => setActiveSection(sectionId)}
         data-testid={`${sectionId} section core`}
       >
         <div
-          className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
+          className="flex flex-col flex-grow bg-gray-50 rounded-xl px-3 gap-2 py-4 shadow-md border border-white overflow-hidden"
           style={{ zIndex: isActiveSection ? 150 : 10 }}
         >
-          <div className="flex flex-col gap-2 px-1 py-4 w-full">
-            <SectionHeader
-              sectionId={sectionId}
-              parentId={parentId}
-              nextId={nextId}
-              isSeriesElement={isSeriesElement}
-              isRoot={isRoot}
-              hasNested={hasNested}
-            />
-            {!isRoot && (
-              <>
-                <SectionSearch
-                  sectionId={sectionId}
-                  initialSelection={selectedItem}
-                  onSelectedItemChange={onSelectedItemChange}
-                />
-                {tempBoolDesc && <SectionDescription />}
-                <ParamGroupContainer
-                  sectionId={sectionId}
-                  objInfoId={selectedItem}
-                />
-              </>
-            )}
-          </div>
+          <SectionHeader
+            sectionId={sectionId}
+            parentId={parentId}
+            nextId={nextId}
+            isSeriesElement={isSeriesElement}
+            isRoot={isRoot}
+            hasNested={hasNested}
+          />
+          {!isRoot && (
+            <>
+              <SectionSearch
+                sectionId={sectionId}
+                initialSelection={selectedItem}
+                onSelectedItemChange={onSelectedItemChange}
+              />
+              {tempBoolDesc && <SectionDescription />}
+              <ParamGroupContainer
+                sectionId={sectionId}
+                objInfoId={selectedItem}
+              />
+            </>
+          )}
         </div>
         <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </div>

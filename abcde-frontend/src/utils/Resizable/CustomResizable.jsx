@@ -21,6 +21,7 @@ export function CustomResizable({ children }) {
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
       scale={zoom}
+      className="flex"
     >
       {children}
     </Resizable>
