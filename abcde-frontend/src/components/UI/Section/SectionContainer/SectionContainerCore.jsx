@@ -2,9 +2,9 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useIsRoot, useIsSeriesElement } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import { Resizable } from "re-resizable";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
+import { SECTIONWIDTH } from "utils/constants";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -35,47 +35,47 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
-    <Resizable>
+    // <Resizable>
+    <div
+      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[450px]`}
+      style={{
+        width: `${SECTIONWIDTH}px`,
+      }}
+      onClick={() => setActiveSection(sectionId)}
+      data-testid={`${sectionId} section core`}
+    >
       <div
-        className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[450px]`}
-        // style={{
-        //   width: `${SECTIONWIDTH}px`,
-        // }}
-        onClick={() => setActiveSection(sectionId)}
-        data-testid={`${sectionId} section core`}
+        className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
+        style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <div
-          className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
-          style={{ zIndex: isActiveSection ? 150 : 10 }}
-        >
-          <div className="flex flex-col gap-2 px-1 py-4 w-full">
-            <SectionHeader
-              sectionId={sectionId}
-              parentId={parentId}
-              nextId={nextId}
-              isSeriesElement={isSeriesElement}
-              isRoot={isRoot}
-              hasNested={hasNested}
-            />
-            {!isRoot && (
-              <>
-                <SectionSearch
-                  sectionId={sectionId}
-                  initialSelection={selectedItem}
-                  onSelectedItemChange={onSelectedItemChange}
-                />
-                {tempBoolDesc && <SectionDescription />}
-                <ParamGroupContainer
-                  sectionId={sectionId}
-                  objInfoId={selectedItem}
-                />
-              </>
-            )}
-          </div>
+        <div className="flex flex-col gap-2 px-1 py-4 w-full">
+          <SectionHeader
+            sectionId={sectionId}
+            parentId={parentId}
+            nextId={nextId}
+            isSeriesElement={isSeriesElement}
+            isRoot={isRoot}
+            hasNested={hasNested}
+          />
+          {!isRoot && (
+            <>
+              <SectionSearch
+                sectionId={sectionId}
+                initialSelection={selectedItem}
+                onSelectedItemChange={onSelectedItemChange}
+              />
+              {tempBoolDesc && <SectionDescription />}
+              <ParamGroupContainer
+                sectionId={sectionId}
+                objInfoId={selectedItem}
+              />
+            </>
+          )}
         </div>
-        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </div>
-    </Resizable>
+      <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+    </div>
+    // </Resizable>
   );
 }
 
