@@ -85,11 +85,13 @@ class Exporter {
 
   exportSection(id) {
     const varName = getSectionVarName(this.sectionVarNames, id);
-    this.output[varName] = {
-      name: this.p.sections[id].name,
-      value: this.exportSectionValue(id),
-      type: getSectionType(this.p, id),
-    };
+    if (!(varName in this.output)) {
+      this.output[varName] = {
+        name: this.p.sections[id].name,
+        value: this.exportSectionValue(id),
+        type: getSectionType(this.p, id),
+      };
+    }
     return varName;
   }
 
