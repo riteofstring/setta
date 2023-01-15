@@ -1,6 +1,7 @@
 import os
+import subprocess
+import sys
 from pathlib import Path
-from subprocess import PIPE, Popen
 
 import click
 from requests.exceptions import RetryError
@@ -40,14 +41,12 @@ def _run(access_token, code_id):
     code = r.json()["code"]
 
     cwd = os.getcwd()
-    code_folder_path = Path(cwd) / CODE_FOLDER
+    code_folder_path = Path(cwd)  # / CODE_FOLDER
     code_folder_path.mkdir(parents=True, exist_ok=True)
 
     code_file_path = code_folder_path / f"{code_id}.py"
     with open(code_file_path, "w") as f:
         f.write(code)
 
-    cmd = f'python "{code_file_path}"'
-    with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
-        for line in p.stdout:
-            print(line, end="")  # process line here
+    cmd = ["python", code_file_path]
+    subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
