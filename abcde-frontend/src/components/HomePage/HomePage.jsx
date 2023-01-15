@@ -2,7 +2,6 @@ import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import React, { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
-import { useNavigate } from "react-router-dom";
 import Badge from "utils/atoms/badges/badge";
 import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
@@ -10,6 +9,7 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { router } from "utils/Routes/router";
 import "./homepage.css";
 
 function HomePage() {
@@ -70,12 +70,11 @@ function RightColumn({ projects, createProject }) {
 const ProjectItem = forwardRef((props, forwardedRef) => {
   const { name, configs, defaultConfigId } = props.project;
   const [openConfigs, setOpenConfigs] = useState(false);
-  const navigate = useNavigate();
 
   function goToProject(configId) {
     const configName = configs.find((x) => x.id === configId).name;
     const address = `${name}/${configName}`;
-    navigate(address);
+    router.navigate(address);
   }
 
   function onClick() {

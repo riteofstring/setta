@@ -6,32 +6,25 @@ import { useEffect, useState } from "react";
 import { loadProject } from "thunks/projects";
 
 // setDoneLoading sets the doneLoading state in MainContainer
-export function useLoadProject() {
+export function useLoadProject(projectName, configName) {
   const [doneLoading, setDoneLoading] = useState(false);
-
   const isAuthenticated = useAuth((x) => x.isAuthenticated);
-  const idToLoad = useProjectToLoad((x) => x.id);
-  const configIdToLoad = useProjectToLoad((x) => x.configId);
   const isLoading = useProjectToLoad((x) => x.isLoading);
-
-  const setProject = useProjectToLoad((x) => x.setProject);
-  const setIsLoading = useProjectToLoad((x) => x.setIsLoading);
 
   useEffect(() => {
     async function fn() {
       setDoneLoading(false);
       const result = await loadProject({
-        id: idToLoad,
-        configId: configIdToLoad,
+        projectName,
+        configName,
       });
-      setProject({ id: null, configId: null });
       setDoneLoading(result);
     }
 
-    if (isAuthenticated && idToLoad && configIdToLoad) {
+    if (isAuthenticated && projectName && configName) {
       fn();
     }
-  }, [idToLoad, configIdToLoad]);
+  }, [projectName, configName]);
 
   useEffect(() => {
     // If data is being loaded outside of here, and doneLoading = true
@@ -41,7 +34,6 @@ export function useLoadProject() {
       setDoneLoading(false);
     } else if (isLoading === false) {
       setDoneLoading(true);
-      setIsLoading(null);
     }
   }, [isLoading]);
 

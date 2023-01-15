@@ -1,11 +1,13 @@
 import { useLoadProject } from "hooks/useProject";
+import { useParams } from "react-router-dom";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
 import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
-  const doneLoading = useLoadProject();
+  const { projectName, configName } = useParams();
+  const doneLoading = useLoadProject(projectName, configName);
 
   return (
     doneLoading && (
