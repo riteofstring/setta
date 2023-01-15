@@ -22,9 +22,7 @@ export function CustomResizable({ children }) {
       onResizeStop={onResizeStop}
       scale={zoom}
     >
-      <div style={{ backgroundColor: "hsla(50, 100%, 50%, 1)" }}>
-        {children}
-      </div>
+      {children}
     </Resizable>
   );
 }
