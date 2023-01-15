@@ -19,9 +19,9 @@ export default function SubNav() {
 
 function NavSwitch() {
   const isAuthenticated = useAuth((x) => x.isAuthenticated);
-  const { projectName, configName } = useParams();
+  const { username, projectName, configName } = useParams();
 
-  return isAuthenticated && projectName && configName ? (
+  return isAuthenticated && username && projectName && configName ? (
     <UiEditorSubNav />
   ) : null;
 }

@@ -1,5 +1,6 @@
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectName } from "hooks/useProject";
+import _ from "lodash";
 import { useAuth } from "models/auth";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
@@ -43,18 +44,20 @@ export default function FileMenu() {
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
-    const { id, configId } = selected;
-    if (id !== currProjectName) {
-      //TODO: display something
-    }
-    if (configId) {
-      if (configId === currConfigName) {
-        onClickSave();
-      } else {
-        saveAsExistingProjectConfig({ reactFlowStore, configId });
-      }
+    const { projectName, configName } = selected;
+    const currProject = _.find(projects, (x) => x.name === currProjectName);
+    if (configName === currConfigName) {
+      onClickSave();
+    } else if (currProject.configs.find((x) => x.name === configName)) {
+      saveAsExistingProjectConfig({ reactFlowStore, configName });
     } else {
-      saveAsNewProjectConfig({ reactFlowStore, newConfigName });
+      const newProjectConfig = await saveAsNewProjectConfig({
+        reactFlowStore,
+        newConfigName,
+      });
+      router.navigate(`${username}/${projectName}/${configName}`, {
+        state: { newProjectConfig },
+      });
     }
   }
 

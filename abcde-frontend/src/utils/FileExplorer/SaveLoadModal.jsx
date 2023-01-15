@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import ModalContainer from "utils/ModalContainer/ModalContainer";
@@ -121,8 +122,8 @@ function SaveBody({
   setConfigName,
   modalType,
 }) {
-  const currFiles = files[currProjectName];
-  const currFilesAsObj = currFiles ? { [currProjectName]: currFiles } : {};
+  const currFiles = _.find(files, (x) => x.name === currProjectName);
+  const currFilesAsObj = currFiles ? { [currFiles.id]: currFiles } : {};
 
   function onChange(v) {
     setConfigName(v);

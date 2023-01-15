@@ -1,5 +1,5 @@
 import { useLoadProject } from "hooks/useProject";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import UIPage from "../../UI/UiPage";
 import GridWrapper from "../GridWrapper/GridWrapper";
 import Overview from "./UiEditorContainer/SidePanes/Overview/Overview";
@@ -7,7 +7,13 @@ import UiEditor from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export default function MainContainer() {
   const { username, projectName, configName } = useParams();
-  const doneLoading = useLoadProject({ username, projectName, configName });
+  const { newProjectConfig } = useLocation();
+  const doneLoading = useLoadProject({
+    username,
+    projectName,
+    configName,
+    newProjectConfig,
+  });
 
   return (
     doneLoading && (
