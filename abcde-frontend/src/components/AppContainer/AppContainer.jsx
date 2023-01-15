@@ -1,5 +1,5 @@
 import React from "react";
-import { ReactFlowProvider } from "react-flow-renderer";
+import { ReactFlowProvider } from "reactflow";
 import HeaderContainer from "./Header/Header";
 import SwitchContainer from "./SwitchContainer/SwitchContainer";
 
