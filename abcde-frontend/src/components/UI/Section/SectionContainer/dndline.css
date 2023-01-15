@@ -1,25 +1,24 @@
-
-.dndline::after, .dndline::before {
-  content: '';
+.dndline::after,
+.dndline::before {
+  content: "";
   /* background: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHZpZXdCb3g9IjAgMCAxMCAxMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNSIgY3k9IjUiIHI9IjMiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPg=="); */
-  height:2px;
-  border-radius:100px;
+  height: 2px;
+  border-radius: 100px;
   background: white;
   /* animation: dash 30s linear infinite; */
-  width:450px;
-  position:absolute;
+  width: 450px;
+  position: absolute;
   background-repeat: repeat-x;
   background-position: 0 0;
   /* background-size:75%; */
-/* opacity:0; */
+  /* opacity:0; */
 }
 
 .dndline::before {
-  top:7px;
-  
+  top: 7px;
 }
 .dndline::after {
-  bottom:7px;
+  bottom: 7px;
 }
 
 @keyframes dash {
@@ -30,4 +29,3 @@
     background-position: 200% 0;
   }
 }
-
