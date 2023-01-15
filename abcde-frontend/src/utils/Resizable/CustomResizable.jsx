@@ -1,7 +1,10 @@
 import { Resizable } from "re-resizable";
+import { useStore } from "react-flow-renderer";
 import { SECTIONWIDTH } from "utils/constants";
 
 export function CustomResizable({ children }) {
+  const zoom = useStore((x) => x.transform[2]);
+
   function onResizeStart() {
     // setIsResizing(true);
   }
@@ -17,6 +20,7 @@ export function CustomResizable({ children }) {
       handleWrapperClass={className}
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
+      scale={zoom}
     >
       <div style={{ backgroundColor: "hsla(50, 100%, 50%, 1)" }}>
         {children}
