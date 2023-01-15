@@ -40,7 +40,7 @@ const SignUpPage = () => {
   });
 
   return (
-    <GridWrapper gridStyles="bg-gray-400">
+    <GridWrapper gridStyles="bg-gray-400" flexFormWrap={true}>
       <StandAloneInputContainer
         onSubmit={handleSubmit}
         title="Sign Up"
