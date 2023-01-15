@@ -1054,11 +1054,6 @@
   resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.24.51.tgz#645f33fe4e02defe26f2f5c0410e1c094eac7f5f"
   integrity sha512-1P1OROm/rdubP5aFDSZQILU0vrLCJ4fvHt6EoqHEM+2D/G5MK3bIaymUKLit8Js9gbns5UyJnkP/TZROLw4tUA==
 
-"@solidjs/reactivity@^0.0.6":
-  version "0.0.6"
-  resolved "https://registry.yarnpkg.com/@solidjs/reactivity/-/reactivity-0.0.6.tgz#0f0a3c5a058f8ab99322be09823ca0d9d22c2f6c"
-  integrity sha512-vTvd4vy2aw3ljCk3x7tfgWdZaHmwbWelaAtG71IA/k0hM0vkYH7JYzveE7dHGS5S04LyjY1YFRN3n8zxdmeS4g==
-
 "@svgr/babel-plugin-add-jsx-attribute@^6.3.1":
   version "6.3.1"
   resolved "https://registry.yarnpkg.com/@svgr/babel-plugin-add-jsx-attribute/-/babel-plugin-add-jsx-attribute-6.3.1.tgz#b9a5d84902be75a05ede92e70b338d28ab63fa74"
@@ -1141,23 +1136,21 @@
     "@svgr/hast-util-to-babel-ast" "^6.4.0"
     svg-parser "^2.0.4"
 
-"@tanstack/react-router@0.0.1-beta.48":
-  version "0.0.1-beta.48"
-  resolved "https://registry.yarnpkg.com/@tanstack/react-router/-/react-router-0.0.1-beta.48.tgz#4fd250dccd3cd40b25a9d4eb1551429b327167bf"
-  integrity sha512-AR1QCDolDuFcvvDhLW8/Ez/BV8CsR/BQ4D8t6CxCbjSAaKYsD6iyuRb3nRToq57cy9hQmphshgRSli9uAiQkoA==
+"@tanstack/react-router@0.0.1-beta.38":
+  version "0.0.1-beta.38"
+  resolved "https://registry.yarnpkg.com/@tanstack/react-router/-/react-router-0.0.1-beta.38.tgz#3174c0632a023af2cf040baa745a8d5182506a8a"
+  integrity sha512-i/pKuHZLwwB3bmP+Ty8bJtGfitrVNaYGbwtXtTw/jqhm6rXN6fd14jT4yW4XcktecSoWE6QK0yTE7viqdaEGuQ==
   dependencies:
     "@babel/runtime" "^7.16.7"
-    "@solidjs/reactivity" "^0.0.6"
-    "@tanstack/router-core" "0.0.1-beta.45"
+    "@tanstack/router-core" "0.0.1-beta.36"
     use-sync-external-store "^1.2.0"
 
-"@tanstack/router-core@0.0.1-beta.45":
-  version "0.0.1-beta.45"
-  resolved "https://registry.yarnpkg.com/@tanstack/router-core/-/router-core-0.0.1-beta.45.tgz#286e37602399bae4d6efeb5dbb73ada8587998bb"
-  integrity sha512-qb2EA9+rrjh+BJ1jGdJ0JZ3Dyd8y0NXvFxU/STNnv+eW73oO0JByvH0/4ohPhxEPXDKCP01FTCEaLmdFLa/52A==
+"@tanstack/router-core@0.0.1-beta.36":
+  version "0.0.1-beta.36"
+  resolved "https://registry.yarnpkg.com/@tanstack/router-core/-/router-core-0.0.1-beta.36.tgz#4701d757cb39e325f53d9eb25584eaacea6e90f2"
+  integrity sha512-debjgkz4v1b0BqgEOaaBN9GVPHibB9IdURa8sE62YZ6xCRfmwPkglxwqx9zbOm1qGBG0edJy2FhXuI0meAHHzQ==
   dependencies:
     "@babel/runtime" "^7.16.7"
-    "@solidjs/reactivity" "^0.0.6"
     history "^5.2.0"
     tiny-invariant "^1.3.1"
 
