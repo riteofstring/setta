@@ -36,6 +36,11 @@ function getParamUIType(p, sectionId, id) {
   return uiType.type;
 }
 
+function getOriginalParamUIType(p, sectionId, id) {
+  const { uiTypeColId } = getSectionConfig(p, sectionId);
+  return p.uiTypes[p.uiTypeCols[uiTypeColId][id]].type;
+}
+
 function getSectionVarName(sectionVarNames, id) {
   if (id in sectionVarNames) {
     return sectionVarNames[id];
@@ -122,9 +127,12 @@ class Exporter {
     const { evColId } = getSectionConfig(this.p, sectionId);
     const evId = this.p.evCols[evColId][id];
     const { value, childId } = this.p.ev[evId];
+    const originalType = getOriginalParamUIType(this.p, sectionId, id);
     const sectionChildren = this.p.sectionCurrChildren[sectionId];
-    if (sectionChildren && sectionChildren.includes(childId)) {
+    if (sectionChildren.includes(childId)) {
       return this.exportSection(childId);
+    } else if (value && originalType === REF) {
+      return this.exportSection(value);
     }
     return value;
   }
