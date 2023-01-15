@@ -36,13 +36,10 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
     .map((v) => v.originUITypeColId)
     .filter((v): v is string => !!v);
   await prisma.$transaction(
-    originUITypeCols.map((v) =>
-      prisma.uITypeColId.upsert({
-        where: { id: v },
-        create: { id: v },
-        update: { id: v },
-      }),
-    ),
+    originUITypeCols.map((v) => {
+      const where = { id: v };
+      return prisma.uITypeColId.upsert({ where, create: where, update: where });
+    }),
   );
 
   await prisma.$transaction(
