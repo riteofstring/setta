@@ -3,7 +3,12 @@ import { exportSelected } from 'src/middleware/codeGenerator/exportSelected';
 
 describe('exportSelected', () => {
   test('export simpleTrainTest', async () => {
-    const p = await loadOneProject({ forCodeGen: true });
+    const p = await loadOneProject({
+      projectName: 'pytorchLightningMnist',
+      subFolderName: 'mnistConfig1',
+      forCodeGen: true,
+    });
     const selected = exportSelected(p);
     console.log(selected);
+  });
 });
