@@ -13,25 +13,17 @@ import {
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 
 async function getIds({ username, projectName, configName }) {
-  const owner = await prisma.user.findUniqueOrThrow({
-    where: { name: username },
-    select: {
-      id: true,
-    },
-  });
-
-  const project = await prisma.project.findUniqueOrThrow({
-    where: { name_ownerId: { name: projectName, ownerId: owner.id } },
-    select: { id: true },
-  });
-
-  const config = await prisma.projectConfig.findUniqueOrThrow({
+  const config = await prisma.projectConfig.findFirstOrThrow({
     where: {
-      name_projectId: { name: configName, projectId: project.id },
+      name: configName,
+      project: { name: projectName, owner: { name: username } },
     },
-    select: { id: true },
+    select: { id: true, project: { select: { id: true } } },
   });
-  return { projectId: project.id, configId: config.id };
+  if (!config.project) {
+    throw new Error('project/config not found');
+  }
+  return { projectId: config.project.id, configId: config.id };
 }
 
 export async function getProject(id: string) {

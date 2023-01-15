@@ -21,7 +21,7 @@
     "linktest": "cd ../abcde-test && git pull && yarn && yarn link && cd ../abcde-backend && yarn link abcde-test"
   },
   "dependencies": {
-    "@prisma/client": "4.5.0",
+    "@prisma/client": "4.6.1",
     "cors": "2.8.5",
     "express": "4.18.2",
     "express-async-errors": "3.1.1",
@@ -45,7 +45,7 @@
     "nodemon": "2.0.20",
     "prettier": "2.7.1",
     "prettier-plugin-organize-imports": "3.1.1",
-    "prisma": "4.5.0",
+    "prisma": "4.6.1",
     "supertest": "6.1.3",
     "ts-jest": "28.0.5",
     "ts-loader": "9.2.3",
