@@ -8,12 +8,14 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);
   return (
     <>
-      <GetParamSwitch
-        sectionId={sectionId}
-        objInfoId={objInfoId}
-        infos={infos}
-        isKwarg={false}
-      />
+      <div className="flex flex-col gap-2 overflow-y-auto min-h-[36px]">
+        <GetParamSwitch
+          sectionId={sectionId}
+          objInfoId={objInfoId}
+          infos={infos}
+          isKwarg={false}
+        />
+      </div>
       <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
     </>
   );
