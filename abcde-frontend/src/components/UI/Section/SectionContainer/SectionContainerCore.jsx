@@ -2,10 +2,11 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useIsRoot, useIsSeriesElement } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import { Resizable } from "re-resizable";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
 // import { SECTIONWIDTH } from "utils/constants";
+import { NodeResizer } from "@reactflow/node-resizer";
+import "@reactflow/node-resizer/dist/style.css";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./Main/Group/GroupContainer";
 import SectionSearch from "./Main/Search/Search";
 import SectionDescription from "./Main/SectionDescription/SectionDescription";
+
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
@@ -36,7 +38,8 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
-    <Resizable>
+    <>
+      <NodeResizer minWidth={100} minHeight={30} />
       <div
         className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[450px]`}
         // style={{
@@ -76,7 +79,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         </div>
         <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </div>
-    </Resizable>
+    </>
   );
 }
 
