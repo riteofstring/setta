@@ -2,10 +2,10 @@ import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useIsRoot, useIsSeriesElement } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import { Resizable } from "re-resizable";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
-// import { SECTIONWIDTH } from "utils/constants";
+import { SECTIONWIDTH } from "utils/constants";
+import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -36,12 +36,9 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
-    <Resizable>
+    <CustomResizable>
       <div
-        className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[450px]`}
-        // style={{
-        //   width: `${SECTIONWIDTH}px`,
-        // }}
+        className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[${SECTIONWIDTH}px]`}
         onClick={() => setActiveSection(sectionId)}
         data-testid={`${sectionId} section core`}
       >
@@ -76,7 +73,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         </div>
         <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </div>
-    </Resizable>
+    </CustomResizable>
   );
 }
 
