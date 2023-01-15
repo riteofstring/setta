@@ -1,6 +1,5 @@
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { useCurrProjectId } from "hooks/useProject";
-import { useProjectToLoad } from "models/info/projectToLoad";
+import { useCurrProjectName } from "hooks/useProject";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
@@ -14,12 +13,13 @@ import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
+import { router } from "utils/Routes/router";
 
 export default function FileMenu() {
   const reactFlowStore = useStoreApi();
   const { projects, getProjects } = useGetOrCreateProjects();
-  const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
-  const setProjectToLoad = useProjectToLoad((x) => x.setProject);
+  const { projectName: currProjectName, configName: currConfigName } =
+    useCurrProjectName();
   const [modalType, setModalType] = useState("");
 
   function onClickSave() {
@@ -36,17 +36,17 @@ export default function FileMenu() {
     getProjects();
   }
 
-  function onClickLoadProject(selected) {
-    setProjectToLoad(selected);
+  function onClickLoadProject({ projectName, configName }) {
+    router.navigate(`${projectName}/${configName}`);
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
     const { id, configId } = selected;
-    if (id !== currProjectId) {
+    if (id !== currProjectName) {
       //TODO: display something
     }
     if (configId) {
-      if (configId === currConfigId) {
+      if (configId === currConfigName) {
         onClickSave();
       } else {
         saveAsExistingProjectConfig({ reactFlowStore, configId });
@@ -62,7 +62,7 @@ export default function FileMenu() {
       files={projects}
       onClickLoadProject={onClickLoadProject}
       onClickSaveAsProject={onClickSaveAsProject}
-      currProjectId={currProjectId}
+      currProjectName={currProjectName}
     >
       <StandardDropdown
         trigger={<MenuBarButton>File</MenuBarButton>}

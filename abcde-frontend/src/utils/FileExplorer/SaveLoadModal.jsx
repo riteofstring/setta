@@ -9,7 +9,7 @@ export default function SaveLoadModal({
   files,
   onClickLoadProject,
   onClickSaveAsProject,
-  currProjectId,
+  currProjectName,
   children,
 }) {
   return (
@@ -20,7 +20,7 @@ export default function SaveLoadModal({
           modalType={modalType}
           onClickLoadProject={onClickLoadProject}
           onClickSaveAsProject={onClickSaveAsProject}
-          currProjectId={currProjectId}
+          currProjectName={currProjectName}
         />
       }
     >
@@ -34,7 +34,7 @@ function ModalContent({
   modalType,
   onClickLoadProject,
   onClickSaveAsProject,
-  currProjectId,
+  currProjectName,
 }) {
   const [selected, setSelected] = useState({});
   const [configName, setConfigName] = useState("");
@@ -58,7 +58,7 @@ function ModalContent({
         files={files}
         setSelected={setSelected}
         modalType={modalType}
-        currProjectId={currProjectId}
+        currProjectName={currProjectName}
         selected={selected}
         configName={configName}
         setConfigName={setConfigName}
@@ -76,7 +76,7 @@ function Body({
   modalType,
   files,
   setSelected,
-  currProjectId,
+  currProjectName,
   selected,
   configName,
   setConfigName,
@@ -92,7 +92,7 @@ function Body({
     <SaveBody
       files={files}
       setSelected={setSelected}
-      currProjectId={currProjectId}
+      currProjectName={currProjectName}
       selected={selected}
       configName={configName}
       setConfigName={setConfigName}
@@ -115,26 +115,24 @@ function LoadBody({ files, selected, setSelected, modalType }) {
 function SaveBody({
   files,
   setSelected,
-  currProjectId,
+  currProjectName,
   selected,
   configName,
   setConfigName,
   modalType,
 }) {
-  const currFiles = files[currProjectId];
-  const currFilesAsObj = currFiles ? { [currProjectId]: currFiles } : {};
+  const currFiles = files[currProjectName];
+  const currFilesAsObj = currFiles ? { [currProjectName]: currFiles } : {};
 
   function onChange(v) {
     setConfigName(v);
-    const match = currFiles.configs.find((x) => x.name === v);
-    setSelected({ id: currProjectId, configId: match?.id });
+    setSelected({ projectName: currProjectName, configName: v });
   }
 
   useEffect(() => {
-    const configId = selected.configId;
-    if (configId) {
-      const matchingConfig = currFiles.configs.find((x) => x.id === configId);
-      setConfigName(matchingConfig.name);
+    const configName = selected.configName;
+    if (configName) {
+      setConfigName(configName);
     }
   }, [selected]);
 

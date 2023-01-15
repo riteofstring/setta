@@ -40,8 +40,8 @@ export function useLoadProject(projectName, configName) {
   return doneLoading;
 }
 
-export function useCurrProjectId() {
-  const id = useProject((x) => x.id);
-  const configId = useProjectConfig((x) => x.id);
-  return { id, configId };
+export function useCurrProjectName() {
+  const projectName = useProject((x) => x.name);
+  const configName = useProjectConfig((x) => x.name);
+  return { projectName, configName };
 }
