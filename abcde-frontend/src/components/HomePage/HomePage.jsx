@@ -1,6 +1,5 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { useCurrPage } from "models/currPage";
 import { useProjectToLoad } from "models/info/projectToLoad";
 import React, { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
@@ -11,7 +10,6 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { UI } from "utils/pageNames";
 import "./homepage.css";
 
 function HomePage() {
@@ -71,12 +69,10 @@ function RightColumn({ projects, createProject }) {
 }
 const ProjectItem = forwardRef((props, forwardedRef) => {
   const { name, id, configs, defaultConfigId } = props.project;
-  const setCurrPage = useCurrPage((x) => x.setName);
   const setProjectToLoad = useProjectToLoad((x) => x.setProject);
   const [openConfigs, setOpenConfigs] = useState(false);
 
   function onClick() {
-    setCurrPage(UI);
     setProjectToLoad({ id, configId: defaultConfigId });
   }
 
@@ -87,7 +83,6 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
   function onConfigClick(e, configId) {
     e.stopPropagation();
-    setCurrPage(UI);
     setProjectToLoad({ id, configId });
   }
 
