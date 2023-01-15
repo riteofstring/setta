@@ -229,10 +229,10 @@ export async function loadAllProjectsMetadata() {
   return output;
 }
 
-export async function loadOneProjectById({ id, configId }) {
+export async function loadOneProjectByName({ projectName, configName }) {
   const projectMetaData = await loadAllProjectsMetadata();
-  const project = _.find(projectMetaData, (x) => x.id === id);
-  const projectConfig = project.configs.find((x) => x.id === configId);
+  const project = _.find(projectMetaData, (x) => x.name === projectName);
+  const projectConfig = project.configs.find((x) => x.name === configName);
 
   if (PROJECT_NAMES["inFile"].includes(project.name)) {
     return await loadOneProject({
