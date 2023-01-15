@@ -10,9 +10,10 @@ type AuthZustandType = AuthStateType & AuthActionType;
 
 export const useAuth = create<AuthZustandType>((set) => ({
   username: NO_AUTH ? "Kevin" : "",
-  isAuthenticated: NO_AUTH ? true : false,
+  isAuthenticated: NO_AUTH ? true : !!localStorage.getItem("isAuthenticated"),
   loginSuccess: (payload) =>
     set(() => {
+      localStorage.setItem("isAuthenticated", "true");
       return { username: payload.data.username, isAuthenticated: true };
     }),
   loginFail: () =>
