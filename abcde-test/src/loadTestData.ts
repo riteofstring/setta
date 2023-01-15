@@ -150,7 +150,7 @@ export async function loadSpecificTestData({
 
 export async function loadGlobalCodeInfo() {
   const output: any = {};
-  for (const k of ["pytorch", "pytorchLightning"]) {
+  for (const k of ["pytorch", "pytorchLightning", "pytorchLightningMnist"]) {
     Object.assign(
       output,
       await loadSpecificTestData({ name: k, projectName: "_codeInfo" })
