@@ -65,7 +65,7 @@ function SectionConfigCore({
   onConfigChange,
 }) {
   return (
-    <div className="flex flex-col flex-grow gap-1 overflow-y-hidden">
+    <div className="flex flex-col flex-grow gap-1">
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
         Card Types
       </h3>

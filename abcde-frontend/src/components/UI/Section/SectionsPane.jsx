@@ -1,8 +1,7 @@
 import _ from "lodash";
 import { useSectionRefs } from "models/sectionRefs";
 import React, { useEffect, useRef } from "react";
-import ReactFlow, { Background, useNodesState } from "reactflow";
-import "reactflow/dist/style.css";
+import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";

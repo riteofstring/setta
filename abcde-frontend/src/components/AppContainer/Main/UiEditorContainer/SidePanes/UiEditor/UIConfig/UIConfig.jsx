@@ -32,16 +32,16 @@ function UIConfig({ sectionId }) {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300 focus-visible:border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1";
 
   return (
-    <>
+    <div className="items-stretch">
       <StandardSearch
         inputStyles={inputStyles}
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="flex flex-grow flex-col gap-8 mt-4 overflow-y-auto">
+      <div className="flex flex-col gap-8 mt-4">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -51,7 +51,7 @@ function UIConfig({ sectionId }) {
             />
           ))}
       </div>
-    </>
+    </div>
   );
 }
 
