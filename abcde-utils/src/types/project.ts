@@ -7,7 +7,6 @@ export type ProjectAddressType = {
 export type ProjectType = {
   id: string;
   name: string;
-  defaultConfigId: string;
 };
 
 export type ProjectActionType = {
