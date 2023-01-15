@@ -70,7 +70,7 @@ function RightColumn({ projects, createProject }) {
 }
 const ProjectItem = forwardRef((props, forwardedRef) => {
   const username = useAuth((x) => x.username);
-  const { name, configs, defaultConfigId } = props.project;
+  const { name, configs } = props.project;
   const [openConfigs, setOpenConfigs] = useState(false);
 
   function goToProject(configId) {
@@ -80,7 +80,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
   }
 
   function onClick() {
-    goToProject(defaultConfigId);
+    goToProject(configs.find((x) => x.isDefault).id);
   }
 
   function onClickConfigsButton(e) {
@@ -103,7 +103,6 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
       <ThumbnailArea
         onClickConfigsButton={onClickConfigsButton}
         configs={configs}
-        defaultConfigId={defaultConfigId}
         onConfigClick={onConfigClick}
       />
       <div className="absolute bottom-0 top-0 left-0 w-full p-4 row-start-2 row-end-3 col-start-1 col-end-2 bg-white ">
@@ -116,12 +115,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
   );
 });
 
-function ThumbnailArea({
-  onClickConfigsButton,
-  configs,
-  defaultConfigId,
-  onConfigClick,
-}) {
+function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
   return (
     <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
       <StandardDropdown
@@ -134,20 +128,14 @@ function ThumbnailArea({
             Configs
           </div>
         }
-        content={
-          <Body
-            configs={configs}
-            defaultConfigId={defaultConfigId}
-            onClick={onConfigClick}
-          />
-        }
+        content={<Body configs={configs} onClick={onConfigClick} />}
         align="end"
       />
     </div>
   );
 }
 
-function Body({ configs, defaultConfigId, onClick }) {
+function Body({ configs, onClick }) {
   return configs.map((x, idx) => (
     <Item
       className="flex flex-row"
@@ -155,7 +143,7 @@ function Body({ configs, defaultConfigId, onClick }) {
       onClick={(e) => onClick(e, x.id)}
     >
       {x.name}
-      <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
+      <DefaultConfigBadge config={x} />
     </Item>
   ));
 }
@@ -182,9 +170,9 @@ function ProjectNameSetter({ onClick }) {
   );
 }
 
-export function DefaultConfigBadge({ config, defaultConfigId }) {
+export function DefaultConfigBadge({ config }) {
   return (
-    config.id === defaultConfigId && (
+    config.isDefault && (
       <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
     )
   );
