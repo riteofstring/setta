@@ -159,6 +159,18 @@ function getSelectedItem(p, id) {
   return p.codeInfo.allCodeInfo[selectedItem].path;
 }
 
+function getParamIds(p, id) {
+  const { selectedItem, evColId, kwargColId } = getSectionConfig(p, id);
+  const paramIds = Object.keys(p.evCols[evColId]);
+  const kwargIds = p.kwargCols[kwargColId][selectedItem];
+  return [...paramIds, ...(kwargIds ? kwargIds : [])];
+}
+
+function getParamUIType(p, sectionId, id) {
+  const { uiTypeColId } = getSectionConfig(p, sectionId);
+  return p.uiTypeCols[uiTypeColId][id];
+}
+
 export function exportSelected(p) {
   const e = new Exporter(p);
   e.export();
@@ -197,19 +209,36 @@ class Exporter {
     if (type === SECTION) {
       return {
         callable: getSelectedItem(this.p, id),
-        params: this.exportParams([]),
+        params: this.exportParams(id, getParamIds(this.p, id)),
       };
     } else if ([LIST_ROOT, DICT_ROOT, DECK].includes(type)) {
       return this.exportSections(this.p.sectionCurrChildren[id]);
     }
   }
 
-  exportParams(ids) {
-    return ids.map((x) => this.exportParam(x));
+  exportParams(sectionId, ids) {
+    return ids.map((x) => this.exportParam(sectionId, x));
   }
 
-  exportParam(id) {
+  exportParam(sectionId, id) {
+    this.output[id] = {
+      id,
+      name: this.p.codeInfo.allCodeInfo[id].name,
+      value: this.exportParamValue(sectionId, id),
+      type: UITYPE_TO_VARTYPE[getParamUIType(this.p, sectionId, id)],
+    };
     return id;
+  }
+
+  exportParamValue(sectionId, id) {
+    const { evColId } = getSectionConfig(this.p, sectionId);
+    const evId = this.p.evCols[evColId][id];
+    const { value, childId } = this.p.ev[evId];
+    const sectionChildren = this.p.sectionCurrChildren[sectionId];
+    if (sectionChildren && sectionChildren.includes(childId)) {
+      return this.exportSection(childId);
+    }
+    return value;
   }
 }
 
