@@ -18,12 +18,9 @@ async function getIds({ username, projectName, configName }) {
       name: configName,
       project: { name: projectName, owner: { name: username } },
     },
-    select: { id: true, project: { select: { id: true } } },
+    select: { id: true, projectId: true },
   });
-  if (!config.project) {
-    throw new Error('project/config not found');
-  }
-  return { projectId: config.project.id, configId: config.id };
+  return { projectId: config.projectId, configId: config.id };
 }
 
 export async function getProject(id: string) {
