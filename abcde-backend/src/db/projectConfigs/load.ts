@@ -21,6 +21,7 @@ export async function getProjectConfig(id) {
           },
         },
       },
+      isDefault: true,
     },
   });
   const sectionConfigCol = _.mapValues(
@@ -35,6 +36,7 @@ export async function getProjectConfig(id) {
     sectionConfigCol: p.sectionConfigColId,
     childrenId: p.sectionChildrenId,
     children: getOrderedChildren(p.sectionChildren.children, 'sectionId'),
+    isDefault: p.isDefault,
   };
 
   return { projectConfig, sectionConfigCol, sectionPositions };

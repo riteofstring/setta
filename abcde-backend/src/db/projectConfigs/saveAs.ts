@@ -34,6 +34,7 @@ export async function saveAsExistingProjectConfig(
     sectionConfigCol: x.sectionConfigColId,
     childrenId: x.sectionChildrenId,
     children: projectToSave.projectConfig.children,
+    isDefault: projectToSave.projectConfig.isDefault,
   };
 
   projectToSave.projectConfig = copyProjectConfig({

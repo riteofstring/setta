@@ -252,13 +252,11 @@ model RefUIType {
 }
 
 model Project {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String          @db.VarChar(255)
-  owner           User            @relation(fields: [ownerId], references: [id])
-  ownerId         String          @db.Uuid
-  configs         ProjectConfig[] @relation("configs") //ProjectConfig.project
-  defaultConfig   ProjectConfig   @relation(fields: [defaultConfigId], references: [id])
-  defaultConfigId String          @unique @db.Uuid
+  id      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name    String          @db.VarChar(255)
+  owner   User            @relation(fields: [ownerId], references: [id])
+  ownerId String          @db.Uuid
+  configs ProjectConfig[] @relation("configs") //ProjectConfig.project
 
   @@unique([name, ownerId])
 }
@@ -270,9 +268,9 @@ model ProjectConfig {
   sectionConfigColId String                         @db.Uuid
   sectionChildren    SectionChildrenId              @relation(fields: [sectionChildrenId], references: [id])
   sectionChildrenId  String                         @db.Uuid
-  project            Project?                       @relation("configs", fields: [projectId], references: [id])
-  projectId          String?                        @db.Uuid
-  defaultFor         Project? //Project.defaultConfig 
+  project            Project                        @relation("configs", fields: [projectId], references: [id])
+  projectId          String                         @db.Uuid
+  isDefault          Boolean
   codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
   codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
 
