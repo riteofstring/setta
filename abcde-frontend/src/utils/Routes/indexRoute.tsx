@@ -3,7 +3,6 @@ import HomePage from "components/HomePage/HomePage";
 import LoginPage from "components/LoginPage/LoginPage";
 import { useAuth } from "models/auth";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
-import { rootRoute } from "./root";
 
 function IndexComponent() {
   const isAuthenticated = useAuth((x) => x.isAuthenticated);
@@ -22,7 +21,7 @@ function IndexComponent() {
   );
 }
 
-export const indexRoute = rootRoute.createRoute({
+export const indexRoute = {
   path: "/",
-  component: IndexComponent,
-});
+  element: <IndexComponent />,
+};
