@@ -25,7 +25,7 @@ export default function KwargParam(props) {
         color="text-gray-400 hover:text-gray-600"
         twClasses="pl-3"
       />
-      <ParamContainer {...props} isKwarg={true}>
+      <ParamContainer {...props}>
         <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />
       </ParamContainer>
     </div>
