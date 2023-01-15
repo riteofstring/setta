@@ -1,4 +1,5 @@
 import { useAuth } from "models/auth";
+import { useParams } from "react-router-dom";
 import VerticalLine from "utils/atoms/dividers/VerticalLine";
 import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
 import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
@@ -11,14 +12,18 @@ export default function SubNav() {
   return (
     <div className="flex ml-4 space-x-2">
       <VerticalLine />
-      {/* <NavSwitch /> */}
+      <NavSwitch />
     </div>
   );
 }
 
 function NavSwitch() {
   const isAuthenticated = useAuth((x) => x.isAuthenticated);
-  return isAuthenticated ? <UiEditorSubNav /> : null;
+  const { projectName, configName } = useParams();
+
+  return isAuthenticated && projectName && configName ? (
+    <UiEditorSubNav />
+  ) : null;
 }
 
 function UiEditorSubNav() {
