@@ -41,5 +41,5 @@ export const rootTypeToChildSubType = {
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
-  return [SECTION, LIST_ROOT, DICT_ROOT, DECK].includes(uiType.type);
+  return [SECTION, LIST_ROOT, DICT_ROOT, DECK, OUTPUT].includes(uiType.type);
 }
