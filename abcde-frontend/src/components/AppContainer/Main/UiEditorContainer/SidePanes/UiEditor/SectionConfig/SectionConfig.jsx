@@ -1,11 +1,14 @@
+import { OUTPUT } from "abcde-utils/src/constants";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useGetSectionType } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { UI_CONFIG_TAB, useUIEditor } from "models/uiEditor";
 import React from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
+import { OutputSectionConfigComp } from "./OutputSectionConfigComp";
 import SectionConfigComp from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
@@ -64,6 +67,8 @@ function SectionConfigCore({
   sectionId,
   onConfigChange,
 }) {
+  const sectionType = useGetSectionType(sectionId, "type");
+
   return (
     <div className="flex flex-col flex-grow gap-1">
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
@@ -78,10 +83,14 @@ function SectionConfigCore({
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-4">
         Contents
       </h3>
-      <SectionConfigComp
-        sectionId={sectionId}
-        onConfigChange={onConfigChange}
-      />
+      {sectionType === OUTPUT ? (
+        <OutputSectionConfigComp sectionId={sectionId} />
+      ) : (
+        <SectionConfigComp
+          sectionId={sectionId}
+          onConfigChange={onConfigChange}
+        />
+      )}
     </div>
   );
 }
