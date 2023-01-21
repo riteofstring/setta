@@ -27,6 +27,7 @@ import { loadOneProject } from 'src/middleware/projects/loadOneProject';
 import { saveAsExistingProjectConfig } from 'src/middleware/projects/saveAsExistingProjectConfig';
 import { saveAsNewProjectConfig } from 'src/middleware/projects/saveAsNewProjectConfig';
 import { saveProject } from 'src/middleware/projects/saveProject';
+import { logData } from './middleware/logging/logging';
 export const router = express.Router();
 
 router.post(LOGIN, login);
@@ -49,3 +50,4 @@ router.post(GET_COLLECTIONS_AND_MODULES, getCollectionsAndModules);
 router.post(GET_COLLECTION_DETAILS, getCollectionDetails);
 router.post(GENERATE_CODE, generateCode);
 router.post(GET_CODE, getCode);
+router.post('/logging', logData);

@@ -5,6 +5,7 @@ import { sessionParser } from './sessionParser';
 import { wss } from './websocket';
 
 const server = http.createServer(app);
+const allSockets = {};
 
 server.on('upgrade', function upgrade(req, socket, head) {
   runSessionParser(req, socket, head);
@@ -29,6 +30,14 @@ function runPassportAuth(req, socket, head) {
     }
     wss.handleUpgrade(req, socket, head, function (ws) {
       wss.emit('connection', ws, req);
+      allSockets[req.user] = ws;
     });
   });
+}
+
+export function sendToUser(user, message) {
+  if (user in allSockets) {
+    console.log(`sending ${message} to ${user}`);
+    allSockets[user].send(JSON.stringify(message));
+  }
 }
