@@ -1,4 +1,5 @@
 import { WEBSOCKET } from "abcde-utils/src/addresses";
+import { useOutputs } from "models/info/outputs";
 
 let wss;
 
@@ -13,7 +14,7 @@ export function openWebSocket() {
   });
 
   wss.addEventListener("message", (event) => {
-    console.log("Message from server ", event.data);
+    processMessage(event.data);
   });
 
   wss.addEventListener("close", (event) => {
@@ -31,5 +32,12 @@ export function closeWebSocket() {
   if (wss) {
     wss.close();
     wss = null;
+  }
+}
+
+function processMessage(message) {
+  const m = JSON.parse(message);
+  if (m.type === "LOG") {
+    useOutputs.getState().appendValue(m.data);
   }
 }
