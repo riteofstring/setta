@@ -6,7 +6,7 @@ let wss;
 export function openWebSocket() {
   if (!wss) {
     console.log("connecting to websocket");
-    wss = new WebSocket(WEBSOCKET);
+    wss = new WebSocket(WEBSOCKET());
   }
 
   wss.addEventListener("open", (event) => {
