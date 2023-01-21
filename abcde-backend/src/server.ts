@@ -34,6 +34,7 @@ function runPassportAuth(req, socket, head) {
       }
       const currSet = allSockets[req.user];
       currSet.add(ws);
+      ws.on('message', wsReceiveMessage(ws));
       ws.on('close', () => currSet.delete(ws));
       wss.emit('connection', ws, req);
     });
@@ -42,8 +43,19 @@ function runPassportAuth(req, socket, head) {
 
 export function sendToUser(user, message) {
   if (user in allSockets) {
-    const numSockets = allSockets[user].size;
-    console.log(`sending message to ${numSockets} sockets`);
-    allSockets[user].forEach((x) => x.send(JSON.stringify(message)));
+    for (const s of allSockets[user]) {
+      if (s.currPage === message.pathname) {
+        s.send(JSON.stringify(message));
+      }
+    }
   }
+}
+
+function wsReceiveMessage(ws) {
+  return (data) => {
+    const x = JSON.parse(data);
+    if ('currPage' in x) {
+      ws.currPage = x.currPage;
+    }
+  };
 }
