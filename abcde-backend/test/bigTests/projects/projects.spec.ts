@@ -3,7 +3,7 @@ import {
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
 import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
-import app from 'src/app';
+import { app } from 'src/app';
 import { loadOne } from 'src/db/projects/load';
 import supertest from 'supertest';
 

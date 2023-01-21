@@ -1,5 +1,5 @@
 import { LOGIN, LOGOUT, REGISTER } from 'abcde-utils/src/routes';
-import app from 'src/app';
+import { app } from 'src/app';
 import supertest from 'supertest';
 import { clearDb } from 'test/clearDb';
 

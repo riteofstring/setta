@@ -2,11 +2,12 @@ import { FRONTEND } from 'abcde-utils/src/addresses';
 import cors from 'cors';
 import express from 'express';
 import 'express-async-errors';
-import session from 'express-session';
 import passport from 'passport';
 import { router } from './routers';
+import { sessionParser } from './sessionParser';
 
-const app = express();
+export const app = express();
+export const passportSession = passport.session();
 
 app.use(
   cors({
@@ -15,20 +16,8 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '5MB' }));
-app.use(
-  session({
-    secret: 'keyboard cat',
-    resave: false,
-    saveUninitialized: false,
-    // cookie: {secure:true}
-  }),
-);
+app.use(sessionParser);
 
 app.use(passport.initialize());
-app.use((req, res, next) => {
-  console.log('authenticating session');
-  passport.authenticate('session')(req, res, next);
-});
+app.use(passportSession);
 app.use('/', router);
-
-export default app;
