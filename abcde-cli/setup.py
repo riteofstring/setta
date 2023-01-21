@@ -18,7 +18,7 @@ setuptools.setup(
     ],
     entry_points={
         "console_scripts": [
-            "runcoder = runcoder.main:cli",
+            "runcoder = runcoder.cli.main:cli",
         ],
     },
 )

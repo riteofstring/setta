@@ -6,12 +6,12 @@ from pathlib import Path
 import click
 from requests.exceptions import RetryError
 
-from .utils.constants import BACKEND, CODE_FOLDER
-from .utils.utils import _get_retry_session
+from ..utils.constants import BACKEND, CODE_FOLDER
+from ..utils.utils import get_retry_session
 
 
-def _try_getting_code(access_token, code_id):
-    s = _get_retry_session()
+def try_getting_code(access_token, code_id):
+    s = get_retry_session()
     failed, r = True, None
     try:
         r = s.post(
@@ -31,8 +31,8 @@ def _try_getting_code(access_token, code_id):
     return failed, r
 
 
-def _run(access_token, code_id):
-    failed, r = _try_getting_code(access_token, code_id)
+def run(access_token, code_id):
+    failed, r = try_getting_code(access_token, code_id)
 
     if failed:
         return
