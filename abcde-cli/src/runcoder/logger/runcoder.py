@@ -9,12 +9,17 @@ class RuncoderLoginError(Exception):
 
 
 class Runcoder:
-    def __init__(self, username, password):
+    def __init__(self, username, password, pathname):
         failed, token = login(username, password)
         self.token = token
         if failed:
             raise RuncoderLoginError
+        self.pathname = pathname
 
     def log(self, group, key, value):
-        x = {"type": "LOG", "data": {"group": group, "key": key, "value": value}}
+        x = {
+            "type": "LOG",
+            "data": {"group": group, "key": key, "value": value},
+            "pathname": self.pathname,
+        }
         post(requests, "logging", cookies=self.token, json=x)
