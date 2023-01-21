@@ -15,5 +15,6 @@ class Runcoder:
         if failed:
             raise RuncoderLoginError
 
-    def log(self, key, value):
-        post(requests, "logging", cookies=self.token, json={key: value})
+    def log(self, group, key, value):
+        x = {"type": "LOG", "data": {"group": group, "key": key, "value": value}}
+        post(requests, "logging", cookies=self.token, json=x)
