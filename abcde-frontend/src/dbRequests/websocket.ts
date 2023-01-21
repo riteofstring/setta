@@ -12,6 +12,10 @@ export function openWebSocket() {
     console.log("connection opened", wss.readyState);
   });
 
+  wss.addEventListener("message", (event) => {
+    console.log("Message from server ", event.data);
+  });
+
   wss.addEventListener("close", (event) => {
     console.log("The connection has been closed successfully.");
   });
