@@ -1,25 +1,9 @@
 import React from "react";
-import { ReactFlowProvider } from "react-flow-renderer";
-import HeaderContainer from "./Header/Header";
-import SwitchContainer from "./SwitchContainer/SwitchContainer";
+import { RouterProvider } from "react-router-dom";
+import { router } from "utils/Routes/router";
 
 const AppContainer = () => {
-  return (
-    <ReactFlowProvider>
-      <HeaderContainer />
-      <GridContainer>
-        <SwitchContainer />
-      </GridContainer>
-    </ReactFlowProvider>
-  );
+  return <RouterProvider router={router} />;
 };
-
-function GridContainer({ children }) {
-  return (
-    <main className="h-full w-screen overflow-hidden grid grid-cols-[1fr] grid-rows-[min-content]">
-      {children}
-    </main>
-  );
-}
 
 export default React.memo(AppContainer);

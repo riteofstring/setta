@@ -1,5 +1,5 @@
 export function noAuthLogin({ loginSuccess }) {
-  loginSuccess();
+  loginSuccess({ data: { username: "Kevin" } });
   return true;
 }
 
@@ -9,6 +9,6 @@ export function noAuthLogout({ loginFail }) {
 }
 
 export function noAuthRegister({ loginSuccess }) {
-  loginSuccess();
+  loginSuccess({ data: { username: "Kevin" } });
   return true;
 }

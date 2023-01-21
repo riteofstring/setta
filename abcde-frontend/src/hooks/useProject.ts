@@ -1,55 +1,43 @@
-import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useProjectToLoad } from "models/info/projectToLoad";
 import { useEffect, useState } from "react";
-import { loadProject } from "thunks/projects";
+import { loadProject, loadProjectIntoState } from "thunks/projects";
 
 // setDoneLoading sets the doneLoading state in MainContainer
-export function useLoadProject() {
+export function useLoadProject({
+  username,
+  projectName,
+  configName,
+  newProjectConfig,
+}) {
   const [doneLoading, setDoneLoading] = useState(false);
-
-  const isAuthenticated = useAuth((x) => x.isAuthenticated);
-  const idToLoad = useProjectToLoad((x) => x.id);
-  const configIdToLoad = useProjectToLoad((x) => x.configId);
-  const isLoading = useProjectToLoad((x) => x.isLoading);
-
-  const setProject = useProjectToLoad((x) => x.setProject);
-  const setIsLoading = useProjectToLoad((x) => x.setIsLoading);
 
   useEffect(() => {
     async function fn() {
       setDoneLoading(false);
       const result = await loadProject({
-        id: idToLoad,
-        configId: configIdToLoad,
+        username,
+        projectName,
+        configName,
       });
-      setProject({ id: null, configId: null });
       setDoneLoading(result);
     }
 
-    if (isAuthenticated && idToLoad && configIdToLoad) {
+    if (newProjectConfig) {
+      loadProjectIntoState({
+        projectInfo: newProjectConfig,
+        excludeCodeInfo: true,
+      });
+    } else if (username && projectName && configName) {
       fn();
     }
-  }, [idToLoad, configIdToLoad]);
-
-  useEffect(() => {
-    // If data is being loaded outside of here, and doneLoading = true
-    // then set doneLoading to false.
-    // Must compare to boolean values to prevent changes on initial render.
-    if (isLoading === true) {
-      setDoneLoading(false);
-    } else if (isLoading === false) {
-      setDoneLoading(true);
-      setIsLoading(null);
-    }
-  }, [isLoading]);
+  }, [username, projectName, configName]);
 
   return doneLoading;
 }
 
-export function useCurrProjectId() {
-  const id = useProject((x) => x.id);
-  const configId = useProjectConfig((x) => x.id);
-  return { id, configId };
+export function useCurrProjectName() {
+  const projectName = useProject((x) => x.name);
+  const configName = useProjectConfig((x) => x.name);
+  return { projectName, configName };
 }
