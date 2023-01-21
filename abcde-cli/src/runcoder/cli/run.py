@@ -6,7 +6,8 @@ from pathlib import Path
 import click
 from requests.exceptions import RetryError
 
-from ..utils.constants import BACKEND, CODE_FOLDER
+from ..backend.post import post
+from ..utils.constants import CODE_FOLDER
 from ..utils.utils import get_retry_session
 
 
@@ -14,10 +15,8 @@ def try_getting_code(access_token, code_id):
     s = get_retry_session()
     failed, r = True, None
     try:
-        r = s.post(
-            f"{BACKEND}codeGenerator/getCode",
-            json={"codeId": code_id},
-            cookies={"connect.sid": access_token},
+        r = post(
+            s, "codeGenerator/getCode", json={"codeId": code_id}, cookies=access_token
         )
         failed = r.status_code != 200
         if r.status_code == 422:
