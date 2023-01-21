@@ -1,8 +1,8 @@
 import { BACKEND_PORT } from 'abcde-utils/src/addresses';
 import http from 'http';
-import { app, passportSession } from './app';
-import { sessionParser } from './sessionParser';
-import { wss } from './websocket';
+import { app, passportSession } from './app/app';
+import { sessionParser } from './app/sessionParser';
+import { wss } from './websocket/websocket';
 
 const server = http.createServer(app);
 const allSockets = {};
@@ -29,8 +29,13 @@ function runPassportAuth(req, socket, head) {
       return;
     }
     wss.handleUpgrade(req, socket, head, function (ws) {
+      const connId = req.url.replace(/^\/+/g, ''); // remove leading slash
+      if (!(req.user in allSockets)) {
+        allSockets[req.user] = {};
+      }
+      allSockets[req.user][connId] = ws;
+      console.log('allSockets', allSockets);
       wss.emit('connection', ws, req);
-      allSockets[req.user] = ws;
     });
   });
 }

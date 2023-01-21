@@ -21,13 +21,14 @@ import { generateCode } from 'src/middleware/codeGenerator/generateCode';
 import { getCode } from 'src/middleware/codeGenerator/getCode';
 import { getCollectionDetails } from 'src/middleware/codeInfo/getCollectionDetails';
 import { getCollectionsAndModules } from 'src/middleware/codeInfo/getCollectionsAndModules';
+import { logData } from 'src/middleware/logging/logging';
 import { createProject } from 'src/middleware/projects/createProject';
 import { loadAllUsersProjects } from 'src/middleware/projects/loadAllUsersProjects';
 import { loadOneProject } from 'src/middleware/projects/loadOneProject';
 import { saveAsExistingProjectConfig } from 'src/middleware/projects/saveAsExistingProjectConfig';
 import { saveAsNewProjectConfig } from 'src/middleware/projects/saveAsNewProjectConfig';
 import { saveProject } from 'src/middleware/projects/saveProject';
-import { logData } from './middleware/logging/logging';
+
 export const router = express.Router();
 
 router.post(LOGIN, login);

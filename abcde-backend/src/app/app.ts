@@ -3,7 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import 'express-async-errors';
 import passport from 'passport';
-import { router } from './routers';
+import { router } from 'src/routers/routers';
 import { sessionParser } from './sessionParser';
 
 export const app = express();
