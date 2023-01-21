@@ -33,17 +33,16 @@ export async function getProjects() {
 }
 
 export async function loadProject({
-  username,
-  projectName,
-  configName,
+  id,
+  configId,
 }): Promise<ProjectLoadType | void> {
   if (NO_AUTH) {
-    return await noAuthLoadProject({ projectName, configName });
+    return await noAuthLoadProject({ id, configId });
   }
 
   return post({
     body: {},
-    address: LOAD_PROJECT({ username, projectName, configName }),
+    address: LOAD_PROJECT(id, configId),
     thenFn: (res) => res.data,
     catchFn: () => undefined,
   });
