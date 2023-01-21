@@ -8,7 +8,7 @@ async function _getCode(req, res) {
     return;
   }
   const code = await loadCode({ id: codeId, ownerId: userId });
-  res.json(code).status(200);
+  res.json(code);
 }
 
 function errorHandler(err, req, res, next) {

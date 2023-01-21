@@ -9,5 +9,5 @@ export async function loadOneProject(req, res) {
     projectName,
     configName,
   });
-  res.json(project).status(200);
+  res.json(project);
 }

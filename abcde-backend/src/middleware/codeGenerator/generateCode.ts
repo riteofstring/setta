@@ -12,5 +12,5 @@ export async function generateCode(req, res) {
   const codeJson = exportSelected(project);
   const code = fnGenerateCode(codeJson);
   await saveGeneratedCode({ id: codeId, ownerId: userId, code });
-  res.json(project).status(200);
+  res.json(project);
 }
