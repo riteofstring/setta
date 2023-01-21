@@ -2,10 +2,10 @@ import { BACKEND_PORT } from 'abcde-utils/src/addresses';
 import http from 'http';
 import { app, passportSession } from './app/app';
 import { sessionParser } from './app/sessionParser';
+import { allSockets } from './websocket/allSockets';
 import { wss } from './websocket/websocket';
 
 const server = http.createServer(app);
-const allSockets = {};
 
 server.on('upgrade', function upgrade(req, socket, head) {
   runSessionParser(req, socket, head);
@@ -29,12 +29,12 @@ function runPassportAuth(req, socket, head) {
       return;
     }
     wss.handleUpgrade(req, socket, head, function (ws) {
-      const connId = req.url.replace(/^\/+/g, ''); // remove leading slash
       if (!(req.user in allSockets)) {
-        allSockets[req.user] = {};
+        allSockets[req.user] = new Set();
       }
-      allSockets[req.user][connId] = ws;
-      console.log('allSockets', allSockets);
+      const currSet = allSockets[req.user];
+      currSet.add(ws);
+      ws.on('close', () => currSet.delete(ws));
       wss.emit('connection', ws, req);
     });
   });
@@ -42,7 +42,8 @@ function runPassportAuth(req, socket, head) {
 
 export function sendToUser(user, message) {
   if (user in allSockets) {
-    console.log(`sending ${message} to ${user}`);
-    allSockets[user].send(JSON.stringify(message));
+    const numSockets = allSockets[user].size;
+    console.log(`sending message to ${numSockets} sockets`);
+    allSockets[user].forEach((x) => x.send(JSON.stringify(message)));
   }
 }
