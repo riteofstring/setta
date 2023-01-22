@@ -38,7 +38,9 @@ def run(access_token, code_id):
         return
 
     click.echo("Received code")
-    code = r.json()["code"]
+    data = r.json()
+    code = data["code"]
+    pathname = data["pathname"]
 
     cwd = os.getcwd()
     code_folder_path = Path(cwd) / CODE_FOLDER
@@ -50,6 +52,8 @@ def run(access_token, code_id):
 
     # set token so it's available for logger
     Runcoder.token = access_token
+    Runcoder.pathname = pathname
+
     # add current working directory to path
     sys.path.insert(0, cwd)
     # importing the code executes it

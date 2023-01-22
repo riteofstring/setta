@@ -10,14 +10,14 @@ class RuncoderLoginError(Exception):
 
 class Runcoder:
     token = None
+    pathname = None
 
-    def __init__(self, username=None, password=None, pathname=None):
+    def __init__(self, username=None, password=None):
         if username and password:
             failed, token = login(username, password)
             self.token = token
             if failed:
                 raise RuncoderLoginError
-        self.pathname = pathname
 
     def log(self, group, key, value):
         x = {
