@@ -4,10 +4,9 @@ import { useUIEditor } from "models/uiEditor";
 import React from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { goToParamConfigTab } from "thunks/switchTabs";
-import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
-import { OutputSectionConfigComp } from "./OutputSectionConfigComp";
-import SectionConfigComp from "./SectionConfigComp";
+import { OutputsSearch } from "./OutputSectionConfigComp";
+import { CollectionsSearch } from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
 export default React.memo(SectionConfig);
@@ -24,13 +23,6 @@ function SectionConfig({ sectionId }) {
 function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
 
-  const onConfigChange = ({ newValueFn }) => {
-    setSectionUITypeConfig({
-      sectionId,
-      configProps: { configName: "collections", newValueFn },
-    });
-  };
-
   return (
     <div className="flex flex-col flex-grow gap-1">
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
@@ -42,12 +34,9 @@ function SectionConfigCore({ sectionId }) {
         Contents
       </h3>
       {sectionType === OUTPUT ? (
-        <OutputSectionConfigComp sectionId={sectionId} />
+        <OutputsSearch sectionId={sectionId} />
       ) : (
-        <SectionConfigComp
-          sectionId={sectionId}
-          onConfigChange={onConfigChange}
-        />
+        <CollectionsSearch sectionId={sectionId} />
       )}
     </div>
   );

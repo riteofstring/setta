@@ -11,6 +11,7 @@ export function useOutputNames() {
   const groups = useOutputGroups(
     (x) =>
       _.mapValues(x.x, (group) => ({
+        id: group.id,
         name: group.name,
         children: _.map(group.children, (c) => outputNames[c]),
       })),
