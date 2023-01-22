@@ -22,3 +22,22 @@ export function useOutputNames(groupIds = null) {
 
   return groups;
 }
+
+export function useOutputValues(groupIds) {
+  const groups = useOutputGroups((x) => _.pick(x.x, groupIds), _.isEqual);
+  const childrenIds = ([] as string[]).concat(
+    ..._.map(groups, (x) => x.children)
+  );
+  const children = useOutputs(
+    (x) =>
+      _.keyBy(
+        childrenIds.map((c) => x.x[c]),
+        "id"
+      ),
+    _.isEqual
+  );
+  return _.mapValues(groups, (x) => ({
+    ...x,
+    children: x.children.map((c) => children[c]),
+  }));
+}

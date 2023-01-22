@@ -6,7 +6,7 @@ import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
-import { useOutputNames } from "./useOutputNames";
+import { useOutputNames, useOutputValues } from "./useOutputNames";
 import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
@@ -69,7 +69,12 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
   );
 }
 
-export function useGetSelectedOutputs(sectionId: string) {
+export function useGetSelectedOutputNames(sectionId: string) {
   const groupIds = useGetSectionTypeConfig(sectionId, "outputGroups");
   return useOutputNames(groupIds);
+}
+
+export function useGetSelectedOutputValues(sectionId: string) {
+  const groupIds = useGetSectionTypeConfig(sectionId, "outputGroups");
+  return useOutputValues(groupIds);
 }

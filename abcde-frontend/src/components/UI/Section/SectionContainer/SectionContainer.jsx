@@ -35,7 +35,7 @@ function SectionContainer({
         />
       )}
 
-      {isOutput && <OutputSection />}
+      {isOutput && <OutputSection sectionId={sectionId} />}
 
       {hasNested && (
         <div className="flex flex-col">
