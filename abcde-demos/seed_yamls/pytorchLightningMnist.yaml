@@ -1,2 +1,3 @@
 - src.pytorch_lightning_mnist.model.MNISTModel
 - src.pytorch_lightning_mnist.train.train
+- src.pytorch_lightning_mnist.logger.RuncoderLogger
