@@ -8,12 +8,6 @@ import {
   TEXT,
 } from 'abcde-utils/src/constants';
 
-function addOsSysImports(imports) {
-  imports.add('import os');
-  imports.add('import sys');
-  imports.add('sys.path.insert(0, os.getcwd())');
-}
-
 function getImport(x) {
   if (x.type === SECTION) {
     if (!x.value.callable) {
@@ -77,7 +71,6 @@ function getVarDeclaration(varName, x, selected) {
 export function generateCode(selected) {
   const lines: string[] = [];
   const imports = new Set();
-  addOsSysImports(imports);
   for (const [varName, x] of Object.entries(selected)) {
     const varStr = getVarDeclaration(varName, x, selected);
     varStr && lines.push(varStr);
