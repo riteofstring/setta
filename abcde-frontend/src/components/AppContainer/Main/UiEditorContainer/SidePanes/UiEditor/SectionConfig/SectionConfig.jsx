@@ -14,50 +14,29 @@ import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 export default React.memo(SectionConfig);
 
 function SectionConfig({ sectionId }) {
-  const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
+  return (
+    <>
+      <GoBackButton sectionId={sectionId} />
+      <SectionConfigCore sectionId={sectionId} />
+    </>
+  );
+}
+
+function SectionConfigCore({ sectionId }) {
+  const sectionType = useGetSectionType(sectionId, "type");
   const currTypeId = useGetSectionConfig(sectionId, "uiTypeId");
-  const onGoBackClick = () => goToParamConfigTab({ sectionId });
 
   const onSectionTypeChange = (e) => {
     if (e && e !== currTypeId) {
       setSectionUITypeId({ uiTypeId: e, sectionId });
     }
   };
-
   const onConfigChange = ({ newValueFn }) => {
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "collections", newValueFn },
     });
   };
-
-  const goBackBtnStyles =
-    "mt-2 border border-solid border-gray-300 font-bold text-sm self-stretch justify-center text-gray-800 hover:bg-gray-200 hover:text-gray-900 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
-
-  return (
-    <>
-      {cameFromUIConfig && (
-        <Button twClasses={goBackBtnStyles} onClick={onGoBackClick}>
-          <IoArrowBack className="w-5 h-5" /> Go back
-        </Button>
-      )}
-      <SectionConfigCore
-        onSectionTypeChange={onSectionTypeChange}
-        currTypeId={currTypeId}
-        sectionId={sectionId}
-        onConfigChange={onConfigChange}
-      />
-    </>
-  );
-}
-
-function SectionConfigCore({
-  onSectionTypeChange,
-  currTypeId,
-  sectionId,
-  onConfigChange,
-}) {
-  const sectionType = useGetSectionType(sectionId, "type");
 
   return (
     <div className="flex flex-col flex-grow gap-1">
@@ -83,4 +62,18 @@ function SectionConfigCore({
       )}
     </div>
   );
+}
+
+function GoBackButton({ sectionId }) {
+  const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
+  const onGoBackClick = () => goToParamConfigTab({ sectionId });
+
+  const goBackBtnStyles =
+    "mt-2 border border-solid border-gray-300 font-bold text-sm self-stretch justify-center text-gray-800 hover:bg-gray-200 hover:text-gray-900 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
+
+  return cameFromUIConfig ? (
+    <Button twClasses={goBackBtnStyles} onClick={onGoBackClick}>
+      <IoArrowBack className="w-5 h-5" /> Go back
+    </Button>
+  ) : null;
 }
