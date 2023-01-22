@@ -52,24 +52,16 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
 }
 
 function Search({ onSubmit }) {
-  const [text, setText] = useState("");
-  function onChange(e) {
-    setText(e.target.value);
-  }
   function onFormSubmit(e) {
     e.preventDefault();
-    onSubmit(text);
+    onSubmit(e.target[0].value);
   }
 
   const inputStyles =
     "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
-    <StandardSearch
-      inputStyles={inputStyles}
-      onChange={onChange}
-      onFormSubmit={onFormSubmit}
-    />
+    <StandardSearch inputStyles={inputStyles} onFormSubmit={onFormSubmit} />
   );
 }
 
