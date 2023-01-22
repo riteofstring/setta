@@ -1,11 +1,10 @@
 import { OUTPUT } from "abcde-utils/src/constants";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useActiveSection } from "models/activeSection";
-import { UI_CONFIG_TAB, useUIEditor } from "models/uiEditor";
+import { useUIEditor } from "models/uiEditor";
 import React from "react";
 import { IoArrowBack } from "react-icons/io5";
+import { goToParamConfigTab } from "thunks/switchTabs";
 import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
 import { OutputSectionConfigComp } from "./OutputSectionConfigComp";
@@ -15,18 +14,9 @@ import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 export default React.memo(SectionConfig);
 
 function SectionConfig({ sectionId }) {
-  const setActiveSection = useActiveSection((x) => x.setId);
   const cameFromUIConfig = useUIEditor((x) => x.cameFromUIConfig);
-  const setCameFromUIConfig = useUIEditor((x) => x.setCameFromUIConfig);
-  const setTab = useUIEditor((x) => x.setTab);
-  const parentId = useGetSectionInfo(sectionId, "parentId");
   const currTypeId = useGetSectionConfig(sectionId, "uiTypeId");
-
-  const onGoBackClick = () => {
-    setActiveSection(parentId);
-    setCameFromUIConfig(false);
-    setTab(UI_CONFIG_TAB);
-  };
+  const onGoBackClick = () => goToParamConfigTab({ sectionId });
 
   const onSectionTypeChange = (e) => {
     if (e && e !== currTypeId) {
