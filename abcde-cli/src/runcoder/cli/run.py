@@ -1,5 +1,5 @@
+import importlib
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -47,5 +47,12 @@ def run(access_token, code_id):
     with open(code_file_path, "w") as f:
         f.write(code)
 
-    cmd = ["python", code_file_path]
-    subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
+    # add current working directory to path
+    sys.path.insert(0, cwd)
+    # importing the code executes it
+    # because all the code is at the top level
+    importlib.import_module(f".{code_id}", f"{CODE_FOLDER}")
+
+    #### Alternate approach: launch subprocess ####
+    # cmd = ["python", code_file_path]
+    # subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
