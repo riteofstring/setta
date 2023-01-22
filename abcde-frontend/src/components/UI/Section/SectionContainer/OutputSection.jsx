@@ -37,30 +37,31 @@ export const options = {
 };
 
 export function OutputSection() {
-  const groupName = "wave";
-  const rawData = useOutputs((x) => x.x[groupName]);
-  const datasetNames = rawData ? Object.keys(rawData) : [];
-  const datasets = datasetNames.map((x) => ({
-    label: x,
-    data: rawData[x],
-    borderColor: "rgb(255, 99, 132)",
-    backgroundColor: "rgba(255, 99, 132, 0.5)",
-  }));
+  // const groupName = "wave";
+  // const rawData = useOutputs((x) => x.x[groupName]);
+  // const datasetNames = rawData ? Object.keys(rawData) : [];
+  // const datasets = datasetNames.map((x) => ({
+  //   label: x,
+  //   data: rawData[x],
+  //   borderColor: "rgb(255, 99, 132)",
+  //   backgroundColor: "rgba(255, 99, 132, 0.5)",
+  // }));
 
-  const labels = datasets[0] ? _.range(datasets[0].data.length) : [];
+  // const labels = datasets[0] ? _.range(datasets[0].data.length) : [];
 
-  const data = {
-    labels,
-    datasets,
-  };
+  // const data = {
+  //   labels,
+  //   datasets,
+  // };
 
-  return (
-    <div
-      style={{
-        width: `${SECTIONWIDTH}px`,
-      }}
-    >
-      <Line options={options} data={data} />
-    </div>
-  );
+  // return (
+  //   <div
+  //     style={{
+  //       width: `${SECTIONWIDTH}px`,
+  //     }}
+  //   >
+  //     <Line options={options} data={data} />
+  //   </div>
+  // );
+  return null
 }

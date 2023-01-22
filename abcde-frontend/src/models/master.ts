@@ -4,6 +4,7 @@ import { useUserCodeInfoMaps } from "./codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "./info/codeInfo";
 import { useEnteredValues } from "./info/enteredValues";
 import { useKwargCols } from "./info/kwargCols";
+import { useOutputGroups } from "./info/outputGroups";
 import { useOutputs } from "./info/outputs";
 import { useParamInfos } from "./info/paramInfos";
 import { useProject } from "./info/project";
@@ -28,6 +29,7 @@ export function loadSections({
   uiTypeCols,
   kwargCols,
   outputs,
+  outputGroups,
   excludeCodeInfo,
 }: ProjectLoadType & { excludeCodeInfo: boolean }) {
   if (!excludeCodeInfo) {
@@ -50,4 +52,5 @@ export function loadSections({
   });
   useSectionConfigs.getState().resetAndSetAll(sectionConfigs);
   useOutputs.getState().resetAndSetAll(outputs);
+  useOutputGroups.getState().resetAndSetAll(outputGroups);
 }

@@ -1,9 +1,21 @@
 import _ from "lodash";
+import { useOutputGroups } from "models/info/outputGroups";
 import { useOutputs } from "models/info/outputs";
 
 export function useOutputNames() {
-  return useOutputs(
-    (x) => _.mapValues(x.x, (group) => Object.keys(group)),
+  const outputNames = useOutputs(
+    (x) => _.mapValues(x.x, (output) => output.name),
     _.isEqual
   );
+
+  const groups = useOutputGroups(
+    (x) =>
+      _.mapValues(x.x, (group) => ({
+        name: group.name,
+        children: _.map(group.children, (c) => outputNames[c]),
+      })),
+    _.isEqual
+  );
+
+  return groups;
 }
