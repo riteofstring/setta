@@ -96,6 +96,7 @@ export default {
       collections: [],
       subType: null,
       childUITypeId: null,
+      outputGroups: [],
     },
     originInfoId: {},
     isForChildOfOriginInfoId: false,
