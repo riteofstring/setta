@@ -273,6 +273,7 @@ model ProjectConfig {
   isDefault          Boolean
   codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
   codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
+  runs               Run[]
 
   @@unique([name, projectId])
 }
@@ -324,4 +325,28 @@ model ProjectConfigCodeInfoMap {
   uiTypeId        String        @db.Uuid
 
   @@id([projectConfigId, codeInfoId])
+}
+
+model Run {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
+  projectConfigId String        @db.Uuid
+  outputGroups    OutputGroup[]
+}
+
+model OutputGroup {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String
+  children Output[]
+  run      Run      @relation(fields: [runId], references: [id])
+  runId    String   @db.Uuid
+}
+
+model Output {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  values        Float[]
+  outputGroup   OutputGroup @relation(fields: [outputGroupId], references: [id])
+  outputGroupId String      @db.Uuid
 }
