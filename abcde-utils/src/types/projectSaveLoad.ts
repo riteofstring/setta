@@ -4,6 +4,7 @@ import { ManyEVType } from "./ev";
 import { ManyEVColType } from "./evCol";
 import { ManyKwargColType } from "./kwargCol";
 import { ManyOutputType } from "./output";
+import { ManyOutputGroupType } from "./outputGroup";
 import { ProjectType } from "./project";
 import { ProjectConfigType } from "./projectConfig";
 import { ManySectionCoreType } from "./section";
@@ -27,10 +28,11 @@ export type ProjectSaveType = {
   sectionConfigs: ManySectionConfigType;
   sectionConfigCol: SectionConfigColType;
   projectConfigCodeInfoMaps: CodeInfoMapStateType;
-  outputs: ManyOutputType;
 };
 
 export type ProjectLoadType = Omit<ProjectSaveType, "kwargInfo"> & {
   codeInfo: CodeInfoStateType;
   userCodeInfoMaps: CodeInfoMapStateType;
+  outputs: ManyOutputType;
+  outputGroups: ManyOutputGroupType;
 };
