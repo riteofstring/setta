@@ -9,11 +9,14 @@ class RuncoderLoginError(Exception):
 
 
 class Runcoder:
-    def __init__(self, username, password, pathname):
-        failed, token = login(username, password)
-        self.token = token
-        if failed:
-            raise RuncoderLoginError
+    token = None
+
+    def __init__(self, username=None, password=None, pathname=None):
+        if username and password:
+            failed, token = login(username, password)
+            self.token = token
+            if failed:
+                raise RuncoderLoginError
         self.pathname = pathname
 
     def log(self, group, key, value):

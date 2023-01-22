@@ -7,6 +7,7 @@ import click
 from requests.exceptions import RetryError
 
 from ..backend.post import post
+from ..logger.runcoder import Runcoder
 from ..utils.constants import CODE_FOLDER
 from ..utils.utils import get_retry_session
 
@@ -47,6 +48,8 @@ def run(access_token, code_id):
     with open(code_file_path, "w") as f:
         f.write(code)
 
+    # set token so it's available for logger
+    Runcoder.token = access_token
     # add current working directory to path
     sys.path.insert(0, cwd)
     # importing the code executes it
