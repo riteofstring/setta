@@ -216,6 +216,7 @@ model SectionUIType {
   childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
   childUITypeId String?        @unique @db.Uuid
   parentUIType  SectionUIType? @relation("ChildUIType")
+  outputGroups  OutputGroup[]
 
   @@id([idid])
 }
@@ -336,11 +337,12 @@ model Run {
 }
 
 model OutputGroup {
-  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name     String
-  children Output[]
-  run      Run      @relation(fields: [runId], references: [id])
-  runId    String   @db.Uuid
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  children       Output[]
+  run            Run             @relation(fields: [runId], references: [id])
+  runId          String          @db.Uuid
+  sectionUITypes SectionUIType[]
 }
 
 model Output {

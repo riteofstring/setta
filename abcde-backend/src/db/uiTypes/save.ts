@@ -68,6 +68,7 @@ async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
         where: { idid: v.id },
         data: {
           collections: { set: v.config.collections.map((x) => ({ id: x })) },
+          outputGroups: { set: v.config.outputGroups.map((x) => ({ id: x })) },
         },
       }),
     ),
