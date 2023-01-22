@@ -54,6 +54,7 @@ export async function loadProjectSpecificData({
     "uiTypes",
     "uiTypeCols",
     "outputs",
+    "outputGroups",
   ]) {
     if (type === "inFile") {
       output[k] = await loadSpecificTestData({
