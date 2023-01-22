@@ -1,14 +1,11 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { useOutputs } from "models/info/outputs";
+import { useOutputNames } from "hooks/useOutputNames";
 
 export function OutputSectionConfigComp({ sectionId }) {
-  const outputs = useOutputs((x) => x.x);
-  return Object.entries(outputs).map(([group, obj]) => (
-    <SearchItem
-      group={group}
-      keys={Object.keys(obj)}
-      key={`OutputSearchItem-${group}`}
-    />
+  const outputNames = useOutputNames();
+
+  return Object.entries(outputNames).map(([group, keys]) => (
+    <SearchItem group={group} keys={keys} key={`OutputSearchItem-${group}`} />
   ));
 }
 
