@@ -1,11 +1,10 @@
 import { OUTPUT } from "abcde-utils/src/constants";
-import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useGetSectionType } from "hooks/useSectionType";
 import { useUIEditor } from "models/uiEditor";
 import React from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { goToParamConfigTab } from "thunks/switchTabs";
-import { setSectionUITypeConfig, setSectionUITypeId } from "thunks/uiTypes";
+import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
 import { OutputSectionConfigComp } from "./OutputSectionConfigComp";
 import SectionConfigComp from "./SectionConfigComp";
@@ -24,13 +23,7 @@ function SectionConfig({ sectionId }) {
 
 function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
-  const currTypeId = useGetSectionConfig(sectionId, "uiTypeId");
 
-  const onSectionTypeChange = (e) => {
-    if (e && e !== currTypeId) {
-      setSectionUITypeId({ uiTypeId: e, sectionId });
-    }
-  };
   const onConfigChange = ({ newValueFn }) => {
     setSectionUITypeConfig({
       sectionId,
@@ -43,11 +36,7 @@ function SectionConfigCore({ sectionId }) {
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
         Card Types
       </h3>
-      <SectionConfigTypeSelection
-        onDropdownSelect={onSectionTypeChange}
-        selectedId={currTypeId}
-        sectionId={sectionId}
-      />
+      <SectionConfigTypeSelection sectionId={sectionId} />
 
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-4">
         Contents
