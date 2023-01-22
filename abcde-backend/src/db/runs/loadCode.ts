@@ -7,7 +7,7 @@ export async function loadCode({
   id: string;
   ownerId: string;
 }) {
-  return await prisma.generatedCode.findFirstOrThrow({
+  return await prisma.run.findFirstOrThrow({
     where: { id, ownerId },
     select: { code: true },
   });

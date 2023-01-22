@@ -13,6 +13,8 @@ function assembleRuns(runs: ManyRunType, projectConfigId: string) {
       id,
       name: v.name,
       projectConfigId,
+      ownerId: v.ownerId,
+      code: v.code,
     });
   }
   return inDbFormat;

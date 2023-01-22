@@ -1,4 +1,4 @@
-import { loadCode } from 'src/db/codeGenerator/load';
+import { loadCode } from 'src/db/runs/loadCode';
 
 async function _getCode(req, res) {
   const userId = req.user;

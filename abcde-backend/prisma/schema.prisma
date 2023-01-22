@@ -50,7 +50,7 @@ model User {
   password         Bytes
   salt             Bytes
   projects         Project[] //Project.owner
-  generatedCode    GeneratedCode[] //GeneratedCode.owner
+  runs             Run[] //Run.owner
   uiTypes          UIType[] //UIType.owner
   codeInfoTypeMaps UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.owner
   codeInfoMaps     UserCodeInfoMap[] //UserCodeInfoMap.owner
@@ -279,13 +279,6 @@ model ProjectConfig {
   @@unique([name, projectId])
 }
 
-model GeneratedCode {
-  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  owner   User   @relation(fields: [ownerId], references: [id])
-  ownerId String @db.Uuid
-  code    String @db.Text
-}
-
 model UserCodeInfoTypeMap {
   owner    User   @relation(fields: [ownerId], references: [id])
   ownerId  String @db.Uuid
@@ -331,8 +324,11 @@ model ProjectConfigCodeInfoMap {
 model Run {
   id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String
+  owner           User          @relation(fields: [ownerId], references: [id])
+  ownerId         String        @db.Uuid
   projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
   projectConfigId String        @db.Uuid
+  code            String        @db.Text
   outputGroups    OutputGroup[]
 }
 
