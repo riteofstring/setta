@@ -15,6 +15,19 @@ export const useOutputGroups = create(
       s.reset();
       s.setAll({ x: payload });
     },
+    addChildren: ({ id, name, children }) =>
+      set((state) => {
+        if (!(id in state.x)) {
+          state.x[id] = { id, name, children };
+        } else {
+          const currChildren = state.x[id].children;
+          for (const c of children) {
+            if (!currChildren.includes(c)) {
+              currChildren.push(c);
+            }
+          }
+        }
+      }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
   }))

@@ -1,5 +1,5 @@
 import { WEBSOCKET } from "abcde-utils/src/addresses";
-import { useOutputs } from "models/info/outputs";
+import { updateOutput } from "thunks/outputs";
 
 let wss;
 
@@ -32,7 +32,7 @@ export function closeWebSocket() {
 function processMessage(message) {
   const m = JSON.parse(message);
   if (m.type === "LOG") {
-    useOutputs.getState().appendValue(m.data);
+    updateOutput(m.data);
   }
 }
 

@@ -15,9 +15,13 @@ export const useOutputs = create(
       s.reset();
       s.setAll({ x: payload });
     },
-    appendValue: ({ id, value }) =>
+    appendValues: ({ id, name, values }) =>
       set((state) => {
-        state.x[id].values.push(value);
+        if (!(id in state.x)) {
+          state.x[id] = { id, name, values };
+        } else {
+          state.x[id].values.push(...values);
+        }
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
