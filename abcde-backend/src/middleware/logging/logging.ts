@@ -31,6 +31,17 @@ async function findIds(runId, group, key) {
   return { groupId, keyId };
 }
 
+async function writeToDb(id, values) {
+  const { values: currValues } = await prisma.output.findUniqueOrThrow({
+    where: { id },
+    select: { values: true },
+  });
+  await prisma.output.update({
+    where: { id },
+    data: { values: [...currValues, ...values] },
+  });
+}
+
 export async function logData(req, res) {
   const { needIds } = req.body;
   if (needIds) {
@@ -48,4 +59,5 @@ export async function logData(req, res) {
   }
 
   sendToUser(req.user, req.body);
+  writeToDb(req.body.data.key.id, req.body.data.values);
 }
