@@ -11,7 +11,6 @@ export default {
       ],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "acd83563-2337-44c2-9b4d-db3641fcbc97",
@@ -27,7 +26,6 @@ export default {
       collections: ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
@@ -43,7 +41,6 @@ export default {
       collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "306550d9-1a80-42c6-b853-512a22e4d796",
@@ -59,7 +56,6 @@ export default {
       collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "ac23d151-2df2-436f-b146-3893806ffb1d",
@@ -75,7 +71,6 @@ export default {
       collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
@@ -91,7 +86,6 @@ export default {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "3b4bd093-351f-4bec-af52-935d50953ebd",
@@ -107,7 +101,6 @@ export default {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
@@ -123,7 +116,6 @@ export default {
       collections: ["f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86"],
       subType: null,
       childUITypeId: null,
-      outputGroups: [],
     },
     originInfoId: {
       sectionId: "4e2bf130-390b-4299-8054-aa54b7740a60",
@@ -138,7 +130,6 @@ export default {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
       childUITypeId: null,
       subType: "LIST",
-      outputGroups: [],
     },
     presetType: null,
     originInfoId: {
