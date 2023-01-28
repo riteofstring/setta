@@ -5,6 +5,7 @@ import { create } from "../utils";
 const initialState: ProjectType = {
   id: "",
   name: "",
+  defaultConfigId: "",
 };
 
 export const useProject = create<ProjectZustandType>((set, get) => ({
@@ -16,5 +17,5 @@ export const useProject = create<ProjectZustandType>((set, get) => ({
   },
   setAll: (payload) => set(payload),
   reset: () => set(initialState),
-  getAll: () => _.pick(get(), ["id", "name"]),
+  getAll: () => _.pick(get(), ["id", "name", "defaultConfigId"]),
 }));

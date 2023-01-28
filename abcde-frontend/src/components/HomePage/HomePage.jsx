@@ -1,6 +1,7 @@
 import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { useAuth } from "models/auth";
+import { useCurrPage } from "models/currPage";
+import { useProjectToLoad } from "models/info/projectToLoad";
 import React, { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import Badge from "utils/atoms/badges/badge";
@@ -10,7 +11,7 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { router } from "utils/Routes/router";
+import { UI } from "utils/pageNames";
 import "./homepage.css";
 
 function HomePage() {
@@ -69,18 +70,14 @@ function RightColumn({ projects, createProject }) {
   );
 }
 const ProjectItem = forwardRef((props, forwardedRef) => {
-  const username = useAuth((x) => x.username);
-  const { name, configs } = props.project;
+  const { name, id, configs, defaultConfigId } = props.project;
+  const setCurrPage = useCurrPage((x) => x.setName);
+  const setProjectToLoad = useProjectToLoad((x) => x.setProject);
   const [openConfigs, setOpenConfigs] = useState(false);
 
-  function goToProject(configId) {
-    const configName = configs.find((x) => x.id === configId).name;
-    const address = `${username}/${name}/${configName}`;
-    router.navigate(address);
-  }
-
   function onClick() {
-    goToProject(configs.find((x) => x.isDefault).id);
+    setCurrPage(UI);
+    setProjectToLoad({ id, configId: defaultConfigId });
   }
 
   function onClickConfigsButton(e) {
@@ -90,7 +87,8 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
   function onConfigClick(e, configId) {
     e.stopPropagation();
-    goToProject(configId);
+    setCurrPage(UI);
+    setProjectToLoad({ id, configId });
   }
 
   // bg-[url('https://via.placeholder.com/400')]
@@ -103,6 +101,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
       <ThumbnailArea
         onClickConfigsButton={onClickConfigsButton}
         configs={configs}
+        defaultConfigId={defaultConfigId}
         onConfigClick={onConfigClick}
       />
       <div className="absolute bottom-0 top-0 left-0 w-full p-4 row-start-2 row-end-3 col-start-1 col-end-2 bg-white ">
@@ -115,7 +114,12 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
   );
 });
 
-function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
+function ThumbnailArea({
+  onClickConfigsButton,
+  configs,
+  defaultConfigId,
+  onConfigClick,
+}) {
   return (
     <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
       <StandardDropdown
@@ -128,14 +132,20 @@ function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
             Configs
           </div>
         }
-        content={<Body configs={configs} onClick={onConfigClick} />}
+        content={
+          <Body
+            configs={configs}
+            defaultConfigId={defaultConfigId}
+            onClick={onConfigClick}
+          />
+        }
         align="end"
       />
     </div>
   );
 }
 
-function Body({ configs, onClick }) {
+function Body({ configs, defaultConfigId, onClick }) {
   return configs.map((x, idx) => (
     <Item
       className="flex flex-row"
@@ -143,7 +153,7 @@ function Body({ configs, onClick }) {
       onClick={(e) => onClick(e, x.id)}
     >
       {x.name}
-      <DefaultConfigBadge config={x} />
+      <DefaultConfigBadge config={x} defaultConfigId={defaultConfigId} />
     </Item>
   ));
 }
@@ -170,9 +180,9 @@ function ProjectNameSetter({ onClick }) {
   );
 }
 
-export function DefaultConfigBadge({ config }) {
+export function DefaultConfigBadge({ config, defaultConfigId }) {
   return (
-    config.isDefault && (
+    config.id === defaultConfigId && (
       <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
     )
   );

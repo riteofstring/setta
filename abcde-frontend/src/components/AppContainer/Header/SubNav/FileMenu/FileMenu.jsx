@@ -1,7 +1,6 @@
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { useCurrProjectName } from "hooks/useProject";
-import _ from "lodash";
-import { useAuth } from "models/auth";
+import { useCurrProjectId } from "hooks/useProject";
+import { useProjectToLoad } from "models/info/projectToLoad";
 import { useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
@@ -13,16 +12,13 @@ import {
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { Item } from "utils/atoms/dropdown/item";
 import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
-import { router } from "utils/Routes/router";
 
 export default function FileMenu() {
   const reactFlowStore = useStoreApi();
-  const username = useAuth((x) => x.username);
   const { projects, getProjects } = useGetOrCreateProjects();
-  const { projectName: currProjectName, configName: currConfigName } =
-    useCurrProjectName();
+  const { id: currProjectId, configId: currConfigId } = useCurrProjectId();
+  const setProjectToLoad = useProjectToLoad((x) => x.setProject);
   const [modalType, setModalType] = useState("");
 
   function onClickSave() {
@@ -39,32 +35,23 @@ export default function FileMenu() {
     getProjects();
   }
 
-  function onClickLoadProject({ projectName, configName }) {
-    router.navigate(`${username}/${projectName}/${configName}`);
+  function onClickLoadProject(selected) {
+    setProjectToLoad(selected);
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
-    const { projectName, configName } = selected;
-    const currProject = _.find(projects, (x) => x.name === currProjectName);
-    if (configName === currConfigName) {
-      onClickSave();
+    const { id, configId } = selected;
+    if (id !== currProjectId) {
+      //TODO: display something
+    }
+    if (configId) {
+      if (configId === currConfigId) {
+        onClickSave();
+      } else {
+        saveAsExistingProjectConfig({ reactFlowStore, configId });
+      }
     } else {
-      const matchingConfig = currProject.configs.find(
-        (x) => x.name === configName
-      );
-      const newProjectConfig = matchingConfig
-        ? await saveAsExistingProjectConfig({
-            reactFlowStore,
-            configId: matchingConfig.id,
-          })
-        : await saveAsNewProjectConfig({
-            reactFlowStore,
-            newConfigName,
-          });
-
-      router.navigate(`${username}/${projectName}/${configName}`, {
-        state: { newProjectConfig },
-      });
+      saveAsNewProjectConfig({ reactFlowStore, newConfigName });
     }
   }
 
@@ -74,7 +61,7 @@ export default function FileMenu() {
       files={projects}
       onClickLoadProject={onClickLoadProject}
       onClickSaveAsProject={onClickSaveAsProject}
-      currProjectName={currProjectName}
+      currProjectId={currProjectId}
     >
       <StandardDropdown
         trigger={<MenuBarButton>File</MenuBarButton>}
@@ -95,10 +82,10 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
     <>
       <DialogTriggerItem>New Project</DialogTriggerItem>
       <DialogTriggerItem onClick={onClickLoad}>Load</DialogTriggerItem>
-      <Item onClick={onClickSave}>
+      <DialogTriggerItem onClick={onClickSave}>
         <VscSave className="text-gray-500" />
         Save
-      </Item>
+      </DialogTriggerItem>
       <DialogTriggerItem onClick={onClickSaveAs}>
         <VscSaveAs className="text-gray-500" />
         Save As

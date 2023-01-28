@@ -26,7 +26,9 @@ export default function UiEditor() {
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
       <Tabs.Root
-        className={`flex flex-col flex-grow ${vis ? "visible" : "invisible"}`}
+        className={`flex flex-col flex-grow overflow-y-hidden ${
+          vis ? "visible" : "invisible"
+        }`}
         defaultValue={SECTION_CONFIG_TAB}
         value={tab}
         onValueChange={setTab}
@@ -39,12 +41,14 @@ export default function UiEditor() {
           value={SECTION_CONFIG_TAB}
           className={`${!sectionId && "h-full"}`}
         >
-          {sectionId && <SectionConfig sectionId={sectionId} />}
-          {!sectionId && <Placeholder />}
+          {sectionId ? (
+            <SectionConfig sectionId={sectionId} />
+          ) : (
+            <Placeholder />
+          )}
         </TabContent>
         <TabContent value={UI_CONFIG_TAB}>
-          {sectionId && <UIConfig sectionId={sectionId} />}
-          {!sectionId && <Placeholder />}
+          {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
         </TabContent>
       </Tabs.Root>
     </PaneContainer>
@@ -68,7 +72,11 @@ function TabItem({ name, value }) {
 
 function TabContent(props) {
   const { children, value } = props;
-  return <Tabs.Content value={value}>{children}</Tabs.Content>;
+  return (
+    <Tabs.Content value={value} asChild>
+      {children}
+    </Tabs.Content>
+  );
 }
 
 function Placeholder() {

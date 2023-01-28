@@ -45,6 +45,7 @@ export default function FileExplorer({
           {_.map(files, (x, idx) => (
             <ProjectListing
               project={x}
+              name={x.name}
               key={`File ${idx}`}
               onClick={onChange}
             />

@@ -12,17 +12,18 @@ import {
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
-import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
+import { useProjectToLoad } from "models/info/projectToLoad";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { xnor } from "utils/utils";
+import { loadProjectIntoState } from "./projects";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
@@ -84,7 +85,7 @@ export async function saveAsNewProjectConfig({
   reactFlowStore,
   newConfigName,
 }) {
-  return await saveProjectAs({
+  saveProjectAs({
     reactFlowStore,
     fn: saveAsNewProjectConfigDb,
     otherArgs: { newConfigName },
@@ -95,7 +96,7 @@ export async function saveAsExistingProjectConfig({
   reactFlowStore,
   configId,
 }) {
-  return await saveProjectAs({
+  saveProjectAs({
     reactFlowStore,
     fn: saveAsExistingProjectConfigDb,
     otherArgs: { configId },
@@ -115,10 +116,13 @@ async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
   newProjectConfig.presetUITypes = _.pickBy(uiTypesState.x, (x) =>
     isUserPreset(x)
   );
-  newProjectConfig.userCodeInfoMaps = useUserCodeInfoMaps
-    .getState()
-    .exportForDb();
-  return newProjectConfig;
+  const zState = useProjectToLoad.getState();
+  zState.setIsLoading(true);
+  loadProjectIntoState({
+    projectInfo: newProjectConfig,
+    excludeCodeInfo: true,
+  });
+  zState.setIsLoading(false);
 }
 
 function assembleProject(reactFlowStore) {

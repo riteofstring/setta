@@ -1,12 +1,13 @@
 export default function GridWrapper({
   gridStyles = "",
   flexStyles = "",
+  flexFormWrap = false,
   children,
   ...props
 }) {
   return (
     <StandardGrid gridStyles={gridStyles} {...props}>
-      <FlexForm flexStyles={flexStyles} {...props}>
+      <FlexForm flexStyles={flexStyles} flexFormWrap={flexFormWrap} {...props}>
         {children}
       </FlexForm>
     </StandardGrid>
@@ -27,7 +28,7 @@ function FlexForm({ flexFormWrap = false, flexStyles, children }) {
   if (flexFormWrap) {
     return (
       <div
-        className={`flex flex-col min-h-[200px] justify-center items-center ${flexStyles}`}
+        className={`LOL flex flex-col min-h-[200px] justify-center items-center ${flexStyles}`}
       >
         {children}
       </div>

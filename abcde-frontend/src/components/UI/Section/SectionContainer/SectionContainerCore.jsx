@@ -35,8 +35,9 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
+    // <Resizable>
     <div
-      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline`}
+      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[450px]`}
       style={{
         width: `${SECTIONWIDTH}px`,
       }}
@@ -74,6 +75,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       </div>
       <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
     </div>
+    // </Resizable>
   );
 }
 

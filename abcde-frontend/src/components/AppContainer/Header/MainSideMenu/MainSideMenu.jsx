@@ -3,13 +3,11 @@ import { logout } from "dbRequests/authentication";
 import { resetAllStores } from "models/utils";
 import { FiMenu } from "react-icons/fi";
 import { Item } from "utils/atoms/dropdown/item";
-import { router } from "utils/Routes/router";
 
 export default function MainSideMenu() {
   const onClickLogout = () => {
     logout();
     resetAllStores();
-    router.navigate("/");
   };
 
   return (
