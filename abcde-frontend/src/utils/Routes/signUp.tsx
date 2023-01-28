@@ -1,5 +1,7 @@
 import SignUpPage from "components/SignUpPage/SignUpPage";
+import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
+import { GlobalWrapper } from "./GlobalWrapper";
 
 function SignUpWrapper() {
   return (
@@ -9,7 +11,11 @@ function SignUpWrapper() {
   );
 }
 
-export const signUpRoute = {
+export const signUpRoute: RouteObject = {
   path: "signup",
-  element: <SignUpWrapper />,
+  element: (
+    <GlobalWrapper>
+      <SignUpWrapper />
+    </GlobalWrapper>
+  ),
 };

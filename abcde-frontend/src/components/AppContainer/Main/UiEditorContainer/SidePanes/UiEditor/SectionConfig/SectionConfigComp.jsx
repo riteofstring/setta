@@ -6,26 +6,50 @@ import {
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import { useState } from "react";
+import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { checkboxChangeFn } from "utils/utils";
 
-export default function SectionConfigComp({ sectionId, onConfigChange }) {
+export function CollectionsSearch({ sectionId }) {
   const [results, setResults] = useState({});
   const selectedCollections =
     useGetSelectedCollectionsForSectionConfig(sectionId);
   const allResults = { ...selectedCollections, ...results };
 
-  async function onSubmit(searchTerm) {
+  async function onSelectionChange({ newValueFn, id }) {
+    // collection needs to be retrieved from db
+    await getCollectionDetails(id);
+    setSectionUITypeConfig({
+      sectionId,
+      configProps: { configName: "collections", newValueFn },
+    });
+  }
+
+  async function onSearch(searchTerm) {
     const x = await getCollectionsAndModules({ searchTerm });
     setResults(x);
   }
 
-  async function onChange({ newValueFn, id }) {
-    // collection needs to be retrieved from db
-    await getCollectionDetails(id);
-    onConfigChange({ newValueFn });
-  }
+  return (
+    <SectionConfigSearch
+      sectionId={sectionId}
+      onSelectionChange={onSelectionChange}
+      onSearch={onSearch}
+      alreadySelected={selectedCollections}
+      results={allResults}
+      DetailsComponent={ObjCollectionDetails}
+    />
+  );
+}
 
+export function SectionConfigSearch({
+  sectionId,
+  onSelectionChange,
+  onSearch,
+  alreadySelected,
+  results,
+  DetailsComponent,
+}) {
   // shadow-inner bg-white  border border-white py-2 px-3
 
   return (
@@ -33,17 +57,18 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
       className="flex-grow flex flex-col [&>form]:flex-grow-0 h-[inherit]"
       data-testid={`SectionConfig ${sectionId}`}
     >
-      <Search onSubmit={onSubmit} />
+      <Search onSubmit={onSearch} />
       <ul className="flex flex-col flex-grow gap-4 pt-4 ">
-        {Object.values(allResults).map((x) => (
+        {Object.values(results).map((x) => (
           <SearchItem
             id={x.id}
             name={x.name}
             description={x.description}
             details={x.children}
-            checked={x.id in selectedCollections}
-            onChange={onChange}
+            checked={x.id in alreadySelected}
+            onSelectionChange={onSelectionChange}
             key={`SearchItem-${x.id}`}
+            DetailsComponent={DetailsComponent}
           />
         ))}
       </ul>
@@ -52,30 +77,33 @@ export default function SectionConfigComp({ sectionId, onConfigChange }) {
 }
 
 function Search({ onSubmit }) {
-  const [text, setText] = useState("");
-  function onChange(e) {
-    setText(e.target.value);
-  }
   function onFormSubmit(e) {
     e.preventDefault();
-    onSubmit(text);
+    onSubmit(e.target[0].value);
   }
 
   const inputStyles =
     "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
-    <StandardSearch
-      inputStyles={inputStyles}
-      onChange={onChange}
-      onFormSubmit={onFormSubmit}
-    />
+    <StandardSearch inputStyles={inputStyles} onFormSubmit={onFormSubmit} />
   );
 }
 
-function SearchItem({ id, name, description, details, checked, onChange }) {
+function SearchItem({
+  id,
+  name,
+  description = "",
+  details,
+  checked,
+  onSelectionChange,
+  DetailsComponent,
+}) {
   function onCheckboxChange(e) {
-    onChange({ newValueFn: checkboxChangeFn(e.target.checked, id), id });
+    onSelectionChange({
+      newValueFn: checkboxChangeFn(e.target.checked, id),
+      id,
+    });
   }
 
   return (
@@ -87,12 +115,12 @@ function SearchItem({ id, name, description, details, checked, onChange }) {
         onChange={onCheckboxChange}
       />
       <label className="w-full">
-        <ObjCollectionDetails details={details}>
+        <DetailsComponent details={details}>
           <div className="flex flex-col self-stretch cursor-pointer">
             <h2 className="text-md font-bold text-gray-500">{name}</h2>
             <p className="text-sm mt-1">{description}</p>
           </div>
-        </ObjCollectionDetails>
+        </DetailsComponent>
       </label>
     </li>
   );
