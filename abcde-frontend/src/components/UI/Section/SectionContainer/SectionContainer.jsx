@@ -1,9 +1,8 @@
 import { useGetCurrChildren } from "hooks/useSectionChildren";
-import { useIsDeck, useIsOutput } from "hooks/useSectionType";
+import { useIsDeck } from "hooks/useSectionType";
 import React from "react";
 import ManyNestedSections from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./ContainerSwitch";
-import { OutputSection } from "./OutputSection";
 import SectionContainerCore from "./SectionContainerCore";
 
 function SectionContainer({
@@ -14,7 +13,6 @@ function SectionContainer({
   dragListeners,
 }) {
   const isDeck = useIsDeck(sectionId);
-  const isOutput = useIsOutput(sectionId);
   const currChildren = useGetCurrChildren(sectionId);
   const hasNested = currChildren.length > 0;
 
@@ -26,7 +24,7 @@ function SectionContainer({
       dragListeners={dragListeners}
       ancestorSet={ancestorSet}
     >
-      {!isDeck && !isOutput && (
+      {!isDeck && (
         <SectionContainerCore
           sectionId={sectionId}
           parentId={parentId}
@@ -34,8 +32,6 @@ function SectionContainer({
           hasNested={hasNested}
         />
       )}
-
-      {isOutput && <OutputSection sectionId={sectionId} />}
 
       {hasNested && (
         <div className="flex flex-col">
