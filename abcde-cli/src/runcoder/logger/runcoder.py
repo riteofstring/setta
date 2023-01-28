@@ -23,15 +23,17 @@ class Runcoder:
 
     def log(self, group, key, value):
         id_key = (group, key)
+        group = {"id": None, "name": group}
+        key = {"id": None, "name": key}
         if id_key in self.groupkey_to_ids:
-            (group, key) = self.groupkey_to_ids[id_key]
+            (group["id"], key["id"]) = self.groupkey_to_ids[id_key]
             need_ids = False
         else:
             need_ids = True
 
         x = {
             "type": "LOG",
-            "data": {"group": group, "key": key, "value": value},
+            "data": {"group": group, "key": key, "values": [value]},
             "pathname": self.pathname,
             "needIds": need_ids,
             "runId": self.run_id,
