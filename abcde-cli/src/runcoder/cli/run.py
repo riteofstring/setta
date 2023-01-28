@@ -53,6 +53,7 @@ def run(access_token, code_id):
     # set token so it's available for logger
     Runcoder.token = access_token
     Runcoder.pathname = pathname
+    Runcoder.run_id = code_id
 
     # add current working directory to path
     sys.path.insert(0, cwd)
