@@ -81,7 +81,7 @@ export default {
   },
   "6e92da00-b3a9-4930-a028-53995588df38": {
     id: "6e92da00-b3a9-4930-a028-53995588df38",
-    value: ".",
+    value: null,
     childId: null,
   },
   "91f06270-5339-418b-8a5e-ada210b6d7ca": {
@@ -92,7 +92,7 @@ export default {
   "802410c2-90e3-4e78-9111-10719a54d378": {
     id: "802410c2-90e3-4e78-9111-10719a54d378",
     value: null,
-    childId: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
+    childId: null,
   },
   "1e1e4c0a-1d46-4c2f-8eb9-0ca506af63ee": {
     id: "1e1e4c0a-1d46-4c2f-8eb9-0ca506af63ee",
@@ -101,7 +101,7 @@ export default {
   },
   "8d6f869a-7769-41c1-a356-4139f8f2fd45": {
     id: "8d6f869a-7769-41c1-a356-4139f8f2fd45",
-    value: true,
+    value: null,
     childId: null,
   },
   "00b793f9-825c-4fe5-b60e-b1c43fde44d2": {
@@ -121,7 +121,7 @@ export default {
   },
   "611e2e1a-e05b-4495-9076-003c8a6f0d7d": {
     id: "611e2e1a-e05b-4495-9076-003c8a6f0d7d",
-    value: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",
+    value: null,
     childId: null,
   },
   "3d87fe04-dbcf-4886-bf70-2b8cf810b763": {
@@ -387,26 +387,6 @@ export default {
   "3e7d66b6-7861-4f8d-982c-63ccc28065bc": {
     id: "3e7d66b6-7861-4f8d-982c-63ccc28065bc",
     value: "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3",
-    childId: null,
-  },
-  "58225756-1dcb-410e-be18-58f516c48b88": {
-    id: "58225756-1dcb-410e-be18-58f516c48b88",
-    value: null,
-    childId: null,
-  },
-  "5fe5b24e-dba8-4a17-a223-0e39fa356172": {
-    id: "5fe5b24e-dba8-4a17-a223-0e39fa356172",
-    value: null,
-    childId: null,
-  },
-  "4431b152-bb56-449e-8c39-463dbcd31412": {
-    id: "4431b152-bb56-449e-8c39-463dbcd31412",
-    value: null,
-    childId: null,
-  },
-  "cf8eb150-4b1f-4888-b1c2-ed15a8445ad0": {
-    id: "cf8eb150-4b1f-4888-b1c2-ed15a8445ad0",
-    value: null,
     childId: null,
   },
 };

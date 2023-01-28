@@ -39,20 +39,4 @@ export default {
     uiTypeColId: "6fe54b72-392e-41a6-91e9-c5708223352f",
     selectedItem: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
   },
-  "5fb86c49-7a94-43b0-bfab-7609f0c3afdc": {
-    id: "5fb86c49-7a94-43b0-bfab-7609f0c3afdc",
-    uiTypeId: "24d5fc47-3047-4c92-86ec-d086c74bce9e",
-    evColId: "78899a61-90df-4132-b414-17c1c11f6617",
-    kwargColId: "1fe760dc-0977-4585-bc33-f43f6477a56c",
-    uiTypeColId: "c0ed3c9d-531e-4659-a121-770f15937e6c",
-    selectedItem: "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
-  },
-  "53a9fc97-03a3-4814-a81f-232fd5bbd107": {
-    id: "53a9fc97-03a3-4814-a81f-232fd5bbd107",
-    uiTypeId: "e44ede4f-9ff4-4208-8612-79226ee0f2fa",
-    evColId: "66e6274a-b30c-4448-bf81-0357b65ddc28",
-    kwargColId: "f72125b8-ea6c-4b02-99a2-0a76977cf1a2",
-    uiTypeColId: "e62c397f-84b8-4978-8b7d-18c6df6d9cbc",
-    selectedItem: "06a5c61c-916f-44d2-ae4b-655a9f3a57d1",
-  },
 };

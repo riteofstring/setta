@@ -53,9 +53,6 @@ export async function loadProjectSpecificData({
     "sections",
     "uiTypes",
     "uiTypeCols",
-    "outputs",
-    "outputGroups",
-    "runs",
   ]) {
     if (type === "inFile") {
       output[k] = await loadSpecificTestData({
@@ -232,10 +229,10 @@ export async function loadAllProjectsMetadata() {
   return output;
 }
 
-export async function loadOneProjectByName({ projectName, configName }) {
+export async function loadOneProjectById({ id, configId }) {
   const projectMetaData = await loadAllProjectsMetadata();
-  const project = _.find(projectMetaData, (x) => x.name === projectName);
-  const projectConfig = project.configs.find((x) => x.name === configName);
+  const project = _.find(projectMetaData, (x) => x.id === id);
+  const projectConfig = project.configs.find((x) => x.id === configId);
 
   if (PROJECT_NAMES["inFile"].includes(project.name)) {
     return await loadOneProject({
@@ -260,15 +257,15 @@ export function createInMemProject(name) {
   const project = {
     id: fakeId,
     name,
+    defaultConfigId: fakeId,
   };
 
   const projectConfig = {
-    id: fakeId,
+    id: project.defaultConfigId,
     name: configName,
     sectionConfigCol: fakeId,
     childrenId: fakeId,
     children: [],
-    isDefault: true,
   };
 
   IN_MEM_PROJECTS[name] = project;
