@@ -5,6 +5,7 @@ import { useActiveSection } from "models/activeSection";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
 import { SECTIONWIDTH } from "utils/constants";
+import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import {
@@ -35,20 +36,16 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // TODO: determine tempBoolDesc dynamically
   const tempBoolDesc = false;
   return (
-    // <Resizable>
-    <div
-      className={`items-stretch rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[450px]`}
-      style={{
-        width: `${SECTIONWIDTH}px`,
-      }}
-      onClick={() => setActiveSection(sectionId)}
-      data-testid={`${sectionId} section core`}
-    >
+    <CustomResizable>
       <div
-        className="flex-col bg-gray-50 rounded-xl px-2 shadow-md w-full border border-white overflow-hidden"
-        style={{ zIndex: isActiveSection ? 150 : 10 }}
+        className={`flex flex-col flex-grow rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline min-w-[${SECTIONWIDTH}px] overflow-auto`}
+        onClick={() => setActiveSection(sectionId)}
+        data-testid={`${sectionId} section core`}
       >
-        <div className="flex flex-col gap-2 px-1 py-4 w-full">
+        <div
+          className="flex  flex-col flex-grow bg-gray-50 rounded-xl px-3 gap-2 py-4 shadow-md border border-white overflow-hidden"
+          style={{ zIndex: isActiveSection ? 150 : 10 }}
+        >
           <SectionHeader
             sectionId={sectionId}
             parentId={parentId}
@@ -72,10 +69,9 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             </>
           )}
         </div>
+        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </div>
-      <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-    </div>
-    // </Resizable>
+    </CustomResizable>
   );
 }
 

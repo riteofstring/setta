@@ -2,9 +2,13 @@ import _ from "lodash";
 import React from "react";
 import ParamInput from "./ParamItems/ParamInput";
 
-function _ParamContainer({ sectionId, paramInfo, uiType, children }) {
+function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
   return (
-    <div className="flex flex-grow justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]">
+    <div
+      className={`flex ${
+        isKwarg ? "flex-grow" : ""
+      } justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]`}
+    >
       {children}
       <ParamInput
         sectionId={sectionId}
