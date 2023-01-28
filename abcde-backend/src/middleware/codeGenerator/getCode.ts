@@ -1,5 +1,4 @@
-import { getPathnameFromProjectConfigId } from 'src/db/projectConfigs/load';
-import { loadCode } from 'src/db/runs/loadCode';
+import { loadCode } from 'src/db/codeGenerator/load';
 
 async function _getCode(req, res) {
   const userId = req.user;
@@ -8,12 +7,8 @@ async function _getCode(req, res) {
     res.sendStatus(401);
     return;
   }
-  const { code, projectConfigId } = await loadCode({
-    id: codeId,
-    ownerId: userId,
-  });
-  const pathname = await getPathnameFromProjectConfigId(projectConfigId);
-  res.json({ code, pathname });
+  const code = await loadCode({ id: codeId, ownerId: userId });
+  res.json(code);
 }
 
 function errorHandler(err, req, res, next) {
@@ -21,7 +16,7 @@ function errorHandler(err, req, res, next) {
     res.sendStatus(404);
     return;
   }
-  // Inconsistent column data (probably caused by invalid codeId)
+  // Inconsistent column data
   if (err.code === 'P2023') {
     res.sendStatus(422);
     return;

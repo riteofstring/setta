@@ -11,7 +11,6 @@ import {
   setSectionPositions,
 } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
-import { getRuns } from '../runs/load';
 
 async function getIds({ username, projectName, configName }) {
   const config = await prisma.projectConfig.findFirstOrThrow({
@@ -70,7 +69,6 @@ export async function loadOne({
   const projectConfigCodeInfoMaps = await getProjectConfigCodeInfoMaps(
     projectConfig.id,
   );
-  const { outputGroups, outputs } = await getRuns(configId);
 
   // put top-level initialPosition into sections
   setSectionPositions(sections, sectionPositions);
@@ -90,7 +88,5 @@ export async function loadOne({
     codeInfo,
     userCodeInfoMaps,
     projectConfigCodeInfoMaps,
-    outputGroups,
-    outputs,
   };
 }

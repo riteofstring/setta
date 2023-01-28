@@ -50,7 +50,7 @@ model User {
   password         Bytes
   salt             Bytes
   projects         Project[] //Project.owner
-  runs             Run[] //Run.owner
+  generatedCode    GeneratedCode[] //GeneratedCode.owner
   uiTypes          UIType[] //UIType.owner
   codeInfoTypeMaps UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.owner
   codeInfoMaps     UserCodeInfoMap[] //UserCodeInfoMap.owner
@@ -216,7 +216,6 @@ model SectionUIType {
   childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
   childUITypeId String?        @unique @db.Uuid
   parentUIType  SectionUIType? @relation("ChildUIType")
-  outputGroups  OutputGroup[]
 
   @@id([idid])
 }
@@ -274,9 +273,15 @@ model ProjectConfig {
   isDefault          Boolean
   codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
   codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
-  runs               Run[]
 
   @@unique([name, projectId])
+}
+
+model GeneratedCode {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id])
+  ownerId String @db.Uuid
+  code    String @db.Text
 }
 
 model UserCodeInfoTypeMap {
@@ -319,36 +324,4 @@ model ProjectConfigCodeInfoMap {
   uiTypeId        String        @db.Uuid
 
   @@id([projectConfigId, codeInfoId])
-}
-
-model Run {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String
-  owner           User          @relation(fields: [ownerId], references: [id])
-  ownerId         String        @db.Uuid
-  projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
-  projectConfigId String        @db.Uuid
-  code            String        @db.Text
-  outputGroups    OutputGroup[]
-}
-
-model OutputGroup {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name           String
-  children       Output[]
-  run            Run             @relation(fields: [runId], references: [id])
-  runId          String          @db.Uuid
-  sectionUITypes SectionUIType[]
-
-  @@unique([name, runId])
-}
-
-model Output {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  values        Float[]
-  outputGroup   OutputGroup @relation(fields: [outputGroupId], references: [id])
-  outputGroupId String      @db.Uuid
-
-  @@unique([name, outputGroupId])
 }

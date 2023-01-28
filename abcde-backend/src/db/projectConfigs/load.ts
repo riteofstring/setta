@@ -41,15 +41,3 @@ export async function getProjectConfig(id) {
 
   return { projectConfig, sectionConfigCol, sectionPositions };
 }
-
-export async function getPathnameFromProjectConfigId(id) {
-  const info = await prisma.projectConfig.findFirstOrThrow({
-    where: { id },
-    select: {
-      name: true,
-      project: { select: { name: true, owner: { select: { name: true } } } },
-    },
-  });
-
-  return `/${info.project.owner.name}/${info.project.name}/${info.name}`;
-}

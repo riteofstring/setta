@@ -12,13 +12,16 @@ export function copyProjectConfig({
   doCreateNewId?: boolean;
 }) {
   const newProjectConfig = _.cloneDeep(projectConfig);
-  newProjectConfig.sectionConfigCol = createNewId();
-  newProjectConfig.childrenId = createNewId();
+  const newVals = {
+    sectionConfigCol: createNewId(),
+    childrenId: createNewId(),
+  };
   if (newConfigName) {
-    newProjectConfig.name = newConfigName;
+    newVals['name'] = newConfigName;
   }
   if (doCreateNewId) {
-    newProjectConfig.id = createNewId();
+    newVals['id'] = createNewId();
   }
+  Object.assign(newProjectConfig, newVals);
   return newProjectConfig;
 }
