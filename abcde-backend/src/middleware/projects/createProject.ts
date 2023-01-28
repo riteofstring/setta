@@ -7,5 +7,5 @@ export async function createProject(req, res) {
     return;
   }
   const project = await createProjectFn(userId, req.body.name);
-  res.json(project);
+  res.json(project).status(200);
 }

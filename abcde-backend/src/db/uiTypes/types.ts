@@ -22,12 +22,7 @@ export type ManyXUITypeType<T> = T extends UITypeNames.sectionUIType
 export function UITypeNameToIncludeObj(typeName) {
   if (typeName === UITypeNames.all) {
     return {
-      sectionUIType: {
-        include: {
-          collections: { select: { id: true } },
-          outputGroups: { select: { id: true } },
-        },
-      },
+      sectionUIType: { include: { collections: { select: { id: true } } } },
       sliderUIType: true,
       switchUIType: true,
       textUIType: true,
@@ -35,12 +30,7 @@ export function UITypeNameToIncludeObj(typeName) {
     };
   } else if (typeName === UITypeNames.sectionUIType) {
     return {
-      sectionUIType: {
-        include: {
-          collections: { select: { id: true } },
-          outputGroups: { select: { id: true } },
-        },
-      },
+      sectionUIType: { include: { collections: { select: { id: true } } } },
     };
   }
   // TODO: fill in the rest

@@ -12,5 +12,5 @@ export async function saveAsExistingProjectConfig(req, res) {
     project,
     configId,
   );
-  res.json(savedProject);
+  res.json(savedProject).status(200);
 }

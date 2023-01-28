@@ -7,7 +7,6 @@ import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';
 import { prisma } from 'src/db/prisma';
 import { saveMultipleProjectDetails } from 'src/db/projects/save';
-import { saveRunsAndOutputs } from 'src/db/runs/save';
 import { saveUITypes } from 'src/db/uiTypes/save';
 import { seedUsers as seedUsersFn } from 'src/db/user/save';
 import { SeedUserType } from 'src/db/user/types';
@@ -18,7 +17,6 @@ async function main() {
   await seedBaseUITypes();
   await seedProjects();
   await seedUserCodeInfoMaps();
-  await seedRuns();
 }
 
 async function seedUsers() {
@@ -62,16 +60,6 @@ async function seedUserCodeInfoMaps() {
   for (const user of Object.values(users)) {
     const usersMaps = data[user.id];
     await saveAllUserCodeInfoMaps(user.id, usersMaps);
-  }
-  console.log('done');
-}
-
-async function seedRuns() {
-  const allProjects = await loadAllProjects({ forSavingToBackend: true });
-  console.log('seedRuns');
-  for (const project of Object.values(allProjects)) {
-    const { projectConfig, runs, outputGroups, outputs } = project;
-    await saveRunsAndOutputs(runs, projectConfig.id, outputGroups, outputs);
   }
   console.log('done');
 }

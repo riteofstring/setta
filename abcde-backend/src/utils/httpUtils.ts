@@ -2,7 +2,7 @@ import { DOMAIN } from 'abcde-utils/src/addresses';
 
 export function sendStatusOnLogin(req, res) {
   if (req.isAuthenticated()) {
-    res.json({ username: req.user.name });
+    res.json({ username: req.user.name }).status(200);
     return;
   }
   res.sendStatus(401);

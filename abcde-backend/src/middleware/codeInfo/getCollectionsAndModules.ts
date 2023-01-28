@@ -2,5 +2,5 @@ import { getCollectionsAndModules as getCollectionsAndModulesFn } from 'src/db/c
 
 export async function getCollectionsAndModules(req, res) {
   const results = await getCollectionsAndModulesFn(req.body.searchTerm);
-  res.json(results);
+  res.json(results).status(200);
 }
