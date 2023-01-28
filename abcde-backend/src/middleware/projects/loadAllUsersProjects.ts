@@ -7,5 +7,5 @@ export async function loadAllUsersProjects(req, res) {
     return;
   }
   const projects = await loadAllUsersProjectsFn(ownerId);
-  res.json(projects).status(200);
+  res.json(projects);
 }
