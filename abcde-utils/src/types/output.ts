@@ -1,9 +1,7 @@
 import { ManyOf } from "./utils";
 
 export type OutputType = {
-  id: string;
-  name: string;
-  values: number[];
+  [key: string]: number[];
 };
 
 export type ManyOutputType = ManyOf<OutputType>;
@@ -14,11 +12,7 @@ export type OutputStateType = {
 
 export type OutputActionType = {
   resetAndSetAll: (payload: ManyOutputType) => void;
-  appendValues: (payload: {
-    id: string;
-    name: string;
-    values: number[];
-  }) => void;
+  appendValue: (payload: { group: string; key: string; value: number }) => void;
   setAll: (payload: OutputStateType) => void;
   reset: () => void;
 };
