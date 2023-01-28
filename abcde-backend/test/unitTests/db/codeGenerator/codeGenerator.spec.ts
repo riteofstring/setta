@@ -1,6 +1,6 @@
 import { loadOneProject } from 'abcde-test/src/loadTestData';
-import { generateCode } from 'src/middleware/codeGenerator/codeGenerator';
-import { exportSelected } from 'src/middleware/codeGenerator/exportSelected';
+import { generateCode } from 'src/middleware/runs/codeGenerator';
+import { exportSelected } from 'src/middleware/runs/exportSelected';
 
 describe('generateCode', () => {
   test('test generateCode function', async () => {
