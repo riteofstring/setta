@@ -14,7 +14,11 @@ export type OutputStateType = {
 
 export type OutputActionType = {
   resetAndSetAll: (payload: ManyOutputType) => void;
-  appendValue: (payload: { id: string; value: number }) => void;
+  appendValues: (payload: {
+    id: string;
+    name: string;
+    values: number[];
+  }) => void;
   setAll: (payload: OutputStateType) => void;
   reset: () => void;
 };

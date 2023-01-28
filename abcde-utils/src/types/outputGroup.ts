@@ -14,6 +14,11 @@ export type OutputGroupStateType = {
 
 export type OutputGroupActionType = {
   resetAndSetAll: (payload: ManyOutputGroupType) => void;
+  addChildren: (payload: {
+    id: string;
+    name: string;
+    children: string[];
+  }) => void;
   setAll: (payload: OutputGroupStateType) => void;
   reset: () => void;
 };
