@@ -24,7 +24,7 @@ function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
 
   return (
-    <div className="flex flex-col flex-grow gap-1">
+    <div className="flex flex-col flex-grow gap-1 overflow-y-hidden">
       <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
         Card Types
       </h3>

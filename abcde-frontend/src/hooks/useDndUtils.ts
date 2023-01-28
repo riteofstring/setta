@@ -111,7 +111,6 @@ export function useHighlightDroppable(sectionId: string) {
         // outline: "hsla(245, 100%, 100%, 1) solid 1px",
         // boxShadow:
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
-
       },
     };
   } else if (highlight === DropType.ABOVE) {
@@ -138,9 +137,7 @@ export function useHighlightDroppable(sectionId: string) {
         //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
     };
-
   }
-
 }
 
 export function useDisableSortable(sectionId: string, ancestorSet) {

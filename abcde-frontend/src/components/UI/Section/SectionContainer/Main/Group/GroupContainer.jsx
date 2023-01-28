@@ -7,56 +7,37 @@ import GetParamSwitch from "./ParamSwitch/GetParamSwitch";
 function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);
   return (
-    <GroupContainer
-      sectionId={sectionId}
-      objInfoId={objInfoId}
-      infos={infos}
-      isKwarg={false}
-    />
+    <>
+      <div className="flex flex-col gap-2 overflow-y-auto min-h-[36px]">
+        <GetParamSwitch
+          sectionId={sectionId}
+          objInfoId={objInfoId}
+          infos={infos}
+          isKwarg={false}
+        />
+      </div>
+      <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
+    </>
   );
 }
 
 function _KwargGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetKwargInfos(sectionId, objInfoId);
   const allAreNested = useAreAllParamsNested(sectionId, infos);
-  return (
-    <GroupContainer
-      sectionId={sectionId}
-      objInfoId={objInfoId}
-      infos={infos}
-      isKwarg={true}
-      allAreNested={allAreNested}
-    />
-  );
-}
-
-function _GroupContainer({
-  sectionId,
-  objInfoId,
-  infos,
-  isKwarg,
-  allAreNested,
-}) {
-  const kwargsStyleCondition = isKwarg && infos.length > 0 && !allAreNested;
-  const kwargsControlCondition = !isKwarg;
+  const kwargsStyleCondition = infos.length > 0 && !allAreNested;
 
   return (
-    <div className="flex flex-col items-stretch">
-      <div className={kwargsStyleCondition ? "py-4 w-auto mx-3" : "w-auto"}>
-        <GetParamSwitch
-          sectionId={sectionId}
-          infos={infos}
-          objInfoId={objInfoId}
-          isKwarg={isKwarg}
-        />
-        {kwargsControlCondition && (
-          <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
-        )}
-      </div>
+    <div className={kwargsStyleCondition ? "py-4 mx-3" : ""}>
+      <GetParamSwitch
+        sectionId={sectionId}
+        objInfoId={objInfoId}
+        infos={infos}
+        isKwarg={true}
+        allAreNested={allAreNested}
+      />
     </div>
   );
 }
 
-const GroupContainer = React.memo(_GroupContainer);
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 export const KwargGroupContainer = React.memo(_KwargGroupContainer);

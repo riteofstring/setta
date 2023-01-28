@@ -54,11 +54,11 @@ export function SectionConfigSearch({
 
   return (
     <div
-      className="flex-grow flex flex-col [&>form]:flex-grow-0 h-[inherit]"
+      className="flex-grow flex flex-col [&>form]:flex-grow-0 h-[inherit] overflow-y-hidden"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSearch} />
-      <ul className="flex flex-col flex-grow gap-4 pt-4 ">
+      <ul className="flex flex-col flex-grow gap-4 mt-4 overflow-y-auto">
         {Object.values(results).map((x) => (
           <SearchItem
             id={x.id}
