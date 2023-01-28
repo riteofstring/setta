@@ -91,13 +91,14 @@ export default {
   },
   "24d5fc47-3047-4c92-86ec-d086c74bce9e": {
     id: "24d5fc47-3047-4c92-86ec-d086c74bce9e",
-    type: "SECTION",
     name: "transform",
+    type: "SECTION",
     presetType: null,
+    isForChildOfOriginInfoId: false,
     config: {
-      collections: ["978f9dd3-f675-47f1-b37a-bae12d45c194"],
       subType: null,
       childUITypeId: null,
+      collections: ["978f9dd3-f675-47f1-b37a-bae12d45c194"],
       outputGroups: [],
     },
     originInfoId: {
@@ -105,6 +106,23 @@ export default {
       uiTypeColId: "0d7cb175-dd61-4806-8f4f-b9b25f1d9bde",
       paramInfoId: "014763c4-c1c2-4712-b72e-6c2425435007",
     },
+  },
+  "e44ede4f-9ff4-4208-8612-79226ee0f2fa": {
+    id: "e44ede4f-9ff4-4208-8612-79226ee0f2fa",
+    name: "Logger",
+    type: "SECTION",
+    presetType: null,
     isForChildOfOriginInfoId: false,
+    config: {
+      subType: null,
+      childUITypeId: null,
+      collections: ["1982446b-549a-437b-8c09-a1a05c8683b3"],
+      outputGroups: [],
+    },
+    originInfoId: {
+      sectionId: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
   },
 };
