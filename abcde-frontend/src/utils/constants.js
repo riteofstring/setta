@@ -2,7 +2,6 @@ import {
   DICT,
   DICT_ROOT,
   LIST_ROOT,
-  OUTPUT,
   REF,
   SECTION,
   SECTION_TYPE_NAMES,
@@ -41,7 +40,6 @@ export const uiTypesToPretty = Object.freeze(
       [SECTION]: "Object",
       [LIST_ROOT]: "List of Objects",
       [DICT_ROOT]: "Dict of Objects",
-      [OUTPUT]: "Program Output",
       [REF]: "Reference to Object",
     })
   )

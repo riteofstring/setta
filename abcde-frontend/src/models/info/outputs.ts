@@ -5,6 +5,16 @@ import {
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
+function getOutput(state: OutputZustandType, group: string, key: string) {
+  if (!(group in state.x)) {
+    state.x[group] = {};
+  }
+  if (!(key in state.x[group])) {
+    state.x[group][key] = [];
+  }
+  return state.x[group][key];
+}
+
 const initialState: OutputStateType = { x: {} };
 
 export const useOutputs = create(
@@ -15,13 +25,9 @@ export const useOutputs = create(
       s.reset();
       s.setAll({ x: payload });
     },
-    appendValues: ({ id, name, values }) =>
+    appendValue: ({ group, key, value }) =>
       set((state) => {
-        if (!(id in state.x)) {
-          state.x[id] = { id, name, values };
-        } else {
-          state.x[id].values.push(...values);
-        }
+        getOutput(state, group, key).push(value);
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),

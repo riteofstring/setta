@@ -1,28 +1,34 @@
 import { WEBSOCKET } from "abcde-utils/src/addresses";
-import { updateOutput } from "thunks/outputs";
+import { useOutputs } from "models/info/outputs";
 
 let wss;
 
-export function openWebSocket(pathname) {
+export function openWebSocket() {
   if (!wss) {
+    console.log("connecting to websocket");
     wss = new WebSocket(WEBSOCKET);
   }
 
-  wss.addEventListener("open", () => {
-    sendCurrPage(pathname);
+  wss.addEventListener("open", (event) => {
+    console.log("connection opened", wss.readyState);
   });
 
   wss.addEventListener("message", (event) => {
     processMessage(event.data);
   });
 
-  wss.addEventListener("error", () => {
+  wss.addEventListener("close", (event) => {
+    console.log("The connection has been closed successfully.");
+  });
+
+  wss.addEventListener("error", (event) => {
     wss.close();
     wss = null;
   });
 }
 
 export function closeWebSocket() {
+  console.log("wss.readyState", wss?.readyState);
   if (wss) {
     wss.close();
     wss = null;
@@ -32,12 +38,6 @@ export function closeWebSocket() {
 function processMessage(message) {
   const m = JSON.parse(message);
   if (m.type === "LOG") {
-    updateOutput(m.data);
-  }
-}
-
-export function sendCurrPage(pathname) {
-  if (wss && wss.readyState === 1) {
-    wss.send(JSON.stringify({ currPage: pathname }));
+    useOutputs.getState().appendValue(m.data);
   }
 }
