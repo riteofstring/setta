@@ -4,7 +4,6 @@ export type ProjectConfigType = {
   sectionConfigCol: string;
   childrenId: string;
   children: string[];
-  isDefault: boolean;
 };
 
 export type ProjectConfigActionType = {

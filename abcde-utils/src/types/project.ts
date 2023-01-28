@@ -1,12 +1,7 @@
-export type ProjectAddressType = {
-  username: string;
-  projectName: string;
-  configName: string;
-};
-
 export type ProjectType = {
   id: string;
   name: string;
+  defaultConfigId: string;
 };
 
 export type ProjectActionType = {
