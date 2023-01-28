@@ -4,10 +4,10 @@ import React, { useRef } from "react";
 import { HiCheckCircle, HiChevronDown, HiOutlineFolder } from "react-icons/hi";
 import "./style.css";
 
-export function ProjectListing({ name, project, onClick }) {
+export function ProjectListing({ project, onClick }) {
   return (
-    <Accordion.Item value={name}>
-      <AccordionTrigger name={name} />
+    <Accordion.Item value={project.name}>
+      <AccordionTrigger name={project.name} />
       <ConfigListings project={project} onClick={onClick} />
     </Accordion.Item>
   );
@@ -43,7 +43,10 @@ const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
       className="flex flex-col transition-transform flex-grow data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]"
     >
       {project.configs.map((x, idx) => {
-        const id = JSON.stringify({ id: project.id, configId: x.id });
+        const id = JSON.stringify({
+          projectName: project.name,
+          configName: x.name,
+        });
         return (
           <ConfigListing
             id={id}
@@ -64,7 +67,7 @@ function ConfigListing({ id, name, onClick }) {
     const isChecked =
       itemRef?.current?.attributes["data-state"]?.value === "checked";
     if (isChecked) {
-      onClick(JSON.stringify({ id: null, configId: null }));
+      onClick(JSON.stringify({ projectName: null, configName: null }));
     }
   }
 

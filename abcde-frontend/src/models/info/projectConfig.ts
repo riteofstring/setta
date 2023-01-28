@@ -11,6 +11,7 @@ const initialState: ProjectConfigType = {
   sectionConfigCol: "",
   childrenId: "",
   children: [],
+  isDefault: false,
 };
 
 export const useProjectConfig = create<ProjectConfigZustandType>(
@@ -36,6 +37,7 @@ export const useProjectConfig = create<ProjectConfigZustandType>(
         "sectionConfigCol",
         "childrenId",
         "children",
+        "isDefault",
       ]),
   })
 );

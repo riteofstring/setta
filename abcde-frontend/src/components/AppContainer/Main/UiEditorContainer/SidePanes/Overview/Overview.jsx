@@ -32,7 +32,7 @@ export default function Overview() {
           aria-label="Overview Search"
         />
       </div>
-      <div className="overflow-y-auto flex-grow">
+      <div className="overflow-y-scroll">
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
       </div>
     </PaneContainer>

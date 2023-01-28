@@ -2,18 +2,18 @@ import {
   createInMemProject,
   loadAllProjectsMetadata,
   loadOneProject,
-  loadOneProjectById,
+  loadOneProjectByName,
 } from "abcde-test/src/loadTestData";
 
 export async function noAuthGetProjects() {
   return await loadAllProjectsMetadata();
 }
 
-export async function noAuthLoadProject({ id, configId }) {
-  if (!id) {
+export async function noAuthLoadProject({ projectName, configName }) {
+  if (!projectName) {
     return await loadOneProject({});
   }
-  return await loadOneProjectById({ id, configId });
+  return await loadOneProjectByName({ projectName, configName });
 }
 
 export async function noAuthCreateProject({ name }) {
