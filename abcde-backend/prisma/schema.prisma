@@ -339,6 +339,8 @@ model OutputGroup {
   run            Run             @relation(fields: [runId], references: [id])
   runId          String          @db.Uuid
   sectionUITypes SectionUIType[]
+
+  @@unique([name, runId])
 }
 
 model Output {
@@ -347,4 +349,6 @@ model Output {
   values        Float[]
   outputGroup   OutputGroup @relation(fields: [outputGroupId], references: [id])
   outputGroupId String      @db.Uuid
+
+  @@unique([name, outputGroupId])
 }

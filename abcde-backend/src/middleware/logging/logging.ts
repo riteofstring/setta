@@ -2,22 +2,16 @@ import { prisma } from 'src/db/prisma';
 import { sendToUser } from 'src/server';
 
 async function findIds(runId, group, key) {
-  const { outputGroups } = await prisma.run.findUniqueOrThrow({
-    where: { id: runId },
+  const result = await prisma.outputGroup.findUnique({
+    where: { name_runId: { name: group, runId } },
     select: {
-      outputGroups: {
-        select: {
-          id: true,
-          name: true,
-          children: { select: { id: true, name: true } },
-        },
-      },
+      id: true,
+      children: { where: { name: key }, select: { id: true } },
     },
   });
 
-  const matchingGroup = outputGroups.find((x) => x.name === group);
-  let groupId = matchingGroup?.id;
-  let keyId = matchingGroup?.children.find((x) => x.name === key)?.id;
+  let groupId = result?.id;
+  let keyId = result?.children[0].id;
 
   if (!groupId) {
     const newGroup = await prisma.outputGroup.create({
@@ -44,9 +38,9 @@ export async function logData(req, res) {
       data: { group, key },
       runId,
     } = req.body;
-    const ids = await findIds(runId, group, key);
-    req.body.data.group = ids.groupId;
-    req.body.data.key = ids.keyId;
+    const ids = await findIds(runId, group.name, key.name);
+    req.body.data.group.id = ids.groupId;
+    req.body.data.key.id = ids.keyId;
     delete req.body.needIds;
     res.json(ids);
   } else {
