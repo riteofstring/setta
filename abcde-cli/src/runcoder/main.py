@@ -1,11 +1,11 @@
 import click
 import keyring
 
-from ..utils.constants import KEYRING_NAME
-from .configure import read_config_file, setup_config_file
-from .info import info as _info
-from .login import login as _login
-from .run import run as _run
+from .configure import _read_config_file, _setup_config_file
+from .info import _info
+from .login import _login
+from .run import _run
+from .utils.constants import KEYRING_NAME
 
 
 @click.command()
@@ -36,7 +36,7 @@ def login(username, password):
 @click.option("--password", prompt=True, hide_input=True)
 def configure(username, password):
     access_token = _login(username, password)
-    setup_config_file(username)
+    _setup_config_file(username)
     keyring.set_password(KEYRING_NAME, username, access_token)
     click.echo("Done!")
 
@@ -44,7 +44,7 @@ def configure(username, password):
 @click.command()
 @click.argument("code_id")
 def run(code_id):
-    username = read_config_file()["username"]
+    username = _read_config_file()["username"]
     access_token = keyring.get_password(KEYRING_NAME, username)
     if not access_token:
         click.echo("access_token not found")

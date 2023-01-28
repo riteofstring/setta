@@ -7,7 +7,7 @@ import uuid
 
 import yaml
 
-from ..utils.constants import CALLABLE, COLLECTION, PARAMETER
+from .utils.constants import CALLABLE, COLLECTION, PARAMETER
 
 
 class InfoDict:
@@ -188,7 +188,7 @@ def get_args_for_all_subpaths(x, output):
         get_args(".".join(xs[:i]), version, output)
 
 
-def info(yaml_path):
+def _info(yaml_path):
     sys.path.insert(0, os.getcwd())
 
     with open(yaml_path, "r") as f:
