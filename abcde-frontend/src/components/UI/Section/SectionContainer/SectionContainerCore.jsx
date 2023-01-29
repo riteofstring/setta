@@ -33,12 +33,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   return (
     <CustomResizable sectionId={sectionId}>
       <div
-        className={`flex flex-col flex-grow rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} duration-150 dndline overflow-auto`}
+        className={`flex flex-grow flex-col rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline overflow-auto duration-150`}
         onClick={() => setActiveSection(sectionId)}
         data-testid={`${sectionId} section core`}
       >
         <div
-          className="flex  flex-col flex-grow bg-gray-50 rounded-xl px-3 gap-2 py-4 shadow-md border border-white overflow-hidden"
+          className="flex  flex-grow flex-col gap-2 overflow-hidden rounded-xl border border-white bg-gray-50 px-3 py-4 shadow-md"
           style={{ zIndex: isActiveSection ? 150 : 10 }}
         >
           <SectionHeader

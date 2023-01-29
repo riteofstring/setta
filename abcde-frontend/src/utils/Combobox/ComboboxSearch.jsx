@@ -12,6 +12,7 @@ export function ComboboxSearch({
   matchSorterProps,
   width,
   itemStyleGetter,
+  small,
 }) {
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
@@ -47,18 +48,19 @@ export function ComboboxSearch({
 
   return (
     <div
-      className="flex flex-col items-stretch overflow-visible w-full h-10"
+      className="flex h-10 w-full flex-col items-stretch overflow-visible"
       {...getComboboxProps()}
     >
       <ComboboxInput
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
+        small={small}
       />
 
       <div className="flex flex-col items-stretch" style={{ width }}>
         <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
-          <div className="max-h-full m-3 w-full overflow-y-scroll">
+          <div className="m-3 max-h-full w-full overflow-y-scroll">
             {filteredItems.map((item, index) => (
               <ComboboxItem
                 getItemProps={getItemProps}

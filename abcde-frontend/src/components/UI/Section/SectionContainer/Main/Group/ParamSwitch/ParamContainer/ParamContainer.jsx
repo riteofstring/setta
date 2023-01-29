@@ -6,8 +6,8 @@ function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
   return (
     <div
       className={`flex ${
-        isKwarg ? "flex-grow" : ""
-      } justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]`}
+        isKwarg ? "flex-grow" : "flex-1"
+      } min-h-[36px] items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]`}
     >
       {children}
       <ParamInput

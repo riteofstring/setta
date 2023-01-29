@@ -82,7 +82,7 @@ export function PaneContainer({
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
   return (
     <motion.div
-      className={`flex col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 z-10 ${rightCondition} [&>div]:flex-grow [&>div]:flex [&>div]:flex-col [&>div]:border-r [&>div]:border-gray-200  [&>div]:shadow-md [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:bg-gray-50`}
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r [&>div]:border-gray-200  [&>div]:bg-gray-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
       animate={vis ? "open" : "closed"}
       variants={variants}
       initial={vis ? "open" : "closed"}
@@ -105,7 +105,7 @@ export function PaneContainer({
           topLeft: false,
         }}
       >
-        <h2 className="text-base font-bold text-gray-400  pb-3 uppercase tracking-widest">
+        <h2 className="pb-3 text-base font-bold  uppercase tracking-widest text-gray-400">
           {paneTitle}
         </h2>
         {children}

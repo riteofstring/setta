@@ -15,8 +15,8 @@ export function KwargsControls({ sectionId, objInfoId }) {
   }
 
   return (
-    <div className="flex flex-grow items-end mt-4 ml-1 px-2 py-1">
-      <h2 className="text-gray-400 text-sm font-heading font-bold pr-1">
+    <div className="mt-4 ml-1 flex flex-grow items-end px-2 py-1">
+      <h2 className="pr-1 font-heading text-sm font-bold text-gray-400">
         kwargs
       </h2>
       <IconButton

@@ -8,7 +8,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);
   return (
     <>
-      <div className="flex flex-col gap-2 overflow-y-auto min-h-[36px]">
+      <div className="flex min-h-[36px] flex-col gap-2 overflow-y-auto">
         <GetParamSwitch
           sectionId={sectionId}
           objInfoId={objInfoId}
@@ -27,7 +27,7 @@ function _KwargGroupContainer({ sectionId, objInfoId }) {
   const kwargsStyleCondition = infos.length > 0 && !allAreNested;
 
   return (
-    <div className={kwargsStyleCondition ? "py-4 mx-3" : ""}>
+    <div className={kwargsStyleCondition ? "mx-3 py-4" : ""}>
       <GetParamSwitch
         sectionId={sectionId}
         objInfoId={objInfoId}

@@ -52,13 +52,13 @@ export function Incrementer({
     <Tooltip.Provider>
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div className="flex max-w-xs bg-gray-200 rounded-lg gap-2 py-1 px-2">
+          <div className="flex max-w-xs gap-2 rounded-lg bg-gray-200 py-1 px-2">
             {isRoot && (
               <h3 className="text-xs font-bold text-gray-600">Children</h3>
             )}
             {isRoot && <FiCornerRightDown className="text-gray-600" />}
             <input
-              className="nodrag max-w-[5ch] bg-white rounded-md text-center text-xs focus-visible:ring-2"
+              className="nodrag max-w-[5ch] rounded-md bg-white text-center text-xs focus-visible:ring-2"
               value={numSections}
               onChange={(e) => numSectionsOnChange(e.target.value)}
               aria-label="Number of sections"
@@ -83,7 +83,7 @@ export function Incrementer({
           </div>
         </Tooltip.Trigger>
         <Tooltip.Portal>
-          <Tooltip.Content className="bg-white px-3 py-2 rounded-md shadow-md z-30 text-xs font-bold">
+          <Tooltip.Content className="z-30 rounded-md bg-white px-3 py-2 text-xs font-bold shadow-md">
             {isRoot ? "Add / Remove Children" : "Add / Remove Siblings"}
 
             <Tooltip.Arrow className="[fill:white]" />
