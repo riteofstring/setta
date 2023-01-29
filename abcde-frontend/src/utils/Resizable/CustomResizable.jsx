@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
-import { useStore } from "react-flow-renderer";
+import { useStoreApi } from "react-flow-renderer";
 import { SECTIONWIDTH } from "utils/constants";
 
 export function CustomResizable({ sectionId, children }) {
@@ -21,12 +21,17 @@ export function CustomResizable({ sectionId, children }) {
 }
 
 function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
-  const zoom = useStore((x) => x.transform[2]);
+  const rfStore = useStoreApi();
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
   const [size, setSize] = useState(savedSize);
+  const [scale, setScale] = useState(1);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
+  }
+
+  function onResizeStart() {
+    setScale(rfStore.getState().transform[2]);
   }
 
   useEffect(() => {
@@ -41,8 +46,9 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
       minHeight={minHeight}
       minWidth={minWidth}
       onResizeStop={onResizeStop}
+      onResizeStart={onResizeStart}
       handleWrapperClass="nodrag"
-      scale={zoom}
+      scale={scale}
       enable={{
         top: false,
         left: false,
