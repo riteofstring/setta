@@ -3,7 +3,7 @@ import { useGetAllCallables } from "hooks/useSectionContents";
 import { useEffect } from "react";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
-export default function SectionSearch({
+export function SectionSearch({
   sectionId,
   onSelectedItemChange,
   initialSelection,

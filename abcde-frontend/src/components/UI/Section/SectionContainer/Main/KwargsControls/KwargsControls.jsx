@@ -3,7 +3,7 @@ import { RiSave2Line } from "react-icons/ri";
 import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 
-export default function KwargsControls({ sectionId, objInfoId }) {
+export function KwargsControls({ sectionId, objInfoId }) {
   function onClickAddKwarg() {
     addKwarg(sectionId, objInfoId);
   }

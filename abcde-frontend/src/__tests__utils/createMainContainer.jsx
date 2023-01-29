@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import MainContainer from "components/AppContainer/Main/MainContainer";
+import { MainContainer } from "components/AppContainer/Main/MainContainer";
 import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
 import { useSectionInfos } from "models/info/sectionInfos";

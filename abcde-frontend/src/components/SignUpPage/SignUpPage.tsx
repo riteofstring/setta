@@ -1,14 +1,13 @@
-import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
 import { register } from "dbRequests/authentication";
 import { useFormik } from "formik";
-import React from "react";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { FormInput } from "utils/atoms/input/FormInput";
 import { PasswordInput } from "utils/atoms/input/PasswordInput";
 import { StandAloneInputContainer } from "utils/atoms/input/StandAloneInputContainer";
 import * as Yup from "yup";
 
-const SignUpPage = () => {
+export function SignUpPage() {
   // touched, errors,
   const { handleSubmit, handleChange, values, handleBlur } = useFormik({
     initialValues: {
@@ -80,9 +79,7 @@ const SignUpPage = () => {
       </StandAloneInputContainer>
     </GridWrapper>
   );
-};
-
-export default React.memo(SignUpPage);
+}
 
 function Footer() {
   return (

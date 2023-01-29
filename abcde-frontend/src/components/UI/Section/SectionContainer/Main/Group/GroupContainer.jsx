@@ -1,8 +1,8 @@
 import { useAreAllParamsNested } from "hooks/useParamUIType";
 import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
 import React from "react";
-import KwargsControls from "../KwargsControls/KwargsControls";
-import GetParamSwitch from "./ParamSwitch/GetParamSwitch";
+import { KwargsControls } from "../KwargsControls/KwargsControls";
+import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);

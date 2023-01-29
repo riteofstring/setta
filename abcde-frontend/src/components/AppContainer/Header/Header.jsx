@@ -1,8 +1,8 @@
-import MainSideMenu from "./MainSideMenu/MainSideMenu";
+import { MainSideMenu } from "./MainSideMenu/MainSideMenu";
 import { SiteLogo } from "./SiteLogo";
-import SubNav from "./SubNav/SubNav";
+import { SubNav } from "./SubNav/SubNav";
 
-export default function HeaderContainer() {
+export function HeaderContainer() {
   return (
     <FlexContainer>
       <SiteLogo />

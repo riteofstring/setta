@@ -1,6 +1,6 @@
-import ParamSwitch from "./ParamSwitch";
+import { ParamSwitch } from "./ParamSwitch";
 
-export default function GetParamSwitch({
+export function GetParamSwitch({
   sectionId,
   infos = [],
   isKwarg = false,

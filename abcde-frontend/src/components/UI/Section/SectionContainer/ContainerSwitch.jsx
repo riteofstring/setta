@@ -4,7 +4,7 @@ import { useDragActivation } from "hooks/useDragActivation";
 import _ from "lodash";
 import { useSectionRefs } from "models/sectionRefs";
 import { useEffect, useRef } from "react";
-import SectionTitle from "./Header/Title/SectionTitle";
+import { SectionTitle } from "./Header/Title/SectionTitle";
 
 export function ContainerSwitch({
   isDeck,

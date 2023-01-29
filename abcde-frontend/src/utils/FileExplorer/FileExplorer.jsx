@@ -5,12 +5,7 @@ import _ from "lodash";
 import { Button } from "../../utils/atoms/buttons/Button";
 import { ProjectListing } from "./ProjectListing";
 
-export default function FileExplorer({
-  files,
-  selected,
-  setSelected,
-  modalType,
-}) {
+export function FileExplorer({ files, selected, setSelected, modalType }) {
   function onChange(v) {
     if (v) {
       setSelected(JSON.parse(v));

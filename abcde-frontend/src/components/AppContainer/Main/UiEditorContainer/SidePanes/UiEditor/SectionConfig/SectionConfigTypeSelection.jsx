@@ -6,7 +6,7 @@ import {
   TopLevelSectionUITypeCombobox,
 } from "utils/Combobox/UITypeCombobox";
 
-export default function SectionConfigTypeSelection({ sectionId }) {
+export function SectionConfigTypeSelection({ sectionId }) {
   const selectedId = useGetSectionConfig(sectionId, "uiTypeId");
   const isTopLevel = useIsTopLevelSection(sectionId);
 

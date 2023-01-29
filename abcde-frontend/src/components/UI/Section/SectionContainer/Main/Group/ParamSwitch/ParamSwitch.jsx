@@ -1,8 +1,8 @@
 import { useGetParamUIType } from "hooks/useParamUIType";
 import React from "react";
 import { requiresNestedSection } from "utils/constants";
-import KwargParam from "./ParamSwitchOptions/KwargParam";
-import RegularParam from "./ParamSwitchOptions/RegularParam";
+import { KwargParam } from "./ParamSwitchOptions/KwargParam";
+import { RegularParam } from "./ParamSwitchOptions/RegularParam";
 
 function _ParamSwitch(props) {
   const { sectionId, paramInfo } = props;
@@ -19,7 +19,7 @@ function _ParamSwitch(props) {
   );
 }
 
-export default React.memo(
+export const ParamSwitch = React.memo(
   _ParamSwitch,
   (p, n) => p.paramInfo.id === n.paramInfo.id
 );

@@ -1,5 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
@@ -10,15 +10,15 @@ import {
 import React from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
-import SectionConfig from "./SectionConfig/SectionConfig";
-import UIConfig from "./UIConfig/UIConfig";
+import { SectionConfig } from "./SectionConfig/SectionConfig";
+import { UIConfig } from "./UIConfig/UIConfig";
 
 const paneProps = {
   right: true,
   paneName: UI_EDITOR,
 };
 
-export default function UiEditor() {
+export function UiEditor() {
   const sectionId = useActiveSection((x) => x.id);
   const vis = usePanes((x) => x.vis[paneProps.paneName]);
   const tab = useUIEditor((x) => x.tab);

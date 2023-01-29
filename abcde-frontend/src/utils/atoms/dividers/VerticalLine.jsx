@@ -1,3 +1,3 @@
-export default function VerticalLine() {
+export function VerticalLine() {
   return <div className="border-r border-gray-200" />;
 }

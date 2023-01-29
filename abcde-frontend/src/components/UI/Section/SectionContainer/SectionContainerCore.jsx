@@ -12,8 +12,9 @@ import {
   KwargGroupContainer,
   ParamGroupContainer,
 } from "./Main/Group/GroupContainer";
-import SectionSearch from "./Main/Search/Search";
-import SectionDescription from "./Main/SectionDescription/SectionDescription";
+import { SectionSearch } from "./Main/Search/Search";
+import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
+
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
@@ -75,14 +76,15 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   );
 }
 
-const SectionContainerCore = React.memo(_SectionContainerCore, (prev, next) => {
-  const attrs = ["nextId", "hasNested"];
-  for (let k of attrs) {
-    if (!_.isEqual(prev[k], next[k])) {
-      return false;
+export const SectionContainerCore = React.memo(
+  _SectionContainerCore,
+  (prev, next) => {
+    const attrs = ["nextId", "hasNested"];
+    for (let k of attrs) {
+      if (!_.isEqual(prev[k], next[k])) {
+        return false;
+      }
     }
+    return true;
   }
-  return true;
-});
-
-export default SectionContainerCore;
+);

@@ -29,7 +29,7 @@ function setInitialToCurrent(initialNodes, nodes) {
   return newNodeStates;
 }
 
-function SectionsPane({ initialNodes }) {
+function _SectionsPane({ initialNodes }) {
   const reactFlowRef = useRef(PANEID);
   const setSectionRef = useSectionRefs((x) => x.setRef);
   useEffect(() => {
@@ -101,4 +101,4 @@ function SectionsPane({ initialNodes }) {
   );
 }
 
-export default React.memo(SectionsPane);
+export const SectionsPane = React.memo(_SectionsPane);

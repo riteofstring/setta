@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import SectionContainer from "./SectionContainer";
+import { SectionContainer } from "./SectionContainer";
 
 export function SectionContainerNode({ id }) {
   // In SectionPane, topLevelSectionPositions doesn't update fast enough.

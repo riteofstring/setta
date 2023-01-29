@@ -1,4 +1,4 @@
-export default function Badge(props) {
+export function Badge(props) {
   const {
     twClasses,
     text = "text-xs font-bold",

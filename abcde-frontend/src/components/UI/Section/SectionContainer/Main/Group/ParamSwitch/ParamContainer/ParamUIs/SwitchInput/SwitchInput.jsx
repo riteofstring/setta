@@ -1,10 +1,10 @@
-import Toggle from "utils/atoms/toggles/Toggle";
+import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function SwitchInputConfig() {
   return null;
 }
 
-export default function SwitchInput({
+export function SwitchInput({
   value,
   defaultVal,
   onBlur,

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import React from "react";
-import ParamInput from "./ParamItems/ParamInput";
+import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
   return (
@@ -21,7 +21,7 @@ function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
   );
 }
 
-export default React.memo(
+export const ParamContainer = React.memo(
   _ParamContainer,
   (p, n) =>
     p.sectionId === n.sectionId &&

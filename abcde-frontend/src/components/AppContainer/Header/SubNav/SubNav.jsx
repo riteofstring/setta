@@ -1,14 +1,14 @@
 import { useAuth } from "models/auth";
 import { useParams } from "react-router-dom";
-import VerticalLine from "utils/atoms/dividers/VerticalLine";
-import ClearHistoryButton from "./ClearHistoryButton/ClearHistoryButton";
-import CreateGroupButton from "./CreateGroupButton/CreateGroupButton";
-import CreateSectionButton from "./CreateSectionButton/CreateSectionButton";
-import FileMenu from "./FileMenu/FileMenu";
+import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
+import { ClearHistoryButton } from "./ClearHistoryButton/ClearHistoryButton";
+import { CreateGroupButton } from "./CreateGroupButton/CreateGroupButton";
+import { CreateSectionButton } from "./CreateSectionButton/CreateSectionButton";
+import { FileMenu } from "./FileMenu/FileMenu";
 import { ProjectName } from "./ProjectName/ProjectName";
-import RunButton from "./RunButton/RunButton";
+import { RunButton } from "./RunButton/RunButton";
 
-export default function SubNav() {
+export function SubNav() {
   return (
     <div className="flex ml-4 space-x-2">
       <VerticalLine />

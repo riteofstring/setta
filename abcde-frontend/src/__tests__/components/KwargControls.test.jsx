@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
-import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
+import { SectionContainer } from "components/UI/Section/SectionContainer/SectionContainer";
 import { renderUseGetKwargInfos } from "__tests__utils/renderHooks";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import { loadTestDataIntoState, sectionIdFromName } from "__tests__utils/utils";

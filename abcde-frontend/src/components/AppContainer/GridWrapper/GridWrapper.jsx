@@ -1,4 +1,4 @@
-export default function GridWrapper({
+export function GridWrapper({
   gridStyles = "",
   flexStyles = "",
   flexFormWrap = false,

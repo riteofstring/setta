@@ -7,9 +7,9 @@ import { goToParamConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";
 import { OutputsSearch } from "./OutputSectionConfigComp";
 import { CollectionsSearch } from "./SectionConfigComp";
-import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
+import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
 
-const SectionConfig = React.forwardRef(({ sectionId }, ref) => {
+const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return (
     <div ref={ref}>
       <GoBackButton sectionId={sectionId} />
@@ -18,7 +18,7 @@ const SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 });
 
-export default React.memo(SectionConfig);
+export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");

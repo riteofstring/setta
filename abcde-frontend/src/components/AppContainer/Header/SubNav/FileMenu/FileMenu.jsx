@@ -14,10 +14,10 @@ import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
-import SaveLoadModal from "utils/FileExplorer/SaveLoadModal";
+import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
 import { router } from "utils/Routes/router";
 
-export default function FileMenu() {
+export function FileMenu() {
   const reactFlowStore = useStoreApi();
   const username = useAuth((x) => x.username);
   const { projects, getProjects } = useGetOrCreateProjects();

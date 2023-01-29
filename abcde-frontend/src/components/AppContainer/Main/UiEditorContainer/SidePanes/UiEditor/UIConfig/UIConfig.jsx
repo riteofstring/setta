@@ -19,7 +19,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 const UIElement = React.memo(_UIElement, (p, n) => _.isEqual(p, n));
 
-const UIConfig = React.forwardRef(({ sectionId }, ref) => {
+const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
     (x) => x.name
   );
@@ -54,7 +54,7 @@ const UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 });
 
-export default React.memo(UIConfig);
+export const UIConfig = React.memo(_UIConfig);
 
 function _UIElement({ sectionId, paramInfo }) {
   const setUIType = useUITypes((x) => x.setUIType);

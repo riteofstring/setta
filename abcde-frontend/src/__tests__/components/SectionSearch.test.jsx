@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
-import SectionContainer from "components/UI/Section/SectionContainer/SectionContainer";
+import { SectionContainer } from "components/UI/Section/SectionContainer/SectionContainer";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { setSectionUITypeConfig } from "thunks/uiTypes";

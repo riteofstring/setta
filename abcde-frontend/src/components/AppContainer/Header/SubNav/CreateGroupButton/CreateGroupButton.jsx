@@ -2,7 +2,7 @@ import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 
-export default function CreateGroupButton() {
+export function CreateGroupButton() {
   const addSection = useAddSectionInEmptySpace({ isDeck: true });
   return (
     <MenuBarButton onClick={addSection}>

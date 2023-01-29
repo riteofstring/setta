@@ -1,9 +1,9 @@
-import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useAuth } from "models/auth";
-import React, { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
-import Badge from "utils/atoms/badges/badge";
+import { Badge } from "utils/atoms/badges/badge";
 import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
@@ -13,7 +13,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { router } from "utils/Routes/router";
 import "./homepage.css";
 
-function HomePage() {
+export function HomePage() {
   const { projects, getProjects, createProject } = useGetOrCreateProjects();
 
   useEffect(() => {
@@ -26,8 +26,6 @@ function HomePage() {
     </GridWrapper>
   );
 }
-
-export default React.memo(HomePage);
 
 function RightColumn({ projects, createProject }) {
   function onClick(name) {

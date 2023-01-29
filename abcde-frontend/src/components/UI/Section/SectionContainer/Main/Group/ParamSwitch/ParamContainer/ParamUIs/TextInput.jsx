@@ -1,10 +1,10 @@
-import StandardInput from "utils/atoms/input/StandardInput";
+import { StandardInput } from "utils/atoms/input/StandardInput";
 
 export function TextInputConfig() {
   return null;
 }
 
-export default function TextInput({
+export function TextInput({
   value,
   defaultVal,
   onChange,

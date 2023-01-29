@@ -1,12 +1,12 @@
 import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useIsDeck, useIsOutput } from "hooks/useSectionType";
 import React from "react";
-import ManyNestedSections from "../NestedSection/ManyNestedSections";
+import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { OutputSection } from "./OutputSection";
-import SectionContainerCore from "./SectionContainerCore";
+import { SectionContainerCore } from "./SectionContainerCore";
 
-function SectionContainer({
+function _SectionContainer({
   sectionId,
   parentId,
   nextId,
@@ -50,6 +50,6 @@ function SectionContainer({
     </ContainerSwitch>
   );
 }
-export default React.memo(SectionContainer, (p, n) => {
+export const SectionContainer = React.memo(_SectionContainer, (p, n) => {
   return p.nextId === n.nextId;
 });

@@ -5,7 +5,7 @@ import { generateCode } from "thunks/generateCode";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 
-export default function RunButton() {
+export function RunButton() {
   const [description, setDescription] = useState("Generating...");
   const [command, setCommand] = useState("");
   const runExport = async () => {

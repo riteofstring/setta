@@ -1,5 +1,5 @@
 import * as Slider from "@radix-ui/react-slider";
-import SimpleConfig from "../SimpleConfig";
+import { SimpleConfig } from "../SimpleConfig";
 
 function defaultIfNotNumber(x, min) {
   return isNaN(x) ? min : x;
@@ -16,7 +16,7 @@ export function SliderInputConfig({ onChange, savedConfig }) {
   );
 }
 
-export default function SliderInput({
+export function SliderInput({
   value,
   defaultVal,
   onChange,

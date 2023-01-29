@@ -2,10 +2,10 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { AiOutlineClose } from "react-icons/ai";
 import { deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import ParamContainer from "../ParamContainer/ParamContainer";
-import ParamNameInput from "../ParamContainer/ParamItems/ParamNameInput";
+import { ParamContainer } from "../ParamContainer/ParamContainer";
+import { ParamNameInput } from "../ParamContainer/ParamItems/ParamNameInput";
 
-export default function KwargParam(props) {
+export function KwargParam(props) {
   const { sectionId, objInfoId, paramInfo: kwargInfo } = props;
   const setName = useCodeInfo((x) => x.setName);
   const onBlur = (v) => {

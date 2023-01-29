@@ -1,11 +1,11 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
-import ModalContainer from "utils/ModalContainer/ModalContainer";
-import FileExplorer from "./FileExplorer";
-import FileNameInput from "./FileNameInput";
+import { ModalContainer } from "utils/ModalContainer/ModalContainer";
+import { FileExplorer } from "./FileExplorer";
+import { FileNameInput } from "./FileNameInput";
 
-export default function SaveLoadModal({
+export function SaveLoadModal({
   modalType,
   files,
   onClickLoadProject,

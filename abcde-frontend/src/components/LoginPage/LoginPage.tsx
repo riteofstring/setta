@@ -1,14 +1,12 @@
-import GridWrapper from "components/AppContainer/GridWrapper/GridWrapper";
+import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
 import { login } from "dbRequests/authentication";
 import { useFormik } from "formik";
-import { memo } from "react";
-
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { FormInput } from "utils/atoms/input/FormInput";
 import { PasswordInput } from "utils/atoms/input/PasswordInput";
 import { StandAloneInputContainer } from "utils/atoms/input/StandAloneInputContainer";
 
-const LoginPage = () => {
+export function LoginPage() {
   // touched, errors,
   const { handleSubmit, handleChange, values, handleBlur } = useFormik({
     initialValues: {
@@ -45,8 +43,7 @@ const LoginPage = () => {
       </StandAloneInputContainer>
     </GridWrapper>
   );
-};
-export default memo(LoginPage);
+}
 
 function Footer() {
   return (

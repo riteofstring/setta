@@ -1,9 +1,8 @@
 import { useTopLevelSectionPositions } from "hooks/useProjectConfig";
-import React from "react";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
-import SectionsPane from "./Section/SectionsPane";
+import { SectionsPane } from "./Section/SectionsPane";
 
-const UiPage = () => {
+export function UIPage() {
   const [topLevelIds, topLevelPositions] = useTopLevelSectionPositions();
   const initialNodes = topLevelIds.map((x, idx) => ({
     id: x,
@@ -16,6 +15,4 @@ const UiPage = () => {
       <SectionsPane initialNodes={initialNodes} />
     </GlobalDndContext>
   );
-};
-
-export default React.memo(UiPage);
+}

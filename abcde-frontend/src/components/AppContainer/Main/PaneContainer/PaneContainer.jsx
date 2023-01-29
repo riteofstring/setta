@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import useWindowSize from "hooks/useWindowSize";
+import { useWindowSize } from "hooks/useWindowSize";
 import { usePanes } from "models/panes";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import { Button } from "utils/atoms/buttons/Button";
 import { MIN_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
-export default function PaneContainer({
+export function PaneContainer({
   paneTitle = null,
   onResizeStop = null,
   paneProps,

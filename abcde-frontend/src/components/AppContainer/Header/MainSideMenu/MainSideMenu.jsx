@@ -5,7 +5,7 @@ import { FiMenu } from "react-icons/fi";
 import { Item } from "utils/atoms/dropdown/item";
 import { router } from "utils/Routes/router";
 
-export default function MainSideMenu() {
+export function MainSideMenu() {
   const onClickLogout = () => {
     logout();
     resetAllStores();

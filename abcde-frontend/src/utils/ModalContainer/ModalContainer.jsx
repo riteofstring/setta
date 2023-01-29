@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import "./styles.css";
 
-export default function ModalContainer({ content, children }) {
+export function ModalContainer({ content, children }) {
   return (
     <Dialog.Root>
       {children}

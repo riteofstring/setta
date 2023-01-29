@@ -1,4 +1,4 @@
-export default function SectionDescription() {
+export function SectionDescription() {
   return (
     <div className="px-4 py-3 bg-gray-100 rounded">
       <p className="text-xs">

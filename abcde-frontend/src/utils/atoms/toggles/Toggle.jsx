@@ -1,6 +1,6 @@
 import * as Switch from "@radix-ui/react-switch";
 
-export default function Toggle(props) {
+export function Toggle(props) {
   const {
     twRootClasses = "",
     twThumbClasses = "",

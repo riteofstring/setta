@@ -1,8 +1,8 @@
 import React from "react";
 import { deleteChild } from "thunks/sections/deleteChild";
-import Incrementer from "../Incrementer/Incrementer";
-import CustomCloseButton from "./CustomCloseButton/CustomCloseButton";
-import SectionTitle from "./Title/SectionTitle";
+import { Incrementer } from "../Incrementer/Incrementer";
+import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
+import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
   sectionId,

@@ -5,7 +5,7 @@ import { FiCornerRightDown } from "react-icons/fi";
 import { addChildForSeries } from "thunks/sections/addChild";
 import { deleteChild } from "thunks/sections/deleteChild";
 
-export default function Incrementer({
+export function Incrementer({
   parentId,
   sectionId,
   nextId,

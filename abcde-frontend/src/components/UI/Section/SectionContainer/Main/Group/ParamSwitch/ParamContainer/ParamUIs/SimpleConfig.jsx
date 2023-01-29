@@ -1,6 +1,6 @@
-import StandardInput from "utils/atoms/input/StandardInput";
+import { StandardInput } from "utils/atoms/input/StandardInput";
 
-export default function SimpleConfig({ options, onChange, savedConfig }) {
+export function SimpleConfig({ options, onChange, savedConfig }) {
   return (
     <div className="flex flex-col mt-1">
       {options.map((e, idx) => (

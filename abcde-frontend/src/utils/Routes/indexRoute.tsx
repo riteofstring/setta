@@ -1,6 +1,6 @@
-import HeaderContainer from "components/AppContainer/Header/Header";
-import HomePage from "components/HomePage/HomePage";
-import LoginPage from "components/LoginPage/LoginPage";
+import { HeaderContainer } from "components/AppContainer/Header/Header";
+import { HomePage } from "components/HomePage/HomePage";
+import { LoginPage } from "components/LoginPage/LoginPage";
 import { useAuth } from "models/auth";
 import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";

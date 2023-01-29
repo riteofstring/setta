@@ -1,16 +1,16 @@
-import PaneContainer from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
-import SectionListItems from "./SectionList/SectionListItems";
+import { SectionListItems } from "./SectionList/SectionListItems";
 
 const paneProps = {
   right: false,
   paneName: OVERVIEW,
 };
 
-export default function Overview() {
+export function Overview() {
   const [filteredList, setFilter] = useGetOverviewListing();
 
   const onResizeStop = useUpdateMapPosition();

@@ -5,7 +5,7 @@ import { useTitleIsEditable } from "hooks/useTitleIsEditable";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { Editable } from "utils/Editable/Editable";
 
-export default function SectionTitle({ sectionId, titleProps }) {
+export function SectionTitle({ sectionId, titleProps }) {
   const sectionName = useGetSectionInfo(sectionId, "name");
   const titleIsEditable = useTitleIsEditable(sectionId);
 

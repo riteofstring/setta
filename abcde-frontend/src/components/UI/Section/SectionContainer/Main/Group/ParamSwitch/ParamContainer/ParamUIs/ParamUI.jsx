@@ -6,11 +6,10 @@ import {
   SLIDER,
   SWITCH,
 } from "abcde-utils/src/constants";
-
-import RefInput, { RefInputConfig } from "./RefInput";
-import SliderInput, { SliderInputConfig } from "./SliderInput/SliderInput";
-import SwitchInput, { SwitchInputConfig } from "./SwitchInput/SwitchInput";
-import TextInput, { TextInputConfig } from "./TextInput";
+import { RefInput, RefInputConfig } from "./RefInput";
+import { SliderInput, SliderInputConfig } from "./SliderInput/SliderInput";
+import { SwitchInput, SwitchInputConfig } from "./SwitchInput/SwitchInput";
+import { TextInput, TextInputConfig } from "./TextInput";
 
 export function ParamUIConfig({ name, ...props }) {
   switch (name) {
@@ -30,7 +29,7 @@ export function ParamUIConfig({ name, ...props }) {
   }
 }
 
-export default function ParamUI({ name, childProps }) {
+export function ParamUI({ name, childProps }) {
   switch (name) {
     default:
       return <TextInput {...childProps} />;

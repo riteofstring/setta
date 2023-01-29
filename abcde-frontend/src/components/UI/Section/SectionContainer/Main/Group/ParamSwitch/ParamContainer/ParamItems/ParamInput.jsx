@@ -1,9 +1,9 @@
 import { useParamEnteredValue } from "hooks/useEnteredValue";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import ParamUI from "../ParamUIs/ParamUI";
+import { ParamUI } from "../ParamUIs/ParamUI";
 
-export default function ParamInput({
+export function ParamInput({
   sectionId,
   paramInfoId,
   defaultVal,

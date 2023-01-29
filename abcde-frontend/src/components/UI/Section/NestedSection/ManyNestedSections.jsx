@@ -2,7 +2,7 @@ import { useGoToSection } from "hooks/useGetSectionPosition";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
-export default function ManyNestedSections({
+export function ManyNestedSections({
   childIds,
   sectionId,
   ancestorSet,

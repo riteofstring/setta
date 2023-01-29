@@ -1,4 +1,4 @@
-import SignUpPage from "components/SignUpPage/SignUpPage";
+import { SignUpPage } from "components/SignUpPage/SignUpPage";
 import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
