@@ -24,7 +24,7 @@ export function SectionSearch({
         allItems={searchableItems}
         onSelectedItemChange={onSelectedItemChange}
         initialSelection={initialSelection}
-        width="424px"
+        // width="424px"
       />
     )
   );

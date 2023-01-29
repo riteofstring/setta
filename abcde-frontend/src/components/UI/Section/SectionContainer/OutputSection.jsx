@@ -11,6 +11,7 @@ import {
 import { useGetSelectedOutputValues } from "hooks/useSectionContents";
 import _ from "lodash";
 import { Line } from "react-chartjs-2";
+import { SECTIONWIDTH } from "utils/constants";
 
 ChartJS.register(
   CategoryScale,
@@ -22,11 +23,15 @@ ChartJS.register(
   Legend
 );
 
-export function OutputArea({ sectionId }) {
+export function OutputSection({ sectionId }) {
   const selectedGroups = useGetSelectedOutputValues(sectionId);
 
   return (
-    <>
+    <div
+      style={{
+        width: `${SECTIONWIDTH}px`,
+      }}
+    >
       {_.map(selectedGroups, (group) => (
         <LineChart
           outputs={group.children}
@@ -34,7 +39,7 @@ export function OutputArea({ sectionId }) {
           key={`${sectionId}-${group.name}-chart`}
         />
       ))}
-    </>
+    </div>
   );
 }
 
@@ -66,5 +71,13 @@ function LineChart({ outputs, title }) {
     },
   };
 
-  return <Line options={options} data={data} />;
+  return (
+    <div
+      style={{
+        width: `${SECTIONWIDTH}px`,
+      }}
+    >
+      <Line options={options} data={data} />
+    </div>
+  );
 }
