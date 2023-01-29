@@ -13,9 +13,9 @@ export function useMinSectionHeight(sectionId) {
   const hasKwargControl = !isRoot;
 
   return (
-    (hasTitle ? 50 : 0) +
-    (hasSearch ? 50 : 0) +
-    (hasUnnestedParam ? 50 : 0) +
-    (hasKwargControl ? 50 : 0)
+    (hasTitle ? 56 : 0) +
+    (hasSearch ? 48 : 0) +
+    (hasUnnestedParam ? 44 : 0) +
+    (hasKwargControl ? 28 : 0)
   );
 }

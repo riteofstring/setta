@@ -23,7 +23,7 @@ export function CustomResizable({ sectionId, children }) {
   return (
     <Resizable
       defaultSize={savedSize}
-      // minHeight={minHeight}
+      minHeight={minHeight}
       minWidth={SECTIONWIDTH}
       onResizeStop={onResizeStop}
       handleWrapperClass="nodrag"
