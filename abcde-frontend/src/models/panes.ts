@@ -30,3 +30,9 @@ export const usePanes = create(
       }),
   }))
 );
+
+
+export const useMarkdown = create((set) => ({
+  data: "# Some stuff here",
+  setMarkdown: value => set({ data: value })
+  }));
