@@ -1,47 +1,38 @@
-import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDownIcon } from "@radix-ui/react-icons";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
-import "./style.css";
 
 export function ProjectListing({ project, onClick }) {
   return (
-    <Accordion.Item value={project.name}>
-      <AccordionTrigger name={project.name} />
+    <div value={project.name} className="flex flex-col">
+      <Group name={project.name} />
       <ConfigListings project={project} onClick={onClick} />
-    </Accordion.Item>
+    </div>
   );
 }
 
-const AccordionTrigger = React.forwardRef(({ name }, ref) => {
+function Group({ name }) {
   return (
-    <Accordion.Trigger asChild>
-      <div className="flex flex-grow cursor-pointer select-none items-center gap-2 rounded-md py-1 px-2 ">
-        <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
+    <div className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2">
+      <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
 
-        <div className="flex flex-grow justify-between bg-white">
-          <div className="flex gap-2">
-            <h4 className="text-xs font-bold tracking-wider text-gray-500 hover:text-gray-900">
-              {name}
-            </h4>
-            <ChevronDownIcon className="AccordionChevron" aria-hidden />
-          </div>
-
-          <div className="text-xs text-gray-400">2023/01/01</div>
+      <div className="flex flex-grow justify-between bg-white">
+        <div className="flex gap-2">
+          <h4 className="text-xs font-bold tracking-wider text-gray-500 hover:text-gray-900">
+            {name}
+          </h4>
         </div>
-      </div>
-    </Accordion.Trigger>
-  );
-});
 
-const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
+        {/* <div className="text-xs text-gray-400">2023/01/01</div> */}
+      </div>
+    </div>
+  );
+}
+
+function ConfigListings({ project, onClick }) {
   //
   return (
-    <Accordion.Content
-      ref={ref}
-      className="flex flex-grow flex-col transition-transform data-[state='open']:animate-[slideDown_300ms_cubic-bezier(0.87,_0,_0.13,_1)] data-[state='closed']:animate-[slideUp_300ms_cubic-bezier(0.87,_0,_0.13,_1)]"
-    >
+    <div className="flex flex-grow flex-col ">
       {project.configs.map((x, idx) => {
         const id = JSON.stringify({
           projectName: project.name,
@@ -56,9 +47,9 @@ const ConfigListings = React.forwardRef(({ project, onClick }, ref) => {
           />
         );
       })}
-    </Accordion.Content>
+    </div>
   );
-});
+}
 
 function ConfigListing({ id, name, onClick }) {
   const itemRef = useRef();

@@ -15,7 +15,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
   }
 
   return (
-    <div className="ml-1 flex flex-grow items-end px-2">
+    <div className="ml-3 flex flex-grow items-end ">
       <h2 className="pr-1 font-heading text-sm font-bold text-gray-400">
         kwargs
       </h2>
