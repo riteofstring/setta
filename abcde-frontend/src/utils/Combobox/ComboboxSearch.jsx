@@ -47,33 +47,29 @@ export function ComboboxSearch({
   });
 
   return (
-    <div className={`relative`} style={{ width }} {...getComboboxProps()}>
+    <div style={{ width }} {...getComboboxProps()}>
       <ComboboxInput
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
         small={small}
       />
-      <div className="absolute w-[inherit]">
-        <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
-          <div
-            className="m-3 max-h-full flex-1 overflow-y-scroll"
-            // style={{ width: wMinusPad }}
-          >
-            {filteredItems.map((item, index) => (
-              <ComboboxItem
-                getItemProps={getItemProps}
-                item={item}
-                index={index}
-                isHighlighted={index === highlightedIndex}
-                itemStyle={itemStyleGetter?.(item)}
-                itemString={itemToString(item)}
-                key={index}
-              />
-            ))}
-          </div>
-        </ComboboxList>
-      </div>
+
+      <ComboboxList isOpen={true} getMenuProps={getMenuProps} width={width}>
+        <div className="m-3 max-h-full flex-1 overflow-y-scroll">
+          {filteredItems.map((item, index) => (
+            <ComboboxItem
+              getItemProps={getItemProps}
+              item={item}
+              index={index}
+              isHighlighted={index === highlightedIndex}
+              itemStyle={itemStyleGetter?.(item)}
+              itemString={itemToString(item)}
+              key={index}
+            />
+          ))}
+        </div>
+      </ComboboxList>
     </div>
   );
 }

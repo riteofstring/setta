@@ -33,11 +33,12 @@ export function ComboboxInput({
 
 //  w-[calc(100%-_0.75rem)]
 
-export function ComboboxList({ isOpen, children, getMenuProps }) {
+export function ComboboxList({ isOpen, children, getMenuProps, width }) {
   const display = isOpen ? "flex" : "hidden";
   return (
     <div
-      className={`nowheel nodrag ${display} fixed z-20 mt-2 max-h-96 w-[inherit] !overflow-visible rounded-3xl bg-white shadow-xl`}
+      className={`nowheel nodrag ${display} absolute z-[500] mt-2 max-h-96 !overflow-visible rounded-3xl bg-white shadow-xl`}
+      style={{ width }}
       {...getMenuProps()}
     >
       {children}
