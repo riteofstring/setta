@@ -28,7 +28,7 @@ function FlexForm({ flexFormWrap = false, flexStyles, children }) {
   if (flexFormWrap) {
     return (
       <div
-        className={`LOL flex flex-col min-h-[200px] justify-center items-center ${flexStyles}`}
+        className={`flex flex-col min-h-[200px] justify-center items-center ${flexStyles}`}
       >
         {children}
       </div>
