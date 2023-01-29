@@ -4,6 +4,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
+import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
 
 export function CustomResizable({ sectionId, children }) {
@@ -61,61 +62,4 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
       {children}
     </Resizable>
   );
-}
-
-function setSelfParentSiblingChildrenWidths({
-  sectionId,
-  d,
-  minHeight,
-  minWidth,
-}) {
-  // set own width
-  useSectionInfos.getState().setSectionInfoAttr({
-    sectionId,
-    attr: "size",
-    newValueFn: getNewSizeFn({ d, minHeight, minWidth }),
-  });
-
-  setAllOtherWidths({
-    sectionId,
-    sectionWidth: useSectionInfos.getState().x[sectionId].size.width,
-  });
-}
-
-function setAllOtherWidths({ sectionId, sectionWidth }) {
-  const highestAncestor = getHighestAncestor(sectionId);
-  const sectionIds = [highestAncestor];
-  const s = useSectionInfos.getState();
-  let idx = 0;
-  while (idx < sectionIds.length) {
-    const currId = sectionIds[idx];
-    sectionIds.push(...s.currChildren[currId]);
-    idx += 1;
-  }
-  useSectionInfos.getState().setSectionInfoAttr({
-    sectionIds: sectionIds.filter((x) => x !== sectionId),
-    attr: "size",
-    newValueFn: (size) => ({ width: sectionWidth, height: size.height }),
-  });
-}
-
-function getHighestAncestor(sectionId) {
-  const s = useSectionInfos.getState();
-  let parentId = s.x[sectionId].parentId;
-  let highestAncestor = sectionId;
-
-  while (parentId) {
-    highestAncestor = parentId;
-    parentId = s.x[parentId].parentId;
-  }
-
-  return highestAncestor;
-}
-
-function getNewSizeFn({ d, minHeight, minWidth }) {
-  return (size) => {
-    const newHeight = Math.max(size.height + d.height, minHeight);
-    const newWidth = Math.max(size.width + d.width, minWidth);
-    return { height: newHeight, width: newWidth };
-  };
 }
