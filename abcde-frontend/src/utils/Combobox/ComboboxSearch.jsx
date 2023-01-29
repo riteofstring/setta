@@ -1,4 +1,5 @@
 import { useCombobox } from "downshift";
+import useWidthOfResizableElement from "hooks/useWidthOfResizableElement";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { ComboboxInput, ComboboxItem, ComboboxList } from "./Combobox";
@@ -10,10 +11,11 @@ export function ComboboxSearch({
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
-  width,
+  // width,
   itemStyleGetter,
   small,
 }) {
+  const { widthRef, width } = useWidthOfResizableElement();
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,
@@ -49,7 +51,7 @@ export function ComboboxSearch({
   return (
     <div
       className="flex h-10 w-full flex-col items-stretch overflow-visible"
-      {...getComboboxProps()}
+      {...getComboboxProps({ ref: widthRef })}
     >
       <ComboboxInput
         getInputProps={getInputProps}
