@@ -34,7 +34,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // flex flex-grow flex-col
   return (
     <div
-      className={` rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline w-min duration-150`}
+      className={` rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline h-min w-min duration-150`}
       onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
     >
