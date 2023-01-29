@@ -17,8 +17,14 @@ export function PaneContainer({
   const size = useWindowSize();
   const { right, paneName } = paneProps;
   const vis = usePanes((x) => x.vis[paneName]);
+  const width = usePanes((x) => x.width[paneName]);
   const setVis = usePanes((x) => x.setVis);
+  const setWidth = usePanes((x) => x.setWidth);
   const setTrueWidth = usePanes((x) => x.setTrueWidth);
+  const [vMax, setVMax] = useState(50);
+  const [vMin, setVMin] = useState(50);
+  const height = "100%";
+
   function uiToggle() {
     const newVis = !vis;
     setVis({ paneName, vis: newVis });
@@ -34,30 +40,29 @@ export function PaneContainer({
     setBtnDir(!btnDir);
   }
 
-  const [vMax, setVMax] = useState(50);
-  const [vMin, setVMin] = useState(50);
-
   useEffect(() => {
     const newVMax = size.winWidth / 2.1;
     const newVMin = 340;
     newVMax && setVMax(newVMax);
     newVMin && setVMin(newVMin);
     if (width > newVMax) {
+      if (paneTitle === "Edit") {
+        console.log("width, newVMax", width, newVMax);
+      }
       setWidth({ paneName, width: newVMax });
       setTrueWidth({ paneName, trueWidth: vis ? newVMax : MIN_PANE_WIDTH });
     } else if (width < newVMin) {
+      if (paneTitle === "Edit") {
+        console.log("width, newVMin", width, newVMin);
+      }
       setWidth({ paneName, width: newVMin });
       setTrueWidth({ paneName, trueWidth: vis ? newVMin : MIN_PANE_WIDTH });
     }
   }, [vis, size.winWidth]);
 
-  const width = usePanes((x) => x.width[paneName]);
-  const setWidth = usePanes((x) => x.setWidth);
-  const height = "100%";
-
   const variants = {
     open: { x: "0rem" },
-    closed: { x: `${!right ? "-" : ""}${width / 16 - 2.5}rem` },
+    closed: { x: `${!right ? "-" : ""}${width - 40}px` },
   };
 
   function localOnResizeStop(e, direction, ref, d) {
@@ -80,6 +85,12 @@ export function PaneContainer({
     : "justify-self-start right-auto left-0";
 
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
+
+  if (paneTitle === "Edit") {
+    console.log("width, height", width, height);
+    console.log("variants.closed", variants.closed);
+  }
+
   return (
     <motion.div
       className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r [&>div]:border-gray-200  [&>div]:bg-gray-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
