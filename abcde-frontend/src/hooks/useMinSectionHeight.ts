@@ -10,7 +10,7 @@ export function useMinSectionHeight(sectionId) {
   const hasSearch = useGetAllCallables(sectionId).length > 0 && !isRoot;
   const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const hasUnnestedParam = !useAreAllParamsNested(sectionId, paramInfos);
-  const hasKwargControl = true;
+  const hasKwargControl = !isRoot;
 
   return (
     (hasTitle ? 50 : 0) +
