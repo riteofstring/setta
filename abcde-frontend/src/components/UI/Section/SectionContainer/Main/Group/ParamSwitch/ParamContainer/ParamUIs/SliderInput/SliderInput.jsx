@@ -28,7 +28,7 @@ export function SliderInput({
 }) {
   return (
     <Slider.Root
-      className="relative flex items-center select-none touch-none w-40 data-[orientation='horizontal']:h-5 data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot"
+      className="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-40 touch-none select-none items-center data-[orientation='horizontal']:h-5"
       aria-label="slider"
       value={[defaultIfNotNumber(parseFloat(value), min)]}
       defaultValue={[defaultIfNotNumber(parseFloat(defaultVal), min)]}
@@ -39,12 +39,12 @@ export function SliderInput({
       onValueChange={onChange}
       onValueCommit={onBlur}
     >
-      <Slider.Track className="bg-gray-200 relative flex-grow rounded-full data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]">
-        <Slider.Range className="absolute bg-blue-500 rounded-full h-full" />
+      <Slider.Track className="relative flex-grow rounded-full bg-gray-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]">
+        <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
       </Slider.Track>
       <Slider.Thumb
-        className="block w-3 h-3 bg-white
-      border-2 border-gray-300 shadow-sm drop-shadow-md rounded-full hover:bg-gray-100 focus-visible:outline-none focus:border-blue-500 cursor-pointer"
+        className="block h-3 w-3 cursor-pointer
+      rounded-full border-2 border-gray-300 bg-white shadow-sm drop-shadow-md hover:bg-gray-100 focus:border-blue-500 focus-visible:outline-none"
       />
     </Slider.Root>
   );

@@ -101,7 +101,7 @@ function Container({
     <>
       {isDeck ? (
         <div
-          className={`${className} pt-3 px-8 pb-6 rounded-3xl`}
+          className={`${className} rounded-3xl px-8 pt-3 pb-6`}
           style={{
             backgroundColor: "hsla(212, 22%, 50%, 0.2)",
             ...highlightDroppableStyle,

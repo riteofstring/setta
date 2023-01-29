@@ -7,7 +7,7 @@ export function StandardDropdown({ trigger, content, align = "start" }) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align={align}
-          className="bg-white p-2 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
+          className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white p-2 drop-shadow"
         >
           {content}
           <DropdownMenu.Arrow className="[fill:rgb(255,_255,_255)]" />

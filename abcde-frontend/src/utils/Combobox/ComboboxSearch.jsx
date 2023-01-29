@@ -57,7 +57,7 @@ export function ComboboxSearch({
       <div className="absolute w-[inherit]">
         <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
           <div
-            className="max-h-full m-3 overflow-y-scroll flex-1"
+            className="m-3 max-h-full flex-1 overflow-y-scroll"
             // style={{ width: wMinusPad }}
           >
             {filteredItems.map((item, index) => (
