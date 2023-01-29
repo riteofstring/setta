@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef } from "react";
 
 // https://stackoverflow.com/questions/69469814/how-can-i-throttle-a-resizeobserver
 function throttle(f, delay) {
@@ -24,13 +24,13 @@ export default function useWidthOfResizableElement() {
     )
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (widthRef.current) {
       observer.current.observe(widthRef.current);
     }
 
     return () => {
-      observer.current.unobserve();
+      observer.current.unobserve(widthRef.current);
     };
   }, [widthRef, observer]);
 
