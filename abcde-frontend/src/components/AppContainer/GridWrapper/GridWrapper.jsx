@@ -17,7 +17,7 @@ export function GridWrapper({
 function StandardGrid({ gridStyles, children }) {
   return (
     <div
-      className={`grid-col-[1fr] grid-row-[1fr] col-start-1 col-end-2 row-start-2 row-end-3 grid h-full min-h-0 min-w-0 ${gridStyles}`}
+      className={`grid grid-col-[1fr] grid-row-[1fr] col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 h-full ${gridStyles}`}
     >
       {children}
     </div>
@@ -28,7 +28,7 @@ function FlexForm({ flexFormWrap = false, flexStyles, children }) {
   if (flexFormWrap) {
     return (
       <div
-        className={`flex min-h-[200px] flex-col items-center justify-center ${flexStyles}`}
+        className={`flex flex-col min-h-[200px] justify-center items-center ${flexStyles}`}
       >
         {children}
       </div>

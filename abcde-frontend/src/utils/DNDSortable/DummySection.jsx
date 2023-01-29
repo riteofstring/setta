@@ -5,7 +5,7 @@ export const DummySection = React.forwardRef(({ zoom }, ref) => {
   return (
     <div
       style={{ width: `${SECTIONWIDTH * zoom}px`, height: `${100 * zoom}px` }}
-      className="rounded-md bg-gray-50/75"
+      className="bg-gray-50/75 rounded-md"
       ref={ref}
     />
   );

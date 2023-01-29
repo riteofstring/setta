@@ -6,8 +6,8 @@ export function ProjectName() {
   const configName = useProjectConfig((x) => x.name);
   return (
     <>
-      <span className="h-100 w-[5px] border-l border-gray-200 pr-3" />
-      <h3 className="font-heading text-sm font-bold text-gray-600">{`${name} / ${configName}`}</h3>
+      <span className="w-[5px] h-100 border-l border-gray-200 pr-3" />
+      <h3 className="font-heading font-bold text-gray-600 text-sm">{`${name} / ${configName}`}</h3>
     </>
   );
 }

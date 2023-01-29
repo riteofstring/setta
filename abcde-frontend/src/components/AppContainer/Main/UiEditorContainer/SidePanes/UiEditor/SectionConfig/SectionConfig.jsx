@@ -24,13 +24,13 @@ function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
 
   return (
-    <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
-      <h3 className="mt-2 text-xs font-semibold uppercase text-gray-400">
+    <div className="flex flex-col flex-grow gap-1 overflow-y-hidden">
+      <h3 className="text-xs uppercase text-gray-400 font-semibold mt-2">
         Card Types
       </h3>
       <SectionConfigTypeSelection sectionId={sectionId} />
 
-      <h3 className="mt-4 text-xs font-semibold uppercase text-gray-400">
+      <h3 className="text-xs uppercase text-gray-400 font-semibold mt-4">
         Contents
       </h3>
       {sectionType === OUTPUT ? (
@@ -51,7 +51,7 @@ function GoBackButton({ sectionId }) {
 
   return cameFromUIConfig ? (
     <Button twClasses={goBackBtnStyles} onClick={onGoBackClick}>
-      <IoArrowBack className="h-5 w-5" /> Go back
+      <IoArrowBack className="w-5 h-5" /> Go back
     </Button>
   ) : null;
 }

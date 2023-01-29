@@ -4,6 +4,7 @@ import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import { useProjectConfig } from "models/info/projectConfig";
 import { createDefaultSectionInfo } from "./createSectionInfo";
+import { getInitialSize } from "./defaultSize";
 
 type fnAfterAddSectionType = (newId: string) => void;
 
@@ -17,8 +18,10 @@ export function addSectionAtPosition({
   fnAfterAddSection?: fnAfterAddSectionType;
 }) {
   const addChildren = useProjectConfig.getState().addChildren;
+  const size = getInitialSize({ uiTypeId: null });
   const sectionProps: Parameters<typeof newSectionInfo>[0] = {
     initialPosition,
+    size,
   };
   const configProps: Parameters<typeof newSectionConfig>[0] = {};
   if (isDeck) {

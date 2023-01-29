@@ -11,7 +11,6 @@ export function ComboboxSearch({
   onSelectedItemChange,
   matchSorterProps,
   width,
-  small,
   itemStyleGetter,
 }) {
   const [selection, setSelection] = useState(null);
@@ -47,29 +46,33 @@ export function ComboboxSearch({
   });
 
   return (
-    <div style={{ width }} {...getComboboxProps()}>
+    <div
+      className="flex flex-col items-stretch overflow-visible w-full h-10"
+      {...getComboboxProps()}
+    >
       <ComboboxInput
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
-        small={small}
       />
 
-      <ComboboxList isOpen={true} getMenuProps={getMenuProps} width={width}>
-        <div className="m-3 max-h-full flex-1 overflow-y-scroll">
-          {filteredItems.map((item, index) => (
-            <ComboboxItem
-              getItemProps={getItemProps}
-              item={item}
-              index={index}
-              isHighlighted={index === highlightedIndex}
-              itemStyle={itemStyleGetter?.(item)}
-              itemString={itemToString(item)}
-              key={index}
-            />
-          ))}
-        </div>
-      </ComboboxList>
+      <div className="flex flex-col items-stretch" style={{ width }}>
+        <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
+          <div className="max-h-full m-3 w-full overflow-y-scroll">
+            {filteredItems.map((item, index) => (
+              <ComboboxItem
+                getItemProps={getItemProps}
+                item={item}
+                index={index}
+                isHighlighted={index === highlightedIndex}
+                itemStyle={itemStyleGetter?.(item)}
+                itemString={itemToString(item)}
+                key={index}
+              />
+            ))}
+          </div>
+        </ComboboxList>
+      </div>
     </div>
   );
 }

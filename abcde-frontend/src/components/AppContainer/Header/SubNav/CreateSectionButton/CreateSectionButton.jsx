@@ -6,7 +6,7 @@ export function CreateSectionButton() {
   const addSection = useAddSectionInEmptySpace({ isDeck: false });
   return (
     <MenuBarButton onClick={addSection}>
-      <HiPlus className="h-4 w-4" /> Card
+      <HiPlus className="w-4 h-4" /> Card
     </MenuBarButton>
   );
 }
