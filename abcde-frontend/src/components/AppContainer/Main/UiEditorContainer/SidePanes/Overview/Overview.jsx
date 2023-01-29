@@ -8,6 +8,7 @@ import { SectionListItems } from "./SectionList/SectionListItems";
 const paneProps = {
   right: false,
   paneName: OVERVIEW,
+  initialWidth: 320
 };
 
 export function Overview() {

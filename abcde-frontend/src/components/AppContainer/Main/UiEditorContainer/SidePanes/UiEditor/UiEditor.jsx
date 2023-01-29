@@ -16,6 +16,7 @@ import { UIConfig } from "./UIConfig/UIConfig";
 const paneProps = {
   right: true,
   paneName: UI_EDITOR,
+  initialWidth: 500,
 };
 
 export function UiEditor() {

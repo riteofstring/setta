@@ -14,29 +14,30 @@ export function PaneContainer({
   children,
 }) {
   const size = useWindowSize();
-  const { right, paneName } = paneProps;
+  const { right, paneName, initialWidth } = paneProps;
   const vis = usePanes((x) => x.vis[paneName]);
-  const width = usePanes((x) => x.width[paneName]);
   const setVis = usePanes((x) => x.setVis);
-  const setWidth = usePanes((x) => x.setWidth);
   const setTrueWidth = usePanes((x) => x.setTrueWidth);
+  const [width, setWidth] = useState(initialWidth);
   const [vMax, setVMax] = useState(50);
   const [vMin, setVMin] = useState(50);
+  const [btnDir, setBtnDir] = useState(right ? vis : !vis);
   const height = "100%";
 
   function uiToggle() {
     const newVis = !vis;
     setVis({ paneName, vis: newVis });
-    btnDirFlip();
+    setBtnDir(!btnDir);
     setTrueWidth({ paneName, trueWidth: newVis ? width : MIN_PANE_WIDTH });
     if (onResizeStop) {
       const widthDiff = width - MIN_PANE_WIDTH;
       onResizeStop(newVis ? widthDiff : -widthDiff);
     }
   }
-  const [btnDir, setBtnDir] = useState(right ? vis : !vis);
-  function btnDirFlip() {
-    setBtnDir(!btnDir);
+
+  function setNewWidth(newWidth) {
+    setWidth(newWidth);
+    setTrueWidth({ paneName, trueWidth: vis ? newWidth : MIN_PANE_WIDTH });
   }
 
   useEffect(() => {
@@ -45,17 +46,9 @@ export function PaneContainer({
     newVMax && setVMax(newVMax);
     newVMin && setVMin(newVMin);
     if (width > newVMax) {
-      if (paneTitle === "Edit") {
-        console.log("width, newVMax", width, newVMax);
-      }
-      setWidth({ paneName, width: newVMax });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMax : MIN_PANE_WIDTH });
+      setNewWidth(newVMax);
     } else if (width < newVMin) {
-      if (paneTitle === "Edit") {
-        console.log("width, newVMin", width, newVMin);
-      }
-      setWidth({ paneName, width: newVMin });
-      setTrueWidth({ paneName, trueWidth: vis ? newVMin : MIN_PANE_WIDTH });
+      setNewWidth(newVMin);
     }
   }, [vis, size.winWidth]);
 
@@ -64,11 +57,7 @@ export function PaneContainer({
     if (newWidth === width) {
       return;
     }
-    setWidth({ paneName, width: newWidth });
-    setTrueWidth({
-      paneName,
-      trueWidth: vis ? newWidth : MIN_PANE_WIDTH,
-    });
+    setNewWidth(newWidth);
     if (onResizeStop) {
       onResizeStop(d.width);
     }
