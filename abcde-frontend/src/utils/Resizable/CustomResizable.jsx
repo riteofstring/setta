@@ -10,6 +10,7 @@ export function CustomResizable({ sectionId, children }) {
 
   return (
     <Resizable
+      defaultSize={{ width: SECTIONWIDTH }}
       minHeight={minHeight}
       minWidth={SECTIONWIDTH}
       handleWrapperClass={className}
