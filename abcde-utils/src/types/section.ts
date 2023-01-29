@@ -4,7 +4,6 @@ import {
 } from "./sectionChildren";
 import { SectionConfigColType } from "./sectionConfigCol";
 import { SectionPositionType } from "./sectionPosition";
-import { SectionSizeType } from "./sectionSize";
 import { ManyOf } from "./utils";
 
 export type SectionCoreType = {
@@ -12,7 +11,6 @@ export type SectionCoreType = {
   name: string;
   sectionChildrenId: string;
   paramInfoId: string | null;
-  size: SectionSizeType;
   initialPosition: SectionPositionType;
 };
 
