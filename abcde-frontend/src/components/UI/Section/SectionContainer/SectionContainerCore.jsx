@@ -44,7 +44,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4 [&>div:not(.section-description)]:px-5">
+          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4 [&>div:not(.section-full-width)]:px-5">
             <SectionHeader
               sectionId={sectionId}
               parentId={parentId}
@@ -62,8 +62,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             ) : (
               <OutputArea sectionId={sectionId} />
             )}
+            <KwargGroupContainer
+              sectionId={sectionId}
+              objInfoId={selectedItem}
+            />
           </div>
-          <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+
           <ResizeIcon />
         </CustomResizable>
       </div>
