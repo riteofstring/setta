@@ -9,17 +9,16 @@ export function InputArea({ sectionId, selectedItem, isRoot }) {
   }
 
   // TODO: determine tempBoolDesc dynamically
-  const tempBoolDesc = true;
+  const tempBoolDesc = false;
   return (
     !isRoot && (
       <>
-        {tempBoolDesc && <SectionDescription />}
         <SectionSearch
           sectionId={sectionId}
           initialSelection={selectedItem}
           onSelectedItemChange={onSelectedItemChange}
         />
-
+        {tempBoolDesc && <SectionDescription />}
         <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </>
     )
