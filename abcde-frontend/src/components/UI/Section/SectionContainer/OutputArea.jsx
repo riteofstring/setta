@@ -23,7 +23,7 @@ ChartJS.register(
   Legend
 );
 
-export function OutputSection({ sectionId }) {
+export function OutputArea({ sectionId }) {
   const selectedGroups = useGetSelectedOutputValues(sectionId);
 
   return (
