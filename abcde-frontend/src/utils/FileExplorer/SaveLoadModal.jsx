@@ -158,7 +158,7 @@ function SaveBody({
 
 function Footer({ onClose, onClick, buttonText }) {
   return (
-    <div className="mb-2 mt-4 flex justify-end gap-2">
+    <div className="flex gap-2 mb-2 mt-4 justify-end">
       {buttonText && (
         <DialogCloseButton
           twClasses="bg-gray-200 hover:bg-gray-300 text-gray-600"

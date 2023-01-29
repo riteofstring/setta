@@ -14,12 +14,12 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
 
   return (
     <>
-      <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-gray-400">
+      <Dialog.Title className="font-bold uppercase tracking-widest text-gray-400 mb-4 mx-3">
         {modalType === "Load" && "Load Project"}
         {modalType === "Save As" && "Save Project As"}
       </Dialog.Title>
 
-      <div className="mx-3 mb-2 flex justify-between border-b border-solid border-gray-200 pb-2">
+      <div className="flex justify-between mb-2 mx-3 border-b pb-2 border-solid border-gray-200">
         <Button twClasses="text-xs text-gray-400 hover:text-gray-900 rounded-md ring-0">
           Name
         </Button>
@@ -35,7 +35,7 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
       >
         <Accordion.Root
           type="multiple"
-          className="flex h-[30vh] max-h-[25rem] flex-col overflow-y-scroll p-1"
+          className="overflow-y-scroll flex flex-col max-h-[25rem] h-[30vh] p-1"
         >
           {_.map(files, (x, idx) => (
             <ProjectListing

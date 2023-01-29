@@ -7,7 +7,7 @@ import { AppContainer } from "./components/AppContainer/AppContainer";
 
 export function App() {
   return (
-    <div className="flex h-screen w-screen flex-col items-center font-body">
+    <div className="flex flex-col items-center w-screen h-screen font-body">
       <AppContainer />
     </div>
   );

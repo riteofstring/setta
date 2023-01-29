@@ -66,7 +66,7 @@ function Footer() {
       >
         Sign Up
       </StandardButton>
-      <a href="#" className="text-xs hover:underline focus-visible:ring-2">
+      <a href="#" className="text-xs focus-visible:ring-2 hover:underline">
         I forgot my password.
       </a>
     </>

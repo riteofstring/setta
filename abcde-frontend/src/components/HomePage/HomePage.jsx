@@ -103,8 +103,8 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
         configs={configs}
         onConfigClick={onConfigClick}
       />
-      <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 ">
-        <h3 className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-gray-600">
+      <div className="absolute bottom-0 top-0 left-0 w-full p-4 row-start-2 row-end-3 col-start-1 col-end-2 bg-white ">
+        <h3 className="font-bold font-heading text-gray-600 overflow-hidden overflow-ellipsis whitespace-nowrap text-xs">
           {name}
         </h3>
         <Badges />
@@ -115,11 +115,11 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
 function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
   return (
-    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-gray-300 bg-center p-4">
+    <div className="absolute top-0 left-0 bottom-0 w-full grid p-4 row-start-1 row-end-2 col-start-1 col-end-2 bg-gray-300 bg-center">
       <StandardDropdown
         trigger={
           <div
-            className="flex items-center gap-1 rounded-full bg-gray-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-gray-50"
+            className="[place-self:flex-start_flex-end] flex items-center bg-gray-200 gap-1 hover:bg-gray-50 py-1 px-2 rounded-full text-xs"
             onClick={onClickConfigsButton}
           >
             <BiGitBranch />
@@ -178,7 +178,7 @@ export function DefaultConfigBadge({ config }) {
 
 function Badges() {
   return (
-    <div className="[background:linear-gradient(to right, rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade  mt-1 flex flex-row gap-[0.15rem]">
+    <div className="flex flex-row gap-[0.15rem] mt-1 [background:linear-gradient(to right,  rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade">
       <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
         PyTorch 2.9
       </Badge>

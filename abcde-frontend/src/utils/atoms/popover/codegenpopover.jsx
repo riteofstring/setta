@@ -25,10 +25,10 @@ export function CodeGenPopover({
 function Content({ header, body, footer }) {
   return (
     <>
-      <h3 className="text-xs font-bold uppercase text-gray-600">{header}</h3>
-      <div className="mt-1 flex flex-row items-center gap-2 rounded-md bg-gray-700 px-3 py-2">
+      <h3 className="font-bold uppercase text-xs text-gray-600">{header}</h3>
+      <div className="flex flex-row items-center gap-2 px-3 py-2 mt-1 rounded-md bg-gray-700">
         <code className="font-code text-white  ">{body}</code>
-        <HiOutlineDuplicate className="h-5 w-5 text-white" />
+        <HiOutlineDuplicate className="text-white w-5 h-5" />
       </div>
       <p>{footer}</p>
     </>
