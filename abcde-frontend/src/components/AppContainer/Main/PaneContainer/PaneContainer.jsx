@@ -59,11 +59,6 @@ export function PaneContainer({
     }
   }, [vis, size.winWidth]);
 
-  const variants = {
-    open: { x: "0rem" },
-    closed: { x: `${!right ? "-" : ""}${width - 40}px` },
-  };
-
   function localOnResizeStop(e, direction, ref, d) {
     const newWidth = clamp(width + d.width, vMin, vMax);
     if (newWidth === width) {
@@ -87,20 +82,10 @@ export function PaneContainer({
 
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
 
-  if (paneTitle === "Edit") {
-    console.log("width, height", width, height);
-    console.log("variants.closed", variants.closed);
-  }
-
   return (
     <div
       className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} transition-all [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r  [&>div]:border-gray-200 [&>div]:bg-gray-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
-      // animate={vis ? "open" : "closed"}
-      // variants={variants}
-      // initial={vis ? "open" : "closed"}
-
-      // outline="none"
       aria-label={`${paneTitle} Pane`}
     >
       <Resizable
