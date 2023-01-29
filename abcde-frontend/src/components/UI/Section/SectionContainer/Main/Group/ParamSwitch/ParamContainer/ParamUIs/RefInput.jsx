@@ -16,6 +16,7 @@ export function RefInput({ value, onBlur, className }) {
       onSelectedItemChange={onBlur}
       className={className}
       // width="424px"
+      small={true}
     />
   );
 }

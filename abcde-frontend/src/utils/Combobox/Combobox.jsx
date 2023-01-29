@@ -3,15 +3,20 @@ import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 
-export function ComboboxInput({ getInputProps, getToggleButtonProps, isOpen }) {
+export function ComboboxInput({
+  getInputProps,
+  getToggleButtonProps,
+  isOpen,
+  small,
+}) {
   const searchStyles =
-    "w-full outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm h-[40px] pl-10 focus-visible:ring-2";
+    "flex-1 outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm pl-10 focus-visible:ring-2";
 
   const toggleButtonProps = getToggleButtonProps();
 
   return (
     <StandardSearch
-      inputStyles={searchStyles}
+      inputStyles={`${searchStyles} ${small ? "h-7" : "h-10"} `}
       leftElementStyles="pl-3"
       {...toggleButtonProps}
       {...getInputProps()}
@@ -19,18 +24,20 @@ export function ComboboxInput({ getInputProps, getToggleButtonProps, isOpen }) {
         <StandardSearchRightBtn
           {...toggleButtonProps}
           icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
-          size="w-10 h-10"
+          size={small ? "w-7 h-7" : "w-10 h-10"}
         />
       }
     />
   );
 }
 
+//  w-[calc(100%-_0.75rem)]
+
 export function ComboboxList({ isOpen, children, getMenuProps }) {
   const display = isOpen ? "flex" : "hidden";
   return (
     <div
-      className={`nowheel nodrag ${display} flex-1 items-stretch w-[inherit] max-h-96 mt-2 z-20 rounded-3xl bg-white !overflow-visible fixed shadow-xl`}
+      className={`nowheel nodrag ${display} w-[inherit] max-h-96 mt-2 z-20 rounded-3xl bg-white !overflow-visible fixed shadow-xl`}
       {...getMenuProps()}
     >
       {children}

@@ -17,6 +17,7 @@ export function CustomResizable({ children }) {
   return (
     <Resizable
       minWidth={SECTIONWIDTH}
+      minHeight={100}
       handleWrapperClass={className}
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
