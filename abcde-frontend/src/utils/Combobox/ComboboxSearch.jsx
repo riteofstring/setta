@@ -11,7 +11,6 @@ export function ComboboxSearch({
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
-  // width,
   itemStyleGetter,
   small,
 }) {

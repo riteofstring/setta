@@ -1,5 +1,4 @@
 import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
-import { usePaneComboboxWidth } from "hooks/usePaneComboboxWidth";
 import {
   useAvailableUITypesForNestedSection,
   useAvailableUITypesForTopLevelSection,
@@ -8,8 +7,6 @@ import {
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
-  const comboboxWidth = usePaneComboboxWidth();
-
   function itemStyleGetter(item) {
     if (isUserPreset(item)) {
       return "font-bold italic text-green-700";
@@ -25,7 +22,6 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
       allItems={availableUITypes}
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
-      width={comboboxWidth}
       itemStyleGetter={itemStyleGetter}
     />
   );
