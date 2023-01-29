@@ -8,6 +8,10 @@ export default {
       x: 345,
       y: -36.6875,
     },
+    size: {
+      width: 450,
+      height: 200,
+    },
   },
   "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3": {
     id: "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3",
@@ -17,6 +21,10 @@ export default {
     initialPosition: {
       x: 165,
       y: 188.3125,
+    },
+    size: {
+      width: 450,
+      height: 200,
     },
   },
   "716d7af5-ea92-4285-aaf5-adf988d051f7": {
@@ -28,6 +36,10 @@ export default {
       x: 837.2682590876391,
       y: 33.06637302451537,
     },
+    size: {
+      width: 450,
+      height: 200,
+    },
   },
   "de2caec1-254d-486e-aa86-b00029a52683": {
     id: "de2caec1-254d-486e-aa86-b00029a52683",
@@ -37,6 +49,10 @@ export default {
     initialPosition: {
       x: 152.157444843427,
       y: 999.9433029745574,
+    },
+    size: {
+      width: 450,
+      height: 200,
     },
   },
   "7f6aca35-b44c-489e-80f8-261c80f61405": {
@@ -48,6 +64,10 @@ export default {
       x: 722.5314446651364,
       y: 764.397219199873,
     },
+    size: {
+      width: 450,
+      height: 200,
+    },
   },
   "c49578eb-dd0a-43bd-ba4a-9bf687d04b14": {
     id: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
@@ -58,6 +78,10 @@ export default {
       x: 0,
       y: 0,
     },
+    size: {
+      width: 450,
+      height: 200,
+    },
   },
   "7b3c47ac-a773-4733-86f9-041ce9d5a3c8": {
     id: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",
@@ -67,6 +91,10 @@ export default {
     initialPosition: {
       x: 701.4751038734559,
       y: 1147.0704429363243,
+    },
+    size: {
+      width: 450,
+      height: 200,
     },
   },
 };
