@@ -1,6 +1,6 @@
 export function GridContainer({ children }) {
   return (
-    <main className="grid h-full w-screen grid-cols-[1fr] grid-rows-[min-content] overflow-hidden">
+    <main className="h-full w-screen overflow-hidden grid grid-cols-[1fr] grid-rows-[min-content]">
       {children}
     </main>
   );

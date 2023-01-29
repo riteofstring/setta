@@ -6,7 +6,7 @@ export function CreateGroupButton() {
   const addSection = useAddSectionInEmptySpace({ isDeck: true });
   return (
     <MenuBarButton onClick={addSection}>
-      <AiOutlineGroup className="h-4 w-4" />
+      <AiOutlineGroup className="w-4 h-4" />
       Group
     </MenuBarButton>
   );

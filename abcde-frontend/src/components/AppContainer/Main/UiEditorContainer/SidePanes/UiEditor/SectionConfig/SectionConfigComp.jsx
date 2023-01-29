@@ -54,11 +54,11 @@ export function SectionConfigSearch({
 
   return (
     <div
-      className="flex h-[inherit] flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0"
+      className="flex-grow flex flex-col [&>form]:flex-grow-0 h-[inherit] overflow-y-hidden"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSearch} />
-      <ul className="mt-4 flex flex-grow flex-col gap-4 overflow-y-auto">
+      <ul className="flex flex-col flex-grow gap-4 mt-4 overflow-y-auto">
         {Object.values(results).map((x) => (
           <SearchItem
             id={x.id}
@@ -107,18 +107,18 @@ function SearchItem({
   }
 
   return (
-    <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black">
+    <li className="border border-solid border-transparent px-3 py-2 hover:bg-white hover:shadow-md rounded-lg transition edit-list-item flex [&:hover_*]:text-black select-none">
       <input
         type="checkbox"
-        className="mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer rounded-md border-gray-300 bg-gray-200 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300"
+        className="w-4 h-4 mr-2 mt-1 flex-shrink-0 checked:bg-blue-500 cursor-pointer rounded-md bg-gray-200 text-blue-600 border-gray-300 focus-visible:ring-blue-300 ring-offset-1 focus-visible:ring-2"
         checked={checked}
         onChange={onCheckboxChange}
       />
       <label className="w-full">
         <DetailsComponent details={details}>
-          <div className="flex cursor-pointer flex-col self-stretch">
+          <div className="flex flex-col self-stretch cursor-pointer">
             <h2 className="text-md font-bold text-gray-500">{name}</h2>
-            <p className="mt-1 text-sm">{description}</p>
+            <p className="text-sm mt-1">{description}</p>
           </div>
         </DetailsComponent>
       </label>
@@ -133,10 +133,10 @@ function ObjCollectionDetails({ children, details }) {
     <Collapsible.Root>
       <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
       <Collapsible.Content>
-        <div className="mt-2 select-text rounded-md bg-gray-200 py-3 px-5">
+        <div className="py-3 px-5 mt-2 bg-gray-200 rounded-md select-text">
           {Object.entries(groupedDetails).map(([k, v]) => (
             <div key={`ObjCollectionDetails-${k}`}>
-              <h3 className="text-sm font-bold">{k}</h3>
+              <h3 className="font-bold text-sm">{k}</h3>
               <ObjListText objList={v} />
             </div>
           ))}

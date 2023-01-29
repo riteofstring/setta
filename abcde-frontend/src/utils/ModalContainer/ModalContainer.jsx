@@ -6,8 +6,8 @@ export function ModalContainer({ content, children }) {
     <Dialog.Root>
       {children}
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
-        <Dialog.Content className="animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed top-1/2 left-1/2 z-[100] w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white px-7 py-7 shadow-xl">
+        <Dialog.Overlay className="fixed inset-0 z-20 backdrop-blur-sm bg-[rgba(0,0,0,0.5)] animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] " />
+        <Dialog.Content className="bg-white rounded-lg shadow-xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[800px] px-7 py-7 animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) z-[100]">
           {content}
         </Dialog.Content>
       </Dialog.Portal>
