@@ -73,19 +73,16 @@ function setSelfParentSiblingChildrenWidths({
   useSectionInfos.getState().setSectionInfoAttr({
     sectionId,
     attr: "size",
-    newValueFn: getNewSizeFn({
-      d,
-      minHeight,
-      minWidth,
-      updateHeight: true,
-      updateWidth: true,
-    }),
+    newValueFn: getNewSizeFn({ d, minHeight, minWidth }),
   });
 
-  setAllOtherWidths({ sectionId, d, minHeight, minWidth });
+  setAllOtherWidths({
+    sectionId,
+    sectionWidth: useSectionInfos.getState().x[sectionId].size.width,
+  });
 }
 
-function setAllOtherWidths({ sectionId, d, minHeight, minWidth }) {
+function setAllOtherWidths({ sectionId, sectionWidth }) {
   const highestAncestor = getHighestAncestor(sectionId);
   const sectionIds = [highestAncestor];
   const s = useSectionInfos.getState();
@@ -98,13 +95,7 @@ function setAllOtherWidths({ sectionId, d, minHeight, minWidth }) {
   useSectionInfos.getState().setSectionInfoAttr({
     sectionIds: sectionIds.filter((x) => x !== sectionId),
     attr: "size",
-    newValueFn: getNewSizeFn({
-      d,
-      minHeight,
-      minWidth,
-      updateHeight: false,
-      updateWidth: true,
-    }),
+    newValueFn: (size) => ({ width: sectionWidth, height: size.height }),
   });
 }
 
@@ -121,14 +112,10 @@ function getHighestAncestor(sectionId) {
   return highestAncestor;
 }
 
-function getNewSizeFn({ d, minHeight, minWidth, updateHeight, updateWidth }) {
+function getNewSizeFn({ d, minHeight, minWidth }) {
   return (size) => {
-    const newHeight = updateHeight
-      ? Math.max(size.height + d.height, minHeight)
-      : size.height;
-    const newWidth = updateWidth
-      ? Math.max(size.width + d.width, minWidth)
-      : size.width;
+    const newHeight = Math.max(size.height + d.height, minHeight);
+    const newWidth = Math.max(size.width + d.width, minWidth);
     return { height: newHeight, width: newWidth };
   };
 }
