@@ -1,4 +1,5 @@
 import {
+  DECK,
   isRoot,
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
@@ -188,6 +189,17 @@ function setSectionSize({ newParentId, sectionId }) {
     return;
   }
   const s = useSectionInfos.getState();
-  const width = s.x[newParentId].size.width;
-  setAllChildrenWidths({ sectionId, width });
+  const isDeck = getSectionType(newParentId).type === DECK;
+
+  // if new parent is a deck and the deck has children
+  if (isDeck) {
+    const deckChildren = s.currChildren[newParentId];
+    if (deckChildren.length > 0) {
+      const width = s.x[deckChildren[0]].size.width;
+      setAllChildrenWidths({ sectionId, width });
+    }
+  } else {
+    const width = s.x[newParentId].size.width;
+    setAllChildrenWidths({ sectionId, width });
+  }
 }
