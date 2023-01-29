@@ -11,10 +11,10 @@ import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return (
-    <div ref={ref}>
+    <>
       <GoBackButton sectionId={sectionId} />
       <SectionConfigCore sectionId={sectionId} />
-    </div>
+    </>
   );
 });
 
