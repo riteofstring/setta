@@ -17,10 +17,9 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
-export default React.memo(UIConfig);
 const UIElement = React.memo(_UIElement, (p, n) => _.isEqual(p, n));
 
-function UIConfig({ sectionId }) {
+const UIConfig = React.forwardRef(({ sectionId }, ref) => {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
     (x) => x.name
   );
@@ -35,7 +34,7 @@ function UIConfig({ sectionId }) {
     "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300 focus-visible:border-blue-300 pl-7 py-1";
 
   return (
-    <>
+    <div ref={ref}>
       <StandardSearch
         inputStyles={inputStyles}
         leftElementStyles="pl-1"
@@ -51,9 +50,11 @@ function UIConfig({ sectionId }) {
             />
           ))}
       </div>
-    </>
+    </div>
   );
-}
+});
+
+export default React.memo(UIConfig);
 
 function _UIElement({ sectionId, paramInfo }) {
   const setUIType = useUITypes((x) => x.setUIType);

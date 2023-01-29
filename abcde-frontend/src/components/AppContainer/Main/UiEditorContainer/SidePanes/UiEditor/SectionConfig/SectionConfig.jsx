@@ -9,16 +9,16 @@ import { OutputsSearch } from "./OutputSectionConfigComp";
 import { CollectionsSearch } from "./SectionConfigComp";
 import SectionConfigTypeSelection from "./SectionConfigTypeSelection";
 
-export default React.memo(SectionConfig);
-
-function SectionConfig({ sectionId }) {
+const SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return (
-    <>
+    <div ref={ref}>
       <GoBackButton sectionId={sectionId} />
       <SectionConfigCore sectionId={sectionId} />
-    </>
+    </div>
   );
-}
+});
+
+export default React.memo(SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");

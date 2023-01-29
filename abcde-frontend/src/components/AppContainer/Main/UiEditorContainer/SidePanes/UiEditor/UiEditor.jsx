@@ -7,6 +7,7 @@ import {
   UI_CONFIG_TAB,
   useUIEditor,
 } from "models/uiEditor";
+import React from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
 import SectionConfig from "./SectionConfig/SectionConfig";
@@ -79,9 +80,9 @@ function TabContent(props) {
   );
 }
 
-function Placeholder() {
+const Placeholder = React.forwardRef((props, ref) => {
   return (
-    <div className="grid min-h-[60vh]">
+    <div className="grid min-h-[60vh]" ref={ref}>
       <div className="place-self-center flex flex-col items-center gap-4">
         <FiEdit3 className="w-20 h-20 text-gray-300 " />
         <h4 className="font-bold text-gray-300 tracking-widest text-lg">
@@ -90,4 +91,4 @@ function Placeholder() {
       </div>
     </div>
   );
-}
+});
