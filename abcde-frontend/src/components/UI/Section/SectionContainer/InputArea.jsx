@@ -1,7 +1,10 @@
 import { setSelectedItem } from "thunks/sections/sections";
-import { ParamGroupContainer } from "./Main/Group/GroupContainer";
+import {
+  KwargGroupContainer,
+  ParamGroupContainer,
+} from "./Main/Group/GroupContainer";
 import { SectionSearch } from "./Main/Search/Search";
-import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
+// import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
 export function InputArea({ sectionId, selectedItem, isRoot }) {
   function onSelectedItemChange(value) {
@@ -9,17 +12,19 @@ export function InputArea({ sectionId, selectedItem, isRoot }) {
   }
 
   // TODO: determine tempBoolDesc dynamically
-  const tempBoolDesc = false;
+  // const tempBoolDesc = true;
   return (
     !isRoot && (
       <>
+        {/* {tempBoolDesc && <SectionDescription />} */}
         <SectionSearch
           sectionId={sectionId}
           initialSelection={selectedItem}
           onSelectedItemChange={onSelectedItemChange}
         />
-        {tempBoolDesc && <SectionDescription />}
+
         <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </>
     )
   );
