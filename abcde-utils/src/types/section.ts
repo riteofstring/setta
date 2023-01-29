@@ -42,11 +42,12 @@ export type SectionInfoActionType = {
     newStateFn: (currState: ManySectionType) => ManySectionType
   ) => void;
 
-  setSectionInfoAttr: <K extends keyof SectionType>(payloa: {
+  setSectionInfoAttr: <K extends keyof SectionType>(payload: {
     sectionId?: string;
     sectionIds?: string[];
     attr: K;
-    value: SectionType[K];
+    value?: SectionType[K];
+    newValueFn?: any;
   }) => void;
 
   setSectionInfoAttrObjInput: (payload: {
