@@ -61,8 +61,8 @@ export function ComboboxSearch({
         small={small}
       />
 
-      <div className="flex flex-col items-stretch" style={{ width }}>
-        <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
+      <div className="flex flex-col items-stretch">
+        <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps} width={width}>
           <div className="m-3 max-h-full w-full overflow-y-scroll">
             {filteredItems.map((item, index) => (
               <ComboboxItem
