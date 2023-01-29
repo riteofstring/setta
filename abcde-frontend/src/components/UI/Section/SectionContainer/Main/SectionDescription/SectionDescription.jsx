@@ -13,7 +13,7 @@ export function SectionDescription({ card = false, descVis = false }) {
 | GFM        | 100%                 |
   `;
 
-  if (card) {
+  if (!card) {
     return (
       <DescriptionWrapper descVis={descVis}>
         <Markdown markdownSource={markdownSource} />
