@@ -7,6 +7,7 @@ import {
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
+import { RxCornerBottomRight } from "react-icons/rx";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
@@ -62,6 +63,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               <OutputArea sectionId={sectionId} />
             )}
           </div>
+          <RxCornerBottomRight className="absolute bottom-1 right-1 text-gray-500" />
         </CustomResizable>
       </div>
       {!isOutput && (
