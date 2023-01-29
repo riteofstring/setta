@@ -10,6 +10,7 @@ import {
 import React from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
+import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { UIConfig } from "./UIConfig/UIConfig";
 
@@ -52,6 +53,9 @@ export function UiEditor() {
         </TabContent>
         <TabContent value={UI_CONFIG_TAB}>
           {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
+        </TabContent>
+        <TabContent>
+          <MarkdownEditor />
         </TabContent>
       </Tabs.Root>
     </PaneContainer>
