@@ -46,19 +46,12 @@ export const useSectionInfos = create(
 
     setSectionInfo: (payload) => set((state) => ({ x: payload(state.x) })),
 
-    setSectionInfoAttr: ({ sectionId, sectionIds, attr, value, newValueFn }) =>
+    setSectionInfoAttr: ({ sectionId, sectionIds, attr, value }) =>
       set((state) => {
         if (sectionIds) {
-          sectionIds.forEach((id) => {
-            valueOrNewValueFn({ obj: state.x[id], attr, value, newValueFn });
-          });
+          sectionIds.forEach((id) => (state.x[id][attr] = value));
         } else if (sectionId) {
-          valueOrNewValueFn({
-            obj: state.x[sectionId],
-            attr,
-            value,
-            newValueFn,
-          });
+          state.x[sectionId][attr] = value;
         }
       }),
 
@@ -119,11 +112,3 @@ export const useSectionInfos = create(
     reset: () => set(initialState),
   }))
 );
-
-function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
-  if (value) {
-    obj[attr] = value;
-  } else if (newValueFn) {
-    obj[attr] = newValueFn(obj[attr]);
-  }
-}

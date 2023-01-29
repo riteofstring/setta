@@ -40,11 +40,11 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     >
       {/*   overflow-hidden  */}
       <div
-        className="rounded-xl border border-white bg-gray-50 shadow-md "
+        className="rounded-xl border border-white bg-gray-50 shadow-md"
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <div className="flex flex-grow flex-col gap-2 overflow-hidden px-3 py-4">
+          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4 [&>div:not(.section-full-width)]:px-5">
             <SectionHeader
               sectionId={sectionId}
               parentId={parentId}
@@ -62,13 +62,18 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             ) : (
               <OutputArea sectionId={sectionId} />
             )}
+            <KwargGroupContainer
+              sectionId={sectionId}
+              objInfoId={selectedItem}
+            />
           </div>
+
           <ResizeIcon />
         </CustomResizable>
       </div>
-      {!isOutput && (
-        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-      )}
+      {/* {!isOutput && (
+        
+      )} */}
     </div>
   );
 }
