@@ -1,26 +1,6 @@
-import {
-  CategoryScale,
-  Chart as ChartJS,
-  Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-} from "chart.js";
+import { ResponsiveLine } from "@nivo/line";
 import { useGetSelectedOutputValues } from "hooks/useSectionContents";
 import _ from "lodash";
-import { Line } from "react-chartjs-2";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
 
 export function OutputArea({ sectionId }) {
   const selectedGroups = useGetSelectedOutputValues(sectionId);
@@ -39,32 +19,52 @@ export function OutputArea({ sectionId }) {
 }
 
 function LineChart({ outputs, title }) {
-  const datasets = outputs.map((x) => ({
-    label: x.name,
-    data: x.values,
-    borderColor: "rgb(255, 99, 132)",
-    backgroundColor: "rgba(255, 99, 132, 0.5)",
+  const data = outputs.map((d) => ({
+    id: d.name,
+    data: d.values.map((s, idx) => ({ x: idx, y: s })),
+    color: "rgb(255, 99, 132)",
   }));
 
-  const labels = datasets[0] ? _.range(datasets[0].data.length) : [];
-
-  const data = {
-    labels,
-    datasets,
-  };
-
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top",
-      },
-      title: {
-        display: true,
-        text: title,
-      },
-    },
-  };
-
-  return <Line options={options} data={data} />;
+  return (
+    <ResponsiveLine
+      data={data}
+      margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
+      xScale={{ type: 'point' }}
+      yScale={{
+        type: "linear",
+        min: "auto",
+        max: "auto",
+        stacked: true,
+        reverse: false,
+      }}
+      // height={300}
+      // width={300}
+      legends={[
+        {
+          anchor: "bottom-right",
+          direction: "column",
+          justify: false,
+          translateX: 100,
+          translateY: 0,
+          itemsSpacing: 0,
+          itemDirection: "left-to-right",
+          itemWidth: 80,
+          itemHeight: 20,
+          itemOpacity: 0.75,
+          symbolSize: 12,
+          symbolShape: "circle",
+          symbolBorderColor: "rgba(0, 0, 0, .5)",
+          effects: [
+            {
+              on: "hover",
+              style: {
+                itemBackground: "rgba(0, 0, 0, .03)",
+                itemOpacity: 1,
+              },
+            },
+          ],
+        },
+      ]}
+    />
+  );
 }
