@@ -28,6 +28,13 @@ export function CustomResizable({ sectionId, children }) {
       onResizeStop={onResizeStop}
       handleWrapperClass="nodrag"
       scale={zoom}
+      enable={{
+        top: false,
+        left: false,
+        bottom: true,
+        right: true,
+        bottomRight: true,
+      }}
       className="flex flex-col items-stretch"
     >
       {children}

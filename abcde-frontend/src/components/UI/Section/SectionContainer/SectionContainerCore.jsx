@@ -63,7 +63,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          <RxCornerBottomRight className="absolute bottom-1 right-1 text-gray-500" />
+          <RxCornerBottomRight className="absolute bottom-0 right-0 text-gray-500" />
         </CustomResizable>
       </div>
       {!isOutput && (
