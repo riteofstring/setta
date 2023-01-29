@@ -49,7 +49,9 @@ export function ComboboxSearch({
 
   return (
     <div
-      className="flex h-10 w-full flex-col items-stretch overflow-visible"
+      className={`flex ${
+        small ? "h-7" : "h-10"
+      } w-full flex-col items-stretch overflow-visible`}
       {...getComboboxProps({ ref: widthRef })}
     >
       <ComboboxInput

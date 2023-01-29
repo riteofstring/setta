@@ -12,12 +12,14 @@ export function SwitchInput({
   className,
 }) {
   return (
-    <Toggle
-      checked={value}
-      disabled={isDisabled}
-      onCheckedChange={onBlur}
-      twRootClasses={`SwitchRoot ${className}`}
-      twThumbClasses="SwitchThumb"
-    />
+    <div className="flex justify-end">
+      <Toggle
+        checked={value}
+        disabled={isDisabled}
+        onCheckedChange={onBlur}
+        twRootClasses={`SwitchRoot ${className}`}
+        twThumbClasses="SwitchThumb"
+      />
+    </div>
   );
 }

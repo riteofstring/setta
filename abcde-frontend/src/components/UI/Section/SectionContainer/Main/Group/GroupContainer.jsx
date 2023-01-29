@@ -8,7 +8,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);
   return (
     <>
-      <div className="flex min-h-[36px] flex-col gap-2 overflow-y-auto">
+      <div className="flex flex-col gap-2 overflow-y-auto">
         <GetParamSwitch
           sectionId={sectionId}
           objInfoId={objInfoId}
