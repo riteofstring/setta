@@ -33,6 +33,13 @@ export const usePanes = create(
 
 
 export const useMarkdown = create((set) => ({
-  data: "# Some stuff here",
+  data: `## The Future of AI and Data Science 
+  Lets get something straight here, [I'm](#) going to type some markdown.
+  * [x] azeazea
+
+| Feature    | Support              |
+| ---------- | -------------------- |
+| CommonMark | 100%                 |
+| GFM        | 100%                 |`,
   setMarkdown: value => set({ data: value })
   }));
