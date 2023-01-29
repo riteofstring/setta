@@ -1,4 +1,5 @@
 import {
+  DECK,
   isRoot,
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
@@ -14,6 +15,7 @@ import { PANEID } from "utils/constants";
 import { setParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getSectionType } from "./sections";
+import { setAllChildrenWidths } from "./sectionSizes";
 
 export function deleteSections({ sectionIds }) {
   for (const sid of sectionIds) {
@@ -82,6 +84,8 @@ export function moveSection({
     newIndex,
   });
 
+  setSectionSize({ newParentId, sectionId });
+
   if (newParentId === PANEID && position) {
     useSectionInfos.getState().setSectionInfoAttr({
       sectionId,
@@ -130,7 +134,7 @@ function setSectionAttrBasedOnNewParent({
   sectionInfosState.setSectionInfoAttr({
     sectionId,
     attr: "parentId",
-    value: newParentId === PANEID ? undefined : newParentId,
+    value: newParentId === PANEID ? null : newParentId,
   });
 }
 
@@ -178,4 +182,24 @@ function maybeChangeOldParamUIType({ oldParentId, sectionId }) {
     paramInfoId,
     value: sectionId,
   });
+}
+
+function setSectionSize({ newParentId, sectionId }) {
+  if (newParentId === PANEID) {
+    return;
+  }
+  const s = useSectionInfos.getState();
+  const isDeck = getSectionType(newParentId).type === DECK;
+
+  // if new parent is a deck and the deck has children
+  if (isDeck) {
+    const deckChildren = s.currChildren[newParentId];
+    if (deckChildren.length > 0) {
+      const width = s.x[deckChildren[0]].size.width;
+      setAllChildrenWidths({ sectionId, width });
+    }
+  } else {
+    const width = s.x[newParentId].size.width;
+    setAllChildrenWidths({ sectionId, width });
+  }
 }

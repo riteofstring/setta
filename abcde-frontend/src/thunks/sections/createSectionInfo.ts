@@ -16,7 +16,7 @@ export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
   const uiTypeId = getChildUITypeId(parentUIType, parentId);
-  const size = getInitialSize({ uiTypeId });
+  const size = getInitialSize({ parentId, uiTypeId });
 
   return createManySectionInfo({
     sectionProps: { parentId, parentName, size },
