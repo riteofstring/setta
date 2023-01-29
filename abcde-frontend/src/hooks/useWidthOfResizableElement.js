@@ -30,7 +30,9 @@ export default function useWidthOfResizableElement() {
     }
 
     return () => {
-      observer.current.unobserve(widthRef.current);
+      if (widthRef.current) {
+        observer.current.unobserve(widthRef.current);
+      }
     };
   }, [widthRef, observer]);
 
