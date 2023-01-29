@@ -1,7 +1,8 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import { ChevronDownIcon } from "@radix-ui/react-icons";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import React, { useRef } from "react";
-import { HiCheckCircle, HiChevronDown, HiOutlineFolder } from "react-icons/hi";
+import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 import "./style.css";
 
 export function ProjectListing({ project, onClick }) {
@@ -15,7 +16,7 @@ export function ProjectListing({ project, onClick }) {
 
 const AccordionTrigger = React.forwardRef(({ name }, ref) => {
   return (
-    <Accordion.Trigger ref={ref} asChild>
+    <Accordion.Trigger asChild>
       <div className="flex flex-grow cursor-pointer select-none items-center gap-2 rounded-md py-1 px-2 ">
         <HiOutlineFolder className="text-gray-400 group-hover:text-gray-800" />
 
@@ -24,8 +25,7 @@ const AccordionTrigger = React.forwardRef(({ name }, ref) => {
             <h4 className="text-xs font-bold tracking-wider text-gray-500 hover:text-gray-900">
               {name}
             </h4>
-            {/* { ? <HiChevronDown /> : <HiChevronUp />} */}
-            <HiChevronDown />
+            <ChevronDownIcon className="AccordionChevron" aria-hidden />
           </div>
 
           <div className="text-xs text-gray-400">2023/01/01</div>
