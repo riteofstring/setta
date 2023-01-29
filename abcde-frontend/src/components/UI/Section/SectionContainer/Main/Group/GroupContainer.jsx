@@ -18,6 +18,8 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
           />
         </div>
       )}
+
+      <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
     </>
   );
 }
@@ -28,18 +30,14 @@ function _KwargGroupContainer({ sectionId, objInfoId }) {
   const kwargsStyleCondition = infos.length > 0 && !allAreNested;
 
   return (
-    <div className="section-full-width flex flex-grow flex-col justify-end ">
-      <div className="bg-gradient-to-b from-white px-6 pt-4">
-        {/* <span className="mb-4 h-1 rounded-full bg-gray-200" /> */}
-        <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
-        <GetParamSwitch
-          sectionId={sectionId}
-          objInfoId={objInfoId}
-          infos={infos}
-          isKwarg={true}
-          allAreNested={allAreNested}
-        />
-      </div>
+    <div className={kwargsStyleCondition ? "mx-3 py-4" : ""}>
+      <GetParamSwitch
+        sectionId={sectionId}
+        objInfoId={objInfoId}
+        infos={infos}
+        isKwarg={true}
+        allAreNested={allAreNested}
+      />
     </div>
   );
 }
