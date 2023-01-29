@@ -4,7 +4,7 @@ import {
   ParamGroupContainer,
 } from "./Main/Group/GroupContainer";
 import { SectionSearch } from "./Main/Search/Search";
-// import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
+import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
 export function InputArea({ sectionId, selectedItem, isRoot }) {
   function onSelectedItemChange(value) {
@@ -12,11 +12,11 @@ export function InputArea({ sectionId, selectedItem, isRoot }) {
   }
 
   // TODO: determine tempBoolDesc dynamically
-  // const tempBoolDesc = true;
+  const tempBoolDesc = true;
   return (
     !isRoot && (
       <>
-        {/* {tempBoolDesc && <SectionDescription />} */}
+        {tempBoolDesc && <SectionDescription card={true} />}
         <SectionSearch
           sectionId={sectionId}
           initialSelection={selectedItem}
