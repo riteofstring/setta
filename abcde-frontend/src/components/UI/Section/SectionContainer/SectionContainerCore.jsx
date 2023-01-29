@@ -30,40 +30,44 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     ? "outline-blue-500"
     : "outline-transparent active:outline-cyan-300";
 
+  // flex flex-grow flex-col
   return (
-    <CustomResizable sectionId={sectionId}>
+    <div
+      className={` rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline duration-150`}
+      onClick={() => setActiveSection(sectionId)}
+      data-testid={`${sectionId} section core`}
+    >
+      {/*   overflow-hidden  */}
       <div
-        className={`flex flex-grow flex-col rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline overflow-auto duration-150`}
-        onClick={() => setActiveSection(sectionId)}
-        data-testid={`${sectionId} section core`}
+        className="rounded-xl border border-white bg-gray-50  shadow-md"
+        style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <div
-          className="flex  flex-grow flex-col gap-2 overflow-hidden rounded-xl border border-white bg-gray-50 px-3 py-4 shadow-md"
-          style={{ zIndex: isActiveSection ? 150 : 10 }}
-        >
-          <SectionHeader
-            sectionId={sectionId}
-            parentId={parentId}
-            nextId={nextId}
-            isSeriesElement={isSeriesElement}
-            isRoot={isRoot}
-            hasNested={hasNested}
-          />
-          {!isOutput ? (
-            <InputArea
+        <CustomResizable sectionId={sectionId}>
+          <div className="flex flex-grow flex-col gap-2 overflow-hidden px-3 py-4">
+            <SectionHeader
               sectionId={sectionId}
-              selectedItem={selectedItem}
+              parentId={parentId}
+              nextId={nextId}
+              isSeriesElement={isSeriesElement}
               isRoot={isRoot}
+              hasNested={hasNested}
             />
-          ) : (
-            <OutputArea sectionId={sectionId} />
-          )}
-        </div>
-        {!isOutput && (
-          <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-        )}
+            {!isOutput ? (
+              <InputArea
+                sectionId={sectionId}
+                selectedItem={selectedItem}
+                isRoot={isRoot}
+              />
+            ) : (
+              <OutputArea sectionId={sectionId} />
+            )}
+          </div>
+        </CustomResizable>
       </div>
-    </CustomResizable>
+      {!isOutput && (
+        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+      )}
+    </div>
   );
 }
 export const SectionContainerCore = React.memo(
