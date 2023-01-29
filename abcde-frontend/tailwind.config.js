@@ -17,12 +17,7 @@ module.exports = {
       animation: {
         "slow-dash": "animation: dash 40s linear infinite",
       },
-      // typography: (theme) => {
-      //   css: {
-
-      //   }
-      // }
     },
   },
-  plugins: [require("@tailwindcss/typography")],
+  // plugins: [],
 };

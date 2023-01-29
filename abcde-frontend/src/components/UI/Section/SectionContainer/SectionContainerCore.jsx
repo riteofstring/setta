@@ -6,14 +6,12 @@ import {
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import React, { useState } from "react";
-import { BiInfoCircle } from "react-icons/bi";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import React from "react";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
-import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
+import { KwargGroupContainer } from "./Main/Group/GroupContainer";
 import { OutputArea } from "./OutputArea";
 import { ResizeIcon } from "./ResizeIcon/ResizeIcon";
 
@@ -33,21 +31,20 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     ? "outline-blue-500"
     : "outline-transparent active:outline-cyan-300";
 
-  const [descVis, setDescVis] = useState(false);
-
   // flex flex-grow flex-col
   return (
     <div
-      className={`rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline w-min transition-all duration-150`}
+      className={` rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline h-min w-min duration-150`}
       onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
     >
+      {/*   overflow-hidden  */}
       <div
-        className="rounded-xl border border-white bg-gray-50 shadow-md"
+        className="rounded-xl border border-white bg-gray-50 shadow-md "
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4 [&>div:not(.section-full-width)]:px-5">
+          <div className="flex flex-grow flex-col gap-2 overflow-hidden px-3 py-4">
             <SectionHeader
               sectionId={sectionId}
               parentId={parentId}
@@ -66,19 +63,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          <IconButton
-            size="w-6 h-6 self-center text-gray-400"
-            onClick={() => {
-              setDescVis(!descVis);
-            }}
-          >
-            <BiInfoCircle className="h-5 w-5" />
-          </IconButton>
-
           <ResizeIcon />
         </CustomResizable>
       </div>
-      {!!descVis && <SectionDescription />}
+      {!isOutput && (
+        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+      )}
     </div>
   );
 }
