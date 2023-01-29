@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { useWindowSize } from "hooks/useWindowSize";
 import { usePanes } from "models/panes";
 import { Resizable } from "re-resizable";
@@ -80,6 +79,8 @@ export function PaneContainer({
     }
   }
 
+  const style = `${!right ? "-" : ""}${width - 40}px`;
+
   const rightCondition = right
     ? "justify-self-end right-0 left-auto"
     : "justify-self-start right-auto left-0";
@@ -92,12 +93,14 @@ export function PaneContainer({
   }
 
   return (
-    <motion.div
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r [&>div]:border-gray-200  [&>div]:bg-gray-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
-      animate={vis ? "open" : "closed"}
-      variants={variants}
-      initial={vis ? "open" : "closed"}
-      outline="none"
+    <div
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} transition-all [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r  [&>div]:border-gray-200 [&>div]:bg-gray-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
+      style={{ transform: `translateX(${vis ? "0" : style})` }}
+      // animate={vis ? "open" : "closed"}
+      // variants={variants}
+      // initial={vis ? "open" : "closed"}
+
+      // outline="none"
       aria-label={`${paneTitle} Pane`}
     >
       <Resizable
@@ -128,6 +131,6 @@ export function PaneContainer({
           {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
         </Button>
       </Resizable>
-    </motion.div>
+    </div>
   );
 }
