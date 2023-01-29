@@ -1,26 +1,19 @@
+import { useMinSectionHeight } from "hooks/useMinSectionHeight";
 import { Resizable } from "re-resizable";
 import { useStore } from "react-flow-renderer";
 import { SECTIONWIDTH } from "utils/constants";
 
-export function CustomResizable({ children }) {
+export function CustomResizable({ sectionId, children }) {
   const zoom = useStore((x) => x.transform[2]);
-
-  function onResizeStart() {
-    // setIsResizing(true);
-  }
-  function onResizeStop() {
-    // setIsResizing(false);
-  }
-
+  const minHeight = useMinSectionHeight(sectionId);
   const className = "nodrag";
 
   return (
     <Resizable
+      defaultSize={{ width: SECTIONWIDTH }}
+      minHeight={minHeight}
       minWidth={SECTIONWIDTH}
-      minHeight={100}
       handleWrapperClass={className}
-      onResizeStart={onResizeStart}
-      onResizeStop={onResizeStop}
       scale={zoom}
       className="flex"
     >
