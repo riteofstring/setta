@@ -8,10 +8,6 @@ export default {
       x: 375,
       y: 0,
     },
-    size: {
-      width: 450,
-      height: 200,
-    },
   },
   "66adb1cc-ce9e-4885-81a6-bf3e7a66644e": {
     id: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
@@ -22,10 +18,6 @@ export default {
       x: 375,
       y: 300,
     },
-    size: {
-      width: 450,
-      height: 200,
-    },
   },
   "306550d9-1a80-42c6-b853-512a22e4d796": {
     id: "306550d9-1a80-42c6-b853-512a22e4d796",
@@ -34,11 +26,7 @@ export default {
     sectionChildrenId: "6fe37a6e-b5fd-46fa-a1af-608feaf5998b",
     initialPosition: {
       x: 375,
-      y: 600,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      y: 466,
     },
   },
   "ac23d151-2df2-436f-b146-3893806ffb1d": {
@@ -47,12 +35,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "8fd840f3-59ac-4d39-ab08-96805606f036",
     initialPosition: {
-      x: 875,
-      y: 0,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      x: 360,
+      y: 819,
     },
   },
   "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4": {
@@ -61,12 +45,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "10eed2c5-19a5-4ef0-a9bb-635c0316c108",
     initialPosition: {
-      x: 875,
-      y: 300,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      x: 372,
+      y: 640,
     },
   },
   "3b4bd093-351f-4bec-af52-935d50953ebd": {
@@ -75,12 +55,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "d967224c-d282-4ecf-9667-71782743ee41",
     initialPosition: {
-      x: 875,
-      y: 600,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      x: 885,
+      y: 562,
     },
   },
   "78651b57-73ab-4205-a8d7-4b9fb3b9f51b": {
@@ -89,12 +65,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "35fb23c3-b67e-4019-a563-345112e7fa59",
     initialPosition: {
-      x: 1375,
-      y: 0,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      x: 1953,
+      y: 401,
     },
   },
   "4e2bf130-390b-4299-8054-aa54b7740a60": {
@@ -103,12 +75,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "7bc3e147-c0c4-4b24-81c7-e17c31d0add6",
     initialPosition: {
-      x: 1375,
-      y: 300,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      x: 1379.0000000000002,
+      y: 680,
     },
   },
   "cc98ba55-6a04-4d79-b7f7-47442f174736": {
@@ -117,12 +85,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "335069c8-da7e-4922-8c6a-1e0a42ec2e1a",
     initialPosition: {
-      x: 1375,
-      y: 600,
-    },
-    size: {
-      width: 450,
-      height: 200,
+      x: 1420.9999999999998,
+      y: 41,
     },
   },
   "e304954a-d52d-47fc-8c79-c47c6e53e752": {
@@ -134,10 +98,6 @@ export default {
       x: 0,
       y: 0,
     },
-    size: {
-      width: 450,
-      height: 200,
-    },
   },
   "80f921cd-f88f-4612-92f3-219a89834e13": {
     id: "80f921cd-f88f-4612-92f3-219a89834e13",
@@ -147,10 +107,6 @@ export default {
     initialPosition: {
       x: 0,
       y: 0,
-    },
-    size: {
-      width: 450,
-      height: 200,
     },
   },
   "7394ac29-c8c0-433c-8bee-fa97c617b05d": {
@@ -162,9 +118,15 @@ export default {
       x: 0,
       y: 0,
     },
-    size: {
-      width: 450,
-      height: 200,
+  },
+  "02d30f19-1160-4050-a2d7-390d36b3637e": {
+    id: "02d30f19-1160-4050-a2d7-390d36b3637e",
+    name: "Experiment Logs",
+    paramInfoId: null,
+    sectionChildrenId: "791aaa5c-6233-4264-8d88-d691213ddcbe",
+    initialPosition: {
+      x: 870.1704827357134,
+      y: 12.761321374011231,
     },
   },
 };
