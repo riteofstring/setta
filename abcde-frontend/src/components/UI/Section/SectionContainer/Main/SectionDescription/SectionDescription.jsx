@@ -13,7 +13,7 @@ export function SectionDescription() {
   `;
 
   return (
-    <div className="mb-3 rounded-3xl py-5 shadow-xl transition-all hover:bg-gray-200">
+    <div className="mb-3 rounded-3xl py-5">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         className="prose max-w-none px-8 prose-headings:font-heading prose-headings:text-gray-500 prose-p:text-sm "

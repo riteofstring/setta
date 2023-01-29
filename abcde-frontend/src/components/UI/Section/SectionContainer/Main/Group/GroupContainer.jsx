@@ -29,7 +29,7 @@ function _KwargGroupContainer({ sectionId, objInfoId }) {
 
   return (
     <div className="section-full-width flex flex-grow flex-col justify-end ">
-      <div className="bg-gradient-to-b from-white px-6 pt-4">
+      <div className="border-t border-white bg-gradient-to-b from-white px-6 pt-4 shadow-inner">
         {/* <span className="mb-4 h-1 rounded-full bg-gray-200" /> */}
         <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
         <GetParamSwitch

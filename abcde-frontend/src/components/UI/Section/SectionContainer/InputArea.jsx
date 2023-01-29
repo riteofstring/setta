@@ -1,5 +1,8 @@
 import { setSelectedItem } from "thunks/sections/sections";
-import { ParamGroupContainer } from "./Main/Group/GroupContainer";
+import {
+  KwargGroupContainer,
+  ParamGroupContainer,
+} from "./Main/Group/GroupContainer";
 import { SectionSearch } from "./Main/Search/Search";
 // import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
@@ -21,6 +24,7 @@ export function InputArea({ sectionId, selectedItem, isRoot }) {
         />
 
         <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
       </>
     )
   );

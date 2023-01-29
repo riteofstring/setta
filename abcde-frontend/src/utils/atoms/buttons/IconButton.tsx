@@ -30,9 +30,10 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonTypes>(
   ) => {
     return (
       <Button
-        twClasses={`${bg} ${color} ${rounded} ${padding} ${size} ${twClasses}`}
+        twClasses={`flex justify-center ${bg} ${color} ${rounded} ${padding} ${size} ${twClasses}`}
         {...theRest}
         ref={ref}
+        // grid={true}
       >
         {icon}
         {children}

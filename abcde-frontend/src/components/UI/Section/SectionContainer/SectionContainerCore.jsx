@@ -6,12 +6,14 @@ import {
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import React from "react";
+import React, { useState } from "react";
+import { BiInfoCircle } from "react-icons/bi";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
-import { KwargGroupContainer } from "./Main/Group/GroupContainer";
+import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { OutputArea } from "./OutputArea";
 import { ResizeIcon } from "./ResizeIcon/ResizeIcon";
 
@@ -31,14 +33,15 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     ? "outline-blue-500"
     : "outline-transparent active:outline-cyan-300";
 
+  const [descVis, setDescVis] = useState(false);
+
   // flex flex-grow flex-col
   return (
     <div
-      className={` rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline h-min w-min duration-150`}
+      className={`rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline w-min transition-all duration-150`}
       onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
     >
-      {/*   overflow-hidden  */}
       <div
         className="rounded-xl border border-white bg-gray-50 shadow-md"
         style={{ zIndex: isActiveSection ? 150 : 10 }}
@@ -62,18 +65,20 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             ) : (
               <OutputArea sectionId={sectionId} />
             )}
-            <KwargGroupContainer
-              sectionId={sectionId}
-              objInfoId={selectedItem}
-            />
           </div>
+          <IconButton
+            size="w-6 h-6 self-center text-gray-400"
+            onClick={() => {
+              setDescVis(!descVis);
+            }}
+          >
+            <BiInfoCircle className="h-5 w-5" />
+          </IconButton>
 
           <ResizeIcon />
         </CustomResizable>
       </div>
-      {/* {!isOutput && (
-        
-      )} */}
+      {!!descVis && <SectionDescription />}
     </div>
   );
 }
