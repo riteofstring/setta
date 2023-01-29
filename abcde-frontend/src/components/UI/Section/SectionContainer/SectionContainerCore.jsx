@@ -7,13 +7,13 @@ import {
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
-import { RxCornerBottomRight } from "react-icons/rx";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { KwargGroupContainer } from "./Main/Group/GroupContainer";
 import { OutputArea } from "./OutputArea";
+import { ResizeIcon } from "./ResizeIcon/ResizeIcon";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
@@ -63,7 +63,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          <RxCornerBottomRight className="absolute bottom-0 right-0 text-gray-400" />
+          <ResizeIcon />
         </CustomResizable>
       </div>
       {!isOutput && (
