@@ -2,13 +2,13 @@ import { StandardInput } from "utils/atoms/input/StandardInput";
 
 export function SimpleConfig({ options, onChange, savedConfig }) {
   return (
-    <div className="flex flex-col mt-1">
+    <div className="mt-1 flex flex-col">
       {options.map((e, idx) => (
         <div
-          className="flex flex-grow justify-between items-center px-3 py-[0.33rem] rounded-full min-h-[36px] hover:bg-[#cbd5e02b]"
+          className="flex min-h-[36px] flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]"
           key={`SimpleConfig-${idx}`}
         >
-          <h2 className="text-xs font-black font-heading text-gray-600">{e}</h2>
+          <h2 className="font-heading text-xs font-black text-gray-600">{e}</h2>
           <StandardInput
             twClasses="justify-end"
             placeholder={e}

@@ -32,7 +32,7 @@ export function Overview() {
           aria-label="Overview Search"
         />
       </div>
-      <div className="overflow-y-auto flex-grow">
+      <div className="flex-grow overflow-y-auto">
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
       </div>
     </PaneContainer>

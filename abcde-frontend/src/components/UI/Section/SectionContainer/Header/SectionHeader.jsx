@@ -20,9 +20,9 @@ function _SectionHeader({
   };
 
   return (
-    <div className="flex flex-row items-center w-full pl-3">
+    <div className="flex w-full flex-row items-center pl-3">
       <CardTitle sectionId={sectionId} />
-      <div className="flex-1 justify-self-stretch align-self-stretch" />
+      <div className="align-self-stretch flex-1 justify-self-stretch" />
       {(isSeriesElement || isRoot) && (
         <Incrementer
           sectionId={sectionId}

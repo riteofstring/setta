@@ -11,6 +11,7 @@ export function ComboboxSearch({
   onSelectedItemChange,
   matchSorterProps,
   width,
+  small,
   itemStyleGetter,
 }) {
   const [selection, setSelection] = useState(null);
@@ -46,19 +47,19 @@ export function ComboboxSearch({
   });
 
   return (
-    <div
-      className="flex flex-col items-stretch overflow-visible w-full h-10"
-      {...getComboboxProps()}
-    >
+    <div className={`relative`} style={{ width }} {...getComboboxProps()}>
       <ComboboxInput
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
+        small={small}
       />
-
-      <div className="flex flex-col items-stretch" style={{ width }}>
+      <div className="absolute w-[inherit]">
         <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps}>
-          <div className="max-h-full m-3 w-full overflow-y-scroll">
+          <div
+            className="m-3 max-h-full flex-1 overflow-y-scroll"
+            // style={{ width: wMinusPad }}
+          >
             {filteredItems.map((item, index) => (
               <ComboboxItem
                 getItemProps={getItemProps}
