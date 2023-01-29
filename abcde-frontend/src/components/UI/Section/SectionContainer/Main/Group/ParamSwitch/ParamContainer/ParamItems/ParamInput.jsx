@@ -39,6 +39,7 @@ export function ParamInput({
         onBlur,
         isDisabled,
         className: "nodrag",
+        sectionId,
         ...uiType.config,
       }}
     />

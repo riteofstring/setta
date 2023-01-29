@@ -40,7 +40,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="flex flex-grow flex-col gap-8 mt-4 overflow-y-auto">
+      <div className="mt-4 flex flex-grow flex-col gap-8 overflow-y-auto">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -100,11 +100,11 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col text-left self-stretch hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black"
+      className="flex flex-col self-stretch text-left hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black"
       data-testid={`UIElement ${paramName}`}
     >
-      <div className="grid grid-cols-1 grid-rows-1 items-center mb-2">
-        <h3 className="uicfg-title text-sm text-gray-500 uppercase tracking-widest row-start-1 row-end-2 col-start-1 col-end-2">
+      <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
+        <h3 className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-gray-500">
           {paramName}
         </h3>
         <SaveAndConfig paramChildId={paramChildId} onSubmit={onSaveAsSubmit} />

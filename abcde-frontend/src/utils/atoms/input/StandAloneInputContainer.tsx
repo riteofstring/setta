@@ -8,11 +8,11 @@ export function StandAloneInputContainer({
   footer,
 }) {
   return (
-    <div className="flex px-14 py-12 rounded-2xl border border-solid border-white shadow-2xl bg-white">
-      <form className="grid gap-8 w-[400px]" onSubmit={onSubmit}>
+    <div className="flex rounded-2xl border border-solid border-white bg-white px-14 py-12 shadow-2xl">
+      <form className="grid w-[400px] gap-8" onSubmit={onSubmit}>
         <div className="grid place-items-center">
           {logo && <SiteLogo />}
-          <h1 className="font-heading text-gray-600 text-3xl font-bold select-none">
+          <h1 className="select-none font-heading text-3xl font-bold text-gray-600">
             {title}
           </h1>
         </div>

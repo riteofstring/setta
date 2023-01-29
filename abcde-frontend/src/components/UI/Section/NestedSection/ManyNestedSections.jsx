@@ -25,11 +25,11 @@ export function ManyNestedSections({
       <div className="flex items-stretch">
         {!isDeck && (
           <div
-            className="w-[12px] mt-2 mr-2 bg-white opacity-[.16] rounded-full min-h-full hover:opacity-[.36] hover:cursor-pointer z-[200]"
+            className="z-[200] mt-2 mr-2 min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36]"
             onClick={onClick}
           />
         )}
-        <div className="items-start flex flex-col gap-2 ">
+        <div className="flex flex-col items-start gap-2 ">
           {childIds.map((e, idx) => (
             <SortableSectionContainer
               parentId={sectionId}

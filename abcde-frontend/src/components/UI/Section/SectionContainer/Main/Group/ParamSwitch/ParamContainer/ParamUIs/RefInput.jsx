@@ -5,9 +5,10 @@ export function RefInputConfig() {
   return null;
 }
 
-export function RefInput({ value, onBlur, className }) {
+export function RefInput({ value, onBlur, className, sectionId }) {
   // TODO set an equalityFn here to reduce renders
   const availableSections = useSectionInfos((x) => x.x);
+  const width = useSectionInfos((x) => x.x[sectionId].size.width);
 
   return (
     <IdNameCombobox
@@ -15,7 +16,8 @@ export function RefInput({ value, onBlur, className }) {
       initialSelection={value}
       onSelectedItemChange={onBlur}
       className={className}
-      // width="424px"
+      width={`${width / 2}px`}
+      small={true}
     />
   );
 }

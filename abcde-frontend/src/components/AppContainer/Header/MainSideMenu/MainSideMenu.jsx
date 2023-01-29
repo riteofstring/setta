@@ -13,15 +13,15 @@ export function MainSideMenu() {
   };
 
   return (
-    <div className="flex flex-1 justify-end content-center">
+    <div className="flex flex-1 content-center justify-end">
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className="grid place-items0center transition-colors duration-150 focus-visible:ring-2 nodrag cursor-pointer w-4 h-4 p-1 bg-transparent hover:bg-gray-200 text-gray-500 rounded-full">
+        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-gray-500 transition-colors duration-150 hover:bg-gray-200 focus-visible:ring-2">
           <FiMenu />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
-            className="bg-white py-2 px-4 rounded-md select-none drop-shadow z-[1000] flex flex-col gap-1"
+            className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white py-2 px-4 drop-shadow"
           >
             <Items onClickLogout={onClickLogout} />
           </DropdownMenu.Content>
@@ -34,7 +34,7 @@ export function MainSideMenu() {
 function Items({ onClickLogout }) {
   return (
     <>
-      <Item className="hover:shadow-gray-400 outline-none border-0">
+      <Item className="border-0 outline-none hover:shadow-gray-400">
         Profile
       </Item>
       <Item>Settings</Item>

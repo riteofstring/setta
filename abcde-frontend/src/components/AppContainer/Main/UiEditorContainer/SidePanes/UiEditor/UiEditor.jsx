@@ -27,7 +27,7 @@ export function UiEditor() {
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
       <Tabs.Root
-        className={`flex flex-col flex-grow overflow-y-hidden ${
+        className={`flex flex-grow flex-col overflow-y-hidden ${
           vis ? "visible" : "invisible"
         }`}
         defaultValue={SECTION_CONFIG_TAB}
@@ -61,7 +61,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="[border-bottom:3px_solid_transparent] cursor-pointer select-none my-4 text-xl uppercase font-heading [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold focus-visible:ring-2"
+      className="my-4 cursor-pointer select-none font-heading text-xl uppercase [border-bottom:3px_solid_transparent] focus-visible:ring-2 [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
@@ -83,9 +83,9 @@ function TabContent(props) {
 const Placeholder = React.forwardRef((props, ref) => {
   return (
     <div className="grid min-h-[60vh]" ref={ref}>
-      <div className="place-self-center flex flex-col items-center gap-4">
-        <FiEdit3 className="w-20 h-20 text-gray-300 " />
-        <h4 className="font-bold text-gray-300 tracking-widest text-lg">
+      <div className="flex flex-col items-center gap-4 place-self-center">
+        <FiEdit3 className="h-20 w-20 text-gray-300 " />
+        <h4 className="text-lg font-bold tracking-widest text-gray-300">
           Select A Card to Edit
         </h4>
       </div>
