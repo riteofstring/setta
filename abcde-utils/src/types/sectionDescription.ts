@@ -3,6 +3,7 @@ import { ManyOf } from "./utils";
 export type SectionDescriptionType = {
   value: string;
   height: number;
+  visible: boolean;
 };
 
 export type ManySectionDescriptionType = ManyOf<SectionDescriptionType>;
@@ -14,6 +15,7 @@ export type SectionDescriptionActionType = {
   initDescription: (payload: { sectionId: string }) => void;
   setDescription: (payload: { sectionId: string; value: string }) => void;
   setHeight: (payload: { sectionId: string; height: number }) => void;
+  toggleVisible: (payload: { sectionId: string }) => void;
   setAll: (payload: SectionDescriptionStateType) => void;
   reset: () => void;
 };
