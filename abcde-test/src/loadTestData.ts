@@ -50,7 +50,6 @@ export async function loadProjectSpecificData({
     "sectionChildren",
     "sectionConfigCol",
     "sectionConfigs",
-    "sectionDescriptions",
     "sections",
     "uiTypes",
     "uiTypeCols",
