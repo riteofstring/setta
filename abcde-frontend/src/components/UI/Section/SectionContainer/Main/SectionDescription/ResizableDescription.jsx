@@ -18,7 +18,7 @@ export function ResizableDescription({ children }) {
         right: false,
         bottomRight: false,
       }}
-      className="flex flex-1 "
+      className="z-[2] flex flex-1"
     >
       {children}
     </Resizable>
