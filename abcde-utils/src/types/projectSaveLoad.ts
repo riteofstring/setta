@@ -11,6 +11,7 @@ import { ManySectionCoreType } from "./section";
 import { ManySectionChildrenType } from "./sectionChildren";
 import { ManySectionConfigType } from "./sectionConfig";
 import { SectionConfigColType } from "./sectionConfigCol";
+import { ManySectionDescriptionType } from "./sectionDescription";
 import { ManyUITypeType } from "./uiType";
 import { ManyUITypeColType } from "./uiTypeCol";
 
@@ -27,6 +28,7 @@ export type ProjectSaveType = {
   sectionChildren: ManySectionChildrenType;
   sectionConfigs: ManySectionConfigType;
   sectionConfigCol: SectionConfigColType;
+  sectionDescriptions: ManySectionDescriptionType;
   projectConfigCodeInfoMaps: CodeInfoMapStateType;
 };
 

@@ -1,4 +1,4 @@
-import { SectionSizeType } from "src/types/sectionSize";
+import { SizeType } from "src/types/size";
 import { SectionType } from "../types/section";
 import { maybeNewId } from "../utils";
 
@@ -14,7 +14,7 @@ export function newSectionInfo({
   parentName = "",
 }: Partial<SectionType> & {
   parentName?: string;
-  size: SectionSizeType;
+  size: SizeType;
 }): SectionType {
   return {
     id: maybeNewId(id),
