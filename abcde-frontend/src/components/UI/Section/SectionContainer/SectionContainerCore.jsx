@@ -72,7 +72,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               setDescVis(!descVis);
             }}
           >
-            <BiInfoCircle className="h-5 w-5" />
+            <BiInfoCircle className="z-[3] h-5 w-5" />
           </IconButton>
 
           <ResizeIcon />
