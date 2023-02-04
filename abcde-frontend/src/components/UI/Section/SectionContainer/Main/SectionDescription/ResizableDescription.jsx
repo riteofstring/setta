@@ -1,10 +1,11 @@
 import { Resizable } from "re-resizable";
 
 export function ResizableDescription({ children }) {
+  const minHeight = 150;
   return (
     <Resizable
       // size={size}
-      // minHeight={minHeight}
+      minHeight={minHeight}
       // minWidth={minWidth}
       // onResizeStop={onResizeStop}
       // onResizeStart={onResizeStart}
@@ -17,7 +18,7 @@ export function ResizableDescription({ children }) {
         right: false,
         bottomRight: false,
       }}
-      className="flex flex-1 overflow-hidden"
+      className="flex flex-1 "
     >
       {children}
     </Resizable>
