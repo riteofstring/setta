@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useSectionDescription } from "models/info/sectionDescription";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ResizableWithScale } from "./ResizableWithScale";
 
 export function ResizableDescription({ sectionId, descVis, children }) {
@@ -37,9 +37,11 @@ export function ResizableDescription({ sectionId, descVis, children }) {
 }
 
 function MotionDiv({ height, descVis, children }) {
-  const [noDiv, setNoDiv] = useState(false);
-
-  const initial = descVis ? { opacity: 0, height: 0 } : { opacity: 1, height };
+  const localDescVis = useRef(descVis);
+  const [noDiv, setNoDiv] = useState(descVis);
+  const [initial, setInitial] = useState(
+    descVis ? { opacity: 1, height } : { opacity: 0, height: 0 }
+  );
 
   const variants = {
     ease: "easeOut",
@@ -52,7 +54,12 @@ function MotionDiv({ height, descVis, children }) {
   };
 
   useEffect(() => {
-    setNoDiv(false);
+    // to prevent running animation on very first render
+    if (localDescVis.current !== descVis) {
+      setNoDiv(false);
+      setInitial(descVis ? { opacity: 0, height: 0 } : { opacity: 1, height });
+    }
+    localDescVis.current = descVis;
   }, [descVis]);
 
   function onAnimationComplete(name) {
