@@ -11,7 +11,8 @@ export const DECK = "DECK";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
 export const OUTPUT = "OUTPUT";
-export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT, OUTPUT];
+export const INFO = "INFO";
+export const SECTION_TYPE_NAMES = [SECTION, LIST_ROOT, DICT_ROOT, OUTPUT, INFO];
 
 export const NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac";
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";
@@ -41,5 +42,7 @@ export const rootTypeToChildSubType = {
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
-  return [SECTION, LIST_ROOT, DICT_ROOT, DECK, OUTPUT].includes(uiType.type);
+  return [SECTION, LIST_ROOT, DICT_ROOT, DECK, OUTPUT, INFO].includes(
+    uiType.type
+  );
 }
