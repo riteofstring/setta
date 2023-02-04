@@ -16,9 +16,11 @@ export const useSectionDescription = create(
       s.reset();
       s.setAll({ x: payload });
     },
-    initDescription: ({ sectionId }) =>
+    initDescriptions: ({ sectionIds }) =>
       set((state) => {
-        state.x[sectionId] = newSectionDescription({ height: 100 });
+        sectionIds.forEach(
+          (id) => (state.x[id] = newSectionDescription({ height: 100 }))
+        );
       }),
     setDescription: ({ sectionId, value }) =>
       set((state) => {

@@ -7,6 +7,7 @@ import _ from "lodash";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
+import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getChildUITypeId } from "utils/uiTypeUtils";
 import { getInitialSize } from "./initialSize";
@@ -71,6 +72,8 @@ export function addSectionsToState(
   const sectionIds = _.map(sectionInfos, (x) => x.id);
   siState.initManyAllChildren({ sectionIds });
   siState.initManyCurrChildren({ sectionIds });
+
+  useSectionDescription.getState().initDescriptions({ sectionIds });
 
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
