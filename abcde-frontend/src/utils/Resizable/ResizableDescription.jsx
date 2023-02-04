@@ -28,7 +28,7 @@ export function ResizableDescription({ sectionId, children }) {
           right: false,
           bottomRight: false,
         }}
-        className="z-[500] flex flex-1"
+        className="flex flex-1"
         handleComponent={{ bottom: <Handle /> }}
       >
         {children}
