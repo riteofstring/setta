@@ -1,11 +1,10 @@
 import { useMinSectionHeight } from "hooks/useMinSectionHeight";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
-import { useSetScaleOnResizeStart } from "./useSetScaleOnResizeStart";
+import { ResizableWithScale } from "./ResizableWithScale";
 
 export function CustomResizable({ sectionId, children }) {
   const minHeight = useMinSectionHeight(sectionId);
@@ -24,7 +23,6 @@ export function CustomResizable({ sectionId, children }) {
 function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
   const [size, setSize] = useState(savedSize);
-  const { scale, onResizeStart } = useSetScaleOnResizeStart();
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
@@ -37,14 +35,12 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
   }, [savedSize.width, savedSize.height]);
 
   return (
-    <Resizable
+    <ResizableWithScale
       size={size}
       minHeight={minHeight}
       minWidth={minWidth}
       onResizeStop={onResizeStop}
-      onResizeStart={onResizeStart}
       handleWrapperClass="nodrag"
-      scale={scale}
       enable={{
         top: false,
         left: false,
@@ -55,6 +51,6 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
       className="flex flex-col items-stretch"
     >
       {children}
-    </Resizable>
+    </ResizableWithScale>
   );
 }

@@ -1,16 +1,12 @@
-import { Resizable } from "re-resizable";
-import { useSetScaleOnResizeStart } from "./useSetScaleOnResizeStart";
+import { ResizableWithScale } from "./ResizableWithScale";
 
 export function ResizableDescription({ children }) {
   const minHeight = 150;
-  const { scale, onResizeStart } = useSetScaleOnResizeStart();
 
   return (
-    <Resizable
+    <ResizableWithScale
       minHeight={minHeight}
-      onResizeStart={onResizeStart}
       handleWrapperClass="nodrag"
-      scale={scale}
       enable={{
         top: false,
         left: false,
@@ -21,6 +17,6 @@ export function ResizableDescription({ children }) {
       className="z-[500] flex flex-1"
     >
       {children}
-    </Resizable>
+    </ResizableWithScale>
   );
 }
