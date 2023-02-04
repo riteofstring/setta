@@ -18,6 +18,7 @@ export function ComboboxSearch({
     delay: 200,
     dimName: "width",
   });
+
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,

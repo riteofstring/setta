@@ -56,7 +56,7 @@ function ConfigListing({ id, name, onClick }) {
 
   function _onClick() {
     const isChecked =
-      itemRef?.current?.attributes["data-state"]?.value === "checked";
+      itemRef.current?.attributes["data-state"]?.value === "checked";
     if (isChecked) {
       onClick(JSON.stringify({ projectName: null, configName: null }));
     }

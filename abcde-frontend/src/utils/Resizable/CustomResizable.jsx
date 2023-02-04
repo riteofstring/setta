@@ -4,7 +4,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useKwargRefs } from "models/kwargRefs";
 import { Resizable } from "re-resizable";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
@@ -26,24 +26,11 @@ export function CustomResizable({ sectionId, children }) {
 function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
   const rfStore = useStoreApi();
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
-  const kwargRef = useKwargRefs((x) => x.x[sectionId]);
-  const kwargHeight = useSizeOfResizableRef({
-    current: kwargRef,
-    delay: 0,
-    dimName: "height",
-  });
-  const prevKwargHeight = useRef(kwargHeight);
   const [size, setSize] = useState(savedSize);
   const [scale, setScale] = useState(1);
+  useHeightDiffOfKwargs(sectionId, setSize);
 
-  useEffect(() => {
-    const diff = kwargHeight - prevKwargHeight.current;
-    setSize((x) => ({ width: x.width, height: x.height + diff }));
-    prevKwargHeight.current = kwargHeight;
-  }, [kwargHeight]);
-
-  console.log("size", size)
-  console.log("savedSize", savedSize);
+  console.log("size", size);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
@@ -80,4 +67,23 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
       {children}
     </Resizable>
   );
+}
+
+function useHeightDiffOfKwargs(sectionId, setSize) {
+  const kwargRef = useKwargRefs((x) => x.x[sectionId]);
+
+  function callback({ prev, curr }) {
+    console.log("prev, curr", prev, curr);
+    const diff = curr - prev;
+    if (diff !== 0) {
+      setSize((x) => ({ width: x.width, height: x.height + diff }));
+    }
+  }
+
+  useSizeOfResizableRef({
+    current: kwargRef,
+    delay: 0,
+    dimName: "height",
+    callback,
+  });
 }
