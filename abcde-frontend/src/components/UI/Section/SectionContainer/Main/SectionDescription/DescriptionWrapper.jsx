@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { VscGrabber } from "react-icons/vsc";
-import { ResizableDescription } from "utils/Resizable/ResizableDescription";
-
+import { ResizableDescription } from "./ResizableDescription";
 export function DescriptionWrapper({ descVis, children }) {
   const variants = {
     ease: "easeOut",

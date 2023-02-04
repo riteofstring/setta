@@ -1,7 +1,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
-import { useSectionRefAndInit } from "hooks/useSectionRefAndInit";
+import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
 import { SectionTitle } from "./Header/Title/SectionTitle";
 

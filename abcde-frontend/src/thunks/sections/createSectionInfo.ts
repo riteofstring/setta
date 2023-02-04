@@ -9,16 +9,17 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getChildUITypeId } from "utils/uiTypeUtils";
-import { getInitialSize } from "./initialSize";
+import { getInitialSize } from "./defaultSize";
 import { getSectionType } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
   const uiTypeId = getChildUITypeId(parentUIType, parentId);
+  const size = getInitialSize({ parentId, uiTypeId });
 
   return createManySectionInfo({
-    sectionProps: { parentId, parentName },
+    sectionProps: { parentId, parentName, size },
     configProps: { uiTypeId },
     numChildren,
   });
@@ -31,10 +32,6 @@ export function createManySectionInfo({
 }) {
   const newInfos = {};
   const newConfigs = {};
-  sectionProps["size"] = getInitialSize({
-    parentId: sectionProps.parentId,
-    uiTypeId: configProps.uiTypeId,
-  });
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
