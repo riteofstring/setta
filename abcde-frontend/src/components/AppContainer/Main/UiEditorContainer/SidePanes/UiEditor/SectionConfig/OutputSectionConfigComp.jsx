@@ -32,7 +32,7 @@ function OutputDetails({ children, details }) {
     <Collapsible.Root>
       <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
       <Collapsible.Content>
-        <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
+        <div className="mt-2 select-text rounded-md bg-gray-200 py-3 px-5">
           {details.map((k) => (
             <div key={`OutputDetails-${k}`}>
               <h3 className="text-sm font-bold">{k}</h3>

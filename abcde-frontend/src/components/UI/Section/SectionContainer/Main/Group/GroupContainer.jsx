@@ -1,5 +1,6 @@
 import { useAreAllParamsNested } from "hooks/useParamUIType";
 import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
+import { useKwargRefAndinit } from "hooks/useStateRef";
 import React from "react";
 import { KwargsControls } from "../KwargsControls/KwargsControls";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
@@ -26,18 +27,21 @@ function _KwargGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetKwargInfos(sectionId, objInfoId);
   const allAreNested = useAreAllParamsNested(sectionId, infos);
   const kwargsStyleCondition = infos.length > 0 && !allAreNested;
+  const sizeRef = useKwargRefAndinit(sectionId);
 
   return (
-    <div className="section-full-width flex flex-grow flex-col justify-end ">
-      <div className="border-t border-white bg-gradient-to-b from-white px-6 pt-4 shadow-inner">
-        {/* <span className="mb-4 h-1 rounded-full bg-slate-200" /> */}
+    <div className="section-full-width flex flex-grow flex-col justify-end">
+      <div
+        className="border-t border-white bg-gradient-to-b from-white px-6 pt-4 shadow-inner"
+        ref={sizeRef}
+      >
+        {/* <span className="mb-4 h-1 rounded-full bg-gray-200" /> */}
         <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
         <GetParamSwitch
           sectionId={sectionId}
           objInfoId={objInfoId}
           infos={infos}
           isKwarg={true}
-          allAreNested={allAreNested}
         />
       </div>
     </div>

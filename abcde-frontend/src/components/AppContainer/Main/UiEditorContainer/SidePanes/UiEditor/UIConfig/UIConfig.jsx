@@ -31,7 +31,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 focus-visible:border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300 focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <>
@@ -104,7 +104,7 @@ function _UIElement({ sectionId, paramInfo }) {
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
-        <h3 className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-slate-500">
+        <h3 className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-gray-500">
           {paramName}
         </h3>
         <SaveAndConfig paramChildId={paramChildId} onSubmit={onSaveAsSubmit} />
@@ -134,7 +134,7 @@ function SaveAndConfig({ onSubmit, paramChildId }) {
           size="w-4 h-4"
           padding="py-2 px-2"
         >
-          <VscSaveAs className="text-slate-500" />
+          <VscSaveAs className="text-gray-500" />
         </IconButton>
       }
       body={<SubmitAsPreset onSubmit={onSubmit} />}

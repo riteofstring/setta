@@ -1,6 +1,7 @@
 import {
   DICT,
   DICT_ROOT,
+  INFO,
   LIST_ROOT,
   OUTPUT,
   REF,
@@ -43,6 +44,7 @@ export const uiTypesToPretty = Object.freeze(
       [DICT_ROOT]: "Dict of Objects",
       [OUTPUT]: "Program Output",
       [REF]: "Reference to Object",
+      [INFO]: "Info",
     })
   )
 );

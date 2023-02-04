@@ -13,7 +13,7 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
     } else if (isBasePreset(item)) {
       return "font-bold text-blue-500";
     } else {
-      return "text-slate-500";
+      return "text-gray-500";
     }
   }
 

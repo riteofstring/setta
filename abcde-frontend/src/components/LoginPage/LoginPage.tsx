@@ -19,7 +19,7 @@ export function LoginPage() {
   });
 
   return (
-    <GridWrapper gridStyles="bg-slate-400" flexFormWrap={true}>
+    <GridWrapper gridStyles="bg-gray-400" flexFormWrap={true}>
       <StandAloneInputContainer
         onSubmit={handleSubmit}
         title="Login"
@@ -50,7 +50,7 @@ function Footer() {
     <>
       <StandardButton
         align="self-stretch"
-        inactive="bg-slate-400"
+        inactive="bg-gray-400"
         text="text-white font-bold"
         hover="hover:bg-blue-500"
         type="submit"
@@ -59,10 +59,10 @@ function Footer() {
       </StandardButton>
       <StandardButton
         type="button"
-        stdBtnStyles="border border-solid border-slate-400"
+        stdBtnStyles="border border-solid border-gray-400"
         inactive="bg-transparent"
         align="self-stretch"
-        hover="hover:bg-slate-200 hover:border-slate-200"
+        hover="hover:bg-gray-200 hover:border-gray-200"
       >
         Sign Up
       </StandardButton>
