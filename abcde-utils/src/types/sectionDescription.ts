@@ -12,7 +12,7 @@ export type SectionDescriptionStateType = { x: ManySectionDescriptionType };
 
 export type SectionDescriptionActionType = {
   resetAndSetAll: (payload: ManySectionDescriptionType) => void;
-  initDescription: (payload: { sectionId: string }) => void;
+  initDescriptions: (payload: { sectionIds: string[] }) => void;
   setDescription: (payload: { sectionId: string; value: string }) => void;
   setHeight: (payload: { sectionId: string; height: number }) => void;
   toggleVisible: (payload: { sectionId: string }) => void;
