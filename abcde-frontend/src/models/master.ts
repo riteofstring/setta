@@ -10,7 +10,6 @@ import { useParamInfos } from "./info/paramInfos";
 import { useProject } from "./info/project";
 import { useProjectConfig } from "./info/projectConfig";
 import { useSectionConfigs } from "./info/sectionConfigs";
-import { useSectionDescription } from "./info/sectionDescription";
 import { useSectionInfos } from "./info/sectionInfos";
 import { useUITypes } from "./info/uiTypes";
 
@@ -24,7 +23,6 @@ export function loadSections({
   sectionConfigs,
   sectionConfigCol,
   sectionChildren,
-  sectionDescriptions,
   ev,
   evCols,
   uiTypes,
@@ -53,7 +51,6 @@ export function loadSections({
     sectionChildren,
   });
   useSectionConfigs.getState().resetAndSetAll(sectionConfigs);
-  useSectionDescription.getState().resetAndSetAll(sectionDescriptions);
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
 }
