@@ -7,20 +7,18 @@ import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);
   return (
-    <>
-      {!!infos.length && (
-        <div className="flex flex-1">
-          <div className="flex h-min flex-1 flex-col gap-2 overflow-y-auto">
-            <GetParamSwitch
-              sectionId={sectionId}
-              objInfoId={objInfoId}
-              infos={infos}
-              isKwarg={false}
-            />
-          </div>
+    !!infos.length && (
+      <div className="flex flex-1">
+        <div className="flex h-min flex-1 flex-col gap-2 overflow-y-auto">
+          <GetParamSwitch
+            sectionId={sectionId}
+            objInfoId={objInfoId}
+            infos={infos}
+            isKwarg={false}
+          />
         </div>
-      )}
-    </>
+      </div>
+    )
   );
 }
 
