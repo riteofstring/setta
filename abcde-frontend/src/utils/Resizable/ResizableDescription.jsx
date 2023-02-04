@@ -29,11 +29,7 @@ export function ResizableDescription({ sectionId, descVis, children }) {
           bottomRight: false,
         }}
         className="z-[500] flex flex-1"
-        handleComponent={{
-          bottom: (
-            <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-slate-400" />
-          ),
-        }}
+        handleComponent={{ bottom: <Handle /> }}
       >
         {children}
       </ResizableWithScale>
@@ -84,5 +80,11 @@ function MotionDiv({ height, descVis, children }) {
     >
       {children}
     </motion.div>
+  );
+}
+
+function Handle() {
+  return (
+    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-slate-400" />
   );
 }
