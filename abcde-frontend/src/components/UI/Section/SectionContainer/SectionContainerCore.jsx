@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import {
   useIsOutput,
@@ -17,6 +16,7 @@ import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { OutputArea } from "./OutputArea";
 import { ResizeIcon } from "./ResizeIcon/ResizeIcon";
+
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
@@ -37,15 +37,13 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
 
   // flex flex-grow flex-col
   return (
-    <motion.div
-      layout
-      className={`rounded-xl bg-white ${boxShadow} dndline w-min transition-all duration-150`}
+    <div
+      className={`rounded-xl bg-white ${boxShadow} outline outline-4 ${outlineColor} dndline w-min transition-all duration-150`}
       onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
-      // style={{ maxHeight: "auto" }}
     >
       <div
-        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-gray-50 shadow-md`}
+        className="rounded-xl border border-white bg-gray-50 shadow-md"
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
@@ -80,8 +78,8 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
           <ResizeIcon />
         </CustomResizable>
       </div>
-      <SectionDescription sectionId={sectionId} descVis={descVis} />
-    </motion.div>
+      {!!descVis && <SectionDescription />}
+    </div>
   );
 }
 export const SectionContainerCore = React.memo(

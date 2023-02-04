@@ -10,7 +10,6 @@ import {
 import React from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
-import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { UIConfig } from "./UIConfig/UIConfig";
 
@@ -39,7 +38,6 @@ export function UiEditor() {
         <Tabs.List className="flex gap-4">
           <TabItem name="Card" value={SECTION_CONFIG_TAB} />
           <TabItem name="Parameters" value={UI_CONFIG_TAB} />
-          <TabItem name="Info" />
         </Tabs.List>
         <TabContent
           value={SECTION_CONFIG_TAB}
@@ -53,13 +51,6 @@ export function UiEditor() {
         </TabContent>
         <TabContent value={UI_CONFIG_TAB}>
           {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
-        </TabContent>
-        <TabContent>
-          {sectionId ? (
-            <MarkdownEditor sectionId={sectionId} />
-          ) : (
-            <Placeholder />
-          )}
         </TabContent>
       </Tabs.Root>
     </PaneContainer>

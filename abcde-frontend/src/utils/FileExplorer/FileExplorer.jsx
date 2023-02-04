@@ -1,4 +1,3 @@
-import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
@@ -33,10 +32,7 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
         onValueChange={onChange}
         asChild
       >
-        <Accordion.Root
-          type="multiple"
-          className="flex h-[30vh] max-h-[25rem] flex-col overflow-y-scroll p-1"
-        >
+        <div>
           {_.map(files, (x, idx) => (
             <ProjectListing
               project={x}
@@ -44,7 +40,7 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
               onClick={onChange}
             />
           ))}
-        </Accordion.Root>
+        </div>
       </RadioGroup.Root>
     </>
   );

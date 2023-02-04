@@ -42,7 +42,7 @@ export function PaneContainer({
 
   useEffect(() => {
     const newVMax = size.winWidth / 2.1;
-    const newVMin = 340;
+    const newVMin = Math.min(340, newVMax);
     newVMax && setVMax(newVMax);
     newVMin && setVMin(newVMin);
     if (width > newVMax) {
