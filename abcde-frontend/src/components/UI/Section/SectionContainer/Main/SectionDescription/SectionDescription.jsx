@@ -12,7 +12,7 @@ export function SectionDescription({
 
   if (!card) {
     return (
-      <DescriptionWrapper descVis={descVis}>
+      <DescriptionWrapper sectionId={sectionId} descVis={descVis}>
         <Markdown markdownSource={description} />
       </DescriptionWrapper>
     );
