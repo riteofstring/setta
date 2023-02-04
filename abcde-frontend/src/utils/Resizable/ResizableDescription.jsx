@@ -13,6 +13,7 @@ export function ResizableDescription({ sectionId, descVis, children }) {
     setShouldUseMotionHeight(true);
     const endVal = descVis ? height : 0;
     animate(motionHeight, endVal, {
+      ease: "easeOut",
       onUpdate: (v) => setMotionHeight(v),
       onComplete: () => setShouldUseMotionHeight(false),
     });
