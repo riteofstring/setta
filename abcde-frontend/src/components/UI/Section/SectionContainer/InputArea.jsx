@@ -16,9 +16,7 @@ export function InputArea({ sectionId, selectedItem, isRoot }) {
   return (
     !isRoot && (
       <>
-        {tempBoolDesc && (
-          <SectionDescription sectionId={sectionId} card={true} />
-        )}
+        {tempBoolDesc && <SectionDescription card={true} />}
         <SectionSearch
           sectionId={sectionId}
           initialSelection={selectedItem}
