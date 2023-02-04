@@ -8,7 +8,7 @@ export function SimpleConfig({ options, onChange, savedConfig }) {
           className="flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]"
           key={`SimpleConfig-${idx}`}
         >
-          <h2 className="flex-1 font-heading text-xs font-black text-gray-600">
+          <h2 className="flex-1 font-heading text-xs font-black text-slate-600">
             {e}
           </h2>
           <StandardInput

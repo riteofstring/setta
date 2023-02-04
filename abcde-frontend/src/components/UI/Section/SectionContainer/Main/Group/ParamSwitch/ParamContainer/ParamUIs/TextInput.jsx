@@ -12,7 +12,7 @@ export function TextInput({
   isDisabled,
   className,
 }) {
-  const _className = className + " border-b border-gray-700 text-xs";
+  const _className = className + " border-b border-slate-700 text-xs";
 
   return (
     <StandardInput

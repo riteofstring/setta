@@ -20,9 +20,9 @@ export const StandardButton = forwardRef<
     children,
     stdBtnStyles,
     type,
-    inactive = "bg-gray-50",
-    hover = "hover:bg-gray-200",
-    text = "text-gray-700 font-bold",
+    inactive = "bg-slate-50",
+    hover = "hover:bg-slate-200",
+    text = "text-slate-700 font-bold",
     align = "self-center",
     ...theRest
   } = props;

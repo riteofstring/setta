@@ -15,7 +15,7 @@ export function MainSideMenu() {
   return (
     <div className="flex flex-1 content-center justify-end">
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-gray-500 transition-colors duration-150 hover:bg-gray-200 focus-visible:ring-2">
+        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-slate-500 transition-colors duration-150 hover:bg-slate-200 focus-visible:ring-2">
           <FiMenu />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
@@ -34,7 +34,7 @@ export function MainSideMenu() {
 function Items({ onClickLogout }) {
   return (
     <>
-      <Item className="border-0 outline-none hover:shadow-gray-400">
+      <Item className="border-0 outline-none hover:shadow-slate-400">
         Profile
       </Item>
       <Item>Settings</Item>

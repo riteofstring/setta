@@ -83,7 +83,7 @@ function Search({ onSubmit }) {
   }
 
   const inputStyles =
-    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300  focus-visible:border-blue-300 pl-7 py-1 ";
+    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
     <StandardSearch inputStyles={inputStyles} onFormSubmit={onFormSubmit} />
@@ -110,14 +110,14 @@ function SearchItem({
     <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black">
       <input
         type="checkbox"
-        className="mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer rounded-md border-gray-300 bg-gray-200 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300"
+        className="mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer rounded-md border-slate-300 bg-slate-200 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300"
         checked={checked}
         onChange={onCheckboxChange}
       />
       <label className="w-full">
         <DetailsComponent details={details}>
           <div className="flex cursor-pointer flex-col self-stretch">
-            <h2 className="text-md font-bold text-gray-500">{name}</h2>
+            <h2 className="text-md font-bold text-slate-500">{name}</h2>
             <p className="mt-1 text-sm">{description}</p>
           </div>
         </DetailsComponent>
@@ -133,7 +133,7 @@ function ObjCollectionDetails({ children, details }) {
     <Collapsible.Root>
       <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
       <Collapsible.Content>
-        <div className="mt-2 select-text rounded-md bg-gray-200 py-3 px-5">
+        <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
           {Object.entries(groupedDetails).map(([k, v]) => (
             <div key={`ObjCollectionDetails-${k}`}>
               <h3 className="text-sm font-bold">{k}</h3>

@@ -54,7 +54,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-xl uppercase [border-bottom:3px_solid_transparent] focus-visible:ring-2 [&[data-state='active']]:border-gray-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-xl uppercase [border-bottom:3px_solid_transparent] focus-visible:ring-2 [&[data-state='active']]:border-slate-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
@@ -77,8 +77,8 @@ const Placeholder = React.forwardRef((props, ref) => {
   return (
     <div className="grid min-h-[60vh]" ref={ref}>
       <div className="flex flex-col items-center gap-4 place-self-center">
-        <FiEdit3 className="h-20 w-20 text-gray-300 " />
-        <h4 className="text-lg font-bold tracking-widest text-gray-300">
+        <FiEdit3 className="h-20 w-20 text-slate-300 " />
+        <h4 className="text-lg font-bold tracking-widest text-slate-300">
           Select A Card to Edit
         </h4>
       </div>
