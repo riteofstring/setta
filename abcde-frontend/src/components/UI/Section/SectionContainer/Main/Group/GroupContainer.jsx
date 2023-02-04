@@ -10,20 +10,20 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
   const { ref, style } = useSetParamContainerTempStyle(sectionId, objInfoId);
 
   return (
-    !!infos.length && (
-      <div
-        className="flex flex-col gap-2 overflow-y-auto"
-        style={style}
-        ref={ref}
-      >
-        <GetParamSwitch
-          sectionId={sectionId}
-          objInfoId={objInfoId}
-          infos={infos}
-          isKwarg={false}
-        />
-      </div>
-    )
+    <>
+      {!!infos.length && (
+        <div className="flex flex-1">
+          <div className="flex h-min flex-1 flex-col gap-2 overflow-y-auto">
+            <GetParamSwitch
+              sectionId={sectionId}
+              objInfoId={objInfoId}
+              infos={infos}
+              isKwarg={false}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -33,7 +33,7 @@ function _KwargGroupContainer({ sectionId, objInfoId }) {
   const kwargsStyleCondition = infos.length > 0 && !allAreNested;
 
   return (
-    <div className="section-full-width flex flex-grow flex-col justify-end">
+    <div className="section-full-width flex flex-col justify-end ">
       <div className="border-t border-white bg-gradient-to-b from-white px-6 pt-4 shadow-inner">
         {/* <span className="mb-4 h-1 rounded-full bg-slate-200" /> */}
         <KwargsControls sectionId={sectionId} objInfoId={objInfoId} />
