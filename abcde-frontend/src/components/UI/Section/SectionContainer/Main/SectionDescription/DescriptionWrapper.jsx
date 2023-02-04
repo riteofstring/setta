@@ -16,7 +16,7 @@ export function DescriptionWrapper({ descVis, children }) {
   return (
     <motion.div
       layout="position"
-      className="flex"
+      className="flex overflow-hidden"
       variants={variants}
       initial={"initial"}
       animate={descVis ? "open" : "collapsed"}
