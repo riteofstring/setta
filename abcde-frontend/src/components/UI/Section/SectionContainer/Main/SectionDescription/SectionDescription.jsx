@@ -3,16 +3,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DescriptionWrapper } from "./DescriptionWrapper";
 
-export function SectionDescription({
-  sectionId,
-  card = false,
-  descVis = false,
-}) {
+export function SectionDescription({ sectionId, card = false }) {
   const description = useSectionDescription((x) => x.x[sectionId].value);
 
   if (!card) {
     return (
-      <DescriptionWrapper sectionId={sectionId} descVis={descVis}>
+      <DescriptionWrapper sectionId={sectionId}>
         <Markdown markdownSource={description} />
       </DescriptionWrapper>
     );

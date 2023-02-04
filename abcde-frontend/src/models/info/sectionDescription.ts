@@ -28,6 +28,10 @@ export const useSectionDescription = create(
       set((state) => {
         state.x[sectionId].height = height;
       }),
+    toggleVisible: ({ sectionId }) =>
+      set((state) => {
+        state.x[sectionId].visible = !state.x[sectionId].visible;
+      }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
   }))

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 
-export function ResizableDescription({ sectionId, descVis, children }) {
+export function ResizableDescription({ sectionId, children }) {
   const height = useSectionDescription((x) => x.x[sectionId].height);
   const setHeight = useSectionDescription((x) => x.setHeight);
 
@@ -15,7 +15,7 @@ export function ResizableDescription({ sectionId, descVis, children }) {
   const minHeight = 50;
 
   return (
-    <MotionDiv height={height} descVis={descVis}>
+    <MotionDiv sectionId={sectionId} height={height}>
       <ResizableWithScale
         size={{ height }}
         minHeight={minHeight}
@@ -37,7 +37,8 @@ export function ResizableDescription({ sectionId, descVis, children }) {
   );
 }
 
-function MotionDiv({ height, descVis, children }) {
+function MotionDiv({ sectionId, height, children }) {
+  const descVis = useSectionDescription((x) => x.x[sectionId].visible);
   const localDescVis = useRef(descVis);
   const [noDiv, setNoDiv] = useState(descVis);
   const [initial, setInitial] = useState(
