@@ -52,11 +52,11 @@ export function Incrementer({
     <Tooltip.Provider>
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div className="flex max-w-xs gap-2 rounded-lg bg-gray-200 py-1 px-2">
+          <div className="flex max-w-xs gap-2 rounded-lg bg-slate-200 py-1 px-2">
             {isRoot && (
-              <h3 className="text-xs font-bold text-gray-600">Children</h3>
+              <h3 className="text-xs font-bold text-slate-600">Children</h3>
             )}
-            {isRoot && <FiCornerRightDown className="text-gray-600" />}
+            {isRoot && <FiCornerRightDown className="text-slate-600" />}
             <input
               className="nodrag max-w-[5ch] rounded-md bg-white text-center text-xs focus-visible:ring-2"
               value={numSections}

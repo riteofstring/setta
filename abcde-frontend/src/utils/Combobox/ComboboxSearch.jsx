@@ -1,5 +1,5 @@
 import { useCombobox } from "downshift";
-import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
+import useWidthOfResizableElement from "hooks/useWidthOfResizableElement";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { ComboboxInput, ComboboxItem, ComboboxList } from "./Combobox";
@@ -14,11 +14,7 @@ export function ComboboxSearch({
   itemStyleGetter,
   small,
 }) {
-  const {
-    sizeRef,
-    size: { width },
-  } = useSizeOfResizableElement({ delay: 200 });
-
+  const { widthRef, width } = useWidthOfResizableElement();
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,
@@ -56,7 +52,7 @@ export function ComboboxSearch({
       className={`flex ${
         small ? "h-7" : "h-10"
       } w-full flex-col items-stretch overflow-visible`}
-      {...getComboboxProps({ ref: sizeRef })}
+      {...getComboboxProps({ ref: widthRef })}
     >
       <ComboboxInput
         getInputProps={getInputProps}
