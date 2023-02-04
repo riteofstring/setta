@@ -14,6 +14,7 @@ import { BiInfoCircle } from "react-icons/bi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
+import { CustomCloseButton } from "./Header/CustomCloseButton/CustomCloseButton";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
@@ -31,6 +32,13 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const setActiveSection = useActiveSection((x) => x.setId);
   const toggleDescVis = useSectionDescription((x) => x.toggleVisible);
 
+  const onCustomCloseButtonClick = (e) => {
+    // ignore onClick events in parent components
+    // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
+    e.stopPropagation();
+    deleteChild({ parentId, startId: sectionId });
+  };
+
   const boxShadow = isActiveSection
     ? "shadow-2xl"
     : "shadow-md active:shadow-2xl";
@@ -40,6 +48,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     : "outline-transparent active:outline-cyan-300";
 
   // flex flex-grow flex-col
+  // [&>div:not(.section-full-width)]:px-5
   return (
     <div
       className={`rounded-xl bg-white ${boxShadow} dndline w-min transition-all duration-150`}
@@ -51,7 +60,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4 [&>div:not(.section-full-width)]:px-5">
+          <CustomCloseButton
+            onClick={onCustomCloseButtonClick}
+            aria-label="Delete self"
+            data-testid={`Delete ${sectionId}`}
+          />
+          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4">
             <SectionHeader
               sectionId={sectionId}
               parentId={parentId}

@@ -15,11 +15,13 @@ export function InputArea({ sectionId, selectedItem }) {
     <SectionDescription sectionId={sectionId} card={true} />
   ) : (
     <>
-      <SectionSearch
-        sectionId={sectionId}
-        initialSelection={selectedItem}
-        onSelectedItemChange={onSelectedItemChange}
-      />
+      <div className="px-6">
+        <SectionSearch
+          sectionId={sectionId}
+          initialSelection={selectedItem}
+          onSelectedItemChange={onSelectedItemChange}
+        />
+      </div>
 
       <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
       <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />

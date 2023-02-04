@@ -23,7 +23,7 @@ export function KwargParam(props) {
         icon={<AiOutlineClose />}
         bg="bg-transparent"
         color="text-slate-400 hover:text-slate-600"
-        twClasses="pl-3"
+        twClasses="ml-1"
       />
       <ParamContainer {...props} isKwarg={true}>
         <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />
