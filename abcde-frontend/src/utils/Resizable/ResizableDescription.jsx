@@ -1,30 +1,24 @@
 import { motion } from "framer-motion";
 import { useSectionDescription } from "models/info/sectionDescription";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ResizableWithScale } from "./ResizableWithScale";
 
 export function ResizableDescription({ sectionId, descVis, children }) {
   const height = useSectionDescription((x) => x.x[sectionId].height);
   const setHeight = useSectionDescription((x) => x.setHeight);
-  const [isResizing, setIsResizing] = useState(false);
-
-  function onResizeStart() {
-    setIsResizing(true);
-  }
 
   function onResizeStop(e, direction, ref, d) {
     setHeight({ sectionId, height: height + d.height });
-    setIsResizing(false);
   }
 
-  const minHeight = 50;
+  const trueHeight = descVis ? height : 0;
+  const minHeight = descVis ? 50 : 0;
 
   return (
-    <MotionDiv isResizing={isResizing} height={height} descVis={descVis}>
+    <MotionDiv height={height} descVis={descVis}>
       <ResizableWithScale
-        size={{ height }}
+        size={{ height: trueHeight }}
         minHeight={minHeight}
-        onResizeStart={onResizeStart}
         onResizeStop={onResizeStop}
         handleWrapperClass="nodrag"
         enable={{
@@ -42,24 +36,39 @@ export function ResizableDescription({ sectionId, descVis, children }) {
   );
 }
 
-function MotionDiv({ isResizing, height, descVis, children }) {
+function MotionDiv({ height, descVis, children }) {
+  const [noDiv, setNoDiv] = useState(false);
+
+  const initial = descVis ? { opacity: 0, height: 0 } : { opacity: 1, height };
+
   const variants = {
     ease: "easeOut",
-    initial: { opacity: 0, height: 0 },
+    initial,
     open: {
       opacity: 1,
-      height: isResizing ? "auto" : height,
+      height,
     },
     collapsed: { opacity: 0, height: 0 },
   };
 
-  return (
+  useEffect(() => {
+    setNoDiv(false);
+  }, [descVis]);
+
+  function onAnimationComplete(name) {
+    setNoDiv(name === "open");
+  }
+
+  return noDiv ? (
+    children
+  ) : (
     <motion.div
       layout="position"
       className="flex overflow-hidden"
       variants={variants}
       initial={"initial"}
       animate={descVis ? "open" : "collapsed"}
+      onAnimationComplete={onAnimationComplete}
     >
       {children}
     </motion.div>
