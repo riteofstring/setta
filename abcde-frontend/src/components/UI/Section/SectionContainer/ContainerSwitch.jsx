@@ -129,7 +129,7 @@ function DeckSectionTitle({ sectionId }) {
     editing: "nodrag w-[450px] font-bold text-4xl -mb-2 tracking-tighter",
 
     notEditing:
-      "font-heading font-bold text-gray-100 text-4xl -mb-2 tracking-tighter",
+      "font-heading font-bold text-slate-100 text-4xl -mb-2 tracking-tighter",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

@@ -73,7 +73,7 @@ export function PaneContainer({
 
   return (
     <div
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} transition-all [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r  [&>div]:border-gray-200 [&>div]:bg-gray-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} transition-all [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r  [&>div]:border-slate-200 [&>div]:bg-slate-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
       aria-label={`${paneTitle} Pane`}
     >
@@ -93,12 +93,12 @@ export function PaneContainer({
           topLeft: false,
         }}
       >
-        <h2 className="pb-3 text-base font-bold  uppercase tracking-widest text-gray-400">
+        <h2 className="pb-3 text-base font-bold  uppercase tracking-widest text-slate-400">
           {paneTitle}
         </h2>
         {children}
         <Button
-          twClasses={`text-gray-500 hover:bg-gray-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+          twClasses={`text-slate-500 hover:bg-slate-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
           tabIndex="-1"
           onClick={uiToggle}
         >

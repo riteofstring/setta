@@ -19,7 +19,7 @@ export function FormInput({
         value={value}
         onChange={onChange}
         onBlur={onBlur}
-        className="border-solid border-gray-100 py-2 [border-width:0_0_2px_0] focus-visible:border-blue-500"
+        className="border-solid border-slate-100 py-2 [border-width:0_0_2px_0] focus-visible:border-blue-500"
       />
     </div>
   );
