@@ -1,5 +1,7 @@
+import { useHasMarkdown } from "hooks/useHasMarkdown";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import {
+  useIsInfo,
   useIsOutput,
   useIsRoot,
   useIsSeriesElement,
@@ -21,6 +23,8 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
+  const isInfo = useIsInfo(sectionId);
+  const hasMarkdown = useHasMarkdown(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
@@ -56,29 +60,29 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               isRoot={isRoot}
               hasNested={hasNested}
             />
-            {!isOutput ? (
-              <InputArea
-                sectionId={sectionId}
-                selectedItem={selectedItem}
-                isRoot={isRoot}
-              />
+            {!isOutput && !isRoot ? (
+              <InputArea sectionId={sectionId} selectedItem={selectedItem} />
             ) : (
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          <IconButton
-            size="w-6 h-6 self-center text-gray-400"
-            onClick={() => {
-              setDescVis(!descVis);
-            }}
-          >
-            <BiInfoCircle className="h-5 w-5" />
-          </IconButton>
+          {!isInfo && hasMarkdown && (
+            <IconButton
+              size="w-6 h-6 self-center text-gray-400"
+              onClick={() => {
+                setDescVis(!descVis);
+              }}
+            >
+              <BiInfoCircle className="h-5 w-5" />
+            </IconButton>
+          )}
 
           <ResizeIcon />
         </CustomResizable>
       </div>
-      <SectionDescription sectionId={sectionId} descVis={descVis} />
+      {!isInfo && (
+        <SectionDescription sectionId={sectionId} descVis={descVis} />
+      )}
     </div>
   );
 }
