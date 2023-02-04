@@ -44,7 +44,7 @@ function _SectionHeader({
 function CardTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "cursor-text nodrag h-6 font-heading font-bold px-2 py-0 -ml-2 bg-gray-200 rounded-full w-full",
+      "cursor-text nodrag h-6 font-heading font-bold px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full",
     notEditing: "font-heading cursor-pointer font-bold",
   };
 
