@@ -1,3 +1,4 @@
+import { useHasMarkdown } from "hooks/useHasMarkdown";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import {
   useIsInfo,
@@ -23,6 +24,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isRoot = useIsRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
   const isInfo = useIsInfo(sectionId);
+  const hasMarkdown = useHasMarkdown(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
@@ -64,7 +66,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          {!isInfo && (
+          {!isInfo && hasMarkdown && (
             <IconButton
               size="w-6 h-6 self-center text-gray-400"
               onClick={() => {
