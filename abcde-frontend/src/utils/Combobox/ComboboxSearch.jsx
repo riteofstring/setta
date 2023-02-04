@@ -1,5 +1,5 @@
 import { useCombobox } from "downshift";
-import useSizeOfResizableElement from "hooks/useSizeOfResizableElement";
+import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { ComboboxInput, ComboboxItem, ComboboxList } from "./Combobox";

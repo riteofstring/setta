@@ -1,6 +1,8 @@
 import { useMinSectionHeight } from "hooks/useMinSectionHeight";
+import { useSizeOfResizableRef } from "hooks/useSizeOfResizableElement";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useKwargRefs } from "models/kwargRefs";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
@@ -24,8 +26,12 @@ export function CustomResizable({ sectionId, children }) {
 function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
   const rfStore = useStoreApi();
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
+  const kwargRef = useKwargRefs((x) => x.x[sectionId]);
+  const kwargSize = useSizeOfResizableRef({ current: kwargRef, delay: 0 });
   const [size, setSize] = useState(savedSize);
   const [scale, setScale] = useState(1);
+
+  console.log("kwargSize", kwargSize);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });

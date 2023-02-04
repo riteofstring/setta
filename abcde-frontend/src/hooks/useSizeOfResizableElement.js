@@ -10,8 +10,13 @@ function throttle(f, delay) {
 }
 
 // https://blog.sethcorker.com/resize-observer-api/
-export default function useSizeOfResizableElement({ delay }) {
+export function useSizeOfResizableElement({ delay }) {
   const sizeRef = useRef();
+  const size = useSizeOfResizableRef({ current: sizeRef.current, delay });
+  return { sizeRef, size };
+}
+
+export function useSizeOfResizableRef({ current, delay }) {
   const [size, setSize] = React.useState({ width: 0, height: 0 });
 
   const observer = React.useRef(
@@ -25,16 +30,16 @@ export default function useSizeOfResizableElement({ delay }) {
   );
 
   useLayoutEffect(() => {
-    if (sizeRef.current) {
-      observer.current.observe(sizeRef.current);
+    if (current) {
+      observer.current.observe(current);
     }
 
     return () => {
-      if (sizeRef.current) {
-        observer.current.unobserve(sizeRef.current);
+      if (current) {
+        observer.current.unobserve(current);
       }
     };
-  }, [sizeRef, observer]);
+  }, [current, observer]);
 
-  return { sizeRef, size };
+  return size;
 }
