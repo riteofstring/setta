@@ -11,13 +11,12 @@ export function ResizableDescription({ sectionId, descVis, children }) {
     setHeight({ sectionId, height: height + d.height });
   }
 
-  const trueHeight = descVis ? height : 0;
   const minHeight = descVis ? 50 : 0;
 
   return (
     <MotionDiv height={height} descVis={descVis}>
       <ResizableWithScale
-        size={{ height: trueHeight }}
+        size={{ height }}
         minHeight={minHeight}
         onResizeStop={onResizeStop}
         handleWrapperClass="nodrag"
