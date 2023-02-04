@@ -6,25 +6,24 @@ import { ResizableWithScale } from "./ResizableWithScale";
 export function ResizableDescription({ sectionId, descVis, children }) {
   const height = useSectionDescription((x) => x.x[sectionId].height);
   const setHeight = useSectionDescription((x) => x.setHeight);
-  const [isResizing, setIsResizing] = useState(false);
+  const [localHeight, setLocalHeight] = useState(height);
 
-  function onResizeStart() {
-    setIsResizing(true);
+  function onResize(e, direction, ref, d) {
+    setLocalHeight(height + d.height);
   }
 
   function onResizeStop(e, direction, ref, d) {
     setHeight({ sectionId, height: height + d.height });
-    setIsResizing(false);
   }
 
   const minHeight = 50;
 
   return (
-    <MotionDiv isResizing={isResizing} height={height} descVis={descVis}>
+    <MotionDiv height={localHeight} descVis={descVis}>
       <ResizableWithScale
         size={{ height }}
         minHeight={minHeight}
-        onResizeStart={onResizeStart}
+        onResize={onResize}
         onResizeStop={onResizeStop}
         handleWrapperClass="nodrag"
         enable={{
@@ -42,13 +41,13 @@ export function ResizableDescription({ sectionId, descVis, children }) {
   );
 }
 
-function MotionDiv({ isResizing, height, descVis, children }) {
+function MotionDiv({ height, descVis, children }) {
   const variants = {
     ease: "easeOut",
     initial: { opacity: 0, height: 0 },
     open: {
       opacity: 1,
-      height: isResizing ? "auto" : height,
+      height,
     },
     collapsed: { opacity: 0, height: 0 },
   };
