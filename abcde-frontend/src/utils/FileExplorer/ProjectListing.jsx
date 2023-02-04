@@ -52,7 +52,7 @@ function ConfigListings({ project, onClick }) {
 }
 
 function ConfigListing({ id, name, onClick }) {
-  const itemRef = useRef();
+  const itemRef = useRef(null);
 
   function _onClick() {
     const isChecked =

@@ -11,7 +11,7 @@ function throttle(f, delay) {
 
 // https://blog.sethcorker.com/resize-observer-api/
 export function useSizeOfResizableElement({ delay, dimName }) {
-  const sizeRef = useRef();
+  const sizeRef = useRef(null);
   const size = useSizeOfResizableRef({
     current: sizeRef.current,
     delay,

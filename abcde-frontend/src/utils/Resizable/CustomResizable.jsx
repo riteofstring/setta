@@ -4,7 +4,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useKwargRefs } from "models/kwargRefs";
 import { Resizable } from "re-resizable";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
@@ -32,10 +32,18 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
     delay: 0,
     dimName: "height",
   });
+  const prevKwargHeight = useRef(kwargHeight);
   const [size, setSize] = useState(savedSize);
   const [scale, setScale] = useState(1);
 
-  console.log("kwargHeight", kwargHeight);
+  useEffect(() => {
+    const diff = kwargHeight - prevKwargHeight.current;
+    setSize((x) => ({ width: x.width, height: x.height + diff }));
+    prevKwargHeight.current = kwargHeight;
+  }, [kwargHeight]);
+
+  console.log("size", size)
+  console.log("savedSize", savedSize);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
