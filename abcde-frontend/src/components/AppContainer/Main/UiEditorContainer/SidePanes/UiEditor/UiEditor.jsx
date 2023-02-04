@@ -41,26 +41,9 @@ export function UiEditor() {
           <TabItem name="Parameters" value={UI_CONFIG_TAB} />
           <TabItem name="Info" />
         </Tabs.List>
-        <TabContent
-          value={SECTION_CONFIG_TAB}
-          className={`${!sectionId && "h-full"}`}
-        >
-          {sectionId ? (
-            <SectionConfig sectionId={sectionId} />
-          ) : (
-            <Placeholder />
-          )}
-        </TabContent>
-        <TabContent value={UI_CONFIG_TAB}>
-          {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
-        </TabContent>
-        <TabContent>
-          {sectionId ? (
-            <MarkdownEditor sectionId={sectionId} />
-          ) : (
-            <Placeholder />
-          )}
-        </TabContent>
+        <SectionConfigTab sectionId={sectionId} />
+        <UIConfigTab sectionId={sectionId} />
+        <InfoTab sectionId={sectionId} />
       </Tabs.Root>
     </PaneContainer>
   );
@@ -102,3 +85,30 @@ const Placeholder = React.forwardRef((props, ref) => {
     </div>
   );
 });
+
+function SectionConfigTab({ sectionId }) {
+  return (
+    <TabContent
+      value={SECTION_CONFIG_TAB}
+      className={`${!sectionId && "h-full"}`}
+    >
+      {sectionId ? <SectionConfig sectionId={sectionId} /> : <Placeholder />}
+    </TabContent>
+  );
+}
+
+function UIConfigTab({ sectionId }) {
+  return (
+    <TabContent value={UI_CONFIG_TAB}>
+      {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
+    </TabContent>
+  );
+}
+
+function InfoTab({ sectionId }) {
+  return (
+    <TabContent>
+      {sectionId ? <MarkdownEditor sectionId={sectionId} /> : <Placeholder />}
+    </TabContent>
+  );
+}
