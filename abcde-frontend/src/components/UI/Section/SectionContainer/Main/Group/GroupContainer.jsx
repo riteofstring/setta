@@ -1,3 +1,4 @@
+import { useSetParamContainerTempStyle } from "hooks/useGroupContainerStyle";
 import { useAreAllParamsNested } from "hooks/useParamUIType";
 import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
 import React from "react";
@@ -6,19 +7,23 @@ import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
   const infos = useGetParamInfos(sectionId, objInfoId);
+  const { ref, style } = useSetParamContainerTempStyle(sectionId, objInfoId);
+
   return (
-    <>
-      {!!infos.length && (
-        <div className="flex flex-col gap-2 overflow-y-auto">
-          <GetParamSwitch
-            sectionId={sectionId}
-            objInfoId={objInfoId}
-            infos={infos}
-            isKwarg={false}
-          />
-        </div>
-      )}
-    </>
+    !!infos.length && (
+      <div
+        className="flex flex-col gap-2 overflow-y-auto"
+        style={style}
+        ref={ref}
+      >
+        <GetParamSwitch
+          sectionId={sectionId}
+          objInfoId={objInfoId}
+          infos={infos}
+          isKwarg={false}
+        />
+      </div>
+    )
   );
 }
 

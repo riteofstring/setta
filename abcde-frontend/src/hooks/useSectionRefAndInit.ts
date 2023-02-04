@@ -1,8 +1,12 @@
-import { useSectionRefs } from "models/sectionRefs";
+import { useParamRefs, useSectionRefs } from "models/sectionRefs";
 import { useEffect, useRef } from "react";
 
 export function useSectionRefAndInit(sectionId) {
   return useStateRefAndInit(sectionId, useSectionRefs);
+}
+
+export function useParamRefAndInit(sectionId) {
+  return useStateRefAndInit(sectionId, useParamRefs);
 }
 
 function useStateRefAndInit(sectionId, state) {
