@@ -1,9 +1,8 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
+import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
-import { useSectionRefs } from "models/sectionRefs";
-import { useEffect, useRef } from "react";
 import { SectionTitle } from "./Header/Title/SectionTitle";
 
 export function ContainerSwitch({
@@ -71,11 +70,10 @@ function Container({
     style: highlightDroppableStyle,
   } = useHighlightDroppable(sectionId);
 
-  const refForPosition = useRef(null);
+  const refForPosition = useSectionRefAndInit(sectionId);
   const { isSorting, isMovingFree } = useDragActivation();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
   const isDraggingTopLevel = !parentId && isMovingFree;
-  const setSectionRef = useSectionRefs((x) => x.setRef);
   const trueDragListeners =
     isDraggingSortable || isDraggingTopLevel ? dragListeners : {};
 
@@ -92,10 +90,6 @@ function Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
-
-  useEffect(() => {
-    setSectionRef({ sectionId, ref: refForPosition.current });
-  }, []);
 
   return (
     <>

@@ -408,7 +408,7 @@
   resolved "https://registry.yarnpkg.com/@fontsource/jetbrains-mono/-/jetbrains-mono-4.5.10.tgz#c237505aeea535cf6ce1462c4ea39258f0677c2b"
   integrity sha512-dylbkBmAWL0fkjDpDoDbQCwTQ/W3DzLtVXmwGyAyttfKliPGSP2WpAmmMFYp9NpqFMF7CLprFyzppe8u39Orkw==
 
-"@fontsource/source-code-pro@^4.5.14":
+"@fontsource/source-code-pro@4.5.14":
   version "4.5.14"
   resolved "https://registry.yarnpkg.com/@fontsource/source-code-pro/-/source-code-pro-4.5.14.tgz#97e7b889f485c56132925e3b5bd1cc114b67e163"
   integrity sha512-EWE0djE7wFCBmExWa9oT1vIp+qj5MUroVvXWb9G7Ig4t4aXDd9QDidYZzMzNemb8gQxTdOzGmhx6EZnDTFMh5Q==
@@ -1482,7 +1482,7 @@
     remark-gfm "~3.0.1"
     unist-util-visit "^4.1.0"
 
-"@uiw/react-md-editor@^3.20.2":
+"@uiw/react-md-editor@3.20.2":
   version "3.20.2"
   resolved "https://registry.yarnpkg.com/@uiw/react-md-editor/-/react-md-editor-3.20.2.tgz#2aea07f53878b9ad03d2fb32a0666c0b67f5d37f"
   integrity sha512-L3sp3dsbpTOcVX+mzkmwwDl2Jl/UEgrySTun4XCMck1QF1WX53z0sHbN6XET+veHOML9Tw8TUUECR7IqajYjDw==
@@ -4694,7 +4694,7 @@ react-is@^18.0.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.2.0.tgz#199431eeaaa2e09f86427efbb4f1473edb47609b"
   integrity sha512-xWGDIW6x921xtzPkhiULtthJHoJvBbF3q26fzloPCK0hsvxtPVelvftw3zjbHWSkR2km9Z+4uxbDDK/6Zw9B8w==
 
-react-markdown@^8.0.5, react-markdown@~8.0.0:
+react-markdown@8.0.5, react-markdown@~8.0.0:
   version "8.0.5"
   resolved "https://registry.yarnpkg.com/react-markdown/-/react-markdown-8.0.5.tgz#c9a70a33ca9aeeafb769c6582e7e38843b9d70ad"
   integrity sha512-jGJolWWmOWAvzf+xMdB9zwStViODyyFQhNB/bwCerbBKmrTmgmA599CGiOlP58OId1IMoIRsA8UdI1Lod4zb5A==
@@ -4949,7 +4949,7 @@ rehype@~12.0.1:
     rehype-stringify "^9.0.0"
     unified "^10.0.0"
 
-remark-gfm@^3.0.1, remark-gfm@~3.0.1:
+remark-gfm@3.0.1, remark-gfm@~3.0.1:
   version "3.0.1"
   resolved "https://registry.yarnpkg.com/remark-gfm/-/remark-gfm-3.0.1.tgz#0b180f095e3036545e9dddac0e8df3fa5cfee54f"
   integrity sha512-lEFDoi2PICJyNrACFOfDD3JlLkuSbOa5Wd8EPt06HUdptv8Gn0bxYTdbU/XXQ3swAPkEaGxxPN9cbnMHvVu1Ig==
