@@ -1,7 +1,5 @@
-import { useHasMarkdown } from "hooks/useHasMarkdown";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
 import {
-  useIsInfo,
   useIsOutput,
   useIsRoot,
   useIsSeriesElement,
@@ -23,8 +21,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
-  const isInfo = useIsInfo(sectionId);
-  const hasMarkdown = useHasMarkdown(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
@@ -60,29 +56,29 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               isRoot={isRoot}
               hasNested={hasNested}
             />
-            {!isOutput && !isRoot ? (
-              <InputArea sectionId={sectionId} selectedItem={selectedItem} />
+            {!isOutput ? (
+              <InputArea
+                sectionId={sectionId}
+                selectedItem={selectedItem}
+                isRoot={isRoot}
+              />
             ) : (
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          {!isInfo && hasMarkdown && (
-            <IconButton
-              size="w-6 h-6 self-center text-gray-400"
-              onClick={() => {
-                setDescVis(!descVis);
-              }}
-            >
-              <BiInfoCircle className="h-5 w-5" />
-            </IconButton>
-          )}
+          <IconButton
+            size="w-6 h-6 self-center text-gray-400"
+            onClick={() => {
+              setDescVis(!descVis);
+            }}
+          >
+            <BiInfoCircle className="z-[3] h-5 w-5" />
+          </IconButton>
 
           <ResizeIcon />
         </CustomResizable>
       </div>
-      {!isInfo && (
-        <SectionDescription sectionId={sectionId} descVis={descVis} />
-      )}
+      <SectionDescription sectionId={sectionId} descVis={descVis} />
     </div>
   );
 }

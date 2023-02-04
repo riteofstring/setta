@@ -10,31 +10,31 @@ function throttle(f, delay) {
 }
 
 // https://blog.sethcorker.com/resize-observer-api/
-export default function useSizeOfResizableElement({ delay }) {
-  const sizeRef = useRef();
-  const [size, setSize] = React.useState({ width: 0, height: 0 });
+export default function useWidthOfResizableElement() {
+  const widthRef = useRef();
+  const [width, setWidth] = React.useState(0);
 
   const observer = React.useRef(
     new ResizeObserver(
       throttle((entries) => {
         // Only care about the first element, we expect one element ot be watched
-        const { width, height } = entries[0].contentRect;
-        setSize({ width, height });
-      }, delay)
+        const { width } = entries[0].contentRect;
+        setWidth(width);
+      }, 200)
     )
   );
 
   useLayoutEffect(() => {
-    if (sizeRef.current) {
-      observer.current.observe(sizeRef.current);
+    if (widthRef.current) {
+      observer.current.observe(widthRef.current);
     }
 
     return () => {
-      if (sizeRef.current) {
-        observer.current.unobserve(sizeRef.current);
+      if (widthRef.current) {
+        observer.current.unobserve(widthRef.current);
       }
     };
-  }, [sizeRef, observer]);
+  }, [widthRef, observer]);
 
-  return { sizeRef, size };
+  return { widthRef, width };
 }
