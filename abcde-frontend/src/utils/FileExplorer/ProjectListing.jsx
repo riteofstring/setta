@@ -52,11 +52,11 @@ function ConfigListings({ project, onClick }) {
 }
 
 function ConfigListing({ id, name, onClick }) {
-  const itemRef = useRef();
+  const itemRef = useRef(null);
 
   function _onClick() {
     const isChecked =
-      itemRef?.current?.attributes["data-state"]?.value === "checked";
+      itemRef.current?.attributes["data-state"]?.value === "checked";
     if (isChecked) {
       onClick(JSON.stringify({ projectName: null, configName: null }));
     }
