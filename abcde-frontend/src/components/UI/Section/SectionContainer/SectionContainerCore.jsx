@@ -80,7 +80,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
           <ResizeIcon />
         </CustomResizable>
       </div>
-      <SectionDescription descVis={descVis} />
+      <SectionDescription sectionId={sectionId} descVis={descVis} />
     </motion.div>
   );
 }

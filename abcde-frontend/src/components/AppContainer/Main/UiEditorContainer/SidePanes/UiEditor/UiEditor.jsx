@@ -55,7 +55,11 @@ export function UiEditor() {
           {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
         </TabContent>
         <TabContent>
-          <MarkdownEditor />
+          {sectionId ? (
+            <MarkdownEditor sectionId={sectionId} />
+          ) : (
+            <Placeholder />
+          )}
         </TabContent>
       </Tabs.Root>
     </PaneContainer>

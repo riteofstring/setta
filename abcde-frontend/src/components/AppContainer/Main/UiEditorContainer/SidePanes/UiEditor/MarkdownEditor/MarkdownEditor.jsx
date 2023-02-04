@@ -1,10 +1,10 @@
 import MDEditor from "@uiw/react-md-editor";
-// import { useState } from "react";
-import { useMarkdown } from "models/panes";
+import { useMarkdown } from "models/markdown";
+import React from "react";
 
-export function MarkdownEditor() {
-  const markdown = useMarkdown((state) => state.data);
-  const setMarkdown = useMarkdown((state) => state.setMarkdown);
+const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
+  const markdown = useMarkdown((x) => x.x[sectionId]);
+  const setMarkdown = useMarkdown((x) => x.setMarkdown);
 
   return (
     <div
@@ -13,7 +13,7 @@ export function MarkdownEditor() {
     >
       <MDEditor
         value={markdown || ""}
-        onChange={(e) => setMarkdown(e)}
+        onChange={(e) => setMarkdown({ sectionId, value: e })}
         preview="edit"
         textareaProps={{ resize: "none" }}
         className="flex-1 self-stretch"
@@ -21,4 +21,6 @@ export function MarkdownEditor() {
       {/* <MDEditor.Markdown source={value} style={{ whiteSpace: "pre-wrap" }} /> */}
     </div>
   );
-}
+});
+
+export const MarkdownEditor = React.memo(_MarkdownEditor);
