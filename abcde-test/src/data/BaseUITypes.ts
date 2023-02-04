@@ -105,4 +105,18 @@ export default {
     originInfoId: {},
     isForChildOfOriginInfoId: false,
   },
+  "2b06a83b-b96a-490d-a2d7-3631619e6495": {
+    id: "2b06a83b-b96a-490d-a2d7-3631619e6495",
+    type: "INFO",
+    name: "",
+    presetType: "BASE",
+    config: {
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+      outputGroups: [],
+    },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
+  },
 };
