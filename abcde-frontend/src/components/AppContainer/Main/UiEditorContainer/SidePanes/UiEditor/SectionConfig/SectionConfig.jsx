@@ -25,12 +25,12 @@ function SectionConfigCore({ sectionId }) {
 
   return (
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
-      <h3 className="mt-2 text-xs font-semibold uppercase text-slate-400">
+      <h3 className="mt-2 text-xs font-semibold uppercase text-gray-400">
         Card Types
       </h3>
       <SectionConfigTypeSelection sectionId={sectionId} />
 
-      <h3 className="mt-4 text-xs font-semibold uppercase text-slate-400">
+      <h3 className="mt-4 text-xs font-semibold uppercase text-gray-400">
         Contents
       </h3>
       {sectionType === OUTPUT ? (
@@ -47,7 +47,7 @@ function GoBackButton({ sectionId }) {
   const onGoBackClick = () => goToParamConfigTab({ sectionId });
 
   const goBackBtnStyles =
-    "mt-2 border border-solid border-slate-300 font-bold text-sm self-stretch justify-center text-slate-800 hover:bg-slate-200 hover:text-slate-900 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
+    "mt-2 border border-solid border-gray-300 font-bold text-sm self-stretch justify-center text-gray-800 hover:bg-gray-200 hover:text-gray-900 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
 
   return cameFromUIConfig ? (
     <Button twClasses={goBackBtnStyles} onClick={onGoBackClick}>

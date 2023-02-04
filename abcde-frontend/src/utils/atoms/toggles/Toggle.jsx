@@ -8,7 +8,7 @@ export function Toggle(props) {
     ...theRest
   } = props;
 
-  const rootClasses = `items-center p-[0.2rem] w-7 h-3 bg-slate-400 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 focus-visible:ring-2 ${twRootClasses}`;
+  const rootClasses = `items-center p-[0.2rem] w-7 h-3 bg-gray-400 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 focus-visible:ring-2 ${twRootClasses}`;
 
   const thumbClasses = `block w-3 h-3 bg-white rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 ${twThumbClasses}`;
 

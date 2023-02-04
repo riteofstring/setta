@@ -34,7 +34,7 @@ export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
 }
 
 function InEditMode({ value, onChange, onBlur, titleProps }) {
-  const inputRef = useRef(null);
+  const inputRef = useRef();
 
   useEffect(() => {
     inputRef.current.focus();

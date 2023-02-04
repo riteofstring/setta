@@ -3,9 +3,9 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
+import { useStoreApi } from "react-flow-renderer";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
-import { useSetScaleOnResizeStart } from "./useSetScaleOnResizeStart";
 
 export function CustomResizable({ sectionId, children }) {
   const minHeight = useMinSectionHeight(sectionId);
@@ -22,12 +22,17 @@ export function CustomResizable({ sectionId, children }) {
 }
 
 function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
+  const rfStore = useStoreApi();
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
   const [size, setSize] = useState(savedSize);
-  const { scale, onResizeStart } = useSetScaleOnResizeStart();
+  const [scale, setScale] = useState(1);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
+  }
+
+  function onResizeStart() {
+    setScale(rfStore.getState().transform[2]);
   }
 
   useEffect(() => {

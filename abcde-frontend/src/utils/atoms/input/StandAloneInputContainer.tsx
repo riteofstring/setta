@@ -12,7 +12,7 @@ export function StandAloneInputContainer({
       <form className="grid w-[400px] gap-8" onSubmit={onSubmit}>
         <div className="grid place-items-center">
           {logo && <SiteLogo />}
-          <h1 className="select-none font-heading text-3xl font-bold text-slate-600">
+          <h1 className="select-none font-heading text-3xl font-bold text-gray-600">
             {title}
           </h1>
         </div>

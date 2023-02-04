@@ -96,11 +96,11 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
       <DialogTriggerItem>New Project</DialogTriggerItem>
       <DialogTriggerItem onClick={onClickLoad}>Load</DialogTriggerItem>
       <Item onClick={onClickSave}>
-        <VscSave className="text-slate-500" />
+        <VscSave className="text-gray-500" />
         Save
       </Item>
       <DialogTriggerItem onClick={onClickSaveAs}>
-        <VscSaveAs className="text-slate-500" />
+        <VscSaveAs className="text-gray-500" />
         Save As
       </DialogTriggerItem>
     </>

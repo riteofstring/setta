@@ -4,7 +4,6 @@ import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
-import { ADDED, DELETED, useKwargDelta } from "models/kwargDelta";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
@@ -22,8 +21,6 @@ export function addKwarg(sectionId: string, objInfoId: string) {
     objInfoId: objInfoId,
     newStateFn: (x) => [...x, kwargInfo.id],
   });
-  console.log("addKwarg")
-  useKwargDelta.getState().setDelta({ sectionId, objInfoId, value: ADDED });
   initializeParam(sectionId, [kwargInfo]);
 }
 
@@ -60,7 +57,6 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   if (childId) {
     deleteChild({ parentId: sectionId, startId: childId });
   }
-  useKwargDelta.getState().setDelta({ sectionId, objInfoId, value: DELETED });
 }
 
 export function saveKwargsAsCollection({
