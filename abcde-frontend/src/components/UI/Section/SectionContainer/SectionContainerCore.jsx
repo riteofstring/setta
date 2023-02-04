@@ -43,7 +43,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       data-testid={`${sectionId} section core`}
     >
       <div
-        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
+        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-gray-50 shadow-md transition-all`}
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
@@ -67,7 +67,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             )}
           </div>
           <IconButton
-            size="w-6 h-6 self-center text-slate-400"
+            size="w-6 h-6 self-center text-gray-400"
             onClick={() => {
               setDescVis(!descVis);
             }}

@@ -39,7 +39,7 @@ export function SignUpPage() {
   });
 
   return (
-    <GridWrapper gridStyles="bg-slate-400" flexFormWrap={true}>
+    <GridWrapper gridStyles="bg-gray-400" flexFormWrap={true}>
       <StandAloneInputContainer
         onSubmit={handleSubmit}
         title="Sign Up"
@@ -85,7 +85,7 @@ function Footer() {
   return (
     <StandardButton
       align="self-stretch"
-      inactive="bg-slate-400"
+      inactive="bg-gray-400"
       text="text-white font-bold"
       hover="hover:bg-blue-500"
       type="submit"

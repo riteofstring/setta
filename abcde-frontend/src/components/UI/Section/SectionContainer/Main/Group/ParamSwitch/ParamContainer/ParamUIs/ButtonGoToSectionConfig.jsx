@@ -9,7 +9,7 @@ export function ButtonGoToSectionConfig({ paramChildId, uiType }) {
     <>
       {isSectionUIType(uiType) && (
         <Button
-          twClasses="mt-2 text-xs text-slate-600 hover:bg-slate-200 hover:text-slate-900 py-1 px-2 rounded-md gap-1 select-none mr-2 self-start"
+          twClasses="mt-2 text-xs text-gray-600 hover:bg-gray-200 hover:text-gray-900 py-1 px-2 rounded-md gap-1 select-none mr-2 self-start"
           onClick={onClick}
         >
           <BiWrench /> Configure

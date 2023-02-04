@@ -9,7 +9,7 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
   return (
     <div
       data-color-mode="light"
-      className="flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl border border-solid border-slate-300 [&_.w-md-editor-bar]:hidden [&_.w-md-editor-text_*]:font-code"
+      className="flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl border border-solid border-gray-300 [&_.w-md-editor-bar]:hidden [&_.w-md-editor-text_*]:font-code"
     >
       <MDEditor
         value={markdown || ""}

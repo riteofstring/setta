@@ -16,7 +16,7 @@ export function PasswordInput({
   return (
     <div className="flex flex-col">
       <label className="select-none text-xs">{label}</label>
-      <div className="flex border-solid border-slate-100 [border-width:0_0_2px_0] [&:has(input:focus-visible)]:border-blue-500">
+      <div className="flex border-solid border-gray-100 [border-width:0_0_2px_0] [&:has(input:focus-visible)]:border-blue-500">
         <input
           id={id ? id : label}
           name={id ? id : name ? name : label}

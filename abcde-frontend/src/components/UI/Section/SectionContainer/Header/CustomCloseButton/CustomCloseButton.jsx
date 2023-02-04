@@ -6,7 +6,7 @@ export function CustomCloseButton(props) {
     <IconButton
       {...props}
       icon={<IoClose />}
-      color="text-slate-600 hover:text-white"
+      color="text-gray-600 hover:text-white"
       bg="bg-transparent hover:bg-red-500"
       size="w-4 h-4"
     />

@@ -21,7 +21,7 @@ export function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridStyles="bg-slate-100">
+    <GridWrapper gridStyles="bg-gray-100">
       <RightColumn projects={projects} createProject={createProject} />
     </GridWrapper>
   );
@@ -33,9 +33,9 @@ function RightColumn({ projects, createProject }) {
   }
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 max-w-[30rem] focus-visible:border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-gray-300 max-w-[30rem] focus-visible:border-blue-300 pl-7 py-1";
   const stdbtnStyles =
-    "py-2 px-4 rounded-full font-bold font-heading text-white bg-slate-600 border border-solid border-slate-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-slate-900 gap-2";
+    "py-2 px-4 rounded-full font-bold font-heading text-white bg-gray-600 border border-solid border-gray-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-gray-900 gap-2";
   const gridStyles =
     "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
 
@@ -104,7 +104,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
         onConfigClick={onConfigClick}
       />
       <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 ">
-        <h3 className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600">
+        <h3 className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-gray-600">
           {name}
         </h3>
         <Badges />
@@ -115,11 +115,11 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
 function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
   return (
-    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4">
+    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-gray-300 bg-center p-4">
       <StandardDropdown
         trigger={
           <div
-            className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50"
+            className="flex items-center gap-1 rounded-full bg-gray-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-gray-50"
             onClick={onClickConfigsButton}
           >
             <BiGitBranch />
