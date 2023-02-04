@@ -1,5 +1,6 @@
 import {
   DECK,
+  INFO,
   isRoot,
   isSeriesElement,
   OUTPUT,
@@ -55,4 +56,9 @@ export function useIsDeck(sectionId: string) {
 export function useIsOutput(sectionId: string) {
   const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
   return useUITypes((x) => x.x[uiTypeId].type === OUTPUT);
+}
+
+export function useIsInfo(sectionId: string) {
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  return useUITypes((x) => x.x[uiTypeId].type === INFO);
 }
