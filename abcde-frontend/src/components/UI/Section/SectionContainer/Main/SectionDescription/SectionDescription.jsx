@@ -24,7 +24,7 @@ function Markdown({ markdownSource }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="prose px-8 prose-headings:font-heading prose-headings:text-gray-500 prose-p:text-sm "
+      className="prose max-w-none px-8 prose-headings:font-heading prose-headings:text-gray-500 prose-p:text-sm "
     >
       {markdownSource}
     </ReactMarkdown>

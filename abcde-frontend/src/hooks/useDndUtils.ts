@@ -92,8 +92,7 @@ export function useHighlightDroppable(sectionId: string) {
   });
   // before:content-none before:absolute before:left-0 before:bottom-0 before:h-[100px] before:w-1/2
 
-  // y-3 px-3 -my-3 -mx-3
-  const className = "rounded-3xl relative p";
+  const className = "rounded-3xl relative py-3 px-3 -my-3 -mx-3";
   const transition = "background-color 0.2s";
 
   if (highlight === DropType.NONE) {

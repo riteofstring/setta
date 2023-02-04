@@ -1,3 +1,4 @@
+import { useIsInfo } from "hooks/useSectionType";
 import { setSelectedItem } from "thunks/sections/sections";
 import {
   KwargGroupContainer,
@@ -6,28 +7,24 @@ import {
 import { SectionSearch } from "./Main/Search/Search";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
-export function InputArea({ sectionId, selectedItem, isRoot }) {
+export function InputArea({ sectionId, selectedItem }) {
   function onSelectedItemChange(value) {
     setSelectedItem(sectionId, value);
   }
+  const isInfo = useIsInfo(sectionId);
 
-  // TODO: determine tempBoolDesc dynamically
-  const tempBoolDesc = true;
-  return (
-    !isRoot && (
-      <>
-        {tempBoolDesc && (
-          <SectionDescription sectionId={sectionId} card={true} />
-        )}
-        <SectionSearch
-          sectionId={sectionId}
-          initialSelection={selectedItem}
-          onSelectedItemChange={onSelectedItemChange}
-        />
+  return isInfo ? (
+    <SectionDescription sectionId={sectionId} card={true} />
+  ) : (
+    <>
+      <SectionSearch
+        sectionId={sectionId}
+        initialSelection={selectedItem}
+        onSelectedItemChange={onSelectedItemChange}
+      />
 
-        <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-        <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-      </>
-    )
+      <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+      <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+    </>
   );
 }
