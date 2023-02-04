@@ -14,10 +14,10 @@ export function ComboboxSearch({
   itemStyleGetter,
   small,
 }) {
-  const {
-    sizeRef,
-    size: { width },
-  } = useSizeOfResizableElement({ delay: 200 });
+  const { sizeRef, size: width } = useSizeOfResizableElement({
+    delay: 200,
+    dimName: "width",
+  });
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,

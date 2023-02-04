@@ -27,11 +27,15 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
   const rfStore = useStoreApi();
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
   const kwargRef = useKwargRefs((x) => x.x[sectionId]);
-  const kwargSize = useSizeOfResizableRef({ current: kwargRef, delay: 0 });
+  const kwargHeight = useSizeOfResizableRef({
+    current: kwargRef,
+    delay: 0,
+    dimName: "height",
+  });
   const [size, setSize] = useState(savedSize);
   const [scale, setScale] = useState(1);
 
-  console.log("kwargSize", kwargSize);
+  console.log("kwargHeight", kwargHeight);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });

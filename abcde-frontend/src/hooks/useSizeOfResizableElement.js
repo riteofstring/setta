@@ -10,21 +10,31 @@ function throttle(f, delay) {
 }
 
 // https://blog.sethcorker.com/resize-observer-api/
-export function useSizeOfResizableElement({ delay }) {
+export function useSizeOfResizableElement({ delay, dimName }) {
   const sizeRef = useRef();
-  const size = useSizeOfResizableRef({ current: sizeRef.current, delay });
+  const size = useSizeOfResizableRef({
+    current: sizeRef.current,
+    delay,
+    dimName,
+  });
   return { sizeRef, size };
 }
 
-export function useSizeOfResizableRef({ current, delay }) {
-  const [size, setSize] = React.useState({ width: 0, height: 0 });
+export function useSizeOfResizableRef({ current, delay, dimName }) {
+  const [size, setSize] = React.useState(
+    dimName === "both" ? { width: 0, height: 0 } : 0
+  );
 
   const observer = React.useRef(
     new ResizeObserver(
       throttle((entries) => {
         // Only care about the first element, we expect one element ot be watched
-        const { width, height } = entries[0].contentRect;
-        setSize({ width, height });
+        const rect = entries[0].contentRect;
+        if (dimName === "both") {
+          setSize({ width: rect.width, height: rect.height });
+        } else {
+          setSize(rect[dimName]);
+        }
       }, delay)
     )
   );
