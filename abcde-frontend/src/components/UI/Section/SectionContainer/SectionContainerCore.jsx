@@ -43,7 +43,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       data-testid={`${sectionId} section core`}
     >
       <div
-        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-gray-50 shadow-md`}
+        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-gray-50 shadow-md transition-all`}
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
