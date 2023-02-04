@@ -1,5 +1,5 @@
-import { useHasMarkdown } from "hooks/useHasMarkdown";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useSectionHasDescription } from "hooks/useSectionDescription";
 import {
   useIsInfo,
   useIsOutput,
@@ -8,7 +8,8 @@ import {
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import React, { useState } from "react";
+import { useSectionDescription } from "models/info/sectionDescription";
+import React from "react";
 import { BiInfoCircle } from "react-icons/bi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
@@ -24,10 +25,11 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isRoot = useIsRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
   const isInfo = useIsInfo(sectionId);
-  const hasMarkdown = useHasMarkdown(sectionId);
+  const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
+  const toggleDescVis = useSectionDescription((x) => x.toggleVisible);
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"
@@ -36,8 +38,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const outlineColor = isActiveSection
     ? "outline-blue-500"
     : "outline-transparent active:outline-cyan-300";
-
-  const [descVis, setDescVis] = useState(false);
 
   // flex flex-grow flex-col
   return (
@@ -66,11 +66,11 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               <OutputArea sectionId={sectionId} />
             )}
           </div>
-          {!isInfo && hasMarkdown && (
+          {!isInfo && hasDescription && (
             <IconButton
               size="w-6 h-6 self-center text-slate-400"
               onClick={() => {
-                setDescVis(!descVis);
+                toggleDescVis({ sectionId });
               }}
             >
               <BiInfoCircle className="z-[3] h-5 w-5" />
@@ -80,9 +80,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
           <ResizeIcon />
         </CustomResizable>
       </div>
-      {!isInfo && (
-        <SectionDescription sectionId={sectionId} descVis={descVis} />
-      )}
+      {!isInfo && <SectionDescription sectionId={sectionId} />}
     </div>
   );
 }
