@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { VscGrabber } from "react-icons/vsc";
-import { ResizableDescription } from "./ResizableDescription";
+import { ResizableDescription } from "utils/Resizable/ResizableDescription";
+
 export function DescriptionWrapper({ descVis, children }) {
   const variants = {
     ease: "easeOut",
@@ -26,7 +27,7 @@ export function DescriptionWrapper({ descVis, children }) {
           {children}
         </div>
       </ResizableDescription>
-      <VscGrabber class="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-slate-400" />
+      <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-slate-400" />
     </motion.div>
   );
 }
