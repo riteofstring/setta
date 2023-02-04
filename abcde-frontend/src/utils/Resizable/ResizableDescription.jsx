@@ -1,54 +1,67 @@
-import { animate } from "framer-motion";
+import { motion } from "framer-motion";
 import { useSectionDescription } from "models/info/sectionDescription";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ResizableWithScale } from "./ResizableWithScale";
 
 export function ResizableDescription({ sectionId, descVis, children }) {
   const height = useSectionDescription((x) => x.x[sectionId].height);
   const setHeight = useSectionDescription((x) => x.setHeight);
-  const [shouldUseMotionHeight, setShouldUseMotionHeight] = useState(false);
-  const [motionHeight, setMotionHeight] = useState(descVis ? height : 0);
+  const [isResizing, setIsResizing] = useState(false);
 
-  useEffect(() => {
-    setShouldUseMotionHeight(true);
-    const endVal = descVis ? height : 0;
-    animate(motionHeight, endVal, {
-      onUpdate: (v) => setMotionHeight(v),
-      onComplete: () => setShouldUseMotionHeight(false),
-    });
-  }, [descVis]);
+  function onResizeStart() {
+    setIsResizing(true);
+  }
 
   function onResizeStop(e, direction, ref, d) {
-    const newHeight = height + d.height;
-    setHeight({ sectionId, height: newHeight });
-    setMotionHeight(newHeight);
+    setHeight({ sectionId, height: height + d.height });
+    setIsResizing(false);
   }
-  const minHeight = !descVis || shouldUseMotionHeight ? 0 : 50;
-  const trueHeight = shouldUseMotionHeight
-    ? motionHeight
-    : descVis
-    ? height
-    : 0;
 
-  const zIndex = descVis ? 500 : 0;
+  const minHeight = 50;
 
   return (
-    <ResizableWithScale
-      size={{ height: trueHeight }}
-      minHeight={minHeight}
-      // onResizeStart={onResizeStart}
-      onResizeStop={onResizeStop}
-      handleWrapperClass="nodrag"
-      enable={{
-        top: false,
-        left: false,
-        bottom: true,
-        right: false,
-        bottomRight: false,
-      }}
-      className={`z-[${zIndex}] flex flex-1`}
+    <MotionDiv isResizing={isResizing} height={height} descVis={descVis}>
+      <ResizableWithScale
+        size={{ height }}
+        minHeight={minHeight}
+        onResizeStart={onResizeStart}
+        onResizeStop={onResizeStop}
+        handleWrapperClass="nodrag"
+        enable={{
+          top: false,
+          left: false,
+          bottom: true,
+          right: false,
+          bottomRight: false,
+        }}
+        className="z-[500] flex flex-1"
+      >
+        {children}
+      </ResizableWithScale>
+    </MotionDiv>
+  );
+}
+
+function MotionDiv({ isResizing, height, descVis, children }) {
+  const variants = {
+    ease: "easeOut",
+    initial: { opacity: 0, height: 0 },
+    open: {
+      opacity: 1,
+      height: isResizing ? "auto" : height,
+    },
+    collapsed: { opacity: 0, height: 0 },
+  };
+
+  return (
+    <motion.div
+      layout="position"
+      className="flex overflow-hidden"
+      variants={variants}
+      initial={"initial"}
+      animate={descVis ? "open" : "collapsed"}
     >
       {children}
-    </ResizableWithScale>
+    </motion.div>
   );
 }
