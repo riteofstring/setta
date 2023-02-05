@@ -56,42 +56,44 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       data-testid={`${sectionId} section core`}
     >
       <div
-        className={`outline outline-4 ${outlineColor} overflow-hidden rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
+        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <CustomCloseButton
-            onClick={onCustomCloseButtonClick}
-            aria-label="Delete self"
-            data-testid={`Delete ${sectionId}`}
-          />
-          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4">
-            <SectionHeader
-              sectionId={sectionId}
-              parentId={parentId}
-              nextId={nextId}
-              isSeriesElement={isSeriesElement}
-              isRoot={isRoot}
-              hasNested={hasNested}
+          <div className="h-full overflow-hidden rounded-xl">
+            <CustomCloseButton
+              onClick={onCustomCloseButtonClick}
+              aria-label="Delete self"
+              data-testid={`Delete ${sectionId}`}
             />
-            {!isOutput && !isRoot ? (
-              <InputArea sectionId={sectionId} selectedItem={selectedItem} />
-            ) : (
-              <OutputArea sectionId={sectionId} />
+            <div className="flex flex-grow flex-col gap-2 py-4">
+              <SectionHeader
+                sectionId={sectionId}
+                parentId={parentId}
+                nextId={nextId}
+                isSeriesElement={isSeriesElement}
+                isRoot={isRoot}
+                hasNested={hasNested}
+              />
+              {!isOutput && !isRoot ? (
+                <InputArea sectionId={sectionId} selectedItem={selectedItem} />
+              ) : (
+                <OutputArea sectionId={sectionId} />
+              )}
+            </div>
+            {!isInfo && hasDescription && (
+              <IconButton
+                size="w-6 h-6 self-center text-slate-400"
+                onClick={() => {
+                  toggleDescVis({ sectionId });
+                }}
+              >
+                <BiInfoCircle className="z-[3] h-5 w-5" />
+              </IconButton>
             )}
-          </div>
-          {!isInfo && hasDescription && (
-            <IconButton
-              size="w-6 h-6 self-center text-slate-400"
-              onClick={() => {
-                toggleDescVis({ sectionId });
-              }}
-            >
-              <BiInfoCircle className="z-[3] h-5 w-5" />
-            </IconButton>
-          )}
 
-          <ResizeIcon />
+            <ResizeIcon />
+          </div>
         </CustomResizable>
       </div>
       {!isInfo && <SectionDescription sectionId={sectionId} />}
