@@ -6,6 +6,10 @@ import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { extent } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
+import { interpolate } from "flubber";
+import { animate, motion, useMotionValue } from "framer-motion";
+import { useEffect } from "react";
+import { updateOutput } from "thunks/outputs";
 
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
 
@@ -47,7 +51,7 @@ export function LineChart({
   });
 
   return (
-    <div className="visx-curves-demo">
+    <div className="visx-curves-demo" onClick={() => generateNewTestData()}>
       <svg width={width} height={height}>
         <rect width={width} height={height} fill="#ffffff" rx={14} ry={14} />
         {width > 8 &&
@@ -69,15 +73,21 @@ export function LineChart({
                 <AxisBottom scale={xScale} top={yMax} />
                 <LinePath
                   curve={allCurves[curveType]}
-                  data={lineData.values}
                   x={(d) => xScale(d.x) ?? 0}
                   y={(d) => yScale(d.y) ?? 0}
-                  stroke={colorScale(lineData.name)}
-                  strokeWidth={2}
-                  strokeOpacity={0.6}
-                  shapeRendering="geometricPrecision"
-                  markerMid="url(#marker-circle)"
-                />
+                  //   shapeRendering="geometricPrecision"
+                  //   markerMid="url(#marker-circle)"
+                >
+                  {({ path }) => (
+                    <SVGPath
+                      path={path}
+                      data={lineData.values}
+                      stroke={colorScale(lineData.name)}
+                      strokeWidth={2}
+                      strokeOpacity={0.6}
+                    />
+                  )}
+                </LinePath>
               </Group>
             );
           })}
@@ -90,4 +100,44 @@ export function LineChart({
       />
     </div>
   );
+}
+
+function SVGPath({ path, data, stroke, strokeWidth, strokeOpacity }) {
+  const d = useSVGMorph(path(data), {
+    duration: 0.2,
+  });
+
+  return (
+    <motion.path
+      d={d}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeOpacity={strokeOpacity}
+      fill="transparent"
+      fill-opacity="0"
+    />
+  );
+}
+
+function generateNewTestData() {
+  updateOutput({
+    group: { id: "67863f2c-9916-4d9b-9c60-b7ed3781f49d", name: "wave" },
+    key: { id: "35ddd5b3-a87d-408b-b140-4144d0b2076f", name: "sin(x)" },
+    values: [Math.random()],
+  });
+}
+
+function useSVGMorph(d, config = {}) {
+  const value = useMotionValue(d);
+
+  useEffect(() => {
+    const interpolator = interpolate(value.get(), d);
+
+    animate(0, 1, {
+      ...config,
+      onUpdate: (progress) => value.set(interpolator(progress)),
+    });
+  }, [config, d, value]);
+
+  return value;
 }
