@@ -2,7 +2,6 @@ import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
 import React from "react";
 import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
-import colors from "tailwindcss/colors";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
@@ -42,7 +41,7 @@ function _SectionsPane({ initialNodes }) {
   }, [initialNodes]);
 
   const reactFlowStyle = {
-    background: "#94a3b8",
+    background: "#CBD5E0",
     height: "100%",
   };
 
@@ -92,7 +91,7 @@ function _SectionsPane({ initialNodes }) {
       )}
       <ResponsiveMiniMap />
       <ResponsiveControls />
-      <Background color={colors.slate[300]} size={0.75} gap={16} />
+      <Background color="#b3bfd1" size={0.75} gap={16} />
     </ReactFlow>
   );
 }
