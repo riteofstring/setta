@@ -1,20 +1,22 @@
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import * as allCurves from "@visx/curve";
 import { Group } from "@visx/group";
-import { scaleLinear } from "@visx/scale";
+import { LegendOrdinal } from "@visx/legend";
+import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { extent } from "d3-array";
 
-
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
 
-export type CurveProps = {
+const lineColors = ["#6c5efb", "#c998ff"];
+
+type CurveProps = {
   width: number;
   height: number;
   series;
   curveType?: string;
   showPoints?: boolean;
-  margin?: { top: number; right: number; bottom: number; left: number }; 
+  margin?: { top: number; right: number; bottom: number; left: number };
 };
 
 export function LineChart({
@@ -40,11 +42,15 @@ export function LineChart({
   xScale.range([0, xMax]);
   yScale.range([yMax, 0]);
 
+  const colorScale = scaleOrdinal({
+    domain: series.map((x) => x.name),
+    range: lineColors,
+  });
 
   return (
     <div className="visx-curves-demo">
       <svg width={width} height={height}>
-        <rect width={width} height={height} fill="#efefef" rx={14} ry={14} />
+        <rect width={width} height={height} fill="#ffffff" rx={14} ry={14} />
         {width > 8 &&
           series.map((lineData, i) => {
             return (
@@ -56,7 +62,7 @@ export function LineChart({
                       r={3}
                       cx={xScale(d.x)}
                       cy={yScale(d.y)}
-                      stroke="rgba(33,33,33,0.5)"
+                      stroke={lineColors[i]}
                       fill="transparent"
                     />
                   ))}
@@ -67,7 +73,7 @@ export function LineChart({
                   data={lineData.values}
                   x={(d) => xScale(d.x) ?? 0}
                   y={(d) => yScale(d.y) ?? 0}
-                  stroke="#333"
+                  stroke={lineColors[i]}
                   strokeWidth={2}
                   strokeOpacity={0.6}
                   shapeRendering="geometricPrecision"
@@ -77,11 +83,12 @@ export function LineChart({
             );
           })}
       </svg>
-      <style jsx>{`
-        .visx-curves-demo label {
-          font-size: 12px;
-        }
-      `}</style>
+
+      <LegendOrdinal
+        scale={colorScale}
+        direction="row"
+        labelMargin="0 15px 0 0"
+      />
     </div>
   );
 }
