@@ -5,10 +5,9 @@ import { LegendOrdinal } from "@visx/legend";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { extent } from "d3-array";
+import { schemeSet1 } from "d3-scale-chromatic";
 
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
-
-const lineColors = ["#6c5efb", "#c998ff"];
 
 type CurveProps = {
   width: number;
@@ -44,7 +43,7 @@ export function LineChart({
 
   const colorScale = scaleOrdinal({
     domain: series.map((x) => x.name),
-    range: lineColors,
+    range: schemeSet1,
   });
 
   return (
@@ -62,7 +61,7 @@ export function LineChart({
                       r={3}
                       cx={xScale(d.x)}
                       cy={yScale(d.y)}
-                      stroke={lineColors[i]}
+                      stroke={colorScale(lineData.name)}
                       fill="transparent"
                     />
                   ))}
@@ -73,7 +72,7 @@ export function LineChart({
                   data={lineData.values}
                   x={(d) => xScale(d.x) ?? 0}
                   y={(d) => yScale(d.y) ?? 0}
-                  stroke={lineColors[i]}
+                  stroke={colorScale(lineData.name)}
                   strokeWidth={2}
                   strokeOpacity={0.6}
                   shapeRendering="geometricPrecision"
