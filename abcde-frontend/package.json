@@ -21,6 +21,7 @@
     "@radix-ui/react-tooltip": "1.0.2",
     "@tailwindcss/typography": "0.5.9",
     "@uiw/react-md-editor": "3.20.2",
+    "@visx/axis": "3.0.0",
     "@visx/curve": "3.0.0",
     "@visx/group": "3.0.0",
     "@visx/scale": "3.0.0",

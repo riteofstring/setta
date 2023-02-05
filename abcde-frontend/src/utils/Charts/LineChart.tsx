@@ -1,8 +1,12 @@
+import { AxisBottom, AxisLeft } from "@visx/axis";
 import * as allCurves from "@visx/curve";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { extent } from "d3-array";
+
+
+const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
 
 export type CurveProps = {
   width: number;
@@ -10,6 +14,7 @@ export type CurveProps = {
   series;
   curveType?: string;
   showPoints?: boolean;
+  margin?: { top: number; right: number; bottom: number; left: number }; 
 };
 
 export function LineChart({
@@ -18,9 +23,8 @@ export function LineChart({
   series,
   curveType = "curveLinear",
   showPoints = true,
+  margin = defaultMargin,
 }: CurveProps) {
-  const lineHeight = height / series.length;
-
   // scales
   const xScale = scaleLinear<number>({
     domain: extent([].concat(...series.map((s) => s.values.map((v) => v.x)))),
@@ -29,9 +33,13 @@ export function LineChart({
     domain: extent([].concat(...series.map((s) => s.values.map((v) => v.y)))),
   });
 
+  const xMax = width - margin.left - margin.right;
+  const yMax = height - margin.top - margin.bottom;
+
   // update scale output ranges
-  xScale.range([0, width - 50]);
-  yScale.range([lineHeight - 2, 0]);
+  xScale.range([0, xMax]);
+  yScale.range([yMax, 0]);
+
 
   return (
     <div className="visx-curves-demo">
@@ -40,7 +48,7 @@ export function LineChart({
         {width > 8 &&
           series.map((lineData, i) => {
             return (
-              <Group key={`lines-${i}`} top={0} left={0}>
+              <Group key={`lines-${i}`} top={margin.top} left={margin.left}>
                 {showPoints &&
                   lineData.values.map((d, j) => (
                     <circle
@@ -52,6 +60,8 @@ export function LineChart({
                       fill="transparent"
                     />
                   ))}
+                <AxisLeft scale={yScale} />
+                <AxisBottom scale={xScale} top={yMax} />
                 <LinePath
                   curve={allCurves[curveType]}
                   data={lineData.values}
