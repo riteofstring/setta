@@ -2,6 +2,7 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import * as allCurves from "@visx/curve";
 import { Group } from "@visx/group";
 import { LegendOrdinal } from "@visx/legend";
+import { ParentSize } from "@visx/responsive";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { extent } from "d3-array";
@@ -18,7 +19,7 @@ type CurveProps = {
   margin?: { top: number; right: number; bottom: number; left: number };
 };
 
-export function LineChart({
+function _LineChart({
   width,
   height,
   series,
@@ -89,5 +90,13 @@ export function LineChart({
         labelMargin="0 15px 0 0"
       />
     </div>
+  );
+}
+
+export function LineChart(props) {
+  return (
+    <ParentSize debounceTime={0}>
+      {(parent) => <_LineChart width={parent.width} height={500} {...props} />}
+    </ParentSize>
   );
 }
