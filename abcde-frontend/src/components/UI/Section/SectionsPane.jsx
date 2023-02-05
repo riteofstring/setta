@@ -41,7 +41,7 @@ function _SectionsPane({ initialNodes }) {
   }, [initialNodes]);
 
   const reactFlowStyle = {
-    background: "#CBD5E0",
+    background: "#94a3b8",
     height: "100%",
   };
 
@@ -91,7 +91,7 @@ function _SectionsPane({ initialNodes }) {
       )}
       <ResponsiveMiniMap />
       <ResponsiveControls />
-      <Background color="#b3bfd1" size={0.75} gap={16} />
+      <Background color="#cbd5e1" size={0.75} gap={16} />
     </ReactFlow>
   );
 }
