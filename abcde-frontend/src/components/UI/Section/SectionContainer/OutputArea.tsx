@@ -19,6 +19,9 @@ export function OutputArea({ sectionId }) {
 }
 
 export function OneChart({ series, title }) {
-  console.log("my series", series)
-  return <LineChart width={500} height={500} series={series} />;
+  const seriesWithX = series.map((s) => ({
+    ...s,
+    values: s.values.map((y, i) => ({ x: i, y })),
+  }));
+  return <LineChart width={500} height={500} series={seriesWithX} />;
 }
