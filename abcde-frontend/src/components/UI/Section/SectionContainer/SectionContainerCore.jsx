@@ -51,12 +51,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   // [&>div:not(.section-full-width)]:px-5
   return (
     <div
-      className={`rounded-xl bg-white ${boxShadow} dndline w-min  transition-all duration-150`}
+      className={`rounded-xl bg-white ${boxShadow} dndline w-min transition-all duration-150`}
       onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
     >
       <div
-        className={`outline outline-4 ${outlineColor} overflow-hidden rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
+        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
