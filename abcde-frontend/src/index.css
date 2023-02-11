@@ -13,7 +13,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   /* overflow: hidden; */
   scrollbar-width: thin;
-  scrollbar-color: #94a3b8 transparent;
+  scrollbar-color: gray transparent;
 }
 
 .js-focus-visible :focus:not([data-focus-visible-added]) {
@@ -36,15 +36,15 @@ body *::-webkit-scrollbar {
 body * {
   scrollbar-width: thin;
   /* scrollbar-height: thin; */
-  scrollbar-color: #94a3b8 transparent;
+  scrollbar-color: gray transparent;
 }
 
 ::-webkit-scrollbar-corner {
-  background: #94a3b8;
+  background: gray;
 }
 
 body::-webkit-scrollbar-track {
-  background: #94a3b8;
+  background: gray;
 }
 
 body *::-webkit-scrollbar-track {
@@ -52,13 +52,13 @@ body *::-webkit-scrollbar-track {
 }
 
 body::-webkit-scrollbar-thumb {
-  background-color: #94a3b8;
+  background-color: gray;
   border: 1px solid transparent;
   border-radius: 0.5rem;
 }
 
 body *::-webkit-scrollbar-thumb {
-  background-color: #94a3b8;
+  background-color: gray;
   border: 1px solid transparent;
   border-radius: 0.5rem;
 }

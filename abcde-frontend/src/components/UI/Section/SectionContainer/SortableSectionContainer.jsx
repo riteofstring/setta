@@ -1,9 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useDndOverWithMonitor } from "hooks/useDndUtils";
-import _ from "lodash";
+import { DropType, useHighlightDroppable } from "hooks/useDndUtils";
 import React from "react";
-import { useStoreApi } from "react-flow-renderer";
+import { useStore } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({
@@ -12,45 +11,33 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const over = useDndOverWithMonitor();
-  const zIndex = over?.id === sectionId ? "z-[500]" : "";
-  return (
-    <SortableInfo
-      sectionId={sectionId}
-      parentId={parentId}
-      nextId={nextId}
-      ancestorSet={ancestorSet}
-      zIndex={zIndex}
-    />
-  );
-}
+  const { highlight } = useHighlightDroppable(sectionId);
+  const zIndex =
+    highlight === DropType.ABOVE || highlight === DropType.BELOW
+      ? "z-[500]"
+      : "";
+  const zoom = useStore((x) => x.transform[2]);
 
-export const SortableSectionContainer = React.memo(_SortableSectionContainer);
+  function transformWithZoom(transform) {
+    if (transform) {
+      return {
+        ...transform,
+        x: transform.x / zoom,
+        y: transform.y / zoom,
+      };
+    }
+    return transform;
+  }
 
-function _SortableInfo(props) {
   const sortableProps = useSortable({
-    id: props.sectionId,
-    data: { isTopLevel: false },
+    id: sectionId,
+    data: { zoom, isTopLevel: false },
   });
-  return <SortableCore sortableProps={sortableProps} {...props} />;
-}
-
-export const SortableInfo = React.memo(_SortableInfo, _.isEqual);
-
-function _SortableCore({
-  sectionId,
-  parentId,
-  nextId,
-  ancestorSet,
-  zIndex,
-  sortableProps,
-}) {
-  const store = useStoreApi();
 
   const { attributes, listeners, setNodeRef, transform, transition } =
     sortableProps;
 
-  const scaledTransform = transformWithZoom(transform, store);
+  const scaledTransform = transformWithZoom(transform);
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
@@ -71,16 +58,4 @@ function _SortableCore({
   );
 }
 
-const SortableCore = React.memo(_SortableCore, _.isEqual);
-
-function transformWithZoom(transform, store) {
-  if (transform) {
-    const zoom = store.getState().transform[2];
-    return {
-      ...transform,
-      x: transform.x / zoom,
-      y: transform.y / zoom,
-    };
-  }
-  return transform;
-}
+export const SortableSectionContainer = React.memo(_SortableSectionContainer);

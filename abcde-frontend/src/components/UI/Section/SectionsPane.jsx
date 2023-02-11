@@ -1,6 +1,5 @@
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
-import { useActiveSection } from "models/activeSection";
 import React from "react";
 import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import colors from "tailwindcss/colors";
@@ -16,10 +15,6 @@ import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
-const reactFlowStyle = {
-  background: "#94a3b8",
-  height: "100%",
-};
 
 function setInitialToCurrent(initialNodes, nodes) {
   let newNodeStates = _.cloneDeep(initialNodes);
@@ -38,7 +33,6 @@ function setInitialToCurrent(initialNodes, nodes) {
 function _SectionsPane({ initialNodes }) {
   const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const setActiveSection = useActiveSection((x) => x.setId);
 
   useDeepCompareEffect(() => {
     if (!_.isEqual(_.map(nodes, "id"), _.map(initialNodes, "id"))) {
@@ -46,6 +40,11 @@ function _SectionsPane({ initialNodes }) {
       setNodes(newNodeStates);
     }
   }, [initialNodes]);
+
+  const reactFlowStyle = {
+    background: "#94a3b8",
+    height: "100%",
+  };
 
   const [
     paneCtxMenuDetails,
@@ -59,11 +58,6 @@ function _SectionsPane({ initialNodes }) {
     closeNodeCtxMenu,
     closeCtxMenus,
   ] = useAllContextMenus();
-
-  function onPaneClick() {
-    closeCtxMenus();
-    setActiveSection(null);
-  }
 
   return (
     <ReactFlow
@@ -79,7 +73,7 @@ function _SectionsPane({ initialNodes }) {
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
       onNodeContextMenu={openNodeCtxMenu}
-      onPaneClick={onPaneClick}
+      onPaneClick={closeCtxMenus}
       onMoveStart={closeCtxMenus}
     >
       <PaneContextMenu

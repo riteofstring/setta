@@ -1,6 +1,6 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
+import { useDragActivation } from "./useDragActivation";
 // import resolveConfig from 'tailwindcss/resolveConfig'
 // import tailwindConfig from '../../tailwind.config.js'
 import colors from "tailwindcss/colors";
@@ -62,7 +62,7 @@ export function getDropType(active, over, collisions) {
 }
 
 export function useHighlightDroppable(sectionId: string) {
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isMovingFree } = useDragActivation();
   const [highlight, setHighlight] = useState<DropType>(DropType.NONE);
 
   function onDragDone() {
@@ -142,6 +142,7 @@ export function useHighlightDroppable(sectionId: string) {
 }
 
 export function useDisableSortable(sectionId: string, ancestorSet) {
+  const { isSorting, isMovingFree } = useDragActivation();
   const [disabled, setDisabled] = useState({
     draggable: false,
     droppable: false,
@@ -149,7 +150,6 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   function disableSort({ active }) {
     const containerId = active.data.current.sortable?.containerId;
-    const { isSorting, isMovingFree } = useKeyActivations.getState();
     // Freely moving this section or ancestor of this section
     if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });
@@ -175,24 +175,4 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
   });
 
   return disabled;
-}
-
-export function useDndActive() {
-  const [active, setActive] = useState(null);
-  const onDragStart = ({ active }) => setActive(active);
-  const onDragEnd = () => setActive(null);
-  return { active, onDragStart, onDragEnd };
-}
-
-export function useDndActiveWithMonitor() {
-  const { active, onDragStart, onDragEnd } = useDndActive();
-  useDndMonitor({ onDragStart, onDragEnd });
-  return active;
-}
-
-export function useDndOverWithMonitor() {
-  const [over, setOver] = useState(null);
-  const onDragOver = ({ over }) => setOver(over);
-  useDndMonitor({ onDragOver });
-  return over;
 }

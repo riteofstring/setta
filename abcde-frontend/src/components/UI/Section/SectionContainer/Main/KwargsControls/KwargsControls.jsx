@@ -1,29 +1,18 @@
-import { useActiveSection } from "models/activeSection";
-import { useSectionParamFilter } from "models/info/sectionParamFilter";
-import { useEffect, useRef } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-import { addKwarg, deleteKwarg } from "thunks/kwargs";
+import { RiSave2Line } from "react-icons/ri";
+import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
 export function KwargsControls({ sectionId, objInfoId }) {
-  const searchRef = useRef(null);
-  const setParamFilter = useSectionParamFilter((x) => x.setFilter);
-  useSearchShortcutKey({ sectionId, searchRef });
-
   function onClickAddKwarg() {
     addKwarg(sectionId, objInfoId);
   }
   function onClickDeleteKwarg() {
     deleteKwarg({ sectionId, objInfoId, deleteLast: true });
   }
-  function onSearchChange(e) {
-    setParamFilter({ sectionId, filter: e.target.value });
+  function onClickSaveAsCollection() {
+    saveKwargsAsCollection({ sectionId, objInfoId });
   }
-
-  const inputStyles =
-    "flex-1 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <div className="border-b border-solid border-white bg-gradient-to-t from-white py-2 shadow-sm">
@@ -41,32 +30,8 @@ export function KwargsControls({ sectionId, objInfoId }) {
           onClick={onClickAddKwarg}
           type="add"
         />
-        <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
-        <StandardSearch
-          inputStyles={inputStyles}
-          outerClasses="flex-1"
-          onChange={onSearchChange}
-          ref={searchRef}
-        />
+        <IconButton icon={<RiSave2Line />} onClick={onClickSaveAsCollection} />
       </div>
     </div>
   );
-}
-
-function useSearchShortcutKey({ sectionId, searchRef }) {
-  const isActive = useActiveSection((x) => x.id === sectionId);
-
-  useEffect(() => {
-    const handleShorcut = (event) => {
-      if (isActive && event.ctrlKey && event.key === "k") {
-        event.preventDefault();
-        searchRef.current.focus();
-      }
-    };
-    window.addEventListener("keydown", handleShorcut);
-
-    return () => {
-      window.removeEventListener("keydown", handleShorcut);
-    };
-  }, [isActive]);
 }
