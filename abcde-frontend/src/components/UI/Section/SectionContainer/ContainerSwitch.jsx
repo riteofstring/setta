@@ -3,6 +3,7 @@ import { DropType, useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
+import React from "react";
 import { RiDragDropFill } from "react-icons/ri";
 import { SectionTitle } from "./Header/Title/SectionTitle";
 
@@ -23,14 +24,14 @@ export function ContainerSwitch({
       {children}
     </TopLevelContainer>
   ) : (
-    <DndSlotAndContainer
+    <DndSlotAndDndWatcher
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
       dragListeners={dragListeners}
     >
       {children}
-    </DndSlotAndContainer>
+    </DndSlotAndDndWatcher>
   );
 }
 
@@ -44,7 +45,7 @@ function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
     useDraggable(dndProps);
 
   return (
-    <DndSlotAndContainer
+    <DndSlotAndDndWatcher
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
@@ -53,38 +54,35 @@ function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
       dragListeners={dragListeners}
     >
       {children}
-    </DndSlotAndContainer>
+    </DndSlotAndDndWatcher>
   );
 }
 
-function DndSlotAndContainer({ sectionId, children, ...props }) {
+function _DndSlotAndDndWatcher({ sectionId, children, ...props }) {
   const { className, style, highlight } = useHighlightDroppable(sectionId);
   return (
     <DndSlot highlight={highlight}>
-      <Container
+      <DndWatcherAndContainer
         sectionId={sectionId}
         {...props}
         className={className}
         style={style}
       >
         {children}
-      </Container>
+      </DndWatcherAndContainer>
     </DndSlot>
   );
 }
 
-function Container({
-  isDeck,
-  sectionId,
+const DndSlotAndDndWatcher = React.memo(_DndSlotAndDndWatcher, _.isEqual);
+
+function _DndWatcherAndContainer({
   parentId,
-  droppableRef,
-  draggableRef,
   dragListeners,
   className,
-  style,
   children,
+  ...props
 }) {
-  const refForPosition = useSectionRefAndInit(sectionId);
   const { isSorting, isMovingFree } = useDragActivation();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
   const isDraggingTopLevel = !parentId && isMovingFree;
@@ -95,6 +93,32 @@ function Container({
   // to move when sorting
   const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${className}`;
 
+  return (
+    <Container
+      parentId={parentId}
+      trueDragListeners={trueDragListeners}
+      className={fullClassName}
+      {...props}
+    >
+      {children}
+    </Container>
+  );
+}
+
+const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);
+
+function _Container({
+  isDeck,
+  sectionId,
+  droppableRef,
+  draggableRef,
+  className,
+  style,
+  trueDragListeners,
+  children,
+}) {
+  const refForPosition = useSectionRefAndInit(sectionId);
+
   function totalRef(e) {
     refForPosition.current = e;
     droppableRef && droppableRef(e);
@@ -102,10 +126,11 @@ function Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
+
   if (isDeck) {
     return (
       <div
-        className={`${fullClassName} rounded-3xl px-8 pt-3 pb-6`}
+        className={`${className} rounded-3xl px-8 pt-3 pb-6`}
         style={{
           backgroundColor: "hsla(212, 22%, 50%, 0.2)",
           ...style,
@@ -118,11 +143,13 @@ function Container({
     );
   }
   return (
-    <div className={`${fullClassName}`} style={style} {...commonProps}>
+    <div className={`${className}`} style={style} {...commonProps}>
       {children}
     </div>
   );
 }
+
+const Container = React.memo(_Container, _.isEqual);
 
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
