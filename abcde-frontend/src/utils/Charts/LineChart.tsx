@@ -5,7 +5,7 @@ import { Group } from "@visx/group";
 import { LegendOrdinal } from "@visx/legend";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { Bar, Line, LinePath } from "@visx/shape";
-import { useTooltip } from "@visx/tooltip";
+import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { bisector, extent } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
 
@@ -67,7 +67,7 @@ export function LineChart({
     }
     showTooltip({
       tooltipLeft: { line: x, circle: xScale(d.x) + margin.left },
-      tooltipTop: yScale(d.y),
+      tooltipTop: yScale(d.y) + margin.top,
       tooltipData: d,
     });
   }
@@ -147,7 +147,7 @@ export function LineChart({
             /> */}
             <circle
               cx={tooltipLeft.circle}
-              cy={tooltipTop + margin.top}
+              cy={tooltipTop}
               r={4}
               fill={accentColorDark}
               stroke="white"
@@ -157,16 +157,16 @@ export function LineChart({
           </g>
         )}
       </svg>
-      {/* {tooltipOpen && (
-        <Tooltip
-          // set this to random so it correctly updates with parent bounds
+      {tooltipOpen && (
+        <TooltipWithBounds
           key={Math.random()}
           top={tooltipTop}
-          left={tooltipLeft}
+          left={tooltipLeft.circle}
+          //   style={tooltipStyles}
         >
-          Data value <strong>{tooltipData}</strong>
-        </Tooltip>
-      )} */}
+          {`${tooltipData.y}`}
+        </TooltipWithBounds>
+      )}
 
       <LegendOrdinal
         scale={colorScale}
