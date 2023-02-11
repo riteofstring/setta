@@ -1,5 +1,5 @@
 import { useCodeInfo } from "models/info/codeInfo";
-import { AiOutlineClose } from "react-icons/ai";
+import { IoClose } from "react-icons/io5";
 import { deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { ParamContainer } from "../ParamContainer/ParamContainer";
@@ -20,7 +20,7 @@ export function KwargParam(props) {
     <div className="flex items-center">
       <IconButton
         onClick={onClick}
-        icon={<AiOutlineClose />}
+        icon={<IoClose />}
         bg="bg-transparent"
         color="text-slate-400 hover:text-slate-600"
         twClasses="ml-1"

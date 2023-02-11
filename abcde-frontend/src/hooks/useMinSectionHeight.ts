@@ -15,7 +15,8 @@ export function useMinSectionHeight(sectionId) {
   return (
     (hasTitle ? 56 : 0) +
     (hasSearch ? 48 : 0) +
-    (hasUnnestedParam ? 44 : 0) +
-    (hasKwargControl ? 28 : 0)
+    (hasUnnestedParam ? 52 : 0) +
+    (hasKwargControl ? 34 : 0)
+    // (hasInfo ? 64 : 0)
   );
 }
