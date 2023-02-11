@@ -44,15 +44,19 @@ export function LineChart({
   const yMax = height - margin.top - margin.bottom - legendHeight;
   const svgHeight = height - legendHeight;
   const rectHeight = svgHeight;
+  const groupTop = margin.top;
+  const groupLeft = margin.left;
 
   const {
     tooltipData,
-    tooltipLine,
+    tooltipLineX,
+    tooltipLineY,
     tooltipLocation,
-    tooltipOpen,
     showTooltip,
     hideTooltip,
-  } = useCustomTooltip();
+  } = useCustomTooltip({
+    tooltipLineY: { from: groupTop, to: yMax + groupTop },
+  });
 
   const colorScale = useColorScale(series);
 
@@ -79,12 +83,14 @@ export function LineChart({
           hideTooltip={hideTooltip}
           colorScale={colorScale}
           margin={margin}
+          groupTop={groupTop}
+          groupLeft={groupLeft}
         />
         {tooltipData && (
           <g>
             <Line
-              from={{ x: tooltipLine.x, y: tooltipLine.yFrom }}
-              to={{ x: tooltipLine.x, y: tooltipLine.yTo }}
+              from={{ x: tooltipLineX, y: tooltipLineY.from }}
+              to={{ x: tooltipLineX, y: tooltipLineY.to }}
               stroke={accentColorDark}
               strokeWidth={2}
               pointerEvents="none"
@@ -135,10 +141,9 @@ function _LineAndPointsCore({
   hideTooltip,
   colorScale,
   margin,
+  groupTop,
+  groupLeft,
 }) {
-  const groupTop = margin.top;
-  const groupLeft = margin.left;
-
   const xScale = useAnimatedScale({
     maxPixelRange: xMax,
     series,
@@ -155,8 +160,6 @@ function _LineAndPointsCore({
     showTooltip,
     xScale,
     yScale,
-    yMax,
-    groupTop,
     margin,
     series,
   });
@@ -281,28 +284,28 @@ function getTooltipText(tooltipData) {
   ));
 }
 
-function useCustomTooltip() {
+function useCustomTooltip({ tooltipLineY: inputTooltipLineY }) {
   const [tooltipState, setTooltipState] = useState({
-    tooltipOpen: false,
-    tooltipLine: undefined,
+    tooltipLineX: undefined,
     tooltipData: undefined,
     tooltipLocation: undefined,
   });
 
+  const [tooltipLineY, setTooltipLineY] = useState(inputTooltipLineY);
+
+  useEffect(() => {
+    setTooltipLineY(inputTooltipLineY);
+  }, [inputTooltipLineY.from, inputTooltipLineY.to]);
+
   const showTooltip = useCallback(
-    (newStateFn) =>
-      setTooltipState((curr) => ({
-        ...newStateFn(curr),
-        tooltipOpen: true,
-      })),
+    (newStateFn) => setTooltipState(newStateFn),
     [setTooltipState]
   );
 
   const hideTooltip = useCallback(
     () =>
       setTooltipState({
-        tooltipOpen: false,
-        tooltipLine: undefined,
+        tooltipLineX: undefined,
         tooltipData: undefined,
         tooltipLocation: undefined,
       }),
@@ -310,8 +313,8 @@ function useCustomTooltip() {
   );
 
   return {
-    tooltipOpen: tooltipState.tooltipOpen,
-    tooltipLine: tooltipState.tooltipLine,
+    tooltipLineX: tooltipState.tooltipLineX,
+    tooltipLineY,
     tooltipData: tooltipState.tooltipData,
     tooltipLocation: tooltipState.tooltipLocation,
     showTooltip,
@@ -323,8 +326,6 @@ function useTooltipMouseOverHandler({
   showTooltip,
   xScale,
   yScale,
-  yMax,
-  groupTop,
   margin,
   series,
 }) {
@@ -341,8 +342,6 @@ function useTooltipMouseOverHandler({
         xScale,
         yScale,
         margin,
-        groupTop,
-        yMax,
       });
     });
   }, [xScale, yScale]);
@@ -357,21 +356,10 @@ function useTooltipMouseOverHandler({
         xScale,
         yScale,
         margin,
-        groupTop,
-        yMax,
       });
       showTooltip(() => tooltipInfo);
     },
-    [
-      xScale,
-      yScale,
-      yMax,
-      groupTop,
-      margin.top,
-      margin.left,
-      margin.right,
-      margin.bottom,
-    ]
+    [xScale, yScale, margin.top, margin.left, margin.right, margin.bottom]
   );
 }
 
@@ -391,22 +379,13 @@ function getDatapointFromX(name, values, x, xScale, yScale, margin) {
   };
 }
 
-function getTooltipFromMouseLocation({
-  x,
-  y,
-  series,
-  xScale,
-  yScale,
-  margin,
-  groupTop,
-  yMax,
-}) {
+function getTooltipFromMouseLocation({ x, y, series, xScale, yScale, margin }) {
   const x0 = xScale.invert(x - margin.left);
   const ds = series.map((s) =>
     getDatapointFromX(s.name, s.values, x0, xScale, yScale, margin)
   );
   return {
-    tooltipLine: { x, yFrom: groupTop, yTo: yMax + groupTop },
+    tooltipLineX: x,
     tooltipData: ds,
     tooltipLocation: { x, y },
   };
