@@ -60,23 +60,16 @@ export function LineChart({
   }
 
   return (
-    <div className="py-2 px-3" onClick={() => generateNewTestData()}>
+    <div style={{ position: "relative" }} onClick={() => generateNewTestData()}>
       <svg width={width} height={svgHeight}>
         <rect
           width={width}
           height={rectHeight}
-          className="fill-slate-200"
-          rx={10}
-          ry={10}
+          fill="#ffffff"
+          rx={14}
+          ry={14}
         />
-        <Text
-          dx="25"
-          dy="25"
-          textAnchor="start"
-          fontFamily="Work Sans"
-          verticalAnchor="start"
-          style={{ color: "", fontSize: "2rem" }}
-        >
+        <Text textAnchor="start" verticalAnchor="start">
           {title}
         </Text>
         <LineAndPointsCore
