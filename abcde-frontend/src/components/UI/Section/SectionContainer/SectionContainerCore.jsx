@@ -11,6 +11,7 @@ import { useActiveSection } from "models/activeSection";
 import { useSectionDescription } from "models/info/sectionDescription";
 import React from "react";
 import { BiInfoCircle } from "react-icons/bi";
+import { deleteChild } from "thunks/sections/deleteChild";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
