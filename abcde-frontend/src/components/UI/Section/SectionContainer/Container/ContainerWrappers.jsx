@@ -6,25 +6,13 @@ import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
-function _DndSlotAndDndWatcher({
-  isDeck,
-  sectionId,
-  parentId,
-  droppableRef,
-  draggableRef,
-  dragListeners,
-  children,
-}) {
+function _DndSlotAndDndWatcher({ sectionId, children, ...props }) {
   const { className, style, highlight } = useHighlightDroppable(sectionId);
   return (
     <DndSlot highlight={highlight}>
       <DndWatcherAndContainer
-        isDeck={isDeck}
         sectionId={sectionId}
-        parentId={parentId}
-        droppableRef={droppableRef}
-        draggableRef={draggableRef}
-        dragListeners={dragListeners}
+        {...props}
         className={className}
         style={style}
       >
@@ -36,19 +24,16 @@ function _DndSlotAndDndWatcher({
 
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
-  (p, n) => p.isDeck === n.isDeck && p.parentId === n.parentId
+  _.isEqual
 );
 
 function _DndWatcherAndContainer({
-  isDeck,
   sectionId,
   parentId,
-  droppableRef,
-  draggableRef,
   dragListeners,
   className,
-  style,
   children,
+  ...props
 }) {
   const activeIsSelf = useDndState((x) => x.active === sectionId);
   const isSorting = useKeyActivations((x) => x.isSorting);
@@ -66,14 +51,11 @@ function _DndWatcherAndContainer({
 
   return (
     <Container
-      isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
-      droppableRef={droppableRef}
-      draggableRef={draggableRef}
       trueDragListeners={trueDragListeners}
       className={fullClassName}
-      style={style}
+      {...props}
     >
       {children}
     </Container>
