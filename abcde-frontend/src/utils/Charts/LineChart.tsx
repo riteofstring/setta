@@ -6,6 +6,7 @@ import { LegendOrdinal } from "@visx/legend";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { Bar, Line, LinePath } from "@visx/shape";
 import { Text } from "@visx/text";
+import { TooltipWithBounds } from "@visx/tooltip";
 import { bisector } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
 import { animate, useMotionValue } from "framer-motion";
@@ -17,21 +18,6 @@ const accentColorDark = "#75daad";
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
 const defaultLegendHeight = 30;
 const bisectX = bisector((d) => d.x).center;
-
-function getDatapointFromX(values, x, xScale, yScale, margin) {
-  const index = bisectX(values, x);
-  const d0 = values[index - 1];
-  const d1 = values[index];
-  let d = d0 ? d0 : d1;
-  if (d1 && d1.x) {
-    d = x - d0.x > d1.x - x ? d1 : d0;
-  }
-  return {
-    data: d,
-    circle: xScale(d.x) + margin.left,
-    top: yScale(d.y) + margin.top,
-  };
-}
 
 type CurveProps = {
   width: number;
@@ -59,8 +45,14 @@ export function LineChart({
   const svgHeight = height - legendHeight;
   const rectHeight = svgHeight;
 
-  const { tooltipData, tooltipLine, tooltipOpen, showTooltip, hideTooltip } =
-    useCustomTooltip();
+  const {
+    tooltipData,
+    tooltipLine,
+    tooltipLocation,
+    tooltipOpen,
+    showTooltip,
+    hideTooltip,
+  } = useCustomTooltip();
 
   const colorScale = useColorScale(series);
 
@@ -100,8 +92,8 @@ export function LineChart({
             />
             {tooltipData.map((d, idx) => (
               <circle
-                cx={d.circle}
-                cy={d.top}
+                cx={d.x}
+                cy={d.y}
                 r={4}
                 fill={accentColorDark}
                 stroke="white"
@@ -113,11 +105,15 @@ export function LineChart({
           </g>
         )}
       </svg>
-      {/* {tooltipOpen && (
-        <TooltipWithBounds key={Math.random()} top={d.top} left={d.circle}>
+      {tooltipOpen && (
+        <TooltipWithBounds
+          key={Math.random()}
+          top={tooltipLocation.y}
+          left={tooltipLocation.x}
+        >
           {getTooltipText(tooltipData)}
         </TooltipWithBounds>
-      )} */}
+      )}
 
       <LegendOrdinal
         scale={colorScale}
@@ -155,22 +151,15 @@ function _LineAndPointsCore({
     attr: "y",
     pixelRangeIncreases: false,
   });
-
-  const handleMouseOver = useCallback(
-    (event) => {
-      const { x } = localPoint(event) || { x: 0 };
-      const x0 = xScale.invert(x - margin.left);
-      const ds = series.map((s) =>
-        getDatapointFromX(s.values, x0, xScale, yScale, margin)
-      );
-
-      showTooltip({
-        tooltipLine: { x, yFrom: groupTop, yTo: yMax + groupTop },
-        tooltipData: ds,
-      });
-    },
-    [xScale, yScale]
-  );
+  const handleMouseOver = useTooltipMouseOverHandler({
+    showTooltip,
+    xScale,
+    yScale,
+    yMax,
+    groupTop,
+    margin,
+    series,
+  });
 
   return series.map((lineData, i) => (
     <Group key={`lines-${i}`} top={groupTop} left={groupLeft}>
@@ -278,8 +267,19 @@ function useColorScale(series) {
   );
 }
 
+const twoDecimalsFormat = new Intl.NumberFormat("en", {
+  notation: "standard",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function getTooltipText(tooltipData) {
-  return "dogs";
+  return tooltipData.map((d, i) => (
+    <div key={i}>
+      {`${d.name}: ${twoDecimalsFormat.format(d.y)}`}
+      <br />
+    </div>
+  ));
 }
 
 function useCustomTooltip() {
@@ -287,14 +287,16 @@ function useCustomTooltip() {
     tooltipOpen: false,
     tooltipLine: undefined,
     tooltipData: undefined,
+    tooltipLocation: undefined,
   });
 
   const showTooltip = useCallback(
-    ({ tooltipLine, tooltipData }) =>
+    ({ tooltipLine, tooltipData, tooltipLocation }) =>
       setTooltipState({
         tooltipOpen: true,
         tooltipLine,
         tooltipData,
+        tooltipLocation,
       }),
     [setTooltipState]
   );
@@ -305,6 +307,7 @@ function useCustomTooltip() {
         tooltipOpen: false,
         tooltipLine: undefined,
         tooltipData: undefined,
+        tooltipLocation: undefined,
       }),
     [setTooltipState]
   );
@@ -313,7 +316,60 @@ function useCustomTooltip() {
     tooltipOpen: tooltipState.tooltipOpen,
     tooltipLine: tooltipState.tooltipLine,
     tooltipData: tooltipState.tooltipData,
+    tooltipLocation: tooltipState.tooltipLocation,
     showTooltip,
     hideTooltip,
   };
+}
+
+function getDatapointFromX(name, values, x, xScale, yScale, margin) {
+  const index = bisectX(values, x);
+  const d0 = values[index - 1];
+  const d1 = values[index];
+  let d = d0 ? d0 : d1;
+  if (d1 && d1.x) {
+    d = x - d0.x > d1.x - x ? d1 : d0;
+  }
+  return {
+    name,
+    data: d,
+    x: xScale(d.x) + margin.left,
+    y: yScale(d.y) + margin.top,
+  };
+}
+
+function useTooltipMouseOverHandler({
+  showTooltip,
+  xScale,
+  yScale,
+  yMax,
+  groupTop,
+  margin,
+  series,
+}) {
+  return useCallback(
+    (event) => {
+      const { x, y } = localPoint(event) || { x: 0 };
+      const x0 = xScale.invert(x - margin.left);
+      const ds = series.map((s) =>
+        getDatapointFromX(s.name, s.values, x0, xScale, yScale, margin)
+      );
+
+      showTooltip({
+        tooltipLine: { x, yFrom: groupTop, yTo: yMax + groupTop },
+        tooltipData: ds,
+        tooltipLocation: { x, y },
+      });
+    },
+    [
+      xScale,
+      yScale,
+      yMax,
+      groupTop,
+      margin.top,
+      margin.left,
+      margin.right,
+      margin.bottom,
+    ]
+  );
 }
