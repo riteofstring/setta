@@ -11,10 +11,10 @@ import { useActiveSection } from "models/activeSection";
 import { useSectionDescription } from "models/info/sectionDescription";
 import React from "react";
 import { BiInfoCircle } from "react-icons/bi";
+import { deleteChild } from "thunks/sections/deleteChild";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
-import { CustomCloseButton } from "./Header/CustomCloseButton/CustomCloseButton";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
@@ -47,8 +47,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  // flex flex-grow flex-col
-  // [&>div:not(.section-full-width)]:px-5
   return (
     <div
       className={`rounded-xl bg-white ${boxShadow} dndline w-min  transition-all duration-150`}
@@ -61,12 +59,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       >
         <CustomResizable sectionId={sectionId}>
           <div className="h-full overflow-hidden rounded-xl">
-            <CustomCloseButton
-              onClick={onCustomCloseButtonClick}
-              aria-label="Delete self"
-              data-testid={`Delete ${sectionId}`}
-            />
-            <div className="flex flex-grow flex-col gap-2 py-4">
+            <div className="flex h-full flex-grow flex-col gap-2 py-4">
               <SectionHeader
                 sectionId={sectionId}
                 parentId={parentId}
@@ -84,7 +77,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             {!isInfo && hasDescription && (
               <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
                 <Button
-                  gridStatus={false}
+                  grid={false}
                   twClasses="px-2 py-1 self-center text-slate-500 hover:bg-white rounded-full gap-1 font-heading uppercase border-2 border-solid border-white text-xs bg-slate-200 shadow-sm hover:shadow-md transition-all"
                   onClick={() => {
                     toggleDescVis({ sectionId });
