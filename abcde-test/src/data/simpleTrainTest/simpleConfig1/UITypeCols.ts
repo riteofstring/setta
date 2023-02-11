@@ -49,4 +49,5 @@ export default {
   },
   "037a26ac-5585-45d7-9000-5d49590ebb6c": {},
   "debfa4c7-53c6-41d5-8ac1-eb4417e47eed": {},
+  "b26496bf-d3a2-4fa8-8990-38a1e245fb3d": {},
 };

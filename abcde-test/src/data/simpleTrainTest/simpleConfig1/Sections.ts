@@ -181,4 +181,18 @@ export default {
       height: 586,
     },
   },
+  "f5eb514b-6731-4289-946b-0470628c08c4": {
+    id: "f5eb514b-6731-4289-946b-0470628c08c4",
+    name: "Readme",
+    paramInfoId: null,
+    sectionChildrenId: "ee16a738-ac75-41f5-aa90-89180f666e3a",
+    initialPosition: {
+      x: 927,
+      y: 846,
+    },
+    size: {
+      width: 600,
+      height: 500,
+    },
+  },
 };

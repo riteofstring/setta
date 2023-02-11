@@ -103,4 +103,12 @@ export default {
     uiTypeColId: "debfa4c7-53c6-41d5-8ac1-eb4417e47eed",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
   },
+  "6cbbd021-21e6-4447-befb-28ef7a74b637": {
+    id: "6cbbd021-21e6-4447-befb-28ef7a74b637",
+    uiTypeId: "2b06a83b-b96a-490d-a2d7-3631619e6495",
+    evColId: "3a74282c-1915-420c-b21f-0a7a9a8560d2",
+    kwargColId: "63cbe33b-2922-4d10-82a0-d5aa998f6cf6",
+    uiTypeColId: "b26496bf-d3a2-4fa8-8990-38a1e245fb3d",
+    selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
+  },
 };
