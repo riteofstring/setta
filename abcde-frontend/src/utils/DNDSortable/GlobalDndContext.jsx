@@ -1,9 +1,9 @@
 import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { DropType, getDropType, useDndActive } from "hooks/useDndUtils";
+import { DropType, getDropType } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
@@ -66,19 +66,24 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
 }
 
 export function GlobalDndContext({ children }) {
-  const { active, onDragStart, onDragEnd: setActiveOnDragEnd } = useDndActive();
+  const [active, setActive] = useState(null);
   const dummyRef = useRef(null);
   const { isSorting, isMovingFree } = useDragActivation();
   const sensors = useDNDSensors();
   const { project } = useReactFlow();
 
+  function onDragStart({ active }) {
+    setActive(active);
+  }
+
+  // TODO: setActive(null) in here
   function onDragEnd({ active, over, collisions }) {
     if (isSorting) {
       onSortEnd({ active, over });
     } else if (isMovingFree) {
       onFreeMoveEnd({ active, over, collisions, dummyRef, project });
     }
-    setActiveOnDragEnd();
+    setActive(null);
   }
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
@@ -99,7 +104,7 @@ export function GlobalDndContext({ children }) {
         !active.data.current.isTopLevel &&
         createPortal(
           <DragOverlay dropAnimation={null}>
-            <DummySection ref={dummyRef} />
+            <DummySection zoom={active.data.current.zoom} ref={dummyRef} />
           </DragOverlay>,
           document.body
         )}
