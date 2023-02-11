@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DropType, useHighlightDroppable } from "hooks/useDndUtils";
+import { useDndOverWithMonitor } from "hooks/useDndUtils";
 import _ from "lodash";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
@@ -12,11 +12,8 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const { highlight } = useHighlightDroppable(sectionId);
-  const zIndex =
-    highlight === DropType.ABOVE || highlight === DropType.BELOW
-      ? "z-[500]"
-      : "";
+  const over = useDndOverWithMonitor();
+  const zIndex = over?.id === sectionId ? "z-[500]" : "";
   return (
     <SortableInfo
       sectionId={sectionId}

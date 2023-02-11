@@ -189,3 +189,10 @@ export function useDndActiveWithMonitor() {
   useDndMonitor({ onDragStart, onDragEnd });
   return active;
 }
+
+export function useDndOverWithMonitor() {
+  const [over, setOver] = useState(null);
+  const onDragOver = ({ over }) => setOver(over);
+  useDndMonitor({ onDragOver });
+  return over;
+}
