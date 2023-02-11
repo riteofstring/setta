@@ -5,6 +5,7 @@ import { Group } from "@visx/group";
 import { LegendOrdinal } from "@visx/legend";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { Bar, Line, LinePath } from "@visx/shape";
+import { Text } from "@visx/text";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { bisector, extent } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
@@ -32,6 +33,7 @@ function getDatapointFromX(values, x, xScale, yScale, margin) {
 type CurveProps = {
   width: number;
   height: number;
+  title: string;
   series;
   curveType?: string;
   showPoints?: boolean;
@@ -42,6 +44,7 @@ type CurveProps = {
 export function LineChart({
   width,
   height,
+  title,
   series,
   curveType = "curveLinear",
   showPoints = true,
@@ -102,6 +105,9 @@ export function LineChart({
           rx={14}
           ry={14}
         />
+        <Text textAnchor="start" verticalAnchor="start">
+          {title}
+        </Text>
         {series.map((lineData, i) => {
           return (
             <Group key={`lines-${i}`} top={groupTop} left={groupLeft}>

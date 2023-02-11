@@ -29,6 +29,7 @@
     "@visx/responsive": "3.0.0",
     "@visx/scale": "3.0.0",
     "@visx/shape": "3.0.0",
+    "@visx/text": "^3.0.0",
     "@visx/tooltip": "3.0.0",
     "@vitejs/plugin-react": "2.1.0",
     "ansi-colors": "4.1.1",

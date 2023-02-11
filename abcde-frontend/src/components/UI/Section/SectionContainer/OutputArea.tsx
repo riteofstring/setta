@@ -35,6 +35,7 @@ function GetCharts({ parent, sectionId, selectedGroups }) {
           width={parent.width}
           height={height}
           series={group.children}
+          title={group.name}
           key={`${sectionId}-${group.name}-chart`}
         />
       ))}
@@ -42,10 +43,17 @@ function GetCharts({ parent, sectionId, selectedGroups }) {
   );
 }
 
-function OneChart({ series, width, height }) {
+function OneChart({ series, title, width, height }) {
   const seriesWithX = series.map((s) => ({
     ...s,
     values: s.values.map((y, i) => ({ x: i, y })),
   }));
-  return <LineChart width={width} height={height} series={seriesWithX} />;
+  return (
+    <LineChart
+      width={width}
+      height={height}
+      title={title}
+      series={seriesWithX}
+    />
+  );
 }
