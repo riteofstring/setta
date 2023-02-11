@@ -1,22 +1,99 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { DropType, useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
+// import resolveConfig from 'tailwindcss/resolveConfig'
+// import tailwindConfig from '../../tailwind.config.js'
 import colors from "tailwindcss/colors";
+
+export enum DropType {
+  NONE = "NONE",
+  INTO = "INTO",
+  ABOVE = "ABOVE",
+  BELOW = "BELOW",
+}
+
+function getLeftDistCondition(collisions) {
+  return collisions[0]?.data.leftDist > 50;
+}
+
+export function getDropType(active, over, collisions) {
+  // Weird case where collisions[0] doesn't agree with over.id).
+  // Or if active === over
+  if (collisions[0]?.id !== over.id || active.id === over.id) {
+    return DropType.NONE;
+  }
+
+  // Drop into section if leftOffset is large enough or if there is no parent
+  if (!over.data.current.sortable || getLeftDistCondition(collisions)) {
+    return DropType.INTO;
+  }
+
+  const siblings =
+    collisions[0].data.droppableContainer.data.current.sortable?.items;
+  const overIndex = siblings.indexOf(over.id);
+
+  // Is effectively sorting
+  if (
+    active.data.current.sortable?.containerId ===
+    over.data.current.sortable?.containerId
+  ) {
+    const activeIndex = siblings.indexOf(active.id);
+    // Drop below the target if moving down the list
+    if (activeIndex < overIndex) {
+      return DropType.BELOW;
+    }
+    // Drop above the target if moving up the list
+    return DropType.ABOVE;
+  }
+
+  // Dropping into a list from outside
+  // If the target is anything other than the first element, then drop below it
+  if (overIndex > 0) {
+    return DropType.BELOW;
+  }
+  // If the target is the first element
+  const centerYCondition = collisions[0].data.centerYDist < 0;
+  // Drop above section
+  if (centerYCondition) {
+    return DropType.ABOVE;
+  }
+  // Drop below section
+  return DropType.BELOW;
+}
 
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const highlight = useDndState((x) => {
-    if (isMovingFree) {
-      if (x.over === sectionId) {
-        return x.overDropType;
+  const [highlight, setHighlight] = useState<DropType>(DropType.NONE);
+
+  function onDragDone() {
+    setHighlight(DropType.NONE);
+  }
+
+  function onDragMove({ active, over, collisions }) {
+    if (isMovingFree && active.id !== sectionId && over) {
+      let dropType = DropType.NONE;
+      // Highlight for this section
+      if (over.id === sectionId) {
+        dropType = getDropType(active, over, collisions);
+      } else if (
+        // Highlight for parent section
+        over.data.current.sortable?.containerId === sectionId &&
+        !getLeftDistCondition(collisions)
+      ) {
+        dropType = DropType.INTO;
       }
-      if (x.parent === sectionId) {
-        return x.parentDropType;
-      }
+      highlight !== dropType && setHighlight(dropType);
+      return;
     }
-    return DropType.NONE;
+    highlight !== DropType.NONE && setHighlight(DropType.NONE);
+  }
+
+  useDndMonitor({
+    onDragMove,
+    onDragEnd: onDragDone,
+    onDragCancel: onDragDone,
   });
+  // before:content-none before:absolute before:left-0 before:bottom-0 before:h-[100px] before:w-1/2
 
   // py-3 px-3 -my-3 -mx-3
   const className = "rounded-3xl py-3 px-3 -my-3 -mx-3";
@@ -98,4 +175,24 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
   });
 
   return disabled;
+}
+
+export function useDndActive() {
+  const [active, setActive] = useState(null);
+  const onDragStart = ({ active }) => setActive(active);
+  const onDragEnd = () => setActive(null);
+  return { active, onDragStart, onDragEnd };
+}
+
+export function useDndActiveWithMonitor() {
+  const { active, onDragStart, onDragEnd } = useDndActive();
+  useDndMonitor({ onDragStart, onDragEnd });
+  return active;
+}
+
+export function useDndOverWithMonitor() {
+  const [over, setOver] = useState(null);
+  const onDragOver = ({ over }) => setOver(over);
+  useDndMonitor({ onDragOver });
+  return over;
 }

@@ -23,13 +23,10 @@ function createAndAttachEventListeners(fn) {
     );
   }
 
-  window.addEventListener("blur", () => state.getState().reset());
-
   return state;
 }
 
 export const useKeyActivations = createAndAttachEventListeners((set) => ({
   ...initialState,
   setActivation: (key, value) => set({ [key]: value }),
-  reset: () => set(initialState),
 }));

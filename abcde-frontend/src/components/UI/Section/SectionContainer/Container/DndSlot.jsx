@@ -1,4 +1,4 @@
-import { DropType } from "models/info/dndState";
+import { DropType } from "hooks/useDndUtils";
 import { RiDragDropFill } from "react-icons/ri";
 
 export function DndSlot({ highlight, children }) {
