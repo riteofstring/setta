@@ -1,6 +1,6 @@
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-import { RiSave2Line } from "react-icons/ri";
-import { addKwarg, deleteKwarg, saveKwargsAsCollection } from "thunks/kwargs";
+
+import { addKwarg, deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
@@ -11,9 +11,6 @@ export function KwargsControls({ sectionId, objInfoId }) {
   }
   function onClickDeleteKwarg() {
     deleteKwarg({ sectionId, objInfoId, deleteLast: true });
-  }
-  function onClickSaveAsCollection() {
-    saveKwargsAsCollection({ sectionId, objInfoId });
   }
 
   const inputStyles =
@@ -35,9 +32,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
           onClick={onClickAddKwarg}
           type="add"
         />
-        <VerticalLine inputStyles="mx-2 self-stretch" />
-        <IconButton icon={<RiSave2Line />} onClick={onClickSaveAsCollection} />
-        <VerticalLine inputStyles="mx-2 self-stretch" />
+        <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
         <StandardSearch inputStyles={inputStyles} outerClasses="flex-1" />
       </div>
     </div>

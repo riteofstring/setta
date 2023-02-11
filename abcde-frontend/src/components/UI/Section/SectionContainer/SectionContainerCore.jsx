@@ -15,7 +15,6 @@ import { deleteChild } from "thunks/sections/deleteChild";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
-import { CustomCloseButton } from "./Header/CustomCloseButton/CustomCloseButton";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
@@ -48,8 +47,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  // flex flex-grow flex-col
-  // [&>div:not(.section-full-width)]:px-5
   return (
     <div
       className={`rounded-xl bg-white ${boxShadow} dndline w-min  transition-all duration-150`}
@@ -62,11 +59,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
       >
         <CustomResizable sectionId={sectionId}>
           <div className="h-full overflow-hidden rounded-xl">
-            <CustomCloseButton
-              onClick={onCustomCloseButtonClick}
-              aria-label="Delete self"
-              data-testid={`Delete ${sectionId}`}
-            />
             <div className="flex flex-grow flex-col gap-2 py-4">
               <SectionHeader
                 sectionId={sectionId}
