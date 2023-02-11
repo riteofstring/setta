@@ -1,25 +1,30 @@
-.dndline::after,
+/* .dndline::after,
 .dndline::before {
-  content: "";
-  /* background: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHZpZXdCb3g9IjAgMCAxMCAxMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNSIgY3k9IjUiIHI9IjMiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPg=="); */
-  height: 2px;
+  content: "DROP";
+
+  height: 40px;
   border-radius: 100px;
-  background: white;
-  /* animation: dash 30s linear infinite; */
-  width: 450px;
+
+	background-size: 400% 400%;
+	animation: gradient 1s ease infinite;
+  width: 100%;
+  padding: 1rem 5rem;
   position: absolute;
   background-repeat: repeat-x;
   background-position: 0 0;
-  /* background-size:75%; */
-  /* opacity:0; */
-}
+  display: grid;
+  place-items: center;
+  margin:auto;
 
-.dndline::before {
-  top: 7px;
+  z-index:2000;
+}  */
+
+/* .dndline::before {
+  top: 6px;
 }
 .dndline::after {
-  bottom: 7px;
-}
+  bottom: 6px;
+} */
 
 @keyframes dash {
   from {
@@ -29,3 +34,16 @@
     background-position: 200% 0;
   }
 }
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+

@@ -1,7 +1,9 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDndOverWithMonitor } from "hooks/useDndUtils";
+import _ from "lodash";
 import React from "react";
-import { useStore } from "react-flow-renderer";
+import { useStoreApi } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({
@@ -10,28 +12,45 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const zoom = useStore((x) => x.transform[2]);
+  const over = useDndOverWithMonitor();
+  const zIndex = over?.id === sectionId ? "z-[500]" : "";
+  return (
+    <SortableInfo
+      sectionId={sectionId}
+      parentId={parentId}
+      nextId={nextId}
+      ancestorSet={ancestorSet}
+      zIndex={zIndex}
+    />
+  );
+}
 
-  function transformWithZoom(transform) {
-    if (transform) {
-      return {
-        ...transform,
-        x: transform.x / zoom,
-        y: transform.y / zoom,
-      };
-    }
-    return transform;
-  }
+export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
+function _SortableInfo(props) {
   const sortableProps = useSortable({
-    id: sectionId,
-    data: { zoom, isTopLevel: false },
+    id: props.sectionId,
+    data: { isTopLevel: false },
   });
+  return <SortableCore sortableProps={sortableProps} {...props} />;
+}
+
+export const SortableInfo = React.memo(_SortableInfo, _.isEqual);
+
+function _SortableCore({
+  sectionId,
+  parentId,
+  nextId,
+  ancestorSet,
+  zIndex,
+  sortableProps,
+}) {
+  const store = useStoreApi();
 
   const { attributes, listeners, setNodeRef, transform, transition } =
     sortableProps;
 
-  const scaledTransform = transformWithZoom(transform);
+  const scaledTransform = transformWithZoom(transform, store);
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
@@ -40,7 +59,7 @@ function _SortableSectionContainer({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="first:mt-2" {...stackProps}>
+    <div className={`first:mt-2 ${zIndex}`} {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
         parentId={parentId}
@@ -52,4 +71,16 @@ function _SortableSectionContainer({
   );
 }
 
-export const SortableSectionContainer = React.memo(_SortableSectionContainer);
+const SortableCore = React.memo(_SortableCore, _.isEqual);
+
+function transformWithZoom(transform, store) {
+  if (transform) {
+    const zoom = store.getState().transform[2];
+    return {
+      ...transform,
+      x: transform.x / zoom,
+      y: transform.y / zoom,
+    };
+  }
+  return transform;
+}
