@@ -276,7 +276,7 @@ const twoDecimalsFormat = new Intl.NumberFormat("en", {
 function getTooltipText(tooltipData) {
   return tooltipData.map((d, i) => (
     <div key={i}>
-      {`${d.name}: ${twoDecimalsFormat.format(d.y)}`}
+      {`${d.name}: ${twoDecimalsFormat.format(d.data.y)}`}
       <br />
     </div>
   ));
