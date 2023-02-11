@@ -18,21 +18,12 @@ import { getSectionType } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function deleteSections({ sectionIds }) {
-  const idsToDelete: string[] = [];
   for (const sid of sectionIds) {
-    idsToDelete.push(...getIdsToDelete(sid));
+    deleteSection(sid);
   }
-
-  const activeSectionState = useActiveSection.getState();
-  const activeSection = activeSectionState.id;
-  if (activeSection && idsToDelete.includes(activeSection)) {
-    activeSectionState.setId(null);
-  }
-  useSectionInfos.getState().removeSectionInfos(idsToDelete);
-  useProjectConfig.getState().deleteChildren(idsToDelete);
 }
 
-function getIdsToDelete(sectionId) {
+function deleteSection(sectionId) {
   const sectionInfosState = useSectionInfos.getState();
   const allChildren = sectionInfosState.allChildren;
   const idsToDelete = [sectionId];
@@ -44,7 +35,15 @@ function getIdsToDelete(sectionId) {
     }
     idx += 1;
   }
-  return idsToDelete;
+
+  const activeSectionState = useActiveSection.getState();
+  const activeSection = activeSectionState.id;
+  const setActiveSection = activeSectionState.setId;
+  if (idsToDelete.includes(activeSection)) {
+    setActiveSection(null);
+  }
+  sectionInfosState.removeSectionInfos(idsToDelete);
+  useProjectConfig.getState().deleteChildren(idsToDelete);
 }
 
 export function moveSections({

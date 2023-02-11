@@ -1,3 +1,3 @@
-export function VerticalLine({ inputStyles }) {
-  return <div className={`border-r border-slate-200 ${inputStyles}`} />;
+export function VerticalLine() {
+  return <div className="border-r border-slate-200" />;
 }
