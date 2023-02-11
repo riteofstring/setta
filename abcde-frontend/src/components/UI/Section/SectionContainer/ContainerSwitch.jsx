@@ -82,7 +82,7 @@ function Container({
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
   const className = `${
-    isDraggingSortable && "nodrag"
+    isDraggingSortable ? "nodrag" : ""
   } ${highlightDroppableClassName}`;
 
   function totalRef(e) {
@@ -94,8 +94,7 @@ function Container({
   const commonProps = { ref: totalRef, ...trueDragListeners };
   if (isDeck) {
     return (
-      <>
-        <DndSlotTop highlight={highlight} />
+      <DndSlot highlight={highlight}>
         <div
           className={`${className} rounded-3xl px-8 pt-3 pb-6`}
           style={{
@@ -107,13 +106,11 @@ function Container({
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
-        <DndSlotBottom highlight={highlight} />
-      </>
+      </DndSlot>
     );
   }
   return (
-    <>
-      <DndSlotTop highlight={highlight} />
+    <DndSlot highlight={highlight}>
       <div
         className={`${className}`}
         style={highlightDroppableStyle}
@@ -121,8 +118,7 @@ function Container({
       >
         {children}
       </div>
-      <DndSlotBottom highlight={highlight} />
-    </>
+    </DndSlot>
   );
 }
 
@@ -137,31 +133,33 @@ function DeckSectionTitle({ sectionId }) {
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
 
-function DndSlotTop({ highlight }) {
+function DndSlot({ highlight, children }) {
   return (
     <>
-      {highlight === DropType.ABOVE && (
-        <div className="relative flex w-full justify-center">
-          <div className="absolute -bottom-6 flex justify-center">
-            <DndSlotInner />
-          </div>
-        </div>
-      )}
+      {highlight === DropType.ABOVE && <DndSlotTop />}
+      {children}
+      {highlight === DropType.BELOW && <DndSlotBottom />}
     </>
   );
 }
 
-function DndSlotBottom({ highlight }) {
+function DndSlotTop() {
   return (
-    <>
-      {/* {highlight === DropType.BELOW && ( */}
-      <div className="relative flex w-full justify-center">
-        <div className="absolute -bottom-6 flex justify-center">
-          <DndSlotInner />
-        </div>
+    <div className="relative flex w-full justify-center">
+      <div className="absolute -bottom-6 flex justify-center">
+        <DndSlotInner />
       </div>
-      {/* )} */}
-    </>
+    </div>
+  );
+}
+
+function DndSlotBottom() {
+  return (
+    <div className="relative flex w-full justify-center">
+      <div className="absolute -bottom-6 flex justify-center">
+        <DndSlotInner />
+      </div>
+    </div>
   );
 }
 

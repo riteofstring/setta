@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useDragActivation } from "./useDragActivation";
 // import resolveConfig from 'tailwindcss/resolveConfig'
 // import tailwindConfig from '../../tailwind.config.js'
-import colors from 'tailwindcss/colors'
+import colors from "tailwindcss/colors";
 
 export enum DropType {
   NONE = "NONE",
@@ -99,13 +99,14 @@ export function useHighlightDroppable(sectionId: string) {
   const className = "rounded-3xl py-3 px-3 -my-3 -mx-3";
   const transition = "background-color 0.2s";
 
-  
-
   if (highlight === DropType.NONE) {
     return {
       // className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0`,
       // style: { transition, outline: "rgba(0, 0, 0, 0) solid 5px" },
       // highlight
+      className: "",
+      style: {},
+      highlight,
     };
     // [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0 z-[100]
   } else if (highlight === DropType.INTO) {
@@ -113,10 +114,9 @@ export function useHighlightDroppable(sectionId: string) {
       className: `${className} `,
       style: {
         transition,
-        backgroundColor: colors.blue[500]
-
+        backgroundColor: colors.blue[500],
       },
-      highlight
+      highlight,
     };
   } else if (highlight === DropType.ABOVE) {
     return {
@@ -124,6 +124,8 @@ export function useHighlightDroppable(sectionId: string) {
       // style: {
       //   transition,
       // },
+      className: "",
+      style: {},
       highlight,
     };
   } else if (highlight === DropType.BELOW) {
@@ -132,7 +134,9 @@ export function useHighlightDroppable(sectionId: string) {
       // style: {
       //   transition,
       // },
-      highlight
+      className: "",
+      style: {},
+      highlight,
     };
   }
 }
