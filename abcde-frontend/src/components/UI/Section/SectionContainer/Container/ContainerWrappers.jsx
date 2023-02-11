@@ -2,8 +2,8 @@ import {
   useDndActiveWithMonitor,
   useHighlightDroppable,
 } from "hooks/useDndUtils";
-import { useDragActivation } from "hooks/useDragActivation";
 import _ from "lodash";
+import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
@@ -38,7 +38,8 @@ function _DndWatcherAndContainer({
   ...props
 }) {
   const active = useDndActiveWithMonitor();
-  const { isSorting, isMovingFree } = useDragActivation();
+  const isSorting = useKeyActivations((x) => x.isSorting);
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
   const isDraggingTopLevel = !parentId && isMovingFree;
   const trueDragListeners =
