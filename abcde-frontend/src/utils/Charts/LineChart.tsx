@@ -105,7 +105,7 @@ export function LineChart({
           </g>
         )}
       </svg>
-      {tooltipOpen && (
+      {tooltipData && (
         <TooltipWithBounds
           key={Math.random()}
           top={tooltipLocation.y}
@@ -193,7 +193,6 @@ function _LineAndPointsCore({
         width={xMax}
         height={yMax}
         fill="transparent"
-        rx={14}
         onTouchStart={handleMouseOver}
         onTouchMove={handleMouseOver}
         onMouseMove={handleMouseOver}
@@ -291,13 +290,11 @@ function useCustomTooltip() {
   });
 
   const showTooltip = useCallback(
-    ({ tooltipLine, tooltipData, tooltipLocation }) =>
-      setTooltipState({
+    (newStateFn) =>
+      setTooltipState((curr) => ({
+        ...newStateFn(curr),
         tooltipOpen: true,
-        tooltipLine,
-        tooltipData,
-        tooltipLocation,
-      }),
+      })),
     [setTooltipState]
   );
 
@@ -322,6 +319,62 @@ function useCustomTooltip() {
   };
 }
 
+function useTooltipMouseOverHandler({
+  showTooltip,
+  xScale,
+  yScale,
+  yMax,
+  groupTop,
+  margin,
+  series,
+}) {
+  useEffect(() => {
+    showTooltip((curr) => {
+      const tloc = curr.tooltipLocation;
+      if (!tloc) {
+        return curr;
+      }
+      return getTooltipFromMouseLocation({
+        x: tloc.x,
+        y: tloc.y,
+        series,
+        xScale,
+        yScale,
+        margin,
+        groupTop,
+        yMax,
+      });
+    });
+  }, [xScale, yScale]);
+
+  return useCallback(
+    (event) => {
+      const { x, y } = localPoint(event) || { x: 0, y: 0 };
+      const tooltipInfo = getTooltipFromMouseLocation({
+        x,
+        y,
+        series,
+        xScale,
+        yScale,
+        margin,
+        groupTop,
+        yMax,
+      });
+      showTooltip(() => tooltipInfo);
+    },
+    [
+      xScale,
+      yScale,
+      yMax,
+      groupTop,
+      margin.top,
+      margin.left,
+      margin.right,
+      margin.bottom,
+    ]
+  );
+}
+
 function getDatapointFromX(name, values, x, xScale, yScale, margin) {
   const index = bisectX(values, x);
   const d0 = values[index - 1];
@@ -338,38 +391,23 @@ function getDatapointFromX(name, values, x, xScale, yScale, margin) {
   };
 }
 
-function useTooltipMouseOverHandler({
-  showTooltip,
+function getTooltipFromMouseLocation({
+  x,
+  y,
+  series,
   xScale,
   yScale,
-  yMax,
-  groupTop,
   margin,
-  series,
+  groupTop,
+  yMax,
 }) {
-  return useCallback(
-    (event) => {
-      const { x, y } = localPoint(event) || { x: 0 };
-      const x0 = xScale.invert(x - margin.left);
-      const ds = series.map((s) =>
-        getDatapointFromX(s.name, s.values, x0, xScale, yScale, margin)
-      );
-
-      showTooltip({
-        tooltipLine: { x, yFrom: groupTop, yTo: yMax + groupTop },
-        tooltipData: ds,
-        tooltipLocation: { x, y },
-      });
-    },
-    [
-      xScale,
-      yScale,
-      yMax,
-      groupTop,
-      margin.top,
-      margin.left,
-      margin.right,
-      margin.bottom,
-    ]
+  const x0 = xScale.invert(x - margin.left);
+  const ds = series.map((s) =>
+    getDatapointFromX(s.name, s.values, x0, xScale, yScale, margin)
   );
+  return {
+    tooltipLine: { x, yFrom: groupTop, yTo: yMax + groupTop },
+    tooltipData: ds,
+    tooltipLocation: { x, y },
+  };
 }
