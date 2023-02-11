@@ -11,7 +11,7 @@ import { useActiveSection } from "models/activeSection";
 import { useSectionDescription } from "models/info/sectionDescription";
 import React from "react";
 import { BiInfoCircle } from "react-icons/bi";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { CustomCloseButton } from "./Header/CustomCloseButton/CustomCloseButton";
@@ -82,14 +82,18 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
               )}
             </div>
             {!isInfo && hasDescription && (
-              <IconButton
-                size="w-6 h-6 self-center text-slate-400"
-                onClick={() => {
-                  toggleDescVis({ sectionId });
-                }}
-              >
-                <BiInfoCircle className="z-[3] h-5 w-5" />
-              </IconButton>
+              <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
+                <Button
+                  gridStatus={false}
+                  twClasses="px-2 py-1 self-center text-slate-500 hover:bg-white rounded-full gap-1 font-heading uppercase border-2 border-solid border-white text-xs bg-slate-200 shadow-sm hover:shadow-md transition-all"
+                  onClick={() => {
+                    toggleDescVis({ sectionId });
+                  }}
+                >
+                  <BiInfoCircle className="z-[3] h-4 w-4" />
+                  Info
+                </Button>
+              </div>
             )}
 
             <ResizeIcon />
