@@ -1,5 +1,5 @@
+import { useCallback, useEffect } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
@@ -13,8 +13,22 @@ export function KwargsControls({ sectionId, objInfoId }) {
     deleteKwarg({ sectionId, objInfoId, deleteLast: true });
   }
 
+  const handleKeyPress = useCallback((event) => {
+    console.log(`Key pressed: ${event.key}`);
+  }, []);
+
+  useEffect(() => {
+    // attach the event listener
+    document.addEventListener("keydown", handleKeyPress);
+
+    // remove the event listener
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [handleKeyPress]);
+
   const inputStyles =
-    "flex-1   text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
+    "flex-1 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <div className="border-b border-solid border-white bg-gradient-to-t from-white py-2 shadow-sm">
