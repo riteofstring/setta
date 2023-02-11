@@ -6,7 +6,6 @@ import { LegendOrdinal } from "@visx/legend";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { Bar, Line, LinePath } from "@visx/shape";
 import { Text } from "@visx/text";
-import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { bisector } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
 import { animate, useMotionValue } from "framer-motion";
@@ -60,14 +59,8 @@ export function LineChart({
   const svgHeight = height - legendHeight;
   const rectHeight = svgHeight;
 
-  const {
-    tooltipData,
-    tooltipLeft,
-    tooltipTop,
-    tooltipOpen,
-    showTooltip,
-    hideTooltip,
-  } = useTooltip();
+  const { tooltipData, tooltipLine, tooltipOpen, showTooltip, hideTooltip } =
+    useCustomTooltip();
 
   const colorScale = useColorScale(series);
 
@@ -98,8 +91,8 @@ export function LineChart({
         {tooltipData && (
           <g>
             <Line
-              from={{ x: tooltipLeft.x, y: tooltipLeft.yFrom }}
-              to={{ x: tooltipLeft.x, y: tooltipLeft.yTo }}
+              from={{ x: tooltipLine.x, y: tooltipLine.yFrom }}
+              to={{ x: tooltipLine.x, y: tooltipLine.yTo }}
               stroke={accentColorDark}
               strokeWidth={2}
               pointerEvents="none"
@@ -120,17 +113,11 @@ export function LineChart({
           </g>
         )}
       </svg>
-      {tooltipOpen &&
-        tooltipData.map((d) => (
-          <TooltipWithBounds
-            key={Math.random()}
-            top={d.top}
-            left={d.circle}
-            //   style={tooltipStyles}
-          >
-            {`${d.data.y}`}
-          </TooltipWithBounds>
-        ))}
+      {/* {tooltipOpen && (
+        <TooltipWithBounds key={Math.random()} top={d.top} left={d.circle}>
+          {getTooltipText(tooltipData)}
+        </TooltipWithBounds>
+      )} */}
 
       <LegendOrdinal
         scale={colorScale}
@@ -178,7 +165,7 @@ function _LineAndPointsCore({
       );
 
       showTooltip({
-        tooltipLeft: { x, yFrom: groupTop, yTo: yMax + groupTop },
+        tooltipLine: { x, yFrom: groupTop, yTo: yMax + groupTop },
         tooltipData: ds,
       });
     },
@@ -289,4 +276,44 @@ function useColorScale(series) {
       }),
     [JSON.stringify(seriesNames)]
   );
+}
+
+function getTooltipText(tooltipData) {
+  return "dogs";
+}
+
+function useCustomTooltip() {
+  const [tooltipState, setTooltipState] = useState({
+    tooltipOpen: false,
+    tooltipLine: undefined,
+    tooltipData: undefined,
+  });
+
+  const showTooltip = useCallback(
+    ({ tooltipLine, tooltipData }) =>
+      setTooltipState({
+        tooltipOpen: true,
+        tooltipLine,
+        tooltipData,
+      }),
+    [setTooltipState]
+  );
+
+  const hideTooltip = useCallback(
+    () =>
+      setTooltipState({
+        tooltipOpen: false,
+        tooltipLine: undefined,
+        tooltipData: undefined,
+      }),
+    [setTooltipState]
+  );
+
+  return {
+    tooltipOpen: tooltipState.tooltipOpen,
+    tooltipLine: tooltipState.tooltipLine,
+    tooltipData: tooltipState.tooltipData,
+    showTooltip,
+    hideTooltip,
+  };
 }
