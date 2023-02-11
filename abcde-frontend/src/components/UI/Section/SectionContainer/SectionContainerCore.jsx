@@ -58,8 +58,8 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <div className="h-full overflow-hidden rounded-xl">
-            <div className="flex flex-grow flex-col gap-2 py-4">
+          <div className="h-full rounded-xl">
+            <div className="flex h-full flex-grow flex-col gap-2 py-4">
               <SectionHeader
                 sectionId={sectionId}
                 parentId={parentId}

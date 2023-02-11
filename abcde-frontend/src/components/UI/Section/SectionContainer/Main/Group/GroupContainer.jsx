@@ -5,7 +5,7 @@ import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 function _ParamGroupContainer({ sectionId, objInfoId }) {
   return (
     <div className="mr-6 overflow-y-auto">
-      <div className=" flex flex-col gap-2 overflow-y-auto">
+      <div className=" flex flex-col gap-2">
         <GetParams sectionId={sectionId} objInfoId={objInfoId} />
         <GetKwargs sectionId={sectionId} objInfoId={objInfoId} />
       </div>
