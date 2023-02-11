@@ -11,6 +11,8 @@ import { useCustomTooltip } from "./useCustomTooltip";
 const accentColorDark = "#75daad";
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
 const defaultLegendHeight = 30;
+const minHeight = 0;
+const minWidth = 0;
 
 type CurveProps = {
   width: number;
@@ -52,6 +54,10 @@ export function LineChart({
   });
 
   const colorScale = useColorScale(series);
+
+  if (xMax < minWidth || yMax < minHeight) {
+    return null;
+  }
 
   return (
     <div style={{ position: "relative" }} onClick={() => generateNewTestData()}>
