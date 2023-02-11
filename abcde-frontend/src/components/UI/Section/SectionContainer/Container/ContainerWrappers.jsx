@@ -1,8 +1,6 @@
-import {
-  useDndActiveWithMonitor,
-  useHighlightDroppable,
-} from "hooks/useDndUtils";
+import { useHighlightDroppable } from "hooks/useDndUtils";
 import _ from "lodash";
+import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { Container } from "./ContainerCore";
@@ -37,7 +35,7 @@ function _DndWatcherAndContainer({
   children,
   ...props
 }) {
-  const active = useDndActiveWithMonitor();
+  const activeIsSelf = useDndState((x) => x.active === sectionId);
   const isSorting = useKeyActivations((x) => x.isSorting);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
@@ -48,7 +46,7 @@ function _DndWatcherAndContainer({
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
   const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${
-    active?.id === sectionId ? "opacity-50" : ""
+    activeIsSelf ? "opacity-50" : ""
   } ${className}`;
 
   return (
