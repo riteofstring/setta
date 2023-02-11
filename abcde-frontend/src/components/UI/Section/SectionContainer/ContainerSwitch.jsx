@@ -23,14 +23,14 @@ export function ContainerSwitch({
       {children}
     </TopLevelContainer>
   ) : (
-    <Container
+    <DndSlotAndContainer
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
       dragListeners={dragListeners}
     >
       {children}
-    </Container>
+    </DndSlotAndContainer>
   );
 }
 
@@ -44,7 +44,7 @@ function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
     useDraggable(dndProps);
 
   return (
-    <Container
+    <DndSlotAndContainer
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
@@ -53,7 +53,23 @@ function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
       dragListeners={dragListeners}
     >
       {children}
-    </Container>
+    </DndSlotAndContainer>
+  );
+}
+
+function DndSlotAndContainer({ sectionId, children, ...props }) {
+  const { className, style, highlight } = useHighlightDroppable(sectionId);
+  return (
+    <DndSlot highlight={highlight}>
+      <Container
+        sectionId={sectionId}
+        {...props}
+        className={className}
+        style={style}
+      >
+        {children}
+      </Container>
+    </DndSlot>
   );
 }
 
@@ -64,14 +80,10 @@ function Container({
   droppableRef,
   draggableRef,
   dragListeners,
+  className,
+  style,
   children,
 }) {
-  const {
-    className: highlightDroppableClassName,
-    style: highlightDroppableStyle,
-    highlight,
-  } = useHighlightDroppable(sectionId);
-
   const refForPosition = useSectionRefAndInit(sectionId);
   const { isSorting, isMovingFree } = useDragActivation();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
@@ -81,9 +93,7 @@ function Container({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${
-    isDraggingSortable ? "nodrag" : ""
-  } ${highlightDroppableClassName}`;
+  const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${className}`;
 
   function totalRef(e) {
     refForPosition.current = e;
@@ -94,31 +104,23 @@ function Container({
   const commonProps = { ref: totalRef, ...trueDragListeners };
   if (isDeck) {
     return (
-      <DndSlot highlight={highlight}>
-        <div
-          className={`${className} rounded-3xl px-8 pt-3 pb-6`}
-          style={{
-            backgroundColor: "hsla(212, 22%, 50%, 0.2)",
-            ...highlightDroppableStyle,
-          }}
-          {...commonProps}
-        >
-          <DeckSectionTitle sectionId={sectionId} />
-          {children}
-        </div>
-      </DndSlot>
+      <div
+        className={`${fullClassName} rounded-3xl px-8 pt-3 pb-6`}
+        style={{
+          backgroundColor: "hsla(212, 22%, 50%, 0.2)",
+          ...style,
+        }}
+        {...commonProps}
+      >
+        <DeckSectionTitle sectionId={sectionId} />
+        {children}
+      </div>
     );
   }
   return (
-    <DndSlot highlight={highlight}>
-      <div
-        className={`${className}`}
-        style={highlightDroppableStyle}
-        {...commonProps}
-      >
-        {children}
-      </div>
-    </DndSlot>
+    <div className={`${fullClassName}`} style={style} {...commonProps}>
+      {children}
+    </div>
   );
 }
 
