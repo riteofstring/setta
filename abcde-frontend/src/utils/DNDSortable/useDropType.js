@@ -1,6 +1,5 @@
 import { DropType, useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
-import colors from "tailwindcss/colors";
 
 export function useOnDragMove() {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
@@ -10,21 +9,16 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
-  useDndState.getState().setActive({ active: active.id });
+  useDndState
+    .getState()
+    .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
 }
 
 export function onDragEnd() {
   useDndState.getState().reset();
 }
 
-function onDragMove({
-  active,
-  over,
-  collisions,
-  isMovingFree,
-  setOver,
-  reset,
-}) {
+function onDragMove({ active, over, collisions, isMovingFree, setOver }) {
   if (isMovingFree) {
     let overDropType = DropType.NONE;
     let parentDropType = DropType.NONE;
@@ -33,17 +27,15 @@ function onDragMove({
     if (over) {
       overId = over.id;
       overDropType = getDropType(active, over, collisions);
-    }
-    if (
-      over.data.current.sortable?.containerId &&
-      !getLeftDistCondition(collisions)
-    ) {
-      parentId = over.data.current.sortable?.containerId;
-      parentDropType = DropType.INTO;
+      if (
+        over.data.current.sortable?.containerId &&
+        !getLeftDistCondition(collisions)
+      ) {
+        parentId = over.data.current.sortable?.containerId;
+        parentDropType = DropType.INTO;
+      }
     }
     setOver({ over: overId, parent: parentId, overDropType, parentDropType });
-  } else {
-    reset();
   }
 }
 
@@ -94,51 +86,4 @@ export function getDropType(active, over, collisions) {
   }
   // Drop below section
   return DropType.BELOW;
-}
-
-export function useHighlightDroppable(sectionId: string) {
-  // py-3 px-3 -my-3 -mx-3
-  const className = "rounded-3xl py-3 px-3 -my-3 -mx-3";
-  const transition = "background-color 0.2s";
-
-  if (highlight === DropType.NONE) {
-    return {
-      // className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0`,
-      // style: { transition, outline: "rgba(0, 0, 0, 0) solid 5px" },
-      // highlight
-      className: "",
-      style: {},
-      highlight,
-    };
-    // [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0 z-[100]
-  } else if (highlight === DropType.INTO) {
-    return {
-      className: `${className} `,
-      style: {
-        transition,
-        backgroundColor: colors.blue[500],
-      },
-      highlight,
-    };
-  } else if (highlight === DropType.ABOVE) {
-    return {
-      // className: `${className} [&>.dndline::before]:opacity-100 z-[100]`,
-      // style: {
-      //   transition,
-      // },
-      className: "",
-      style: {},
-      highlight,
-    };
-  } else if (highlight === DropType.BELOW) {
-    return {
-      // className: `${className} [&>.dndline::after]:opacity-100 z-[100]`,
-      // style: {
-      //   transition,
-      // },
-      className: "",
-      style: {},
-      highlight,
-    };
-  }
 }

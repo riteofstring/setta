@@ -12,8 +12,8 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const over = useDndState((x) => x.over);
-  const zIndex = over?.id === sectionId ? "z-[500]" : "";
+  const overIsSelf = useDndState((x) => x.over === sectionId);
+  const zIndex = overIsSelf ? "z-[500]" : "";
   return (
     <SortableInfo
       sectionId={sectionId}

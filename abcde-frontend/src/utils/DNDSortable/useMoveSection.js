@@ -1,6 +1,7 @@
 import { DropType } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
+import { useRef } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";

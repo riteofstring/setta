@@ -8,8 +8,9 @@ export enum DropType {
   BELOW = "BELOW",
 }
 
-const initialState = {
+export const initialState = {
   active: null,
+  activeIsTopLevel: false,
   over: null,
   parent: null,
   overDropType: DropType.NONE,
@@ -19,7 +20,8 @@ const initialState = {
 export const useDndState = create(
   immer((set) => ({
     ...initialState,
-    setActive: (id) => set({ active: id }),
+    setActive: ({ id, isTopLevel }) =>
+      set({ active: id, activeIsTopLevel: isTopLevel }),
     setOver: (props) => set(props),
     reset: () => set(initialState),
   }))
