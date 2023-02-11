@@ -3,9 +3,21 @@ import { useKeyActivations } from "models/keyActivations";
 
 export function useOnDragMove() {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const currOver = useDndState((x) => x.over);
+  const currParent = useDndState((x) => x.parent);
+  const currOverDropType = useDndState((x) => x.overDropType);
+  const currParentDropType = useDndState((x) => x.parentDropType);
   const setOver = useDndState((x) => x.setOver);
-  const reset = useDndState((x) => x.reset);
-  return (props) => onDragMove({ ...props, isMovingFree, setOver, reset });
+  return (props) =>
+    onDragMove({
+      ...props,
+      isMovingFree,
+      currOver,
+      currParent,
+      currOverDropType,
+      currParentDropType,
+      setOver,
+    });
 }
 
 export function onDragStart({ active }) {
@@ -18,7 +30,17 @@ export function onDragEnd() {
   useDndState.getState().reset();
 }
 
-function onDragMove({ active, over, collisions, isMovingFree, setOver }) {
+function onDragMove({
+  active,
+  over,
+  collisions,
+  isMovingFree,
+  currOver,
+  currParent,
+  currOverDropType,
+  currParentDropType,
+  setOver,
+}) {
   if (isMovingFree) {
     let overDropType = DropType.NONE;
     let parentDropType = DropType.NONE;
@@ -35,7 +57,13 @@ function onDragMove({ active, over, collisions, isMovingFree, setOver }) {
         parentDropType = DropType.INTO;
       }
     }
-    setOver({ over: overId, parent: parentId, overDropType, parentDropType });
+    if (
+      overId !== currOver ||
+      parentId !== currParent ||
+      overDropType !== currOverDropType ||
+      parentDropType !== currParentDropType
+    )
+      setOver({ over: overId, parent: parentId, overDropType, parentDropType });
   }
 }
 
