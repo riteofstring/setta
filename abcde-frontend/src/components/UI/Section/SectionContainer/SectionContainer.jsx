@@ -2,7 +2,7 @@ import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
 import React from "react";
 import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
-import { ContainerSwitch } from "./ContainerSwitch";
+import { ContainerSwitch } from "./Container/ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({
