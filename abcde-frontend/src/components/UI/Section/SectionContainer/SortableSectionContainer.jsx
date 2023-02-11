@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { DropType, useHighlightDroppable } from "hooks/useDndUtils";
 import React from "react";
 import { useStore } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
@@ -10,6 +11,11 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
+  const { highlight } = useHighlightDroppable(sectionId);
+  const zIndex =
+    highlight === DropType.ABOVE || highlight === DropType.BELOW
+      ? "z-[500]"
+      : "";
   const zoom = useStore((x) => x.transform[2]);
 
   function transformWithZoom(transform) {
@@ -40,7 +46,7 @@ function _SortableSectionContainer({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="first:mt-2" {...stackProps}>
+    <div className={`first:mt-2 ${zIndex}`} {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
         parentId={parentId}
