@@ -30,6 +30,16 @@ export function RunButton() {
         header={description}
         closeButton={true}
       />
+      {/* <PopoverWrapper
+        trigger={
+          <MenuBarButton aria-label="Run Options">
+            <BiChevronDown />
+          </MenuBarButton>
+        }
+        body={"Options..."}
+        header={"Generate Options"}
+        closeButton={true}
+      /> */}
     </>
   );
 }
