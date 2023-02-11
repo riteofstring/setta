@@ -1,8 +1,6 @@
-import {
-  useDndActiveWithMonitor,
-  useHighlightDroppable,
-} from "hooks/useDndUtils";
+import { useHighlightDroppable } from "hooks/useDndUtils";
 import _ from "lodash";
+import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { Container } from "./ContainerCore";
@@ -37,7 +35,7 @@ function _DndWatcherAndContainer({
   children,
   ...props
 }) {
-  const active = useDndActiveWithMonitor();
+  const active = useDndState((x) => x.active);
   const isSorting = useKeyActivations((x) => x.isSorting);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const isDraggingSortable = parentId && (isSorting || isMovingFree);

@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useDndOverWithMonitor } from "hooks/useDndUtils";
 import _ from "lodash";
+import { useDndState } from "models/info/dndState";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
@@ -12,7 +12,7 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const over = useDndOverWithMonitor();
+  const over = useDndState((x) => x.over);
   const zIndex = over?.id === sectionId ? "z-[500]" : "";
   return (
     <SortableInfo
