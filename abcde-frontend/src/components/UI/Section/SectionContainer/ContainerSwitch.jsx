@@ -1,8 +1,9 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useHighlightDroppable } from "hooks/useDndUtils";
+import { DropType, useHighlightDroppable } from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
+import { RiDragDropFill } from "react-icons/ri";
 import { SectionTitle } from "./Header/Title/SectionTitle";
 
 export function ContainerSwitch({
@@ -68,6 +69,7 @@ function Container({
   const {
     className: highlightDroppableClassName,
     style: highlightDroppableStyle,
+    highlight,
   } = useHighlightDroppable(sectionId);
 
   const refForPosition = useSectionRefAndInit(sectionId);
@@ -93,12 +95,7 @@ function Container({
   if (isDeck) {
     return (
       <>
-        <div className="BIG flex flex-1">
-          <div className="h-10 w-72 bg-red-300">Drop</div>
-        </div>
-        {/* {highlight === DropType.ABOVE && (
-
-        )} */}
+        <DropdownSlotTop highlight={highlight} DropType={DropType} />
         <div
           className={`${className} rounded-3xl px-8 pt-3 pb-6`}
           style={{
@@ -110,20 +107,13 @@ function Container({
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
-        <div className="flex flex-1">
-          <div className="h-10 w-72 bg-red-300">Drop</div>
-        </div>
-        {/* {highlight === DropType.BELOW && <div></div>} */}
+        <DropdownSlotBottom highlight={highlight} DropType={DropType} />
       </>
     );
   }
   return (
     <>
-      <div className="absolute -top-5 flex w-full justify-center">
-        <div className="grid h-10 w-72 place-items-center rounded-full font-heading font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity [background-color:rgba(37,_99,_235,_0.8)]">
-          Drop
-        </div>
-      </div>
+      <DropdownSlotTop highlight={highlight} DropType={DropType} />
       <div
         className={`${className}`}
         style={highlightDroppableStyle}
@@ -131,9 +121,7 @@ function Container({
       >
         {children}
       </div>
-      <div className="BIG flex flex-1">
-        <div className="h-10 w-72 bg-red-300">Drop</div>
-      </div>
+      <DropdownSlotBottom highlight={highlight} DropType={DropType} />
     </>
   );
 }
@@ -147,4 +135,39 @@ function DeckSectionTitle({ sectionId }) {
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
+}
+
+function DropdownSlotTop({ highlight, DropType }) {
+  return (
+    <>
+      {/* {highlight === DropType.ABOVE && ( */}
+      <div className="absolute -top-5 flex w-full justify-center">
+        <DropdownSlotInner />
+      </div>
+      {/* )} */}
+    </>
+  );
+}
+
+function DropdownSlotBottom({ highlight, DropType }) {
+  return (
+    <>
+      {/* {highlight === DropType.BELOW && ( */}
+      <div className="absolute -bottom-5 flex w-full justify-center">
+        <DropdownSlotInner />
+      </div>
+      {/* )} */}
+    </>
+  );
+}
+
+function DropdownSlotInner() {
+  return (
+    <div className="grid h-10 w-72 select-none place-items-center rounded-full font-heading font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity [background-color:rgba(37,_99,_235,_0.8)]">
+      <div className="flex items-center gap-2">
+        <RiDragDropFill />
+        Drop
+      </div>
+    </div>
+  );
 }

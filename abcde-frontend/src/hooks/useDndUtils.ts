@@ -124,6 +124,7 @@ export function useHighlightDroppable(sectionId: string) {
       // style: {
       //   transition,
       // },
+      highlight,
     };
   } else if (highlight === DropType.BELOW) {
     return {
