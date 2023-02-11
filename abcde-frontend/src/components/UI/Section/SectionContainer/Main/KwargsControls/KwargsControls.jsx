@@ -1,3 +1,4 @@
+import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { useCallback, useEffect } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
@@ -6,11 +7,16 @@ import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
 export function KwargsControls({ sectionId, objInfoId }) {
+  const setParamFilter = useSectionParamFilter((x) => x.setFilter);
+
   function onClickAddKwarg() {
     addKwarg(sectionId, objInfoId);
   }
   function onClickDeleteKwarg() {
     deleteKwarg({ sectionId, objInfoId, deleteLast: true });
+  }
+  function onSearchChange(e) {
+    setParamFilter({ sectionId, filter: e.target.value });
   }
 
   const handleKeyPress = useCallback((event) => {
@@ -47,7 +53,11 @@ export function KwargsControls({ sectionId, objInfoId }) {
           type="add"
         />
         <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
-        <StandardSearch inputStyles={inputStyles} outerClasses="flex-1" />
+        <StandardSearch
+          inputStyles={inputStyles}
+          outerClasses="flex-1"
+          onChange={onSearchChange}
+        />
       </div>
     </div>
   );
