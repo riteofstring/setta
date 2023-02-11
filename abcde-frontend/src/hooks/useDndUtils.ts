@@ -1,9 +1,6 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
-// import resolveConfig from 'tailwindcss/resolveConfig'
-// import tailwindConfig from '../../tailwind.config.js'
-import colors from "tailwindcss/colors";
+import { useDragActivation } from "./useDragActivation";
 
 export enum DropType {
   NONE = "NONE",
@@ -62,7 +59,7 @@ export function getDropType(active, over, collisions) {
 }
 
 export function useHighlightDroppable(sectionId: string) {
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isMovingFree } = useDragActivation();
   const [highlight, setHighlight] = useState<DropType>(DropType.NONE);
 
   function onDragDone() {
@@ -95,53 +92,57 @@ export function useHighlightDroppable(sectionId: string) {
   });
   // before:content-none before:absolute before:left-0 before:bottom-0 before:h-[100px] before:w-1/2
 
-  // py-3 px-3 -my-3 -mx-3
-  const className = "rounded-3xl py-3 px-3 -my-3 -mx-3";
+  // y-3 px-3 -my-3 -mx-3
+  const className = "rounded-3xl relative p";
   const transition = "background-color 0.2s";
 
   if (highlight === DropType.NONE) {
     return {
-      // className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0`,
-      // style: { transition, outline: "rgba(0, 0, 0, 0) solid 5px" },
-      // highlight
-      className: "",
-      style: {},
-      highlight,
+      className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0`,
+      style: { transition, outline: "rgba(0, 0, 0, 0) solid 5px" },
     };
-    // [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0 z-[100]
   } else if (highlight === DropType.INTO) {
     return {
-      className: `${className} `,
+      className: `${className} [&_.dndline::after]:opacity-0 [&_.dndline::before]:opacity-0 z-[100]`,
       style: {
         transition,
-        backgroundColor: colors.blue[500],
+        backgroundColor: "hsla(245, 100%, 78%, 1)",
+        // backgroundImage: dotted
+        // outline: "hsla(95, 100%, 50%, 1) solid 5px",
+        // outline: "hsla(245, 100%, 100%, 1) solid 1px",
+        // boxShadow:
+        //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
       },
-      highlight,
     };
   } else if (highlight === DropType.ABOVE) {
     return {
-      // className: `${className} [&>.dndline::before]:opacity-100 z-[100]`,
-      // style: {
-      //   transition,
-      // },
-      className: "",
-      style: {},
-      highlight,
+      className: `${className} [&>.dndline::before]:opacity-100 z-[100]`,
+      style: {
+        transition,
+        // backgroundColor: "hsla(176, 100%, 78%, 1)",
+        // backgroundImage: dotted
+        // outline: "hsla(0, 50%, 50%, 1) solid 5px",
+        // boxShadow:
+        //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
+      },
     };
   } else if (highlight === DropType.BELOW) {
     return {
-      // className: `${className} [&>.dndline::after]:opacity-100 z-[100]`,
-      // style: {
-      //   transition,
-      // },
-      className: "",
-      style: {},
-      highlight,
+      className: `${className} [&>.dndline::after]:opacity-100 z-[100]`,
+      style: {
+        transition,
+        // backgroundColor: "hsla(126, 100%, 78%, 1)",
+        // backgroundImage: dotted
+        // outline: "hsla(50, 100%, 50%, 1) solid 5px",
+        // boxShadow:
+        //   "inset 3px 3px 8px rgba(0, 0, 0, 0.2), 1px 1px 10px hsla(95, 100%, 75%, 1)",
+      },
     };
   }
 }
 
 export function useDisableSortable(sectionId: string, ancestorSet) {
+  const { isSorting, isMovingFree } = useDragActivation();
   const [disabled, setDisabled] = useState({
     draggable: false,
     droppable: false,
@@ -149,7 +150,6 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   function disableSort({ active }) {
     const containerId = active.data.current.sortable?.containerId;
-    const { isSorting, isMovingFree } = useKeyActivations.getState();
     // Freely moving this section or ancestor of this section
     if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });
@@ -175,24 +175,4 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
   });
 
   return disabled;
-}
-
-export function useDndActive() {
-  const [active, setActive] = useState(null);
-  const onDragStart = ({ active }) => setActive(active);
-  const onDragEnd = () => setActive(null);
-  return { active, onDragStart, onDragEnd };
-}
-
-export function useDndActiveWithMonitor() {
-  const { active, onDragStart, onDragEnd } = useDndActive();
-  useDndMonitor({ onDragStart, onDragEnd });
-  return active;
-}
-
-export function useDndOverWithMonitor() {
-  const [over, setOver] = useState(null);
-  const onDragOver = ({ over }) => setOver(over);
-  useDndMonitor({ onDragOver });
-  return over;
 }

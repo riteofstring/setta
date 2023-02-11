@@ -64,7 +64,7 @@ function InNonEditMode({ value, onClick, titleProps }) {
 function useCancelOnEscapeKey({ isEditing, onCancel, setIsEditing }) {
   useEffect(() => {
     const handleEsc = (event) => {
-      if (event.key === "Escape" && isEditing) {
+      if (event.keyCode === 27 && isEditing) {
         onCancel();
         setIsEditing(false);
       }
