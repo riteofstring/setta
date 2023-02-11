@@ -104,7 +104,7 @@ export function GlobalDndContext({ children }) {
         !active.data.current.isTopLevel &&
         createPortal(
           <DragOverlay dropAnimation={null}>
-            <DummySection zoom={active.data.current.zoom} ref={dummyRef} />
+            <DummySection ref={dummyRef} />
           </DragOverlay>,
           document.body
         )}
