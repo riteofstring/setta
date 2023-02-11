@@ -10,7 +10,8 @@ import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { bisector } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
 import { animate, useMotionValue } from "framer-motion";
-import { useEffect, useState } from "react";
+import _ from "lodash";
+import React, { useEffect, useMemo, useState } from "react";
 import { updateOutput } from "thunks/outputs";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
@@ -69,10 +70,7 @@ export function LineChart({
     hideTooltip,
   } = useTooltip();
 
-  const colorScale = scaleOrdinal({
-    domain: series.map((x) => x.name),
-    range: schemeSet1,
-  });
+  const colorScale = useColorScale(series);
 
   return (
     <div style={{ position: "relative" }} onClick={() => generateNewTestData()}>
@@ -145,7 +143,7 @@ export function LineChart({
   );
 }
 
-function LineAndPointsCore({
+function _LineAndPointsCore({
   showPoints,
   series,
   xMax,
@@ -221,17 +219,19 @@ function LineAndPointsCore({
         onTouchStart={handleMouseOver}
         onTouchMove={handleMouseOver}
         onMouseMove={handleMouseOver}
-        onMouseLeave={() => hideTooltip()}
+        onMouseLeave={hideTooltip}
       />
     </Group>
   ));
 }
 
+const LineAndPointsCore = React.memo(_LineAndPointsCore, _.isEqual);
+
 function generateNewTestData() {
   updateOutput({
     group: { id: "67863f2c-9916-4d9b-9c60-b7ed3781f49d", name: "wave" },
     key: { id: "35ddd5b3-a87d-408b-b140-4144d0b2076f", name: "sin(x)" },
-    values: [Math.random() * (Math.random() * 2)],
+    values: [Math.random() * (Math.random() * 5)],
   });
 }
 
@@ -256,7 +256,6 @@ function useAnimatedScale({
   useDeepCompareEffect(() => {
     animate(scaleMax, Math.max(...allValues), {
       delay: 0,
-      //   type: "spring",
     });
   }, [allValues]);
 
@@ -266,4 +265,16 @@ function useAnimatedScale({
   }, []);
 
   return scale;
+}
+
+function useColorScale(series) {
+  const seriesNames = series.map((x) => x.name);
+  return useMemo(
+    () =>
+      scaleOrdinal({
+        domain: seriesNames,
+        range: schemeSet1,
+      }),
+    [JSON.stringify(seriesNames)]
+  );
 }
