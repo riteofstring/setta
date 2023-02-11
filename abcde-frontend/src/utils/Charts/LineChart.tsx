@@ -11,7 +11,7 @@ import { bisector } from "d3-array";
 import { schemeSet1 } from "d3-scale-chromatic";
 import { animate, useMotionValue } from "framer-motion";
 import _ from "lodash";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { updateOutput } from "thunks/outputs";
 
 const accentColorDark = "#75daad";
@@ -169,18 +169,21 @@ function _LineAndPointsCore({
     pixelRangeIncreases: false,
   });
 
-  function handleMouseOver(event) {
-    const { x } = localPoint(event) || { x: 0 };
-    const x0 = xScale.invert(x - margin.left);
-    const ds = series.map((s) =>
-      getDatapointFromX(s.values, x0, xScale, yScale, margin)
-    );
+  const handleMouseOver = useCallback(
+    (event) => {
+      const { x } = localPoint(event) || { x: 0 };
+      const x0 = xScale.invert(x - margin.left);
+      const ds = series.map((s) =>
+        getDatapointFromX(s.values, x0, xScale, yScale, margin)
+      );
 
-    showTooltip({
-      tooltipLeft: { x, yFrom: groupTop, yTo: yMax + groupTop },
-      tooltipData: ds,
-    });
-  }
+      showTooltip({
+        tooltipLeft: { x, yFrom: groupTop, yTo: yMax + groupTop },
+        tooltipData: ds,
+      });
+    },
+    [xScale, yScale]
+  );
 
   return series.map((lineData, i) => (
     <Group key={`lines-${i}`} top={groupTop} left={groupLeft}>
