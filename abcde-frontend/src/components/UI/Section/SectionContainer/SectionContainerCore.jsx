@@ -77,7 +77,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
             {!isInfo && hasDescription && (
               <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
                 <Button
-                  gridStatus={false}
+                  grid={false}
                   twClasses="px-2 py-1 self-center text-slate-500 hover:bg-white rounded-full gap-1 font-heading uppercase border-2 border-solid border-white text-xs bg-slate-200 shadow-sm hover:shadow-md transition-all"
                   onClick={() => {
                     toggleDescVis({ sectionId });
