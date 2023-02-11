@@ -1,9 +1,7 @@
 import { useIsInfo } from "hooks/useSectionType";
 import { setSelectedItem } from "thunks/sections/sections";
-import {
-  KwargGroupContainer,
-  ParamGroupContainer,
-} from "./Main/Group/GroupContainer";
+import { ParamGroupContainer } from "./Main/Group/GroupContainer";
+import { KwargsControls } from "./Main/KwargsControls/KwargsControls";
 import { SectionSearch } from "./Main/Search/Search";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
@@ -17,14 +15,16 @@ export function InputArea({ sectionId, selectedItem }) {
     <SectionDescription sectionId={sectionId} card={true} />
   ) : (
     <>
-      <SectionSearch
-        sectionId={sectionId}
-        initialSelection={selectedItem}
-        onSelectedItemChange={onSelectedItemChange}
-      />
+      <div className="px-6">
+        <SectionSearch
+          sectionId={sectionId}
+          initialSelection={selectedItem}
+          onSelectedItemChange={onSelectedItemChange}
+        />
+      </div>
 
+      <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
       <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
-      <KwargGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
     </>
   );
 }

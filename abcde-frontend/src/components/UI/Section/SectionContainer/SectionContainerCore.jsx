@@ -1,5 +1,5 @@
-import { useHasMarkdown } from "hooks/useHasMarkdown";
 import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useSectionHasDescription } from "hooks/useSectionDescription";
 import {
   useIsInfo,
   useIsOutput,
@@ -8,9 +8,11 @@ import {
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import React, { useState } from "react";
+import { useSectionDescription } from "models/info/sectionDescription";
+import React from "react";
 import { BiInfoCircle } from "react-icons/bi";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { deleteChild } from "thunks/sections/deleteChild";
+import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
 import { SectionHeader } from "./Header/SectionHeader";
@@ -24,25 +26,30 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isRoot = useIsRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
   const isInfo = useIsInfo(sectionId);
-  const hasMarkdown = useHasMarkdown(sectionId);
+  const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
+  const toggleDescVis = useSectionDescription((x) => x.toggleVisible);
+
+  const onCustomCloseButtonClick = (e) => {
+    // ignore onClick events in parent components
+    // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
+    e.stopPropagation();
+    deleteChild({ parentId, startId: sectionId });
+  };
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"
     : "shadow-md active:shadow-2xl";
 
   const outlineColor = isActiveSection
-    ? "outline-blue-500"
+    ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  const [descVis, setDescVis] = useState(false);
-
-  // flex flex-grow flex-col
   return (
     <div
-      className={`rounded-xl bg-white ${boxShadow} dndline w-min transition-all duration-150`}
+      className={`rounded-xl bg-white ${boxShadow} dndline w-min  transition-all duration-150`}
       onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
     >
@@ -51,38 +58,42 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
         <CustomResizable sectionId={sectionId}>
-          <div className="flex flex-grow flex-col gap-2 overflow-hidden py-4 [&>div:not(.section-full-width)]:px-5">
-            <SectionHeader
-              sectionId={sectionId}
-              parentId={parentId}
-              nextId={nextId}
-              isSeriesElement={isSeriesElement}
-              isRoot={isRoot}
-              hasNested={hasNested}
-            />
-            {!isOutput && !isRoot ? (
-              <InputArea sectionId={sectionId} selectedItem={selectedItem} />
-            ) : (
-              <OutputArea sectionId={sectionId} />
+          <div className="h-full overflow-hidden rounded-xl">
+            <div className="flex h-full flex-grow flex-col gap-2 py-4">
+              <SectionHeader
+                sectionId={sectionId}
+                parentId={parentId}
+                nextId={nextId}
+                isSeriesElement={isSeriesElement}
+                isRoot={isRoot}
+                hasNested={hasNested}
+              />
+              {!isOutput && !isRoot ? (
+                <InputArea sectionId={sectionId} selectedItem={selectedItem} />
+              ) : (
+                <OutputArea sectionId={sectionId} />
+              )}
+            </div>
+            {!isInfo && hasDescription && (
+              <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
+                <Button
+                  grid={false}
+                  twClasses="px-2 py-1 self-center text-slate-500 hover:bg-white rounded-full gap-1 font-heading uppercase border-2 border-solid border-white text-xs bg-slate-200 shadow-sm hover:shadow-md transition-all"
+                  onClick={() => {
+                    toggleDescVis({ sectionId });
+                  }}
+                >
+                  <BiInfoCircle className="z-[3] h-4 w-4" />
+                  Info
+                </Button>
+              </div>
             )}
-          </div>
-          {!isInfo && hasMarkdown && (
-            <IconButton
-              size="w-6 h-6 self-center text-slate-400"
-              onClick={() => {
-                setDescVis(!descVis);
-              }}
-            >
-              <BiInfoCircle className="z-[3] h-5 w-5" />
-            </IconButton>
-          )}
 
-          <ResizeIcon />
+            <ResizeIcon />
+          </div>
         </CustomResizable>
       </div>
-      {!isInfo && (
-        <SectionDescription sectionId={sectionId} descVis={descVis} />
-      )}
+      {!isInfo && <SectionDescription sectionId={sectionId} />}
     </div>
   );
 }

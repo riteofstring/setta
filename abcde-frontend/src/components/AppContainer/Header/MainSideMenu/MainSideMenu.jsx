@@ -34,9 +34,8 @@ export function MainSideMenu() {
 function Items({ onClickLogout }) {
   return (
     <>
-      <Item className="border-0 outline-none hover:shadow-slate-400">
-        Profile
-      </Item>
+      <Item>Profile</Item>
+      <Item>Community</Item>
       <Item>Settings</Item>
       <Item onClick={onClickLogout}>Logout</Item>
     </>

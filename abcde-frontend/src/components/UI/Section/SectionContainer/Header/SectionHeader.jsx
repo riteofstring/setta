@@ -1,5 +1,8 @@
 import React from "react";
+import { FiSave } from "react-icons/fi";
+import { saveKwargsAsCollection } from "thunks/kwargs";
 import { deleteChild } from "thunks/sections/deleteChild";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { SectionTitle } from "./Title/SectionTitle";
@@ -18,11 +21,19 @@ function _SectionHeader({
     e.stopPropagation();
     deleteChild({ parentId, startId: sectionId });
   };
-
+  function onClickSaveAsCollection() {
+    saveKwargsAsCollection({ sectionId, objInfoId });
+  }
   return (
-    <div className="flex w-full flex-row items-center pl-3">
-      <CardTitle sectionId={sectionId} />
-      <div className="align-self-stretch flex-1 justify-self-stretch" />
+    <div className="flex w-full flex-row items-center px-9">
+      <div className="align-self-stretch flex flex-1 items-center gap-1 justify-self-stretch">
+        <CardTitle sectionId={sectionId} />
+        <IconButton
+          color="text-slate-400"
+          icon={<FiSave />}
+          onClick={onClickSaveAsCollection}
+        />
+      </div>
       {(isSeriesElement || isRoot) && (
         <Incrementer
           sectionId={sectionId}
@@ -32,6 +43,7 @@ function _SectionHeader({
           hasNested={hasNested}
         />
       )}
+
       <CustomCloseButton
         onClick={onCustomCloseButtonClick}
         aria-label="Delete self"
