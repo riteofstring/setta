@@ -95,7 +95,7 @@ function Container({
   if (isDeck) {
     return (
       <>
-        <DropdownSlotTop highlight={highlight} DropType={DropType} />
+        <DropdownSlotTop highlight={highlight} />
         <div
           className={`${className} rounded-3xl px-8 pt-3 pb-6`}
           style={{
@@ -107,13 +107,13 @@ function Container({
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
-        <DropdownSlotBottom highlight={highlight} DropType={DropType} />
+        <DropdownSlotBottom highlight={highlight} />
       </>
     );
   }
   return (
     <>
-      <DropdownSlotTop highlight={highlight} DropType={DropType} />
+      <DropdownSlotTop highlight={highlight} />
       <div
         className={`${className}`}
         style={highlightDroppableStyle}
@@ -121,7 +121,7 @@ function Container({
       >
         {children}
       </div>
-      <DropdownSlotBottom highlight={highlight} DropType={DropType} />
+      <DropdownSlotBottom highlight={highlight} />
     </>
   );
 }
@@ -137,24 +137,28 @@ function DeckSectionTitle({ sectionId }) {
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
 
-function DropdownSlotTop({ highlight, DropType }) {
+function DropdownSlotTop({ highlight }) {
   return (
     <>
-      {/* {highlight === DropType.ABOVE && ( */}
-      <div className="absolute -top-5 flex w-full justify-center">
-        <DropdownSlotInner />
-      </div>
-      {/* )} */}
+      {highlight === DropType.ABOVE && (
+        <div className="relative flex w-full justify-center">
+          <div className="absolute -bottom-6 flex justify-center">
+            <DropdownSlotInner />
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-function DropdownSlotBottom({ highlight, DropType }) {
+function DropdownSlotBottom({ highlight }) {
   return (
     <>
       {/* {highlight === DropType.BELOW && ( */}
-      <div className="absolute -bottom-5 flex w-full justify-center">
-        <DropdownSlotInner />
+      <div className="relative flex w-full justify-center">
+        <div className="absolute -bottom-6 flex justify-center">
+          <DropdownSlotInner />
+        </div>
       </div>
       {/* )} */}
     </>
