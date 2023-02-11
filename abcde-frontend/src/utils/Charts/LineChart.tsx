@@ -13,6 +13,21 @@ const accentColorDark = "#75daad";
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
 const bisectX = bisector((d) => d.x).center;
 
+function getDatapointFromX(values, x, xScale, yScale, margin) {
+  const index = bisectX(values, x);
+  const d0 = values[index - 1];
+  const d1 = values[index];
+  let d = d0 ? d0 : d1;
+  if (d1 && d1.x) {
+    d = x - d0.x > d1.x - x ? d1 : d0;
+  }
+  return {
+    data: d,
+    circle: xScale(d.x) + margin.left,
+    top: yScale(d.y) + margin.top,
+  };
+}
+
 type CurveProps = {
   width: number;
   height: number;
@@ -57,18 +72,13 @@ export function LineChart({
   function handleMouseOver(event) {
     const { x } = localPoint(event) || { x: 0 };
     const x0 = xScale.invert(x - margin.left);
-    const currSeries = series[0].values;
-    const index = bisectX(currSeries, x0);
-    const d0 = currSeries[index - 1];
-    const d1 = currSeries[index];
-    let d = d0 ? d0 : d1;
-    if (d1 && d1.x) {
-      d = x0 - d0.x > d1.x - x0 ? d1 : d0;
-    }
+    const ds = series.map((s) =>
+      getDatapointFromX(s.values, x0, xScale, yScale, margin)
+    );
+
     showTooltip({
-      tooltipLeft: { line: x, circle: xScale(d.x) + margin.left },
-      tooltipTop: yScale(d.y) + margin.top,
-      tooltipData: d,
+      tooltipLeft: { line: x },
+      tooltipData: ds,
     });
   }
 
@@ -145,28 +155,32 @@ export function LineChart({
               strokeWidth={2}
               pointerEvents="none"
             /> */}
-            <circle
-              cx={tooltipLeft.circle}
-              cy={tooltipTop}
-              r={4}
-              fill={accentColorDark}
-              stroke="white"
-              strokeWidth={2}
-              pointerEvents="none"
-            />
+            {tooltipData.map((d, idx) => (
+              <circle
+                cx={d.circle}
+                cy={d.top}
+                r={4}
+                fill={accentColorDark}
+                stroke="white"
+                strokeWidth={2}
+                pointerEvents="none"
+                key={`circle-${idx}`}
+              />
+            ))}
           </g>
         )}
       </svg>
-      {tooltipOpen && (
-        <TooltipWithBounds
-          key={Math.random()}
-          top={tooltipTop}
-          left={tooltipLeft.circle}
-          //   style={tooltipStyles}
-        >
-          {`${tooltipData.y}`}
-        </TooltipWithBounds>
-      )}
+      {tooltipOpen &&
+        tooltipData.map((d) => (
+          <TooltipWithBounds
+            key={Math.random()}
+            top={d.top}
+            left={d.circle}
+            //   style={tooltipStyles}
+          >
+            {`${d.data.y}`}
+          </TooltipWithBounds>
+        ))}
 
       <LegendOrdinal
         scale={colorScale}
