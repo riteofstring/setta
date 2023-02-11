@@ -78,7 +78,7 @@ export function LineChart({
   });
 
   return (
-    <div className="visx-curves-demo">
+    <div className="visx-curves-demo" style={{ position: "relative" }}>
       <svg width={width} height={height}>
         <rect width={width} height={height} fill="#ffffff" rx={14} ry={14} />
         {width > 8 &&
