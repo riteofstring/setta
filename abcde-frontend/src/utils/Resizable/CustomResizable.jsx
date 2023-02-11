@@ -40,7 +40,7 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
       minHeight={minHeight}
       minWidth={minWidth}
       onResizeStop={onResizeStop}
-      handleWrapperClass="nodrag [&>div]:z-20"
+      handleWrapperClass="nodrag"
       enable={{
         top: false,
         left: false,
