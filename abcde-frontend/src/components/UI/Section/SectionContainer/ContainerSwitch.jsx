@@ -95,7 +95,7 @@ function Container({
   if (isDeck) {
     return (
       <>
-        <DropdownSlotTop highlight={highlight} />
+        <DndSlotTop highlight={highlight} />
         <div
           className={`${className} rounded-3xl px-8 pt-3 pb-6`}
           style={{
@@ -107,13 +107,13 @@ function Container({
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
-        <DropdownSlotBottom highlight={highlight} />
+        <DndSlotBottom highlight={highlight} />
       </>
     );
   }
   return (
     <>
-      <DropdownSlotTop highlight={highlight} />
+      <DndSlotTop highlight={highlight} />
       <div
         className={`${className}`}
         style={highlightDroppableStyle}
@@ -121,7 +121,7 @@ function Container({
       >
         {children}
       </div>
-      <DropdownSlotBottom highlight={highlight} />
+      <DndSlotBottom highlight={highlight} />
     </>
   );
 }
@@ -137,13 +137,13 @@ function DeckSectionTitle({ sectionId }) {
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
 
-function DropdownSlotTop({ highlight }) {
+function DndSlotTop({ highlight }) {
   return (
     <>
       {highlight === DropType.ABOVE && (
         <div className="relative flex w-full justify-center">
           <div className="absolute -bottom-6 flex justify-center">
-            <DropdownSlotInner />
+            <DndSlotInner />
           </div>
         </div>
       )}
@@ -151,13 +151,13 @@ function DropdownSlotTop({ highlight }) {
   );
 }
 
-function DropdownSlotBottom({ highlight }) {
+function DndSlotBottom({ highlight }) {
   return (
     <>
       {/* {highlight === DropType.BELOW && ( */}
       <div className="relative flex w-full justify-center">
         <div className="absolute -bottom-6 flex justify-center">
-          <DropdownSlotInner />
+          <DndSlotInner />
         </div>
       </div>
       {/* )} */}
@@ -165,7 +165,7 @@ function DropdownSlotBottom({ highlight }) {
   );
 }
 
-function DropdownSlotInner() {
+function DndSlotInner() {
   return (
     <div className="grid h-10 w-72 select-none place-items-center rounded-full font-heading font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity [background-color:rgba(37,_99,_235,_0.8)]">
       <div className="flex items-center gap-2">
