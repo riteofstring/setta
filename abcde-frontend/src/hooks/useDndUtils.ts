@@ -176,3 +176,16 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   return disabled;
 }
+
+export function useDndActive() {
+  const [active, setActive] = useState(null);
+  const onDragStart = ({ active }) => setActive(active);
+  const onDragEnd = () => setActive(null);
+  return { active, onDragStart, onDragEnd };
+}
+
+export function useDndActiveWithMonitor() {
+  const { active, onDragStart, onDragEnd } = useDndActive();
+  useDndMonitor({ onDragStart, onDragEnd });
+  return active;
+}

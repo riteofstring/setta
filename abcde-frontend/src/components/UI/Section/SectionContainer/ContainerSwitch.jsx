@@ -1,5 +1,9 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { DropType, useHighlightDroppable } from "hooks/useDndUtils";
+import {
+  DropType,
+  useDndActiveWithMonitor,
+  useHighlightDroppable,
+} from "hooks/useDndUtils";
 import { useDragActivation } from "hooks/useDragActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
@@ -77,12 +81,14 @@ function _DndSlotAndDndWatcher({ sectionId, children, ...props }) {
 const DndSlotAndDndWatcher = React.memo(_DndSlotAndDndWatcher, _.isEqual);
 
 function _DndWatcherAndContainer({
+  sectionId,
   parentId,
   dragListeners,
   className,
   children,
   ...props
 }) {
+  const active = useDndActiveWithMonitor();
   const { isSorting, isMovingFree } = useDragActivation();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
   const isDraggingTopLevel = !parentId && isMovingFree;
@@ -91,10 +97,13 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${className}`;
+  const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${
+    active?.id === sectionId ? "opacity-50" : ""
+  } ${className}`;
 
   return (
     <Container
+      sectionId={sectionId}
       parentId={parentId}
       trueDragListeners={trueDragListeners}
       className={fullClassName}
