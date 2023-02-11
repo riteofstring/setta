@@ -13,7 +13,6 @@ import { animate, useMotionValue } from "framer-motion";
 import _ from "lodash";
 import React, { useEffect, useMemo, useState } from "react";
 import { updateOutput } from "thunks/outputs";
-import useDeepCompareEffect from "use-deep-compare-effect";
 
 const accentColorDark = "#75daad";
 const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
@@ -245,26 +244,36 @@ function useAnimatedScale({
     ...series.map((s) => s.values.map((v) => v[attr]))
   );
 
-  const scaleMax = useMotionValue(0);
-  const [scaleMaxState, setScaleMaxState] = useState(scaleMax.get());
+  const lowerBound = useScaleMotionValue({ isMin: true, allValues });
+  const upperBound = useScaleMotionValue({ isMin: false, allValues });
 
-  const scale = scaleLinear<number>({
-    domain: [Math.min(...allValues), scaleMaxState],
-    range: pixelRangeIncreases ? [0, maxPixelRange] : [maxPixelRange, 0],
-  });
+  const scale = useMemo(
+    () =>
+      scaleLinear<number>({
+        domain: [lowerBound, upperBound],
+        range: pixelRangeIncreases ? [0, maxPixelRange] : [maxPixelRange, 0],
+      }),
+    [lowerBound, upperBound, maxPixelRange]
+  );
 
-  useDeepCompareEffect(() => {
-    animate(scaleMax, Math.max(...allValues), {
-      delay: 0,
-    });
-  }, [allValues]);
+  return scale;
+}
+
+function useScaleMotionValue({ isMin, allValues }) {
+  const currVal = isMin ? Math.min(...allValues) : Math.max(...allValues);
+  const motionValue = useMotionValue(currVal);
+  const [scaleState, setScaleState] = useState(motionValue.get());
 
   useEffect(() => {
-    const unsubscribe = scaleMax.onChange(setScaleMaxState);
+    animate(motionValue, currVal, { delay: 0 });
+  }, [currVal]);
+
+  useEffect(() => {
+    const unsubscribe = motionValue.onChange(setScaleState);
     return unsubscribe;
   }, []);
 
-  return scale;
+  return scaleState;
 }
 
 function useColorScale(series) {
