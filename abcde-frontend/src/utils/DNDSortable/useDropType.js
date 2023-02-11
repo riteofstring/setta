@@ -1,5 +1,6 @@
 import { DropType, useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
+import { useCallback } from "react";
 
 export function useOnDragMove() {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
@@ -8,16 +9,26 @@ export function useOnDragMove() {
   const currOverDropType = useDndState((x) => x.overDropType);
   const currParentDropType = useDndState((x) => x.parentDropType);
   const setOver = useDndState((x) => x.setOver);
-  return (props) =>
-    onDragMove({
-      ...props,
+  return useCallback(
+    (props) =>
+      onDragMove({
+        ...props,
+        isMovingFree,
+        currOver,
+        currParent,
+        currOverDropType,
+        currParentDropType,
+        setOver,
+      }),
+    [
       isMovingFree,
       currOver,
       currParent,
       currOverDropType,
       currParentDropType,
       setOver,
-    });
+    ]
+  );
 }
 
 export function onDragStart({ active }) {
