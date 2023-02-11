@@ -1,7 +1,7 @@
 import { closestCorners, DndContext, DragOverlay } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { DropType, getDropType, useDndActive } from "hooks/useDndUtils";
-import { useDragActivation } from "hooks/useDragActivation";
+import { useDragActivation } from "models/dragActivation";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
@@ -11,7 +11,6 @@ import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { customCollisionDetection } from "./collisionDetection";
 import { DummySection } from "./DummySection";
-
 import { useDNDSensors } from "./useDNDSensors";
 
 function onSortEnd({ active, over }) {
@@ -68,7 +67,8 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
 export function GlobalDndContext({ children }) {
   const { active, onDragStart, onDragEnd: setActiveOnDragEnd } = useDndActive();
   const dummyRef = useRef(null);
-  const { isSorting, isMovingFree } = useDragActivation();
+  const isSorting = useDragActivation((x) => x.isSorting);
+  const isMovingFree = useDragActivation((x) => x.isMovingFree);
   const sensors = useDNDSensors();
   const { project } = useReactFlow();
 
