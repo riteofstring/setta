@@ -1,5 +1,5 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { useDragActivation } from "models/dragActivation";
+import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 // import resolveConfig from 'tailwindcss/resolveConfig'
 // import tailwindConfig from '../../tailwind.config.js'
@@ -62,7 +62,7 @@ export function getDropType(active, over, collisions) {
 }
 
 export function useHighlightDroppable(sectionId: string) {
-  const isMovingFree = useDragActivation((x) => x.isMovingFree);
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const [highlight, setHighlight] = useState<DropType>(DropType.NONE);
 
   function onDragDone() {
@@ -149,7 +149,7 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   function disableSort({ active }) {
     const containerId = active.data.current.sortable?.containerId;
-    const { isSorting, isMovingFree } = useDragActivation.getState();
+    const { isSorting, isMovingFree } = useKeyActivations.getState();
     // Freely moving this section or ancestor of this section
     if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });

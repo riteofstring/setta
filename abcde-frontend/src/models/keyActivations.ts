@@ -1,0 +1,32 @@
+import { create } from "./utils";
+
+const initialState = {
+  isSorting: false,
+  isMovingFree: false,
+  isParamFilter: false,
+};
+
+function createAndAttachEventListeners(fn) {
+  const state = create(fn);
+
+  const conditions = {
+    isSorting: (e) => e.key === "Control",
+    isMovingFree: (e) => e.key === "Alt",
+  };
+
+  for (const [attrName, cond] of Object.entries(conditions)) {
+    window.addEventListener("keydown", (e) =>
+      state.getState().setActivation(attrName, cond(e))
+    );
+    window.addEventListener("keyup", () =>
+      state.getState().setActivation(attrName, false)
+    );
+  }
+
+  return state;
+}
+
+export const useKeyActivations = createAndAttachEventListeners((set) => ({
+  ...initialState,
+  setActivation: (key, value) => set({ [key]: value }),
+}));
