@@ -90,15 +90,10 @@ function Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
-  if (isDeck) {
-    return (
-      <>
-        <div className="BIG flex flex-1">
-          <div className="h-10 w-72 bg-red-300">Drop</div>
-        </div>
-        {/* {highlight === DropType.ABOVE && (
 
-        )} */}
+  return (
+    <>
+      {isDeck ? (
         <div
           className={`${className} rounded-3xl px-8 pt-3 pb-6`}
           style={{
@@ -110,30 +105,15 @@ function Container({
           <DeckSectionTitle sectionId={sectionId} />
           {children}
         </div>
-        <div className="flex flex-1">
-          <div className="h-10 w-72 bg-red-300">Drop</div>
+      ) : (
+        <div
+          className={`${className}`}
+          style={highlightDroppableStyle}
+          {...commonProps}
+        >
+          {children}
         </div>
-        {/* {highlight === DropType.BELOW && <div></div>} */}
-      </>
-    );
-  }
-  return (
-    <>
-      <div className="absolute -top-5 flex w-full justify-center">
-        <div className="grid h-10 w-72 place-items-center rounded-full font-heading font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity [background-color:rgba(37,_99,_235,_0.8)]">
-          Drop
-        </div>
-      </div>
-      <div
-        className={`${className}`}
-        style={highlightDroppableStyle}
-        {...commonProps}
-      >
-        {children}
-      </div>
-      <div className="BIG flex flex-1">
-        <div className="h-10 w-72 bg-red-300">Drop</div>
-      </div>
+      )}
     </>
   );
 }
