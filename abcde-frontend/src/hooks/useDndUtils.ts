@@ -7,13 +7,8 @@ import colors from "tailwindcss/colors";
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const highlight = useDndState((x) => {
-    if (isMovingFree) {
-      if (x.over === sectionId) {
-        return x.overDropType;
-      }
-      if (x.parent === sectionId) {
-        return x.parentDropType;
-      }
+    if (isMovingFree && x.over === sectionId) {
+      return x.overDropType;
     }
     return DropType.NONE;
   });
@@ -23,7 +18,7 @@ export function useHighlightDroppable(sectionId: string) {
       style: {},
       highlight,
     };
-  } else if (highlight === DropType.INTO) {
+  } else {
     return {
       style: {
         borderRadius: "1.5rem",
@@ -32,16 +27,6 @@ export function useHighlightDroppable(sectionId: string) {
         transition: "background-color 0.2s",
         backgroundColor: colors.blue[500],
       },
-      highlight,
-    };
-  } else if (highlight === DropType.ABOVE) {
-    return {
-      style: {},
-      highlight,
-    };
-  } else if (highlight === DropType.BELOW) {
-    return {
-      style: {},
       highlight,
     };
   }
@@ -81,4 +66,10 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
   });
 
   return disabled;
+}
+
+export function useIsDraggingFreely() {
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const activeIsTruthy = useDndState((x) => !!x.active);
+  return isMovingFree && activeIsTruthy;
 }
