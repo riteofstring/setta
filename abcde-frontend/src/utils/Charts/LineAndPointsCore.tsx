@@ -46,29 +46,22 @@ function _LineAndPointsCore({
         lineData.values.map((d, j) => (
           <circle
             key={j}
-            r={5}
+            r={2}
             cx={xScale(d.x)}
             cy={yScale(d.y)}
             stroke={colorScale(lineData.name)}
             fill={colorScale(lineData.name)}
           />
         ))}
-      <AxisLeft
-        scale={yScale}
-        hideAxisLine
-        hideTicks
-        labelClassName="text-slate-500 font-body"
-        left={-8}
-        tickClassName="[&_*]text-slate-500 font-body"
-      />
-      <AxisBottom scale={xScale} top={yMax + 8} hideAxisLine hideTicks />
+      <AxisLeft scale={yScale} />
+      <AxisBottom scale={xScale} top={yMax} />
       <LinePath
         curve={allCurves[curveType]}
         data={lineData.values}
         x={(d) => xScale(d.x) ?? 0}
         y={(d) => yScale(d.y) ?? 0}
         stroke={colorScale(lineData.name)}
-        strokeWidth={4}
+        strokeWidth={2}
         strokeOpacity={0.6}
         shapeRendering="geometricPrecision"
         markerMid="url(#marker-circle)"

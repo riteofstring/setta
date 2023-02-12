@@ -27,23 +27,18 @@ export function ResponsiveMiniMap() {
           if (n.type === "output") return "#ff0072";
           if (n.type === "default") return "#1a192b";
 
-          return "#e2e8f0";
+          return "#e2e8f07f";
         }}
         nodeColor={(n) => {
           if (n.style?.background) return n.style.background;
 
-          return "#e2e8f0";
+          return "#A0AEC07f";
         }}
         nodeBorderRadius={5}
         style={{
           borderRadius: "16px",
           overflow: "hidden",
-          fill: "blue",
         }}
-        className="shadow-md backdrop-blur-sm"
-        maskColor="rgb(51, 65, 85, 0.3)"
-        maskStrokeColor=""
-        maskStrokeWidth="1"
       />
     </motion.div>
   );
