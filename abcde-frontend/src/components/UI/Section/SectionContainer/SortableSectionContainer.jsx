@@ -11,18 +11,24 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({
-      id: sectionId,
-      data: { isTopLevel: false },
-    });
+  // remove 'role' because we don't want sections to be "role=button"
+  const {
+    attributes: { role, ...restAttributes },
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({
+    id: sectionId,
+    data: { isTopLevel: false },
+  });
   return (
     <SortableCore
       sectionId={sectionId}
       parentId={parentId}
       nextId={nextId}
       ancestorSet={ancestorSet}
-      attributes={attributes}
+      attributes={restAttributes}
       listeners={listeners}
       setNodeRef={setNodeRef}
       transform={transform}

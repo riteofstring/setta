@@ -1,7 +1,7 @@
 import { useAuth } from "models/auth";
 import { useParams } from "react-router-dom";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
-import { CommunityButton } from "./CommunityButton/CommunityButton";
+import { ClearHistoryButton } from "./ClearHistoryButton/ClearHistoryButton";
 import { CreateGroupButton } from "./CreateGroupButton/CreateGroupButton";
 import { CreateSectionButton } from "./CreateSectionButton/CreateSectionButton";
 import { FileMenu } from "./FileMenu/FileMenu";
@@ -30,8 +30,7 @@ function UiEditorSubNav() {
   return (
     <>
       <FileMenu />
-      {/* <ClearHistoryButton /> */}
-      <CommunityButton />
+      <ClearHistoryButton />
       <VerticalLine />
       <CreateSectionButton />
       <CreateGroupButton />
