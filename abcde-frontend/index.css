@@ -9,6 +9,15 @@
   background-size: cover;
 }
 
+[type="radio"]:checked {
+  background-image: url('data:image/svg+xml,<svg viewBox="-2.5 -2.5 10 10" fill="rgb(255,255,255)" xmlns="http://www.w3.org/2000/svg"><circle cx="2.5" cy="2.5" r="1.75" /></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+
+
 * {
   /* outline: 1px solid green; */
   /* background: hsla(0, 100%, 50%, 0.1); */
