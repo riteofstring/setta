@@ -5,7 +5,9 @@ import {
 } from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useState } from "react";
+import { initializeParam } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { checkboxChangeFn, radioChangeFn } from "utils/utils";
@@ -19,6 +21,7 @@ export function CollectionsSearch({ sectionId }) {
   async function onSelectionChange({ newValueFn, id }) {
     // collection needs to be retrieved from db
     await getCollectionDetails(id);
+    initializeParam(sectionId, useCodeInfo.getState().params[id]);
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "collections", newValueFn },
