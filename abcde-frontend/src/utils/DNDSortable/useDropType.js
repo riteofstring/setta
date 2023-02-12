@@ -1,10 +1,8 @@
 import { DropType, useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
-import { useStore } from "react-flow-renderer";
 
 export function useOnDragMove() {
-  const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const currOver = useDndState((x) => x.over);
   const currParent = useDndState((x) => x.parent);
@@ -15,7 +13,6 @@ export function useOnDragMove() {
     (props) =>
       onDragMove({
         ...props,
-        zoom,
         isMovingFree,
         currOver,
         currParent,
@@ -24,7 +21,6 @@ export function useOnDragMove() {
         setOver,
       }),
     [
-      zoom,
       isMovingFree,
       currOver,
       currParent,
@@ -49,7 +45,6 @@ function onDragMove({
   active,
   over,
   collisions,
-  zoom,
   isMovingFree,
   currOver,
   currParent,
@@ -64,10 +59,10 @@ function onDragMove({
     let parentId = null;
     if (over) {
       overId = over.id;
-      overDropType = getDropType(active, over, collisions, zoom);
+      overDropType = getDropType(active, over, collisions);
       if (
         over.data.current.sortable?.containerId &&
-        !getLeftDistCondition(collisions, zoom)
+        !getLeftDistCondition(collisions)
       ) {
         parentId = over.data.current.sortable?.containerId;
         parentDropType = DropType.INTO;
@@ -84,16 +79,11 @@ function onDragMove({
   }
 }
 
-function getLeftDistCondition(collisions, zoom) {
-  // true if section has not children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
-  return (
-    !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 200 * zoom
-  );
+function getLeftDistCondition(collisions) {
+  return collisions[0]?.data.leftDist > 50;
 }
 
-export function getDropType(active, over, collisions, zoom) {
+export function getDropType(active, over, collisions) {
   // Weird case where collisions[0] doesn't agree with over.id).
   // Or if active === over
   if (collisions[0]?.id !== over.id || active.id === over.id) {
@@ -101,7 +91,7 @@ export function getDropType(active, over, collisions, zoom) {
   }
 
   // Drop into section if leftOffset is large enough or if there is no parent
-  if (!over.data.current.sortable || getLeftDistCondition(collisions, zoom)) {
+  if (!over.data.current.sortable || getLeftDistCondition(collisions)) {
     return DropType.INTO;
   }
 

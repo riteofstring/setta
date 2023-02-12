@@ -35,12 +35,7 @@ export function ResponsiveMiniMap() {
           return "#e2e8f0";
         }}
         nodeBorderRadius={5}
-        style={{
-          borderRadius: "16px",
-          overflow: "hidden",
-          fill: "blue",
-        }}
-        className="shadow-md backdrop-blur-sm"
+        className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm"
         maskColor="rgb(51, 65, 85, 0.3)"
         maskStrokeColor=""
         maskStrokeWidth="1"

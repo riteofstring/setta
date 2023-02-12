@@ -28,26 +28,10 @@ function compareCollisions(a, b) {
   if (cidA && cidB) {
     const la = a.data.absLeftDist;
     const lb = b.data.absLeftDist;
-    const rawLa = a.data.leftDist;
-    const rawLb = b.data.leftDist;
-    // if left-aligned, return rect with larger intersection
     if (la - lb === 0) {
       return rb - ra > 0 ? b : a;
     }
-    // if the active rect is to the right of both rects, then return the one that has the closest left edge
-    if (rawLa > 0 && rawLb > 0) {
-      return la - lb > 0 ? b : a;
-    }
-    // if b's left edge is closer than a's left edge
-    // and the active rect is to the left of b, then return b
-    if (la - lb > 0) {
-      return rawLb < 0 ? b : a;
-    }
-    // if a's left edge is closer than b's left edge
-    // and the active rect is to the left of a, then return a
-    if (lb - la > 0) {
-      return rawLa < 0 ? a : b;
-    }
+    return la - lb > 0 ? b : a;
   }
   // for two non-sortables, use intersection area
   return rb - ra > 0 ? b : a;
@@ -97,8 +81,9 @@ export const customCollisionDetection = ({
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
+        const currLeft = rect.left;
         const currCenterY = rect.top + rect.height / 2;
-        const dist = left - rect.left;
+        const dist = left - currLeft;
         bestCollision = compareCollisions(bestCollision, {
           id,
           data: {

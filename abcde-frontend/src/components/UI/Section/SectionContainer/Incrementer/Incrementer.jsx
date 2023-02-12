@@ -61,7 +61,7 @@ export function Incrementer({
             {isRoot && <FiCornerRightDown className="mr-1 text-slate-600" />}
 
             <input
-              className="nodrag max-w-[3ch] rounded-md bg-white px-2 text-xs focus-visible:ring-2 cursor-auto"
+              className="nodrag max-w-[3ch] rounded-md bg-white px-2 text-xs focus-visible:ring-2"
               value={numSections}
               onChange={(e) => numSectionsOnChange(e.target.value)}
               aria-label="Number of sections"
@@ -72,7 +72,6 @@ export function Incrementer({
               onClick={() => deleteChildren(numSections)}
               disabled={!decrementButtonCondition()}
               aria-label="Delete child section"
-              role="button"
             >
               <AiOutlineMinus />
             </button>
@@ -81,7 +80,6 @@ export function Incrementer({
               className="nodrag rounded-full focus-visible:ring-2"
               onClick={() => addSections(numSections)}
               aria-label="Add child section"
-              role="button"
             >
               <AiOutlinePlus />
             </button>

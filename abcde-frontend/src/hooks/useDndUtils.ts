@@ -82,9 +82,3 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   return disabled;
 }
-
-export function useIsDraggingFreely() {
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const activeIsTruthy = useDndState((x) => !!x.active);
-  return isMovingFree && activeIsTruthy;
-}
