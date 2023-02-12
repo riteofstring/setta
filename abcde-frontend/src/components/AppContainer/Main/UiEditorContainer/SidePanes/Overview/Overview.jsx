@@ -3,7 +3,6 @@ import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
-import { InfoView } from "./InfoView/InfoView";
 import { SectionListItems } from "./SectionList/SectionListItems";
 
 const paneProps = {
@@ -34,7 +33,6 @@ export function Overview() {
       <div className="flex-grow overflow-y-auto">
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
       </div>
-      <InfoView />
     </PaneContainer>
   );
 }
