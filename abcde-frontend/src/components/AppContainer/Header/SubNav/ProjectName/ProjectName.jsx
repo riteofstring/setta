@@ -55,25 +55,3 @@ function ProjectNameCore({ name, setName, titleProps }) {
     />
   );
 }
-
-// <input
-// // id=""
-// // name=""
-// placeholder={configName}
-// // type=""
-// // value={value}
-// // onChange={onChange}
-// // onBlur={onBlur}
-// className="mb-2 box-border resize-none border-solid border-transparent bg-transparent py-2 px-1 font-heading text-xl font-bold tracking-tight placeholder-slate-600 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500"
-// />
-// /
-// <input
-// // id=""
-// // name=""
-// placeholder={name}
-// // type=""
-// // value={value}
-// // onChange={onChange}
-// // onBlur={onBlur}
-// className="mb-2 box-border resize-none border-solid border-transparent bg-transparent py-2 px-1 font-heading text-xl font-bold tracking-tight placeholder-slate-600 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500"
-// />
