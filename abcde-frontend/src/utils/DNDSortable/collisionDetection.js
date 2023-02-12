@@ -35,7 +35,7 @@ function compareCollisions(a, b) {
       return rb - ra > 0 ? b : a;
     }
     // if the active rect is to the right of both rects, then return the one that has the closest left edge
-    if (rawLa > 0 && rawLa > 0) {
+    if (rawLa > 0 && rawLb > 0) {
       return la - lb > 0 ? b : a;
     }
     // if b's left edge is closer than a's left edge
