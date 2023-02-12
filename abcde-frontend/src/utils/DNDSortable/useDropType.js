@@ -107,8 +107,8 @@ export function getDropType(active, over, collisions, zoom) {
 
   // Dropping into a list from outside
   // If the target is anything other than the first element, then drop below it
-  if (overIndex > 0) {
-    return DropType.BELOW;
+  if (overIndex < siblings.length - 1) {
+    return DropType.ABOVE;
   }
   // If the target is the first element
   const centerYCondition = collisions[0].data.centerYDist < 0;
