@@ -1,17 +1,13 @@
 import { useAuth } from "models/auth";
 import { useLocation, useParams } from "react-router-dom";
-import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
-import { CreateGroupButton } from "./CreateGroupButton/CreateGroupButton";
-import { CreateSectionButton } from "./CreateSectionButton/CreateSectionButton";
 import { FileMenu } from "./FileMenu/FileMenu";
-import { ProjectName } from "./ProjectName/ProjectName";
 import { RunButton } from "./RunButton/RunButton";
 
 export function SubNav() {
   return (
     <div className="ml-4 flex space-x-2">
-      <VerticalLine />
+      {/* <VerticalLine /> */}
       <NavSwitch />
     </div>
   );
@@ -31,16 +27,14 @@ function NavSwitch() {
 function UiEditorSubNav() {
   return (
     <>
+      {/* <VerticalLine /> */}
       <FileMenu />
       {/* <BackToProject /> */}
       <CommunityButton />
-      <VerticalLine />
-      <CreateSectionButton />
-      <CreateGroupButton />
-      <VerticalLine />
 
+      {/* <CreateSectionButton />
+      <CreateGroupButton /> */}
       <RunButton />
-      <ProjectName />
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
@@ -23,6 +24,7 @@ export function Overview() {
       paneTitle="Overview"
       onResizeStop={onResizeStop}
     >
+      <ProjectName />
       <div className="pb-4">
         <StandardSearch
           inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1"
