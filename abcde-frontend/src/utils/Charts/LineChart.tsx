@@ -57,53 +57,55 @@ export function LineChart({
   }
   //
   return (
-    <div className="flex flex-col" onClick={() => generateNewTestData()}>
-      <svg width={width} height={svgHeight}>
-        <rect
-          width={width}
-          height={rectHeight}
-          className="fill-slate-200"
-          rx={10}
-          ry={10}
-        />
-        <LineAndPointsCore
-          showPoints={showPoints}
-          series={series}
-          xMax={xMax}
-          yMax={yMax}
-          curveType={curveType}
-          showTooltip={showTooltip}
-          hideTooltip={hideTooltip}
-          colorScale={colorScale}
-          margin={margin}
-          groupTop={groupTop}
-          groupLeft={groupLeft}
-        />
-        {tooltipData && (
-          <g>
-            <Line
-              from={{ x: tooltipLineX, y: tooltipLineY.from }}
-              to={{ x: tooltipLineX, y: tooltipLineY.to }}
-              stroke={accentColorDark}
-              strokeWidth={2}
-              pointerEvents="none"
-              strokeDasharray="5,2"
-            />
-            {tooltipData.map((d, idx) => (
-              <circle
-                cx={d.x}
-                cy={d.y}
-                r={4}
-                fill={accentColorDark}
-                stroke="white"
+    <div className="flex flex-col gap-2" onClick={() => generateNewTestData()}>
+      <div className="overflow-hidden rounded-3xl border border-solid border-white shadow-sm">
+        <svg width={width} height={svgHeight}>
+          <rect
+            width={width}
+            height={rectHeight}
+            className="fill-slate-200"
+            rx={10}
+            ry={10}
+          />
+          <LineAndPointsCore
+            showPoints={showPoints}
+            series={series}
+            xMax={xMax}
+            yMax={yMax}
+            curveType={curveType}
+            showTooltip={showTooltip}
+            hideTooltip={hideTooltip}
+            colorScale={colorScale}
+            margin={margin}
+            groupTop={groupTop}
+            groupLeft={groupLeft}
+          />
+          {tooltipData && (
+            <g>
+              <Line
+                from={{ x: tooltipLineX, y: tooltipLineY.from }}
+                to={{ x: tooltipLineX, y: tooltipLineY.to }}
+                stroke={accentColorDark}
                 strokeWidth={2}
                 pointerEvents="none"
-                key={`circle-${idx}`}
+                strokeDasharray="5,2"
               />
-            ))}
-          </g>
-        )}
-      </svg>
+              {tooltipData.map((d, idx) => (
+                <circle
+                  cx={d.x}
+                  cy={d.y}
+                  r={4}
+                  fill={accentColorDark}
+                  stroke="white"
+                  strokeWidth={2}
+                  pointerEvents="none"
+                  key={`circle-${idx}`}
+                />
+              ))}
+            </g>
+          )}
+        </svg>
+      </div>
       {tooltipData && (
         <TooltipWithBounds
           key={Math.random()}
