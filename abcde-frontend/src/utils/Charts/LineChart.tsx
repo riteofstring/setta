@@ -59,12 +59,12 @@ export function LineChart({
   const legendGlyphSize = 15;
   return (
     <div className="flex flex-col gap-4" onClick={() => generateNewTestData()}>
-      <div className="overflow-hidden rounded-3xl border border-solid border-white shadow-sm ">
+      <div className="overflow-hidden rounded-3xl shadow-sm ">
         <svg width={width} height={svgHeight}>
           <rect
             width={width}
             height={rectHeight}
-            className="fill-slate-100"
+            className="fill-white"
             rx={10}
             ry={10}
           />
