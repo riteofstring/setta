@@ -8,7 +8,7 @@ import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionConte
 import { useState } from "react";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { checkboxChangeFn } from "utils/utils";
+import { checkboxChangeFn, radioChangeFn } from "utils/utils";
 
 export function CollectionsSearch({ sectionId }) {
   const [results, setResults] = useState({});
@@ -37,6 +37,7 @@ export function CollectionsSearch({ sectionId }) {
       onSearch={onSearch}
       alreadySelected={selectedCollections}
       results={allResults}
+      isCheckbox={true}
       DetailsComponent={ObjCollectionDetails}
     />
   );
@@ -48,6 +49,7 @@ export function SectionConfigSearch({
   onSearch,
   alreadySelected,
   results,
+  isCheckbox,
   DetailsComponent,
 }) {
   // shadow-inner bg-white  border border-white py-2 px-3
@@ -67,6 +69,7 @@ export function SectionConfigSearch({
             details={x.children}
             checked={x.id in alreadySelected}
             onSelectionChange={onSelectionChange}
+            isCheckbox={isCheckbox}
             key={`SearchItem-${x.id}`}
             DetailsComponent={DetailsComponent}
           />
@@ -97,11 +100,14 @@ function SearchItem({
   details,
   checked,
   onSelectionChange,
+  isCheckbox,
   DetailsComponent,
 }) {
-  function onCheckboxChange(e) {
+  function onChange(e) {
     onSelectionChange({
-      newValueFn: checkboxChangeFn(e.target.checked, id),
+      newValueFn: isCheckbox
+        ? checkboxChangeFn(e.target.checked, id)
+        : radioChangeFn(e.target.checked, id),
       id,
     });
   }
@@ -109,10 +115,10 @@ function SearchItem({
   return (
     <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black">
       <input
-        type="checkbox"
+        type={isCheckbox ? "checkbox" : "radio"}
         className="mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer rounded-md border-slate-300 bg-slate-200 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300"
         checked={checked}
-        onChange={onCheckboxChange}
+        onChange={onChange}
       />
       <label className="w-full">
         <DetailsComponent details={details}>

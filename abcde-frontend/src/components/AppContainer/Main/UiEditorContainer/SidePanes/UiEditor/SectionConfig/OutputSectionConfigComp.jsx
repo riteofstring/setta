@@ -11,7 +11,7 @@ export function OutputsSearch({ sectionId }) {
   async function onSelectionChange({ newValueFn }) {
     setSectionUITypeConfig({
       sectionId,
-      configProps: { configName: "outputGroups", newValueFn },
+      configProps: { configName: "outputGroup", newValueFn },
     });
   }
 
@@ -22,6 +22,7 @@ export function OutputsSearch({ sectionId }) {
       onSearch={() => {}}
       alreadySelected={alreadySelected}
       results={outputGroups}
+      isCheckbox={false}
       DetailsComponent={OutputDetails}
     />
   );
