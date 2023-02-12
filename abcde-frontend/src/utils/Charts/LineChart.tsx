@@ -1,6 +1,5 @@
-import { LegendOrdinal } from "@visx/legend";
+import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { Line } from "@visx/shape";
-import { Text } from "@visx/text";
 import { TooltipWithBounds } from "@visx/tooltip";
 import { updateOutput } from "thunks/outputs";
 import { getTooltipText } from "./getTooltipText";
@@ -9,7 +8,7 @@ import { useColorScale } from "./useColorScale";
 import { useCustomTooltip } from "./useCustomTooltip";
 
 const accentColorDark = "#75daad";
-const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
+const defaultMargin = { top: 50, right: 40, bottom: 60, left: 60 };
 const defaultLegendHeight = 30;
 const minHeight = 0;
 const minWidth = 0;
@@ -17,7 +16,6 @@ const minWidth = 0;
 type CurveProps = {
   width: number;
   height: number;
-  title: string;
   series;
   curveType?: string;
   showPoints?: boolean;
@@ -28,7 +26,6 @@ type CurveProps = {
 export function LineChart({
   width,
   height,
-  title,
   series,
   curveType = "curveLinear",
   showPoints = true,
@@ -58,65 +55,58 @@ export function LineChart({
   if (xMax < minWidth || yMax < minHeight) {
     return null;
   }
-
+  //
+  const legendGlyphSize = 15;
   return (
-    <div className="py-2 px-3" onClick={() => generateNewTestData()}>
-      <svg width={width} height={svgHeight}>
-        <rect
-          width={width}
-          height={rectHeight}
-          className="fill-slate-200"
-          rx={10}
-          ry={10}
-        />
-        <Text
-          dx="25"
-          dy="25"
-          textAnchor="start"
-          fontFamily="Work Sans"
-          verticalAnchor="start"
-          style={{ color: "", fontSize: "2rem" }}
-        >
-          {title}
-        </Text>
-        <LineAndPointsCore
-          showPoints={showPoints}
-          series={series}
-          xMax={xMax}
-          yMax={yMax}
-          curveType={curveType}
-          showTooltip={showTooltip}
-          hideTooltip={hideTooltip}
-          colorScale={colorScale}
-          margin={margin}
-          groupTop={groupTop}
-          groupLeft={groupLeft}
-        />
-        {tooltipData && (
-          <g>
-            <Line
-              from={{ x: tooltipLineX, y: tooltipLineY.from }}
-              to={{ x: tooltipLineX, y: tooltipLineY.to }}
-              stroke={accentColorDark}
-              strokeWidth={2}
-              pointerEvents="none"
-              strokeDasharray="5,2"
-            />
-            {tooltipData.map((d, idx) => (
-              <circle
-                cx={d.x}
-                cy={d.y}
-                r={4}
-                fill={accentColorDark}
-                stroke="white"
+    <div className="flex flex-col gap-4" onClick={() => generateNewTestData()}>
+      <div className="overflow-hidden rounded-3xl shadow-sm ">
+        <svg width={width} height={svgHeight}>
+          <rect
+            width={width}
+            height={rectHeight}
+            className="fill-white"
+            rx={10}
+            ry={10}
+          />
+          <LineAndPointsCore
+            showPoints={showPoints}
+            series={series}
+            xMax={xMax}
+            yMax={yMax}
+            curveType={curveType}
+            showTooltip={showTooltip}
+            hideTooltip={hideTooltip}
+            colorScale={colorScale}
+            margin={margin}
+            groupTop={groupTop}
+            groupLeft={groupLeft}
+          />
+          {tooltipData && (
+            <g>
+              <Line
+                from={{ x: tooltipLineX, y: tooltipLineY.from }}
+                to={{ x: tooltipLineX, y: tooltipLineY.to }}
+                stroke={accentColorDark}
                 strokeWidth={2}
                 pointerEvents="none"
-                key={`circle-${idx}`}
+                strokeDasharray="5,2"
               />
-            ))}
-          </g>
-        )}
-      </svg>
+              {tooltipData.map((d, idx) => (
+                <circle
+                  cx={d.x}
+                  cy={d.y}
+                  r={4}
+                  fill={accentColorDark}
+                  stroke="white"
+                  strokeWidth={2}
+                  pointerEvents="none"
+                  key={`circle-${idx}`}
+                />
+              ))}
+            </g>
+          )}
+        </svg>
+      </div>
       {tooltipData && (
         <TooltipWithBounds
           key={Math.random()}
@@ -132,7 +122,33 @@ export function LineChart({
         direction="row"
         labelMargin="0 15px 0 0"
         style={{ height: legendHeight, display: "flex" }}
-      />
+      >
+        {(labels) => (
+          <div className="flex gap-2">
+            {labels.map((label, i) => (
+              <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
+                <svg width={legendGlyphSize} height={legendGlyphSize}>
+                  <circle
+                    fill={label.value}
+                    // width={legendGlyphSize}
+                    // height={legendGlyphSize}
+                    cx="7.5"
+                    cy="7.5"
+                    r="7.5"
+                  />
+                </svg>
+                <LegendLabel
+                  align="left"
+                  margin="0 0 0 4px"
+                  className="text-sm text-slate-500"
+                >
+                  {label.text}
+                </LegendLabel>
+              </LegendItem>
+            ))}
+          </div>
+        )}
+      </LegendOrdinal>
     </div>
   );
 }

@@ -70,11 +70,11 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
 }
 
 export function useGetSelectedOutputNames(sectionId: string) {
-  const groupIds = useGetSectionTypeConfig(sectionId, "outputGroups");
-  return useOutputNames(groupIds);
+  const groupId = useGetSectionTypeConfig(sectionId, "outputGroup");
+  return useOutputNames(groupId);
 }
 
 export function useGetSelectedOutputValues(sectionId: string) {
-  const groupIds = useGetSectionTypeConfig(sectionId, "outputGroups");
-  return useOutputValues(groupIds);
+  const groupId = useGetSectionTypeConfig(sectionId, "outputGroup");
+  return useOutputValues(groupId);
 }

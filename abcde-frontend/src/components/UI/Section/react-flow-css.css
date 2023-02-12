@@ -12,3 +12,7 @@
   z-index: auto;
   pointer-events: none;
 }
+
+.react-flow__minimap {
+  background-color: #94a3b8b6;
+}
