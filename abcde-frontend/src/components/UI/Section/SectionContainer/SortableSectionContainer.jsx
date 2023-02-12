@@ -56,7 +56,7 @@ function _SortableCore({
   transform,
   transition,
 }) {
-  const overIsSelf = useDndState((x) => x.over === sectionId);
+  const overIsSelf = useDndState((x) => x.overId === sectionId);
   const store = useStoreApi();
   const scaledTransform = transformWithZoom(transform, store);
 

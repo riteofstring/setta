@@ -2,9 +2,9 @@ import { DropType } from "utils/DNDSortable/dropTypes";
 import { create } from "../utils";
 
 export const initialState = {
-  active: null,
+  activeId: null,
   activeIsTopLevel: false,
-  over: null,
+  overId: null,
   overDropType: DropType.NONE,
   centerYCondition: false,
 };
@@ -12,7 +12,7 @@ export const initialState = {
 export const useDndState = create((set) => ({
   ...initialState,
   setActive: ({ id, isTopLevel }) =>
-    set({ active: id, activeIsTopLevel: isTopLevel }),
+    set({ activeId: id, activeIsTopLevel: isTopLevel }),
   setOver: (props) => set(props),
   reset: () => set(initialState),
 }));

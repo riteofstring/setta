@@ -52,7 +52,7 @@ function _DndWatcherAndContainer({
   style,
   children,
 }) {
-  const activeIsSelf = useDndState((x) => x.active === sectionId);
+  const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const isSorting = useKeyActivations((x) => x.isSorting);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const isDraggingSortable = parentId && (isSorting || isMovingFree);

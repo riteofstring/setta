@@ -9,13 +9,13 @@ import { getSiblingDropType } from "utils/DNDSortable/useDropType";
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const highlight = useDndState((x) => {
-    if (isMovingFree && x.over === sectionId) {
+    if (isMovingFree && x.overId === sectionId) {
       return x.overDropType;
     }
     return DropType.NONE;
   });
-  const activeId = useDndState((x) => x.active);
-  const overId = useDndState((x) => x.over);
+  const activeId = useDndState((x) => x.activeId);
+  const overId = useDndState((x) => x.overId);
   const centerYCondition = useDndState((x) => x.centerYCondition);
   const highlightSiblingType = getSiblingDropType({
     activeId,
@@ -83,6 +83,6 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
 export function useIsDraggingFreely() {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const activeIsTruthy = useDndState((x) => !!x.active);
+  const activeIsTruthy = useDndState((x) => !!x.activeId);
   return isMovingFree && activeIsTruthy;
 }

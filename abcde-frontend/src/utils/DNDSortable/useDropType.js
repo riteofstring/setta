@@ -8,7 +8,7 @@ import { DropType, SiblingDropType } from "utils/DNDSortable/dropTypes";
 export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const currOver = useDndState((x) => x.over);
+  const currOver = useDndState((x) => x.overId);
   const currOverDropType = useDndState((x) => x.overDropType);
   const currCenterYCondition = useDndState((x) => x.centerYCondition);
   const setOver = useDndState((x) => x.setOver);
@@ -60,7 +60,7 @@ function onDragMove({
       overDropType !== currOverDropType ||
       centerYCondition !== currCenterYCondition
     ) {
-      setOver({ over: overId, overDropType, centerYCondition });
+      setOver({ overId, overDropType, centerYCondition });
     }
   }
 }
