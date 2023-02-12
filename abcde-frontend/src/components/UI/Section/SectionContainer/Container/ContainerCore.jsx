@@ -39,7 +39,7 @@ function _Container({
     );
   }
   return (
-    <div className={className} style={style} {...commonProps}>
+    <div className={`${className}`} style={style} {...commonProps}>
       {children}
     </div>
   );

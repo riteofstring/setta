@@ -11,7 +11,6 @@ import { useActiveSection } from "models/activeSection";
 import { useSectionDescription } from "models/info/sectionDescription";
 import React from "react";
 import { BiInfoCircle } from "react-icons/bi";
-import { deleteChild } from "thunks/sections/deleteChild";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
@@ -31,13 +30,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
   const toggleDescVis = useSectionDescription((x) => x.toggleVisible);
-
-  const onCustomCloseButtonClick = (e) => {
-    // ignore onClick events in parent components
-    // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
-    e.stopPropagation();
-    deleteChild({ parentId, startId: sectionId });
-  };
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"
