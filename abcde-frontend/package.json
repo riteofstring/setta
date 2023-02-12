@@ -10,6 +10,7 @@
     "@fontsource/jetbrains-mono": "4.5.10",
     "@fontsource/source-code-pro": "4.5.14",
     "@fontsource/work-sans": "4.5.7",
+    "@radix-ui/react-accordion": "^1.1.0",
     "@radix-ui/react-collapsible": "1.0.1",
     "@radix-ui/react-dialog": "1.0.2",
     "@radix-ui/react-dropdown-menu": "1.0.0",
