@@ -8,11 +8,11 @@ import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
-import { VscSaveAs } from "react-icons/vsc";
+import { FiSave } from "react-icons/fi";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
+import { TextInputPopover } from "utils/atoms/popover/textinputpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -127,14 +127,14 @@ function _UIElement({ sectionId, paramInfo }) {
 
 function SaveAndConfig({ onSubmit, paramChildId }) {
   return (
-    <CodeGenPopover
+    <TextInputPopover
       trigger={
         <IconButton
           twClasses="row-start-1 row-end-2 col-start-1 col-end-2 place-self-end"
           size="w-4 h-4"
           padding="py-2 px-2"
         >
-          <VscSaveAs className="text-slate-500" />
+          <FiSave className="text-slate-500" />
         </IconButton>
       }
       body={<SubmitAsPreset onSubmit={onSubmit} />}
@@ -155,8 +155,18 @@ function SubmitAsPreset({ onSubmit }) {
 
   return (
     <>
-      <input placeholder="Preset Name" onChange={onChange} value={presetName} />
-      <Button onClick={localOnSubmit}>Done</Button>
+      <input
+        className="cursor-auto"
+        placeholder="Preset Name"
+        onChange={onChange}
+        value={presetName}
+      />
+      <Button
+        twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
+        onClick={localOnSubmit}
+      >
+        Save <FiSave className="text-slate-400" />
+      </Button>
     </>
   );
 }
