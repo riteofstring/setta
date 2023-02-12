@@ -25,7 +25,7 @@ export function ManyNestedSections({
       <div className="flex items-stretch">
         {!isDeck && (
           <div
-            className="mt-2 mr-2 min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36]"
+            className="mt-2 mr-10 min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:opacity-[.36]"
             onClick={onClick}
           />
         )}
