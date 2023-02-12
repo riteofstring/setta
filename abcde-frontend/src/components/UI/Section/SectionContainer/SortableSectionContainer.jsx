@@ -1,6 +1,5 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
@@ -12,17 +11,22 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const sortableProps = useSortable({
-    id: sectionId,
-    data: { isTopLevel: false },
-  });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: sectionId,
+      data: { isTopLevel: false },
+    });
   return (
     <SortableCore
-      sortableProps={sortableProps}
       sectionId={sectionId}
       parentId={parentId}
       nextId={nextId}
       ancestorSet={ancestorSet}
+      attributes={attributes}
+      listeners={listeners}
+      setNodeRef={setNodeRef}
+      transform={transform}
+      transition={transition}
     />
   );
 }
@@ -34,14 +38,14 @@ function _SortableCore({
   parentId,
   nextId,
   ancestorSet,
-  sortableProps,
+  attributes,
+  listeners,
+  setNodeRef,
+  transform,
+  transition,
 }) {
   const overIsSelf = useDndState((x) => x.over === sectionId);
   const store = useStoreApi();
-
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    sortableProps;
-
   const scaledTransform = transformWithZoom(transform, store);
 
   const style = {
@@ -64,7 +68,16 @@ function _SortableCore({
   );
 }
 
-const SortableCore = React.memo(_SortableCore, _.isEqual);
+const SortableCore = React.memo(
+  _SortableCore,
+  (p, n) =>
+    p.sectionId === n.sectionId &&
+    p.parentId === n.parentId &&
+    p.nextId === n.nextId &&
+    p.ancestorSet === n.ancestorSet &&
+    p.transform === n.transform &&
+    p.transition === n.transition
+);
 
 function transformWithZoom(transform, store) {
   if (transform) {
