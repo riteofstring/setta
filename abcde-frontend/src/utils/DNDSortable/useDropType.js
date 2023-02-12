@@ -7,9 +7,7 @@ export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const currOver = useDndState((x) => x.over);
-  const currParent = useDndState((x) => x.parent);
   const currOverDropType = useDndState((x) => x.overDropType);
-  const currParentDropType = useDndState((x) => x.parentDropType);
   const setOver = useDndState((x) => x.setOver);
   return useCallback(
     (props) =>
@@ -18,20 +16,10 @@ export function useOnDragMove() {
         zoom,
         isMovingFree,
         currOver,
-        currParent,
         currOverDropType,
-        currParentDropType,
         setOver,
       }),
-    [
-      zoom,
-      isMovingFree,
-      currOver,
-      currParent,
-      currOverDropType,
-      currParentDropType,
-      setOver,
-    ]
+    [zoom, isMovingFree, currOver, currOverDropType, setOver]
   );
 }
 
@@ -52,34 +40,18 @@ function onDragMove({
   zoom,
   isMovingFree,
   currOver,
-  currParent,
   currOverDropType,
-  currParentDropType,
   setOver,
 }) {
   if (isMovingFree) {
     let overDropType = DropType.NONE;
-    let parentDropType = DropType.NONE;
     let overId = null;
-    let parentId = null;
     if (over) {
       overId = over.id;
       overDropType = getDropType(active, over, collisions, zoom);
-      if (
-        over.data.current.sortable?.containerId &&
-        !getLeftDistCondition(collisions, zoom)
-      ) {
-        parentId = over.data.current.sortable?.containerId;
-        parentDropType = DropType.INTO;
-      }
     }
-    if (
-      overId !== currOver ||
-      parentId !== currParent ||
-      overDropType !== currOverDropType ||
-      parentDropType !== currParentDropType
-    ) {
-      setOver({ over: overId, parent: parentId, overDropType, parentDropType });
+    if (overId !== currOver || overDropType !== currOverDropType) {
+      setOver({ over: overId, overDropType });
     }
   }
 }

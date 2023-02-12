@@ -11,9 +11,7 @@ export const initialState = {
   active: null,
   activeIsTopLevel: false,
   over: null,
-  parent: null,
   overDropType: DropType.NONE,
-  parentDropType: DropType.NONE,
 };
 
 export const useDndState = create((set) => ({
