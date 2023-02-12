@@ -55,6 +55,8 @@ export function SectionConfigSearch({
   isCheckbox,
   DetailsComponent,
 }) {
+  // shadow-inner bg-white  border border-white py-2 px-3
+
   return (
     <div
       className="flex h-[inherit] flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0"
@@ -117,9 +119,7 @@ function SearchItem({
     <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black">
       <input
         type={isCheckbox ? "checkbox" : "radio"}
-        className={`mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer ${
-          isCheckbox ? "rounded-md" : "rounded-full"
-        } border-slate-300 bg-slate-400 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300`}
+        className="mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer rounded-md border-slate-300 bg-slate-200 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300"
         checked={checked}
         onChange={onChange}
       />
