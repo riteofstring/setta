@@ -16,9 +16,6 @@ export function Overview() {
 
   const onResizeStop = useUpdateMapPosition();
 
-  const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1";
-
   return (
     <PaneContainer
       paneProps={paneProps}
@@ -27,7 +24,7 @@ export function Overview() {
     >
       <div className="pb-4">
         <StandardSearch
-          inputStyles={inputStyles}
+          inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1"
           leftElementStyles="pl-1"
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Overview Search"
