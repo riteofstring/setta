@@ -6,6 +6,7 @@ import {
   onDragStart as onDragStartDropType,
   useOnDragMove as useOnDragMoveDropType,
 } from "./useDropType";
+import { useMeasuring } from "./useMeasuring";
 import { useModifiers } from "./useModifiers";
 import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 
@@ -15,6 +16,7 @@ export function GlobalDndContext({ children }) {
   const onDragMoveDropType = useOnDragMoveDropType();
   const { modifiers, collisionDetection } = useModifiers();
   const sensors = useDNDSensors();
+  const measuring = useMeasuring();
 
   function onDragStart(props) {
     onDragStartDropType(props);
@@ -37,6 +39,7 @@ export function GlobalDndContext({ children }) {
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
       modifiers={modifiers}
+      measuring={measuring}
     >
       {children}
       <DummyDragOverlay ref={dummyRef} />
