@@ -1,22 +1,34 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { DropType, useDndState } from "models/info/dndState";
+import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
+import { DropType } from "utils/DNDSortable/dropTypes";
+import { getSiblingDropType } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const highlight = useDndState((x) => {
-    if (isMovingFree && x.over === sectionId) {
+    if (isMovingFree && x.overId === sectionId) {
       return x.overDropType;
     }
     return DropType.NONE;
   });
+  const activeId = useDndState((x) => x.activeId);
+  const overId = useDndState((x) => x.overId);
+  const centerYCondition = useDndState((x) => x.centerYCondition);
+  const highlightSiblingType = getSiblingDropType({
+    activeId,
+    overId,
+    centerYCondition,
+    dropType: highlight,
+  })[0];
 
   if (highlight === DropType.NONE) {
     return {
       style: {},
       highlight,
+      highlightSiblingType,
     };
   } else {
     return {
@@ -28,6 +40,7 @@ export function useHighlightDroppable(sectionId: string) {
         backgroundColor: colors.blue[500],
       },
       highlight,
+      highlightSiblingType,
     };
   }
 }
@@ -70,6 +83,6 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
 export function useIsDraggingFreely() {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const activeIsTruthy = useDndState((x) => !!x.active);
+  const activeIsTruthy = useDndState((x) => !!x.activeId);
   return isMovingFree && activeIsTruthy;
 }

@@ -1,5 +1,6 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { useGetAllCallables } from "hooks/useSectionContents";
+import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
 import { useEffect } from "react";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
@@ -8,6 +9,7 @@ export function SectionSearch({
   onSelectedItemChange,
   initialSelection,
 }) {
+  const onClick = useSetReactFlowActiveSectionOnClick(sectionId);
   const searchableItems = useGetAllCallables(sectionId);
   const numSearchableItems = searchableItems.length;
 
@@ -24,6 +26,7 @@ export function SectionSearch({
         allItems={searchableItems}
         onSelectedItemChange={onSelectedItemChange}
         initialSelection={initialSelection}
+        onClick={onClick}
       />
     )
   );

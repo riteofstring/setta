@@ -8,13 +8,11 @@ import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
-import { BiPencil } from "react-icons/bi";
-import { FiSave } from "react-icons/fi";
+import { VscSaveAs } from "react-icons/vsc";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
-import { TextInputPopover } from "utils/atoms/popover/textinputpopover";
+import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -109,16 +107,7 @@ function _UIElement({ sectionId, paramInfo }) {
         <h3 className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-slate-500">
           {paramName}
         </h3>
-        <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          <InfoViewDescription
-            paramChildId={paramChildId}
-            onSubmit={onSaveAsSubmit}
-          />
-          <SaveAndConfig
-            paramChildId={paramChildId}
-            onSubmit={onSaveAsSubmit}
-          />
-        </div>
+        <SaveAndConfig paramChildId={paramChildId} onSubmit={onSaveAsSubmit} />
       </div>
 
       <UIConfigDropdownAndFields
@@ -136,52 +125,20 @@ function _UIElement({ sectionId, paramInfo }) {
   );
 }
 
-function InfoViewDescription({ onSubmit, paramChildId }) {
-  return (
-    <TextAreaPopover
-      inputClasses="rounded-lg"
-      trigger={
-        <IconButton twClasses="" size="w-4 h-4" padding="py-2 px-2">
-          <BiPencil className="text-slate-500" />
-        </IconButton>
-      }
-      header={"Description for Infoview"}
-      body={<InfoViewTextAndSubmit />}
-    />
-  );
-}
-
 function SaveAndConfig({ onSubmit, paramChildId }) {
   return (
-    <TextInputPopover
+    <CodeGenPopover
       trigger={
-        <IconButton size="w-4 h-4" padding="py-2 px-2">
-          <FiSave className="text-slate-500" />
+        <IconButton
+          twClasses="row-start-1 row-end-2 col-start-1 col-end-2 place-self-end"
+          size="w-4 h-4"
+          padding="py-2 px-2"
+        >
+          <VscSaveAs className="text-slate-500" />
         </IconButton>
       }
       body={<SubmitAsPreset onSubmit={onSubmit} />}
     />
-  );
-}
-
-function InfoViewTextAndSubmit() {
-  return (
-    <>
-      <textarea
-        className="cursor-auto overflow-y-auto overflow-x-hidden rounded-md py-2 px-3 focus-visible:outline focus-visible:outline-blue-500"
-        placeholder="Description"
-        rows="4"
-        cols="50"
-      />
-      <div className="self-end">
-        <Button
-          twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
-          // onClick={localOnSubmit}
-        >
-          Save <FiSave className="text-slate-400" />
-        </Button>
-      </div>
-    </>
   );
 }
 
@@ -198,18 +155,8 @@ function SubmitAsPreset({ onSubmit }) {
 
   return (
     <>
-      <input
-        className="cursor-auto"
-        placeholder="Preset Name"
-        onChange={onChange}
-        value={presetName}
-      />
-      <Button
-        twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
-        onClick={localOnSubmit}
-      >
-        Save <FiSave className="text-slate-400" />
-      </Button>
+      <input placeholder="Preset Name" onChange={onChange} value={presetName} />
+      <Button onClick={localOnSubmit}>Done</Button>
     </>
   );
 }

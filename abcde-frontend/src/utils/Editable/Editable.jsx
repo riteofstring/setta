@@ -49,7 +49,6 @@ function InEditMode({ value, onChange, onBlur, titleProps }) {
       onBlur={onBlur}
       className={titleProps}
       ref={inputRef}
-      // size="1"
     />
   );
 }

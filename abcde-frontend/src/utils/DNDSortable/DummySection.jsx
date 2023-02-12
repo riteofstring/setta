@@ -18,7 +18,7 @@ const DummySection = React.forwardRef(({ sectionId }, ref) => {
 });
 
 export const DummyDragOverlay = React.forwardRef((props, ref) => {
-  const activeId = useDndState((x) => x.active);
+  const activeId = useDndState((x) => x.activeId);
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
 
   return (
