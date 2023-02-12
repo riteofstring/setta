@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useHasNested } from "hooks/useSectionChildren";
 import { useDndState } from "models/info/dndState";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
@@ -12,6 +13,7 @@ function _SortableSectionContainer({
   ancestorSet,
 }) {
   // remove 'role' because we don't want sections to be "role=button"
+  const hasNested = useHasNested(sectionId)
   const {
     attributes: { role, ...restAttributes },
     listeners,
@@ -20,7 +22,7 @@ function _SortableSectionContainer({
     transition,
   } = useSortable({
     id: sectionId,
-    data: { isTopLevel: false },
+    data: { isTopLevel: false, hasNested },
   });
   return (
     <SortableCore

@@ -85,7 +85,12 @@ function onDragMove({
 }
 
 function getLeftDistCondition(collisions, zoom) {
-  return collisions[0]?.data.leftDist > 200 * zoom;
+  // true if section has not children
+  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
+  return (
+    !collisions[0]?.data.droppableContainer.data.current.hasNested &&
+    collisions[0]?.data.leftDist > 200 * zoom
+  );
 }
 
 export function getDropType(active, over, collisions, zoom) {
