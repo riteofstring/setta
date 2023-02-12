@@ -6,7 +6,7 @@ import { RunButton } from "./RunButton/RunButton";
 
 export function SubNav() {
   return (
-    <div className="ml-4 flex space-x-2">
+    <div className="flex space-x-2">
       {/* <VerticalLine /> */}
       <NavSwitch />
     </div>
