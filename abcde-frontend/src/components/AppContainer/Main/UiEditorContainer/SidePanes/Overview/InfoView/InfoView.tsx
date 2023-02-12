@@ -1,24 +1,33 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import classNames from "classnames";
 import React from "react";
-import { BiChevronDown } from "react-icons/bi";
+import { BiChevronUp } from "react-icons/bi";
 
-const AccordionDemo = () => (
-  <Accordion.Root className="" type="single" defaultValue="item-1" collapsible>
-    <AccordionItem value="item-1">
-      <AccordionTrigger>Infoview</AccordionTrigger>
-      <AccordionContent>
-        Yes. It adheres to the WAI-ARIA design pattern.
-      </AccordionContent>
-    </AccordionItem>
-  </Accordion.Root>
-);
+export function InfoView() {
+  // bg-mauve6 w-[300px]  shadow-black/5
+  return (
+    <Accordion.Root
+      className="mt-8 rounded-md border border-solid border-white shadow-sm"
+      type="single"
+      defaultValue="item-1"
+      collapsible
+    >
+      <AccordionItem value="item-1">
+        <AccordionTrigger>Infoview</AccordionTrigger>
+        <AccordionContent>
+          Yes. It adheres to the WAI-ARIA design pattern. lkjsldkjfs
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion.Root>
+  );
+}
 
+// focus-within:shadow-mauve12 mt-px  first:mt-0 first:rounded-t last:rounded-b focus-within:shadow-[0_0_0_2px]
 const AccordionItem = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Item
       className={classNames(
-        "focus-within:shadow-mauve12 mt-px overflow-hidden first:mt-0 first:rounded-t last:rounded-b focus-within:relative focus-within:z-10 focus-within:shadow-[0_0_0_2px]",
+        "focus-within:relative focus-within:z-10",
         className
       )}
       {...props}
@@ -29,17 +38,22 @@ const AccordionItem = React.forwardRef(
   )
 );
 
+// text-violet11 shadow-mauve6 shadow-[0_1px_0]
+
 const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Header className="flex">
       <Accordion.Trigger
-        className={`text-violet11 shadow-mauve6 hover:bg-mauve2 group flex h-[45px] flex-1 cursor-default items-center justify-between bg-white px-5 text-[15px] leading-none shadow-[0_1px_0] outline-none ${className}`}
+        className={classNames(
+          "group flex h-11 flex-1 cursor-default items-center justify-between overflow-hidden rounded-md bg-white px-5 font-heading text-xs font-bold uppercase leading-none tracking-widest text-slate-400 shadow-sm outline-none transition-all hover:cursor-pointer hover:bg-slate-500 hover:text-white",
+          className
+        )}
         {...props}
         ref={forwardedRef}
       >
         {children}
-        <BiChevronDown
-          className="text-violet10 ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=open]:rotate-180"
+        <BiChevronUp
+          className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=open]:rotate-180"
           aria-hidden
         />
       </Accordion.Trigger>
@@ -47,19 +61,19 @@ const AccordionTrigger = React.forwardRef(
   )
 );
 
+// text-mauve11 bg-mauve2
+
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
       className={classNames(
-        "text-mauve11 bg-mauve2 data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp overflow-hidden text-[15px]",
+        "data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp h-36 overflow-hidden overflow-y-auto rounded-b-md bg-slate-200 text-xs",
         className
       )}
       {...props}
       ref={forwardedRef}
     >
-      <div className="py-[15px] px-5">{children}</div>
+      <div className="py-4 px-5">{children}</div>
     </Accordion.Content>
   )
 );
-
-export default AccordionDemo;
