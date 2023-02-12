@@ -2,13 +2,11 @@ import _ from "lodash";
 import { useOutputGroups } from "models/info/outputGroups";
 import { useOutputs } from "models/info/outputs";
 
-export function useOutputNames(groupId = null) {
+function useOutputNamesHelper(groupFilter) {
   const outputNames = useOutputs(
     (x) => _.mapValues(x.x, (output) => output.name),
     _.isEqual
   );
-
-  const groupFilter = groupId ? (x) => _.pick(x, [groupId]) : (x) => x;
 
   const groups = useOutputGroups(
     (x) =>
@@ -21,6 +19,15 @@ export function useOutputNames(groupId = null) {
   );
 
   return groups;
+}
+
+export function useAllOutputNames() {
+  return useOutputNamesHelper((x) => x);
+}
+
+export function useOutputNames(groupId) {
+  const groupFilter = groupId ? (x) => _.pick(x, [groupId]) : () => ({});
+  return useOutputNamesHelper(groupFilter);
 }
 
 export function useOutputValues(groupId) {
