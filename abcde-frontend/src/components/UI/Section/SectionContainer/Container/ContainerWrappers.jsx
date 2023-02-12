@@ -6,14 +6,25 @@ import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
-function _DndSlotAndDndWatcher({ sectionId, children, ...props }) {
-  const { className, style, highlight } = useHighlightDroppable(sectionId);
+function _DndSlotAndDndWatcher({
+  isDeck,
+  sectionId,
+  parentId,
+  droppableRef,
+  draggableRef,
+  dragListeners,
+  children,
+}) {
+  const { style, highlight } = useHighlightDroppable(sectionId);
   return (
     <DndSlot highlight={highlight}>
       <DndWatcherAndContainer
+        isDeck={isDeck}
         sectionId={sectionId}
-        {...props}
-        className={className}
+        parentId={parentId}
+        droppableRef={droppableRef}
+        draggableRef={draggableRef}
+        dragListeners={dragListeners}
         style={style}
       >
         {children}
@@ -24,16 +35,21 @@ function _DndSlotAndDndWatcher({ sectionId, children, ...props }) {
 
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
-  _.isEqual
+  (p, n) =>
+    p.isDeck === n.isDeck &&
+    p.parentId === n.parentId &&
+    p.children === n.children
 );
 
 function _DndWatcherAndContainer({
+  isDeck,
   sectionId,
   parentId,
+  droppableRef,
+  draggableRef,
   dragListeners,
-  className,
+  style,
   children,
-  ...props
 }) {
   const activeIsSelf = useDndState((x) => x.active === sectionId);
   const isSorting = useKeyActivations((x) => x.isSorting);
@@ -45,17 +61,19 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${
-    activeIsSelf ? "opacity-50" : ""
-  } ${className}`;
+  const className = isDraggingSortable ? "nodrag" : "";
+  const fullStyle = activeIsSelf ? { ...style, opacity: 0.5 } : style;
 
   return (
     <Container
+      isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
+      droppableRef={droppableRef}
+      draggableRef={draggableRef}
       trueDragListeners={trueDragListeners}
-      className={fullClassName}
-      {...props}
+      className={className}
+      style={fullStyle}
     >
       {children}
     </Container>
