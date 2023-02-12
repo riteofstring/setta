@@ -13,7 +13,7 @@ function _SortableSectionContainer({
   ancestorSet,
 }) {
   // remove 'role' because we don't want sections to be "role=button"
-  const hasNested = useHasNested(sectionId)
+  const hasNested = useHasNested(sectionId);
   const {
     attributes: { role, ...restAttributes },
     listeners,
@@ -59,7 +59,7 @@ function _SortableCore({
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
     transition,
-    zIndex: overIsSelf ? 500 : 0,
+    zIndex: overIsSelf ? 500 : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
