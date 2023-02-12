@@ -1,6 +1,5 @@
 import { LegendOrdinal } from "@visx/legend";
 import { Line } from "@visx/shape";
-import { Text } from "@visx/text";
 import { TooltipWithBounds } from "@visx/tooltip";
 import { updateOutput } from "thunks/outputs";
 import { getTooltipText } from "./getTooltipText";
@@ -17,7 +16,6 @@ const minWidth = 0;
 type CurveProps = {
   width: number;
   height: number;
-  title: string;
   series;
   curveType?: string;
   showPoints?: boolean;
@@ -28,7 +26,6 @@ type CurveProps = {
 export function LineChart({
   width,
   height,
-  title,
   series,
   curveType = "curveLinear",
   showPoints = true,
@@ -58,9 +55,9 @@ export function LineChart({
   if (xMax < minWidth || yMax < minHeight) {
     return null;
   }
-
+  //
   return (
-    <div className="py-2 px-3" onClick={() => generateNewTestData()}>
+    <div className="flex flex-col" onClick={() => generateNewTestData()}>
       <svg width={width} height={svgHeight}>
         <rect
           width={width}
@@ -69,16 +66,6 @@ export function LineChart({
           rx={10}
           ry={10}
         />
-        <Text
-          dx="25"
-          dy="25"
-          textAnchor="start"
-          fontFamily="Work Sans"
-          verticalAnchor="start"
-          style={{ color: "", fontSize: "2rem" }}
-        >
-          {title}
-        </Text>
         <LineAndPointsCore
           showPoints={showPoints}
           series={series}

@@ -3,7 +3,6 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 
 // absolute top-1 right-1
 export function CustomCloseButton({ isInfo, ...props }) {
-  console.log("isInfo", isInfo);
   const twClasses = isInfo
     ? "absolute right-4 top-5 z-10"
     : "absolute right-4 z-10";

@@ -6,54 +6,33 @@ import { LineChart } from "utils/Charts/LineChart";
 export function OutputArea({ sectionId }) {
   const selectedGroups = useGetSelectedOutputValues(sectionId);
 
-  return (
-    <MultipleCharts sectionId={sectionId} selectedGroups={selectedGroups} />
-  );
+  if (_.size(selectedGroups) === 0) {
+    return null;
+  }
+  const group = selectedGroups[Object.keys(selectedGroups)[0]];
+
+  return <OneChart series={group.children} title={group.name} />;
 }
 
-function MultipleCharts({ sectionId, selectedGroups }) {
-  return (
-    <ParentSize debounceTime={0}>
-      {(parent) => (
-        <GetCharts
-          parent={parent}
-          sectionId={sectionId}
-          selectedGroups={selectedGroups}
-        />
-      )}
-    </ParentSize>
-  );
-}
-
-function GetCharts({ parent, sectionId, selectedGroups }) {
-  const height = parent.height / _.size(selectedGroups);
-
-  return (
-    <>
-      {_.map(selectedGroups, (group) => (
-        <OneChart
-          width={parent.width}
-          height={height}
-          series={group.children}
-          title={group.name}
-          key={`${sectionId}-${group.name}-chart`}
-        />
-      ))}
-    </>
-  );
-}
-
-function OneChart({ series, title, width, height }) {
+function OneChart({ series, title }) {
   const seriesWithX = series.map((s) => ({
     ...s,
     values: s.values.map((y, i) => ({ x: i, y })),
   }));
   return (
-    <LineChart
-      width={width}
-      height={height}
-      title={title}
-      series={seriesWithX}
-    />
+    <div className="h-full">
+      <ParentSize
+        className="-my-2 flex flex-1 flex-col px-8 pt-2"
+        debounceTime={0}
+      >
+        {(parent) => (
+          <LineChart
+            width={parent.width}
+            height={parent.height}
+            series={seriesWithX}
+          />
+        )}
+      </ParentSize>
+    </div>
   );
 }
