@@ -2,11 +2,13 @@ import _ from "lodash";
 import { useOutputGroups } from "models/info/outputGroups";
 import { useOutputs } from "models/info/outputs";
 
-function useOutputNamesHelper(groupFilter) {
+export function useOutputNames(groupIds = null) {
   const outputNames = useOutputs(
     (x) => _.mapValues(x.x, (output) => output.name),
     _.isEqual
   );
+
+  const groupFilter = groupIds ? (x) => _.pick(x, groupIds) : (x) => x;
 
   const groups = useOutputGroups(
     (x) =>
@@ -21,30 +23,21 @@ function useOutputNamesHelper(groupFilter) {
   return groups;
 }
 
-export function useAllOutputNames() {
-  return useOutputNamesHelper((x) => x);
-}
-
-export function useOutputNames(groupId) {
-  const groupFilter = groupId ? (x) => _.pick(x, [groupId]) : () => ({});
-  return useOutputNamesHelper(groupFilter);
-}
-
-export function useOutputValues(groupId) {
-  const group = useOutputGroups((x) => x.x[groupId], _.isEqual);
-  const children = groupId ? group.children : [];
-  const childrenOutputs = useOutputs(
+export function useOutputValues(groupIds) {
+  const groups = useOutputGroups((x) => _.pick(x.x, groupIds), _.isEqual);
+  const childrenIds = ([] as string[]).concat(
+    ..._.map(groups, (x) => x.children)
+  );
+  const children = useOutputs(
     (x) =>
       _.keyBy(
-        children.map((c) => x.x[c]),
+        childrenIds.map((c) => x.x[c]),
         "id"
       ),
     _.isEqual
   );
-
-  if (!groupId) {
-    return null;
-  }
-
-  return { ...group, children: children.map((c) => childrenOutputs[c]) };
+  return _.mapValues(groups, (x) => ({
+    ...x,
+    children: x.children.map((c) => children[c]),
+  }));
 }

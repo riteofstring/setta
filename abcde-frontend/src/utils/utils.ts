@@ -52,10 +52,6 @@ export function checkboxChangeFn(checked, id) {
   };
 }
 
-export function radioChangeFn(checked, id) {
-  return () => (checked ? id : null);
-}
-
 export function xnor(a, b) {
   return a == b;
 }

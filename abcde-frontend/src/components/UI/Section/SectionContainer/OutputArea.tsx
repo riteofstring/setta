@@ -1,12 +1,16 @@
 import { ParentSize } from "@visx/responsive";
 import { useGetSelectedOutputValues } from "hooks/useSectionContents";
+import _ from "lodash";
 import { LineChart } from "utils/Charts/LineChart";
 
 export function OutputArea({ sectionId }) {
-  const group = useGetSelectedOutputValues(sectionId);
-  if (!group) {
+  const selectedGroups = useGetSelectedOutputValues(sectionId);
+
+  if (_.size(selectedGroups) === 0) {
     return null;
   }
+  const group = selectedGroups[Object.keys(selectedGroups)[0]];
+
   return <OneChart series={group.children} title={group.name} />;
 }
 

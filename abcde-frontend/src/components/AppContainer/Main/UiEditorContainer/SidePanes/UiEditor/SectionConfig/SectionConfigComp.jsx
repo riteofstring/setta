@@ -5,12 +5,10 @@ import {
 } from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
-import { useCodeInfo } from "models/info/codeInfo";
 import { useState } from "react";
-import { initializeParam } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { checkboxChangeFn, radioChangeFn } from "utils/utils";
+import { checkboxChangeFn } from "utils/utils";
 
 export function CollectionsSearch({ sectionId }) {
   const [results, setResults] = useState({});
@@ -21,7 +19,6 @@ export function CollectionsSearch({ sectionId }) {
   async function onSelectionChange({ newValueFn, id }) {
     // collection needs to be retrieved from db
     await getCollectionDetails(id);
-    initializeParam(sectionId, useCodeInfo.getState().params[id]);
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "collections", newValueFn },
@@ -40,7 +37,6 @@ export function CollectionsSearch({ sectionId }) {
       onSearch={onSearch}
       alreadySelected={selectedCollections}
       results={allResults}
-      isCheckbox={true}
       DetailsComponent={ObjCollectionDetails}
     />
   );
@@ -52,7 +48,6 @@ export function SectionConfigSearch({
   onSearch,
   alreadySelected,
   results,
-  isCheckbox,
   DetailsComponent,
 }) {
   // shadow-inner bg-white  border border-white py-2 px-3
@@ -72,7 +67,6 @@ export function SectionConfigSearch({
             details={x.children}
             checked={x.id in alreadySelected}
             onSelectionChange={onSelectionChange}
-            isCheckbox={isCheckbox}
             key={`SearchItem-${x.id}`}
             DetailsComponent={DetailsComponent}
           />
@@ -103,14 +97,11 @@ function SearchItem({
   details,
   checked,
   onSelectionChange,
-  isCheckbox,
   DetailsComponent,
 }) {
-  function onChange(e) {
+  function onCheckboxChange(e) {
     onSelectionChange({
-      newValueFn: isCheckbox
-        ? checkboxChangeFn(e.target.checked, id)
-        : radioChangeFn(e.target.checked, id),
+      newValueFn: checkboxChangeFn(e.target.checked, id),
       id,
     });
   }
@@ -118,10 +109,10 @@ function SearchItem({
   return (
     <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black">
       <input
-        type={isCheckbox ? "checkbox" : "radio"}
+        type="checkbox"
         className="mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer rounded-md border-slate-300 bg-slate-200 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300"
         checked={checked}
-        onChange={onChange}
+        onChange={onCheckboxChange}
       />
       <label className="w-full">
         <DetailsComponent details={details}>
