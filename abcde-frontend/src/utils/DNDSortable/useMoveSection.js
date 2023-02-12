@@ -2,7 +2,7 @@ import { DropType } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useRef } from "react";
-import { useReactFlow, useStoreApi } from "react-flow-renderer";
+import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
@@ -15,14 +15,7 @@ function onSortEnd({ active, over }) {
   });
 }
 
-function onFreeMoveEnd({
-  active,
-  over,
-  collisions,
-  dummyRef,
-  project,
-  reactFlowStore,
-}) {
+function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
   const sectionId = active.id;
   const s = useSectionInfos.getState().x;
   const oldParentId = s[sectionId].parentId ? s[sectionId].parentId : PANEID;
@@ -37,8 +30,7 @@ function onFreeMoveEnd({
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (over) {
-    const zoom = reactFlowStore.getState().transform[2];
-    const dropType = getDropType(active, over, collisions, zoom);
+    const dropType = getDropType(active, over, collisions);
     if (dropType === DropType.INTO) {
       newParentId = over.id;
       newIndex = 0;
@@ -71,21 +63,13 @@ export function useOnDragEnd() {
   const isSorting = useKeyActivations((x) => x.isSorting);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const { project } = useReactFlow();
-  const reactFlowStore = useStoreApi();
   const dummyRef = useRef(null);
 
   function onDragEnd({ active, over, collisions }) {
     if (isSorting) {
       onSortEnd({ active, over });
     } else if (isMovingFree) {
-      onFreeMoveEnd({
-        active,
-        over,
-        collisions,
-        dummyRef,
-        project,
-        reactFlowStore,
-      });
+      onFreeMoveEnd({ active, over, collisions, dummyRef, project });
     }
   }
 

@@ -6,10 +6,6 @@ import { setCurrChildren } from "thunks/sections/sections";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
-export function useHasNested(sectionId: string) {
-  return useSectionInfos((x) => x.currChildren[sectionId]?.length > 0);
-}
-
 export function useGetAllChildren(sectionId: string) {
   return useSectionInfos((x) => x.allChildren[sectionId], _.isEqual);
 }

@@ -1,4 +1,3 @@
-import { useIsDraggingFreely } from "hooks/useDndUtils";
 import { useGoToSection } from "hooks/useGetSectionPosition";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
@@ -16,7 +15,6 @@ export function ManyNestedSections({
   };
 
   const newAncestorSet = { ...ancestorSet, [sectionId]: true };
-  const rightMargin = useRightMargin();
 
   return (
     <DNDSortable
@@ -27,7 +25,7 @@ export function ManyNestedSections({
       <div className="flex items-stretch">
         {!isDeck && (
           <div
-            className={`mt-2 transition-all duration-75 ${rightMargin} min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36]`}
+            className="mt-2 mr-2 min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:opacity-[.36]"
             onClick={onClick}
           />
         )}
@@ -45,9 +43,4 @@ export function ManyNestedSections({
       </div>
     </DNDSortable>
   );
-}
-
-function useRightMargin() {
-  const isDraggingFreely = useIsDraggingFreely();
-  return isDraggingFreely ? "mr-10" : "mr-2";
 }

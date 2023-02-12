@@ -121,9 +121,9 @@ export const useSectionInfos = create(
 );
 
 function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
-  if (newValueFn) {
-    obj[attr] = newValueFn(obj[attr]);
-  } else {
+  if (value) {
     obj[attr] = value;
+  } else if (newValueFn) {
+    obj[attr] = newValueFn(obj[attr]);
   }
 }

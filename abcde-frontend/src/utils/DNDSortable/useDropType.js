@@ -1,25 +1,33 @@
 import { DropType, useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
-import { useStore } from "react-flow-renderer";
 
 export function useOnDragMove() {
-  const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const currOver = useDndState((x) => x.over);
+  const currParent = useDndState((x) => x.parent);
   const currOverDropType = useDndState((x) => x.overDropType);
+  const currParentDropType = useDndState((x) => x.parentDropType);
   const setOver = useDndState((x) => x.setOver);
   return useCallback(
     (props) =>
       onDragMove({
         ...props,
-        zoom,
         isMovingFree,
         currOver,
+        currParent,
         currOverDropType,
+        currParentDropType,
         setOver,
       }),
-    [zoom, isMovingFree, currOver, currOverDropType, setOver]
+    [
+      isMovingFree,
+      currOver,
+      currParent,
+      currOverDropType,
+      currParentDropType,
+      setOver,
+    ]
   );
 }
 
@@ -37,53 +45,53 @@ function onDragMove({
   active,
   over,
   collisions,
-  zoom,
   isMovingFree,
   currOver,
+  currParent,
   currOverDropType,
+  currParentDropType,
   setOver,
 }) {
   if (isMovingFree) {
     let overDropType = DropType.NONE;
+    let parentDropType = DropType.NONE;
     let overId = null;
+    let parentId = null;
     if (over) {
       overId = over.id;
-      overDropType = getDropType(active, over, collisions, zoom);
+      overDropType = getDropType(active, over, collisions);
+      if (
+        over.data.current.sortable?.containerId &&
+        !getLeftDistCondition(collisions)
+      ) {
+        parentId = over.data.current.sortable?.containerId;
+        parentDropType = DropType.INTO;
+      }
     }
-    if (overId !== currOver || overDropType !== currOverDropType) {
-      setOver({ over: overId, overDropType });
+    if (
+      overId !== currOver ||
+      parentId !== currParent ||
+      overDropType !== currOverDropType ||
+      parentDropType !== currParentDropType
+    ) {
+      setOver({ over: overId, parent: parentId, overDropType, parentDropType });
     }
   }
 }
 
-function getLeftDistCondition(collisions, zoom) {
-  // true if section has not children
-  // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
-  return (
-    !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 200 * zoom
-  );
+function getLeftDistCondition(collisions) {
+  return collisions[0]?.data.leftDist > 50;
 }
 
-export function getDropType(active, over, collisions, zoom) {
+export function getDropType(active, over, collisions) {
   // Weird case where collisions[0] doesn't agree with over.id).
   // Or if active === over
-  // Plus a normal case: if section is top-level (not sortable)
-  // and it has children, then it shouldn't be dropped into
-  if (
-    collisions[0]?.id !== over.id ||
-    active.id === over.id ||
-    (!over.data.current.sortable && over.data.current.hasNested)
-  ) {
+  if (collisions[0]?.id !== over.id || active.id === over.id) {
     return DropType.NONE;
   }
 
-  // Drop into section if it is a sortable and leftOffset is large enough
-  // Or if it's not a sortable and has no children. (The 'has children' case is covered above)
-  if (
-    (over.data.current.sortable && getLeftDistCondition(collisions, zoom)) ||
-    !over.data.current.sortable
-  ) {
+  // Drop into section if leftOffset is large enough or if there is no parent
+  if (!over.data.current.sortable || getLeftDistCondition(collisions)) {
     return DropType.INTO;
   }
 
@@ -107,8 +115,8 @@ export function getDropType(active, over, collisions, zoom) {
 
   // Dropping into a list from outside
   // If the target is anything other than the first element, then drop below it
-  if (overIndex < siblings.length - 1) {
-    return DropType.ABOVE;
+  if (overIndex > 0) {
+    return DropType.BELOW;
   }
   // If the target is the first element
   const centerYCondition = collisions[0].data.centerYDist < 0;

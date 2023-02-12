@@ -1,21 +1,21 @@
-import { SignUpPage } from "components/SignUpPage/SignUpPage";
+import { CommunityPage } from "components/Community/Community";
 import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 
-function SignUpWrapper() {
+function CommunityWrapper() {
   return (
     <GridContainer>
-      <SignUpPage />
+      <CommunityPage />
     </GridContainer>
   );
 }
 
-export const signUpRoute: RouteObject = {
-  path: "signup",
+export const communityRoute: RouteObject = {
+  path: "community",
   element: (
     <GlobalWrapper>
-      <SignUpWrapper />
+      <CommunityWrapper />
     </GlobalWrapper>
   ),
 };

@@ -35,7 +35,6 @@ function Items({ onClickLogout }) {
   return (
     <>
       <Item>Profile</Item>
-      <Item>Community</Item>
       <Item>Settings</Item>
       <Item onClick={onClickLogout}>Logout</Item>
     </>
