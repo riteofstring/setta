@@ -8,12 +8,11 @@ export function ComboboxInput({
   getToggleButtonProps,
   isOpen,
   small,
-  onClick,
 }) {
   const searchStyles =
     "w-full outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm pl-10 focus-visible:ring-2";
 
-  const toggleButtonProps = getToggleButtonProps({ onClick });
+  const toggleButtonProps = getToggleButtonProps();
 
   return (
     <StandardSearch
