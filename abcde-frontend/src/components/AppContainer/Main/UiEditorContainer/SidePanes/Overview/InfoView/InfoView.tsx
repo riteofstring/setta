@@ -15,7 +15,9 @@ export function InfoView() {
       <AccordionItem value="item-1">
         <AccordionTrigger>Infoview</AccordionTrigger>
         <AccordionContent>
-          Yes. It adheres to the WAI-ARIA design pattern. lkjsldkjfs
+          Phasellus sed dictum lectus, quis vestibulum ligula. Duis vitae
+          tristique sapien. Aliquam sed tellus iaculis, placerat magna varius,
+          hendrerit erat.
         </AccordionContent>
       </AccordionItem>
     </Accordion.Root>
