@@ -1,16 +1,18 @@
 import { useSectionDescription } from "models/info/sectionDescription";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DescriptionWrapper } from "./DescriptionWrapper";
+import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
 export function SectionDescription({ sectionId, card = false }) {
   const description = useSectionDescription((x) => x.x[sectionId].value);
 
   if (!card) {
     return (
-      <DescriptionWrapper sectionId={sectionId}>
-        <Markdown markdownSource={description} />
-      </DescriptionWrapper>
+      <ResizableDescription sectionId={sectionId}>
+        <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-y-scroll [&_.prose]:p-0 [&_pre]:absolute [&_pre]:w-full ">
+          <Markdown markdownSource={description} />
+        </div>
+      </ResizableDescription>
     );
   }
   return (
@@ -24,7 +26,7 @@ function Markdown({ markdownSource }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="prose max-w-none px-8 prose-headings:font-heading prose-headings:text-slate-500 prose-p:text-sm [&_pre]:absolute  [&_pre]:[width:calc(100%_-_4rem)]"
+      className="prose max-w-none px-8 [flex:1_1_auto] prose-headings:font-heading prose-headings:text-slate-500 prose-p:text-sm "
     >
       {markdownSource}
     </ReactMarkdown>
