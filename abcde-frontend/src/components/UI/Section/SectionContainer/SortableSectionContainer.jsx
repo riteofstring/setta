@@ -12,39 +12,31 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
-  const overIsSelf = useDndState((x) => x.over === sectionId);
-  const zIndex = overIsSelf ? "z-[500]" : "";
+  const sortableProps = useSortable({
+    id: sectionId,
+    data: { isTopLevel: false },
+  });
   return (
-    <SortableInfo
+    <SortableCore
+      sortableProps={sortableProps}
       sectionId={sectionId}
       parentId={parentId}
       nextId={nextId}
       ancestorSet={ancestorSet}
-      zIndex={zIndex}
     />
   );
 }
 
 export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
-function _SortableInfo(props) {
-  const sortableProps = useSortable({
-    id: props.sectionId,
-    data: { isTopLevel: false },
-  });
-  return <SortableCore sortableProps={sortableProps} {...props} />;
-}
-
-export const SortableInfo = React.memo(_SortableInfo, _.isEqual);
-
 function _SortableCore({
   sectionId,
   parentId,
   nextId,
   ancestorSet,
-  zIndex,
   sortableProps,
 }) {
+  const overIsSelf = useDndState((x) => x.over === sectionId);
   const store = useStoreApi();
 
   const { attributes, listeners, setNodeRef, transform, transition } =
@@ -55,11 +47,12 @@ function _SortableCore({
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
     transition,
+    zIndex: overIsSelf ? 500 : 0,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className={`first:mt-2 ${zIndex}`} {...stackProps}>
+    <div className="first:mt-2" {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
         parentId={parentId}

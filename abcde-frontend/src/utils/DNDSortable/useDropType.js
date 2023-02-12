@@ -73,8 +73,9 @@ function onDragMove({
       parentId !== currParent ||
       overDropType !== currOverDropType ||
       parentDropType !== currParentDropType
-    )
+    ) {
       setOver({ over: overId, parent: parentId, overDropType, parentDropType });
+    }
   }
 }
 
