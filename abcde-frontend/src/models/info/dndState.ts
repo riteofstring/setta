@@ -14,5 +14,9 @@ export const useDndState = create((set) => ({
   setActive: ({ id, isTopLevel }) =>
     set({ activeId: id, activeIsTopLevel: isTopLevel }),
   setOver: (props) => set(props),
-  reset: () => set(initialState),
+  reset: () =>
+    set((state) => ({
+      ...initialState,
+      centerYCondition: state.centerYCondition,
+    })),
 }));

@@ -23,7 +23,14 @@ export function useOnDragMove() {
         currCenterYCondition,
         setOver,
       }),
-    [zoom, isMovingFree, currOver, currOverDropType, currCenterYCondition, setOver]
+    [
+      zoom,
+      isMovingFree,
+      currOver,
+      currOverDropType,
+      currCenterYCondition,
+      setOver,
+    ]
   );
 }
 
@@ -99,6 +106,7 @@ export function getDropType(active, over, collisions, zoom) {
   return DropType.AS_SIBLING;
 }
 
+// returns [dropType, newIndex]
 export function getSiblingDropType({
   activeId,
   overId,
@@ -106,7 +114,7 @@ export function getSiblingDropType({
   dropType,
 }) {
   if (dropType === DropType.NONE || dropType === DropType.INTO) {
-    return SiblingDropType.NONE;
+    return [SiblingDropType.NONE, null];
   }
   const s = useSectionInfos.getState();
   const overParentId = s.x[overId].parentId;
@@ -118,18 +126,20 @@ export function getSiblingDropType({
     const activeIndex = siblings.indexOf(activeId);
     // Drop below the target if moving down the list
     if (activeIndex < overIndex) {
-      return SiblingDropType.BELOW;
+      return [SiblingDropType.BELOW, overIndex];
     }
     // Drop above the target if moving up the list
-    return SiblingDropType.ABOVE;
+    return [SiblingDropType.ABOVE, overIndex];
   }
 
   // Dropping into a list from outside
   // If the target is anything other than the last element, then drop above it
   if (overIndex < siblings.length - 1) {
-    return SiblingDropType.ABOVE;
+    return [SiblingDropType.ABOVE, overIndex];
   }
 
   // If the target is the last element
-  return centerYCondition ? SiblingDropType.ABOVE : SiblingDropType.BELOW;
+  return centerYCondition
+    ? [SiblingDropType.ABOVE, overIndex]
+    : [SiblingDropType.BELOW, overIndex + 1];
 }

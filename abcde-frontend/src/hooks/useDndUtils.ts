@@ -22,7 +22,7 @@ export function useHighlightDroppable(sectionId: string) {
     overId,
     centerYCondition,
     dropType: highlight,
-  });
+  })[0];
 
   if (highlight === DropType.NONE) {
     return {
