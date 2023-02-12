@@ -13,6 +13,7 @@ export function ComboboxSearch({
   matchSorterProps,
   itemStyleGetter,
   small,
+  onClick,
 }) {
   const {
     sizeRef,
@@ -63,6 +64,7 @@ export function ComboboxSearch({
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
         small={small}
+        onClick={onClick}
       />
 
       <div className="flex flex-col items-stretch">
