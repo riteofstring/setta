@@ -15,6 +15,7 @@ export const initialState = {
   parent: null,
   overDropType: DropType.NONE,
   parentDropType: DropType.NONE,
+  nestedTransitionComplete: false,
 };
 
 export const useDndState = create(
@@ -23,6 +24,8 @@ export const useDndState = create(
     setActive: ({ id, isTopLevel }) =>
       set({ active: id, activeIsTopLevel: isTopLevel }),
     setOver: (props) => set(props),
+    setNestedTransitionComplete: (isComplete) =>
+      set({ nestedTransitionComplete: isComplete }),
     reset: () => set(initialState),
   }))
 );
