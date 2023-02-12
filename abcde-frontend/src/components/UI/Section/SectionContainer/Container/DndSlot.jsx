@@ -1,13 +1,13 @@
 import { RiDragDropFill } from "react-icons/ri";
 import { DropType, SiblingDropType } from "utils/DNDSortable/dropTypes";
 
-export function DndSlot({ highlight, highlightSiblingType, children }) {
+export function DndSlot({ highlight, highlightSubType, children }) {
   return (
     <>
       {highlight === DropType.INTO && <DndSlotMiddle />}
-      {highlightSiblingType === SiblingDropType.ABOVE && <DndSlotTop />}
+      {highlightSubType === SiblingDropType.ABOVE && <DndSlotTop />}
       {children}
-      {highlightSiblingType === SiblingDropType.BELOW && <DndSlotBottom />}
+      {highlightSubType === SiblingDropType.BELOW && <DndSlotBottom />}
     </>
   );
 }

@@ -4,7 +4,7 @@ import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { DropType } from "utils/DNDSortable/dropTypes";
-import { getSiblingDropType } from "utils/DNDSortable/useDropType";
+import { getDropSubType } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
@@ -17,7 +17,7 @@ export function useHighlightDroppable(sectionId: string) {
   const activeId = useDndState((x) => x.activeId);
   const overId = useDndState((x) => x.overId);
   const centerYCondition = useDndState((x) => x.centerYCondition);
-  const highlightSiblingType = getSiblingDropType({
+  const highlightSubType = getDropSubType({
     activeId,
     overId,
     centerYCondition,
@@ -28,7 +28,7 @@ export function useHighlightDroppable(sectionId: string) {
     return {
       style: {},
       highlight,
-      highlightSiblingType,
+      highlightSubType,
     };
   } else {
     return {
@@ -40,7 +40,7 @@ export function useHighlightDroppable(sectionId: string) {
         backgroundColor: colors.blue[500],
       },
       highlight,
-      highlightSiblingType,
+      highlightSubType,
     };
   }
 }

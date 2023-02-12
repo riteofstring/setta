@@ -15,10 +15,10 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { style, highlight, highlightSiblingType } =
+  const { style, highlight, highlightSubType } =
     useHighlightDroppable(sectionId);
   return (
-    <DndSlot highlight={highlight} highlightSiblingType={highlightSiblingType}>
+    <DndSlot highlight={highlight} highlightSubType={highlightSubType}>
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}
