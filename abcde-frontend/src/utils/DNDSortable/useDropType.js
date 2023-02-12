@@ -10,8 +10,7 @@ export function useOnDragMove() {
   const currOverDropType = useDndState((x) => x.overDropType);
   const setOver = useDndState((x) => x.setOver);
   return useCallback(
-    (props) => {
-      console.log(props);
+    (props) =>
       onDragMove({
         ...props,
         zoom,
@@ -19,8 +18,7 @@ export function useOnDragMove() {
         currOver,
         currOverDropType,
         setOver,
-      });
-    },
+      }),
     [zoom, isMovingFree, currOver, currOverDropType, setOver]
   );
 }
