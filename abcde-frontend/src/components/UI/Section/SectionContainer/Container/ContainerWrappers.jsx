@@ -6,25 +6,14 @@ import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
-function _DndSlotAndDndWatcher({
-  isDeck,
-  sectionId,
-  parentId,
-  droppableRef,
-  draggableRef,
-  dragListeners,
-  children,
-}) {
-  const { style, highlight } = useHighlightDroppable(sectionId);
+function _DndSlotAndDndWatcher({ sectionId, children, ...props }) {
+  const { className, style, highlight } = useHighlightDroppable(sectionId);
   return (
     <DndSlot highlight={highlight}>
       <DndWatcherAndContainer
-        isDeck={isDeck}
         sectionId={sectionId}
-        parentId={parentId}
-        droppableRef={droppableRef}
-        draggableRef={draggableRef}
-        dragListeners={dragListeners}
+        {...props}
+        className={className}
         style={style}
       >
         {children}
@@ -35,21 +24,16 @@ function _DndSlotAndDndWatcher({
 
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
-  (p, n) =>
-    p.isDeck === n.isDeck &&
-    p.parentId === n.parentId &&
-    p.children === n.children
+  _.isEqual
 );
 
 function _DndWatcherAndContainer({
-  isDeck,
   sectionId,
   parentId,
-  droppableRef,
-  draggableRef,
   dragListeners,
-  style,
+  className,
   children,
+  ...props
 }) {
   const activeIsSelf = useDndState((x) => x.active === sectionId);
   const isSorting = useKeyActivations((x) => x.isSorting);
@@ -61,19 +45,17 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = isDraggingSortable ? "nodrag" : "";
-  const fullStyle = activeIsSelf ? { ...style, opacity: 0.5 } : style;
+  const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${
+    activeIsSelf ? "opacity-50" : ""
+  } ${className}`;
 
   return (
     <Container
-      isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
-      droppableRef={droppableRef}
-      draggableRef={draggableRef}
       trueDragListeners={trueDragListeners}
-      className={className}
-      style={fullStyle}
+      className={fullClassName}
+      {...props}
     >
       {children}
     </Container>

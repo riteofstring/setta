@@ -13,7 +13,11 @@ export function SectionDescription({ sectionId, card = false }) {
       </DescriptionWrapper>
     );
   }
-  return <Markdown markdownSource={description} />;
+  return (
+    <div className="nodrag nowheel mx-8 my-6 flex-1 cursor-auto select-text self-stretch overflow-y-scroll px-3 [&_.prose]:p-0">
+      <Markdown markdownSource={description} />
+    </div>
+  );
 }
 
 function Markdown({ markdownSource }) {

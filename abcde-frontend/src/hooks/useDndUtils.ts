@@ -20,15 +20,14 @@ export function useHighlightDroppable(sectionId: string) {
 
   if (highlight === DropType.NONE) {
     return {
+      className: "",
       style: {},
       highlight,
     };
   } else if (highlight === DropType.INTO) {
     return {
+      className: "rounded-3xl py-3 px-3 -my-3 -mx-3",
       style: {
-        borderRadius: "1.5rem",
-        padding: "0.75rem",
-        margin: "-0.75rem",
         transition: "background-color 0.2s",
         backgroundColor: colors.blue[500],
       },
@@ -36,11 +35,13 @@ export function useHighlightDroppable(sectionId: string) {
     };
   } else if (highlight === DropType.ABOVE) {
     return {
+      className: "",
       style: {},
       highlight,
     };
   } else if (highlight === DropType.BELOW) {
     return {
+      className: "",
       style: {},
       highlight,
     };
