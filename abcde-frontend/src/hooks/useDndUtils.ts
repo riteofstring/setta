@@ -20,13 +20,11 @@ export function useHighlightDroppable(sectionId: string) {
 
   if (highlight === DropType.NONE) {
     return {
-      className: "",
       style: {},
       highlight,
     };
   } else if (highlight === DropType.INTO) {
     return {
-      className: "",
       style: {
         borderRadius: "1.5rem",
         padding: "0.75rem",
@@ -38,13 +36,11 @@ export function useHighlightDroppable(sectionId: string) {
     };
   } else if (highlight === DropType.ABOVE) {
     return {
-      className: "",
       style: {},
       highlight,
     };
   } else if (highlight === DropType.BELOW) {
     return {
-      className: "",
       style: {},
       highlight,
     };

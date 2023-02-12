@@ -15,7 +15,7 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { className, style, highlight } = useHighlightDroppable(sectionId);
+  const { style, highlight } = useHighlightDroppable(sectionId);
   return (
     <DndSlot highlight={highlight}>
       <DndWatcherAndContainer
@@ -25,7 +25,6 @@ function _DndSlotAndDndWatcher({
         droppableRef={droppableRef}
         draggableRef={draggableRef}
         dragListeners={dragListeners}
-        className={className}
         style={style}
       >
         {children}
@@ -49,7 +48,6 @@ function _DndWatcherAndContainer({
   droppableRef,
   draggableRef,
   dragListeners,
-  className,
   style,
   children,
 }) {
@@ -63,9 +61,8 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const fullClassName = `${isDraggingSortable ? "nodrag" : ""} ${
-    activeIsSelf ? "opacity-50" : ""
-  } ${className}`;
+  const className = isDraggingSortable ? "nodrag" : "";
+  const fullStyle = activeIsSelf ? { ...style, opacity: 0.5 } : style;
 
   return (
     <Container
@@ -75,8 +72,8 @@ function _DndWatcherAndContainer({
       droppableRef={droppableRef}
       draggableRef={draggableRef}
       trueDragListeners={trueDragListeners}
-      className={fullClassName}
-      style={style}
+      className={className}
+      style={fullStyle}
     >
       {children}
     </Container>
