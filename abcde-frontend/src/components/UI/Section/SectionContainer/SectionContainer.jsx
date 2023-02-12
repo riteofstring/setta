@@ -21,6 +21,7 @@ function _SectionContainer({
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
+      hasNested={hasNested}
       dragListeners={dragListeners}
       ancestorSet={ancestorSet}
     >

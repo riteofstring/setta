@@ -68,12 +68,22 @@ function getLeftDistCondition(collisions, zoom) {
 export function getDropType(active, over, collisions, zoom) {
   // Weird case where collisions[0] doesn't agree with over.id).
   // Or if active === over
-  if (collisions[0]?.id !== over.id || active.id === over.id) {
+  // Plus a normal case: if section is top-level (not sortable)
+  // and it has children, then it shouldn't be dropped into
+  if (
+    collisions[0]?.id !== over.id ||
+    active.id === over.id ||
+    (!over.data.current.sortable && over.data.current.hasNested)
+  ) {
     return DropType.NONE;
   }
 
-  // Drop into section if leftOffset is large enough or if there is no parent
-  if (!over.data.current.sortable || getLeftDistCondition(collisions, zoom)) {
+  // Drop into section if it is a sortable and leftOffset is large enough
+  // Or if it's not a sortable and has no children. (The 'has children' case is covered above)
+  if (
+    (over.data.current.sortable && getLeftDistCondition(collisions, zoom)) ||
+    !over.data.current.sortable
+  ) {
     return DropType.INTO;
   }
 
