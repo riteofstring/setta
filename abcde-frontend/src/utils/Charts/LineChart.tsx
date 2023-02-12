@@ -1,4 +1,4 @@
-import { LegendOrdinal } from "@visx/legend";
+import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { Line } from "@visx/shape";
 import { TooltipWithBounds } from "@visx/tooltip";
 import { updateOutput } from "thunks/outputs";
@@ -8,7 +8,7 @@ import { useColorScale } from "./useColorScale";
 import { useCustomTooltip } from "./useCustomTooltip";
 
 const accentColorDark = "#75daad";
-const defaultMargin = { top: 40, right: 30, bottom: 50, left: 40 };
+const defaultMargin = { top: 50, right: 40, bottom: 60, left: 60 };
 const defaultLegendHeight = 30;
 const minHeight = 0;
 const minWidth = 0;
@@ -56,14 +56,15 @@ export function LineChart({
     return null;
   }
   //
+  const legendGlyphSize = 15;
   return (
-    <div className="flex flex-col gap-2" onClick={() => generateNewTestData()}>
-      <div className="overflow-hidden rounded-3xl border border-solid border-white shadow-sm">
+    <div className="flex flex-col gap-4" onClick={() => generateNewTestData()}>
+      <div className="overflow-hidden rounded-3xl border border-solid border-white shadow-sm ">
         <svg width={width} height={svgHeight}>
           <rect
             width={width}
             height={rectHeight}
-            className="fill-slate-200"
+            className="fill-slate-100"
             rx={10}
             ry={10}
           />
@@ -121,7 +122,33 @@ export function LineChart({
         direction="row"
         labelMargin="0 15px 0 0"
         style={{ height: legendHeight, display: "flex" }}
-      />
+      >
+        {(labels) => (
+          <div className="flex gap-2">
+            {labels.map((label, i) => (
+              <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
+                <svg width={legendGlyphSize} height={legendGlyphSize}>
+                  <circle
+                    fill={label.value}
+                    // width={legendGlyphSize}
+                    // height={legendGlyphSize}
+                    cx="7.5"
+                    cy="7.5"
+                    r="7.5"
+                  />
+                </svg>
+                <LegendLabel
+                  align="left"
+                  margin="0 0 0 4px"
+                  className="text-sm text-slate-500"
+                >
+                  {label.text}
+                </LegendLabel>
+              </LegendItem>
+            ))}
+          </div>
+        )}
+      </LegendOrdinal>
     </div>
   );
 }
