@@ -1,10 +1,10 @@
-import { DropType } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useRef } from "react";
 import { useReactFlow, useStoreApi } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
+import { DropType } from "utils/DNDSortable/dropTypes";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 
@@ -42,7 +42,7 @@ function onFreeMoveEnd({
     if (dropType === DropType.INTO) {
       newParentId = over.id;
       newIndex = 0;
-    } else if (dropType === DropType.ABOVE || dropType === DropType.BELOW) {
+    } else if (dropType === DropType.AS_SIBLING) {
       newParentId = s[over.id].parentId;
       const overIndex = over.data.current.sortable.items.indexOf(over.id);
       // moving section within a list

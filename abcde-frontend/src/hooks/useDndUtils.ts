@@ -1,8 +1,10 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { DropType, useDndState } from "models/info/dndState";
+import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
+import { DropType } from "utils/DNDSortable/dropTypes";
+import { getSiblingDropType } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
@@ -12,11 +14,21 @@ export function useHighlightDroppable(sectionId: string) {
     }
     return DropType.NONE;
   });
+  const activeId = useDndState((x) => x.active);
+  const overId = useDndState((x) => x.over);
+  const centerYCondition = useDndState((x) => x.centerYCondition);
+  const highlightSiblingType = getSiblingDropType({
+    activeId,
+    overId,
+    centerYCondition,
+    dropType: highlight,
+  });
 
   if (highlight === DropType.NONE) {
     return {
       style: {},
       highlight,
+      highlightSiblingType,
     };
   } else {
     return {
@@ -28,6 +40,7 @@ export function useHighlightDroppable(sectionId: string) {
         backgroundColor: colors.blue[500],
       },
       highlight,
+      highlightSiblingType,
     };
   }
 }
