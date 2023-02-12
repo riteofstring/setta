@@ -1,5 +1,5 @@
 import { useAuth } from "models/auth";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
 import { CreateGroupButton } from "./CreateGroupButton/CreateGroupButton";
@@ -18,6 +18,8 @@ export function SubNav() {
 }
 
 function NavSwitch() {
+  const { pathname } = useLocation();
+  const community = pathname === "/community" && true;
   const isAuthenticated = useAuth((x) => x.isAuthenticated);
   const { username, projectName, configName } = useParams();
 
@@ -30,7 +32,7 @@ function UiEditorSubNav() {
   return (
     <>
       <FileMenu />
-      {/* <ClearHistoryButton /> */}
+      {/* <BackToProject /> */}
       <CommunityButton />
       <VerticalLine />
       <CreateSectionButton />
