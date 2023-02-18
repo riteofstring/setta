@@ -3,7 +3,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useDisableSortable } from "hooks/useDndUtils";
-import React from "react";
 
 export function DNDSortable({ sectionId, items, ancestorSet, children }) {
   const disabled = useDisableSortable(sectionId, ancestorSet);
@@ -18,7 +17,7 @@ export function DNDSortable({ sectionId, items, ancestorSet, children }) {
       }
       disabled={disabled}
     >
-      {React.cloneElement(children, { droppableDisabled: disabled.droppable })}
+      {children}
     </SortableContext>
   );
 }

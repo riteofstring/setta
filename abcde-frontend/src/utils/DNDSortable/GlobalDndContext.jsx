@@ -27,8 +27,8 @@ export function GlobalDndContext({ children }) {
   }
 
   function onDragEnd(props) {
-    onDragEndMoveSections(props);
     onDragEndDropType(props);
+    onDragEndMoveSections(props);
   }
 
   return (

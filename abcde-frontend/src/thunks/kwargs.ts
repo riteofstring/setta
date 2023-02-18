@@ -9,16 +9,10 @@ import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionConfig } from "./sections/sections";
 
-type AddKwargPayload = {
-  sectionId: string;
-  objInfoId: string;
-  name?: string;
-};
-
-export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
+export function addKwarg(sectionId: string, objInfoId: string) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
-    name,
+    name: "",
     rcType: RCType.PARAMETER,
   });
   useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
@@ -28,7 +22,6 @@ export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
     newStateFn: (x) => [...x, kwargInfo.id],
   });
   initializeParam(sectionId, [kwargInfo]);
-  return kwargInfo.id;
 }
 
 type DeleteKwargPayload = {
