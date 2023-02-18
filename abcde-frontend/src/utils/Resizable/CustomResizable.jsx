@@ -7,7 +7,7 @@ import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes
 import { SECTIONWIDTH } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 
-export function CustomResizable({ sectionId, children }) {
+export function CustomResizable({ sectionId, setLocalWidth, children }) {
   const minHeight = useMinSectionHeight(sectionId);
   const minWidth = SECTIONWIDTH;
   return (
@@ -15,18 +15,29 @@ export function CustomResizable({ sectionId, children }) {
       sectionId={sectionId}
       minHeight={minHeight}
       minWidth={minWidth}
+      setLocalWidth={setLocalWidth}
     >
       {children}
     </CustomResizableCore>
   );
 }
 
-function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
+function CustomResizableCore({
+  sectionId,
+  minHeight,
+  minWidth,
+  setLocalWidth,
+  children,
+}) {
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
   const [size, setSize] = useState(savedSize);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
+  }
+
+  function onResize(e, direction, ref, d) {
+    setLocalWidth(savedSize.width + d.width);
   }
 
   useEffect(() => {
@@ -40,6 +51,7 @@ function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
       size={size}
       minHeight={minHeight}
       minWidth={minWidth}
+      onResize={onResize}
       onResizeStop={onResizeStop}
       handleWrapperClass="nodrag [&>div]:z-20"
       enable={{
