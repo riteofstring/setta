@@ -17,7 +17,7 @@ const paneProps = {
 export function Overview() {
   const [filteredList, setFilter] = useGetOverviewListing();
   const onResizeStop = useUpdateMapPosition();
-  const handlers = useSetCurrInfoView(ConstantInfoView.OVERVIEW);
+  const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.OVERVIEW);
 
   return (
     <PaneContainer
@@ -34,7 +34,7 @@ export function Overview() {
           aria-label="Overview Search"
         />
       </div>
-      <div className="flex-grow overflow-y-auto" {...handlers}>
+      <div className="flex-grow overflow-y-auto" {...infoViewHandlers}>
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
       </div>
       <InfoView />
