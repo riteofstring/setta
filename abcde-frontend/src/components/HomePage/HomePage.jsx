@@ -6,11 +6,9 @@ import { useSearch } from "models/search";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { Badge } from "utils/atoms/badges/badge";
-import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
-import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { router } from "utils/Routes/router";
 import "./homepage.css";
 
@@ -29,8 +27,9 @@ export function HomePage() {
 }
 
 function RightColumn({ projects, createProject }) {
-  function onClick(name) {
-    createProject({ name });
+  async function onClick() {
+    const newProject = await createProject({ name: "NewProject" });
+    goToDefaultConfig(newProject);
   }
 
   const stdbtnStyles =
@@ -39,15 +38,10 @@ function RightColumn({ projects, createProject }) {
   return (
     <div className="overflow-y-auto px-10 py-8">
       <div className="flex gap-4">
-        <CodeGenPopover
-          trigger={
-            <StandardButton twClasses={stdbtnStyles}>
-              <BiPlus />
-              New Project
-            </StandardButton>
-          }
-          body={<ProjectNameSetter onClick={onClick} />}
-        />
+        <StandardButton twClasses={stdbtnStyles} onClick={onClick}>
+          <BiPlus />
+          New Project
+        </StandardButton>
       </div>
       <ProjectItems projects={projects} />
     </div>
@@ -72,19 +66,12 @@ function ProjectItems({ projects }) {
   );
 }
 
-const ProjectItem = forwardRef((props, forwardedRef) => {
-  const username = useAuth((x) => x.username);
-  const { name, configs } = props.project;
+const ProjectItem = forwardRef(({ project }, forwardedRef) => {
+  const { name, configs } = project;
   const [openConfigs, setOpenConfigs] = useState(false);
 
-  function goToProject(configId) {
-    const configName = configs.find((x) => x.id === configId).name;
-    const address = `${username}/${name}/${configName}`;
-    router.navigate(address);
-  }
-
   function onClick() {
-    goToProject(configs.find((x) => x.isDefault).id);
+    goToDefaultConfig(project);
   }
 
   function onClickConfigsButton(e) {
@@ -94,7 +81,7 @@ const ProjectItem = forwardRef((props, forwardedRef) => {
 
   function onConfigClick(e, configId) {
     e.stopPropagation();
-    goToProject(configId);
+    goToProject({ project, configId });
   }
 
   // bg-[url('https://via.placeholder.com/400')]
@@ -152,28 +139,6 @@ function Body({ configs, onClick }) {
   ));
 }
 
-function ProjectNameSetter({ onClick }) {
-  const [presetName, setPresetName] = useState("");
-
-  function onChange(e) {
-    setPresetName(e.target.value);
-  }
-  function localOnClick() {
-    onClick(presetName);
-  }
-
-  return (
-    <>
-      <input
-        placeholder="Project Name"
-        onChange={onChange}
-        value={presetName}
-      />
-      <Button onClick={localOnClick}>Create</Button>
-    </>
-  );
-}
-
 export function DefaultConfigBadge({ config }) {
   return (
     config.isDefault && (
@@ -207,4 +172,18 @@ function Badges() {
       <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
     </div>
   );
+}
+
+function goToProject({ project, configId }) {
+  const username = useAuth.getState().username;
+  const configName = project.configs.find((x) => x.id === configId).name;
+  const address = `${username}/${project.name}/${configName}`;
+  router.navigate(address);
+}
+
+function goToDefaultConfig(project) {
+  goToProject({
+    project,
+    configId: project.configs.find((x) => x.isDefault).id,
+  });
 }

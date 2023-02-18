@@ -9,6 +9,7 @@ export function useGetOrCreateProjects() {
   const fnCreateProject = async ({ name }) => {
     const newProject = await createProject({ name });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
+    return newProject;
   };
 
   return {
