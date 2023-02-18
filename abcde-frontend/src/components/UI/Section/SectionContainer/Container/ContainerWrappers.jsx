@@ -15,13 +15,9 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { style, positionDropType, behaviorDropType } =
-    useHighlightDroppable(sectionId);
+  const { style, highlight } = useHighlightDroppable(sectionId);
   return (
-    <DndSlot
-      positionDropType={positionDropType}
-      behaviorDropType={behaviorDropType}
-    >
+    <DndSlot highlight={highlight}>
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}
@@ -55,7 +51,7 @@ function _DndWatcherAndContainer({
   style,
   children,
 }) {
-  const activeIsSelf = useDndState((x) => x.activeId === sectionId);
+  const activeIsSelf = useDndState((x) => x.active === sectionId);
   const isSorting = useKeyActivations((x) => x.isSorting);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const isDraggingSortable = parentId && (isSorting || isMovingFree);

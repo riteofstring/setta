@@ -11,13 +11,10 @@ import {
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { addKwarg } from "thunks/kwargs";
 import { PANEID } from "utils/constants";
-import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { setParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
-import { getParamWithSameName } from "./sectionContents";
-import { getSectionConfig, getSectionType } from "./sections";
+import { getSectionType } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function deleteSections({ sectionIds }) {
@@ -65,7 +62,6 @@ export function moveSections({
       sectionId,
       newIndex: idx,
       position: positions ? positions[sectionId] : null,
-      behaviorDropType: null,
     });
   }
 }
@@ -76,14 +72,7 @@ export function moveSection({
   sectionId,
   newIndex,
   position,
-  behaviorDropType,
 }) {
-  if (!newParentId || behaviorDropType === BehaviorDropType.INVALID) {
-    return;
-  }
-
-  maybeChangeOldParamUIType({ oldParentId, sectionId });
-
   maybeChangeSectionSubtype({
     newParentId,
     sectionId,
@@ -96,11 +85,17 @@ export function moveSection({
     newIndex,
   });
 
-  maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
-
-  maybeSetInitialPosition({ newParentId, sectionId, position });
-
   setSectionSize({ newParentId, sectionId });
+
+  if (newParentId === PANEID && position) {
+    useSectionInfos.getState().setSectionInfoAttr({
+      sectionId,
+      attr: "initialPosition",
+      value: position,
+    });
+  }
+
+  maybeChangeOldParamUIType({ oldParentId, sectionId });
 }
 
 function setSectionAttrBasedOnNewParent({
@@ -124,12 +119,6 @@ function setSectionAttrBasedOnNewParent({
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
     projectConfigState.addChildren([sectionId]);
-    // Unset paramInfoId
-    sectionInfosState.setSectionInfoAttr({
-      sectionId,
-      attr: "paramInfoId",
-      value: null,
-    });
   } else {
     // Add child to new parent's list
     sectionInfosState.setAllChildren({
@@ -213,70 +202,5 @@ function setSectionSize({ newParentId, sectionId }) {
   } else {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
-  }
-}
-
-function maybeSetInitialPosition({ newParentId, sectionId, position }) {
-  if (newParentId === PANEID && position) {
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "initialPosition",
-      value: position,
-    });
-  }
-}
-
-function maybeChangeNewParamUIType({
-  newParentId,
-  sectionId,
-  behaviorDropType,
-}) {
-  if (newParentId === PANEID) {
-    return;
-  }
-
-  const { uiTypeId } = getSectionConfig(sectionId);
-  if (behaviorDropType === BehaviorDropType.NEW_ARG) {
-    const sectionName = useSectionInfos.getState().x[sectionId].name;
-    const { selectedItem } = getSectionConfig(newParentId);
-    const kwargId = addKwarg({
-      sectionId: newParentId,
-      objInfoId: selectedItem,
-      name: sectionName,
-    });
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "paramInfoId",
-      value: kwargId,
-    });
-    setParamChildId({
-      sectionId: newParentId,
-      paramInfoId: kwargId,
-      childId: sectionId,
-    });
-    setParamUITypeId({
-      uiTypeId,
-      sectionId: newParentId,
-      paramInfoId: kwargId,
-    });
-  } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
-    const matchingParam = getParamWithSameName(sectionId, newParentId);
-    if (matchingParam) {
-      useSectionInfos.getState().setSectionInfoAttr({
-        sectionId,
-        attr: "paramInfoId",
-        value: matchingParam.id,
-      });
-      setParamChildId({
-        sectionId: newParentId,
-        paramInfoId: matchingParam.id,
-        childId: sectionId,
-      });
-      setParamUITypeId({
-        uiTypeId,
-        sectionId: newParentId,
-        paramInfoId: matchingParam.id,
-      });
-    }
   }
 }
