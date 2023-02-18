@@ -1,43 +1,58 @@
 import { useDndMonitor } from "@dnd-kit/core";
 import { useDndState } from "models/info/dndState";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
-import { getDropType } from "utils/DNDSortable/useDropType";
+import { PositionDropType } from "utils/DNDSortable/dropTypes";
+import { getDropTypeForOneSection } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const shouldDrop = useDndState((x) => {
-    if (isMovingFree && x.overId === sectionId) {
-      return x.shouldDrop;
-    }
-    return false;
-  });
   const activeId = useDndState((x) => x.activeId);
   const overId = useDndState((x) => x.overId);
+  const overParentIdIsSelf = useSectionInfos(
+    (x) => x.x[overId]?.parentId === sectionId
+  );
+  const shouldDrop = useDndState(
+    (x) =>
+      isMovingFree &&
+      (overId === sectionId || overParentIdIsSelf) &&
+      x.shouldDrop
+  );
   const centerYCondition = useDndState((x) => x.centerYCondition);
-  const { positionDropType, behaviorDropType } = getDropType({
+  const leftDistCondition = useDndState((x) => x.leftDistCondition);
+  const { positionDropType, behaviorDropType } = getDropTypeForOneSection({
+    sectionId,
     activeId,
     overId,
     centerYCondition,
+    leftDistCondition,
     shouldDrop,
   });
 
+  const style =
+    !shouldDrop || positionDropType === PositionDropType.NONE
+      ? {}
+      : {
+          borderRadius: "1.5rem",
+          padding: "0.75rem",
+          margin: "-0.75rem",
+          transition: "background-color 0.2s",
+          backgroundColor: colors.blue[500],
+        };
+
   if (!shouldDrop) {
     return {
-      style: {},
-      highlightSubType,
+      style,
+      positionDropType,
+      behaviorDropType,
     };
   } else {
     return {
-      style: {
-        borderRadius: "1.5rem",
-        padding: "0.75rem",
-        margin: "-0.75rem",
-        transition: "background-color 0.2s",
-        backgroundColor: colors.blue[500],
-      },
-      highlightSubType,
+      style,
+      positionDropType,
+      behaviorDropType,
     };
   }
 }

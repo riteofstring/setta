@@ -14,7 +14,7 @@ export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const currOver = useDndState((x) => x.overId);
-  const currOverDropType = useDndState((x) => x.overDropType);
+  const currShouldDrop = useDndState((x) => x.shouldDrop);
   const currCenterYCondition = useDndState((x) => x.centerYCondition);
   const currLeftDistCondition = useDndState((x) => x.centerLeftDistCondition);
   const setOver = useDndState((x) => x.setOver);
@@ -25,7 +25,7 @@ export function useOnDragMove() {
         zoom,
         isMovingFree,
         currOver,
-        currOverDropType,
+        currShouldDrop,
         currCenterYCondition,
         currLeftDistCondition,
         setOver,
@@ -34,7 +34,7 @@ export function useOnDragMove() {
       zoom,
       isMovingFree,
       currOver,
-      currOverDropType,
+      currShouldDrop,
       currCenterYCondition,
       currLeftDistCondition,
       setOver,
@@ -59,24 +59,24 @@ function onDragMove({
   zoom,
   isMovingFree,
   currOver,
-  currOverDropType,
+  currShouldDrop,
   currCenterYCondition,
   currLeftDistCondition,
   setOver,
 }) {
   if (isMovingFree) {
-    const overDropType = getShouldDrop(active, over, collisions);
+    const shouldDrop = getShouldDrop(active, over, collisions);
     const overId = over ? over.id : null;
     const centerYCondition = collisions[0]?.data.centerYDist < 0;
     const leftDistCondition = getLeftDistCondition(collisions, zoom);
 
     if (
       overId !== currOver ||
-      overDropType !== currOverDropType ||
+      shouldDrop !== currShouldDrop ||
       centerYCondition !== currCenterYCondition ||
       leftDistCondition !== currLeftDistCondition
     ) {
-      setOver({ overId, overDropType, centerYCondition, leftDistCondition });
+      setOver({ overId, shouldDrop, centerYCondition, leftDistCondition });
     }
   }
 }
@@ -149,13 +149,13 @@ export function getPositionDropType({
 }
 
 // returns [dropType, newParentId, newIndex]
-export function getBehaviorDropType({ activeId, overId }) {
-  if (getSectionIsRoot(activeId)) {
+export function getBehaviorDropType({ activeId, newParentId }) {
+  if (getSectionIsRoot(newParentId)) {
     return BehaviorDropType.NEW_LIST_CHILD;
   }
 
   const activeName = useSectionInfos.getState().x[activeId].name;
-  const params = getCurrObjParamKwargInfos(overId);
+  const params = getCurrObjParamKwargInfos(newParentId);
   let nameAlreadyExists = false;
   for (const p of params) {
     if (activeName === p.name) {
@@ -167,6 +167,8 @@ export function getBehaviorDropType({ activeId, overId }) {
   if (!nameAlreadyExists) {
     return BehaviorDropType.NEW_ARG;
   }
+
+  return BehaviorDropType.EXISTING_ARG;
 }
 
 export function getDropType({
@@ -178,7 +180,7 @@ export function getDropType({
 }) {
   if (!shouldDrop) {
     return {
-      positionDropType: [null, null, null],
+      positionDropType: [PositionDropType.NONE, null, null],
       behaviorDropType: BehaviorDropType.NONE,
     };
   }
@@ -187,8 +189,24 @@ export function getDropType({
     activeId,
     overId,
     centerYCondition,
+    leftDistCondition,
   });
-  const behaviorDropType = getBehaviorDropType({ activeId, overId });
+  const behaviorDropType = getBehaviorDropType({
+    activeId,
+    newParentId: positionDropType[1],
+  });
 
   return { positionDropType, behaviorDropType };
+}
+
+export function getDropTypeForOneSection({ sectionId, ...props }) {
+  const { positionDropType, behaviorDropType } = getDropType(props);
+  // section is parent and we're not dropping into
+  if (
+    positionDropType[0] !== PositionDropType.INTO &&
+    sectionId === positionDropType[1]
+  ) {
+    return { positionDropType: PositionDropType.NONE, behaviorDropType };
+  }
+  return { positionDropType: positionDropType[0], behaviorDropType };
 }

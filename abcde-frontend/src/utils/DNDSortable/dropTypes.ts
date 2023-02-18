@@ -1,4 +1,5 @@
 export enum PositionDropType {
+  NONE = "NONE",
   INTO = "INTO",
   ABOVE = "ABOVE",
   BELOW = "BELOW",

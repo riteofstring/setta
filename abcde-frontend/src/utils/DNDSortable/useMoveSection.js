@@ -35,6 +35,7 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
       activeId: active.id,
       overId: over.id,
       centerYCondition: useDndState.getState().centerYCondition,
+      leftDistCondition: useDndState.getState().leftDistCondition,
       shouldDrop,
     }).slice(1);
   }
