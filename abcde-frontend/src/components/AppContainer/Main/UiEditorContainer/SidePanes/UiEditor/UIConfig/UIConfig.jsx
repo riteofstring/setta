@@ -1,3 +1,4 @@
+import * as Popover from "@radix-ui/react-popover";
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
@@ -12,6 +13,7 @@ import React, { useState } from "react";
 import { BiPencil } from "react-icons/bi";
 import { FiSave } from "react-icons/fi";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
+import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
 import { TextInputPopover } from "utils/atoms/popover/textinputpopover";
@@ -134,9 +136,6 @@ function _UIElement({ sectionId, paramInfo }) {
 }
 
 function InfoViewDescription({ paramInfoId }) {
-  const info = useInfoView((x) => _.defaultTo(x.x[paramInfoId], ""));
-  const setInfo = useInfoView((x) => x.setInfo);
-  const [value, setValue] = useState(info);
   return (
     <TextAreaPopover
       inputClasses="rounded-lg"
@@ -146,14 +145,58 @@ function InfoViewDescription({ paramInfoId }) {
         </IconButton>
       }
       header={"Description for Infoview"}
-      onClick={() => setInfo({ id: paramInfoId, value })}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
+      body={<InfoViewTextAndSubmit paramInfoId={paramInfoId} />}
     />
   );
 }
 
 function SaveAndConfig({ onSubmit, paramChildId }) {
+  return (
+    <TextInputPopover
+      trigger={
+        <IconButton size="w-4 h-4" padding="py-2 px-2">
+          <FiSave className="text-slate-500" />
+        </IconButton>
+      }
+      body={<SubmitAsPreset onSubmit={onSubmit} />}
+    />
+  );
+}
+
+function InfoViewTextAndSubmit({ paramInfoId }) {
+  const info = useInfoView((x) => _.defaultTo(x.x[paramInfoId], ""));
+  const setInfo = useInfoView((x) => x.setInfo);
+  const [value, setValue] = useState(info);
+
+  return (
+    <>
+      <textarea
+        className="cursor-auto overflow-y-auto overflow-x-hidden rounded-md py-2 px-3 focus-visible:outline focus-visible:outline-blue-500"
+        placeholder="Description"
+        rows="4"
+        cols="50"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <div className="mt-2 flex gap-1 self-end">
+        <Button
+          twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
+          onClick={() => setInfo({ id: paramInfoId, value })}
+        >
+          Save <FiSave className="text-slate-600" />
+        </Button>
+
+        <Popover.Close asChild>
+          <Button twClasses="gap-1 bg-slate-300 py-1 px-3 rounded-full hover:bg-white text-xs">
+            Close
+          </Button>
+        </Popover.Close>
+      </div>
+    </>
+  );
+}
+
+function SubmitAsPreset({ onSubmit }) {
   const [presetName, setPresetName] = useState("");
 
   function onChange(e) {
@@ -163,16 +206,29 @@ function SaveAndConfig({ onSubmit, paramChildId }) {
   function localOnSubmit() {
     onSubmit(presetName);
   }
+
   return (
-    <TextInputPopover
-      trigger={
-        <IconButton size="w-4 h-4" padding="py-2 px-2">
-          <FiSave className="text-slate-500" />
-        </IconButton>
-      }
-      onChange={onChange}
-      value={presetName}
-      onClick={localOnSubmit}
-    />
+    <>
+      <input
+        className="cursor-auto"
+        placeholder="Preset Name"
+        onChange={onChange}
+        value={presetName}
+      />
+
+      <div className="mt-2 flex gap-1">
+        <Button
+          twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
+          onClick={localOnSubmit}
+        >
+          Save <FiSave className="text-slate-400" />
+        </Button>
+        <Popover.Close asChild>
+          <Button twClasses="gap-1 bg-slate-300 py-1 px-3 rounded-full hover:bg-white text-xs">
+            Close
+          </Button>
+        </Popover.Close>
+      </div>
+    </>
   );
 }
