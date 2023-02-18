@@ -1,19 +1,32 @@
+import * as Popover from "@radix-ui/react-popover";
+import { FiSave } from "react-icons/fi";
+import { Button } from "../buttons/Button";
 import { StandardPopover } from "./standardpopover";
 
 export function TextInputPopover({
   trigger,
-  body,
   header,
   closeButton,
   footer,
   open,
   onOpenChange,
+  onChange,
+  value,
+  onClick,
 }) {
   return (
     <StandardPopover
       trigger={trigger}
       contentClasses="bg-slate-200 p-3 rounded-lg shadow-md drop-shadow-md text-sm cursor-pointer"
-      popoverContent={<Content header={header} body={body} footer={footer} />}
+      popoverContent={
+        <Content
+          header={header}
+          footer={footer}
+          onChange={onChange}
+          value={value}
+          onClick={onClick}
+        />
+      }
       open={open}
       closeButton={closeButton}
       onOpenChange={onOpenChange}
@@ -21,14 +34,41 @@ export function TextInputPopover({
   );
 }
 
-function Content({ header, body, footer }) {
+function Content({ header, footer, onChange, value, onClick }) {
   return (
     <>
       <h3 className="text-xs font-bold uppercase text-slate-600">{header}</h3>
       <div className="mt-1 flex flex-row items-center gap-2 rounded-full border border-solid border-slate-300 bg-white px-3 py-2 text-slate-800 [&:has(input:focus-visible)]:border-blue-500">
-        {body}
+        <Body onChange={onChange} value={value} onClick={onClick} />
       </div>
       <p>{footer}</p>
+    </>
+  );
+}
+
+function Body({ onChange, value, onClick }) {
+  return (
+    <>
+      <input
+        className="cursor-auto"
+        placeholder="Preset Name"
+        onChange={onChange}
+        value={value}
+      />
+
+      <div className="mt-2 flex gap-1">
+        <Button
+          twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
+          onClick={onClick}
+        >
+          Save <FiSave className="text-slate-400" />
+        </Button>
+        <Popover.Close asChild>
+          <Button twClasses="gap-1 bg-slate-300 py-1 px-3 rounded-full hover:bg-white text-xs">
+            Close
+          </Button>
+        </Popover.Close>
+      </div>
     </>
   );
 }
