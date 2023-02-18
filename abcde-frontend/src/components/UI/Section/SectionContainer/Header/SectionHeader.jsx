@@ -28,9 +28,9 @@ function _SectionHeader({
     saveKwargsAsCollection({ sectionId, objInfoId });
   }
   return (
-    <div className="flex flex-row items-center px-9">
+    <div className="flex w-full flex-row items-center px-9">
       {!isInfo && (
-        <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
+        <div className="align-self-stretch flex flex-1 items-center gap-1 justify-self-stretch">
           <CardTitle sectionId={sectionId} />
           <IconButton
             color="text-slate-400"
@@ -62,8 +62,8 @@ function _SectionHeader({
 function CardTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "cursor-text nodrag h-6 font-heading font-bold px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full  ",
-    notEditing: "font-heading cursor-pointer font-bold max-w-full truncate",
+      "cursor-text nodrag h-6 font-heading font-bold px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full",
+    notEditing: "font-heading cursor-pointer font-bold",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

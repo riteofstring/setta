@@ -35,7 +35,7 @@ function ListItem() {
       <h3 className="font-heading text-xl font-bold text-slate-500">Item</h3>
       <p className="text-sm">
         Nullam sit amet mi rutrum, consequat purus et, euismod elit. Nullam eu
-        ex urna.
+        ex urna.{" "}
       </p>
     </div>
   );

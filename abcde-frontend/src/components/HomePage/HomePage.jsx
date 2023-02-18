@@ -9,6 +9,7 @@ import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { router } from "utils/Routes/router";
 import "./homepage.css";
 
@@ -49,6 +50,11 @@ function RightColumn({ projects, createProject }) {
             </StandardButton>
           }
           body={<ProjectNameSetter onClick={onClick} />}
+        />
+        <StandardSearch
+          inputStyles={inputStyles}
+          leftElementStyles="pl-1"
+          aria-label="Overview Search"
         />
       </div>
 

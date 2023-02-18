@@ -1,9 +1,8 @@
 import { ParentSize } from "@visx/responsive";
 import { useGetSelectedOutputValues } from "hooks/useSectionContents";
-import React from "react";
 import { LineChart } from "utils/Charts/LineChart";
 
-function _OutputArea({ sectionId }) {
+export function OutputArea({ sectionId }) {
   const group = useGetSelectedOutputValues(sectionId);
   if (!group) {
     return null;
@@ -33,5 +32,3 @@ function OneChart({ series, title }) {
     </div>
   );
 }
-
-export const OutputArea = React.memo(_OutputArea);

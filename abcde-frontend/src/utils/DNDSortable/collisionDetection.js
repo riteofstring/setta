@@ -92,8 +92,8 @@ export const customCollisionDetection = ({
     // if not in list, then ignore self
     // if in list, keep self (makes sorting experience better)
     if (
-      !(!active.data.current.sortable?.containerId && active.id === id) &&
-      rect
+      rect &&
+      !(!active.data.current.sortable?.containerId && active.id === id)
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
