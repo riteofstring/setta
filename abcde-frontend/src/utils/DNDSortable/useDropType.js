@@ -7,7 +7,6 @@ import { getCurrObjParamKwargInfos } from "thunks/sections/sectionContents";
 import { getSectionIsRoot } from "thunks/sections/sections";
 import {
   BehaviorDropType,
-  DropType,
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
@@ -66,7 +65,7 @@ function onDragMove({
   setOver,
 }) {
   if (isMovingFree) {
-    const overDropType = getDropType(active, over, collisions);
+    const overDropType = getShouldDrop(active, over, collisions);
     const overId = over ? over.id : null;
     const centerYCondition = collisions[0]?.data.centerYDist < 0;
     const leftDistCondition = getLeftDistCondition(collisions, zoom);
@@ -91,7 +90,7 @@ function getLeftDistCondition(collisions, zoom) {
   );
 }
 
-export function getDropType(active, over, collisions) {
+export function getShouldDrop(active, over, collisions) {
   // Weird case where collisions[0] doesn't agree with over.id).
   // Or if active === over
   // Plus a normal case: if section is top-level (not sortable)
@@ -102,9 +101,9 @@ export function getDropType(active, over, collisions) {
     active.id === over.id ||
     (!over.data.current.sortable && over.data.current.hasNested)
   ) {
-    return DropType.NONE;
+    return false;
   }
-  return DropType.DROP;
+  return true;
 }
 
 // returns [dropType, newParentId, newIndex]
@@ -170,14 +169,14 @@ export function getBehaviorDropType({ activeId, overId }) {
   }
 }
 
-export function getDropSubType({
+export function getDropType({
   activeId,
   overId,
-  dropType,
+  shouldDrop,
   centerYCondition,
   leftDistCondition,
 }) {
-  if (dropType === DropType.NONE) {
+  if (!shouldDrop) {
     return {
       positionDropType: [null, null, null],
       behaviorDropType: BehaviorDropType.NONE,

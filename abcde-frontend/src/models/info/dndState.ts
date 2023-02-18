@@ -1,11 +1,10 @@
-import { DropType } from "utils/DNDSortable/dropTypes";
 import { create } from "../utils";
 
 export const initialState = {
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
-  overDropType: DropType.NONE,
+  shouldDrop: false,
   centerYCondition: false,
   leftDistCondition: false,
 };

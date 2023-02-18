@@ -1,8 +1,3 @@
-export enum DropType {
-  NONE = "NONE",
-  DROP = "DROP",
-}
-
 export enum PositionDropType {
   INTO = "INTO",
   ABOVE = "ABOVE",

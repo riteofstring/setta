@@ -6,7 +6,7 @@ import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
-import { getDropSubType, getDropType } from "./useDropType";
+import { getDropType, getShouldDrop } from "./useDropType";
 
 function onSortEnd({ active, over }) {
   useSectionInfos.getState().setAllChildren({
@@ -30,12 +30,12 @@ function onFreeMoveEnd({ active, over, collisions, dummyRef, project }) {
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (over) {
-    const dropType = getDropType(active, over, collisions);
-    [newParentId, newIndex] = getDropSubType({
+    const shouldDrop = getShouldDrop(active, over, collisions);
+    [newParentId, newIndex] = getDropType({
       activeId: active.id,
       overId: over.id,
       centerYCondition: useDndState.getState().centerYCondition,
-      dropType,
+      shouldDrop,
     }).slice(1);
   }
 

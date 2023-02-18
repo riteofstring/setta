@@ -3,31 +3,29 @@ import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
-import { DropType } from "utils/DNDSortable/dropTypes";
-import { getDropSubType } from "utils/DNDSortable/useDropType";
+import { getDropType } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const highlight = useDndState((x) => {
+  const shouldDrop = useDndState((x) => {
     if (isMovingFree && x.overId === sectionId) {
-      return x.overDropType;
+      return x.shouldDrop;
     }
-    return DropType.NONE;
+    return false;
   });
   const activeId = useDndState((x) => x.activeId);
   const overId = useDndState((x) => x.overId);
   const centerYCondition = useDndState((x) => x.centerYCondition);
-  const { positionDropType, behaviorDropType } = getDropSubType({
+  const { positionDropType, behaviorDropType } = getDropType({
     activeId,
     overId,
     centerYCondition,
-    dropType: highlight,
+    shouldDrop,
   });
 
-  if (highlight === DropType.NONE) {
+  if (!shouldDrop) {
     return {
       style: {},
-      highlight,
       highlightSubType,
     };
   } else {
@@ -39,7 +37,6 @@ export function useHighlightDroppable(sectionId: string) {
         transition: "background-color 0.2s",
         backgroundColor: colors.blue[500],
       },
-      highlight,
       highlightSubType,
     };
   }
