@@ -2,13 +2,15 @@ import { ParentSize } from "@visx/responsive";
 import { useGetSelectedOutputValues } from "hooks/useSectionContents";
 import React from "react";
 import { LineChart } from "utils/Charts/LineChart";
+import { SocialEmbeds } from "utils/embeds/socialembeds";
 
 function _OutputArea({ sectionId }) {
   const group = useGetSelectedOutputValues(sectionId);
   if (!group) {
     return null;
   }
-  return <OneChart series={group.children} title={group.name} />;
+  // return <OneChart series={group.children} title={group.name} />;
+  return <SocialEmbeds yt={false} />;
 }
 
 function OneChart({ series, title }) {
