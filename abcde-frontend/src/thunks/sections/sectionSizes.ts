@@ -1,16 +1,21 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 
-export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
+export function setSelfParentSiblingChildrenWidths({
+  sectionId,
+  d,
+  minHeight,
+  minWidth,
+}) {
   // set own width
   useSectionInfos.getState().setSectionInfoAttr({
     sectionId,
     attr: "size",
-    value: size,
+    newValueFn: getNewSizeFn({ d, minHeight, minWidth }),
   });
 
   setAllOtherWidths({
     sectionId,
-    width: size.width,
+    width: useSectionInfos.getState().x[sectionId].size.width,
   });
 }
 
@@ -50,4 +55,12 @@ function getHighestAncestor(sectionId) {
   }
 
   return highestAncestor;
+}
+
+function getNewSizeFn({ d, minHeight, minWidth }) {
+  return (size) => {
+    const newHeight = Math.max(size.height + d.height, minHeight);
+    const newWidth = Math.max(size.width + d.width, minWidth);
+    return { height: newHeight, width: newWidth };
+  };
 }

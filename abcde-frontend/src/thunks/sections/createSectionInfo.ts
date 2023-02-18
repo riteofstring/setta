@@ -10,6 +10,7 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getChildUITypeId } from "utils/uiTypeUtils";
+import { getInitialSize } from "./initialSize";
 import { getSectionType } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
@@ -31,7 +32,10 @@ export function createManySectionInfo({
 }) {
   const newInfos = {};
   const newConfigs = {};
-  sectionProps["size"] = { width: 0, height: 0 };
+  sectionProps["size"] = getInitialSize({
+    parentId: sectionProps.parentId,
+    uiTypeId: configProps.uiTypeId,
+  });
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
