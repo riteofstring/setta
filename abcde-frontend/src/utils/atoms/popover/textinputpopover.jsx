@@ -56,7 +56,7 @@ function Body({ onChange, value, onClick }) {
         value={value}
       />
 
-      <div className="mt-2 flex gap-1">
+      <div className="flex gap-1">
         <Popover.Close asChild>
           <Button
             twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
