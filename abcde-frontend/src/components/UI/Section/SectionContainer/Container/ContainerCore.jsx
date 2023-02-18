@@ -55,5 +55,11 @@ function DeckSectionTitle({ sectionId }) {
       "font-heading font-bold text-slate-100 text-4xl -mb-2 tracking-tighter",
   };
 
-  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
+  return (
+    <SectionTitle
+      sectionId={sectionId}
+      titleProps={titleProps}
+      className="12345"
+    />
+  );
 }
