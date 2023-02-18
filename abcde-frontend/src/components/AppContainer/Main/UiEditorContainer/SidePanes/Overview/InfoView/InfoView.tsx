@@ -16,8 +16,7 @@ export function InfoView() {
         <AccordionTrigger>Infoview</AccordionTrigger>
         <AccordionContent>
           Phasellus sed dictum lectus, quis vestibulum ligula. Duis vitae
-          tristique sapien. Aliquam sed tellus iaculis, placerat magna varius,
-          hendrerit erat.
+          tristique sapien.
         </AccordionContent>
       </AccordionItem>
     </Accordion.Root>
@@ -69,13 +68,13 @@ const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
       className={classNames(
-        "data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp h-36 overflow-hidden overflow-y-auto rounded-b-md bg-slate-200 text-xs",
+        "h-36 overflow-hidden rounded-b-md bg-slate-200  text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp",
         className
       )}
       {...props}
       ref={forwardedRef}
     >
-      <div className="py-4 px-5">{children}</div>
+      <div className="max-h-full overflow-y-auto py-4 px-5 ">{children}</div>
     </Accordion.Content>
   )
 );
