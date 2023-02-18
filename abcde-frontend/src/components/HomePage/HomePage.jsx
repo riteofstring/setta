@@ -1,8 +1,6 @@
 import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { matchSorter } from "match-sorter";
 import { useAuth } from "models/auth";
-import { useSearch } from "models/search";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { Badge } from "utils/atoms/badges/badge";
@@ -33,8 +31,12 @@ function RightColumn({ projects, createProject }) {
     createProject({ name });
   }
 
+  const inputStyles =
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 max-w-[30rem] focus-visible:border-blue-300 pl-7 py-1";
   const stdbtnStyles =
     "py-2 px-4 rounded-full font-bold font-heading text-white bg-slate-600 border border-solid border-slate-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-slate-900 gap-2";
+  const gridStyles =
+    "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
 
   return (
     <div className="overflow-y-auto px-10 py-8">
@@ -49,29 +51,15 @@ function RightColumn({ projects, createProject }) {
           body={<ProjectNameSetter onClick={onClick} />}
         />
       </div>
-      <ProjectItems projects={projects} />
+
+      <div className={gridStyles}>
+        {Object.values(projects).map((x, i) => (
+          <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
+        ))}
+      </div>
     </div>
   );
 }
-
-function ProjectItems({ projects }) {
-  const searchValue = useSearch((x) => x.value);
-  const filteredProjects = matchSorter(Object.values(projects), searchValue, {
-    keys: ["name"],
-  });
-
-  const gridStyles =
-    "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
-
-  return (
-    <div className={gridStyles}>
-      {filteredProjects.map((x, i) => (
-        <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
-      ))}
-    </div>
-  );
-}
-
 const ProjectItem = forwardRef((props, forwardedRef) => {
   const username = useAuth((x) => x.username);
   const { name, configs } = props.project;
