@@ -1,11 +1,12 @@
 import { useIsInfo } from "hooks/useSectionType";
+import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
 import { ParamGroupContainer } from "./Main/Group/GroupContainer";
 import { KwargsControls } from "./Main/KwargsControls/KwargsControls";
 import { SectionSearch } from "./Main/Search/Search";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
-export function InputArea({ sectionId, selectedItem }) {
+function _InputArea({ sectionId, selectedItem }) {
   function onSelectedItemChange(value) {
     setSelectedItem(sectionId, value);
   }
@@ -28,3 +29,5 @@ export function InputArea({ sectionId, selectedItem }) {
     </>
   );
 }
+
+export const InputArea = React.memo(_InputArea);
