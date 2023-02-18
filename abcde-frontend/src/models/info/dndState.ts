@@ -1,23 +1,23 @@
 import { create } from "../utils";
 
-export enum DropType {
-  NONE = "NONE",
-  INTO = "INTO",
-  ABOVE = "ABOVE",
-  BELOW = "BELOW",
-}
-
 export const initialState = {
-  active: null,
+  activeId: null,
   activeIsTopLevel: false,
-  over: null,
-  overDropType: DropType.NONE,
+  overId: null,
+  shouldDrop: false,
+  centerYCondition: false,
+  leftDistCondition: false,
 };
 
 export const useDndState = create((set) => ({
   ...initialState,
   setActive: ({ id, isTopLevel }) =>
-    set({ active: id, activeIsTopLevel: isTopLevel }),
+    set({ activeId: id, activeIsTopLevel: isTopLevel }),
   setOver: (props) => set(props),
-  reset: () => set(initialState),
+  reset: () =>
+    set((state) => ({
+      ...initialState,
+      centerYCondition: state.centerYCondition,
+      leftDistCondition: state.leftDistCondition,
+    })),
 }));

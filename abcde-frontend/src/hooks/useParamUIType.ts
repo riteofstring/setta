@@ -17,11 +17,12 @@ export function useParamUITypeId(sectionId: string, paramInfoId: string) {
 
 export function useGetManyParamUITypeIds(
   sectionId: string,
-  paramInfos: CodeInfoType[]
+  paramInfos: string[] | CodeInfoType[],
+  inputsAreIds: boolean
 ) {
   const uiTypeColId = useGetSectionConfig(sectionId, "uiTypeColId");
   return useParamInfos(
-    (x) => paramInfos.map((y) => x.y[uiTypeColId][y.id]),
+    (x) => paramInfos.map((p) => x.y[uiTypeColId][inputsAreIds ? p : p.id]),
     _.isEqual
   );
 }
@@ -30,7 +31,7 @@ export function useAreAllParamsNested(
   sectionId: string,
   paramInfos: CodeInfoType[]
 ) {
-  const uiTypeIds = useGetManyParamUITypeIds(sectionId, paramInfos);
+  const uiTypeIds = useGetManyParamUITypeIds(sectionId, paramInfos, false);
   return useUITypes((x) =>
     uiTypeIds.map((y) => requiresNestedSection(x.x[y].type)).every((z) => z)
   );

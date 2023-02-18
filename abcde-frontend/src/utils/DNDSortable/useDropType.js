@@ -1,13 +1,23 @@
-import { DropType, useDndState } from "models/info/dndState";
+import { useDndState } from "models/info/dndState";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
+import { getParamIsNested } from "thunks/paramInfos";
+import { getParamWithSameName } from "thunks/sections/sectionContents";
+import { getSectionIsRoot } from "thunks/sections/sections";
+import {
+  BehaviorDropType,
+  PositionDropType,
+} from "utils/DNDSortable/dropTypes";
 
 export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const currOver = useDndState((x) => x.over);
-  const currOverDropType = useDndState((x) => x.overDropType);
+  const currOver = useDndState((x) => x.overId);
+  const currShouldDrop = useDndState((x) => x.shouldDrop);
+  const currCenterYCondition = useDndState((x) => x.centerYCondition);
+  const currLeftDistCondition = useDndState((x) => x.centerLeftDistCondition);
   const setOver = useDndState((x) => x.setOver);
   return useCallback(
     (props) =>
@@ -16,10 +26,20 @@ export function useOnDragMove() {
         zoom,
         isMovingFree,
         currOver,
-        currOverDropType,
+        currShouldDrop,
+        currCenterYCondition,
+        currLeftDistCondition,
         setOver,
       }),
-    [zoom, isMovingFree, currOver, currOverDropType, setOver]
+    [
+      zoom,
+      isMovingFree,
+      currOver,
+      currShouldDrop,
+      currCenterYCondition,
+      currLeftDistCondition,
+      setOver,
+    ]
   );
 }
 
@@ -40,18 +60,24 @@ function onDragMove({
   zoom,
   isMovingFree,
   currOver,
-  currOverDropType,
+  currShouldDrop,
+  currCenterYCondition,
+  currLeftDistCondition,
   setOver,
 }) {
   if (isMovingFree) {
-    let overDropType = DropType.NONE;
-    let overId = null;
-    if (over) {
-      overId = over.id;
-      overDropType = getDropType(active, over, collisions, zoom);
-    }
-    if (overId !== currOver || overDropType !== currOverDropType) {
-      setOver({ over: overId, overDropType });
+    const shouldDrop = getShouldDrop(active, over, collisions);
+    const overId = over ? over.id : null;
+    const centerYCondition = collisions[0]?.data.centerYDist < 0;
+    const leftDistCondition = getLeftDistCondition(collisions, zoom);
+
+    if (
+      overId !== currOver ||
+      shouldDrop !== currShouldDrop ||
+      centerYCondition !== currCenterYCondition ||
+      leftDistCondition !== currLeftDistCondition
+    ) {
+      setOver({ overId, shouldDrop, centerYCondition, leftDistCondition });
     }
   }
 }
@@ -65,57 +91,96 @@ function getLeftDistCondition(collisions, zoom) {
   );
 }
 
-export function getDropType(active, over, collisions, zoom) {
-  // Weird case where collisions[0] doesn't agree with over.id).
-  // Or if active === over
-  // Plus a normal case: if section is top-level (not sortable)
-  // and it has children, then it shouldn't be dropped into
-  if (
-    collisions[0]?.id !== over.id ||
-    active.id === over.id ||
-    (!over.data.current.sortable && over.data.current.hasNested)
-  ) {
-    return DropType.NONE;
-  }
+export function getShouldDrop(active, over, collisions) {
+  // Make sure collisions[0] agrees with over.id).
+  // Make sure active is not over
+  // Make sure over is a sortable or over has no children
+  return (
+    over &&
+    collisions[0]?.id === over.id &&
+    active.id !== over.id &&
+    (over.data.current.sortable || !over.data.current.hasNested)
+  );
+}
+
+// returns [dropType, newParentId, newIndex]
+export function getPositionDropType({ centerYCondition, leftDistCondition }) {
+  const { activeId, overId } = useDndState.getState();
+  const s = useSectionInfos.getState();
+  const overParentId = s.x[overId].parentId;
 
   // Drop into section if it is a sortable and leftOffset is large enough
-  // Or if it's not a sortable and has no children. (The 'has children' case is covered above)
-  if (
-    (over.data.current.sortable && getLeftDistCondition(collisions, zoom)) ||
-    !over.data.current.sortable
-  ) {
-    return DropType.INTO;
+  // Or if it's not a sortable and has no children.
+  if ((overParentId && leftDistCondition) || !overParentId) {
+    return [PositionDropType.INTO, overId, 0];
   }
 
-  const siblings =
-    collisions[0].data.droppableContainer.data.current.sortable?.items;
-  const overIndex = siblings.indexOf(over.id);
+  const siblings = s.currChildren[overParentId];
+  const overIndex = siblings.indexOf(overId);
 
   // Is effectively sorting
-  if (
-    active.data.current.sortable?.containerId ===
-    over.data.current.sortable?.containerId
-  ) {
-    const activeIndex = siblings.indexOf(active.id);
+  if (overParentId === s.x[activeId].parentId) {
+    const activeIndex = siblings.indexOf(activeId);
     // Drop below the target if moving down the list
     if (activeIndex < overIndex) {
-      return DropType.BELOW;
+      return [PositionDropType.BELOW, overParentId, overIndex];
     }
     // Drop above the target if moving up the list
-    return DropType.ABOVE;
+    return [PositionDropType.ABOVE, overParentId, overIndex];
   }
 
   // Dropping into a list from outside
-  // If the target is anything other than the first element, then drop below it
+  // If the target is anything other than the last element, then drop above it
   if (overIndex < siblings.length - 1) {
-    return DropType.ABOVE;
+    return [PositionDropType.ABOVE, overParentId, overIndex];
   }
-  // If the target is the first element
-  const centerYCondition = collisions[0].data.centerYDist < 0;
-  // Drop above section
-  if (centerYCondition) {
-    return DropType.ABOVE;
+
+  // If the target is the last element
+  return centerYCondition
+    ? [PositionDropType.ABOVE, overParentId, overIndex]
+    : [PositionDropType.BELOW, overParentId, overIndex + 1];
+}
+
+// returns [dropType, newParentId, newIndex]
+export function getBehaviorDropType({ newParentId }) {
+  const activeId = useDndState.getState().activeId;
+
+  if (getSectionIsRoot(newParentId)) {
+    return BehaviorDropType.NEW_LIST_CHILD;
   }
-  // Drop below section
-  return DropType.BELOW;
+
+  const matchingParam = getParamWithSameName(activeId, newParentId);
+
+  if (!matchingParam) {
+    return BehaviorDropType.NEW_ARG;
+  }
+
+  if (!getParamIsNested(newParentId, matchingParam.id)) {
+    return BehaviorDropType.EXISTING_ARG;
+  }
+
+  return BehaviorDropType.INVALID;
+}
+
+export function getDropType({
+  shouldDrop,
+  centerYCondition,
+  leftDistCondition,
+}) {
+  if (!shouldDrop) {
+    return {
+      positionDropType: [null, null, null],
+      behaviorDropType: null,
+    };
+  }
+
+  const positionDropType = getPositionDropType({
+    centerYCondition,
+    leftDistCondition,
+  });
+  const behaviorDropType = getBehaviorDropType({
+    newParentId: positionDropType[1],
+  });
+
+  return { positionDropType, behaviorDropType };
 }
