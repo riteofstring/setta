@@ -1,8 +1,6 @@
 import { ResizeIcon } from "components/UI/Section/SectionContainer/ResizeIcon/ResizeIcon";
 import { useMinSectionHeight } from "hooks/useMinSectionHeight";
-import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect, useState } from "react";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
@@ -30,7 +28,6 @@ function CustomResizableCore({
   children,
 }) {
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
-  const [size, setSize] = useState(savedSize);
 
   function onResizeStop(e, direction, ref, d) {
     setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
@@ -40,15 +37,9 @@ function CustomResizableCore({
     setLocalWidth(savedSize.width + d.width);
   }
 
-  useEffect(() => {
-    if (!_.isEqual(size, savedSize)) {
-      setSize(savedSize);
-    }
-  }, [savedSize.width, savedSize.height]);
-
   return (
     <ResizableWithScale
-      size={size}
+      size={savedSize}
       minHeight={minHeight}
       minWidth={minWidth}
       onResize={onResize}
