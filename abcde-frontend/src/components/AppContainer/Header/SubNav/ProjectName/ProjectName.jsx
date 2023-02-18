@@ -13,7 +13,7 @@ export function ProjectName() {
     "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";
 
   const notEditing =
-    "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-min";
+    "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
   return (
     <div className="w-full">
