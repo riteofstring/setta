@@ -4,10 +4,6 @@ import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { getDropType } from "utils/DNDSortable/useDropType";
-import {
-  BehaviorDropType,
-
-} from "utils/DNDSortable/dropTypes";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
@@ -19,7 +15,6 @@ export function useHighlightDroppable(sectionId: string) {
     leftDistCondition,
     shouldDrop,
   });
-  const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
   const style = !shouldDrop
     ? {}
@@ -28,7 +23,7 @@ export function useHighlightDroppable(sectionId: string) {
         padding: "0.75rem",
         margin: "-0.75rem",
         transition: "background-color 0.2s",
-        backgroundColor: invalid ? colors.red[600] : colors.blue[500],
+        backgroundColor: colors.blue[500],
       };
 
   return {

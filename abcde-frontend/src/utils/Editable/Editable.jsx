@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 
 export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
   const [isEditing, setIsEditing] = useState(false);
-  useCancelOnEscapeKey({ isEditing, onCancel, setIsEditing });
 
   function localOnChange(e) {
     onChange(e.target.value);
@@ -11,6 +10,11 @@ export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
   function localOnBlur(e) {
     setIsEditing(false);
     onBlur(e.target.value);
+  }
+
+  function localOnCancel() {
+    setIsEditing(false);
+    onCancel();
   }
 
   function onClick() {
@@ -22,6 +26,7 @@ export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
       value={value}
       onChange={localOnChange}
       onBlur={localOnBlur}
+      onCancel={localOnCancel}
       titleProps={titleProps["editing"]}
     />
   ) : (
@@ -33,7 +38,7 @@ export function Editable({ value, onChange, onBlur, onCancel, titleProps }) {
   );
 }
 
-function InEditMode({ value, onChange, onBlur, titleProps }) {
+function InEditMode({ value, onChange, onBlur, onCancel, titleProps }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -42,6 +47,8 @@ function InEditMode({ value, onChange, onBlur, titleProps }) {
     inputRef.current.setSelectionRange(0, s);
   }, []);
 
+  const keyDownHandler = getKeyDownHandler({ onCancel, onBlur });
+
   return (
     <input
       value={value}
@@ -49,6 +56,7 @@ function InEditMode({ value, onChange, onBlur, titleProps }) {
       onBlur={onBlur}
       className={titleProps}
       ref={inputRef}
+      onKeyDown={keyDownHandler}
       // size="1"
     />
   );
@@ -62,18 +70,12 @@ function InNonEditMode({ value, onClick, titleProps }) {
   );
 }
 
-function useCancelOnEscapeKey({ isEditing, onCancel, setIsEditing }) {
-  useEffect(() => {
-    const handleEsc = (event) => {
-      if (event.key === "Escape" && isEditing) {
-        onCancel();
-        setIsEditing(false);
-      }
-    };
-    window.addEventListener("keydown", handleEsc);
-
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-    };
-  }, [isEditing]);
+function getKeyDownHandler({ onCancel, onBlur }) {
+  return (event) => {
+    if (event.key === "Escape") {
+      onCancel();
+    } else if (event.key === "Enter") {
+      onBlur(event);
+    }
+  };
 }
