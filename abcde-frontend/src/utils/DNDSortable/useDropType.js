@@ -167,7 +167,7 @@ export function getBehaviorDropType({ newParentId }) {
     return BehaviorDropType.EXISTING_ARG;
   }
 
-  return BehaviorDropType.NONE;
+  return BehaviorDropType.INVALID;
 }
 
 export function getDropType({
@@ -177,8 +177,8 @@ export function getDropType({
 }) {
   if (!shouldDrop) {
     return {
-      positionDropType: [PositionDropType.NONE, null, null],
-      behaviorDropType: BehaviorDropType.NONE,
+      positionDropType: [null, null, null],
+      behaviorDropType: null,
     };
   }
 

@@ -24,6 +24,7 @@ function onFreeMoveEnd({ dummyRef, project }) {
   let newParentId = null;
   let newIndex = null;
   let position = null;
+  let behaviorDropType = null;
 
   // dropping nested section onto pane
   if (oldParentId !== PANEID && !overId) {
@@ -32,16 +33,13 @@ function onFreeMoveEnd({ dummyRef, project }) {
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (overId) {
-    const { positionDropType, behaviorDropType } = getDropType({
+    const dropType = getDropType({
       centerYCondition: dndState.centerYCondition,
       leftDistCondition: dndState.leftDistCondition,
       shouldDrop: dndState.shouldDrop,
     });
-    [newParentId, newIndex] = positionDropType.slice(1);
-  }
-
-  if (!newParentId) {
-    return;
+    behaviorDropType = dropType.behaviorDropType;
+    [newParentId, newIndex] = dropType.positionDropType.slice(1);
   }
 
   moveSection({
@@ -50,6 +48,7 @@ function onFreeMoveEnd({ dummyRef, project }) {
     sectionId,
     newIndex,
     position,
+    behaviorDropType,
   });
 }
 

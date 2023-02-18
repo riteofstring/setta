@@ -11,10 +11,12 @@ import {
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { addKwarg } from "thunks/kwargs";
 import { PANEID } from "utils/constants";
+import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { setParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
-import { getSectionType } from "./sections";
+import { getSectionConfig, getSectionType } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function deleteSections({ sectionIds }) {
@@ -62,6 +64,7 @@ export function moveSections({
       sectionId,
       newIndex: idx,
       position: positions ? positions[sectionId] : null,
+      behaviorDropType: null,
     });
   }
 }
@@ -72,7 +75,12 @@ export function moveSection({
   sectionId,
   newIndex,
   position,
+  behaviorDropType,
 }) {
+  if (!newParentId || behaviorDropType === BehaviorDropType.INVALID) {
+    return;
+  }
+
   maybeChangeSectionSubtype({
     newParentId,
     sectionId,
@@ -87,15 +95,11 @@ export function moveSection({
 
   setSectionSize({ newParentId, sectionId });
 
-  if (newParentId === PANEID && position) {
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "initialPosition",
-      value: position,
-    });
-  }
+  maybeSetInitialPosition({ newParentId, sectionId, position });
 
   maybeChangeOldParamUIType({ oldParentId, sectionId });
+
+  maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
 }
 
 function setSectionAttrBasedOnNewParent({
@@ -202,5 +206,31 @@ function setSectionSize({ newParentId, sectionId }) {
   } else {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
+  }
+}
+
+function maybeSetInitialPosition({ newParentId, sectionId, position }) {
+  if (newParentId === PANEID && position) {
+    useSectionInfos.getState().setSectionInfoAttr({
+      sectionId,
+      attr: "initialPosition",
+      value: position,
+    });
+  }
+}
+
+function maybeChangeNewParamUIType({
+  newParentId,
+  sectionId,
+  behaviorDropType,
+}) {
+  const sectionName = useSectionInfos.getState().x[sectionId].name;
+  const { selectedItem } = getSectionConfig(newParentId);
+  if (behaviorDropType === BehaviorDropType.NEW_ARG) {
+    addKwarg({
+      sectionId: newParentId,
+      objInfoId: selectedItem,
+      name: sectionName,
+    });
   }
 }
