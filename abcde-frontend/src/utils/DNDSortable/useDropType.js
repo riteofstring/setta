@@ -4,7 +4,7 @@ import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
 import { getParamIsNested } from "thunks/paramInfos";
-import { getCurrObjParamKwargInfos } from "thunks/sections/sectionContents";
+import { getParamWithSameName } from "thunks/sections/sectionContents";
 import { getSectionIsRoot } from "thunks/sections/sections";
 import {
   BehaviorDropType,
@@ -149,15 +149,7 @@ export function getBehaviorDropType({ newParentId }) {
     return BehaviorDropType.NEW_LIST_CHILD;
   }
 
-  const activeName = useSectionInfos.getState().x[activeId].name;
-  const params = getCurrObjParamKwargInfos(newParentId);
-  let matchingParam = null;
-  for (const p of params) {
-    if (activeName === p.name) {
-      matchingParam = p;
-      break;
-    }
-  }
+  const matchingParam = getParamWithSameName(activeId, newParentId);
 
   if (!matchingParam) {
     return BehaviorDropType.NEW_ARG;

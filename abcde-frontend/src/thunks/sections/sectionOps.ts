@@ -16,6 +16,7 @@ import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { setParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
+import { getParamWithSameName } from "./sectionContents";
 import { getSectionConfig, getSectionType } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
@@ -259,5 +260,23 @@ function maybeChangeNewParamUIType({
       paramInfoId: kwargId,
     });
   } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
+    const matchingParam = getParamWithSameName(sectionId, newParentId);
+    if (matchingParam) {
+      useSectionInfos.getState().setSectionInfoAttr({
+        sectionId,
+        attr: "paramInfoId",
+        value: matchingParam.id,
+      });
+      setParamChildId({
+        sectionId: newParentId,
+        paramInfoId: matchingParam.id,
+        childId: sectionId,
+      });
+      setParamUITypeId({
+        uiTypeId,
+        sectionId: newParentId,
+        paramInfoId: matchingParam.id,
+      });
+    }
   }
 }
