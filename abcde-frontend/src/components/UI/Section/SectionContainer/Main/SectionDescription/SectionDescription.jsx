@@ -3,12 +3,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
-export function SectionDescription({ sectionId, card = false }) {
+export function SectionDescription({ sectionId, width, card = false }) {
   const description = useSectionDescription((x) => x.x[sectionId].value);
 
   if (!card) {
     return (
-      <ResizableDescription sectionId={sectionId}>
+      <ResizableDescription sectionId={sectionId} width={width}>
         <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-auto [&_.prose]:p-0 [&_pre]:w-full">
           <Markdown markdownSource={description} />
         </div>
