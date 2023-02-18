@@ -18,7 +18,6 @@ import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { OutputArea } from "./OutputArea";
-import { ResizeIcon } from "./ResizeIcon/ResizeIcon";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
@@ -49,10 +48,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <CustomResizable
-          sectionId={sectionId}
-          handleComponent={{ bottomRight: <ResizeIcon /> }}
-        >
+        <CustomResizable sectionId={sectionId}>
           <div className="h-full overflow-hidden rounded-xl">
             <div className="flex h-full flex-grow flex-col gap-2 py-4">
               <SectionHeader
