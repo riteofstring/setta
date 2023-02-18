@@ -81,6 +81,8 @@ export function moveSection({
     return;
   }
 
+  maybeChangeOldParamUIType({ oldParentId, sectionId });
+
   maybeChangeSectionSubtype({
     newParentId,
     sectionId,
@@ -93,13 +95,11 @@ export function moveSection({
     newIndex,
   });
 
-  setSectionSize({ newParentId, sectionId });
+  maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
 
   maybeSetInitialPosition({ newParentId, sectionId, position });
 
-  maybeChangeOldParamUIType({ oldParentId, sectionId });
-
-  maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
+  setSectionSize({ newParentId, sectionId });
 }
 
 function setSectionAttrBasedOnNewParent({
@@ -123,8 +123,13 @@ function setSectionAttrBasedOnNewParent({
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
     projectConfigState.addChildren([sectionId]);
+    // Unset paramInfoId
+    sectionInfosState.setSectionInfoAttr({
+      sectionId,
+      attr: "paramInfoId",
+      value: null,
+    });
   } else {
-    console.log("adding to parent's children!");
     // Add child to new parent's list
     sectionInfosState.setAllChildren({
       sectionId: newParentId,
@@ -229,10 +234,10 @@ function maybeChangeNewParamUIType({
     return;
   }
 
-  const sectionName = useSectionInfos.getState().x[sectionId].name;
-  const { selectedItem } = getSectionConfig(newParentId);
   const { uiTypeId } = getSectionConfig(sectionId);
   if (behaviorDropType === BehaviorDropType.NEW_ARG) {
+    const sectionName = useSectionInfos.getState().x[sectionId].name;
+    const { selectedItem } = getSectionConfig(newParentId);
     const kwargId = addKwarg({
       sectionId: newParentId,
       objInfoId: selectedItem,
@@ -253,5 +258,6 @@ function maybeChangeNewParamUIType({
       sectionId: newParentId,
       paramInfoId: kwargId,
     });
+  } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
   }
 }
