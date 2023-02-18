@@ -92,19 +92,15 @@ function getLeftDistCondition(collisions, zoom) {
 }
 
 export function getShouldDrop(active, over, collisions) {
-  // Weird case where collisions[0] doesn't agree with over.id).
-  // Or if active === over
-  // Plus a normal case: if section is top-level (not sortable)
-  // and it has children, then it shouldn't be dropped into
-  if (
-    !over ||
-    collisions[0]?.id !== over.id ||
-    active.id === over.id ||
-    (!over.data.current.sortable && over.data.current.hasNested)
-  ) {
-    return false;
-  }
-  return true;
+  // Make sure collisions[0] agrees with over.id).
+  // Make sure active is not over
+  // Make sure over is a sortable or over has no children
+  return (
+    over &&
+    collisions[0]?.id === over.id &&
+    active.id !== over.id &&
+    (over.data.current.sortable || !over.data.current.hasNested)
+  );
 }
 
 // returns [dropType, newParentId, newIndex]
