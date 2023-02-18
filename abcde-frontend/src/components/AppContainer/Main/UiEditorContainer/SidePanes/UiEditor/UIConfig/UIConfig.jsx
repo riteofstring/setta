@@ -6,7 +6,6 @@ import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import _ from "lodash";
-import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiPencil } from "react-icons/bi";
@@ -20,7 +19,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
-const UIElement = React.memo(_UIElement, _.isEqual);
+const UIElement = React.memo(_UIElement, (p, n) => _.isEqual(p, n));
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
@@ -111,7 +110,10 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </h3>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          <InfoViewDescription paramInfoId={paramInfoId} />
+          <InfoViewDescription
+            paramChildId={paramChildId}
+            onSubmit={onSaveAsSubmit}
+          />
           <SaveAndConfig
             paramChildId={paramChildId}
             onSubmit={onSaveAsSubmit}
@@ -134,7 +136,7 @@ function _UIElement({ sectionId, paramInfo }) {
   );
 }
 
-function InfoViewDescription({ paramInfoId }) {
+function InfoViewDescription({ onSubmit, paramChildId }) {
   return (
     <TextAreaPopover
       inputClasses="rounded-lg"
@@ -144,7 +146,7 @@ function InfoViewDescription({ paramInfoId }) {
         </IconButton>
       }
       header={"Description for Infoview"}
-      body={<InfoViewTextAndSubmit paramInfoId={paramInfoId} />}
+      body={<InfoViewTextAndSubmit />}
     />
   );
 }
@@ -162,11 +164,7 @@ function SaveAndConfig({ onSubmit, paramChildId }) {
   );
 }
 
-function InfoViewTextAndSubmit({ paramInfoId }) {
-  const info = useInfoView((x) => _.defaultTo(x.x[paramInfoId], ""));
-  const setInfo = useInfoView((x) => x.setInfo);
-  const [value, setValue] = useState(info);
-
+function InfoViewTextAndSubmit() {
   return (
     <>
       <textarea
@@ -174,13 +172,11 @@ function InfoViewTextAndSubmit({ paramInfoId }) {
         placeholder="Description"
         rows="4"
         cols="50"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
       />
       <div className="self-end">
         <Button
           twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
-          onClick={() => setInfo({ id: paramInfoId, value })}
+          // onClick={localOnSubmit}
         >
           Save <FiSave className="text-slate-400" />
         </Button>
