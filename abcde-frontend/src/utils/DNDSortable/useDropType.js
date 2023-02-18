@@ -3,6 +3,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
+import { getParamIsNested } from "thunks/paramInfos";
 import { getCurrObjParamKwargInfos } from "thunks/sections/sectionContents";
 import { getSectionIsRoot } from "thunks/sections/sections";
 import {
@@ -154,19 +155,23 @@ export function getBehaviorDropType({ newParentId }) {
 
   const activeName = useSectionInfos.getState().x[activeId].name;
   const params = getCurrObjParamKwargInfos(newParentId);
-  let nameAlreadyExists = false;
+  let matchingParam = null;
   for (const p of params) {
     if (activeName === p.name) {
-      nameAlreadyExists = true;
+      matchingParam = p;
       break;
     }
   }
 
-  if (!nameAlreadyExists) {
+  if (!matchingParam) {
     return BehaviorDropType.NEW_ARG;
   }
 
-  return BehaviorDropType.EXISTING_ARG;
+  if (!getParamIsNested(newParentId, matchingParam.id)) {
+    return BehaviorDropType.EXISTING_ARG;
+  }
+
+  return BehaviorDropType.NONE;
 }
 
 export function getDropType({

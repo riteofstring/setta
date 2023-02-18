@@ -1,8 +1,7 @@
-import { isSeriesElement } from "abcde-utils/src/constants";
-import { SectionUITypeType } from "abcde-utils/src/types/uiType";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { requiresNestedSection } from "utils/constants";
 import { getSectionConfig } from "./sections/sections";
 
 export function getParamEVId(sectionId, paramInfoId) {
@@ -25,9 +24,9 @@ export function getParamUIType(sectionId, paramInfoId) {
   return useUITypes.getState().x[uiTypeId];
 }
 
-export function getIsParamNested(sectionId, paramInfoId) {
-  const uiType = getParamUIType(sectionId, paramInfoId) as SectionUITypeType;
-  return isSeriesElement(uiType.config.subType);
+export function getParamIsNested(sectionId, paramInfoId) {
+  const uiType = getParamUIType(sectionId, paramInfoId);
+  return requiresNestedSection(uiType.type);
 }
 
 export function setParamEVAttr(sectionId, paramInfoId, fn, props) {
