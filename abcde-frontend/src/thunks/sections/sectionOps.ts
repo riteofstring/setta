@@ -1,6 +1,5 @@
 import {
   DECK,
-  DEFAULT_SECTION_UI_TYPE_ID,
   isRoot,
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
@@ -232,6 +231,7 @@ function maybeChangeNewParamUIType({
 
   const sectionName = useSectionInfos.getState().x[sectionId].name;
   const { selectedItem } = getSectionConfig(newParentId);
+  const { uiTypeId } = getSectionConfig(sectionId);
   if (behaviorDropType === BehaviorDropType.NEW_ARG) {
     const kwargId = addKwarg({
       sectionId: newParentId,
@@ -249,7 +249,7 @@ function maybeChangeNewParamUIType({
       childId: sectionId,
     });
     setParamUITypeId({
-      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+      uiTypeId,
       sectionId: newParentId,
       paramInfoId: kwargId,
     });
