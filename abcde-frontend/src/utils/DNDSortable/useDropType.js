@@ -1,22 +1,13 @@
-import { useDndState } from "models/info/dndState";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { DropType, useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
-import { getCurrObjParamKwargInfos } from "thunks/sections/sectionContents";
-import { getSectionIsRoot } from "thunks/sections/sections";
-import {
-  DropType,
-  IntoDropType,
-  SiblingDropType,
-} from "utils/DNDSortable/dropTypes";
 
 export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
   const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const currOver = useDndState((x) => x.overId);
+  const currOver = useDndState((x) => x.over);
   const currOverDropType = useDndState((x) => x.overDropType);
-  const currCenterYCondition = useDndState((x) => x.centerYCondition);
   const setOver = useDndState((x) => x.setOver);
   return useCallback(
     (props) =>
@@ -26,17 +17,9 @@ export function useOnDragMove() {
         isMovingFree,
         currOver,
         currOverDropType,
-        currCenterYCondition,
         setOver,
       }),
-    [
-      zoom,
-      isMovingFree,
-      currOver,
-      currOverDropType,
-      currCenterYCondition,
-      setOver,
-    ]
+    [zoom, isMovingFree, currOver, currOverDropType, setOver]
   );
 }
 
@@ -58,22 +41,17 @@ function onDragMove({
   isMovingFree,
   currOver,
   currOverDropType,
-  currCenterYCondition,
   setOver,
 }) {
   if (isMovingFree) {
-    const overDropType = over
-      ? getDropType(active, over, collisions, zoom)
-      : DropType.NONE;
-    const overId = over ? over.id : null;
-    const centerYCondition = collisions[0]?.data.centerYDist < 0;
-
-    if (
-      overId !== currOver ||
-      overDropType !== currOverDropType ||
-      centerYCondition !== currCenterYCondition
-    ) {
-      setOver({ overId, overDropType, centerYCondition });
+    let overDropType = DropType.NONE;
+    let overId = null;
+    if (over) {
+      overId = over.id;
+      overDropType = getDropType(active, over, collisions, zoom);
+    }
+    if (overId !== currOver || overDropType !== currOverDropType) {
+      setOver({ over: overId, overDropType });
     }
   }
 }
@@ -109,70 +87,35 @@ export function getDropType(active, over, collisions, zoom) {
     return DropType.INTO;
   }
 
-  return DropType.AS_SIBLING;
-}
-
-// returns [dropType, newParentId, newIndex]
-export function getSiblingDropType({ activeId, overId, centerYCondition }) {
-  const s = useSectionInfos.getState();
-  const overParentId = s.x[overId].parentId;
-  const siblings = s.currChildren[overParentId];
-  const overIndex = siblings.indexOf(overId);
+  const siblings =
+    collisions[0].data.droppableContainer.data.current.sortable?.items;
+  const overIndex = siblings.indexOf(over.id);
 
   // Is effectively sorting
-  if (overParentId === s.x[activeId].parentId) {
-    const activeIndex = siblings.indexOf(activeId);
+  if (
+    active.data.current.sortable?.containerId ===
+    over.data.current.sortable?.containerId
+  ) {
+    const activeIndex = siblings.indexOf(active.id);
     // Drop below the target if moving down the list
     if (activeIndex < overIndex) {
-      return [SiblingDropType.BELOW, overParentId, overIndex];
+      return DropType.BELOW;
     }
     // Drop above the target if moving up the list
-    return [SiblingDropType.ABOVE, overParentId, overIndex];
+    return DropType.ABOVE;
   }
 
   // Dropping into a list from outside
-  // If the target is anything other than the last element, then drop above it
+  // If the target is anything other than the first element, then drop below it
   if (overIndex < siblings.length - 1) {
-    return [SiblingDropType.ABOVE, overParentId, overIndex];
+    return DropType.ABOVE;
   }
-
-  // If the target is the last element
-  return centerYCondition
-    ? [SiblingDropType.ABOVE, overParentId, overIndex]
-    : [SiblingDropType.BELOW, overParentId, overIndex + 1];
-}
-
-// returns [dropType, newParentId, newIndex]
-export function getIntoDropType({ activeId, overId }) {
-  if (getSectionIsRoot(activeId)) {
-    return [IntoDropType.NEW_LIST_CHILD, overId, 0];
+  // If the target is the first element
+  const centerYCondition = collisions[0].data.centerYDist < 0;
+  // Drop above section
+  if (centerYCondition) {
+    return DropType.ABOVE;
   }
-
-  const activeName = useSectionInfos.getState().x[activeId].name;
-  const params = getCurrObjParamKwargInfos(overId);
-  let nameAlreadyExists = false;
-  for (const p of params) {
-    if (activeName === p.name) {
-      nameAlreadyExists = true;
-      break;
-    }
-  }
-
-  if (!nameAlreadyExists) {
-    return [IntoDropType.NEW_ARG, overId, 0];
-  }
-}
-
-export function getDropSubType({
-  activeId,
-  overId,
-  dropType,
-  centerYCondition,
-}) {
-  if (dropType === DropType.AS_SIBLING) {
-    return getSiblingDropType({ activeId, overId, centerYCondition });
-  } else if (dropType === DropType.INTO) {
-    return getIntoDropType({ activeId, overId });
-  }
-  return [null, null, null];
+  // Drop below section
+  return DropType.BELOW;
 }

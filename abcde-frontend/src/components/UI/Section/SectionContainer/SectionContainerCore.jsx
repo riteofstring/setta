@@ -49,7 +49,10 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
         style={{ zIndex: isActiveSection ? 150 : 10 }}
       >
-        <CustomResizable sectionId={sectionId}>
+        <CustomResizable
+          sectionId={sectionId}
+          handleComponent={{ bottomRight: <ResizeIcon /> }}
+        >
           <div className="h-full overflow-hidden rounded-xl">
             <div className="flex h-full flex-grow flex-col gap-2 py-4">
               <SectionHeader
@@ -80,8 +83,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
                 </Button>
               </div>
             )}
-
-            <ResizeIcon />
           </div>
         </CustomResizable>
       </div>
