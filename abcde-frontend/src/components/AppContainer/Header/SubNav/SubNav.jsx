@@ -1,6 +1,7 @@
 import { useAuth } from "models/auth";
 import { useLocation, useParams } from "react-router-dom";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
+import { EditMenu } from "./EditMenu/EditMenu";
 import { FileMenu } from "./FileMenu/FileMenu";
 import { RunButton } from "./RunButton/RunButton";
 
@@ -29,6 +30,7 @@ function UiEditorSubNav() {
     <>
       {/* <VerticalLine /> */}
       <FileMenu />
+      <EditMenu />
       {/* <BackToProject /> */}
       <CommunityButton />
 
