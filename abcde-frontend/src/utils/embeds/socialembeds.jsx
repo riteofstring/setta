@@ -2,14 +2,7 @@ import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 
 export function SocialEmbeds({ yt = true }) {
-  return (
-    <div
-      className="grid h-full w-full place-items-center
- py-4 px-9 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0"
-    >
-      {yt ? <YoutubeEmbed /> : <TwitterEmbed />}
-    </div>
-  );
+  return <>{yt ? <YoutubeEmbed /> : <TwitterEmbed />}</>;
 }
 
 function YoutubeEmbed() {
@@ -21,9 +14,23 @@ function YoutubeEmbed() {
     //   autoplay: 1,
     // },
   };
-  return <YouTube videoId="2g811Eo7K8U" opts={opts} />;
+  return (
+    <div
+      className="grid h-full w-full place-items-center
+py-4 px-9 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0 "
+    >
+      <YouTube videoId="2g811Eo7K8U" opts={opts} />
+    </div>
+  );
 }
 
 function TwitterEmbed() {
-  return <Tweet tweetId="841418541026877441" />;
+  return (
+    <div
+      className="grid h-full w-full place-items-center
+py-4 px-9 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
+    >
+      <Tweet tweetId="841418541026877441" />
+    </div>
+  );
 }
