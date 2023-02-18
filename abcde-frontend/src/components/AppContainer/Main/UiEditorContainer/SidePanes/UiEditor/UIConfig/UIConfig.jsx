@@ -146,7 +146,6 @@ function InfoViewDescription({ paramInfoId }) {
         </IconButton>
       }
       header={"Description for Infoview"}
-      // body={<InfoViewTextAndSubmit paramInfoId={paramInfoId} />}
       onClick={() => setInfo({ id: paramInfoId, value })}
       value={value}
       onChange={(e) => setValue(e.target.value)}
@@ -171,7 +170,6 @@ function SaveAndConfig({ onSubmit, paramChildId }) {
           <FiSave className="text-slate-500" />
         </IconButton>
       }
-      // body={<SubmitAsPreset onSubmit={onSubmit} />}
       onChange={onChange}
       value={presetName}
       onClick={localOnSubmit}
