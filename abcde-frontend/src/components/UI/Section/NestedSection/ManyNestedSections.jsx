@@ -9,14 +9,7 @@ export function ManyNestedSections({
   ancestorSet,
   isDeck,
 }) {
-  const goToSection = useGoToSection(sectionId);
-
-  const onClick = () => {
-    goToSection();
-  };
-
   const newAncestorSet = { ...ancestorSet, [sectionId]: true };
-  const rightMargin = useRightMargin();
 
   return (
     <DNDSortable
@@ -24,30 +17,56 @@ export function ManyNestedSections({
       items={childIds}
       ancestorSet={newAncestorSet}
     >
-      <div className="flex items-stretch">
-        {!isDeck && (
-          <div
-            className={`mt-2 transition-all duration-75 ${rightMargin} min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36]`}
-            onClick={onClick}
-          />
-        )}
-        <div className="flex flex-col items-start gap-2 ">
-          {childIds.map((e, idx) => (
-            <SortableSectionContainer
-              parentId={sectionId}
-              sectionId={e}
-              nextId={childIds[idx + 1]}
-              key={`Nested-Sec-${e}`}
-              ancestorSet={newAncestorSet}
-            />
-          ))}
-        </div>
-      </div>
+      <NestedSectionsWithMargin
+        childIds={childIds}
+        sectionId={sectionId}
+        ancestorSet={newAncestorSet}
+        isDeck={isDeck}
+      />
     </DNDSortable>
   );
 }
 
-function useRightMargin() {
+// disabled is passed in by DNDSortable
+function NestedSectionsWithMargin({
+  childIds,
+  sectionId,
+  ancestorSet,
+  isDeck,
+  droppableDisabled,
+}) {
+  const goToSection = useGoToSection(sectionId);
+
+  const onClick = () => {
+    goToSection();
+  };
+
+  const rightMargin = useRightMargin(droppableDisabled);
+
+  return (
+    <div className="flex items-stretch">
+      {!isDeck && (
+        <div
+          className={`mt-2 transition-all duration-75 ${rightMargin} min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36]`}
+          onClick={onClick}
+        />
+      )}
+      <div className="flex flex-col items-start gap-2 ">
+        {childIds.map((e, idx) => (
+          <SortableSectionContainer
+            parentId={sectionId}
+            sectionId={e}
+            nextId={childIds[idx + 1]}
+            key={`Nested-Sec-${e}`}
+            ancestorSet={ancestorSet}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function useRightMargin(droppableDisabled) {
   const isDraggingFreely = useIsDraggingFreely();
-  return isDraggingFreely ? "mr-10" : "mr-2";
+  return isDraggingFreely && !droppableDisabled ? "mr-10" : "mr-2";
 }

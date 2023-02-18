@@ -2,6 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useHasNested } from "hooks/useSectionChildren";
 import { useDndState } from "models/info/dndState";
+import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
@@ -12,6 +13,8 @@ function _SortableSectionContainer({
   nextId,
   ancestorSet,
 }) {
+  const animateLayoutChanges = useAnimateLayoutChanges();
+
   // remove 'role' because we don't want sections to be "role=button"
   const hasNested = useHasNested(sectionId);
   const {
@@ -23,6 +26,7 @@ function _SortableSectionContainer({
   } = useSortable({
     id: sectionId,
     data: { isTopLevel: false, hasNested },
+    animateLayoutChanges,
   });
   return (
     <SortableCore
@@ -52,7 +56,7 @@ function _SortableCore({
   transform,
   transition,
 }) {
-  const overIsSelf = useDndState((x) => x.over === sectionId);
+  const overIsSelf = useDndState((x) => x.overId === sectionId);
   const store = useStoreApi();
   const scaledTransform = transformWithZoom(transform, store);
 
@@ -97,4 +101,9 @@ function transformWithZoom(transform, store) {
     };
   }
   return transform;
+}
+
+function useAnimateLayoutChanges() {
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  return () => isMovingFree;
 }

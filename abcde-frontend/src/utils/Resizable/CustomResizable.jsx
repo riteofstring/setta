@@ -6,7 +6,7 @@ import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes
 import { SECTIONWIDTH } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 
-export function CustomResizable({ sectionId, handleComponent, children }) {
+export function CustomResizable({ sectionId, children }) {
   const minHeight = useMinSectionHeight(sectionId);
   const minWidth = SECTIONWIDTH;
   return (
@@ -14,20 +14,13 @@ export function CustomResizable({ sectionId, handleComponent, children }) {
       sectionId={sectionId}
       minHeight={minHeight}
       minWidth={minWidth}
-      handleComponent={handleComponent}
     >
       {children}
     </CustomResizableCore>
   );
 }
 
-function CustomResizableCore({
-  sectionId,
-  minHeight,
-  minWidth,
-  children,
-  handleComponent,
-}) {
+function CustomResizableCore({ sectionId, minHeight, minWidth, children }) {
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
   const [size, setSize] = useState(savedSize);
 
@@ -56,7 +49,6 @@ function CustomResizableCore({
         bottomRight: true,
       }}
       className="flex flex-col items-stretch"
-      handleComponent={handleComponent}
     >
       {children}
     </ResizableWithScale>

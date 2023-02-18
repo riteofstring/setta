@@ -93,9 +93,9 @@ export function PaneContainer({
           topLeft: false,
         }}
       >
-        {/* <h2 className="pb-3 text-base font-bold  uppercase tracking-widest text-slate-400">
+        <h2 className="pb-3 text-base font-bold  uppercase tracking-widest text-slate-400">
           {paneTitle}
-        </h2> */}
+        </h2>
         {children}
         <Button
           twClasses={`text-slate-500 hover:bg-slate-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}

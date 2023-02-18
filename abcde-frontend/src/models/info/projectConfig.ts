@@ -28,7 +28,6 @@ export const useProjectConfig = create<ProjectConfigZustandType>(
       set((state) => ({
         children: state.children.filter((x) => !payload.includes(x)),
       })),
-    setName: (name) => set({name}), //TODO, need to update db
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
     getAll: () =>

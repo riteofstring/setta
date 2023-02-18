@@ -1,3 +1,4 @@
+import { isRoot } from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
@@ -18,6 +19,10 @@ export function getSectionType(sectionId) {
   const config = getSectionConfig(sectionId);
   const sectionTypeId = config.uiTypeId;
   return useUITypes.getState().x[sectionTypeId];
+}
+
+export function getSectionIsRoot(sectionId) {
+  return isRoot(getSectionType(sectionId).type);
 }
 
 export function getSectionTypeConfig(sectionId) {
