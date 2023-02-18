@@ -24,8 +24,8 @@ module.exports = {
       },
       animation: {
         "slow-dash": "animation: dash 40s linear infinite",
-        slideDown: "slideDown 100ms cubic-bezier(0.87, 0, 0.13, 1)",
-        slideUp: "slideUp 100ms cubic-bezier(0.87, 0, 0.13, 1)",
+        slideDown: "slideDown 300ms cubic-bezier(0.87, 0, 0.13, 1)",
+        slideUp: "slideUp 300ms cubic-bezier(0.87, 0, 0.13, 1)",
       },
 
       // typography: (theme) => {
