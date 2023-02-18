@@ -61,7 +61,7 @@ export function Incrementer({
             {isRoot && <FiCornerRightDown className="mr-1 text-slate-600" />}
 
             <input
-              className="nodrag max-w-[3ch] rounded-md bg-white px-2 text-xs focus-visible:ring-2 cursor-auto"
+              className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2"
               value={numSections}
               onChange={(e) => numSectionsOnChange(e.target.value)}
               aria-label="Number of sections"

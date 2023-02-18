@@ -8,5 +8,5 @@ export const router = createBrowserRouter([
   indexRoute,
   signUpRoute,
   projectRoute,
-  communityRoute
+  communityRoute,
 ]);

@@ -3,11 +3,8 @@ import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
+import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
-import {
-  BehaviorDropType,
-
-} from "utils/DNDSortable/dropTypes";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
