@@ -3,6 +3,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
+import { getCurrObjParamKwargInfos } from "thunks/sections/sectionContents";
 import { getSectionIsRoot } from "thunks/sections/sections";
 import {
   DropType,
@@ -147,9 +148,19 @@ export function getIntoDropType({ activeId, overId }) {
     return [IntoDropType.NEW_LIST_CHILD, overId, 0];
   }
 
-  // const
+  const activeName = useSectionInfos.getState().x[activeId].name;
+  const params = getCurrObjParamKwargInfos(overId);
+  let nameAlreadyExists = false;
+  for (const p of params) {
+    if (activeName === p.name) {
+      nameAlreadyExists = true;
+      break;
+    }
+  }
 
-  // if ()
+  if (!nameAlreadyExists) {
+    return [IntoDropType.NEW_ARG, overId, 0];
+  }
 }
 
 export function getDropSubType({
@@ -163,5 +174,5 @@ export function getDropSubType({
   } else if (dropType === DropType.INTO) {
     return getIntoDropType({ activeId, overId });
   }
-  return [null, null, null]
+  return [null, null, null];
 }
