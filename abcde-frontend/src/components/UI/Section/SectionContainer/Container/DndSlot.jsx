@@ -7,14 +7,6 @@ import {
 export function DndSlot({ positionDropType, behaviorDropType, children }) {
   return (
     <>
-      {/* <DndSlotTop text={behaviorDropType} />
-
-      <DndSlotMiddle text={behaviorDropType} />
-
-      {children}
-
-      <DndSlotBottom text={behaviorDropType} /> */}
-
       {positionDropType === PositionDropType.ABOVE && (
         <DndSlotTop
           text={behaviorDropType}
