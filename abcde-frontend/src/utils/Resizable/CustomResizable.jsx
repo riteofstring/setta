@@ -29,17 +29,26 @@ function CustomResizableCore({
 }) {
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
 
-  function onResizeStop(e, direction, ref, d) {
-    setSelfParentSiblingChildrenWidths({ sectionId, d, minHeight, minWidth });
+  function onResizeStop(e, direction, ref) {
+    const width = parseCurrPx(ref.style.width);
+    const height = parseCurrPx(ref.style.height);
+    setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
   }
 
-  function onResize(e, direction, ref, d) {
-    setLocalWidth(savedSize.width + d.width);
+  function onResize(e, direction, ref) {
+    if (ref.style.width !== "auto") {
+      setLocalWidth(parseCurrPx(ref.style.width));
+    }
   }
+
+  const size = {
+    width: maybeAuto(savedSize.width),
+    height: maybeAuto(savedSize.height),
+  };
 
   return (
     <ResizableWithScale
-      size={savedSize}
+      size={size}
       minHeight={minHeight}
       minWidth={minWidth}
       onResize={onResize}
@@ -58,4 +67,12 @@ function CustomResizableCore({
       {children}
     </ResizableWithScale>
   );
+}
+
+function maybeAuto(x) {
+  return x === 0 ? "auto" : x;
+}
+
+function parseCurrPx(x) {
+  return x === "auto" ? 0 : parseInt(x);
 }
