@@ -2,6 +2,7 @@ import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/P
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
+import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
 import { InfoView } from "./InfoView/InfoView";
@@ -15,8 +16,11 @@ const paneProps = {
 
 export function Overview() {
   const [filteredList, setFilter] = useGetOverviewListing();
-
   const onResizeStop = useUpdateMapPosition();
+  const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.OVERVIEW);
+  const infoViewHandlersSearch = useSetCurrInfoView(
+    ConstantInfoView.OVERVIEW_SEARCH
+  );
 
   return (
     <PaneContainer
@@ -31,9 +35,10 @@ export function Overview() {
           leftElementStyles="pl-1"
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Overview Search"
+          {...infoViewHandlersSearch}
         />
       </div>
-      <div className="flex-grow overflow-y-auto">
+      <div className="flex-grow overflow-y-auto" {...infoViewHandlers}>
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
       </div>
       <InfoView />

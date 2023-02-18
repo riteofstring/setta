@@ -1,4 +1,5 @@
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
+import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { Editable } from "utils/Editable/Editable";
@@ -8,6 +9,9 @@ export function ProjectName() {
   const configName = useProjectConfig((x) => x.name);
   const setName = useProject((x) => x.setName);
   const setConfigName = useProjectConfig((x) => x.setName);
+  const infoViewHandlers = useSetCurrInfoView(
+    ConstantInfoView.OVERVIEW_PROJNAME
+  );
 
   const editing =
     "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";
@@ -16,7 +20,7 @@ export function ProjectName() {
     "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
   return (
-    <div className="w-full">
+    <div className="w-full" {...infoViewHandlers}>
       <div className="mb-2 flex flex-col flex-wrap font-heading  tracking-tight ">
         <ProjectNameCore
           name={name}
