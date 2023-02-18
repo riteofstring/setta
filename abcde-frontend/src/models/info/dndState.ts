@@ -7,6 +7,7 @@ export const initialState = {
   overId: null,
   overDropType: DropType.NONE,
   centerYCondition: false,
+  leftDistCondition: false,
 };
 
 export const useDndState = create((set) => ({
@@ -18,5 +19,6 @@ export const useDndState = create((set) => ({
     set((state) => ({
       ...initialState,
       centerYCondition: state.centerYCondition,
+      leftDistCondition: state.leftDistCondition,
     })),
 }));

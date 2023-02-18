@@ -6,9 +6,9 @@ import { useStore } from "react-flow-renderer";
 import { getCurrObjParamKwargInfos } from "thunks/sections/sectionContents";
 import { getSectionIsRoot } from "thunks/sections/sections";
 import {
+  BehaviorDropType,
   DropType,
-  IntoDropType,
-  SiblingDropType,
+  PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
 export function useOnDragMove() {
@@ -17,6 +17,7 @@ export function useOnDragMove() {
   const currOver = useDndState((x) => x.overId);
   const currOverDropType = useDndState((x) => x.overDropType);
   const currCenterYCondition = useDndState((x) => x.centerYCondition);
+  const currLeftDistCondition = useDndState((x) => x.centerLeftDistCondition);
   const setOver = useDndState((x) => x.setOver);
   return useCallback(
     (props) =>
@@ -27,6 +28,7 @@ export function useOnDragMove() {
         currOver,
         currOverDropType,
         currCenterYCondition,
+        currLeftDistCondition,
         setOver,
       }),
     [
@@ -35,6 +37,7 @@ export function useOnDragMove() {
       currOver,
       currOverDropType,
       currCenterYCondition,
+      currLeftDistCondition,
       setOver,
     ]
   );
@@ -59,21 +62,22 @@ function onDragMove({
   currOver,
   currOverDropType,
   currCenterYCondition,
+  currLeftDistCondition,
   setOver,
 }) {
   if (isMovingFree) {
-    const overDropType = over
-      ? getDropType(active, over, collisions, zoom)
-      : DropType.NONE;
+    const overDropType = getDropType(active, over, collisions);
     const overId = over ? over.id : null;
     const centerYCondition = collisions[0]?.data.centerYDist < 0;
+    const leftDistCondition = getLeftDistCondition(collisions, zoom);
 
     if (
       overId !== currOver ||
       overDropType !== currOverDropType ||
-      centerYCondition !== currCenterYCondition
+      centerYCondition !== currCenterYCondition ||
+      leftDistCondition !== currLeftDistCondition
     ) {
-      setOver({ overId, overDropType, centerYCondition });
+      setOver({ overId, overDropType, centerYCondition, leftDistCondition });
     }
   }
 }
@@ -87,35 +91,38 @@ function getLeftDistCondition(collisions, zoom) {
   );
 }
 
-export function getDropType(active, over, collisions, zoom) {
+export function getDropType(active, over, collisions) {
   // Weird case where collisions[0] doesn't agree with over.id).
   // Or if active === over
   // Plus a normal case: if section is top-level (not sortable)
   // and it has children, then it shouldn't be dropped into
   if (
+    !over ||
     collisions[0]?.id !== over.id ||
     active.id === over.id ||
     (!over.data.current.sortable && over.data.current.hasNested)
   ) {
     return DropType.NONE;
   }
-
-  // Drop into section if it is a sortable and leftOffset is large enough
-  // Or if it's not a sortable and has no children. (The 'has children' case is covered above)
-  if (
-    (over.data.current.sortable && getLeftDistCondition(collisions, zoom)) ||
-    !over.data.current.sortable
-  ) {
-    return DropType.INTO;
-  }
-
-  return DropType.AS_SIBLING;
+  return DropType.DROP;
 }
 
 // returns [dropType, newParentId, newIndex]
-export function getSiblingDropType({ activeId, overId, centerYCondition }) {
+export function getPositionDropType({
+  activeId,
+  overId,
+  centerYCondition,
+  leftDistCondition,
+}) {
   const s = useSectionInfos.getState();
   const overParentId = s.x[overId].parentId;
+
+  // Drop into section if it is a sortable and leftOffset is large enough
+  // Or if it's not a sortable and has no children.
+  if ((overParentId && leftDistCondition) || !overParentId) {
+    return [PositionDropType.INTO, overId, 0];
+  }
+
   const siblings = s.currChildren[overParentId];
   const overIndex = siblings.indexOf(overId);
 
@@ -124,28 +131,28 @@ export function getSiblingDropType({ activeId, overId, centerYCondition }) {
     const activeIndex = siblings.indexOf(activeId);
     // Drop below the target if moving down the list
     if (activeIndex < overIndex) {
-      return [SiblingDropType.BELOW, overParentId, overIndex];
+      return [PositionDropType.BELOW, overParentId, overIndex];
     }
     // Drop above the target if moving up the list
-    return [SiblingDropType.ABOVE, overParentId, overIndex];
+    return [PositionDropType.ABOVE, overParentId, overIndex];
   }
 
   // Dropping into a list from outside
   // If the target is anything other than the last element, then drop above it
   if (overIndex < siblings.length - 1) {
-    return [SiblingDropType.ABOVE, overParentId, overIndex];
+    return [PositionDropType.ABOVE, overParentId, overIndex];
   }
 
   // If the target is the last element
   return centerYCondition
-    ? [SiblingDropType.ABOVE, overParentId, overIndex]
-    : [SiblingDropType.BELOW, overParentId, overIndex + 1];
+    ? [PositionDropType.ABOVE, overParentId, overIndex]
+    : [PositionDropType.BELOW, overParentId, overIndex + 1];
 }
 
 // returns [dropType, newParentId, newIndex]
-export function getIntoDropType({ activeId, overId }) {
+export function getBehaviorDropType({ activeId, overId }) {
   if (getSectionIsRoot(activeId)) {
-    return [IntoDropType.NEW_LIST_CHILD, overId, 0];
+    return BehaviorDropType.NEW_LIST_CHILD;
   }
 
   const activeName = useSectionInfos.getState().x[activeId].name;
@@ -159,7 +166,7 @@ export function getIntoDropType({ activeId, overId }) {
   }
 
   if (!nameAlreadyExists) {
-    return [IntoDropType.NEW_ARG, overId, 0];
+    return BehaviorDropType.NEW_ARG;
   }
 }
 
@@ -168,11 +175,21 @@ export function getDropSubType({
   overId,
   dropType,
   centerYCondition,
+  leftDistCondition,
 }) {
-  if (dropType === DropType.AS_SIBLING) {
-    return getSiblingDropType({ activeId, overId, centerYCondition });
-  } else if (dropType === DropType.INTO) {
-    return getIntoDropType({ activeId, overId });
+  if (dropType === DropType.NONE) {
+    return {
+      positionDropType: [null, null, null],
+      behaviorDropType: BehaviorDropType.NONE,
+    };
   }
-  return [null, null, null];
+
+  const positionDropType = getPositionDropType({
+    activeId,
+    overId,
+    centerYCondition,
+  });
+  const behaviorDropType = getBehaviorDropType({ activeId, overId });
+
+  return { positionDropType, behaviorDropType };
 }

@@ -17,12 +17,12 @@ export function useHighlightDroppable(sectionId: string) {
   const activeId = useDndState((x) => x.activeId);
   const overId = useDndState((x) => x.overId);
   const centerYCondition = useDndState((x) => x.centerYCondition);
-  const highlightSubType = getDropSubType({
+  const { positionDropType, behaviorDropType } = getDropSubType({
     activeId,
     overId,
     centerYCondition,
     dropType: highlight,
-  })[0];
+  });
 
   if (highlight === DropType.NONE) {
     return {
