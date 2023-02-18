@@ -1,9 +1,9 @@
-import { ResizeIcon } from "components/UI/Section/SectionContainer/ResizeIcon/ResizeIcon";
 import { useMinSectionHeight } from "hooks/useMinSectionHeight";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { SECTIONWIDTH } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
+import { ResizeIcon } from "./ResizeIcon";
 
 export function CustomResizable({ sectionId, setLocalWidth, children }) {
   const minHeight = useMinSectionHeight(sectionId);
