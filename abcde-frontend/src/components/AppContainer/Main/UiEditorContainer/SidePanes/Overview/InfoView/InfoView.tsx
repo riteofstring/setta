@@ -1,13 +1,10 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import classNames from "classnames";
-import { useCurrInfoView } from "models/info/infoView";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 
 export function InfoView() {
   // bg-mauve6 w-[300px]  shadow-black/5
-  const currInfoView = useCurrInfoView();
-
   return (
     <Accordion.Root
       className="mt-8 rounded-md border border-solid border-white shadow-sm"
@@ -17,7 +14,10 @@ export function InfoView() {
     >
       <AccordionItem value="item-1">
         <AccordionTrigger>Infoview</AccordionTrigger>
-        <AccordionContent>{currInfoView}</AccordionContent>
+        <AccordionContent>
+          Phasellus sed dictum lectus, quis vestibulum ligula. Duis vitae
+          tristique sapien.
+        </AccordionContent>
       </AccordionItem>
     </Accordion.Root>
   );

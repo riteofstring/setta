@@ -1,4 +1,3 @@
-import * as Popover from "@radix-ui/react-popover";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { StandardPopover } from "./standardpopover";
 
@@ -31,9 +30,7 @@ function Content({ header, body, footer }) {
       </h3>
       <div className="mt-1 flex flex-row items-center gap-2 rounded-lg bg-slate-700 px-3 py-2">
         <code className="font-code text-white  ">{body}</code>
-        <Popover.Close>
-          <HiOutlineDuplicate className="h-5 w-5 text-white" />
-        </Popover.Close>
+        <HiOutlineDuplicate className="h-5 w-5 text-white" />
       </div>
       <p>{footer}</p>
     </>

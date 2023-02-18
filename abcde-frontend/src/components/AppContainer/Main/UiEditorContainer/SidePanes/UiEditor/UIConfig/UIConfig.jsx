@@ -6,12 +6,12 @@ import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
 import _ from "lodash";
-import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiPencil } from "react-icons/bi";
 import { FiSave } from "react-icons/fi";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
+import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
 import { TextInputPopover } from "utils/atoms/popover/textinputpopover";
@@ -19,7 +19,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
-const UIElement = React.memo(_UIElement, _.isEqual);
+const UIElement = React.memo(_UIElement, (p, n) => _.isEqual(p, n));
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   const paramInfos = useGetCurrObjParamKwargInfos(sectionId).filter(
@@ -110,7 +110,10 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </h3>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          <InfoViewDescription paramInfoId={paramInfoId} />
+          <InfoViewDescription
+            paramChildId={paramChildId}
+            onSubmit={onSaveAsSubmit}
+          />
           <SaveAndConfig
             paramChildId={paramChildId}
             onSubmit={onSaveAsSubmit}
@@ -133,10 +136,7 @@ function _UIElement({ sectionId, paramInfo }) {
   );
 }
 
-function InfoViewDescription({ paramInfoId }) {
-  const info = useInfoView((x) => _.defaultTo(x.x[paramInfoId], ""));
-  const setInfo = useInfoView((x) => x.setInfo);
-  const [value, setValue] = useState(info);
+function InfoViewDescription({ onSubmit, paramChildId }) {
   return (
     <TextAreaPopover
       inputClasses="rounded-lg"
@@ -146,14 +146,46 @@ function InfoViewDescription({ paramInfoId }) {
         </IconButton>
       }
       header={"Description for Infoview"}
-      onClick={() => setInfo({ id: paramInfoId, value })}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
+      body={<InfoViewTextAndSubmit />}
     />
   );
 }
 
 function SaveAndConfig({ onSubmit, paramChildId }) {
+  return (
+    <TextInputPopover
+      trigger={
+        <IconButton size="w-4 h-4" padding="py-2 px-2">
+          <FiSave className="text-slate-500" />
+        </IconButton>
+      }
+      body={<SubmitAsPreset onSubmit={onSubmit} />}
+    />
+  );
+}
+
+function InfoViewTextAndSubmit() {
+  return (
+    <>
+      <textarea
+        className="cursor-auto overflow-y-auto overflow-x-hidden rounded-md py-2 px-3 focus-visible:outline focus-visible:outline-blue-500"
+        placeholder="Description"
+        rows="4"
+        cols="50"
+      />
+      <div className="self-end">
+        <Button
+          twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
+          // onClick={localOnSubmit}
+        >
+          Save <FiSave className="text-slate-400" />
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function SubmitAsPreset({ onSubmit }) {
   const [presetName, setPresetName] = useState("");
 
   function onChange(e) {
@@ -163,16 +195,21 @@ function SaveAndConfig({ onSubmit, paramChildId }) {
   function localOnSubmit() {
     onSubmit(presetName);
   }
+
   return (
-    <TextInputPopover
-      trigger={
-        <IconButton size="w-4 h-4" padding="py-2 px-2">
-          <FiSave className="text-slate-500" />
-        </IconButton>
-      }
-      onChange={onChange}
-      value={presetName}
-      onClick={localOnSubmit}
-    />
+    <>
+      <input
+        className="cursor-auto"
+        placeholder="Preset Name"
+        onChange={onChange}
+        value={presetName}
+      />
+      <Button
+        twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
+        onClick={localOnSubmit}
+      >
+        Save <FiSave className="text-slate-400" />
+      </Button>
+    </>
   );
 }

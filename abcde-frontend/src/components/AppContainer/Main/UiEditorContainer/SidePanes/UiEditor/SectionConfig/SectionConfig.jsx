@@ -1,6 +1,5 @@
 import { OUTPUT } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
-import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useUIEditor } from "models/uiEditor";
 import React from "react";
 import { IoArrowBack } from "react-icons/io5";
@@ -23,40 +22,21 @@ export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
-  const infoViewHandlersCard = useSetCurrInfoView(
-    ConstantInfoView.SECTIONCONFIG_CARDTYPES_SEARCH
-  );
-  const infoViewHandlersContents = useSetCurrInfoView(
-    ConstantInfoView.SECTIONCONFIG_CONTENTS_SEARCH
-  );
 
-  // pass infoViewHandlersContents down?
   return (
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
-      <h3
-        className="mt-2 text-xs font-semibold uppercase text-slate-400"
-        {...infoViewHandlersCard}
-      >
+      <h3 className="mt-2 text-xs font-semibold uppercase text-slate-400">
         Card Types
       </h3>
-      <SectionConfigTypeSelection
-        sectionId={sectionId}
-        {...infoViewHandlersCard}
-      />
+      <SectionConfigTypeSelection sectionId={sectionId} />
 
-      <h3
-        className="mt-4 text-xs font-semibold uppercase text-slate-400"
-        {...infoViewHandlersContents}
-      >
+      <h3 className="mt-4 text-xs font-semibold uppercase text-slate-400">
         Contents
       </h3>
       {sectionType === OUTPUT ? (
-        <OutputsSearch sectionId={sectionId} {...infoViewHandlersContents} />
+        <OutputsSearch sectionId={sectionId} />
       ) : (
-        <CollectionsSearch
-          sectionId={sectionId}
-          {...infoViewHandlersContents}
-        />
+        <CollectionsSearch sectionId={sectionId} />
       )}
     </div>
   );
