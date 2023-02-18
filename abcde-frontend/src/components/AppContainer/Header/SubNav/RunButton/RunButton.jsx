@@ -1,4 +1,5 @@
 import { createNewId } from "abcde-utils/src/utils";
+import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { generateCode } from "thunks/generateCode";
@@ -8,6 +9,7 @@ import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 export function RunButton() {
   const [description, setDescription] = useState("Generating...");
   const [command, setCommand] = useState("");
+  const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.BUTTON_GENERATE);
   const runExport = async () => {
     const codeId = createNewId();
     const command = `runcoder run ${codeId}`;
@@ -21,7 +23,7 @@ export function RunButton() {
     <>
       <CodeGenPopover
         trigger={
-          <MenuBarButton onClick={runExport}>
+          <MenuBarButton onClick={runExport} {...infoViewHandlers}>
             <RiPlayMiniFill />
             Generate
           </MenuBarButton>

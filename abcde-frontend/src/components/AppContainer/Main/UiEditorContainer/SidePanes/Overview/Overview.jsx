@@ -18,6 +18,9 @@ export function Overview() {
   const [filteredList, setFilter] = useGetOverviewListing();
   const onResizeStop = useUpdateMapPosition();
   const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.OVERVIEW);
+  const infoViewHandlersSearch = useSetCurrInfoView(
+    ConstantInfoView.OVERVIEW_SEARCH
+  );
 
   return (
     <PaneContainer
@@ -32,6 +35,7 @@ export function Overview() {
           leftElementStyles="pl-1"
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Overview Search"
+          {...infoViewHandlersSearch}
         />
       </div>
       <div className="flex-grow overflow-y-auto" {...infoViewHandlers}>
