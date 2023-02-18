@@ -3,45 +3,32 @@ import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
-import { getSectionParentId } from "thunks/sections/sections";
-import { PositionDropType } from "utils/DNDSortable/dropTypes";
-import { getDropTypeForOneSection } from "utils/DNDSortable/useDropType";
+import { getDropType } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
-  const overParentIsSelf = useDndState(
-    (x) => (x.overId ? getSectionParentId(x.overId) : null) === sectionId
-  );
-  const shouldDrop = useDndState(
-    (x) => x.shouldDrop && (overIsSelf || overParentIsSelf)
-  );
+  const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
   const centerYCondition = useDndState((x) => x.centerYCondition);
   const leftDistCondition = useDndState((x) => x.leftDistCondition);
-  const { positionDropType, behaviorDropType } = getDropTypeForOneSection({
-    sectionId,
-    overIsSelf,
+  const { positionDropType, behaviorDropType } = getDropType({
     centerYCondition,
     leftDistCondition,
     shouldDrop,
   });
 
-  if (!shouldDrop || positionDropType === PositionDropType.NONE) {
-    return {
-      style: {},
-      positionDropType,
-      behaviorDropType,
-    };
-  }
+  const style = !shouldDrop
+    ? {}
+    : {
+        borderRadius: "1.5rem",
+        padding: "0.75rem",
+        margin: "-0.75rem",
+        transition: "background-color 0.2s",
+        backgroundColor: colors.blue[500],
+      };
 
   return {
-    style: {
-      borderRadius: "1.5rem",
-      padding: "0.75rem",
-      margin: "-0.75rem",
-      transition: "background-color 0.2s",
-      backgroundColor: colors.blue[500],
-    },
-    positionDropType,
+    style,
+    positionDropType: positionDropType[0],
     behaviorDropType,
   };
 }

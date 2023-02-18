@@ -1,18 +1,16 @@
 import { RiDragDropFill } from "react-icons/ri";
-import {
-  BehaviorDropType,
-  PositionDropType,
-} from "utils/DNDSortable/dropTypes";
+import { PositionDropType } from "utils/DNDSortable/dropTypes";
 
 export function DndSlot({ positionDropType, behaviorDropType, children }) {
   return (
     <>
-      {behaviorDropType !== BehaviorDropType.NONE && (
-        <DndSlotMiddle text={behaviorDropType} />
+      {positionDropType === PositionDropType.ABOVE && (
+        <DndSlotTop text={behaviorDropType} />
       )}
-      {positionDropType === PositionDropType.ABOVE && <DndSlotTop />}
       {children}
-      {positionDropType === PositionDropType.BELOW && <DndSlotBottom />}
+      {positionDropType === PositionDropType.BELOW && (
+        <DndSlotBottom text={behaviorDropType} />
+      )}
     </>
   );
 }
@@ -27,21 +25,21 @@ function DndSlotMiddle({ text }) {
   );
 }
 
-function DndSlotTop() {
+function DndSlotTop({ text }) {
   return (
     <div className="relative flex w-full justify-center">
       <div className="absolute -bottom-6 flex justify-center">
-        <DndSlotInner text="DROP" />
+        <DndSlotInner text={text} />
       </div>
     </div>
   );
 }
 
-function DndSlotBottom() {
+function DndSlotBottom({ text }) {
   return (
     <div className="relative flex w-full justify-center">
       <div className="absolute -bottom-6 flex justify-center">
-        <DndSlotInner text="DROP" />
+        <DndSlotInner text={text} />
       </div>
     </div>
   );
