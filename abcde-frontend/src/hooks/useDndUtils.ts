@@ -1,60 +1,49 @@
 import { useDndMonitor } from "@dnd-kit/core";
 import { useDndState } from "models/info/dndState";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
+import { getSectionParentId } from "thunks/sections/sections";
 import { PositionDropType } from "utils/DNDSortable/dropTypes";
 import { getDropTypeForOneSection } from "utils/DNDSortable/useDropType";
 
 export function useHighlightDroppable(sectionId: string) {
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  const activeId = useDndState((x) => x.activeId);
-  const overId = useDndState((x) => x.overId);
-  const overParentIdIsSelf = useSectionInfos(
-    (x) => x.x[overId]?.parentId === sectionId
+  const overIsSelf = useDndState((x) => x.overId === sectionId);
+  const overParentIsSelf = useDndState(
+    (x) => (x.overId ? getSectionParentId(x.overId) : null) === sectionId
   );
   const shouldDrop = useDndState(
-    (x) =>
-      isMovingFree &&
-      (overId === sectionId || overParentIdIsSelf) &&
-      x.shouldDrop
+    (x) => x.shouldDrop && (overIsSelf || overParentIsSelf)
   );
   const centerYCondition = useDndState((x) => x.centerYCondition);
   const leftDistCondition = useDndState((x) => x.leftDistCondition);
   const { positionDropType, behaviorDropType } = getDropTypeForOneSection({
     sectionId,
-    activeId,
-    overId,
+    overIsSelf,
     centerYCondition,
     leftDistCondition,
     shouldDrop,
   });
 
-  const style =
-    !shouldDrop || positionDropType === PositionDropType.NONE
-      ? {}
-      : {
-          borderRadius: "1.5rem",
-          padding: "0.75rem",
-          margin: "-0.75rem",
-          transition: "background-color 0.2s",
-          backgroundColor: colors.blue[500],
-        };
-
-  if (!shouldDrop) {
+  if (!shouldDrop || positionDropType === PositionDropType.NONE) {
     return {
-      style,
-      positionDropType,
-      behaviorDropType,
-    };
-  } else {
-    return {
-      style,
+      style: {},
       positionDropType,
       behaviorDropType,
     };
   }
+
+  return {
+    style: {
+      borderRadius: "1.5rem",
+      padding: "0.75rem",
+      margin: "-0.75rem",
+      transition: "background-color 0.2s",
+      backgroundColor: colors.blue[500],
+    },
+    positionDropType,
+    behaviorDropType,
+  };
 }
 
 export function useDisableSortable(sectionId: string, ancestorSet) {

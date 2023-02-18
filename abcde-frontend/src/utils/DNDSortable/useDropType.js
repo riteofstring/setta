@@ -107,12 +107,8 @@ export function getShouldDrop(active, over, collisions) {
 }
 
 // returns [dropType, newParentId, newIndex]
-export function getPositionDropType({
-  activeId,
-  overId,
-  centerYCondition,
-  leftDistCondition,
-}) {
+export function getPositionDropType({ centerYCondition, leftDistCondition }) {
+  const { activeId, overId } = useDndState.getState();
   const s = useSectionInfos.getState();
   const overParentId = s.x[overId].parentId;
 
@@ -149,7 +145,9 @@ export function getPositionDropType({
 }
 
 // returns [dropType, newParentId, newIndex]
-export function getBehaviorDropType({ activeId, newParentId }) {
+export function getBehaviorDropType({ newParentId }) {
+  const activeId = useDndState.getState().activeId;
+
   if (getSectionIsRoot(newParentId)) {
     return BehaviorDropType.NEW_LIST_CHILD;
   }
@@ -172,8 +170,6 @@ export function getBehaviorDropType({ activeId, newParentId }) {
 }
 
 export function getDropType({
-  activeId,
-  overId,
   shouldDrop,
   centerYCondition,
   leftDistCondition,
@@ -186,26 +182,20 @@ export function getDropType({
   }
 
   const positionDropType = getPositionDropType({
-    activeId,
-    overId,
     centerYCondition,
     leftDistCondition,
   });
   const behaviorDropType = getBehaviorDropType({
-    activeId,
     newParentId: positionDropType[1],
   });
 
   return { positionDropType, behaviorDropType };
 }
 
-export function getDropTypeForOneSection({ sectionId, overId, ...props }) {
-  const { positionDropType, behaviorDropType } = getDropType({
-    overId,
-    ...props,
-  });
+export function getDropTypeForOneSection({ sectionId, overIsSelf, ...props }) {
+  const { positionDropType, behaviorDropType } = getDropType(props);
 
-  // section is parent
+  // section is new parent
   if (sectionId === positionDropType[1]) {
     if (positionDropType[0] !== PositionDropType.INTO) {
       return {
@@ -214,7 +204,7 @@ export function getDropTypeForOneSection({ sectionId, overId, ...props }) {
       };
     }
     return { positionDropType: positionDropType[0], behaviorDropType };
-  } else if (sectionId === overId) {
+  } else if (overIsSelf) {
     return {
       positionDropType: positionDropType[0],
       behaviorDropType: BehaviorDropType.NONE,

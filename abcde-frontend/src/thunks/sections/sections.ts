@@ -10,6 +10,10 @@ function getSectionConfigId(sectionId) {
   return useSectionInfos.getState().x[sectionId].configId;
 }
 
+export function getSectionParentId(sectionId) {
+  return useSectionInfos.getState().x[sectionId].parentId;
+}
+
 export function getSectionConfig(sectionId) {
   const configId = getSectionConfigId(sectionId);
   return useSectionConfigs.getState().x[configId];
