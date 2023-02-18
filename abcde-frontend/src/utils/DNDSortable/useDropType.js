@@ -199,14 +199,30 @@ export function getDropType({
   return { positionDropType, behaviorDropType };
 }
 
-export function getDropTypeForOneSection({ sectionId, ...props }) {
-  const { positionDropType, behaviorDropType } = getDropType(props);
-  // section is parent and we're not dropping into
-  if (
-    positionDropType[0] !== PositionDropType.INTO &&
-    sectionId === positionDropType[1]
-  ) {
-    return { positionDropType: PositionDropType.NONE, behaviorDropType };
+export function getDropTypeForOneSection({ sectionId, overId, ...props }) {
+  const { positionDropType, behaviorDropType } = getDropType({
+    overId,
+    ...props,
+  });
+
+  // section is parent
+  if (sectionId === positionDropType[1]) {
+    if (positionDropType[0] !== PositionDropType.INTO) {
+      return {
+        positionDropType: PositionDropType.NONE,
+        behaviorDropType,
+      };
+    }
+    return { positionDropType: positionDropType[0], behaviorDropType };
+  } else if (sectionId === overId) {
+    return {
+      positionDropType: positionDropType[0],
+      behaviorDropType: BehaviorDropType.NONE,
+    };
   }
-  return { positionDropType: positionDropType[0], behaviorDropType };
+
+  return {
+    positionDropType: PositionDropType.NONE,
+    behaviorDropType: BehaviorDropType.NONE,
+  };
 }
