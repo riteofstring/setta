@@ -1,9 +1,11 @@
+import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useKeyActivations } from "models/keyActivations";
 import { useRef } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
+import { getSectionParentId } from "thunks/sections/sections";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
@@ -15,28 +17,26 @@ function onSortEnd({ active, over }) {
   });
 }
 
-function onFreeMoveEnd({ active, over, dummyRef, project }) {
-  const sectionId = active.id;
-  const s = useSectionInfos.getState().x;
-  const oldParentId = s[sectionId].parentId ? s[sectionId].parentId : PANEID;
+function onFreeMoveEnd({ dummyRef, project }) {
+  const dndState = useDndState.getState();
+  const { activeId: sectionId, overId } = dndState;
+  const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
   let newParentId = null;
   let newIndex = null;
   let position = null;
 
   // dropping nested section onto pane
-  if (oldParentId !== PANEID && !over) {
+  if (oldParentId !== PANEID && !overId) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = project({ x, y: y - NAVBAR_HEIGHT });
-  } else if (over) {
-    const dndState = useDndState.getState();
+  } else if (overId) {
     const { positionDropType, behaviorDropType } = getDropType({
       centerYCondition: dndState.centerYCondition,
       leftDistCondition: dndState.leftDistCondition,
       shouldDrop: dndState.shouldDrop,
     });
-
     [newParentId, newIndex] = positionDropType.slice(1);
   }
 
