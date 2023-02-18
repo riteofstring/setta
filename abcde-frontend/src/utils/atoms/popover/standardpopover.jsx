@@ -5,6 +5,8 @@ export function StandardPopover({
   contentClasses,
   popoverContent,
   open,
+  close = false,
+  closeClasses,
   onOpenChange,
 }) {
   // TODO: show a close button if closeButton is true
@@ -14,6 +16,9 @@ export function StandardPopover({
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <div className="z-[100]">
         <Popover.Content className={contentClasses}>
+          {close && (
+            <Popover.Close className={closeClasses}>{close}</Popover.Close>
+          )}
           <Popover.Arrow className="[fill:rgb(229,_231,_235)]" />
           {popoverContent}
         </Popover.Content>

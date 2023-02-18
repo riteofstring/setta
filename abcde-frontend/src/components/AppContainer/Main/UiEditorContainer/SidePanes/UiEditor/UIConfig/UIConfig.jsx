@@ -1,3 +1,4 @@
+import * as Popover from "@radix-ui/react-popover";
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
@@ -177,13 +178,19 @@ function InfoViewTextAndSubmit({ paramInfoId }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
-      <div className="self-end">
+      <div className="mt-2 flex gap-1 self-end">
         <Button
-          twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
+          twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
           onClick={() => setInfo({ id: paramInfoId, value })}
         >
-          Save <FiSave className="text-slate-400" />
+          Save <FiSave className="text-slate-600" />
         </Button>
+
+        <Popover.Close asChild>
+          <Button twClasses="gap-1 bg-slate-300 py-1 px-3 rounded-full hover:bg-white text-xs">
+            Close
+          </Button>
+        </Popover.Close>
       </div>
     </>
   );
@@ -208,12 +215,20 @@ function SubmitAsPreset({ onSubmit }) {
         onChange={onChange}
         value={presetName}
       />
-      <Button
-        twClasses="gap-1 bg-slate-100 py-1 px-3 rounded-full hover:bg-slate-200 text-xs"
-        onClick={localOnSubmit}
-      >
-        Save <FiSave className="text-slate-400" />
-      </Button>
+
+      <div className="mt-2 flex gap-1">
+        <Button
+          twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
+          onClick={localOnSubmit}
+        >
+          Save <FiSave className="text-slate-400" />
+        </Button>
+        <Popover.Close asChild>
+          <Button twClasses="gap-1 bg-slate-300 py-1 px-3 rounded-full hover:bg-white text-xs">
+            Close
+          </Button>
+        </Popover.Close>
+      </div>
     </>
   );
 }
