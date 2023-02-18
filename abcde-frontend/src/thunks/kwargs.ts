@@ -28,6 +28,7 @@ export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
     newStateFn: (x) => [...x, kwargInfo.id],
   });
   initializeParam(sectionId, [kwargInfo]);
+  return kwargInfo.id;
 }
 
 type DeleteKwargPayload = {

@@ -1,5 +1,6 @@
 import {
   DECK,
+  DEFAULT_SECTION_UI_TYPE_ID,
   isRoot,
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
@@ -124,6 +125,7 @@ function setSectionAttrBasedOnNewParent({
     // This means it's becoming a top level section
     projectConfigState.addChildren([sectionId]);
   } else {
+    console.log("adding to parent's children!");
     // Add child to new parent's list
     sectionInfosState.setAllChildren({
       sectionId: newParentId,
@@ -224,13 +226,32 @@ function maybeChangeNewParamUIType({
   sectionId,
   behaviorDropType,
 }) {
+  if (newParentId === PANEID) {
+    return;
+  }
+
   const sectionName = useSectionInfos.getState().x[sectionId].name;
   const { selectedItem } = getSectionConfig(newParentId);
   if (behaviorDropType === BehaviorDropType.NEW_ARG) {
-    addKwarg({
+    const kwargId = addKwarg({
       sectionId: newParentId,
       objInfoId: selectedItem,
       name: sectionName,
+    });
+    useSectionInfos.getState().setSectionInfoAttr({
+      sectionId,
+      attr: "paramInfoId",
+      value: kwargId,
+    });
+    setParamChildId({
+      sectionId: newParentId,
+      paramInfoId: kwargId,
+      childId: sectionId,
+    });
+    setParamUITypeId({
+      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
+      sectionId: newParentId,
+      paramInfoId: kwargId,
     });
   }
 }
