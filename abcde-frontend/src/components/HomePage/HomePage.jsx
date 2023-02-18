@@ -1,14 +1,14 @@
 import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
-import { matchSorter } from "match-sorter";
 import { useAuth } from "models/auth";
-import { useSearch } from "models/search";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { Badge } from "utils/atoms/badges/badge";
+import { Button } from "utils/atoms/buttons/Button";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
+import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 import { router } from "utils/Routes/router";
 import "./homepage.css";
 
@@ -27,51 +27,52 @@ export function HomePage() {
 }
 
 function RightColumn({ projects, createProject }) {
-  async function onClick() {
-    const newProject = await createProject({ name: "NewProject" });
-    goToDefaultConfig(newProject);
+  function onClick(name) {
+    createProject({ name });
   }
 
+  const inputStyles =
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 max-w-[30rem] focus-visible:border-blue-300 pl-7 py-1";
   const stdbtnStyles =
     "py-2 px-4 rounded-full font-bold font-heading text-white bg-slate-600 border border-solid border-slate-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-slate-900 gap-2";
-
-  return (
-    <div className="overflow-y-auto px-10 py-8">
-      <div className="flex gap-4">
-        <StandardButton twClasses={stdbtnStyles} onClick={onClick}>
-          <BiPlus />
-          New Project
-        </StandardButton>
-      </div>
-      <ProjectItems projects={projects} />
-    </div>
-  );
-}
-
-function ProjectItems({ projects }) {
-  const searchValue = useSearch((x) => x.value);
-  const filteredProjects = matchSorter(Object.values(projects), searchValue, {
-    keys: ["name"],
-  });
-
   const gridStyles =
     "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
 
   return (
-    <div className={gridStyles}>
-      {filteredProjects.map((x, i) => (
-        <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
-      ))}
+    <div className="overflow-y-auto px-10 py-8">
+      <div className="flex gap-4">
+        <CodeGenPopover
+          trigger={
+            <StandardButton twClasses={stdbtnStyles}>
+              <BiPlus />
+              New Project
+            </StandardButton>
+          }
+          body={<ProjectNameSetter onClick={onClick} />}
+        />
+      </div>
+
+      <div className={gridStyles}>
+        {Object.values(projects).map((x, i) => (
+          <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
+        ))}
+      </div>
     </div>
   );
 }
-
-const ProjectItem = forwardRef(({ project }, forwardedRef) => {
-  const { name, configs } = project;
+const ProjectItem = forwardRef((props, forwardedRef) => {
+  const username = useAuth((x) => x.username);
+  const { name, configs } = props.project;
   const [openConfigs, setOpenConfigs] = useState(false);
 
+  function goToProject(configId) {
+    const configName = configs.find((x) => x.id === configId).name;
+    const address = `${username}/${name}/${configName}`;
+    router.navigate(address);
+  }
+
   function onClick() {
-    goToDefaultConfig(project);
+    goToProject(configs.find((x) => x.isDefault).id);
   }
 
   function onClickConfigsButton(e) {
@@ -81,7 +82,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
 
   function onConfigClick(e, configId) {
     e.stopPropagation();
-    goToProject({ project, configId });
+    goToProject(configId);
   }
 
   // bg-[url('https://via.placeholder.com/400')]
@@ -139,6 +140,28 @@ function Body({ configs, onClick }) {
   ));
 }
 
+function ProjectNameSetter({ onClick }) {
+  const [presetName, setPresetName] = useState("");
+
+  function onChange(e) {
+    setPresetName(e.target.value);
+  }
+  function localOnClick() {
+    onClick(presetName);
+  }
+
+  return (
+    <>
+      <input
+        placeholder="Project Name"
+        onChange={onChange}
+        value={presetName}
+      />
+      <Button onClick={localOnClick}>Create</Button>
+    </>
+  );
+}
+
 export function DefaultConfigBadge({ config }) {
   return (
     config.isDefault && (
@@ -172,18 +195,4 @@ function Badges() {
       <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
     </div>
   );
-}
-
-function goToProject({ project, configId }) {
-  const username = useAuth.getState().username;
-  const configName = project.configs.find((x) => x.id === configId).name;
-  const address = `${username}/${project.name}/${configName}`;
-  router.navigate(address);
-}
-
-function goToDefaultConfig(project) {
-  goToProject({
-    project,
-    configId: project.configs.find((x) => x.isDefault).id,
-  });
 }
