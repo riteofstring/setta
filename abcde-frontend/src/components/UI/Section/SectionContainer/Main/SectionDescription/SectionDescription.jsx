@@ -9,7 +9,7 @@ export function SectionDescription({ sectionId, card = false }) {
   if (!card) {
     return (
       <ResizableDescription sectionId={sectionId}>
-        <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-auto [&_.prose]:p-0 [&_pre]:absolute [&_pre]:w-full">
+        <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-auto [&_.prose]:p-0 [&_pre]:w-full">
           <Markdown markdownSource={description} />
         </div>
       </ResizableDescription>
