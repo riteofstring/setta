@@ -1,5 +1,5 @@
 import { NO_AUTH } from "utils/constants";
-import _create, { StateCreator } from "zustand";
+import { create as _create, StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
