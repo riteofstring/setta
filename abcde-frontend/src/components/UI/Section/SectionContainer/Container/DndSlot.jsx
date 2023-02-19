@@ -19,7 +19,11 @@ export function DndSlot({
         <DndSlotTop text={text} behaviorDropType={behaviorDropType} />
       )}
       {positionDropType === PositionDropType.INTO && (
-        <DndSlotMiddle text={text} behaviorDropType={behaviorDropType} isDeck={isDeck}/>
+        <DndSlotMiddle
+          text={text}
+          behaviorDropType={behaviorDropType}
+          isDeck={isDeck}
+        />
       )}
       {children}
       {positionDropType === PositionDropType.BELOW && (
@@ -73,7 +77,7 @@ function DndSlotInner({ text, behaviorDropType, isDeck }) {
         invalid
           ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
-      } ${isDeck && "mb-[1.33rem]"}`}
+      } ${isDeck && "mb-8"}`}
     >
       <div className="flex items-center gap-2">
         <RiDragDropFill />

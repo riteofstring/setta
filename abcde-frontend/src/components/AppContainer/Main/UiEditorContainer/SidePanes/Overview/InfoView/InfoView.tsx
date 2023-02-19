@@ -16,7 +16,7 @@ export function InfoView() {
       collapsible
     >
       <AccordionItem value="item-1">
-        <AccordionTrigger>Infoview</AccordionTrigger>
+        <AccordionTrigger>Quick Help</AccordionTrigger>
         <AccordionContent>{currInfoView}</AccordionContent>
       </AccordionItem>
     </Accordion.Root>

@@ -28,7 +28,7 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`${className} flex min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 pt-3 pb-6 backdrop-blur `}
+        className={`flex w-[518px] min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 pt-3 pb-6 backdrop-blur ${className}`}
         {...commonProps}
       >
         <DeckSectionTitle sectionId={sectionId} />
@@ -53,10 +53,10 @@ export const Container = React.memo(_Container, _.isEqual);
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "nodrag flex-1 -mx-4 px-4 bg-[#64748b83] font-heading font-bold text-4xl rounded-full tracking-tighter cursor-auto text-slate-100",
+      "nodrag -mx-4 cursor-auto rounded-full bg-[#64748b83] px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
 
     notEditing:
-      "font-heading flex-[1] min-w-[0] font-bold text-slate-100 text-4xl -mx-4 px-4 tracking-tighter truncate overflow-hidden",
+      "-mx-4 self-stretch truncate px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
