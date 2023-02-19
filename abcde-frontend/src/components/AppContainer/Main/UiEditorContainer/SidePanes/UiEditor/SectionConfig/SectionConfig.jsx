@@ -1,4 +1,4 @@
-import { OUTPUT } from "abcde-utils/src/constants";
+import { OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useUIEditor } from "models/uiEditor";
@@ -9,6 +9,7 @@ import { Button } from "utils/atoms/buttons/Button";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";
 import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
+import { SocialTypeSearch } from "./SocialTypeSearch";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return (
@@ -55,6 +56,8 @@ function SearchSwitch({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
   if (sectionType === OUTPUT) {
     return <OutputsSearch sectionId={sectionId} />;
+  } else if (sectionType === SOCIAL) {
+    return <SocialTypeSearch sectionId={sectionId} />;
   } else {
     return <CollectionsSearch sectionId={sectionId} />;
   }

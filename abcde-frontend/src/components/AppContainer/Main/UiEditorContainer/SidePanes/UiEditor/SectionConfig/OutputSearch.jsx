@@ -1,6 +1,6 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useAllOutputNames } from "hooks/useOutputNames";
-import { useGetSelectedOutputNames } from "hooks/useSectionContents";
+import { useGetSectionTypeConfig } from "hooks/useSectionType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { INITIAL_CHART_SIZE } from "utils/constants";
@@ -8,9 +8,9 @@ import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function OutputsSearch({ sectionId }) {
   const outputGroups = useAllOutputNames();
-  const alreadySelected = useGetSelectedOutputNames(sectionId);
+  const selected = useGetSectionTypeConfig(sectionId, "outputGroup");
 
-  async function onSelectionChange({ id, newValueFn }) {
+  function onSelectionChange({ id, newValueFn }) {
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "outputGroup", newValueFn },
@@ -39,7 +39,7 @@ export function OutputsSearch({ sectionId }) {
       sectionId={sectionId}
       onSelectionChange={onSelectionChange}
       onSearch={() => {}}
-      alreadySelected={alreadySelected}
+      selected={[selected]}
       results={outputGroups}
       isCheckbox={false}
       DetailsComponent={OutputDetails}

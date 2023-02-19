@@ -5,7 +5,7 @@ export function SectionConfigSearch({
   sectionId,
   onSelectionChange,
   onSearch,
-  alreadySelected,
+  selected,
   results,
   isCheckbox,
   DetailsComponent,
@@ -23,7 +23,7 @@ export function SectionConfigSearch({
             name={x.name}
             description={x.description}
             details={x.children}
-            checked={x.id in alreadySelected}
+            checked={selected.includes(x.id)}
             onSelectionChange={onSelectionChange}
             isCheckbox={isCheckbox}
             key={`SearchItem-${x.id}`}
@@ -79,7 +79,7 @@ function SearchItem({
         onChange={onChange}
       />
       <label className="w-full">
-        <DetailsComponent details={details}>
+        <DetailsComponent details={details} checked={checked}>
           <div className="flex cursor-pointer flex-col self-stretch">
             <h2 className="text-md font-bold text-slate-500">{name}</h2>
             <p className="mt-1 text-sm">{description}</p>

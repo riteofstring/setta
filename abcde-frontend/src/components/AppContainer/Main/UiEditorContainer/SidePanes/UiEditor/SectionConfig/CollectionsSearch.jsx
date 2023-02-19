@@ -5,6 +5,7 @@ import {
 } from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
+import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useState } from "react";
 import { initializeParam } from "thunks/initializeParam";
@@ -16,6 +17,7 @@ export function CollectionsSearch({ sectionId }) {
   const selectedCollections =
     useGetSelectedCollectionsForSectionConfig(sectionId);
   const allResults = { ...selectedCollections, ...results };
+  const selected = _.map(selectedCollections, (x) => x.id);
 
   async function onSelectionChange({ newValueFn, id }) {
     // collection needs to be retrieved from db
@@ -37,7 +39,7 @@ export function CollectionsSearch({ sectionId }) {
       sectionId={sectionId}
       onSelectionChange={onSelectionChange}
       onSearch={onSearch}
-      alreadySelected={selectedCollections}
+      selected={selected}
       results={allResults}
       isCheckbox={true}
       DetailsComponent={ObjCollectionDetails}

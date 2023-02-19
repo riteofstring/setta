@@ -1,4 +1,4 @@
-import { INFO, OUTPUT } from "abcde-utils/src/constants";
+import { INFO, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
@@ -19,7 +19,7 @@ export function useUserPresetUITypes() {
 export function useRequiredUIEditorTabs(sectionId) {
   const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
   const uiTypeType = useUITypes((x) => x.x[uiTypeId].type);
-  if ([OUTPUT, INFO].includes(uiTypeType)) {
+  if ([OUTPUT, INFO, SOCIAL].includes(uiTypeType)) {
     return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
   }
   return [SECTION_CONFIG_TAB, UI_CONFIG_TAB, INFO_CONFIG_TAB];
