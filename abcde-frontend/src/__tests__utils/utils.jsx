@@ -1,4 +1,3 @@
-import { ReactFlowProvider } from "@reactflow/core";
 import { loadOneProject } from "abcde-test/src/loadTestData";
 import { SECTION } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
@@ -11,6 +10,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { loadSections } from "models/master";
 import { resetAllStores } from "models/utils";
+import { ReactFlowProvider } from "reactflow";
 import { addSectionsToState } from "thunks/sections/createSectionInfo";
 import { renderUseGetSectionType } from "./renderHooks";
 

@@ -1,8 +1,8 @@
-import { useReactFlow } from "@reactflow/core";
 import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
+import { useReactFlow } from "reactflow";
 import { moveSection } from "thunks/sections/sectionOps";
 import { getSectionParentId, setAllChildren } from "thunks/sections/sections";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";

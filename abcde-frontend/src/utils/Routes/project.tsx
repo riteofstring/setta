@@ -1,7 +1,7 @@
-import { ReactFlowProvider } from "@reactflow/core";
 import { HeaderContainer } from "components/AppContainer/Header/Header";
 import { MainContainer } from "components/AppContainer/Main/MainContainer";
 import { RouteObject } from "react-router-dom";
+import { ReactFlowProvider } from "reactflow";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 

@@ -1,10 +1,10 @@
-import { Background } from "@reactflow/background";
-import { ReactFlow, useNodesState } from "@reactflow/core";
 import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
+import ReactFlow, { Background, useNodesState } from "reactflow";
+import "reactflow/dist/style.css";
 import colors from "tailwindcss/colors";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
