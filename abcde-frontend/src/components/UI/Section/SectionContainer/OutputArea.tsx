@@ -9,7 +9,6 @@ function _OutputArea({ sectionId }) {
     return null;
   }
   return <OneChart series={group.children} title={group.name} />;
-  // return <SocialEmbeds yt={false} />;
 }
 
 function OneChart({ series, title }) {

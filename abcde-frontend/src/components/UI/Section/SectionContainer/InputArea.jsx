@@ -1,3 +1,4 @@
+import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
 import { setSelectedItem } from "thunks/sections/sections";
@@ -6,7 +7,9 @@ import { KwargsControls } from "./Main/KwargsControls/KwargsControls";
 import { SectionSearch } from "./Main/Search/Search";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 
-function _InputArea({ sectionId, selectedItem }) {
+function _InputArea({ sectionId }) {
+  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
+
   function onSelectedItemChange(value) {
     setSelectedItem(sectionId, value);
   }

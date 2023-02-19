@@ -4,6 +4,7 @@ import {
   isRoot,
   isSeriesElement,
   OUTPUT,
+  SOCIAL,
 } from "abcde-utils/src/constants";
 import {
   SectionUITypeConfigType,
@@ -43,22 +44,28 @@ export function useIsSeriesElement(sectionId: string) {
   );
 }
 
+function useIsType(sectionId: string, type) {
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  return useUITypes((x) => x.x[uiTypeId].type === type);
+}
+
 export function useIsRoot(sectionId: string) {
   const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
   return useUITypes((x) => isRoot(x.x[uiTypeId].type));
 }
 
 export function useIsDeck(sectionId: string) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId].type === DECK);
+  return useIsType(sectionId, DECK);
 }
 
 export function useIsOutput(sectionId: string) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId].type === OUTPUT);
+  return useIsType(sectionId, OUTPUT);
 }
 
 export function useIsInfo(sectionId: string) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId].type === INFO);
+  return useIsType(sectionId, INFO);
+}
+
+export function useIsSocial(sectionId: string) {
+  return useIsType(sectionId, SOCIAL);
 }

@@ -8,6 +8,7 @@ import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { OutputArea } from "./OutputArea";
+import { SocialArea } from "./SocialArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -16,10 +17,10 @@ export function SectionContainerCoreResizable({
   isSeriesElement,
   isRoot,
   isOutput,
+  isSocial,
   isInfo,
   hasNested,
   hasDescription,
-  selectedItem,
   isActiveSection,
   toggleDescVis,
 }) {
@@ -51,11 +52,11 @@ export function SectionContainerCoreResizable({
                 isRoot={isRoot}
                 hasNested={hasNested}
               />
-              {!isOutput && !isRoot ? (
-                <InputArea sectionId={sectionId} selectedItem={selectedItem} />
-              ) : (
-                <OutputArea sectionId={sectionId} />
-              )}
+              <AreaSwitch
+                sectionId={sectionId}
+                isOutput={isOutput}
+                isSocial={isSocial}
+              />
             </div>
             {!isInfo && hasDescription && (
               <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
@@ -79,4 +80,14 @@ export function SectionContainerCoreResizable({
       )}
     </>
   );
+}
+
+function AreaSwitch({ sectionId, isOutput, isSocial }) {
+  if (isOutput) {
+    return <OutputArea sectionId={sectionId} />;
+  }
+  if (isSocial) {
+    return <SocialArea sectionId={sectionId} />;
+  }
+  return <InputArea sectionId={sectionId} />;
 }

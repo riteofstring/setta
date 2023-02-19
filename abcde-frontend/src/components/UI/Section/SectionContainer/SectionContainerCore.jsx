@@ -5,6 +5,7 @@ import {
   useIsOutput,
   useIsRoot,
   useIsSeriesElement,
+  useIsSocial,
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
@@ -14,9 +15,9 @@ import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
   const isRoot = useIsRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
+  const isSocial = useIsSocial(sectionId);
   const isInfo = useIsInfo(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
@@ -41,10 +42,10 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isSeriesElement={isSeriesElement}
         isRoot={isRoot}
         isOutput={isOutput}
+        isSocial={isSocial}
         isInfo={isInfo}
         hasNested={hasNested}
         hasDescription={hasDescription}
-        selectedItem={selectedItem}
         isActiveSection={isActiveSection}
         toggleDescVis={toggleDescVis}
       />

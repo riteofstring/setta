@@ -5,7 +5,7 @@ export const SOCIAL_TYPES = {
   youtube: {
     id: "youtube",
     name: "YouTube",
-    children: ["url", "timestamp"],
+    children: ["url"],
   },
   twitter: {
     id: "twitter",
