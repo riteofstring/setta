@@ -66,3 +66,11 @@ export function setSelectedItem(sectionId, selectedItem) {
   const params = useCodeInfo.getState().params[selectedItem];
   initializeParam(sectionId, params);
 }
+
+function setSectionInfoAttr(props) {
+  useSectionInfos.getState().setSectionInfoAttr(props);
+}
+
+export function setSectionName(sectionId, name) {
+  setSectionInfoAttr({ sectionId, attr: "name", value: name });
+}
