@@ -1,5 +1,6 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
+import { youtubeSectionAspectRatio } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import {
   SOCIAL_TYPES,
@@ -22,10 +23,14 @@ export function SocialTypeSearch({ sectionId }) {
     });
     initSocialConfig({ sectionId, id });
 
+    const width = 550;
+    const height =
+      id === "twitter" ? "auto" : 500 * (1 / youtubeSectionAspectRatio);
+
     useSectionInfos.getState().setSectionInfoAttr({
       sectionId,
       attr: "size",
-      value: { width: 550, height: "auto" },
+      value: { width, height },
     });
   }
 

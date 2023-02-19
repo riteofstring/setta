@@ -5,7 +5,11 @@ import {
   useMinSectionWidth,
 } from "hooks/useSectionSizeBounds";
 import { useGetSectionType } from "hooks/useSectionType";
-import { useIsTwitter } from "hooks/useSocialUtils";
+import {
+  useIsTwitter,
+  useIsYouTube,
+  youtubeSectionAspectRatio,
+} from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect } from "react";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
@@ -45,6 +49,7 @@ function CustomResizableCore({
 }) {
   const sizeMode = useSizeMode(sectionId);
   const size = useSectionInfos((x) => x.x[sectionId].size);
+  const aspectRatio = useAspectRatio(sectionId);
 
   function onResizeStop(...props) {
     const { width, height } = getNewSize({
@@ -75,6 +80,7 @@ function CustomResizableCore({
       maxWidth={maxWidth}
       onResize={onResize}
       onResizeStop={onResizeStop}
+      // lockAspectRatio={aspectRatio}
       handleWrapperClass="nodrag [&>div]:z-20"
       enable={{
         top: false,
@@ -151,4 +157,9 @@ function useSizeMode(sectionId) {
   } else {
     return { height: SIZE_MODE.any, width: SIZE_MODE.any };
   }
+}
+
+function useAspectRatio(sectionId) {
+  const isYouTube = useIsYouTube(sectionId);
+  return isYouTube ? youtubeSectionAspectRatio : false;
 }
