@@ -3,15 +3,20 @@ import {
   useGetAllCallables,
   useGetCurrObjParamKwargInfos,
 } from "./useSectionContents";
-import { useIsRoot } from "./useSectionType";
+import { useIsOutput, useIsRoot } from "./useSectionType";
 
 export function useMinSectionHeight(sectionId) {
+  const isOutput = useIsOutput(sectionId);
   const isRoot = useIsRoot(sectionId);
   const hasTitle = true;
   const hasSearch = useGetAllCallables(sectionId).length > 0 && !isRoot;
   const paramsAndKwargs = useGetCurrObjParamKwargInfos(sectionId);
   const hasUnnestedParam = !useAreAllParamsNested(sectionId, paramsAndKwargs);
   const hasKwargControl = !isRoot;
+
+  if (isOutput) {
+    return 300;
+  }
 
   return (
     (hasTitle ? 56 : 0) +
