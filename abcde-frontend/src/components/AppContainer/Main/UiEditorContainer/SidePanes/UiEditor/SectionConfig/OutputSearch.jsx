@@ -1,9 +1,9 @@
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { useAllOutputNames } from "hooks/useOutputNames";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { INITIAL_CHART_SIZE } from "utils/constants";
-import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function OutputsSearch({ sectionId }) {
@@ -47,14 +47,19 @@ export function OutputsSearch({ sectionId }) {
   );
 }
 
-function OutputDetails({ children, details, name }) {
+function OutputDetails({ children, details }) {
   return (
-    <Expandable heading={children} value={name} defaultValue={0}>
-      {details.map((k) => (
-        <div key={`OutputDetails-${k}`}>
-          <h3 className="text-sm font-bold">{k}</h3>
+    <Collapsible.Root>
+      <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
+      <Collapsible.Content>
+        <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
+          {details.map((k) => (
+            <div key={`OutputDetails-${k}`}>
+              <h3 className="text-sm font-bold">{k}</h3>
+            </div>
+          ))}
         </div>
-      ))}
-    </Expandable>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
