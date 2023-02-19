@@ -21,6 +21,7 @@ function _DndSlotAndDndWatcher({
     <DndSlot
       positionDropType={positionDropType}
       behaviorDropType={behaviorDropType}
+      isDeck={isDeck}
     >
       <DndWatcherAndContainer
         isDeck={isDeck}
