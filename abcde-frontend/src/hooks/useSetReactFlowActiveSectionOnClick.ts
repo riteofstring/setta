@@ -1,4 +1,4 @@
-import { useStoreApi } from "react-flow-renderer";
+import { useStoreApi } from "@reactflow/core";
 import { useIsTopLevelSection } from "./useProjectConfig";
 
 // TODO: make this work for nested sections
