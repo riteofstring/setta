@@ -14,6 +14,7 @@ export function StandardAccordion({
   value,
   defaultValue = value,
   type = "single",
+  open = "",
 }) {
   return (
     <Accordion.Root
@@ -21,6 +22,7 @@ export function StandardAccordion({
       type={type}
       defaultValue={defaultValue}
       collapsible
+      data-state={open}
     >
       <AccordionItem itemStyles={itemStyles} value={value}>
         <AccordionTrigger

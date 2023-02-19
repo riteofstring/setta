@@ -14,12 +14,12 @@ module.exports = {
           to: { backgroundPosition: "100% 0%, 0% 100%, 0% 0%, 100% 100%" },
         },
         slideDown: {
-          from: { height: 0, opacity: 0 },
-          to: { height: "144px", opacity: 1 },
+          from: { maxHeight: 0, opacity: 0 },
+          to: { maxHeight: "2000px", opacity: 1 },
         },
         slideUp: {
-          from: { height: "144px", opacity: 1 },
-          to: { height: 0, opacity: 0 },
+          from: { maxHeight: "2000px", opacity: 1 },
+          to: { maxHeight: 0, opacity: 0 },
         },
       },
       animation: {

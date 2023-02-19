@@ -1,4 +1,3 @@
-import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
 import {
   SOCIAL_TYPES,
@@ -33,6 +32,7 @@ export function SocialTypeSearch({ sectionId }) {
       DetailsComponent={getSocialTypeDetails({
         sectionId,
       })}
+      vCenter={true}
     />
   );
 }
@@ -50,28 +50,31 @@ function getSocialTypeDetails({ sectionId }) {
   );
 }
 
-function SocialTypeDetails({ children, id, sectionId, details, checked }) {
+function SocialTypeDetails({
+  children,
+  id,
+  sectionId,
+  details,
+  checked,
+  name,
+}) {
   return (
-    <Collapsible.Root open={checked}>
-      {children}
-      <Collapsible.Trigger asChild>Details</Collapsible.Trigger>
-      <Collapsible.Content>
-        <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
-          {details.map((k) => (
-            <OneSocialDetails
-              id={id}
-              sectionId={sectionId}
-              configName={k}
-              key={`OutputDetails-${k}`}
-            />
-          ))}
-        </div>
-      </Collapsible.Content>
-    </Collapsible.Root>
+    <div className="mt-2 mb-2 w-full select-text">
+      {details.map((k) => (
+        <OneSocialDetails
+          id={id}
+          sectionId={sectionId}
+          configName={k}
+          label={children}
+          key={`OutputDetails-${k}`}
+        />
+      ))}
+    </div>
+    // </Expandable>
   );
 }
 
-function OneSocialDetails({ id, sectionId, configName }) {
+function OneSocialDetails({ id, sectionId, configName, label }) {
   const configValue = useSectionSocialConfig(
     (x) => x.x[sectionId]?.[id]?.[configName]
   );
@@ -83,10 +86,10 @@ function OneSocialDetails({ id, sectionId, configName }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <h3 className="text-sm font-bold text-slate-500">{configName}</h3>
+    <div className="flex w-full items-center gap-3">
+      <h3 className="select-none text-sm font-bold">{label}</h3>
       <input
-        className=" w-full rounded-full bg-white px-4 py-1 text-sm focus:ring-1 focus:ring-blue-500"
+        className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-slate-200 focus:ring-2 focus:ring-blue-500"
         value={configValue}
         onChange={(e) => onChange(e.target.value)}
         placeholder={
