@@ -79,7 +79,7 @@ function SearchItem({
         onChange={onChange}
       />
       <label className="w-full">
-        <DetailsComponent details={details} checked={checked}>
+        <DetailsComponent id={id} details={details} checked={checked}>
           <div className="flex cursor-pointer flex-col self-stretch">
             <h2 className="text-md font-bold text-slate-500">{name}</h2>
             <p className="mt-1 text-sm">{description}</p>
