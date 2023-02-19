@@ -7,7 +7,6 @@ import {
   UI_CONFIG_TAB,
   useUIEditor,
 } from "models/uiEditor";
-import React from "react";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
@@ -28,23 +27,27 @@ export function UiEditor() {
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
-      <Tabs.Root
-        className={`flex flex-grow flex-col overflow-y-hidden ${
-          vis ? "visible" : "invisible"
-        }`}
-        defaultValue={SECTION_CONFIG_TAB}
-        value={tab}
-        onValueChange={setTab}
-      >
-        <Tabs.List className="flex gap-4">
-          <TabItem name="Card" value={SECTION_CONFIG_TAB} />
-          <TabItem name="Parameters" value={UI_CONFIG_TAB} />
-          <TabItem name="Info" />
-        </Tabs.List>
-        <SectionConfigTab sectionId={sectionId} />
-        <UIConfigTab sectionId={sectionId} />
-        <InfoTab sectionId={sectionId} />
-      </Tabs.Root>
+      {sectionId ? (
+        <Tabs.Root
+          className={`flex flex-grow flex-col overflow-y-hidden ${
+            vis ? "visible" : "invisible"
+          }`}
+          defaultValue={SECTION_CONFIG_TAB}
+          value={tab}
+          onValueChange={setTab}
+        >
+          <Tabs.List className="flex gap-4">
+            <TabItem name="Card" value={SECTION_CONFIG_TAB} />
+            <TabItem name="Parameters" value={UI_CONFIG_TAB} />
+            <TabItem name="Info" />
+          </Tabs.List>
+          <SectionConfigTab sectionId={sectionId} />
+          <UIConfigTab sectionId={sectionId} />
+          <InfoTab sectionId={sectionId} />
+        </Tabs.Root>
+      ) : (
+        <Placeholder />
+      )}
     </PaneContainer>
   );
 }
@@ -73,9 +76,9 @@ function TabContent(props) {
   );
 }
 
-const Placeholder = React.forwardRef((props, ref) => {
+function Placeholder() {
   return (
-    <div className="grid min-h-[60vh]" ref={ref}>
+    <div className="flex grid min-h-[60vh] flex-grow flex-col">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-slate-300 " />
         <h4 className="text-lg font-bold tracking-widest text-slate-300">
@@ -84,15 +87,12 @@ const Placeholder = React.forwardRef((props, ref) => {
       </div>
     </div>
   );
-});
+}
 
 function SectionConfigTab({ sectionId }) {
   return (
-    <TabContent
-      value={SECTION_CONFIG_TAB}
-      className={`${!sectionId && "h-full"}`}
-    >
-      {sectionId ? <SectionConfig sectionId={sectionId} /> : <Placeholder />}
+    <TabContent value={SECTION_CONFIG_TAB}>
+      <SectionConfig sectionId={sectionId} />
     </TabContent>
   );
 }
@@ -100,7 +100,7 @@ function SectionConfigTab({ sectionId }) {
 function UIConfigTab({ sectionId }) {
   return (
     <TabContent value={UI_CONFIG_TAB}>
-      {sectionId ? <UIConfig sectionId={sectionId} /> : <Placeholder />}
+      <UIConfig sectionId={sectionId} />
     </TabContent>
   );
 }
@@ -108,7 +108,7 @@ function UIConfigTab({ sectionId }) {
 function InfoTab({ sectionId }) {
   return (
     <TabContent>
-      {sectionId ? <MarkdownEditor sectionId={sectionId} /> : <Placeholder />}
+      <MarkdownEditor sectionId={sectionId} />
     </TabContent>
   );
 }
