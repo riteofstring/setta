@@ -89,7 +89,7 @@ export function moveSection({
     return;
   }
 
-  unlinkParamFromChild({ sectionId: oldParentId, childId: sectionId });
+  unlinkParamFromSection({ parentId: oldParentId, sectionId });
 
   maybeChangeSectionSubtype({
     newParentId,
@@ -211,47 +211,47 @@ function maybeChangeNewParamUIType({
     paramIdToLinkTo = paramIdToLinkTo.id;
   }
 
-  linkParamToChild({
-    sectionId: newParentId,
+  linkParamToSection({
+    parentId: newParentId,
     paramInfoId: paramIdToLinkTo,
-    childId: sectionId,
+    sectionId,
   });
 }
 
-function linkParamToChild({ sectionId, paramInfoId, childId }) {
-  const { uiTypeId } = getSectionConfig(childId);
-  setSectionParamInfoId(childId, paramInfoId);
+function linkParamToSection({ parentId, paramInfoId, sectionId }) {
+  const { uiTypeId } = getSectionConfig(sectionId);
+  setSectionParamInfoId(sectionId, paramInfoId);
   setParamChildId({
-    sectionId,
+    sectionId: parentId,
     paramInfoId,
-    childId,
+    childId: sectionId,
   });
   setParamUITypeId({
     uiTypeId,
-    sectionId,
+    sectionId: parentId,
     paramInfoId,
   });
 }
 
-function unlinkParamFromChild({ sectionId, childId }) {
-  const { paramInfoId } = useSectionInfos.getState().x[childId];
+function unlinkParamFromSection({ parentId, sectionId }) {
+  const { paramInfoId } = useSectionInfos.getState().x[sectionId];
   if (!paramInfoId) {
     return;
   }
-  setSectionParamInfoId(childId, null);
+  setSectionParamInfoId(sectionId, null);
   setParamChildId({
-    sectionId,
+    sectionId: parentId,
     paramInfoId,
     childId: null,
   });
   setParamUITypeId({
     uiTypeId: REF_UI_TYPE_ID,
-    sectionId,
+    sectionId: parentId,
     paramInfoId,
   });
   setParamEnteredValue({
-    sectionId,
+    sectionId: parentId,
     paramInfoId,
-    value: childId,
+    value: sectionId,
   });
 }
