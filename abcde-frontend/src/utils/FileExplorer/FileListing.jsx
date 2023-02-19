@@ -34,13 +34,10 @@ function Folder({ name }) {
 
 export function FileList({ foldername, files, onClick }) {
   function idFn(filename) {
-    if (foldername) {
-      return JSON.stringify({
-        foldername,
-        filename,
-      });
-    }
-    return filename;
+    return JSON.stringify({
+      foldername,
+      filename,
+    });
   }
 
   const depth = foldername ? 1 : 0;
