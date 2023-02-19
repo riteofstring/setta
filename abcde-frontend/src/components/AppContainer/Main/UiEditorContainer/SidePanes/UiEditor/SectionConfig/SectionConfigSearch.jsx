@@ -68,24 +68,36 @@ function SearchItem({
     });
   }
 
+  // deal with tabbing
   return (
-    <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black">
+    <li className="edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black [&:has(input:focus-visible)]:ring-2 [&:has(input:checked)]:bg-blue-700 [&:has(input:checked)]:text-white [&:has(input:not:checked)]:text-slate-500 ">
       <input
         type={isCheckbox ? "checkbox" : "radio"}
-        className={`mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer ${
+        className={`${
+          !isCheckbox ? "hidden" : checked ? "opacity-100" : "opacity-0"
+        } mr-2 mt-1 h-4 w-4 flex-shrink-0 cursor-pointer ${
           isCheckbox ? "rounded-md" : "rounded-full"
-        } border-slate-300 bg-slate-400 text-blue-600 ring-offset-1 checked:bg-blue-500 focus-visible:ring-2 focus-visible:ring-blue-300`}
+        } text-blue-600 ring-offset-1 focus-visible:ring-2 focus-visible:ring-blue-300`}
         checked={checked}
         onChange={onChange}
+        id={name}
+        name={name}
       />
-      <label className="w-full">
-        <DetailsComponent id={id} details={details} checked={checked}>
+
+      <DetailsComponent id={id} details={details} checked={checked} name={name}>
+        <label htmlFor={name} className="w-full">
           <div className="flex cursor-pointer flex-col self-stretch">
-            <h2 className="text-md font-bold text-slate-500">{name}</h2>
+            <h2 className="text-md font-bold">{name}</h2>
             <p className="mt-1 text-sm">{description}</p>
           </div>
-        </DetailsComponent>
-      </label>
+        </label>
+      </DetailsComponent>
     </li>
+    // <DetailsComponent id={id} details={details} checked={checked} value={name}>
+    //   <div className="flex cursor-pointer flex-col self-stretch">
+    //     <h2 className="text-md font-bold">{name}</h2>
+    //     <p className="mt-1 text-sm">{description}</p>
+    //   </div>
+    // </DetailsComponent>
   );
 }

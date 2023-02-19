@@ -53,7 +53,8 @@ function getSocialTypeDetails({ sectionId }) {
 function SocialTypeDetails({ children, id, sectionId, details, checked }) {
   return (
     <Collapsible.Root open={checked}>
-      <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
+      {children}
+      <Collapsible.Trigger asChild>Details</Collapsible.Trigger>
       <Collapsible.Content>
         <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
           {details.map((k) => (
