@@ -10,6 +10,7 @@ import {
   SLIDER,
   SWITCH,
   TEXT,
+  SOCIAL
 } from "abcde-utils/src/constants";
 
 export const NO_AUTH = ["sna", "snancm"].includes(import.meta.env.MODE);
@@ -45,6 +46,7 @@ export const uiTypesToPretty = Object.freeze(
       [OUTPUT]: "Program Output",
       [REF]: "Reference to Object",
       [INFO]: "Info",
+      [SOCIAL]: "Social",
     })
   )
 );

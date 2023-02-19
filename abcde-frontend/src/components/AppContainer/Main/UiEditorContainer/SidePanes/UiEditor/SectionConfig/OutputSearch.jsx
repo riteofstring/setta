@@ -4,7 +4,7 @@ import { useGetSelectedOutputNames } from "hooks/useSectionContents";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { INITIAL_CHART_SIZE } from "utils/constants";
-import { SectionConfigSearch } from "./SectionConfigComp";
+import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function OutputsSearch({ sectionId }) {
   const outputGroups = useAllOutputNames();

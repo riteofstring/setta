@@ -6,8 +6,8 @@ import React from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { goToParamConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";
-import { OutputsSearch } from "./OutputSectionConfigComp";
-import { CollectionsSearch } from "./SectionConfigComp";
+import { CollectionsSearch } from "./CollectionsSearch";
+import { OutputsSearch } from "./OutputSearch";
 import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
@@ -22,7 +22,6 @@ const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
-  const sectionType = useGetSectionType(sectionId, "type");
   const infoViewHandlersCard = useSetCurrInfoView(
     ConstantInfoView.SECTIONCONFIG_CARDTYPES_SEARCH
   );
@@ -39,10 +38,7 @@ function SectionConfigCore({ sectionId }) {
       >
         Card Types
       </h3>
-      <SectionConfigTypeSelection
-        sectionId={sectionId}
-        {...infoViewHandlersCard}
-      />
+      <SectionConfigTypeSelection sectionId={sectionId} />
 
       <h3
         className="mt-4 text-xs font-semibold uppercase text-slate-400"
@@ -50,16 +46,18 @@ function SectionConfigCore({ sectionId }) {
       >
         Contents
       </h3>
-      {sectionType === OUTPUT ? (
-        <OutputsSearch sectionId={sectionId} {...infoViewHandlersContents} />
-      ) : (
-        <CollectionsSearch
-          sectionId={sectionId}
-          {...infoViewHandlersContents}
-        />
-      )}
+      <SearchSwitch sectionId={sectionId} />
     </div>
   );
+}
+
+function SearchSwitch({ sectionId }) {
+  const sectionType = useGetSectionType(sectionId, "type");
+  if (sectionType === OUTPUT) {
+    return <OutputsSearch sectionId={sectionId} />;
+  } else {
+    return <CollectionsSearch sectionId={sectionId} />;
+  }
 }
 
 function GoBackButton({ sectionId }) {
