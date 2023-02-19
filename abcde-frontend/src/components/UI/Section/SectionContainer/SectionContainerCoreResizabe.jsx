@@ -39,7 +39,11 @@ export function SectionContainerCoreResizable({
       >
         <CustomResizable sectionId={sectionId} setLocalWidth={setLocalWidth}>
           <div className="h-full overflow-hidden rounded-xl">
-            <div className="flex h-full flex-grow flex-col gap-2 py-4">
+            <div
+              className={`flex h-full flex-grow flex-col gap-2 py-4 ${
+                hasDescription && "mb-11"
+              }`}
+            >
               <SectionHeader
                 sectionId={sectionId}
                 parentId={parentId}
