@@ -1,9 +1,12 @@
 import { useSectionInfos } from "models/info/sectionInfos";
-import { getSectionParentId, setSectionSize } from "./sections";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
   // set own width
-  setSectionSize(sectionId, size);
+  useSectionInfos.getState().setSectionInfoAttr({
+    sectionId,
+    attr: "size",
+    value: size,
+  });
 
   setAllOtherWidths({
     sectionId,
@@ -37,12 +40,13 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
 }
 
 function getHighestAncestor(sectionId) {
-  let parentId = getSectionParentId(sectionId);
+  const s = useSectionInfos.getState();
+  let parentId = s.x[sectionId].parentId;
   let highestAncestor = sectionId;
 
   while (parentId) {
     highestAncestor = parentId;
-    parentId = getSectionParentId(parentId);
+    parentId = s.x[parentId].parentId;
   }
 
   return highestAncestor;

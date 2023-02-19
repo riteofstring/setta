@@ -1,24 +1,18 @@
-import { useOnClickAddSection } from "hooks/useCreateSectionOrDeck";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
+import { useOnClickAddSection } from "./utils";
 
 export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
-  const onClick = useOnClickAddSection();
-  const commonProps = {
+  const onClick = useOnClickAddSection({
     x,
     y,
-    callbackBeforeExit: closeContextMenu,
-    projectXY: true,
-  };
+    closeContextMenu,
+  });
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <Item onClick={() => onClick({ isDeck: false, ...commonProps })}>
-        New Section
-      </Item>
-      <Item onClick={() => onClick({ isDeck: true, ...commonProps })}>
-        New Deck
-      </Item>
+      <Item onClick={() => onClick(false)}>New Section</Item>
+      <Item onClick={() => onClick(true)}>New Deck</Item>
     </ContextMenuCore>
   );
 }

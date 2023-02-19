@@ -57,7 +57,7 @@ function InEditMode({ value, onChange, onBlur, onCancel, titleProps }) {
       className={titleProps}
       ref={inputRef}
       onKeyDown={keyDownHandler}
-      // size="1"
+      size="1"
     />
   );
 }

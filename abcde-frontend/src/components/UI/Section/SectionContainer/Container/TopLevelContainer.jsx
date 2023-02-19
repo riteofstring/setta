@@ -1,9 +1,17 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useDndProps } from "hooks/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
-export function TopLevelContainer({ isDeck, sectionId, parentId, children }) {
-  const dndProps = useDndProps({ sectionId, isTopLevel: true });
+export function TopLevelContainer({
+  isDeck,
+  sectionId,
+  parentId,
+  hasNested,
+  children,
+}) {
+  const dndProps = {
+    id: sectionId,
+    data: { isTopLevel: true, hasNested },
+  };
   const { setNodeRef: droppableRef } = useDroppable(dndProps);
   const { listeners: dragListeners, setNodeRef: draggableRef } =
     useDraggable(dndProps);

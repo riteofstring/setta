@@ -1,33 +1,53 @@
 import { RiDragDropFill } from "react-icons/ri";
 import {
   BehaviorDropType,
-  behaviorToPretty,
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
-export function DndSlot({ positionDropType, behaviorDropType, children }) {
-  const text = behaviorToPretty[behaviorDropType];
-
+export function DndSlot({
+  positionDropType,
+  behaviorDropType,
+  children,
+  isDeck,
+}) {
   return (
     <>
       {positionDropType === PositionDropType.ABOVE && (
-        <DndSlotTop text={text} behaviorDropType={behaviorDropType} />
+        <DndSlotTop
+          text={behaviorDropType}
+          behaviorDropType={behaviorDropType}
+        />
       )}
       {positionDropType === PositionDropType.INTO && (
-        <DndSlotMiddle text={text} behaviorDropType={behaviorDropType} />
+        <DndSlotMiddle
+          text={behaviorDropType}
+          behaviorDropType={behaviorDropType}
+          isDeck={isDeck}
+        />
       )}
       {children}
       {positionDropType === PositionDropType.BELOW && (
-        <DndSlotBottom text={text} behaviorDropType={behaviorDropType} />
+        <DndSlotBottom
+          text={behaviorDropType}
+          behaviorDropType={behaviorDropType}
+        />
       )}
     </>
   );
 }
 
-function DndSlotMiddle({ text, behaviorDropType }) {
+function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
   return (
-    <div className="absolute z-10 grid h-full w-full place-content-center justify-center">
-      <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
+    <div
+      className={`absolute z-10 grid h-full w-full justify-center ${
+        isDeck ? "[place-content:end_center]" : "place-content-center"
+      }`}
+    >
+      <DndSlotInner
+        text={text}
+        behaviorDropType={behaviorDropType}
+        isDeck={isDeck}
+      />
     </div>
   );
 }
@@ -52,7 +72,7 @@ function DndSlotBottom({ text, behaviorDropType }) {
   );
 }
 
-function DndSlotInner({ text, behaviorDropType }) {
+function DndSlotInner({ text, behaviorDropType, isDeck }) {
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
   return (
     <div
@@ -60,7 +80,7 @@ function DndSlotInner({ text, behaviorDropType }) {
         invalid
           ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
-      } `}
+      } ${isDeck && "mb-[1.33rem]"}`}
     >
       <div className="flex items-center gap-2">
         <RiDragDropFill />

@@ -5,7 +5,6 @@ import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
-import { useHasNested } from "./useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
@@ -37,7 +36,6 @@ export function useHighlightDroppable(sectionId: string) {
 }
 
 export function useDisableSortable(sectionId: string, ancestorSet) {
-  const { isSorting, isMovingFree } = useDndMode();
   const [disabled, setDisabled] = useState({
     draggable: false,
     droppable: false,
@@ -45,7 +43,7 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 
   function disableSort({ active }) {
     const containerId = active.data.current.sortable?.containerId;
-
+    const { isSorting, isMovingFree } = useKeyActivations.getState();
     // Freely moving this section or ancestor of this section
     if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });
@@ -74,31 +72,7 @@ export function useDisableSortable(sectionId: string, ancestorSet) {
 }
 
 export function useIsDraggingFreely() {
-  const { isMovingFree } = useDndMode();
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const activeIsTruthy = useDndState((x) => !!x.activeId);
   return isMovingFree && activeIsTruthy;
-}
-
-export function useDndMode() {
-  const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useKeyActivations((x) => x.isSorting);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
-  // only allow one of sorting or movingFree to be true
-  // if sorting, then active section must nested
-  if (
-    isMovingFree !== isSorting &&
-    (!isSorting || (isSorting && !activeIsTopLevel))
-  ) {
-    return { isSorting, isMovingFree };
-  }
-  return { isSorting: false, isMovingFree: false };
-}
-
-export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useHasNested(sectionId);
-
-  return {
-    id: sectionId,
-    data: { isTopLevel, hasNested },
-  };
 }

@@ -1,10 +1,11 @@
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { useDndMode } from "hooks/useDndUtils";
+import { useKeyActivations } from "models/keyActivations";
 import { customCollisionDetection } from "./collisionDetection";
 import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
 
 export function useModifiers() {
-  const { isSorting, isMovingFree } = useDndMode();
+  const isSorting = useKeyActivations((x) => x.isSorting);
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
   const collisionDetection = isMovingFree

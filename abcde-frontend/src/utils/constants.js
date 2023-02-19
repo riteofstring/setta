@@ -8,9 +8,9 @@ import {
   SECTION,
   SECTION_TYPE_NAMES,
   SLIDER,
-  SOCIAL,
   SWITCH,
   TEXT,
+  SOCIAL
 } from "abcde-utils/src/constants";
 
 export const NO_AUTH = ["sna", "snancm"].includes(import.meta.env.MODE);

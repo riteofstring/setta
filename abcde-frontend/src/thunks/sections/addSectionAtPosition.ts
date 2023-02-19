@@ -5,16 +5,16 @@ import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import { useProjectConfig } from "models/info/projectConfig";
 import { createDefaultSectionInfo } from "./createSectionInfo";
 
-type callbackBeforeExitType = (newId: string) => void;
+type fnAfterAddSectionType = (newId: string) => void;
 
 export function addSectionAtPosition({
   isDeck,
   initialPosition,
-  callbackBeforeExit = () => undefined,
+  fnAfterAddSection = () => undefined,
 }: {
   isDeck: boolean;
   initialPosition: SectionPositionType;
-  callbackBeforeExit?: callbackBeforeExitType;
+  fnAfterAddSection?: fnAfterAddSectionType;
 }) {
   const addChildren = useProjectConfig.getState().addChildren;
   const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {
@@ -27,5 +27,5 @@ export function addSectionAtPosition({
   }
   const [newId] = createDefaultSectionInfo({ sectionProps, configProps });
   addChildren([newId]);
-  callbackBeforeExit(newId);
+  fnAfterAddSection(newId);
 }

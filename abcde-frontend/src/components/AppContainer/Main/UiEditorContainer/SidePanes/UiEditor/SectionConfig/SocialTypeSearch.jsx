@@ -1,11 +1,9 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
-import { youtubeSectionAspectRatio } from "hooks/useSocialUtils";
 import {
   SOCIAL_TYPES,
   useSectionSocialConfig,
 } from "models/info/sectionSocialConfig";
-import { setSectionSize } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
@@ -22,12 +20,6 @@ export function SocialTypeSearch({ sectionId }) {
       },
     });
     initSocialConfig({ sectionId, id });
-
-    const width = 550;
-    const height =
-      id === "twitter" ? "auto" : 500 * (1 / youtubeSectionAspectRatio);
-
-    setSectionSize(sectionId, { width, height });
   }
 
   return (

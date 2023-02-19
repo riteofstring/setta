@@ -1,19 +1,20 @@
-import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { useKeyActivations } from "models/keyActivations";
 import { useRef } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
-import { getSectionParentId, setAllChildren } from "thunks/sections/sections";
+import { getSectionParentId } from "thunks/sections/sections";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
-  setAllChildren(
-    active.data.current.sortable?.containerId,
-    updateWithArrayMove(active, over)
-  );
+  useSectionInfos.getState().setAllChildren({
+    sectionId: active.data.current.sortable?.containerId,
+    newStateFn: updateWithArrayMove(active, over),
+  });
 }
 
 function onFreeMoveEnd({ dummyRef, project }) {
@@ -52,7 +53,8 @@ function onFreeMoveEnd({ dummyRef, project }) {
 }
 
 export function useOnDragEnd() {
-  const { isSorting, isMovingFree } = useDndMode();
+  const isSorting = useKeyActivations((x) => x.isSorting);
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   const { project } = useReactFlow();
   const dummyRef = useRef(null);
 

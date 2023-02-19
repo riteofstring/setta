@@ -1,10 +1,10 @@
 import { useActiveSection } from "models/activeSection";
+import { useSectionInfos } from "models/info/sectionInfos";
 import {
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
   useUIEditor,
 } from "models/uiEditor";
-import { getSectionParentId } from "./sections/sections";
 
 export function goToSectionConfigTab({ paramChildId }) {
   if (paramChildId) {
@@ -16,7 +16,7 @@ export function goToSectionConfigTab({ paramChildId }) {
 }
 
 export function goToParamConfigTab({ sectionId }) {
-  const parentId = getSectionParentId(sectionId);
+  const parentId = useSectionInfos.getState().x[sectionId].parentId;
   const uiEditorState = useUIEditor.getState();
   useActiveSection.getState().setId(parentId);
   uiEditorState.setCameFromUIConfig(false);
