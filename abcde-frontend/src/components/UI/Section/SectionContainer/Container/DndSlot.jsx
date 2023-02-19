@@ -1,30 +1,24 @@
 import { RiDragDropFill } from "react-icons/ri";
 import {
   BehaviorDropType,
+  behaviorToPretty,
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
 export function DndSlot({ positionDropType, behaviorDropType, children }) {
+  const text = behaviorToPretty[behaviorDropType];
+
   return (
     <>
       {positionDropType === PositionDropType.ABOVE && (
-        <DndSlotTop
-          text={behaviorDropType}
-          behaviorDropType={behaviorDropType}
-        />
+        <DndSlotTop text={text} behaviorDropType={behaviorDropType} />
       )}
       {positionDropType === PositionDropType.INTO && (
-        <DndSlotMiddle
-          text={behaviorDropType}
-          behaviorDropType={behaviorDropType}
-        />
+        <DndSlotMiddle text={text} behaviorDropType={behaviorDropType} />
       )}
       {children}
       {positionDropType === PositionDropType.BELOW && (
-        <DndSlotBottom
-          text={behaviorDropType}
-          behaviorDropType={behaviorDropType}
-        />
+        <DndSlotBottom text={text} behaviorDropType={behaviorDropType} />
       )}
     </>
   );

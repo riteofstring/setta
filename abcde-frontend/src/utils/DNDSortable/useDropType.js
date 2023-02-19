@@ -146,7 +146,7 @@ export function getBehaviorDropType({ newParentId }) {
   const activeId = useDndState.getState().activeId;
 
   if (getSectionIsRoot(newParentId)) {
-    return BehaviorDropType.NEW_LIST_CHILD;
+    return BehaviorDropType.NEW_LIST_ELEMENT;
   }
 
   const matchingParam = getParamWithSameName(activeId, newParentId);
