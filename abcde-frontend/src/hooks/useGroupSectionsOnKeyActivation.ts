@@ -1,6 +1,6 @@
+import { useStoreApi } from "@reactflow/core";
 import { useKeyActivations } from "models/keyActivations";
 import { useEffect } from "react";
-import { useStoreApi } from "react-flow-renderer";
 import { useCreateDeck } from "./useCreateSectionOrDeck";
 
 export function useGroupSectionsOnKeyActivation() {

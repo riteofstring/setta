@@ -1,8 +1,8 @@
+import { useStore } from "@reactflow/core";
 import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useCallback } from "react";
-import { useStore } from "react-flow-renderer";
 import { getParamIsNested } from "thunks/paramInfos";
 import { getParamWithSameName } from "thunks/sections/sectionContents";
 import {

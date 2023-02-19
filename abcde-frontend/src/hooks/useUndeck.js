@@ -1,4 +1,4 @@
-import { useReactFlow } from "react-flow-renderer";
+import { useReactFlow } from "@reactflow/core";
 import { deleteSections, moveSections } from "thunks/sections/sectionOps";
 import { PANEID } from "utils/constants";
 import { relativePos } from "./useGetSectionPosition";
