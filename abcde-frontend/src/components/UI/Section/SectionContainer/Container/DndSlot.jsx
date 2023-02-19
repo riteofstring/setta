@@ -4,12 +4,7 @@ import {
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
-export function DndSlot({
-  positionDropType,
-  behaviorDropType,
-  children,
-  isDeck,
-}) {
+export function DndSlot({ positionDropType, behaviorDropType, children }) {
   return (
     <>
       {positionDropType === PositionDropType.ABOVE && (
@@ -22,7 +17,6 @@ export function DndSlot({
         <DndSlotMiddle
           text={behaviorDropType}
           behaviorDropType={behaviorDropType}
-          isDeck={isDeck}
         />
       )}
       {children}
@@ -36,18 +30,10 @@ export function DndSlot({
   );
 }
 
-function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
+function DndSlotMiddle({ text, behaviorDropType }) {
   return (
-    <div
-      className={`absolute z-10 grid h-full w-full justify-center ${
-        isDeck ? "[place-content:end_center]" : "place-content-center"
-      }`}
-    >
-      <DndSlotInner
-        text={text}
-        behaviorDropType={behaviorDropType}
-        isDeck={isDeck}
-      />
+    <div className="absolute z-10 grid h-full w-full place-content-center justify-center">
+      <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
     </div>
   );
 }
@@ -72,7 +58,7 @@ function DndSlotBottom({ text, behaviorDropType }) {
   );
 }
 
-function DndSlotInner({ text, behaviorDropType, isDeck }) {
+function DndSlotInner({ text, behaviorDropType }) {
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
   return (
     <div
@@ -80,7 +66,7 @@ function DndSlotInner({ text, behaviorDropType, isDeck }) {
         invalid
           ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
-      } ${isDeck && "mb-[1.33rem]"}`}
+      } `}
     >
       <div className="flex items-center gap-2">
         <RiDragDropFill />

@@ -31,7 +31,7 @@ export function createManySectionInfo({
 }) {
   const newInfos = {};
   const newConfigs = {};
-  sectionProps["size"] = { width: 0, height: 0 };
+  sectionProps["size"] = { width: "auto", height: "auto" };
   for (let i = 0; i < numChildren; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
