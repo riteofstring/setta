@@ -32,24 +32,37 @@ function Folder({ name }) {
   );
 }
 
-function FileList({ foldername, files, onClick }) {
-  //
+export function FileList({ foldername, files, onClick }) {
+  function idFn(filename) {
+    if (foldername) {
+      return JSON.stringify({
+        foldername,
+        filename,
+      });
+    }
+    return filename;
+  }
+
+  const depth = foldername ? 1 : 0;
+
   return (
     <div className="flex flex-grow flex-col ">
       {files.map((x, idx) => {
-        const id = JSON.stringify({
-          foldername,
-          filename: x,
-        });
         return (
-          <File id={id} name={x} onClick={onClick} key={`File ${idx} ${x}`} />
+          <File
+            id={idFn(x)}
+            name={x}
+            onClick={onClick}
+            key={`File ${idx} ${x}`}
+            depth={depth}
+          />
         );
       })}
     </div>
   );
 }
 
-function File({ id, name, onClick }) {
+function File({ id, name, onClick, depth }) {
   const itemRef = useRef(null);
 
   function _onClick() {
@@ -60,12 +73,14 @@ function File({ id, name, onClick }) {
     }
   }
 
+  const margin = depth > 0 ? "ml-6" : "";
+
   return (
     <RadioGroup.Item
       value={id}
       ref={itemRef}
       onClick={_onClick}
-      className="ml-6 flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1"
+      className={`${margin} flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1`}
     >
       <span className="w-4">
         <RadioGroup.Indicator>

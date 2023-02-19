@@ -1,8 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
+import React from "react";
 import { Button } from "../../utils/atoms/buttons/Button";
-import { FolderAndFiles } from "./FileListing";
+import { FileList, FolderAndFiles } from "./FileListing";
 
 export function FileExplorer({ folders, files, selected, setSelected, title }) {
   function onChange(v) {
@@ -31,16 +32,22 @@ export function FileExplorer({ folders, files, selected, setSelected, title }) {
         onValueChange={onChange}
         asChild
       >
-        <div>
-          {_.map(folders, (x, idx) => (
-            <FolderAndFiles
-              folder={x}
-              key={`Folder ${idx}`}
-              onClick={onChange}
-            />
-          ))}
-        </div>
+        <FoldersOrFiles folders={folders} files={files} onChange={onChange} />
       </RadioGroup.Root>
     </>
   );
 }
+
+const FoldersOrFiles = React.forwardRef(({ folders, files, onChange }, ref) => {
+  return (
+    <div ref={ref}>
+      {folders ? (
+        _.map(folders, (x, idx) => (
+          <FolderAndFiles folder={x} key={`Folder ${idx}`} onClick={onChange} />
+        ))
+      ) : (
+        <FileList files={files} onClick={onChange} />
+      )}
+    </div>
+  );
+});
