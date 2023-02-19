@@ -1,6 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import React from "react";
-import { BiChevronUp } from "react-icons/bi";
+import { BiChevronDown } from "react-icons/bi";
 
 export function StandardAccordion({
   rootStyles = "",
@@ -61,7 +61,7 @@ const AccordionTrigger = React.forwardRef(
         ref={forwardedRef}
       >
         {trigger}
-        <BiChevronUp
+        <BiChevronDown
           className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=open]:rotate-180"
           aria-hidden
         />
