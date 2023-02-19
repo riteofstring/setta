@@ -69,3 +69,10 @@ export function useIsInfo(sectionId: string) {
 export function useIsSocial(sectionId: string) {
   return useIsType(sectionId, SOCIAL);
 }
+
+export function useCanHaveNested(sectionId) {
+  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  return useUITypes(
+    (x) => ![OUTPUT, INFO, SOCIAL].includes(x.x[uiTypeId].type)
+  );
+}

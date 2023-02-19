@@ -86,6 +86,7 @@ function getLeftDistCondition(collisions, zoom) {
   // true if section has not children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
+    collisions[0]?.data.droppableContainer.data.current.canHaveNested &&
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
     collisions[0]?.data.leftDist > 200 * zoom
   );
@@ -94,12 +95,13 @@ function getLeftDistCondition(collisions, zoom) {
 export function getShouldDrop(active, over, collisions) {
   // Make sure collisions[0] agrees with over.id).
   // Make sure active is not over
-  // Make sure over is a sortable or over has no children
+  // Make sure over is a sortable or over has no children and can have children
   return (
     over &&
     collisions[0]?.id === over.id &&
     active.id !== over.id &&
-    (over.data.current.sortable || !over.data.current.hasNested)
+    (over.data.current.sortable ||
+      (!over.data.current.hasNested && over.data.current.canHaveNested))
   );
 }
 

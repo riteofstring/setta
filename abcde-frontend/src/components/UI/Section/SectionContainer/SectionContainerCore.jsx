@@ -1,4 +1,3 @@
-import { useGetSectionConfig } from "hooks/useSectionConfig";
 import { useSectionHasDescription } from "hooks/useSectionDescription";
 import {
   useIsInfo,
