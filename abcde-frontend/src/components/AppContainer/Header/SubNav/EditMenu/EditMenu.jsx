@@ -2,15 +2,14 @@ import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
-import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { Item } from "utils/atoms/dropdown/item";
+import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function EditMenu() {
   return (
-    <StandardDropdown
-      trigger={<MenuBarButton>Edit</MenuBarButton>}
-      content={<Items />}
-    />
+    <MenuDropdown trigger={<MenuBarButton>Edit</MenuBarButton>}>
+      <Items />
+    </MenuDropdown>
   );
 }
 
@@ -19,12 +18,13 @@ function Items() {
   const addGroup = useAddSectionInEmptySpace({ isDeck: true });
   return (
     <>
-      <Item onClick={addSection}>
+      <MenuItem onClick={addSection} shortcut="Ctrl + N">
         <HiPlus className="h-4 w-4" /> Card
-      </Item>
-      <Item onClick={addGroup}>
-        <AiOutlineGroup className="h-4 w-4" /> Group
-      </Item>
+      </MenuItem>
+      <MenuItem onClick={addGroup} shortcut="Ctrl + G">
+        <AiOutlineGroup className="h-4 w-4" />
+        Group
+      </MenuItem>
     </>
   );
 }

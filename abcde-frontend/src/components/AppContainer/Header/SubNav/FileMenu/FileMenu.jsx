@@ -12,8 +12,8 @@ import {
 } from "thunks/save";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
-import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { Item } from "utils/atoms/dropdown/item";
+import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
 import { router } from "utils/Routes/router";
 
@@ -74,23 +74,22 @@ export function FileMenu() {
   }
 
   return (
-    <ProjectSaveLoadModal
-      modalType={modalType}
-      folders={projects}
-      onClickLoadProject={onClickLoadProject}
-      onClickSaveAsProject={onClickSaveAsProject}
-    >
-      <StandardDropdown
-        trigger={<MenuBarButton>File</MenuBarButton>}
-        content={
+    <>
+      <ProjectSaveLoadModal
+        modalType={modalType}
+        folders={projects}
+        onClickLoadProject={onClickLoadProject}
+        onClickSaveAsProject={onClickSaveAsProject}
+      >
+        <MenuDropdown trigger={<MenuBarButton>File</MenuBarButton>}>
           <Items
             onClickLoad={onClickLoad}
             onClickSave={onClickSave}
             onClickSaveAs={onClickSaveAs}
           />
-        }
-      />
-    </ProjectSaveLoadModal>
+        </MenuDropdown>
+      </ProjectSaveLoadModal>
+    </>
   );
 }
 
@@ -99,12 +98,12 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
     <>
       <DialogTriggerItem>New Project</DialogTriggerItem>
       <DialogTriggerItem onClick={onClickLoad}>Load</DialogTriggerItem>
-      <Item onClick={onClickSave}>
-        <VscSave className="text-slate-500" />
+      <MenuItem onClick={onClickSave} shortcut="Ctrl + S">
+        <VscSave />
         Save
-      </Item>
-      <DialogTriggerItem onClick={onClickSaveAs}>
-        <VscSaveAs className="text-slate-500" />
+      </MenuItem>
+      <DialogTriggerItem onClick={onClickSaveAs} shortcut="Ctrl + Shift + S">
+        <VscSaveAs />
         Save As
       </DialogTriggerItem>
     </>
