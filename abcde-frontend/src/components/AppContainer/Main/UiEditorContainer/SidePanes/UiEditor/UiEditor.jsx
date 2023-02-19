@@ -34,9 +34,11 @@ export function UiEditor() {
 
 function TabsVisible({ sectionId }) {
   const vis = usePanes((x) => x.vis[paneProps.paneName]);
-  const tab = useUIEditor((x) => x.tab);
+  const rawTab = useUIEditor((x) => x.tab);
   const setTab = useUIEditor((x) => x.setTab);
   const requiredTabs = useRequiredUIEditorTabs(sectionId);
+  // when sectionId changes, the requiredTabs might not include the previously active tab
+  const tab = requiredTabs.includes(rawTab) ? rawTab : requiredTabs[0];
 
   return (
     <Tabs.Root
