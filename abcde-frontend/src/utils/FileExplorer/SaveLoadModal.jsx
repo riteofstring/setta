@@ -7,6 +7,7 @@ import { FileNameInput } from "./FileNameInput";
 export function SaveLoadModal({
   modalType,
   folders,
+  files,
   onClickActionButton,
   title,
   buttonText,
@@ -19,6 +20,7 @@ export function SaveLoadModal({
         <ModalContent
           modalType={modalType}
           folders={folders}
+          files={files}
           onClickActionButton={onClickActionButton}
           title={title}
           buttonText={buttonText}
@@ -34,6 +36,7 @@ export function SaveLoadModal({
 function ModalContent({
   modalType,
   folders,
+  files,
   onClickActionButton,
   title,
   buttonText,
@@ -57,6 +60,7 @@ function ModalContent({
       <Body
         modalType={modalType}
         folders={folders}
+        files={files}
         selected={selected}
         setSelected={setSelected}
         filename={filename}
@@ -72,6 +76,7 @@ function ModalContent({
 function Body({
   modalType,
   folders,
+  files,
   selected,
   setSelected,
   filename,
@@ -82,6 +87,7 @@ function Body({
   return modalType === "Load" ? (
     <FileExplorer
       folders={folders}
+      files={files}
       selected={selected}
       setSelected={setSelected}
       title={title}
@@ -89,6 +95,7 @@ function Body({
   ) : (
     <SaveBody
       folders={folders}
+      files={files}
       selected={selected}
       setSelected={setSelected}
       filename={filename}
@@ -101,6 +108,7 @@ function Body({
 
 function SaveBody({
   folders,
+  files,
   selected,
   setSelected,
   filename,
@@ -121,6 +129,7 @@ function SaveBody({
     <>
       <FileExplorer
         folders={folders}
+        files={files}
         selected={selected}
         setSelected={setSelected}
         title={title}
