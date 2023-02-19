@@ -10,6 +10,7 @@ import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
   getSectionIsRoot,
+  getSectionParentId,
 } from "thunks/sections/sections";
 import {
   BehaviorDropType,
@@ -159,6 +160,10 @@ export function getBehaviorDropType({ newParentId }) {
   }
 
   if (getSectionIsRoot(newParentId)) {
+    // dropping withint same list
+    if (getSectionParentId(activeId) === newParentId) {
+      return BehaviorDropType.DROP_HERE;
+    }
     return BehaviorDropType.NEW_LIST_ELEMENT;
   }
 
