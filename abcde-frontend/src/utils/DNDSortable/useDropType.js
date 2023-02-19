@@ -1,6 +1,6 @@
+import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
 import { getParamIsNested } from "thunks/paramInfos";
@@ -13,7 +13,7 @@ import {
 
 export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isMovingFree } = useDndMode();
   const currOver = useDndState((x) => x.overId);
   const currShouldDrop = useDndState((x) => x.shouldDrop);
   const currCenterYCondition = useDndState((x) => x.centerYCondition);

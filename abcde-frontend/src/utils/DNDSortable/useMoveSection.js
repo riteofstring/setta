@@ -1,7 +1,7 @@
+import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useKeyActivations } from "models/keyActivations";
 import { useRef } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
@@ -53,8 +53,7 @@ function onFreeMoveEnd({ dummyRef, project }) {
 }
 
 export function useOnDragEnd() {
-  const isSorting = useKeyActivations((x) => x.isSorting);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isSorting, isMovingFree } = useDndMode();
   const { project } = useReactFlow();
   const dummyRef = useRef(null);
 

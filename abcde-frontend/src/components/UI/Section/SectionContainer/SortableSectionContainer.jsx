@@ -1,8 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDndMode } from "hooks/useDndUtils";
 import { useHasNested } from "hooks/useSectionChildren";
 import { useDndState } from "models/info/dndState";
-import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
@@ -104,6 +104,6 @@ function transformWithZoom(transform, store) {
 }
 
 function useAnimateLayoutChanges() {
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isMovingFree } = useDndMode();
   return () => isMovingFree;
 }

@@ -42,6 +42,9 @@ export const customCollisionDetectionSorting = ({
   droppableRects,
   droppableContainers,
 }) => {
+  if (!active.data.current.sortable) {
+    return [];
+  }
   let bestCollision = null;
   const corners = cornersOfRectangle(collisionRect);
 
