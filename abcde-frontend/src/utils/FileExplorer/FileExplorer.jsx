@@ -4,7 +4,7 @@ import _ from "lodash";
 import { Button } from "../../utils/atoms/buttons/Button";
 import { ProjectListing } from "./ProjectListing";
 
-export function FileExplorer({ files, selected, setSelected, modalType }) {
+export function FileExplorer({ files, selected, setSelected, title }) {
   function onChange(v) {
     if (v) {
       setSelected(JSON.parse(v));
@@ -14,8 +14,7 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
   return (
     <>
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-slate-400">
-        {modalType === "Load" && "Load Project"}
-        {modalType === "Save As" && "Save Project As"}
+        {title}
       </Dialog.Title>
 
       <div className="mx-3 mb-2 flex justify-between border-b border-solid border-slate-200 pb-2">

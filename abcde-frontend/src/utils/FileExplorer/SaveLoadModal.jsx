@@ -83,12 +83,7 @@ function Body({
   setConfigName,
 }) {
   return modalType === "Load" ? (
-    <LoadBody
-      files={files}
-      selected={selected}
-      setSelected={setSelected}
-      modalType={modalType}
-    />
+    <LoadBody files={files} selected={selected} setSelected={setSelected} />
   ) : (
     <SaveBody
       files={files}
@@ -97,18 +92,17 @@ function Body({
       selected={selected}
       configName={configName}
       setConfigName={setConfigName}
-      modalType={modalType}
     />
   );
 }
 
-function LoadBody({ files, selected, setSelected, modalType }) {
+function LoadBody({ files, selected, setSelected }) {
   return (
     <FileExplorer
       files={files}
       selected={selected}
       setSelected={setSelected}
-      modalType={modalType}
+      title="Load Project"
     />
   );
 }
@@ -120,7 +114,6 @@ function SaveBody({
   selected,
   configName,
   setConfigName,
-  modalType,
 }) {
   const currFiles = _.find(files, (x) => x.name === currProjectName);
   const currFilesAsObj = currFiles ? { [currFiles.id]: currFiles } : {};
@@ -143,7 +136,7 @@ function SaveBody({
         files={currFilesAsObj}
         selected={selected}
         setSelected={setSelected}
-        modalType={modalType}
+        title="Save Project As"
       />
       <div className="px-3">
         <FileNameInput
