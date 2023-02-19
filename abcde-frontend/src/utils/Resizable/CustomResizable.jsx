@@ -80,7 +80,7 @@ function CustomResizableCore({
       maxWidth={maxWidth}
       onResize={onResize}
       onResizeStop={onResizeStop}
-      // lockAspectRatio={aspectRatio}
+      lockAspectRatio={aspectRatio}
       handleWrapperClass="nodrag [&>div]:z-20"
       enable={{
         top: false,
