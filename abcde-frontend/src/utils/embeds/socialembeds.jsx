@@ -1,8 +1,8 @@
-import { Tweet } from "external/react-twitter-widgets";
 import getYouTubeID from "get-youtube-id";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionSocialConfig } from "models/info/sectionSocialConfig";
+import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 
 export function SocialEmbeds({ sectionId, type }) {
