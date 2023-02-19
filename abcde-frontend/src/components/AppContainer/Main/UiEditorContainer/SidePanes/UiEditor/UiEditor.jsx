@@ -1,9 +1,12 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { useRequiredUIEditorTabs } from "hooks/useUITypes";
 import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
+  INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
+  tabNameToPretty,
   UI_CONFIG_TAB,
   useUIEditor,
 } from "models/uiEditor";
@@ -21,34 +24,38 @@ const paneProps = {
 
 export function UiEditor() {
   const sectionId = useActiveSection((x) => x.id);
-  const vis = usePanes((x) => x.vis[paneProps.paneName]);
-  const tab = useUIEditor((x) => x.tab);
-  const setTab = useUIEditor((x) => x.setTab);
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit">
-      {sectionId ? (
-        <Tabs.Root
-          className={`flex flex-grow flex-col overflow-y-hidden ${
-            vis ? "visible" : "invisible"
-          }`}
-          defaultValue={SECTION_CONFIG_TAB}
-          value={tab}
-          onValueChange={setTab}
-        >
-          <Tabs.List className="flex gap-4">
-            <TabItem name="Card" value={SECTION_CONFIG_TAB} />
-            <TabItem name="Parameters" value={UI_CONFIG_TAB} />
-            <TabItem name="Info" />
-          </Tabs.List>
-          <SectionConfigTab sectionId={sectionId} />
-          <UIConfigTab sectionId={sectionId} />
-          <InfoTab sectionId={sectionId} />
-        </Tabs.Root>
-      ) : (
-        <Placeholder />
-      )}
+      {sectionId ? <TabsVisible sectionId={sectionId} /> : <Placeholder />}
     </PaneContainer>
+  );
+}
+
+function TabsVisible({ sectionId }) {
+  const vis = usePanes((x) => x.vis[paneProps.paneName]);
+  const tab = useUIEditor((x) => x.tab);
+  const setTab = useUIEditor((x) => x.setTab);
+  const requiredTabs = useRequiredUIEditorTabs(sectionId);
+
+  return (
+    <Tabs.Root
+      className={`flex flex-grow flex-col overflow-y-hidden ${
+        vis ? "visible" : "invisible"
+      }`}
+      defaultValue={SECTION_CONFIG_TAB}
+      value={tab}
+      onValueChange={setTab}
+    >
+      <Tabs.List className="flex gap-4">
+        {requiredTabs.map((x) => (
+          <TabItem name={tabNameToPretty.get(x)} value={x} key={x} />
+        ))}
+      </Tabs.List>
+      {requiredTabs.map((x) => (
+        <TabContentSelector sectionId={sectionId} tabName={x} key={x} />
+      ))}
+    </Tabs.Root>
   );
 }
 
@@ -107,8 +114,18 @@ function UIConfigTab({ sectionId }) {
 
 function InfoTab({ sectionId }) {
   return (
-    <TabContent>
+    <TabContent value={INFO_CONFIG_TAB}>
       <MarkdownEditor sectionId={sectionId} />
     </TabContent>
   );
+}
+
+function TabContentSelector({ sectionId, tabName }) {
+  if (tabName === SECTION_CONFIG_TAB) {
+    return <SectionConfigTab sectionId={sectionId} />;
+  } else if (tabName === UI_CONFIG_TAB) {
+    return <UIConfigTab sectionId={sectionId} />;
+  } else if (tabName === INFO_CONFIG_TAB) {
+    return <InfoTab sectionId={sectionId} />;
+  }
 }
