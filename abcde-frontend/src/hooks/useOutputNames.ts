@@ -2,7 +2,7 @@ import _ from "lodash";
 import { useOutputGroups } from "models/info/outputGroups";
 import { useOutputs } from "models/info/outputs";
 
-function useOutputNamesHelper(groupFilter) {
+export function useAllOutputNames() {
   const outputNames = useOutputs(
     (x) => _.mapValues(x.x, (output) => output.name),
     _.isEqual
@@ -10,7 +10,7 @@ function useOutputNamesHelper(groupFilter) {
 
   const groups = useOutputGroups(
     (x) =>
-      _.mapValues(groupFilter(x.x), (group) => ({
+      _.mapValues(x.x, (group) => ({
         id: group.id,
         name: group.name,
         children: _.map(group.children, (c) => outputNames[c]),
@@ -19,15 +19,6 @@ function useOutputNamesHelper(groupFilter) {
   );
 
   return groups;
-}
-
-export function useAllOutputNames() {
-  return useOutputNamesHelper((x) => x);
-}
-
-export function useOutputNames(groupId) {
-  const groupFilter = groupId ? (x) => _.pick(x, [groupId]) : () => ({});
-  return useOutputNamesHelper(groupFilter);
 }
 
 export function useOutputValues(groupId) {
