@@ -82,9 +82,18 @@ function OneSocialDetails({ id, sectionId, configName }) {
   }
 
   return (
-    <div>
-      <h3 className="text-sm font-bold">{configName}</h3>
-      <input value={configValue} onChange={(e) => onChange(e.target.value)} />
+    <div className="flex items-center gap-3">
+      <h3 className="text-sm font-bold text-slate-500">{configName}</h3>
+      <input
+        className=" w-full rounded-full bg-white px-4 py-1 text-sm focus:ring-1 focus:ring-blue-500"
+        value={configValue}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={
+          id === "youtube"
+            ? "https://www.youtube.com/"
+            : "https://www.twitter.com/"
+        }
+      />
     </div>
   );
 }

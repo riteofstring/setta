@@ -95,8 +95,12 @@ export function FileMenu() {
 function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
-      <DialogTriggerItem>New Project</DialogTriggerItem>
-      <DialogTriggerItem onClick={onClickLoad}>Load</DialogTriggerItem>
+      <DialogTriggerItem shortcut="Ctrl + Shift + N">
+        New Project
+      </DialogTriggerItem>
+      <DialogTriggerItem onClick={onClickLoad} shortcut="Ctrl + L">
+        Load
+      </DialogTriggerItem>
       <MenuItem onClick={onClickSave} shortcut="Ctrl + S">
         <VscSave />
         Save
