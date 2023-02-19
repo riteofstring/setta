@@ -118,7 +118,12 @@ function SaveBody({
 }) {
   function onChange(v) {
     setFilename(v);
-    setSelected((s) => ({ ...s, filename: v }));
+    setSelected((s) => {
+      if (s.foldername) {
+        return { ...s, filename: v };
+      }
+      return { foldername: folders[0].name, filename: v };
+    });
   }
 
   useEffect(() => {
