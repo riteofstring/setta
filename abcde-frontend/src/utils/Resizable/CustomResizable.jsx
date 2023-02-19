@@ -5,12 +5,18 @@ import { SECTIONWIDTH } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { ResizeIcon } from "./ResizeIcon";
 
-export function CustomResizable({ sectionId, setLocalWidth, children }) {
+export function CustomResizable({
+  sectionId,
+  isOutput,
+  setLocalWidth,
+  children,
+}) {
   const minHeight = useMinSectionHeight(sectionId);
   const minWidth = SECTIONWIDTH;
   return (
     <CustomResizableCore
       sectionId={sectionId}
+      isOutput={isOutput}
       minHeight={minHeight}
       minWidth={minWidth}
       setLocalWidth={setLocalWidth}
@@ -22,6 +28,7 @@ export function CustomResizable({ sectionId, setLocalWidth, children }) {
 
 function CustomResizableCore({
   sectionId,
+  isOutput,
   minHeight,
   minWidth,
   setLocalWidth,
@@ -30,7 +37,12 @@ function CustomResizableCore({
   const savedSize = useSectionInfos((x) => x.x[sectionId].size);
 
   function onResizeStop(...props) {
-    const { width, height } = getNewSize({ props, minWidth, setLocalWidth });
+    const { width, height } = getNewSize({
+      props,
+      minWidth,
+      setLocalWidth,
+      isOutput,
+    });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
   }
 
@@ -40,10 +52,7 @@ function CustomResizableCore({
     }
   }
 
-  const size = {
-    width: maybeAuto(savedSize.width),
-    height: maybeAuto(savedSize.height),
-  };
+  const size = getSize({ savedSize, isOutput });
 
   return (
     <ResizableWithScale
@@ -66,6 +75,17 @@ function CustomResizableCore({
       {children}
     </ResizableWithScale>
   );
+}
+
+function getSize({ savedSize, isOutput }) {
+  // can't use 'auto' for charts
+  if (isOutput) {
+    return savedSize;
+  }
+  return {
+    width: maybeAuto(savedSize.width),
+    height: maybeAuto(savedSize.height),
+  };
 }
 
 function maybeAuto(x) {
@@ -91,12 +111,12 @@ function getDoubleClickWidth({ direction, ref, minWidth }) {
   }
 }
 
-function getNewSize({ props, minWidth, setLocalWidth }) {
+function getNewSize({ props, minWidth, setLocalWidth, isOutput }) {
   const [e, direction, ref, d] = props;
   let width;
   let height;
-  // detect double click
-  if (d.width === 0 && d.height === 0 && e.detail === 2) {
+  // detect double click (but only for non-output sections)
+  if (d.width === 0 && d.height === 0 && e.detail === 2 && !isOutput) {
     [width, height] = getDoubleClickWidth({ direction, ref, minWidth });
     setLocalWidth(width);
   } else {

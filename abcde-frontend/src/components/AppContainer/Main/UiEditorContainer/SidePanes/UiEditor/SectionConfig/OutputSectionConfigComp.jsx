@@ -3,6 +3,7 @@ import { useAllOutputNames } from "hooks/useOutputNames";
 import { useGetSelectedOutputNames } from "hooks/useSectionContents";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
+import { INITIAL_CHART_SIZE } from "utils/constants";
 import { SectionConfigSearch } from "./SectionConfigComp";
 
 export function OutputsSearch({ sectionId }) {
@@ -14,11 +15,23 @@ export function OutputsSearch({ sectionId }) {
       sectionId,
       configProps: { configName: "outputGroup", newValueFn },
     });
-    useSectionInfos.getState().setSectionInfoAttr({
+    const s = useSectionInfos.getState();
+    s.setSectionInfoAttr({
       sectionId,
       attr: "name",
       value: outputGroups[id].name,
     });
+    const currSize = s.x[sectionId].size;
+    if (
+      currSize.width < INITIAL_CHART_SIZE.width ||
+      currSize.height < INITIAL_CHART_SIZE.height
+    ) {
+      s.setSectionInfoAttr({
+        sectionId,
+        attr: "size",
+        value: INITIAL_CHART_SIZE,
+      });
+    }
   }
 
   return (
