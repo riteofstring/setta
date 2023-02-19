@@ -1,20 +1,19 @@
 import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useRef } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
-import { getSectionParentId } from "thunks/sections/sections";
+import { getSectionParentId, setAllChildren } from "thunks/sections/sections";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
-  useSectionInfos.getState().setAllChildren({
-    sectionId: active.data.current.sortable?.containerId,
-    newStateFn: updateWithArrayMove(active, over),
-  });
+  setAllChildren(
+    active.data.current.sortable?.containerId,
+    updateWithArrayMove(active, over)
+  );
 }
 
 function onFreeMoveEnd({ dummyRef, project }) {

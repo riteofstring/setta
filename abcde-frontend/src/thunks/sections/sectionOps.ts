@@ -20,6 +20,7 @@ import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionConfig,
   getSectionType,
+  setAllChildren,
   setSectionParamInfoId,
 } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
@@ -113,37 +114,31 @@ function setSectionAttrBasedOnNewParent({
   sectionId,
   newIndex,
 }) {
-  const sectionInfosState = useSectionInfos.getState();
-  const projectConfigState = useProjectConfig.getState();
+  const s = useSectionInfos.getState();
+  const p = useProjectConfig.getState();
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
-    projectConfigState.deleteChildren([sectionId]);
+    p.deleteChildren([sectionId]);
   } else {
-    sectionInfosState.setAllChildren({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== sectionId),
-    });
+    setAllChildren(oldParentId, (x) => x.filter((y) => y !== sectionId));
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    projectConfigState.addChildren([sectionId]);
+    p.addChildren([sectionId]);
     // Unset paramInfoId
     setSectionParamInfoId(sectionId, null);
   } else {
     // Add child to new parent's list
-    sectionInfosState.setAllChildren({
-      sectionId: newParentId,
-      newStateFn: (x) => [
-        ...x.slice(0, newIndex),
-        sectionId,
-        ...x.slice(newIndex, x.length),
-      ],
-    });
+    setAllChildren(newParentId, (x) => [
+      ...x.slice(0, newIndex),
+      sectionId,
+      ...x.slice(newIndex, x.length),
+    ]);
   }
 
   // Set sectionInfo's parentId
-  sectionInfosState.setSectionInfoAttr({
+  s.setSectionInfoAttr({
     sectionId,
     attr: "parentId",
     value: newParentId === PANEID ? null : newParentId,

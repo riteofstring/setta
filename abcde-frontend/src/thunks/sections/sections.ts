@@ -82,3 +82,10 @@ export function setSectionSize(sectionId, size) {
 export function setSectionParamInfoId(sectionId, paramInfoId) {
   setSectionInfoAttr({ sectionId, attr: "paramInfoId", value: paramInfoId });
 }
+
+export function setAllChildren(sectionId, newStateFn) {
+  useSectionInfos.getState().setAllChildren({
+    sectionId,
+    newStateFn,
+  });
+}
