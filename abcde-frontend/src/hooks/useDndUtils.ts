@@ -6,7 +6,6 @@ import colors from "tailwindcss/colors";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
 import { useHasNested } from "./useSectionChildren";
-import { useCanHaveNested } from "./useSectionType";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
@@ -97,10 +96,9 @@ export function useDndMode() {
 
 export function useDndProps({ sectionId, isTopLevel }) {
   const hasNested = useHasNested(sectionId);
-  const canHaveNested = useCanHaveNested(sectionId);
 
   return {
     id: sectionId,
-    data: { isTopLevel, hasNested, canHaveNested },
+    data: { isTopLevel, hasNested },
   };
 }

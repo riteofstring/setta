@@ -1,4 +1,4 @@
-import { isRoot } from "abcde-utils/src/constants";
+import { INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
@@ -31,6 +31,10 @@ export function getSectionIsRoot(sectionId) {
 
 export function getSectionTypeConfig(sectionId) {
   return getSectionType(sectionId).config as SectionUITypeConfigType;
+}
+
+export function getSectionCanHaveNested(sectionId) {
+  return ![OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
 }
 
 export function setSectionConfigAttr({ sectionId, attr, value }) {

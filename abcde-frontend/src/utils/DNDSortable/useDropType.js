@@ -5,7 +5,10 @@ import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
 import { getParamIsNested } from "thunks/paramInfos";
 import { getParamWithSameName } from "thunks/sections/sectionContents";
-import { getSectionIsRoot } from "thunks/sections/sections";
+import {
+  getSectionCanHaveNested,
+  getSectionIsRoot,
+} from "thunks/sections/sections";
 import {
   BehaviorDropType,
   PositionDropType,
@@ -86,7 +89,6 @@ function getLeftDistCondition(collisions, zoom) {
   // true if section has not children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
-    collisions[0]?.data.droppableContainer.data.current.canHaveNested &&
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
     collisions[0]?.data.leftDist > 200 * zoom
   );
@@ -100,8 +102,7 @@ export function getShouldDrop(active, over, collisions) {
     over &&
     collisions[0]?.id === over.id &&
     active.id !== over.id &&
-    (over.data.current.sortable ||
-      (!over.data.current.hasNested && over.data.current.canHaveNested))
+    (over.data.current.sortable || !over.data.current.hasNested)
   );
 }
 
@@ -145,6 +146,11 @@ export function getPositionDropType({ centerYCondition, leftDistCondition }) {
 
 // returns [dropType, newParentId, newIndex]
 export function getBehaviorDropType({ newParentId }) {
+  // invalid if parent can't have children
+  if (!getSectionCanHaveNested(newParentId)) {
+    return BehaviorDropType.INVALID;
+  }
+
   const activeId = useDndState.getState().activeId;
 
   if (getSectionIsRoot(newParentId)) {
