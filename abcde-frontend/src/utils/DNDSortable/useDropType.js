@@ -113,7 +113,7 @@ export function getShouldDrop(active, over, collisions) {
 export function getPositionDropType({ centerYCondition, leftDistCondition }) {
   const { activeId, overId } = useDndState.getState();
   const s = useSectionInfos.getState();
-  const overParentId = s.x[overId].parentId;
+  const overParentId = getSectionParentId(overId);
 
   // Drop into section if it is a sortable and leftOffset is large enough
   // Or if it's not a sortable and has no children.
@@ -125,7 +125,7 @@ export function getPositionDropType({ centerYCondition, leftDistCondition }) {
   const overIndex = siblings.indexOf(overId);
 
   // Is effectively sorting
-  if (overParentId === s.x[activeId].parentId) {
+  if (overParentId === getSectionParentId(activeId)) {
     const activeIndex = siblings.indexOf(activeId);
     // Drop below the target if moving down the list
     if (activeIndex < overIndex) {
