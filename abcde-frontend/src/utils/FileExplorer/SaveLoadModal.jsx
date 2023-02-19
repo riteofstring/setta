@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { ModalContainer } from "utils/ModalContainer/ModalContainer";
@@ -7,7 +6,7 @@ import { FileNameInput } from "./FileNameInput";
 
 export function SaveLoadModal({
   modalType,
-  files,
+  folders,
   onClickLoadProject,
   onClickSaveAsProject,
   currProjectName,
@@ -17,7 +16,7 @@ export function SaveLoadModal({
     <ModalContainer
       content={
         <ModalContent
-          files={files}
+          folders={folders}
           modalType={modalType}
           onClickLoadProject={onClickLoadProject}
           onClickSaveAsProject={onClickSaveAsProject}
@@ -31,7 +30,7 @@ export function SaveLoadModal({
 }
 
 function ModalContent({
-  files,
+  folders,
   modalType,
   onClickLoadProject,
   onClickSaveAsProject,
@@ -56,7 +55,7 @@ function ModalContent({
   return (
     <>
       <Body
-        files={files}
+        folders={folders}
         setSelected={setSelected}
         modalType={modalType}
         currProjectName={currProjectName}
@@ -75,7 +74,7 @@ function ModalContent({
 
 function Body({
   modalType,
-  files,
+  folders,
   setSelected,
   currProjectName,
   selected,
@@ -83,10 +82,10 @@ function Body({
   setConfigName,
 }) {
   return modalType === "Load" ? (
-    <LoadBody files={files} selected={selected} setSelected={setSelected} />
+    <LoadBody folders={folders} selected={selected} setSelected={setSelected} />
   ) : (
     <SaveBody
-      files={files}
+      folders={folders}
       setSelected={setSelected}
       currProjectName={currProjectName}
       selected={selected}
@@ -96,10 +95,10 @@ function Body({
   );
 }
 
-function LoadBody({ files, selected, setSelected }) {
+function LoadBody({ folders, selected, setSelected }) {
   return (
     <FileExplorer
-      files={files}
+      folders={folders}
       selected={selected}
       setSelected={setSelected}
       title="Load Project"
@@ -108,32 +107,34 @@ function LoadBody({ files, selected, setSelected }) {
 }
 
 function SaveBody({
-  files,
+  folders,
   setSelected,
   currProjectName,
   selected,
   configName,
   setConfigName,
 }) {
-  const currFiles = _.find(files, (x) => x.name === currProjectName);
-  const currFilesAsObj = currFiles ? { [currFiles.id]: currFiles } : {};
+  let currFolders = folders.find((x) => x.name === currProjectName);
+  currFolders = currFolders ? [currFolders] : [];
 
   function onChange(v) {
     setConfigName(v);
-    setSelected({ projectName: currProjectName, configName: v });
+    setSelected({ foldername: currProjectName, filename: v });
   }
 
   useEffect(() => {
-    const configName = selected.configName;
+    const configName = selected.filename;
     if (configName) {
       setConfigName(configName);
+    } else {
+      setConfigName("");
     }
   }, [selected]);
 
   return (
     <>
       <FileExplorer
-        files={currFilesAsObj}
+        folders={currFolders}
         selected={selected}
         setSelected={setSelected}
         title="Save Project As"

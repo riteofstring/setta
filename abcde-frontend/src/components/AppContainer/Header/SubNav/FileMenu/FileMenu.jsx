@@ -20,10 +20,11 @@ import { router } from "utils/Routes/router";
 export function FileMenu() {
   const reactFlowStore = useStoreApi();
   const username = useAuth((x) => x.username);
-  const { projects, getProjects } = useGetOrCreateProjects();
+  const { projects: rawProjects, getProjects } = useGetOrCreateProjects();
   const { projectName: currProjectName, configName: currConfigName } =
     useCurrProjectName();
   const [modalType, setModalType] = useState("");
+  const projects = convertRawProjectsToFolderFormat(rawProjects);
 
   function onClickSave() {
     saveProject({ reactFlowStore });
@@ -71,7 +72,7 @@ export function FileMenu() {
   return (
     <SaveLoadModal
       modalType={modalType}
-      files={projects}
+      folders={projects}
       onClickLoadProject={onClickLoadProject}
       onClickSaveAsProject={onClickSaveAsProject}
       currProjectName={currProjectName}
@@ -105,4 +106,11 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
       </DialogTriggerItem>
     </>
   );
+}
+
+function convertRawProjectsToFolderFormat(rawProjects) {
+  return Object.values(rawProjects).map((x) => ({
+    name: x.name,
+    files: x.configs.map((c) => c.name),
+  }));
 }

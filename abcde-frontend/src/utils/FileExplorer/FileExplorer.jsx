@@ -2,9 +2,9 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
 import { Button } from "../../utils/atoms/buttons/Button";
-import { ProjectListing } from "./ProjectListing";
+import { FolderAndFiles } from "./FileListing";
 
-export function FileExplorer({ files, selected, setSelected, title }) {
+export function FileExplorer({ folders, files, selected, setSelected, title }) {
   function onChange(v) {
     if (v) {
       setSelected(JSON.parse(v));
@@ -32,10 +32,10 @@ export function FileExplorer({ files, selected, setSelected, title }) {
         asChild
       >
         <div>
-          {_.map(files, (x, idx) => (
-            <ProjectListing
-              project={x}
-              key={`File ${idx}`}
+          {_.map(folders, (x, idx) => (
+            <FolderAndFiles
+              folder={x}
+              key={`Folder ${idx}`}
               onClick={onChange}
             />
           ))}
