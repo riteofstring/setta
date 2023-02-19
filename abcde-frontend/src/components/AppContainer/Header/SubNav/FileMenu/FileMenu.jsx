@@ -14,16 +14,21 @@ import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
-import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
+import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
   const reactFlowStore = useStoreApi();
   const username = useAuth((x) => x.username);
-  const { projects, getProjects } = useGetOrCreateProjects();
+  const { projects: rawProjects, getProjects } = useGetOrCreateProjects();
   const { projectName: currProjectName, configName: currConfigName } =
     useCurrProjectName();
   const [modalType, setModalType] = useState("");
+  const projects = convertRawProjectsToFolderFormat({
+    rawProjects,
+    modalType,
+    currProjectName,
+  });
 
   function onClickSave() {
     saveProject({ reactFlowStore });
@@ -69,12 +74,11 @@ export function FileMenu() {
   }
 
   return (
-    <SaveLoadModal
+    <ProjectSaveLoadModal
       modalType={modalType}
-      files={projects}
+      folders={projects}
       onClickLoadProject={onClickLoadProject}
       onClickSaveAsProject={onClickSaveAsProject}
-      currProjectName={currProjectName}
     >
       <StandardDropdown
         trigger={<MenuBarButton>File</MenuBarButton>}
@@ -86,7 +90,7 @@ export function FileMenu() {
           />
         }
       />
-    </SaveLoadModal>
+    </ProjectSaveLoadModal>
   );
 }
 
@@ -105,4 +109,20 @@ function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
       </DialogTriggerItem>
     </>
   );
+}
+
+function convertRawProjectsToFolderFormat({
+  rawProjects,
+  modalType,
+  currProjectName,
+}) {
+  const projects = Object.values(rawProjects).map((x) => ({
+    name: x.name,
+    files: x.configs.map((c) => c.name),
+  }));
+  if (modalType === "Save As") {
+    const currProject = projects.find((x) => x.name === currProjectName);
+    return currProject ? [currProject] : [];
+  }
+  return projects;
 }

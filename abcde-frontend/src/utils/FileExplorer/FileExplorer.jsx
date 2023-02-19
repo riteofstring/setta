@@ -1,10 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import _ from "lodash";
+import React from "react";
 import { Button } from "../../utils/atoms/buttons/Button";
-import { ProjectListing } from "./ProjectListing";
+import { FileList, FolderAndFiles } from "./FileListing";
 
-export function FileExplorer({ files, selected, setSelected, modalType }) {
+export function FileExplorer({ folders, files, selected, setSelected, title }) {
   function onChange(v) {
     if (v) {
       setSelected(JSON.parse(v));
@@ -14,8 +15,7 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
   return (
     <>
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-slate-400">
-        {modalType === "Load" && "Load Project"}
-        {modalType === "Save As" && "Save Project As"}
+        {title}
       </Dialog.Title>
 
       <div className="mx-3 mb-2 flex justify-between border-b border-solid border-slate-200 pb-2">
@@ -32,16 +32,22 @@ export function FileExplorer({ files, selected, setSelected, modalType }) {
         onValueChange={onChange}
         asChild
       >
-        <div>
-          {_.map(files, (x, idx) => (
-            <ProjectListing
-              project={x}
-              key={`File ${idx}`}
-              onClick={onChange}
-            />
-          ))}
-        </div>
+        <FoldersOrFiles folders={folders} files={files} onChange={onChange} />
       </RadioGroup.Root>
     </>
   );
 }
+
+const FoldersOrFiles = React.forwardRef(({ folders, files, onChange }, ref) => {
+  return (
+    <div ref={ref}>
+      {folders ? (
+        _.map(folders, (x, idx) => (
+          <FolderAndFiles folder={x} key={`Folder ${idx}`} onClick={onChange} />
+        ))
+      ) : (
+        <FileList files={files} onClick={onChange} />
+      )}
+    </div>
+  );
+});

@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { ModalContainer } from "utils/ModalContainer/ModalContainer";
@@ -7,21 +6,25 @@ import { FileNameInput } from "./FileNameInput";
 
 export function SaveLoadModal({
   modalType,
+  folders,
   files,
-  onClickLoadProject,
-  onClickSaveAsProject,
-  currProjectName,
+  onClickActionButton,
+  title,
+  buttonText,
+  placeholder,
   children,
 }) {
   return (
     <ModalContainer
       content={
         <ModalContent
-          files={files}
           modalType={modalType}
-          onClickLoadProject={onClickLoadProject}
-          onClickSaveAsProject={onClickSaveAsProject}
-          currProjectName={currProjectName}
+          folders={folders}
+          files={files}
+          onClickActionButton={onClickActionButton}
+          title={title}
+          buttonText={buttonText}
+          placeholder={placeholder}
         />
       }
     >
@@ -31,124 +34,110 @@ export function SaveLoadModal({
 }
 
 function ModalContent({
-  files,
   modalType,
-  onClickLoadProject,
-  onClickSaveAsProject,
-  currProjectName,
+  folders,
+  files,
+  onClickActionButton,
+  title,
+  buttonText,
+  placeholder,
 }) {
   const [selected, setSelected] = useState({});
-  const [configName, setConfigName] = useState("");
+  const [filename, setFilename] = useState("");
 
-  function localOnClose() {
+  function onClose() {
     setSelected({});
-    setConfigName("");
+    setFilename("");
   }
 
-  function onClickSaveOrLoad() {
-    modalType === "Load"
-      ? onClickLoadProject(selected)
-      : onClickSaveAsProject(selected, configName);
-    setSelected({});
-    setConfigName("");
+  function onClick() {
+    onClickActionButton(selected, filename);
+    onClose();
   }
 
   return (
     <>
       <Body
-        files={files}
-        setSelected={setSelected}
         modalType={modalType}
-        currProjectName={currProjectName}
+        folders={folders}
+        files={files}
         selected={selected}
-        configName={configName}
-        setConfigName={setConfigName}
+        setSelected={setSelected}
+        filename={filename}
+        setFilename={setFilename}
+        title={title}
+        placeholder={placeholder}
       />
-      <Footer
-        buttonText={modalType}
-        onClose={localOnClose}
-        onClick={onClickSaveOrLoad}
-      />
+      <Footer buttonText={buttonText} onClose={onClose} onClick={onClick} />
     </>
   );
 }
 
 function Body({
   modalType,
+  folders,
   files,
-  setSelected,
-  currProjectName,
   selected,
-  configName,
-  setConfigName,
+  setSelected,
+  filename,
+  setFilename,
+  title,
+  placeholder,
 }) {
   return modalType === "Load" ? (
-    <LoadBody
+    <FileExplorer
+      folders={folders}
       files={files}
       selected={selected}
       setSelected={setSelected}
-      modalType={modalType}
+      title={title}
     />
   ) : (
     <SaveBody
-      files={files}
-      setSelected={setSelected}
-      currProjectName={currProjectName}
-      selected={selected}
-      configName={configName}
-      setConfigName={setConfigName}
-      modalType={modalType}
-    />
-  );
-}
-
-function LoadBody({ files, selected, setSelected, modalType }) {
-  return (
-    <FileExplorer
+      folders={folders}
       files={files}
       selected={selected}
       setSelected={setSelected}
-      modalType={modalType}
+      filename={filename}
+      setFilename={setFilename}
+      title={title}
+      placeholder={placeholder}
     />
   );
 }
 
 function SaveBody({
+  folders,
   files,
-  setSelected,
-  currProjectName,
   selected,
-  configName,
-  setConfigName,
-  modalType,
+  setSelected,
+  filename,
+  setFilename,
+  title,
+  placeholder,
 }) {
-  const currFiles = _.find(files, (x) => x.name === currProjectName);
-  const currFilesAsObj = currFiles ? { [currFiles.id]: currFiles } : {};
-
   function onChange(v) {
-    setConfigName(v);
-    setSelected({ projectName: currProjectName, configName: v });
+    setFilename(v);
+    setSelected((s) => ({ ...s, filename: v }));
   }
 
   useEffect(() => {
-    const configName = selected.configName;
-    if (configName) {
-      setConfigName(configName);
-    }
+    setFilename(selected.filename ? selected.filename : "");
   }, [selected]);
 
   return (
     <>
       <FileExplorer
-        files={currFilesAsObj}
+        folders={folders}
+        files={files}
         selected={selected}
         setSelected={setSelected}
-        modalType={modalType}
+        title={title}
       />
       <div className="px-3">
         <FileNameInput
-          placeholder="Config Name"
-          value={configName}
+          placeholder={placeholder}
+          value={filename}
           onChange={onChange}
         />
       </div>
