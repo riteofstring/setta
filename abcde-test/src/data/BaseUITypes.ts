@@ -119,4 +119,18 @@ export default {
     originInfoId: {},
     isForChildOfOriginInfoId: false,
   },
+  "76cd4b19-cc63-4e2c-8214-5a4246ca637c": {
+    id: "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
+    type: "SOCIAL",
+    name: "",
+    presetType: "BASE",
+    config: {
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+    },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
+  },
 };
