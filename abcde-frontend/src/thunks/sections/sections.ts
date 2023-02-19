@@ -83,6 +83,10 @@ export function setSectionParamInfoId(sectionId, paramInfoId) {
   setSectionInfoAttr({ sectionId, attr: "paramInfoId", value: paramInfoId });
 }
 
+export function setSectionParentId(sectionId, parentId) {
+  setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
+}
+
 export function setAllChildren(sectionId, newStateFn) {
   useSectionInfos.getState().setAllChildren({
     sectionId,

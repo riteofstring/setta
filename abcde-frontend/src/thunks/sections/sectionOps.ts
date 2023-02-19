@@ -22,6 +22,7 @@ import {
   getSectionType,
   setAllChildren,
   setSectionParamInfoId,
+  setSectionParentId,
 } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
@@ -114,7 +115,6 @@ function setSectionAttrBasedOnNewParent({
   sectionId,
   newIndex,
 }) {
-  const s = useSectionInfos.getState();
   const p = useProjectConfig.getState();
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
@@ -137,12 +137,7 @@ function setSectionAttrBasedOnNewParent({
     ]);
   }
 
-  // Set sectionInfo's parentId
-  s.setSectionInfoAttr({
-    sectionId,
-    attr: "parentId",
-    value: newParentId === PANEID ? null : newParentId,
-  });
+  setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {
@@ -239,31 +234,40 @@ function maybeChangeNewParamUIType({
       objInfoId: selectedItem,
       name: sectionName,
     });
-    setSectionParamInfoId(sectionId, kwargId);
-    setParamChildId({
+    linkParamToChildSection({
       sectionId: newParentId,
       paramInfoId: kwargId,
       childId: sectionId,
-    });
-    setParamUITypeId({
       uiTypeId,
-      sectionId: newParentId,
-      paramInfoId: kwargId,
     });
   } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
     const matchingParam = getParamWithSameName(sectionId, newParentId);
     if (matchingParam) {
-      setSectionParamInfoId(sectionId, matchingParam.id);
-      setParamChildId({
+      linkParamToChildSection({
         sectionId: newParentId,
         paramInfoId: matchingParam.id,
         childId: sectionId,
-      });
-      setParamUITypeId({
         uiTypeId,
-        sectionId: newParentId,
-        paramInfoId: matchingParam.id,
       });
     }
   }
+}
+
+function linkParamToChildSection({
+  sectionId,
+  paramInfoId,
+  childId,
+  uiTypeId,
+}) {
+  setSectionParamInfoId(childId, paramInfoId);
+  setParamChildId({
+    sectionId,
+    paramInfoId,
+    childId,
+  });
+  setParamUITypeId({
+    uiTypeId,
+    sectionId,
+    paramInfoId,
+  });
 }
