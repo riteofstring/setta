@@ -2,7 +2,7 @@ import * as Collapsible from "@radix-ui/react-collapsible";
 import { useAllOutputNames } from "hooks/useOutputNames";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { setSectionName } from "thunks/sections/sections";
+import { setSectionName, setSectionSize } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { SectionConfigSearch } from "./SectionConfigSearch";
@@ -16,18 +16,13 @@ export function OutputsSearch({ sectionId }) {
       sectionId,
       configProps: { configName: "outputGroup", newValueFn },
     });
-    const s = useSectionInfos.getState();
     setSectionName(sectionId, outputGroups[id].name);
-    const currSize = s.x[sectionId].size;
+    const currSize = useSectionInfos.getState().x[sectionId].size;
     if (
       currSize.width < INITIAL_CHART_SIZE.width ||
       currSize.height < INITIAL_CHART_SIZE.height
     ) {
-      s.setSectionInfoAttr({
-        sectionId,
-        attr: "size",
-        value: INITIAL_CHART_SIZE,
-      });
+      setSectionSize(sectionId, INITIAL_CHART_SIZE);
     }
   }
 

@@ -74,3 +74,7 @@ function setSectionInfoAttr(props) {
 export function setSectionName(sectionId, name) {
   setSectionInfoAttr({ sectionId, attr: "name", value: name });
 }
+
+export function setSectionSize(sectionId, size) {
+  setSectionInfoAttr({ sectionId, attr: "size", value: size });
+}

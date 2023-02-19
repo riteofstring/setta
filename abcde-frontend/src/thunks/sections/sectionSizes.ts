@@ -1,13 +1,9 @@
 import { useSectionInfos } from "models/info/sectionInfos";
-import { getSectionParentId } from "./sections";
+import { getSectionParentId, setSectionSize } from "./sections";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
   // set own width
-  useSectionInfos.getState().setSectionInfoAttr({
-    sectionId,
-    attr: "size",
-    value: size,
-  });
+  setSectionSize(sectionId, size);
 
   setAllOtherWidths({
     sectionId,
