@@ -23,7 +23,7 @@ export function HeaderContainer() {
 // col-start-1 col-end-2 row-start-1 row-end-2 place-self-start
 function FlexContainer({ children }) {
   return (
-    <div className="min-h-12 z-20  flex h-12 w-[100vw] flex-row items-center  bg-white px-11 shadow-md">
+    <div className="min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center  bg-white px-11 shadow-md">
       {children}
     </div>
   );

@@ -1,13 +1,12 @@
 import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
-import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function EditMenu() {
   return (
-    <MenuDropdown trigger={<MenuBarButton>Edit</MenuBarButton>}>
+    <MenuDropdown trigger="Edit">
       <Items />
     </MenuDropdown>
   );

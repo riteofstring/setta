@@ -10,7 +10,6 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
-import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
@@ -81,7 +80,7 @@ export function FileMenu() {
         onClickLoadProject={onClickLoadProject}
         onClickSaveAsProject={onClickSaveAsProject}
       >
-        <MenuDropdown trigger={<MenuBarButton>File</MenuBarButton>}>
+        <MenuDropdown trigger="File">
           <Items
             onClickLoad={onClickLoad}
             onClickSave={onClickSave}
