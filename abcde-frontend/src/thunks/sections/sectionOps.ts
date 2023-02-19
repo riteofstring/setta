@@ -14,10 +14,17 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
+import { insertIntoArray } from "utils/utils";
 import { setParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
-import { getSectionConfig, getSectionType } from "./sections";
+import {
+  getSectionConfig,
+  getSectionType,
+  setAllChildren,
+  setSectionParamInfoId,
+  setSectionParentId,
+} from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function deleteSections({ sectionIds }) {
@@ -82,14 +89,14 @@ export function moveSection({
     return;
   }
 
-  maybeChangeOldParamUIType({ oldParentId, sectionId });
+  unlinkParamFromSection({ parentId: oldParentId, sectionId });
 
   maybeChangeSectionSubtype({
     newParentId,
     sectionId,
   });
 
-  setSectionAttrBasedOnNewParent({
+  setChildrenAndParent({
     oldParentId,
     newParentId,
     sectionId,
@@ -103,51 +110,29 @@ export function moveSection({
   setSectionSize({ newParentId, sectionId });
 }
 
-function setSectionAttrBasedOnNewParent({
+function setChildrenAndParent({
   oldParentId,
   newParentId,
   sectionId,
   newIndex,
 }) {
-  const sectionInfosState = useSectionInfos.getState();
-  const projectConfigState = useProjectConfig.getState();
+  const p = useProjectConfig.getState();
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
-    projectConfigState.deleteChildren([sectionId]);
+    p.deleteChildren([sectionId]);
   } else {
-    sectionInfosState.setAllChildren({
-      sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== sectionId),
-    });
+    setAllChildren(oldParentId, (x) => x.filter((y) => y !== sectionId));
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    projectConfigState.addChildren([sectionId]);
-    // Unset paramInfoId
-    sectionInfosState.setSectionInfoAttr({
-      sectionId,
-      attr: "paramInfoId",
-      value: null,
-    });
+    p.addChildren([sectionId]);
   } else {
     // Add child to new parent's list
-    sectionInfosState.setAllChildren({
-      sectionId: newParentId,
-      newStateFn: (x) => [
-        ...x.slice(0, newIndex),
-        sectionId,
-        ...x.slice(newIndex, x.length),
-      ],
-    });
+    setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
   }
 
-  // Set sectionInfo's parentId
-  sectionInfosState.setSectionInfoAttr({
-    sectionId,
-    attr: "parentId",
-    value: newParentId === PANEID ? null : newParentId,
-  });
+  setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {
@@ -170,30 +155,6 @@ function maybeChangeSectionSubtype({ newParentId, sectionId }) {
   }
 
   setSectionUITypeConfig({ sectionId, configProps });
-}
-
-function maybeChangeOldParamUIType({ oldParentId, sectionId }) {
-  const { paramInfoId } = useSectionInfos.getState().x[sectionId];
-  if (!paramInfoId) {
-    return;
-  }
-  setParamChildId({
-    sectionId: oldParentId,
-    paramInfoId,
-    childId: null,
-  });
-
-  setParamUITypeId({
-    uiTypeId: REF_UI_TYPE_ID,
-    sectionId: oldParentId,
-    paramInfoId,
-  });
-
-  setParamEnteredValue({
-    sectionId: oldParentId,
-    paramInfoId,
-    value: sectionId,
-  });
 }
 
 function setSectionSize({ newParentId, sectionId }) {
@@ -235,48 +196,62 @@ function maybeChangeNewParamUIType({
     return;
   }
 
-  const { uiTypeId } = getSectionConfig(sectionId);
+  let paramIdToLinkTo;
+
   if (behaviorDropType === BehaviorDropType.NEW_ARG) {
     const sectionName = useSectionInfos.getState().x[sectionId].name;
     const { selectedItem } = getSectionConfig(newParentId);
-    const kwargId = addKwarg({
+    paramIdToLinkTo = addKwarg({
       sectionId: newParentId,
       objInfoId: selectedItem,
       name: sectionName,
     });
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "paramInfoId",
-      value: kwargId,
-    });
-    setParamChildId({
-      sectionId: newParentId,
-      paramInfoId: kwargId,
-      childId: sectionId,
-    });
-    setParamUITypeId({
-      uiTypeId,
-      sectionId: newParentId,
-      paramInfoId: kwargId,
-    });
   } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
-    const matchingParam = getParamWithSameName(sectionId, newParentId);
-    if (matchingParam) {
-      useSectionInfos.getState().setSectionInfoAttr({
-        sectionId,
-        attr: "paramInfoId",
-        value: matchingParam.id,
-      });
-      setParamChildId({
-        sectionId: newParentId,
-        paramInfoId: matchingParam.id,
-        childId: sectionId,
-      });
-      setParamUITypeId({
-        uiTypeId,
-        sectionId: newParentId,
-        paramInfoId: matchingParam.id,
-      });
-    }
+    paramIdToLinkTo = getParamWithSameName(sectionId, newParentId);
+    paramIdToLinkTo = paramIdToLinkTo.id;
   }
+
+  linkParamToSection({
+    parentId: newParentId,
+    paramInfoId: paramIdToLinkTo,
+    sectionId,
+  });
+}
+
+function linkParamToSection({ parentId, paramInfoId, sectionId }) {
+  const { uiTypeId } = getSectionConfig(sectionId);
+  setSectionParamInfoId(sectionId, paramInfoId);
+  setParamChildId({
+    sectionId: parentId,
+    paramInfoId,
+    childId: sectionId,
+  });
+  setParamUITypeId({
+    uiTypeId,
+    sectionId: parentId,
+    paramInfoId,
+  });
+}
+
+function unlinkParamFromSection({ parentId, sectionId }) {
+  const { paramInfoId } = useSectionInfos.getState().x[sectionId];
+  if (!paramInfoId) {
+    return;
+  }
+  setSectionParamInfoId(sectionId, null);
+  setParamChildId({
+    sectionId: parentId,
+    paramInfoId,
+    childId: null,
+  });
+  setParamUITypeId({
+    uiTypeId: REF_UI_TYPE_ID,
+    sectionId: parentId,
+    paramInfoId,
+  });
+  setParamEnteredValue({
+    sectionId: parentId,
+    paramInfoId,
+    value: sectionId,
+  });
 }

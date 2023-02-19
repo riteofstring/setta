@@ -1,6 +1,6 @@
 import _ from "lodash";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { deleteSections } from "./sectionOps";
+import { setAllChildren } from "./sections";
 
 function getNewStateFn(
   deletedChildren: string[],
@@ -32,10 +32,10 @@ export function deleteChild({
   // deletedChildren is a list so that it can be operated on by reference
   // deletedChildren[0] is set to be the list of the children to delete
   const deletedChildren = [];
-  useSectionInfos.getState().setAllChildren({
-    sectionId: parentId,
-    newStateFn: getNewStateFn(deletedChildren, numChildren, startId),
-  });
+  setAllChildren(
+    parentId,
+    getNewStateFn(deletedChildren, numChildren, startId)
+  );
 
   deleteSections({ sectionIds: deletedChildren[0] });
 }

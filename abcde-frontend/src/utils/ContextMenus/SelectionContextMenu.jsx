@@ -1,8 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { deleteSections, moveSections } from "thunks/sections/sectionOps";
-import { PANEID } from "utils/constants";
+import { useCreateDeck } from "hooks/useCreateSectionOrDeck";
+import { deleteSections } from "thunks/sections/sectionOps";
 import { ContextMenuCore } from "./ContextMenuCore";
-import { useOnClickAddSection } from "./utils";
 
 export function SelectionContextMenu({
   x,
@@ -11,20 +10,14 @@ export function SelectionContextMenu({
   nodeIds,
   ...props
 }) {
-  function afterAddSection(deckId) {
-    moveSections({
-      oldParentId: PANEID,
-      newParentId: deckId,
-      sectionIds: nodeIds,
-    });
-  }
-
-  const onClickCreateDeck = useOnClickAddSection({
+  const onClickCreateDeck = useCreateDeck();
+  const onClickProps = {
+    nodeIds,
     x,
     y,
-    closeContextMenu,
-    afterAddSection,
-  });
+    callbackBeforeExit: closeContextMenu,
+    projectXY: true,
+  };
 
   function onClickDelete() {
     deleteSections({ sectionIds: nodeIds });
@@ -33,7 +26,7 @@ export function SelectionContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <DropdownMenu.Item onClick={() => onClickCreateDeck(true)}>
+      <DropdownMenu.Item onClick={() => onClickCreateDeck(onClickProps)}>
         Create Deck
       </DropdownMenu.Item>
       <DropdownMenu.Item onClick={onClickDelete}>Delete</DropdownMenu.Item>

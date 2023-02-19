@@ -1,4 +1,4 @@
-import { isRoot } from "abcde-utils/src/constants";
+import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
@@ -33,6 +33,18 @@ export function getSectionTypeConfig(sectionId) {
   return getSectionType(sectionId).config as SectionUITypeConfigType;
 }
 
+export function getSectionCanHaveNested(sectionId) {
+  return ![OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
+}
+
+export function getSectionCanOnlyBeChildOfDeck(sectionId) {
+  return [OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
+}
+
+export function getSectionIsDeck(sectionId) {
+  return getSectionType(sectionId).type === DECK;
+}
+
 export function setSectionConfigAttr({ sectionId, attr, value }) {
   const configId = getSectionConfigId(sectionId);
   useSectionConfigs.getState().setSectionConfigAttr({ configId, attr, value });
@@ -53,4 +65,31 @@ export function setSelectedItem(sectionId, selectedItem) {
   });
   const params = useCodeInfo.getState().params[selectedItem];
   initializeParam(sectionId, params);
+}
+
+function setSectionInfoAttr(props) {
+  useSectionInfos.getState().setSectionInfoAttr(props);
+}
+
+export function setSectionName(sectionId, name) {
+  setSectionInfoAttr({ sectionId, attr: "name", value: name });
+}
+
+export function setSectionSize(sectionId, size) {
+  setSectionInfoAttr({ sectionId, attr: "size", value: size });
+}
+
+export function setSectionParamInfoId(sectionId, paramInfoId) {
+  setSectionInfoAttr({ sectionId, attr: "paramInfoId", value: paramInfoId });
+}
+
+export function setSectionParentId(sectionId, parentId) {
+  setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
+}
+
+export function setAllChildren(sectionId, newStateFn) {
+  useSectionInfos.getState().setAllChildren({
+    sectionId,
+    newStateFn,
+  });
 }

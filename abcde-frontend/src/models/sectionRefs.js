@@ -10,3 +10,9 @@ export const useSectionRefs = create(
       }),
   }))
 );
+
+export function useTrueSectionSize(sectionId) {
+  const height = useSectionRefs((x) => x.x[sectionId].clientHeight);
+  const width = useSectionRefs((x) => x.x[sectionId].clientWidth);
+  return { width, height };
+}

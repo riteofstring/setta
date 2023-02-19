@@ -1,8 +1,11 @@
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
+import { youtubeSectionAspectRatio } from "hooks/useSocialUtils";
 import {
   SOCIAL_TYPES,
   useSectionSocialConfig,
 } from "models/info/sectionSocialConfig";
+import { setSectionSize } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
@@ -19,6 +22,12 @@ export function SocialTypeSearch({ sectionId }) {
       },
     });
     initSocialConfig({ sectionId, id });
+
+    const width = 550;
+    const height =
+      id === "twitter" ? "auto" : 500 * (1 / youtubeSectionAspectRatio);
+
+    setSectionSize(sectionId, { width, height });
   }
 
   return (
@@ -32,7 +41,6 @@ export function SocialTypeSearch({ sectionId }) {
       DetailsComponent={getSocialTypeDetails({
         sectionId,
       })}
-      vCenter={true}
     />
   );
 }
@@ -50,31 +58,27 @@ function getSocialTypeDetails({ sectionId }) {
   );
 }
 
-function SocialTypeDetails({
-  children,
-  id,
-  sectionId,
-  details,
-  checked,
-  name,
-}) {
+function SocialTypeDetails({ children, id, sectionId, details, checked }) {
   return (
-    <div className="mt-2 mb-2 w-full select-text">
-      {details.map((k) => (
-        <OneSocialDetails
-          id={id}
-          sectionId={sectionId}
-          configName={k}
-          label={children}
-          key={`OutputDetails-${k}`}
-        />
-      ))}
-    </div>
-    // </Expandable>
+    <Collapsible.Root open={checked}>
+      <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
+      <Collapsible.Content>
+        <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
+          {details.map((k) => (
+            <OneSocialDetails
+              id={id}
+              sectionId={sectionId}
+              configName={k}
+              key={`OutputDetails-${k}`}
+            />
+          ))}
+        </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
 
-function OneSocialDetails({ id, sectionId, configName, label }) {
+function OneSocialDetails({ id, sectionId, configName }) {
   const configValue = useSectionSocialConfig(
     (x) => x.x[sectionId]?.[id]?.[configName]
   );
@@ -86,18 +90,9 @@ function OneSocialDetails({ id, sectionId, configName, label }) {
   }
 
   return (
-    <div className="flex w-full items-center gap-3">
-      <h3 className="select-none text-sm font-bold">{label}</h3>
-      <input
-        className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-slate-200 focus:ring-2 focus:ring-blue-500"
-        value={configValue}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={
-          id === "youtube"
-            ? "https://www.youtube.com/"
-            : "https://www.twitter.com/"
-        }
-      />
+    <div>
+      <h3 className="text-sm font-bold">{configName}</h3>
+      <input value={configValue} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

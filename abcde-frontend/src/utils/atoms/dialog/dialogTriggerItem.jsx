@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { MenuItem } from "../menubar/menudropdownitem";
+import { Item } from "../dropdown/item";
 
-export function DialogTriggerItem({ children, shortcut, onClick }) {
+export function DialogTriggerItem({ children, onClick }) {
   return (
-    <MenuItem shortcut={shortcut} onClick={onClick}>
-      <Dialog.Trigger className="contents">{children}</Dialog.Trigger>
-    </MenuItem>
+    <Dialog.Trigger>
+      <Item onClick={onClick}>{children}</Item>
+    </Dialog.Trigger>
   );
 }

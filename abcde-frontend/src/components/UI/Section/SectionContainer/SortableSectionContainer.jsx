@@ -1,8 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useHasNested } from "hooks/useSectionChildren";
+import { useDndMode, useDndProps } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
-import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { useStoreApi } from "react-flow-renderer";
 import { SectionContainer } from "./SectionContainer";
@@ -14,20 +13,16 @@ function _SortableSectionContainer({
   ancestorSet,
 }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
+  const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
   // remove 'role' because we don't want sections to be "role=button"
-  const hasNested = useHasNested(sectionId);
   const {
     attributes: { role, ...restAttributes },
     listeners,
     setNodeRef,
     transform,
     transition,
-  } = useSortable({
-    id: sectionId,
-    data: { isTopLevel: false, hasNested },
-    animateLayoutChanges,
-  });
+  } = useSortable({ ...dndProps, animateLayoutChanges });
   return (
     <SortableCore
       sectionId={sectionId}
@@ -68,7 +63,7 @@ function _SortableCore({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="relative first:mt-2" {...stackProps}>
+    <div className="first:mt-2" {...stackProps}>
       <SectionContainer
         sectionId={sectionId}
         parentId={parentId}
@@ -104,6 +99,6 @@ function transformWithZoom(transform, store) {
 }
 
 function useAnimateLayoutChanges() {
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isMovingFree } = useDndMode();
   return () => isMovingFree;
 }

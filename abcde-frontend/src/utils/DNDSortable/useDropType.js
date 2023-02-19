@@ -1,11 +1,17 @@
+import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useKeyActivations } from "models/keyActivations";
 import { useCallback } from "react";
 import { useStore } from "react-flow-renderer";
 import { getParamIsNested } from "thunks/paramInfos";
 import { getParamWithSameName } from "thunks/sections/sectionContents";
-import { getSectionIsRoot } from "thunks/sections/sections";
+import {
+  getSectionCanHaveNested,
+  getSectionCanOnlyBeChildOfDeck,
+  getSectionIsDeck,
+  getSectionIsRoot,
+  getSectionParentId,
+} from "thunks/sections/sections";
 import {
   BehaviorDropType,
   PositionDropType,
@@ -13,7 +19,7 @@ import {
 
 export function useOnDragMove() {
   const zoom = useStore((x) => x.transform[2]);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isMovingFree } = useDndMode();
   const currOver = useDndState((x) => x.overId);
   const currShouldDrop = useDndState((x) => x.shouldDrop);
   const currCenterYCondition = useDndState((x) => x.centerYCondition);
@@ -94,7 +100,7 @@ function getLeftDistCondition(collisions, zoom) {
 export function getShouldDrop(active, over, collisions) {
   // Make sure collisions[0] agrees with over.id).
   // Make sure active is not over
-  // Make sure over is a sortable or over has no children
+  // Make sure over is a sortable or over has no children and can have children
   return (
     over &&
     collisions[0]?.id === over.id &&
@@ -107,7 +113,7 @@ export function getShouldDrop(active, over, collisions) {
 export function getPositionDropType({ centerYCondition, leftDistCondition }) {
   const { activeId, overId } = useDndState.getState();
   const s = useSectionInfos.getState();
-  const overParentId = s.x[overId].parentId;
+  const overParentId = getSectionParentId(overId);
 
   // Drop into section if it is a sortable and leftOffset is large enough
   // Or if it's not a sortable and has no children.
@@ -119,7 +125,7 @@ export function getPositionDropType({ centerYCondition, leftDistCondition }) {
   const overIndex = siblings.indexOf(overId);
 
   // Is effectively sorting
-  if (overParentId === s.x[activeId].parentId) {
+  if (overParentId === getSectionParentId(activeId)) {
     const activeIndex = siblings.indexOf(activeId);
     // Drop below the target if moving down the list
     if (activeIndex < overIndex) {
@@ -144,9 +150,21 @@ export function getPositionDropType({ centerYCondition, leftDistCondition }) {
 // returns [dropType, newParentId, newIndex]
 export function getBehaviorDropType({ newParentId }) {
   const activeId = useDndState.getState().activeId;
+  // invalid if parent can't have children
+  // or if child can only be in deck and parent is not a deck
+  if (
+    !getSectionCanHaveNested(newParentId) ||
+    (getSectionCanOnlyBeChildOfDeck(activeId) && !getSectionIsDeck(newParentId))
+  ) {
+    return BehaviorDropType.INVALID;
+  }
 
   if (getSectionIsRoot(newParentId)) {
-    return BehaviorDropType.NEW_LIST_CHILD;
+    // dropping withint same list
+    if (getSectionParentId(activeId) === newParentId) {
+      return BehaviorDropType.DROP_HERE;
+    }
+    return BehaviorDropType.NEW_LIST_ELEMENT;
   }
 
   const matchingParam = getParamWithSameName(activeId, newParentId);

@@ -6,7 +6,6 @@ export function ContainerSwitch({
   isDeck,
   sectionId,
   parentId,
-  hasNested,
   dragListeners,
   ancestorSet,
   children,
@@ -16,7 +15,6 @@ export function ContainerSwitch({
       isDeck={isDeck}
       sectionId={sectionId}
       parentId={parentId}
-      hasNested={hasNested}
     >
       {children}
     </TopLevelContainer>

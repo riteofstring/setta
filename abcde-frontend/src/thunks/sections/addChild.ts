@@ -1,10 +1,10 @@
-import { useSectionInfos } from "models/info/sectionInfos";
 import { setParamChildId } from "thunks/paramInfos";
 import { insertIntoArrayOrXpend } from "utils/utils";
 import {
   createChildForSeries,
   createManySectionInfo,
 } from "./createSectionInfo";
+import { setAllChildren } from "./sections";
 
 function getNewStateFn(startId: string | null, newIds: string[]) {
   return (x) => {
@@ -30,10 +30,7 @@ export function addChildForSeries({
     numChildren,
   });
 
-  useSectionInfos.getState().setAllChildren({
-    sectionId: parentId,
-    newStateFn: getNewStateFn(startId, newIds),
-  });
+  setAllChildren(parentId, getNewStateFn(startId, newIds));
 
   return newIds;
 }
@@ -50,10 +47,7 @@ export function addChildForParam({
     numChildren: 1,
   })[0];
 
-  useSectionInfos.getState().setAllChildren({
-    sectionId: parentId,
-    newStateFn: getNewStateFn(null, [newId]),
-  });
+  setAllChildren(parentId, getNewStateFn(null, [newId]));
 
   setParamChildId({
     sectionId: parentId,

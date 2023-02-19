@@ -1,7 +1,6 @@
-import { useHighlightDroppable } from "hooks/useDndUtils";
+import { useDndMode, useHighlightDroppable } from "hooks/useDndUtils";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
-import { useKeyActivations } from "models/keyActivations";
 import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
@@ -21,7 +20,6 @@ function _DndSlotAndDndWatcher({
     <DndSlot
       positionDropType={positionDropType}
       behaviorDropType={behaviorDropType}
-      isDeck={isDeck}
     >
       <DndWatcherAndContainer
         isDeck={isDeck}
@@ -57,8 +55,7 @@ function _DndWatcherAndContainer({
   children,
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
-  const isSorting = useKeyActivations((x) => x.isSorting);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const { isSorting, isMovingFree } = useDndMode();
   const isDraggingSortable = parentId && (isSorting || isMovingFree);
   const isDraggingTopLevel = !parentId && isMovingFree;
   const trueDragListeners =
