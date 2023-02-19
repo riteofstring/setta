@@ -3,7 +3,7 @@ import { create } from "./utils";
 const initialState = {
   isSorting: false,
   isMovingFree: false,
-  isParamFilter: false,
+  groupSections: false,
 };
 
 function createAndAttachEventListeners(fn) {
@@ -12,6 +12,13 @@ function createAndAttachEventListeners(fn) {
   const conditions = {
     isSorting: (e) => e.key === "Control",
     isMovingFree: (e) => e.key === "Alt",
+    groupSections: (e) => {
+      const output = e.ctrlKey && e.key === "g";
+      if (output) {
+        e.preventDefault();
+      }
+      return output;
+    },
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {

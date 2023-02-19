@@ -1,3 +1,4 @@
+import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
@@ -39,6 +40,7 @@ function _SectionsPane({ initialNodes }) {
   const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const setActiveSection = useActiveSection((x) => x.setId);
+  useGroupSectionsOnKeyActivation();
 
   useDeepCompareEffect(() => {
     if (!_.isEqual(_.map(nodes, "id"), _.map(initialNodes, "id"))) {
