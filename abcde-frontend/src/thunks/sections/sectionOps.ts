@@ -17,7 +17,11 @@ import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { setParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
-import { getSectionConfig, getSectionType } from "./sections";
+import {
+  getSectionConfig,
+  getSectionType,
+  setSectionParamInfoId,
+} from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function deleteSections({ sectionIds }) {
@@ -125,11 +129,7 @@ function setSectionAttrBasedOnNewParent({
     // This means it's becoming a top level section
     projectConfigState.addChildren([sectionId]);
     // Unset paramInfoId
-    sectionInfosState.setSectionInfoAttr({
-      sectionId,
-      attr: "paramInfoId",
-      value: null,
-    });
+    setSectionParamInfoId(sectionId, null);
   } else {
     // Add child to new parent's list
     sectionInfosState.setAllChildren({
@@ -244,11 +244,7 @@ function maybeChangeNewParamUIType({
       objInfoId: selectedItem,
       name: sectionName,
     });
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "paramInfoId",
-      value: kwargId,
-    });
+    setSectionParamInfoId(sectionId, kwargId);
     setParamChildId({
       sectionId: newParentId,
       paramInfoId: kwargId,
@@ -262,11 +258,7 @@ function maybeChangeNewParamUIType({
   } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
     const matchingParam = getParamWithSameName(sectionId, newParentId);
     if (matchingParam) {
-      useSectionInfos.getState().setSectionInfoAttr({
-        sectionId,
-        attr: "paramInfoId",
-        value: matchingParam.id,
-      });
+      setSectionParamInfoId(sectionId, matchingParam.id);
       setParamChildId({
         sectionId: newParentId,
         paramInfoId: matchingParam.id,
