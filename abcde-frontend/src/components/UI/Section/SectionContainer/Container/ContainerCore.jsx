@@ -28,7 +28,7 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`${className} flex min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 py-3 backdrop-blur `}
+        className={`${className} flex min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 pt-3 pb-6 backdrop-blur `}
         {...commonProps}
       >
         <DeckSectionTitle sectionId={sectionId} />
@@ -56,7 +56,7 @@ function DeckSectionTitle({ sectionId }) {
       "nodrag flex-1 -mx-4 px-4 bg-[#64748b83] font-heading font-bold text-4xl rounded-full tracking-tighter cursor-auto text-slate-100",
 
     notEditing:
-      "font-heading flex-1 font-bold text-slate-100 text-4xl -mx-4 px-4 tracking-tighter",
+      "font-heading flex-[1] min-w-[0] font-bold text-slate-100 text-4xl -mx-4 px-4 tracking-tighter truncate overflow-hidden",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

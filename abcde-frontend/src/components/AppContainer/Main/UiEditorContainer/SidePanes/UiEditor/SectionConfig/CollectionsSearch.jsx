@@ -1,4 +1,3 @@
-import * as Collapsible from "@radix-ui/react-collapsible";
 import {
   getCollectionDetails,
   getCollectionsAndModules,
@@ -10,6 +9,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useState } from "react";
 import { initializeParam } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
+import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function CollectionsSearch({ sectionId }) {
@@ -47,29 +47,26 @@ export function CollectionsSearch({ sectionId }) {
   );
 }
 
-function ObjCollectionDetails({ children, details }) {
+function ObjCollectionDetails({ children, details, name }) {
   const groupedDetails = useGroupedObjInfos(details);
 
   return (
-    <Collapsible.Root>
-      <Collapsible.Trigger asChild>{children}</Collapsible.Trigger>
-      <Collapsible.Content>
-        <div className="mt-2 select-text rounded-md bg-slate-200 py-3 px-5">
-          {Object.entries(groupedDetails).map(([k, v]) => (
-            <div key={`ObjCollectionDetails-${k}`}>
-              <h3 className="text-sm font-bold">{k}</h3>
-              <ObjListText objList={v} />
-            </div>
-          ))}
-        </div>
-      </Collapsible.Content>
-    </Collapsible.Root>
+    <Expandable heading={children} value={name} defaultValue={0}>
+      <div className="select-text rounded-md py-1 px-1">
+        {Object.entries(groupedDetails).map(([k, v]) => (
+          <div key={`ObjCollectionDetails-${k}`}>
+            <h3 className="text-sm font-bold">{k}</h3>
+            <ObjListText objList={v} />
+          </div>
+        ))}
+      </div>
+    </Expandable>
   );
 }
 
 function ObjListText({ objList }) {
   return objList.map((x) => (
-    <div key={`ObjListText-${x.id}`} style={{ textIndent: "20px" }}>
+    <div key={`ObjListText-${x.id}`} className="indent-2">
       {x.name}
     </div>
   ));

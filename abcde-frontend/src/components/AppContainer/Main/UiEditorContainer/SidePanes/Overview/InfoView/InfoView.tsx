@@ -5,9 +5,9 @@ import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 
 export function InfoView() {
-  // bg-mauve6 w-[300px]  shadow-black/5
   const currInfoView = useCurrInfoView();
 
+  // replace with accordion atom
   return (
     <Accordion.Root
       className="mt-8 rounded-md border border-solid border-white shadow-sm"
@@ -23,7 +23,6 @@ export function InfoView() {
   );
 }
 
-// focus-within:shadow-mauve12 mt-px  first:mt-0 first:rounded-t last:rounded-b focus-within:shadow-[0_0_0_2px]
 const AccordionItem = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Item
@@ -38,8 +37,6 @@ const AccordionItem = React.forwardRef(
     </Accordion.Item>
   )
 );
-
-// text-violet11 shadow-mauve6 shadow-[0_1px_0]
 
 const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
@@ -61,8 +58,6 @@ const AccordionTrigger = React.forwardRef(
     </Accordion.Header>
   )
 );
-
-// text-mauve11 bg-mauve2
 
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
