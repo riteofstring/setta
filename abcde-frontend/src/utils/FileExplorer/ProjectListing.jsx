@@ -2,21 +2,16 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 
-export function FolderAndFiles({ folder, onClick }) {
-  const foldername = folder.name;
+export function ProjectListing({ project, onClick }) {
   return (
-    <div value={foldername} className="flex flex-col">
-      <Folder name={foldername} />
-      <FileList
-        foldername={foldername}
-        files={folder.files}
-        onClick={onClick}
-      />
+    <div value={project.name} className="flex flex-col">
+      <Group name={project.name} />
+      <ConfigListings project={project} onClick={onClick} />
     </div>
   );
 }
 
-function Folder({ name }) {
+function Group({ name }) {
   return (
     <div className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2">
       <HiOutlineFolder className="text-slate-400 group-hover:text-slate-800" />
@@ -27,31 +22,28 @@ function Folder({ name }) {
             {name}
           </h4>
         </div>
+
+        {/* <div className="text-xs text-slate-400">2023/01/01</div> */}
       </div>
     </div>
   );
 }
 
-export function FileList({ foldername, files, onClick }) {
-  function idFn(filename) {
-    return JSON.stringify({
-      foldername,
-      filename,
-    });
-  }
-
-  const depth = foldername ? 1 : 0;
-
+function ConfigListings({ project, onClick }) {
+  //
   return (
     <div className="flex flex-grow flex-col ">
-      {files.map((x, idx) => {
+      {project.configs.map((x, idx) => {
+        const id = JSON.stringify({
+          projectName: project.name,
+          configName: x.name,
+        });
         return (
-          <File
-            id={idFn(x)}
-            name={x}
+          <ConfigListing
+            id={id}
+            name={x.name}
             onClick={onClick}
-            key={`File ${idx} ${x}`}
-            depth={depth}
+            key={`File config ${idx} ${x}`}
           />
         );
       })}
@@ -59,25 +51,23 @@ export function FileList({ foldername, files, onClick }) {
   );
 }
 
-function File({ id, name, onClick, depth }) {
+function ConfigListing({ id, name, onClick }) {
   const itemRef = useRef(null);
 
   function _onClick() {
     const isChecked =
       itemRef.current?.attributes["data-state"]?.value === "checked";
     if (isChecked) {
-      onClick(JSON.stringify({ foldername: null, filename: null }));
+      onClick(JSON.stringify({ projectName: null, configName: null }));
     }
   }
-
-  const margin = depth > 0 ? "ml-6" : "";
 
   return (
     <RadioGroup.Item
       value={id}
       ref={itemRef}
       onClick={_onClick}
-      className={`${margin} flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1`}
+      className="ml-6 flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1"
     >
       <span className="w-4">
         <RadioGroup.Indicator>

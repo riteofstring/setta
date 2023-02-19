@@ -1,4 +1,3 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
@@ -6,7 +5,6 @@ import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { useUserPresetUITypes } from "hooks/useUITypes";
 import _ from "lodash";
 import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
@@ -16,8 +14,8 @@ import { FiSave } from "react-icons/fi";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
+import { TextInputPopover } from "utils/atoms/popover/textinputpopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { UITypePresetSaveModal } from "utils/FileExplorer/UITypePresetSaveModal";
 import { cloneNewUIType } from "utils/uiTypeUtils";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -113,7 +111,7 @@ function _UIElement({ sectionId, paramInfo }) {
         </h3>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
           <InfoViewDescription paramInfoId={paramInfoId} />
-          <SaveUITypeConfig
+          <SaveAndConfig
             paramChildId={paramChildId}
             onSubmit={onSaveAsSubmit}
           />
@@ -155,23 +153,26 @@ function InfoViewDescription({ paramInfoId }) {
   );
 }
 
-function SaveUITypeConfig({ onSubmit }) {
-  const files = useUserPresetUITypes().map((x) => x.name);
+function SaveAndConfig({ onSubmit, paramChildId }) {
+  const [presetName, setPresetName] = useState("");
 
-  function onClickActionButton(selected, filename) {
-    onSubmit(filename);
+  function onChange(e) {
+    setPresetName(e.target.value);
   }
 
+  function localOnSubmit() {
+    onSubmit(presetName);
+  }
   return (
-    <UITypePresetSaveModal
-      files={files}
-      onClickActionButton={onClickActionButton}
-    >
-      <Dialog.Trigger asChild>
+    <TextInputPopover
+      trigger={
         <IconButton size="w-4 h-4" padding="py-2 px-2">
           <FiSave className="text-slate-500" />
         </IconButton>
-      </Dialog.Trigger>
-    </UITypePresetSaveModal>
+      }
+      onChange={onChange}
+      value={presetName}
+      onClick={localOnSubmit}
+    />
   );
 }
