@@ -1,5 +1,6 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useGetSectionTypeConfig } from "hooks/useSectionType";
+import { useSectionInfos } from "models/info/sectionInfos";
 import {
   SOCIAL_TYPES,
   useSectionSocialConfig,
@@ -20,6 +21,12 @@ export function SocialTypeSearch({ sectionId }) {
       },
     });
     initSocialConfig({ sectionId, id });
+
+    useSectionInfos.getState().setSectionInfoAttr({
+      sectionId,
+      attr: "size",
+      value: { width: 550, height: "auto" },
+    });
   }
 
   return (
