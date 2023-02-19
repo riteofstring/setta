@@ -1,4 +1,5 @@
 import getYouTubeID from "get-youtube-id";
+import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionSocialConfig } from "models/info/sectionSocialConfig";
 import { Tweet } from "react-twitter-widgets";
@@ -30,12 +31,14 @@ py-4 px-9 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:bord
 }
 
 function TwitterEmbed({ url }) {
+  const id = _.last(url.split("/")).split("?")[0];
+
   return (
     <div
       className="grid h-full w-full place-items-center
 py-4 px-9 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
     >
-      <Tweet tweetId="841418541026877441" />
+      <Tweet tweetId={id} />
     </div>
   );
 }
