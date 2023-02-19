@@ -1,6 +1,6 @@
-import { MiniMap } from "@reactflow/minimap";
 import { motion } from "framer-motion";
 import { usePanes } from "models/panes";
+import { MiniMap } from "react-flow-renderer";
 import { UI_EDITOR } from "utils/constants";
 
 export function ResponsiveMiniMap() {

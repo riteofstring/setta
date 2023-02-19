@@ -1,6 +1,6 @@
-import { useReactFlow, useStoreApi } from "@reactflow/core";
 import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
+import { useReactFlow, useStoreApi } from "react-flow-renderer";
 import { OVERVIEW, PANEID } from "utils/constants";
 
 export function relativePos(sectionId) {

@@ -1,6 +1,6 @@
-import { Controls } from "@reactflow/controls";
 import { motion } from "framer-motion";
 import { usePanes } from "models/panes";
+import { Controls } from "react-flow-renderer";
 import { OVERVIEW } from "utils/constants";
 
 export function ResponsiveControls() {

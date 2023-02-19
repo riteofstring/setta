@@ -1,9 +1,9 @@
 import { DragOverlay } from "@dnd-kit/core";
-import { useStore } from "@reactflow/core";
 import { useDndState } from "models/info/dndState";
 import { useTrueSectionSize } from "models/sectionRefs";
 import React from "react";
 import { createPortal } from "react-dom";
+import { useStore } from "react-flow-renderer";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
   const { width, height } = useTrueSectionSize(sectionId);

@@ -1,5 +1,5 @@
-import { useStoreApi } from "@reactflow/core";
 import { useState } from "react";
+import { useStoreApi } from "react-flow-renderer";
 
 export function useSetScaleOnResizeStart() {
   const rfStore = useStoreApi();

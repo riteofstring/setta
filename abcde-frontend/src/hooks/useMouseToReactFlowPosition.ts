@@ -1,5 +1,5 @@
-import { useReactFlow } from "@reactflow/core";
 import { useSectionRefs } from "models/sectionRefs";
+import { useReactFlow } from "react-flow-renderer";
 import { PANEID } from "utils/constants";
 
 export function useMouseToReactFlowPosition() {

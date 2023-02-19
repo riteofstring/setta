@@ -1,9 +1,9 @@
-import { useStoreApi } from "@reactflow/core";
 import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { useCurrProjectName } from "hooks/useProject";
 import _ from "lodash";
 import { useAuth } from "models/auth";
 import { useState } from "react";
+import { useStoreApi } from "react-flow-renderer";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,

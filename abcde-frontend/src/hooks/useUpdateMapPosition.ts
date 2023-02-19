@@ -1,4 +1,4 @@
-import { useReactFlow, useStoreApi } from "@reactflow/core";
+import { useReactFlow, useStoreApi } from "react-flow-renderer";
 
 export function useUpdateMapPosition() {
   const store = useStoreApi();
