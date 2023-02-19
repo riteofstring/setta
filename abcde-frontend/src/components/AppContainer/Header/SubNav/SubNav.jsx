@@ -1,3 +1,4 @@
+import * as Menubar from "@radix-ui/react-menubar";
 import { useAuth } from "models/auth";
 import { useLocation, useParams } from "react-router-dom";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
@@ -27,16 +28,19 @@ function NavSwitch() {
 
 function UiEditorSubNav() {
   return (
-    <>
+    <div className="flex gap-1">
       {/* <VerticalLine /> */}
-      <FileMenu />
-      <EditMenu />
+      <Menubar.Root className="contents">
+        <FileMenu />
+        <EditMenu />
+      </Menubar.Root>
+
       {/* <BackToProject /> */}
       <CommunityButton />
 
       {/* <CreateSectionButton />
       <CreateGroupButton /> */}
       <RunButton />
-    </>
+    </div>
   );
 }

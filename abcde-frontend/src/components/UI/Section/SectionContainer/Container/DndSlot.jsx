@@ -5,7 +5,12 @@ import {
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
-export function DndSlot({ positionDropType, behaviorDropType, children }) {
+export function DndSlot({
+  positionDropType,
+  behaviorDropType,
+  children,
+  isDeck,
+}) {
   const text = behaviorToPretty[behaviorDropType];
 
   return (
@@ -14,7 +19,7 @@ export function DndSlot({ positionDropType, behaviorDropType, children }) {
         <DndSlotTop text={text} behaviorDropType={behaviorDropType} />
       )}
       {positionDropType === PositionDropType.INTO && (
-        <DndSlotMiddle text={text} behaviorDropType={behaviorDropType} />
+        <DndSlotMiddle text={text} behaviorDropType={behaviorDropType} isDeck={isDeck}/>
       )}
       {children}
       {positionDropType === PositionDropType.BELOW && (
@@ -24,10 +29,18 @@ export function DndSlot({ positionDropType, behaviorDropType, children }) {
   );
 }
 
-function DndSlotMiddle({ text, behaviorDropType }) {
+function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
   return (
-    <div className="absolute z-10 grid h-full w-full place-content-center justify-center">
-      <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
+    <div
+      className={`absolute z-10 grid h-full w-full justify-center ${
+        isDeck ? "[place-content:end_center]" : "place-content-center"
+      }`}
+    >
+      <DndSlotInner
+        text={text}
+        behaviorDropType={behaviorDropType}
+        isDeck={isDeck}
+      />
     </div>
   );
 }
@@ -52,7 +65,7 @@ function DndSlotBottom({ text, behaviorDropType }) {
   );
 }
 
-function DndSlotInner({ text, behaviorDropType }) {
+function DndSlotInner({ text, behaviorDropType, isDeck }) {
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
   return (
     <div
@@ -60,7 +73,7 @@ function DndSlotInner({ text, behaviorDropType }) {
         invalid
           ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"
-      } `}
+      } ${isDeck && "mb-[1.33rem]"}`}
     >
       <div className="flex items-center gap-2">
         <RiDragDropFill />
