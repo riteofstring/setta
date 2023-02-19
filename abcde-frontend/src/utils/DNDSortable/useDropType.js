@@ -7,6 +7,8 @@ import { getParamIsNested } from "thunks/paramInfos";
 import { getParamWithSameName } from "thunks/sections/sectionContents";
 import {
   getSectionCanHaveNested,
+  getSectionCanOnlyBeChildOfDeck,
+  getSectionIsDeck,
   getSectionIsRoot,
 } from "thunks/sections/sections";
 import {
@@ -146,12 +148,15 @@ export function getPositionDropType({ centerYCondition, leftDistCondition }) {
 
 // returns [dropType, newParentId, newIndex]
 export function getBehaviorDropType({ newParentId }) {
+  const activeId = useDndState.getState().activeId;
   // invalid if parent can't have children
-  if (!getSectionCanHaveNested(newParentId)) {
+  // or if child can only be in deck and parent is not a deck
+  if (
+    !getSectionCanHaveNested(newParentId) ||
+    (getSectionCanOnlyBeChildOfDeck(activeId) && !getSectionIsDeck(newParentId))
+  ) {
     return BehaviorDropType.INVALID;
   }
-
-  const activeId = useDndState.getState().activeId;
 
   if (getSectionIsRoot(newParentId)) {
     return BehaviorDropType.NEW_LIST_ELEMENT;

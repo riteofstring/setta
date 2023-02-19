@@ -1,4 +1,4 @@
-import { INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
+import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
@@ -35,6 +35,14 @@ export function getSectionTypeConfig(sectionId) {
 
 export function getSectionCanHaveNested(sectionId) {
   return ![OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
+}
+
+export function getSectionCanOnlyBeChildOfDeck(sectionId) {
+  return [OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
+}
+
+export function getSectionIsDeck(sectionId) {
+  return getSectionType(sectionId).type === DECK;
 }
 
 export function setSectionConfigAttr({ sectionId, attr, value }) {
