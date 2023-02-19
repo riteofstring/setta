@@ -7,9 +7,16 @@ import {
 import { useGetSectionType } from "hooks/useSectionType";
 import { useIsTwitter } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useEffect } from "react";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { ResizeIcon } from "./ResizeIcon";
+
+const SIZE_MODE = {
+  any: "any",
+  auto_only: "auto_only",
+  manual_only: "manual_only",
+};
 
 export function CustomResizable({ sectionId, setLocalWidth, children }) {
   const minHeight = useMinSectionHeight(sectionId);
@@ -36,26 +43,29 @@ function CustomResizableCore({
   setLocalWidth,
   children,
 }) {
-  const autoAllowed = useAutoAllowed(sectionId);
-  const savedSize = useSectionInfos((x) => x.x[sectionId].size);
+  const sizeMode = useSizeMode(sectionId);
+  const size = useSectionInfos((x) => x.x[sectionId].size);
 
   function onResizeStop(...props) {
     const { width, height } = getNewSize({
       props,
       minWidth,
       setLocalWidth,
-      autoAllowed,
+      sizeMode,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
   }
 
   function onResize(e, direction, ref) {
-    if (ref.style.width !== "auto") {
-      setLocalWidth(parseCurrPx(ref.style.width));
-    }
+    setLocalWidth(parseCurrPx(ref.style.width));
   }
 
-  const size = getSize({ savedSize, autoAllowed });
+  useEffect(() => {
+    setLocalWidth(size.width);
+  }, [size.width]);
+
+  const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
+  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
   return (
     <ResizableWithScale
@@ -69,9 +79,9 @@ function CustomResizableCore({
       enable={{
         top: false,
         left: false,
-        bottom: true,
-        right: true,
-        bottomRight: true,
+        bottom: heightResizable,
+        right: widthResizable,
+        bottomRight: heightResizable && widthResizable,
       }}
       className="flex flex-col items-stretch"
       handleComponent={{ bottomRight: <ResizeIcon /> }}
@@ -81,27 +91,15 @@ function CustomResizableCore({
   );
 }
 
-function getSize({ savedSize, autoAllowed }) {
-  return {
-    width: maybeAuto(savedSize.width, autoAllowed.width),
-    height: maybeAuto(savedSize.height, autoAllowed.height),
-  };
-}
-
-function maybeAuto(x, autoAllowed) {
-  return x === 0 && autoAllowed ? "auto" : x;
-}
-
 function parseCurrPx(x) {
-  return x === "auto" ? 0 : parseInt(x);
+  return x === "auto" ? x : parseInt(x);
 }
 
-function maybeAutoPx(minDim, pxDim, autoAllowed) {
-  return autoAllowed ? minDim : pxDim;
+function maybeAutoPx(autoDim, pxDim, sizeMode) {
+  return sizeMode !== SIZE_MODE.manual_only ? autoDim : pxDim;
 }
 
-function getDoubleClickSize({ direction, ref, minWidth, autoAllowed }) {
-  // 0 means "auto"
+function getDoubleClickSize({ direction, ref, minWidth, sizeMode }) {
   // width returns minWidth instead of auto because
   // it seems like once width is resized, auto does nothing
 
@@ -110,20 +108,20 @@ function getDoubleClickSize({ direction, ref, minWidth, autoAllowed }) {
 
   if (direction === "bottomRight") {
     return [
-      maybeAutoPx(minWidth, pxWidth, autoAllowed.width),
-      maybeAutoPx(0, pxHeight, autoAllowed.height),
+      maybeAutoPx(minWidth, pxWidth, sizeMode.width),
+      maybeAutoPx("auto", pxHeight, sizeMode.height),
     ];
   }
-  if (direction === "right" && autoAllowed.width) {
-    return [maybeAutoPx(minWidth, pxWidth, autoAllowed.width), pxHeight];
+  if (direction === "right" && sizeMode.width) {
+    return [maybeAutoPx(minWidth, pxWidth, sizeMode.width), pxHeight];
   }
-  if (direction === "bottom" && autoAllowed.height) {
-    return [pxWidth, maybeAutoPx(0, pxHeight, autoAllowed.height)];
+  if (direction === "bottom" && sizeMode.height) {
+    return [pxWidth, maybeAutoPx("auto", pxHeight, sizeMode.height)];
   }
   return [pxWidth, pxHeight];
 }
 
-function getNewSize({ props, minWidth, setLocalWidth, autoAllowed }) {
+function getNewSize({ props, minWidth, setLocalWidth, sizeMode }) {
   const [e, direction, ref, d] = props;
   let width;
   let height;
@@ -133,7 +131,7 @@ function getNewSize({ props, minWidth, setLocalWidth, autoAllowed }) {
       direction,
       ref,
       minWidth,
-      autoAllowed,
+      sizeMode,
     });
     setLocalWidth(width);
   } else {
@@ -143,10 +141,14 @@ function getNewSize({ props, minWidth, setLocalWidth, autoAllowed }) {
   return { width, height };
 }
 
-function useAutoAllowed(sectionId) {
+function useSizeMode(sectionId) {
   const sectionType = useGetSectionType(sectionId, "type");
   const isTwitter = useIsTwitter(sectionId);
-  const height = sectionType !== OUTPUT;
-  const width = sectionType !== OUTPUT && !isTwitter;
-  return { height, width };
+  if (sectionType === OUTPUT) {
+    return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
+  } else if (isTwitter) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+  } else {
+    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+  }
 }
