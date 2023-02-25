@@ -10,13 +10,10 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   // TODO set an equalityFn here to reduce renders
   const availableSections = useSectionInfos((x) => x.x);
   const onClick = useSetReactFlowActiveSectionOnClick(sectionId);
-  const allItems = [
-    { group: "sections", items: Object.values(availableSections) },
-  ];
 
   return (
     <IdNameCombobox
-      allItems={allItems}
+      allItems={Object.values(availableSections)}
       initialSelection={value}
       onSelectedItemChange={onBlur}
       className={className}

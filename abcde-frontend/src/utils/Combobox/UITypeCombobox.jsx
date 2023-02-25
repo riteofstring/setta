@@ -4,7 +4,6 @@ import {
   useAvailableUITypesForTopLevelSection,
   useAvailableUITypesForUIConfig,
 } from "hooks/usePresetUIType";
-import _ from "lodash";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
@@ -18,15 +17,9 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
     }
   }
 
-  const grouped = _.groupBy(availableUITypes, "presetType");
-  const groupedAsList = Object.keys(grouped).map((k) => ({
-    group: k,
-    items: grouped[k],
-  }));
-
   return (
     <IdNameCombobox
-      allItems={groupedAsList}
+      allItems={availableUITypes}
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
       itemStyleGetter={itemStyleGetter}
