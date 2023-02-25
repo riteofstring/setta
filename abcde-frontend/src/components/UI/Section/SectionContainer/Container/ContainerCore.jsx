@@ -28,18 +28,15 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 pt-3 pb-6 backdrop-blur ${className}`}
+        className={`flex w-[518px] min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 pt-3 pb-6 backdrop-blur ${className}`}
         {...commonProps}
       >
-        <div className="relative h-10">
-          <DeckSectionTitle sectionId={sectionId} />
-        </div>
+        <DeckSectionTitle sectionId={sectionId} />
         {!hasNested && (
           <div className="-mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 py-3 px-4 text-slate-300">
             Drop A Card Here.
           </div>
         )}
-
         {children}
       </div>
     );
@@ -56,17 +53,11 @@ export const Container = React.memo(_Container, _.isEqual);
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "absolute nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
+      "nodrag -mx-4 cursor-auto rounded-full bg-[#64748b83] px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
 
     notEditing:
-      "absolute -mx-4 w-full truncate px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
+      "-mx-4 self-stretch truncate px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
-}
-
-function Test() {
-  return (
-    <div className="absolute -mx-4 h-10 w-full self-stretch truncate px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100"></div>
-  );
 }

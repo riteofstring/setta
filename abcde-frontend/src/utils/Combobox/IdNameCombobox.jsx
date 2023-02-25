@@ -1,7 +1,6 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import _ from "lodash";
 import { ComboboxSearch } from "./ComboboxSearch";
-import { flattenedItems } from "./utils";
 
 export function IdNameCombobox({
   allItems,
@@ -11,7 +10,7 @@ export function IdNameCombobox({
   small,
   onClick,
 }) {
-  const init = _.find(flattenedItems(allItems), { id: initialSelection });
+  const init = _.find(allItems, { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
 
   const localOnSelectedItemChange = (

@@ -4,16 +4,14 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { ComboboxInput, ComboboxItem, ComboboxList } from "./Combobox";
 import { useComboboxStateReducer } from "./ComboboxStateReducer";
-import { flattenedItems } from "./utils";
 
-// TODO: make allItems be a list of {group: string, items: list}
-// TODO: add "display groups" argument
 export function ComboboxSearch({
   allItems,
   initialSelection,
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
+  itemStyleGetter,
   small,
   onClick,
 }) {
@@ -49,7 +47,7 @@ export function ComboboxSearch({
   } = useCombobox({
     stateReducer,
     selectedItem: selection,
-    items: flattenedItems(filteredItems),
+    items: filteredItems,
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,
   });
@@ -72,51 +70,20 @@ export function ComboboxSearch({
       <div className="flex flex-col items-stretch">
         <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps} width={width}>
           <div className="m-3 max-h-full w-full overflow-y-scroll">
-            <ComboboxItems
-              filteredItems={filteredItems}
-              getItemProps={getItemProps}
-              highlightedIndex={highlightedIndex}
-              itemToString={itemToString}
-            />
+            {filteredItems.map((item, index) => (
+              <ComboboxItem
+                getItemProps={getItemProps}
+                item={item}
+                index={index}
+                isHighlighted={index === highlightedIndex}
+                itemStyle={itemStyleGetter?.(item)}
+                itemString={itemToString(item)}
+                key={index}
+              />
+            ))}
           </div>
         </ComboboxList>
       </div>
     </div>
   );
-}
-
-function ComboboxItems({
-  filteredItems,
-  getItemProps,
-  highlightedIndex,
-  // itemStyleGetter,
-  itemToString,
-}) {
-  return filteredItems.reduce(
-    (result, group, groupIndex) => {
-      result.groups.push(
-        <div key={groupIndex}>
-          <p className="mx-5 mb-2 border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
-            {group.group}
-          </p>
-          {group.items.map((item, itemIndex) => {
-            const globalIndex = result.itemIndex++;
-            return (
-              <ComboboxItem
-                getItemProps={getItemProps}
-                item={item}
-                index={globalIndex}
-                isHighlighted={globalIndex === highlightedIndex}
-                itemString={itemToString(item)}
-                key={itemIndex}
-              />
-            );
-          })}
-        </div>
-      );
-
-      return result;
-    },
-    { groups: [], itemIndex: 0 }
-  ).groups;
 }
