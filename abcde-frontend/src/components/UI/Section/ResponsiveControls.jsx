@@ -1,10 +1,42 @@
 import { motion } from "framer-motion";
+import _ from "lodash";
 import { usePanes } from "models/panes";
-import { Controls } from "react-flow-renderer";
+import potpack from "potpack";
+import {
+  ControlButton,
+  Controls,
+  useReactFlow,
+  useStoreApi,
+} from "react-flow-renderer";
 import { OVERVIEW } from "utils/constants";
 
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
+  const store = useStoreApi();
+  const rf = useReactFlow();
+
+  function onClickLayout() {
+    const margin = 50
+
+    let sizes = [...store.getState().nodeInternals].map((x) => ({
+      id: x[0],
+      w: x[1].width + margin,
+      h: x[1].height + margin
+    }));
+    potpack(sizes); // mutates input
+
+    sizes = _.keyBy(sizes, "id");
+
+    rf.setNodes((nodes) =>
+      nodes.map((node) => {
+        node.position = {
+          x: sizes[node.id].x,
+          y: sizes[node.id].y,
+        };
+        return node;
+      })
+    );
+  }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
   // It's the style used inside of Controls.
@@ -15,7 +47,9 @@ export function ResponsiveControls() {
       style={{ position: "absolute", zIndex: 5, bottom: "20px", left: "15px" }}
       animate={{ translateX: overviewCssWidth }}
     >
-      <Controls />
+      <Controls>
+        <ControlButton onClick={onClickLayout}>Layout</ControlButton>
+      </Controls>
     </motion.div>
   );
 }
