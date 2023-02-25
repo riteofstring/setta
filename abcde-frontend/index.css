@@ -16,6 +16,11 @@
   background-size: cover;
 }
 
+.react-flow__attribution {
+  display:none;
+  visibility:hidden;
+}
+
 
 * {
   /* outline: 1px solid green; */
