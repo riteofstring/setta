@@ -1,4 +1,3 @@
-import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import {
   useAvailableUITypesForNestedSection,
   useAvailableUITypesForTopLevelSection,
@@ -8,16 +7,6 @@ import _ from "lodash";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
-  function itemStyleGetter(item) {
-    if (isUserPreset(item)) {
-      return "font-bold italic text-green-700";
-    } else if (isBasePreset(item)) {
-      return "font-bold text-blue-500";
-    } else {
-      return "text-slate-500";
-    }
-  }
-
   const grouped = _.groupBy(availableUITypes, "presetType");
   const groupedAsList = Object.keys(grouped).map((k) => ({
     group: k,
@@ -29,7 +18,6 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
       allItems={groupedAsList}
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
-      itemStyleGetter={itemStyleGetter}
     />
   );
 }

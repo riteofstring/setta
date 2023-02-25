@@ -14,7 +14,6 @@ export function ComboboxSearch({
   itemToString,
   onSelectedItemChange,
   matchSorterProps,
-  itemStyleGetter,
   small,
   onClick,
 }) {
@@ -77,7 +76,6 @@ export function ComboboxSearch({
               filteredItems={filteredItems}
               getItemProps={getItemProps}
               highlightedIndex={highlightedIndex}
-              itemStyleGetter={itemStyleGetter}
               itemToString={itemToString}
             />
           </div>
@@ -91,14 +89,16 @@ function ComboboxItems({
   filteredItems,
   getItemProps,
   highlightedIndex,
-  itemStyleGetter,
+  // itemStyleGetter,
   itemToString,
 }) {
   return filteredItems.reduce(
     (result, group, groupIndex) => {
       result.groups.push(
         <div key={groupIndex}>
-          <div>{group.group}</div>
+          <p className="mx-5 mb-2 border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+            {group.group}
+          </p>
           {group.items.map((item, itemIndex) => {
             const globalIndex = result.itemIndex++;
             return (
@@ -107,7 +107,6 @@ function ComboboxItems({
                 item={item}
                 index={globalIndex}
                 isHighlighted={globalIndex === highlightedIndex}
-                itemStyle={itemStyleGetter?.(item)}
                 itemString={itemToString(item)}
                 key={itemIndex}
               />
