@@ -8,6 +8,7 @@ import {
   useReactFlow,
   useStoreApi,
 } from "react-flow-renderer";
+import { RiLayoutFill } from "react-icons/ri";
 import { OVERVIEW } from "utils/constants";
 
 export function ResponsiveControls() {
@@ -16,12 +17,12 @@ export function ResponsiveControls() {
   const rf = useReactFlow();
 
   function onClickLayout() {
-    const margin = 50
+    const margin = 50;
 
     let sizes = [...store.getState().nodeInternals].map((x) => ({
       id: x[0],
       w: x[1].width + margin,
-      h: x[1].height + margin
+      h: x[1].height + margin,
     }));
     potpack(sizes); // mutates input
 
@@ -48,7 +49,9 @@ export function ResponsiveControls() {
       animate={{ translateX: overviewCssWidth }}
     >
       <Controls>
-        <ControlButton onClick={onClickLayout}>Layout</ControlButton>
+        <ControlButton onClick={onClickLayout}>
+          <RiLayoutFill />
+        </ControlButton>
       </Controls>
     </motion.div>
   );
