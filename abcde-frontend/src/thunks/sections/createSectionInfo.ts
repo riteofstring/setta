@@ -69,8 +69,6 @@ export function addSectionsToState(
   siState.initManyAllChildren({ sectionIds });
   siState.initManyCurrChildren({ sectionIds });
 
-  useSectionDescription.getState().initDescriptions({ sectionIds });
-
   useSectionConfigs.getState().setSectionConfig((x) => ({
     ...x,
     ...sectionConfigs,
@@ -86,5 +84,9 @@ export function addSectionsToState(
 
   useKwargCols.getState().initManyKwargColIds({
     collectionIds: _.map(sectionConfigs, (x) => x.kwargColId),
+  });
+
+  useSectionDescription.getState().initDescriptions({
+    descriptionIds: _.map(sectionConfigs, (x) => x.descriptionId),
   });
 }

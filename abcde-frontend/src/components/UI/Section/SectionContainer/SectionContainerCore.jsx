@@ -1,4 +1,7 @@
-import { useSectionHasDescription } from "hooks/useSectionDescription";
+import {
+  useSectionHasDescription,
+  useToggleSectionDescription,
+} from "hooks/useSectionDescription";
 import {
   useIsInfo,
   useIsOutput,
@@ -8,7 +11,6 @@ import {
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import { useSectionDescription } from "models/info/sectionDescription";
 import React from "react";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -22,7 +24,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
-  const toggleDescVis = useSectionDescription((x) => x.toggleVisible);
+  const toggleDescVis = useToggleSectionDescription(sectionId);
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"

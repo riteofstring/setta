@@ -16,23 +16,23 @@ export const useSectionDescription = create(
       s.reset();
       s.setAll({ x: payload });
     },
-    initDescriptions: ({ sectionIds }) =>
+    initDescriptions: ({ descriptionIds }) =>
       set((state) => {
-        sectionIds.forEach(
+        descriptionIds.forEach(
           (id) => (state.x[id] = newSectionDescription({ height: 100 }))
         );
       }),
-    setDescription: ({ sectionId, value }) =>
+    setDescription: ({ descriptionId, value }) =>
       set((state) => {
-        state.x[sectionId].value = value;
+        state.x[descriptionId].value = value;
       }),
-    setHeight: ({ sectionId, height }) =>
+    setHeight: ({ descriptionId, height }) =>
       set((state) => {
-        state.x[sectionId].height = height;
+        state.x[descriptionId].height = height;
       }),
-    toggleVisible: ({ sectionId }) =>
+    toggleVisible: ({ descriptionId }) =>
       set((state) => {
-        state.x[sectionId].visible = !state.x[sectionId].visible;
+        state.x[descriptionId].visible = !state.x[descriptionId].visible;
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
