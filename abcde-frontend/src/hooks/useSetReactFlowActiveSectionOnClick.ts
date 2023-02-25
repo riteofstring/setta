@@ -8,5 +8,6 @@ export function useSetReactFlowActiveSectionOnClick(sectionId) {
   return () =>
     store.setState((x) => {
       isTopLevel && x.addSelectedNodes([sectionId]);
+      return x;
     });
 }
