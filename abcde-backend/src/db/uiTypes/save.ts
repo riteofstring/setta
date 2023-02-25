@@ -53,7 +53,7 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   );
 }
 
-async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
+export async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
   const data = sectionUITypes.map((x) => ({
     idid: x.id,
   }));
@@ -135,7 +135,7 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
   await deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
 }
 
-function extractSectionUITypes(uiTypes: ManyUITypeType) {
+export function extractSectionUITypes(uiTypes: ManyUITypeType) {
   const sectionUITypes: SectionUITypeType[] = [];
   _.forEach(uiTypes, (v) => {
     if (isSectionUIType(v)) {
