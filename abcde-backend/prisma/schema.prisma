@@ -71,6 +71,14 @@ model Section {
   uiTypeOrigins  UIType[] //UIType.originSection
 }
 
+model SectionDescription {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value          String          @db.Text
+  height         Int
+  visible        Boolean
+  sectionConfigs SectionConfig[]
+}
+
 model SectionChildrenId {
   id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   children       SectionChildren[]
@@ -162,6 +170,8 @@ model SectionConfig {
   uiTypeId       String             @db.Uuid
   uiTypeCol      UITypeColId        @relation(fields: [uiTypeColId], references: [id])
   uiTypeColId    String             @db.Uuid
+  description    SectionDescription @relation(fields: [descriptionId], references: [id])
+  descriptionId  String             @db.Uuid
   configCol      SectionConfigCol[] //SectionConfigCol.config
 }
 

@@ -57,8 +57,15 @@ export async function loadOne({
   const { sections, sectionChildren } = await getSections(
     Object.keys(sectionConfigCol),
   );
-  const { sectionConfigs, ev, evCols, kwargCols, uiTypeCols, sectionUITypes } =
-    await getSectionConfigs(Object.values(sectionConfigCol));
+  const {
+    sectionConfigs,
+    ev,
+    evCols,
+    kwargCols,
+    uiTypeCols,
+    sectionUITypes,
+    sectionDescriptions,
+  } = await getSectionConfigs(Object.values(sectionConfigCol));
 
   const baseUITypes = await getBaseUITypes();
   const presetUITypes = await getPresetUITypes(reqUserId);
@@ -82,6 +89,7 @@ export async function loadOne({
     sections,
     sectionChildren,
     sectionConfigs,
+    sectionDescriptions,
     ev,
     evCols,
     kwargCols,

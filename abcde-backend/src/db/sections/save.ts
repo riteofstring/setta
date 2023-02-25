@@ -92,6 +92,7 @@ function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
       uiTypeColId: v.uiTypeColId,
       selectedItemId: v.selectedItem,
       uiTypeId: v.uiTypeId,
+      descriptionId: v.descriptionId,
     });
   }
   return inDbFormat;

@@ -3,6 +3,7 @@ import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManySectionCoreType } from 'abcde-utils/src/types/section';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
+import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
@@ -71,6 +72,13 @@ export async function getSectionConfigs(ids) {
           },
         },
       },
+      description: {
+        select: {
+          value: true,
+          height: true,
+          visible: true,
+        },
+      },
     },
   });
 
@@ -91,6 +99,7 @@ export async function getSectionConfigs(ids) {
       kwargColId: x.kwargColId,
       uiTypeColId: x.uiTypeColId,
       selectedItem: x.selectedItemId,
+      descriptionId: x.descriptionId,
     };
   }
 
@@ -126,7 +135,20 @@ export async function getSectionConfigs(ids) {
     );
   }
 
-  return { sectionConfigs, ev, evCols, kwargCols, uiTypeCols, sectionUITypes };
+  const sectionDescriptions: ManySectionDescriptionType = {};
+  for (const config of s) {
+    sectionDescriptions[config.descriptionId] = config.description;
+  }
+
+  return {
+    sectionConfigs,
+    ev,
+    evCols,
+    kwargCols,
+    uiTypeCols,
+    sectionUITypes,
+    sectionDescriptions,
+  };
 }
 
 export function getSectionPositions(
