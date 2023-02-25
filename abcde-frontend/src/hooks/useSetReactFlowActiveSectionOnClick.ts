@@ -1,4 +1,4 @@
-import { useStoreApi } from "reactflow";
+import { useStoreApi } from "react-flow-renderer";
 import { useIsTopLevelSection } from "./useProjectConfig";
 
 // TODO: make this work for nested sections
@@ -8,6 +8,5 @@ export function useSetReactFlowActiveSectionOnClick(sectionId) {
   return () =>
     store.setState((x) => {
       isTopLevel && x.addSelectedNodes([sectionId]);
-      return x;
     });
 }
