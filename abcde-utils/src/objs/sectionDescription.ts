@@ -1,4 +1,4 @@
-import { SectionDescriptionType } from "src/types/sectionDescription";
+import { SectionDescriptionType } from "../types/sectionDescription";
 
 export function newSectionDescription({
   value = "",

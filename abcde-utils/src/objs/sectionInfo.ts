@@ -1,5 +1,5 @@
-import { SizeType } from "src/types/size";
 import { SectionType } from "../types/section";
+import { SizeType } from "../types/size";
 import { maybeNewId } from "../utils";
 
 export function newSectionInfo({
