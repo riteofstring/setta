@@ -63,6 +63,8 @@ model Section {
   paramInfoId    String?            @db.Uuid
   children       SectionChildrenId  @relation(fields: [childrenId], references: [id])
   childrenId     String             @db.Uuid
+  width          Int
+  height         Int
   siblings       SectionChildren[] //SectionChildren.section
   evChildren     EV[] //EV.child
   sectionConfigs SectionConfigCol[] //SectionConfigCol.section
@@ -216,7 +218,8 @@ model SectionUIType {
   childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
   childUITypeId String?        @unique @db.Uuid
   parentUIType  SectionUIType? @relation("ChildUIType")
-  outputGroups  OutputGroup[]
+  outputGroup   OutputGroup?   @relation(fields: [outputGroupId], references: [id])
+  outputGroupId String?        @db.Uuid
 
   @@id([idid])
 }

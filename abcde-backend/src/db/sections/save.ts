@@ -35,6 +35,8 @@ export async function saveSections(
       name: v.name,
       childrenId: v.sectionChildrenId,
       paramInfoId: v.paramInfoId,
+      width: v.size.width,
+      height: v.size.height,
     });
   }
 

@@ -33,6 +33,7 @@ export async function getSections(ids) {
     paramInfoId: v.paramInfoId,
     sectionChildrenId: v.childrenId,
     initialPosition: { x: 0, y: 0 },
+    size: { width: v.width, height: v.height },
   }));
 
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>
