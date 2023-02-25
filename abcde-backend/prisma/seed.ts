@@ -3,10 +3,11 @@ import {
   loadGlobalCodeInfo,
   loadSpecificTestData,
 } from 'abcde-test/src/loadTestData';
+import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';
 import { prisma } from 'src/db/prisma';
-import { saveMultipleProjectDetails } from 'src/db/projects/save';
+import { saveProjectDetails } from 'src/db/projects/save';
 import { saveRunsAndOutputs } from 'src/db/runs/save';
 import { saveUITypes } from 'src/db/uiTypes/save';
 import { seedUsers as seedUsersFn } from 'src/db/user/save';
@@ -50,7 +51,15 @@ async function seedProjects() {
     const usersProjects = allProjects.filter((x) =>
       user.projects.includes(x.project.id),
     );
-    await saveMultipleProjectDetails(user.id, usersProjects);
+    for (const p of usersProjects) {
+      // set outputGroupId to null because outputs have not yet been created
+      _.forEach(p.uiTypes, (u) => {
+        if (u.config.outputGroup) {
+          u.config.outputGroup = null;
+        }
+      });
+      await saveProjectDetails(user.id, p);
+    }
   }
   console.log('done');
 }
