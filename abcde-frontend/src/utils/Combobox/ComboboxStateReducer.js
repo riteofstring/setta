@@ -12,6 +12,20 @@ function resetToPreviousVal(state) {
   };
 }
 
+function getHighlightedIndex(latestItems, selectedItem) {
+  if (selectedItem) {
+    let idx = 0;
+    for (const group of latestItems) {
+      const currIdx = _.findIndex(group.items, selectedItem);
+      if (currIdx !== -1) {
+        return { highlightedIndex: idx + currIdx };
+      }
+      idx += group.items.length;
+    }
+  }
+  return { highlightedIndex: -1 };
+}
+
 function getReducerModifications(
   type,
   state,
@@ -33,18 +47,20 @@ function getReducerModifications(
       setFilteredItems(latestItems);
     }
   } else if (type === changeTypes.InputChange) {
-    latestItems = matchSorter(allItems, changes.inputValue, matchSorterProps);
+    latestItems = allItems
+      .map((group) => ({
+        group: group.group,
+        items: matchSorter(group.items, changes.inputValue, matchSorterProps),
+      }))
+      .filter((group) => group.items.length > 0);
+
     setFilteredItems(latestItems);
   }
 
   switch (type) {
     case changeTypes.InputChange:
     case changeTypes.ToggleButtonClick:
-      return {
-        highlightedIndex: changes.selectedItem
-          ? _.findIndex(latestItems, changes.selectedItem)
-          : -1,
-      };
+      return getHighlightedIndex(latestItems, changes.selectedItem);
     case changeTypes.InputKeyDownEscape:
       return resetToPreviousVal(state);
     case changeTypes.InputBlur:
