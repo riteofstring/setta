@@ -18,21 +18,24 @@ export function ResponsiveControls() {
 
   function onClickLayout() {
     const margin = 50;
+    const nodeInternals = [...store.getState().nodeInternals];
 
-    let sizes = [...store.getState().nodeInternals].map((x) => ({
+    let sizes = nodeInternals.map((x) => ({
       id: x[0],
       w: x[1].width + margin,
       h: x[1].height + margin,
     }));
     potpack(sizes); // mutates input
-
     sizes = _.keyBy(sizes, "id");
+
+    const minX = Math.min(...nodeInternals.map((n) => n[1].position.x));
+    const minY = Math.min(...nodeInternals.map((n) => n[1].position.y));
 
     rf.setNodes((nodes) =>
       nodes.map((node) => {
         node.position = {
-          x: sizes[node.id].x,
-          y: sizes[node.id].y,
+          x: sizes[node.id].x + minX,
+          y: sizes[node.id].y + minY,
         };
         return node;
       })
