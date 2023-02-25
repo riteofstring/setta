@@ -9,6 +9,7 @@ export function newSectionConfig({
   kwargColId,
   uiTypeColId,
   selectedItem = NULL_OBJ_ID,
+  descriptionId,
 }: Partial<SectionConfigType>): SectionConfigType {
   return {
     id: maybeNewId(id),
@@ -17,5 +18,6 @@ export function newSectionConfig({
     kwargColId: maybeNewId(kwargColId),
     uiTypeColId: maybeNewId(uiTypeColId),
     selectedItem,
+    descriptionId: maybeNewId(descriptionId),
   };
 }
