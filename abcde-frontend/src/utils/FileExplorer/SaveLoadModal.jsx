@@ -121,8 +121,10 @@ function SaveBody({
     setSelected((s) => {
       if (s.foldername) {
         return { ...s, filename: v };
+      } else if (folders) {
+        return { foldername: folders[0].name, filename: v };
       }
-      return { foldername: folders[0].name, filename: v };
+      return { filename: v };
     });
   }
 

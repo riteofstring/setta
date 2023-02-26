@@ -27,7 +27,7 @@ function _SectionHeader({
       {!isInfo && (
         <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
           <CardTitle sectionId={sectionId} />
-          <SaveButton sectionId={sectionId} />
+          <SaveButton />
         </div>
       )}
       {(isSeriesElement || isRoot) && (

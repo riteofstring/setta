@@ -1,19 +1,16 @@
-import {
-  getCollectionDetails,
-  getCollectionsAndModules,
-} from "dbRequests/sectionConfig";
+import { getCollectionDetails } from "dbRequests/sectionConfig";
+import { useGetCollectionsAndModules } from "hooks/dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useState } from "react";
 import { initializeParam } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function CollectionsSearch({ sectionId }) {
-  const [results, setResults] = useState({});
+  const { results, onSearch } = useGetCollectionsAndModules();
   const selectedCollections =
     useGetSelectedCollectionsForSectionConfig(sectionId);
   const allResults = { ...selectedCollections, ...results };
@@ -27,11 +24,6 @@ export function CollectionsSearch({ sectionId }) {
       sectionId,
       configProps: { configName: "collections", newValueFn },
     });
-  }
-
-  async function onSearch(searchTerm) {
-    const x = await getCollectionsAndModules({ searchTerm });
-    setResults(x);
   }
 
   return (
