@@ -57,6 +57,7 @@ export function SectionContainerCoreResizable({
                 isOutput={isOutput}
                 isSocial={isSocial}
                 isRoot={isRoot}
+                isInfo={isInfo}
               />
             </div>
             {!isInfo && hasDescription && (
@@ -81,12 +82,15 @@ export function SectionContainerCoreResizable({
   );
 }
 
-function AreaSwitch({ sectionId, isOutput, isSocial, isRoot }) {
+function AreaSwitch({ sectionId, isOutput, isSocial, isRoot, isInfo }) {
   if (isOutput) {
     return <OutputArea sectionId={sectionId} />;
   }
   if (isSocial) {
     return <SocialArea sectionId={sectionId} />;
+  }
+  if (isInfo) {
+    return <SectionDescription sectionId={sectionId} card={true} />;
   }
   if (!isRoot) {
     return <InputArea sectionId={sectionId} />;

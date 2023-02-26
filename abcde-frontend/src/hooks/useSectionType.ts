@@ -1,4 +1,5 @@
 import {
+  ATTRIBUTE,
   DECK,
   INFO,
   isRoot,
@@ -68,4 +69,8 @@ export function useIsInfo(sectionId: string) {
 
 export function useIsSocial(sectionId: string) {
   return useIsType(sectionId, SOCIAL);
+}
+
+export function useIsAttribute(sectionId: string) {
+  return useIsType(sectionId, ATTRIBUTE);
 }

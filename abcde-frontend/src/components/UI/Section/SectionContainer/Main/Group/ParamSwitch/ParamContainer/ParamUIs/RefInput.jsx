@@ -1,5 +1,7 @@
+import { ATTRIBUTE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useStoreApi } from "react-flow-renderer";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionName } from "thunks/sections/sections";
 import { Button } from "utils/atoms/buttons/Button";
@@ -16,8 +18,9 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   const allItems = [
     { group: "sections", items: Object.values(availableSections) },
   ];
+  const reactFlowStore = useStoreApi();
   function onFnClick() {
-    addAttrSection({ refSectionId: value });
+    addAttrSection({ sectionId, refSectionId: value, reactFlowStore });
   }
 
   return (
@@ -35,17 +38,24 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   );
 }
 
-function addAttrSection({ refSectionId }) {
-  console.log(refSectionId);
-
+function addAttrSection({ sectionId, refSectionId, reactFlowStore }) {
   const refSectionName = getSectionName(refSectionId);
-  const sectionProps = { name: `${refSectionName}.Attr` };
-  const configProps = {};
+  const { position: sectionPosition, width: sectionWidth } = reactFlowStore
+    .getState()
+    .nodeInternals.get(sectionId);
+
+  const sectionProps = {
+    name: `${refSectionName}.Attr`,
+    initialPosition: {
+      x: sectionPosition.x + sectionWidth,
+      y: sectionPosition.y,
+    },
+  };
+  const configProps = { uiTypeId: ATTRIBUTE_UI_TYPE_ID };
 
   const [newId] = createDefaultSectionInfo({
     sectionProps,
     configProps,
     isTopLevel: true,
   });
-  console.log("newId", newId);
 }
