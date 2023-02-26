@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
 export function SectionDescription({ sectionId, width, card = false }) {
-  const description = useGetSectionDescription(sectionId);
+  const description = useGetSectionDescription(sectionId, "value");
 
   if (!card) {
     return (

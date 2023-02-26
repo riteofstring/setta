@@ -1,24 +1,17 @@
+import { SectionDescriptionType } from "abcde-utils/src/types/sectionDescription";
 import { useSectionDescription } from "models/info/sectionDescription";
 import { useGetSectionConfig } from "./useSectionConfig";
+
+export function useGetSectionDescription<
+  K extends keyof SectionDescriptionType
+>(sectionId: string, key: K) {
+  const descriptionId = useGetSectionConfig(sectionId, "descriptionId");
+  return useSectionDescription((x) => x.x[descriptionId][key]);
+}
 
 export function useSectionHasDescription(sectionId) {
   const descriptionId = useGetSectionConfig(sectionId, "descriptionId");
   return useSectionDescription((x) => !!x.x[descriptionId].value);
-}
-
-export function useGetSectionDescription(sectionId) {
-  const descriptionId = useGetSectionConfig(sectionId, "descriptionId");
-  return useSectionDescription((x) => x.x[descriptionId].value);
-}
-
-export function useGetSectionDescriptionHeight(sectionId) {
-  const descriptionId = useGetSectionConfig(sectionId, "descriptionId");
-  return useSectionDescription((x) => x.x[descriptionId].height);
-}
-
-export function useGetSectionDescriptionVisible(sectionId) {
-  const descriptionId = useGetSectionConfig(sectionId, "descriptionId");
-  return useSectionDescription((x) => x.x[descriptionId].visible);
 }
 
 export function useSetSectionDescription(sectionId) {

@@ -6,7 +6,7 @@ import {
 import React from "react";
 
 const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
-  const description = useGetSectionDescription(sectionId);
+  const description = useGetSectionDescription(sectionId, "value");
   const setDescription = useSetSectionDescription(sectionId);
 
   return (

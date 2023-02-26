@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import {
-  useGetSectionDescriptionHeight,
-  useGetSectionDescriptionVisible,
+  useGetSectionDescription,
   useSetSectionDescriptionHeight,
 } from "hooks/useSectionDescription";
 import { useEffect, useRef, useState } from "react";
@@ -9,7 +8,7 @@ import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 
 export function ResizableDescription({ sectionId, width, children }) {
-  const height = useGetSectionDescriptionHeight(sectionId);
+  const height = useGetSectionDescription(sectionId, "height");
   const setHeight = useSetSectionDescriptionHeight(sectionId);
 
   function onResizeStop(e, direction, ref, d) {
@@ -42,7 +41,7 @@ export function ResizableDescription({ sectionId, width, children }) {
 }
 
 function MotionDiv({ sectionId, height, children }) {
-  const descVis = useGetSectionDescriptionVisible(sectionId);
+  const descVis = useGetSectionDescription(sectionId, "visible");
   const localDescVis = useRef(descVis);
   const [noDiv, setNoDiv] = useState(descVis);
   const [initial, setInitial] = useState(
