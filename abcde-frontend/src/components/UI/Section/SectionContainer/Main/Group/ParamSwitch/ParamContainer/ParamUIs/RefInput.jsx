@@ -33,7 +33,7 @@ export function RefInput({ sectionId, value, onBlur, className }) {
         small={true}
         onClick={onClick}
       />
-      <Button onClick={onFnClick}>{"Attr"}</Button>
+      <Button onClick={onFnClick}>Attr</Button>
     </>
   );
 }

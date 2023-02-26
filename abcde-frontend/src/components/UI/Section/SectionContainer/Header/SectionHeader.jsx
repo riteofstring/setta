@@ -1,11 +1,9 @@
 import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
-import { FiSave } from "react-icons/fi";
-import { saveKwargsAsCollection } from "thunks/kwargs";
 import { deleteChild } from "thunks/sections/deleteChild";
-import { IconButton } from "utils/atoms/buttons/IconButton";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
+import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
@@ -24,19 +22,12 @@ function _SectionHeader({
     deleteChild({ parentId, startId: sectionId });
   };
 
-  function onClickSaveAsCollection() {
-    saveKwargsAsCollection({ sectionId, objInfoId });
-  }
   return (
     <div className="flex flex-row items-center px-9">
       {!isInfo && (
         <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
           <CardTitle sectionId={sectionId} />
-          <IconButton
-            color="text-slate-400"
-            icon={<FiSave />}
-            onClick={onClickSaveAsCollection}
-          />
+          <SaveButton sectionId={sectionId} />
         </div>
       )}
       {(isSeriesElement || isRoot) && (

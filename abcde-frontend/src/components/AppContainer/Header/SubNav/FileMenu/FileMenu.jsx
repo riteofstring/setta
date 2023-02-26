@@ -10,7 +10,7 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
-import { DialogTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
+import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
@@ -95,20 +95,23 @@ export function FileMenu() {
 function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
-      <DialogTriggerItem shortcut="Ctrl + Shift + N">
+      <DialogMenuBarTriggerItem shortcut="Ctrl + Shift + N">
         New Project
-      </DialogTriggerItem>
-      <DialogTriggerItem onClick={onClickLoad} shortcut="Ctrl + L">
+      </DialogMenuBarTriggerItem>
+      <DialogMenuBarTriggerItem onClick={onClickLoad} shortcut="Ctrl + L">
         Load
-      </DialogTriggerItem>
+      </DialogMenuBarTriggerItem>
       <MenuItem onClick={onClickSave} shortcut="Ctrl + S">
         <VscSave />
         Save
       </MenuItem>
-      <DialogTriggerItem onClick={onClickSaveAs} shortcut="Ctrl + Shift + S">
+      <DialogMenuBarTriggerItem
+        onClick={onClickSaveAs}
+        shortcut="Ctrl + Shift + S"
+      >
         <VscSaveAs />
         Save As
-      </DialogTriggerItem>
+      </DialogMenuBarTriggerItem>
     </>
   );
 }

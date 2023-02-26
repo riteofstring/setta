@@ -5,14 +5,12 @@ export function UITypePresetSaveModal({
   onClickActionButton,
   children,
 }) {
-  const title = "Save UI Type As";
-
   return (
     <SaveLoadModal
       modalType={"Save"}
       files={files}
       onClickActionButton={onClickActionButton}
-      title={title}
+      title="Save UI Type As"
       buttonText="Save As"
       placeholder="Preset Name"
     >
