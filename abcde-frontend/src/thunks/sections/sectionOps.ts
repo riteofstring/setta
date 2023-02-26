@@ -20,6 +20,7 @@ import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionConfig,
+  getSectionName,
   getSectionType,
   setAllChildren,
   setSectionParamInfoId,
@@ -199,7 +200,7 @@ function maybeChangeNewParamUIType({
   let paramIdToLinkTo;
 
   if (behaviorDropType === BehaviorDropType.NEW_ARG) {
-    const sectionName = useSectionInfos.getState().x[sectionId].name;
+    const sectionName = getSectionName(sectionId);
     const { selectedItem } = getSectionConfig(newParentId);
     paramIdToLinkTo = addKwarg({
       sectionId: newParentId,

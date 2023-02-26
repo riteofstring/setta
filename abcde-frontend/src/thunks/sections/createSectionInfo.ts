@@ -6,6 +6,7 @@ import { ManySectionConfigType } from "abcde-utils/src/types/sectionConfig";
 import _ from "lodash";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -27,7 +28,8 @@ export function createChildForSeries({ parentId, numChildren }) {
 export function createManySectionInfo({
   sectionProps,
   configProps,
-  numChildren,
+  numChildren = 1,
+  isTopLevel = false,
 }) {
   const newInfos = {};
   const newConfigs = {};
@@ -40,11 +42,15 @@ export function createManySectionInfo({
       ...configProps,
     });
   }
-  addSectionsToState(newInfos, newConfigs);
+  addSectionsToState(newInfos, newConfigs, isTopLevel);
   return Object.keys(newInfos);
 }
 
-export function createDefaultSectionInfo({ sectionProps, configProps }) {
+export function createDefaultSectionInfo({
+  sectionProps,
+  configProps,
+  ...props
+}) {
   return createManySectionInfo({
     sectionProps: {
       name: "New Section",
@@ -54,13 +60,14 @@ export function createDefaultSectionInfo({ sectionProps, configProps }) {
       uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
       ...configProps,
     },
-    numChildren: 1,
+    ...props,
   });
 }
 
 export function addSectionsToState(
   sectionInfos: ManySectionType,
-  sectionConfigs: ManySectionConfigType
+  sectionConfigs: ManySectionConfigType,
+  isTopLevel: boolean
 ) {
   const siState = useSectionInfos.getState();
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
@@ -89,4 +96,8 @@ export function addSectionsToState(
   useSectionDescription.getState().initDescriptions({
     descriptionIds: _.map(sectionConfigs, (x) => x.descriptionId),
   });
+
+  if (isTopLevel) {
+    useProjectConfig.getState().addChildren(sectionIds);
+  }
 }

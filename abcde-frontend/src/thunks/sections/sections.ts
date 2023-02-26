@@ -14,6 +14,10 @@ export function getSectionParentId(sectionId) {
   return useSectionInfos.getState().x[sectionId].parentId;
 }
 
+export function getSectionName(sectionId) {
+  return useSectionInfos.getState().x[sectionId].name;
+}
+
 export function getSectionConfig(sectionId) {
   const configId = getSectionConfigId(sectionId);
   return useSectionConfigs.getState().x[configId];

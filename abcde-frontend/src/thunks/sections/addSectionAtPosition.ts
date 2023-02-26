@@ -2,7 +2,6 @@ import { DECK_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionConfig } from "abcde-utils/src/objs/sectionConfig";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
-import { useProjectConfig } from "models/info/projectConfig";
 import { createDefaultSectionInfo } from "./createSectionInfo";
 
 type callbackBeforeExitType = (newId: string) => void;
@@ -16,7 +15,6 @@ export function addSectionAtPosition({
   initialPosition: SectionPositionType;
   callbackBeforeExit?: callbackBeforeExitType;
 }) {
-  const addChildren = useProjectConfig.getState().addChildren;
   const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {
     initialPosition,
   };
@@ -25,7 +23,10 @@ export function addSectionAtPosition({
     sectionProps.name = "Deck";
     configProps.uiTypeId = DECK_UI_TYPE_ID;
   }
-  const [newId] = createDefaultSectionInfo({ sectionProps, configProps });
-  addChildren([newId]);
+  const [newId] = createDefaultSectionInfo({
+    sectionProps,
+    configProps,
+    isTopLevel: true,
+  });
   callbackBeforeExit(newId);
 }
