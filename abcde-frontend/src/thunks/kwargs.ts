@@ -1,5 +1,6 @@
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
+import { saveCollections } from "dbRequests/sectionConfig";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
@@ -66,21 +67,16 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   }
 }
 
-export function saveKwargsAsCollection({
-  sectionId,
-  objInfoId,
-  name = "test",
-}) {
+export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
   const collection = newCodeInfo({
     name,
     rcType: RCType.COLLECTION,
     children: kwargIds,
+    path: name,
   });
-
   const codeInfoState = useCodeInfo.getState();
-  // copy kwargInfos and set parentId to collection.id
   const paramInfos = _.keyBy(
     kwargIds.map((x) => ({
       ...codeInfoState.allCodeInfo[x],
@@ -88,6 +84,10 @@ export function saveKwargsAsCollection({
     })),
     "id"
   );
+
+  saveCollections({
+    collections: { [collection.id]: collection, ...paramInfos },
+  });
 
   // TODO fix this call
   // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });

@@ -1,6 +1,7 @@
 import {
   GET_COLLECTIONS_AND_MODULES,
   GET_COLLECTION_DETAILS,
+  SAVE_COLLECTIONS,
 } from "abcde-utils/src/routes";
 import { useCodeInfo } from "models/info/codeInfo";
 import { NO_AUTH } from "utils/constants";
@@ -49,4 +50,17 @@ export async function getCollectionDetails(id) {
   }
 
   s.updateInfos(results);
+}
+
+export async function saveCollections({ collections }) {
+  if (NO_AUTH) {
+    return;
+  }
+
+  return post({
+    address: SAVE_COLLECTIONS,
+    body: { collections },
+    thenFn: (res) => res.data,
+    catchFn: () => ({}),
+  });
 }

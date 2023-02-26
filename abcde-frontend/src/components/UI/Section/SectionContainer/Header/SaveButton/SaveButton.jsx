@@ -1,34 +1,25 @@
-import { getCollectionsAndModulesFn } from "dbRequests/sectionConfig";
 import { useState } from "react";
 import { FiSave } from "react-icons/fi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { CollectionsSaveModal } from "utils/FileExplorer/CollectionsSaveModal";
+import { SectionSaveModal } from "utils/FileExplorer/SectionSaveModal";
 
 export function SaveButton({ sectionId }) {
-  const [files, setFiles] = useState([]);
+  const [type, setType] = useState(null);
 
   return (
-    <CollectionsSaveModal files={files}>
+    <SectionSaveModal sectionId={sectionId} type={type}>
       <StandardDropdown
         trigger={<IconButton color="text-slate-400" icon={<FiSave />} />}
         content={
-          <SaveCustomArguments sectionId={sectionId} setFiles={setFiles} />
+          <DialogDropdownTriggerItem
+            onClick={() => setType("Custom Arguments")}
+          >
+            Save Custom Arguments
+          </DialogDropdownTriggerItem>
         }
       ></StandardDropdown>
-    </CollectionsSaveModal>
-  );
-}
-
-function SaveCustomArguments({ sectionId, setFiles }) {
-  const onSearch = getCollectionsAndModulesFn((x) =>
-    setFiles(Object.values(x).map((y) => y.name))
-  );
-
-  return (
-    <DialogDropdownTriggerItem onClick={() => onSearch()}>
-      Save Custom Arguments
-    </DialogDropdownTriggerItem>
+    </SectionSaveModal>
   );
 }
