@@ -6,6 +6,7 @@ import React from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { goToParamConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";
+import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";
 import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
@@ -39,6 +40,7 @@ function SectionConfigCore({ sectionId }) {
       >
         Card Types
       </h3>
+      <SaveUITypeConfig />
       <SectionConfigTypeSelection sectionId={sectionId} />
 
       <h3

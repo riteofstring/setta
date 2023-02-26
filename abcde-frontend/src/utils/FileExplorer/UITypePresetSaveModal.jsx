@@ -1,10 +1,9 @@
+import { useUserPresetUITypes } from "hooks/useUITypes";
 import { SaveLoadModal } from "./SaveLoadModal";
 
-export function UITypePresetSaveModal({
-  files,
-  onClickActionButton,
-  children,
-}) {
+export function UITypePresetSaveModal({ onClickActionButton, children }) {
+  const files = useUserPresetUITypes().map((x) => x.name);
+
   return (
     <SaveLoadModal
       modalType={"Save"}

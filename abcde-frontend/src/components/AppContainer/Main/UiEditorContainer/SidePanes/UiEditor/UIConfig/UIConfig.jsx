@@ -1,4 +1,3 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
@@ -6,19 +5,17 @@ import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
-import { useUserPresetUITypes } from "hooks/useUITypes";
 import _ from "lodash";
 import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiPencil } from "react-icons/bi";
-import { FiSave } from "react-icons/fi";
 import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { UITypePresetSaveModal } from "utils/FileExplorer/UITypePresetSaveModal";
 import { cloneNewUIType } from "utils/uiTypeUtils";
+import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
@@ -152,26 +149,5 @@ function InfoViewDescription({ paramInfoId }) {
       value={value}
       onChange={(e) => setValue(e.target.value)}
     />
-  );
-}
-
-function SaveUITypeConfig({ onSubmit }) {
-  const files = useUserPresetUITypes().map((x) => x.name);
-
-  function onClickActionButton(selected, filename) {
-    onSubmit(filename);
-  }
-
-  return (
-    <UITypePresetSaveModal
-      files={files}
-      onClickActionButton={onClickActionButton}
-    >
-      <Dialog.Trigger asChild>
-        <IconButton size="w-4 h-4" padding="py-2 px-2">
-          <FiSave className="text-slate-500" />
-        </IconButton>
-      </Dialog.Trigger>
-    </UITypePresetSaveModal>
   );
 }
