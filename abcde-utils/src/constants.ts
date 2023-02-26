@@ -30,6 +30,7 @@ export const DEFAULT_SECTION_UI_TYPE_ID =
   "0191cde4-3d98-4ba0-972a-fead19b8ac73";
 export const DECK_UI_TYPE_ID = "0e050316-06ca-48f4-92c1-9845abdf85f7";
 export const REF_UI_TYPE_ID = "0595871f-4506-4bda-b6f1-9a3864e02a68";
+export const ATTRIBUTE_UI_TYPE_ID = "51470547-1f60-4933-952c-ac8745b30b22";
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
