@@ -20,7 +20,7 @@ export default {
     sectionChildrenId: "8fb137d8-7f26-4b4d-a43e-788924d5a6a3",
     initialPosition: {
       x: 1442,
-      y: -53,
+      y: -100,
     },
     size: {
       width: 450,

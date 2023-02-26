@@ -140,4 +140,19 @@ export default {
     originInfoId: {},
     isForChildOfOriginInfoId: false,
   },
+  "51470547-1f60-4933-952c-ac8745b30b22": {
+    id: "51470547-1f60-4933-952c-ac8745b30b22",
+    type: "ATTRIBUTE",
+    name: "",
+    presetType: "BASE",
+    config: {
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
+  },
 };
