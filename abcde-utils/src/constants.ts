@@ -13,6 +13,7 @@ export const DICT_ROOT = "DICT_ROOT";
 export const OUTPUT = "OUTPUT";
 export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
+export const ATTRIBUTE = "ATTRIBUTE";
 export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
@@ -20,6 +21,7 @@ export const SECTION_TYPE_NAMES = [
   OUTPUT,
   INFO,
   SOCIAL,
+  ATTRIBUTE,
 ];
 
 export const NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac";
@@ -50,7 +52,14 @@ export const rootTypeToChildSubType = {
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
-  return [SECTION, LIST_ROOT, DICT_ROOT, DECK, OUTPUT, INFO, SOCIAL].includes(
-    uiType.type
-  );
+  return [
+    SECTION,
+    LIST_ROOT,
+    DICT_ROOT,
+    DECK,
+    OUTPUT,
+    INFO,
+    SOCIAL,
+    ATTRIBUTE,
+  ].includes(uiType.type);
 }
