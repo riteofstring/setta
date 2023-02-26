@@ -1,16 +1,20 @@
-import { getCollectionDetails } from "dbRequests/sectionConfig";
-import { useGetCollectionsAndModules } from "hooks/dbRequests/sectionConfig";
+import {
+  getCollectionDetails,
+  getCollectionsAndModulesFn,
+} from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useState } from "react";
 import { initializeParam } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function CollectionsSearch({ sectionId }) {
-  const { results, onSearch } = useGetCollectionsAndModules();
+  const [results, setResults] = useState({});
+  const onSearch = getCollectionsAndModulesFn((x) => setResults(x));
   const selectedCollections =
     useGetSelectedCollectionsForSectionConfig(sectionId);
   const allResults = { ...selectedCollections, ...results };

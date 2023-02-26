@@ -23,6 +23,13 @@ export async function getCollectionsAndModules({ searchTerm }) {
   });
 }
 
+export function getCollectionsAndModulesFn(callback) {
+  return async function onSearch(searchTerm) {
+    const x = await getCollectionsAndModules({ searchTerm });
+    callback(x);
+  };
+}
+
 export async function getCollectionDetails(id) {
   const s = useCodeInfo.getState();
   if (id in s.allCollections) {
