@@ -4,6 +4,7 @@ import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import {
   INFO_CONFIG_TAB,
+  RUNTIME_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
 } from "models/uiEditor";
@@ -22,5 +23,10 @@ export function useRequiredUIEditorTabs(sectionId) {
   if ([OUTPUT, INFO, SOCIAL].includes(uiTypeType)) {
     return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
   }
-  return [SECTION_CONFIG_TAB, UI_CONFIG_TAB, INFO_CONFIG_TAB];
+  return [
+    SECTION_CONFIG_TAB,
+    UI_CONFIG_TAB,
+    INFO_CONFIG_TAB,
+    RUNTIME_CONFIG_TAB,
+  ];
 }
