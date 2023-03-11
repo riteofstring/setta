@@ -44,7 +44,7 @@ function OutputDetails({ children, details, name }) {
     <Expandable heading={children} value={name} defaultValue={0}>
       {details.map((k) => (
         <div key={`OutputDetails-${k}`}>
-          <p className="text-sm font-bold">{k}</p>
+          <h3 className="text-sm font-bold">{k}</h3>
         </div>
       ))}
     </Expandable>
