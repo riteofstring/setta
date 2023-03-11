@@ -69,9 +69,9 @@ export function ComboboxSearch({
         onClick={onClick}
       />
 
-      <div className="flex flex-col items-stretch">
+      <div className="flex min-w-[200px] flex-col items-stretch">
         <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps} width={width}>
-          <div className="m-3 max-h-full w-full overflow-y-scroll">
+          <div className="m-3 max-h-full w-full overflow-x-hidden overflow-y-scroll">
             <ComboboxItems
               filteredItems={filteredItems}
               getItemProps={getItemProps}
@@ -96,7 +96,7 @@ function ComboboxItems({
     (result, group, groupIndex) => {
       result.groups.push(
         <div key={groupIndex}>
-          <p className="mx-5 mb-2 border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <p className="mx-5 mb-2 truncate border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
             {group.group}
           </p>
           {group.items.map((item, itemIndex) => {
