@@ -133,7 +133,11 @@ def callable_info(obj, import_from, import_this, version, output):
     }
     output[path] = info
     for v in inspect.signature(obj).parameters.values():
-        parameter_info(path, v, version, output)
+        if v.kind not in [
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ]:
+            parameter_info(path, v, version, output)
 
 
 def parameter_info(obj_path, param, version, output):
