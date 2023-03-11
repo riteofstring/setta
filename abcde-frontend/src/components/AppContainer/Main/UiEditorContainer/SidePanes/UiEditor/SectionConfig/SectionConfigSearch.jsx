@@ -72,9 +72,10 @@ function SearchItem({
   }
 
   // deal with tabbing
+  // [&:has(input:checked)]:border-blue-700 [&:has(input:checked)]:text-white
   return (
     <li
-      className={`edit-list-item flex select-none rounded-lg border border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black [&:has(input:focus-visible)]:ring-2 [&:has(input:checked)]:bg-blue-700 [&:has(input:checked)]:text-white hover:[&:has(input:checked)]:bg-white [&:has(input:not:checked)]:text-slate-500 hover:[&>input:checked]:accent-slate-500 ${
+      className={`edit-list-item flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black [&:has(input:focus-visible)]:ring-2   hover:[&:has(input:checked)]:bg-white [&:has(input:not:checked)]:text-slate-500 hover:[&>input:checked]:accent-slate-500 ${
         vCenter && "items-center"
       }`}
     >

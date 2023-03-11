@@ -14,12 +14,12 @@ module.exports = {
           to: { backgroundPosition: "100% 0%, 0% 100%, 0% 0%, 100% 100%" },
         },
         slideDown: {
-          from: { maxHeight: 0, opacity: 0 },
-          to: { maxHeight: "400px", opacity: 1 },
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         slideUp: {
-          from: { maxHeight: "400px", opacity: 1 },
-          to: { maxHeight: 0, opacity: 0 },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
         },
       },
       animation: {

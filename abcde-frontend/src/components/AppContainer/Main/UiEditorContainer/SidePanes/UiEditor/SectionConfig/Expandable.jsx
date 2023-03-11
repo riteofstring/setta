@@ -28,13 +28,14 @@ export function Expandable({
 }
 
 function CardAccordion({ heading, value, defaultValue, open, children }) {
+  // my-4
   return (
     <StandardAccordion
       rootStyles="w-full"
       itemStyles="focus-within:relative focus-within:z-10"
-      headerStyles="flex flex-1 cursor-default items-center justify-between overflow-hidden"
+      headerStyles="flex flex-1 cursor-default items-center justify-between mb-2"
       triggerStyles="group flex outline-none transition-all hover:cursor-pointer hover:bg-slate-200 hover:shadow-sm hover:text-white rounded-full"
-      contentStyles="my-4 rounded-xl text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp bg-[rgba(226,_232,_240,_0.2)] overflow-auto max-h-[400px]"
+      contentStyles="rounded-xl text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp bg-[rgba(226,_232,_240,_0.2)] overflow-hidden"
       heading={heading}
       value={value}
       defaultValue={defaultValue}
@@ -45,7 +46,7 @@ function CardAccordion({ heading, value, defaultValue, open, children }) {
   );
 }
 
-function CardCollapsible({ heading, value, defaultValue, open, children }) {
+function CardCollapsible({ heading, value, open, children }) {
   return (
     <StandardCollapsible
       rootStyles="w-full"

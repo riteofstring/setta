@@ -73,7 +73,7 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, contentStyles, ...props }, forwardedRef) => (
     <Accordion.Content className={contentStyles} {...props} ref={forwardedRef}>
-      <div className="max-h-full overflow-y-auto py-4 px-5 ">{children}</div>
+      <div className="overflow-y-auto py-4 px-5 ">{children}</div>
     </Accordion.Content>
   )
 );

@@ -69,7 +69,7 @@ const AccordionContent = React.forwardRef(
       {...props}
       ref={forwardedRef}
     >
-      <div className="max-h-full overflow-y-auto py-4 px-5 ">{children}</div>
+      <div className="max-h-full py-4 px-5 ">{children}</div>
     </Accordion.Content>
   )
 );
