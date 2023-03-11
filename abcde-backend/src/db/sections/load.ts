@@ -13,6 +13,10 @@ import { getOrderedChildren, getOrderedChildrenFull } from 'src/utils/utils';
 import { UITypeNames } from '../uiTypes/types';
 import { PrismaSectionChildrenType } from './types';
 
+function convertSize(x) {
+  return x === -1 ? 'auto' : x;
+}
+
 export async function getSections(ids) {
   const s = await prisma.section.findMany({
     where: { id: { in: ids } },
@@ -34,7 +38,7 @@ export async function getSections(ids) {
     paramInfoId: v.paramInfoId,
     sectionChildrenId: v.childrenId,
     initialPosition: { x: 0, y: 0 },
-    size: { width: v.width, height: v.height },
+    size: { width: convertSize(v.width), height: convertSize(v.height) },
   }));
 
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>

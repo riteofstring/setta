@@ -21,6 +21,10 @@ import {
   PrismaSectionType,
 } from './types';
 
+function convertSize(x) {
+  return x === 'auto' ? -1 : x;
+}
+
 export async function saveSections(
   sections: ManySectionCoreType,
   sectionChildren: ManySectionChildrenType,
@@ -37,8 +41,8 @@ export async function saveSections(
       name: v.name,
       childrenId: v.sectionChildrenId,
       paramInfoId: v.paramInfoId,
-      width: v.size.width,
-      height: v.size.height,
+      width: convertSize(v.size.width),
+      height: convertSize(v.size.height),
     });
   }
 
