@@ -28,7 +28,7 @@ function NavSwitch() {
 
 function UiEditorSubNav() {
   return (
-    <div className="flex gap-1">
+    <div className="ml-4 flex gap-1">
       {/* <VerticalLine /> */}
       <Menubar.Root className="contents">
         <FileMenu />
