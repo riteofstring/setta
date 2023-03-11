@@ -12,6 +12,7 @@ export function PaneContainer({
   onResizeStop = null,
   paneProps,
   children,
+  minimumWidth = 315,
 }) {
   const size = useWindowSize();
   const { right, paneName, initialWidth } = paneProps;
@@ -42,7 +43,7 @@ export function PaneContainer({
 
   useEffect(() => {
     const newVMax = size.winWidth / 2.1;
-    const newVMin = Math.min(340, newVMax);
+    const newVMin = Math.min(minimumWidth, newVMax);
     newVMax && setVMax(newVMax);
     newVMin && setVMin(newVMin);
     if (width > newVMax) {

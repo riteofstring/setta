@@ -28,7 +28,7 @@ export function UiEditor() {
   const sectionId = useActiveSection((x) => x.id);
 
   return (
-    <PaneContainer paneProps={paneProps} paneTitle="Edit">
+    <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
       {sectionId ? <TabsVisible sectionId={sectionId} /> : <Placeholder />}
     </PaneContainer>
   );
@@ -68,7 +68,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-xl uppercase [border-bottom:3px_solid_transparent] focus-visible:ring-2 [&[data-state='active']]:border-slate-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] focus-visible:ring-2 [&[data-state='active']]:border-slate-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
