@@ -4,8 +4,6 @@ export default {
       "ea94a05b-6a1a-413b-aa56-e50d28378592",
     "0f376c6e-4387-4116-84fd-dddeeb8e9243":
       "cf9359b3-cd5d-4138-9d3d-2ac7bacb46ec",
-    "b0c6c763-d5f5-4b7b-9a07-6f62a95a063e":
-      "07ef5c09-60ae-4562-ace2-140fd9eadc58",
     "b2870195-c853-4d4f-ac20-9fe0a57da17c":
       "0cee15eb-a8fb-40b2-9704-f7de0207b2f4",
   },
