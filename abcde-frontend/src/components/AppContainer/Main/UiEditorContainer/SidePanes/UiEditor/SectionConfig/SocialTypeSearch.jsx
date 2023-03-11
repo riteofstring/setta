@@ -95,7 +95,7 @@ function OneSocialDetails({ id, sectionId, configName, label }) {
 
   return (
     <div className="flex w-full items-center gap-3">
-      <h3 className="select-none text-sm font-bold">{label}</h3>
+      <p className="select-none text-sm font-bold">{label}</p>
       <input
         className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-slate-200 focus:ring-2 focus:ring-blue-500"
         value={configValue}

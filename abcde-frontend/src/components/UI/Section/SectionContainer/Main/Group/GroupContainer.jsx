@@ -14,9 +14,9 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
       ref={ref}
     >
       {isGroup && (
-        <h3 className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-slate-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-slate-400 ">
+        <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-slate-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-slate-400 ">
           Group 1
-        </h3>
+        </p>
       )}
       <GetParams
         sectionId={sectionId}

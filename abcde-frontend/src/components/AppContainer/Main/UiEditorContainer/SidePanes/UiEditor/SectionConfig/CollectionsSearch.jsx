@@ -51,7 +51,7 @@ function ObjCollectionDetails({ children, details, name }) {
       <div className="select-text rounded-md py-1 px-1">
         {Object.entries(groupedDetails).map(([k, v]) => (
           <div key={`ObjCollectionDetails-${k}`}>
-            <h3 className="text-sm font-bold">{k}</h3>
+            <p className="text-sm font-bold">{k}</p>
             <ObjListText objList={v} />
           </div>
         ))}

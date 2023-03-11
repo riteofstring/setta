@@ -38,9 +38,9 @@ function Content({ header, footer, onChange, onClick, value }) {
   return (
     <>
       {header && (
-        <h3 className="mb-2 text-xs font-bold uppercase text-slate-600">
+        <p className="mb-2 text-xs font-bold uppercase text-slate-600">
           {header}
-        </h3>
+        </p>
       )}
       <div className="mt-1 flex flex-col gap-1">
         <Body onChange={onChange} onClick={onClick} value={value} />

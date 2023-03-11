@@ -105,9 +105,9 @@ function _UIElement({ sectionId, paramInfo }) {
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
-        <h3 className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-slate-500">
+        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-slate-500">
           {paramName}
-        </h3>
+        </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
           <InfoViewDescription paramInfoId={paramInfoId} />
           <SaveUITypeConfig

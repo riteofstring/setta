@@ -54,9 +54,9 @@ export function Incrementer({
         <Tooltip.Trigger asChild>
           <div className="flex max-w-xs gap-1 rounded-lg bg-slate-200 py-1 px-2">
             {isRoot ? (
-              <h3 className="text-xs font-bold text-slate-500">Children</h3>
+              <p className="text-xs font-bold text-slate-500">Children</p>
             ) : (
-              <h3 className="text-xs text-slate-500">Siblings</h3>
+              <p className="text-xs text-slate-500">Siblings</p>
             )}
             {isRoot && <FiCornerRightDown className="mr-1 text-slate-600" />}
 

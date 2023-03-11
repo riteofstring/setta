@@ -21,7 +21,7 @@ export function DetailsContent() {
       <div className="mb-8 h-96 overflow-hidden rounded-lg bg-slate-400 py-6 px-8 shadow-md"></div>
       <div className="@lg:flex-col flex gap-8">
         <article className="prose">
-          <h2>The Best Ever</h2>
+          <p>The Best Ever</p>
           <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur
             semper et neque ac aliquam. In in ornare sapien. Sed quam dui,
@@ -58,9 +58,9 @@ export function DetailsContent() {
         </article>
         <div className="flex flex-col gap-8">
           <div>
-            <h3 className="font-heading font-bold uppercase tracking-widest text-slate-400">
+            <p className="font-heading font-bold uppercase tracking-widest text-slate-400">
               tags
-            </h3>
+            </p>
             <div className="flex flex-wrap gap-2">
               <TagButton>NumPy</TagButton>
               <TagButton>PyPy</TagButton>
@@ -71,9 +71,9 @@ export function DetailsContent() {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <h3 className="font-heading font-bold uppercase tracking-widest text-slate-400">
+            <p className="font-heading font-bold uppercase tracking-widest text-slate-400">
               share
-            </h3>
+            </p>
             <div className="flex flex-wrap gap-4 ">
               <button className="grid h-5 w-5 cursor-pointer place-items-center rounded-full p-3 text-slate-500 hover:bg-slate-500 hover:text-white hover:shadow-md">
                 <AiOutlineTwitter />

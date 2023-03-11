@@ -28,9 +28,9 @@ export function KwargsControls({ sectionId, objInfoId }) {
   return (
     <div className="border-b border-solid border-white bg-gradient-to-t from-white py-2 shadow-sm">
       <div className="flex items-center px-9">
-        <h3 className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
+        <p className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
           arguments
-        </h3>
+        </p>
         <IconButton
           icon={<AiOutlineMinus />}
           type="minus"

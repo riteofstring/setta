@@ -6,9 +6,9 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 export function ListContent() {
   return (
     <>
-      <h2 className="pb-3 text-base font-bold uppercase tracking-widest text-slate-400">
+      <p className="pb-3 text-base font-bold uppercase tracking-widest text-slate-400">
         Templates
-      </h2>
+      </p>
       <div className="flex gap-2 self-stretch pb-4">
         <StandardSearch
           outerClasses="flex-1 "
@@ -32,7 +32,7 @@ export function ListContent() {
 function ListItem() {
   return (
     <div className="flex cursor-pointer flex-col rounded-lg py-2 px-4 transition-all hover:bg-white hover:shadow-md">
-      <h3 className="font-heading text-xl font-bold text-slate-500">Item</h3>
+      <p className="font-heading text-xl font-bold text-slate-500">Item</p>
       <p className="text-sm">
         Nullam sit amet mi rutrum, consequat purus et, euismod elit. Nullam eu
         ex urna.

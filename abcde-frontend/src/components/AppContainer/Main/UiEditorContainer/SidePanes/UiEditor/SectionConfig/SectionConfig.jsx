@@ -35,24 +35,23 @@ function SectionConfigCore({ sectionId }) {
   return (
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
       <div className="flex justify-between">
-        {" "}
-        <h3
+        <p
           className="mt-2 text-xs font-semibold uppercase text-slate-400"
           {...infoViewHandlersCard}
         >
           Card Types
-        </h3>
+        </p>
         <SaveUITypeConfig />
       </div>
 
       <SectionConfigTypeSelection sectionId={sectionId} />
 
-      <h3
+      <p
         className="mt-4 text-xs font-semibold uppercase text-slate-400"
         {...infoViewHandlersContents}
       >
         Contents
-      </h3>
+      </p>
       <SearchSwitch sectionId={sectionId} />
     </div>
   );
