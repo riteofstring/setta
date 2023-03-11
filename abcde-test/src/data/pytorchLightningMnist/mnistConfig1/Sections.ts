@@ -5,8 +5,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "41302b27-b547-4f35-9a48-107a9dcac8d2",
     initialPosition: {
-      x: 345,
-      y: -36.6875,
+      x: 847,
+      y: 58.3125,
     },
     size: {
       width: 450,
@@ -61,8 +61,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "946f1341-75a1-40dc-abfa-3d04638079db",
     initialPosition: {
-      x: 722.5314446651364,
-      y: 764.397219199873,
+      x: 849.5314446651364,
+      y: 577.397219199873,
     },
     size: {
       width: 450,
@@ -95,6 +95,34 @@ export default {
     size: {
       width: 450,
       height: 200,
+    },
+  },
+  "a90d6038-24c8-40c3-a9d7-fc10c8128f05": {
+    id: "a90d6038-24c8-40c3-a9d7-fc10c8128f05",
+    name: "Data config",
+    paramInfoId: null,
+    sectionChildrenId: "9bf5a4bf-2b53-48cc-9341-bb44417e1063",
+    initialPosition: {
+      x: -266.11208482846587,
+      y: 49.496427947724584,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+  },
+  "03dedf55-ebf8-4529-bc10-4333c7fa769f": {
+    id: "03dedf55-ebf8-4529-bc10-4333c7fa769f",
+    name: "Trainer config",
+    paramInfoId: null,
+    sectionChildrenId: "230c5e45-cae1-4edb-8be6-b67be1d27241",
+    initialPosition: {
+      x: 291.69869983972274,
+      y: 68.05797498560713,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
     },
   },
 };
