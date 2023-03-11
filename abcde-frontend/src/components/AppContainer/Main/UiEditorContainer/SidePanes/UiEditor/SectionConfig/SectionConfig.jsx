@@ -34,13 +34,17 @@ function SectionConfigCore({ sectionId }) {
   // pass infoViewHandlersContents down?
   return (
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
-      <h3
-        className="mt-2 text-xs font-semibold uppercase text-slate-400"
-        {...infoViewHandlersCard}
-      >
-        Card Types
-      </h3>
-      <SaveUITypeConfig />
+      <div className="flex justify-between">
+        {" "}
+        <h3
+          className="mt-2 text-xs font-semibold uppercase text-slate-400"
+          {...infoViewHandlersCard}
+        >
+          Card Types
+        </h3>
+        <SaveUITypeConfig />
+      </div>
+
       <SectionConfigTypeSelection sectionId={sectionId} />
 
       <h3
