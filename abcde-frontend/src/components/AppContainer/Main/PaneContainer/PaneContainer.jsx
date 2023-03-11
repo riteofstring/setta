@@ -12,7 +12,7 @@ export function PaneContainer({
   onResizeStop = null,
   paneProps,
   children,
-  minimumWidth = 315,
+  minimumWidth = 325,
 }) {
   const size = useWindowSize();
   const { right, paneName, initialWidth } = paneProps;
