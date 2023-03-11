@@ -58,7 +58,7 @@ export function LineChart({
   //
   const legendGlyphSize = 15;
   return (
-    <div className="flex flex-col gap-4" onClick={() => generateNewTestData()}>
+    <div className="flex flex-col gap-4">
       <div className="overflow-hidden rounded-3xl shadow-sm ">
         <svg width={width} height={svgHeight}>
           <rect
@@ -153,10 +153,10 @@ export function LineChart({
   );
 }
 
-function generateNewTestData() {
-  updateOutput({
-    group: { id: "67863f2c-9916-4d9b-9c60-b7ed3781f49d", name: "wave" },
-    key: { id: "35ddd5b3-a87d-408b-b140-4144d0b2076f", name: "sin(x)" },
-    values: [Math.random() * (Math.random() * 5)],
-  });
-}
+// function generateNewTestData() {
+//   updateOutput({
+//     group: { id: "67863f2c-9916-4d9b-9c60-b7ed3781f49d", name: "wave" },
+//     key: { id: "35ddd5b3-a87d-408b-b140-4144d0b2076f", name: "sin(x)" },
+//     values: [Math.random() * (Math.random() * 5)],
+//   });
+// }
