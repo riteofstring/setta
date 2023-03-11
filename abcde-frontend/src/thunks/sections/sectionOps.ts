@@ -193,7 +193,11 @@ function maybeChangeNewParamUIType({
   sectionId,
   behaviorDropType,
 }) {
-  if (newParentId === PANEID) {
+  if (
+    newParentId === PANEID ||
+    behaviorDropType === BehaviorDropType.DROP_HERE ||
+    behaviorDropType === BehaviorDropType.NEW_LIST_ELEMENT
+  ) {
     return;
   }
 

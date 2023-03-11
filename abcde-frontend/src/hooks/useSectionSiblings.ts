@@ -9,7 +9,7 @@ export function useSectionSiblingNames(sectionId: string) {
   const topLevelSectionIds = useProjectConfig((x) => x.children, _.isEqual);
   const isTopLevel = topLevelSectionIds.includes(sectionId);
   const potentialSiblingIds = useSectionInfos(
-    (x) => (parentId ? x.currChildren[parentId] : []),
+    (x) => (parentId ? _.defaultTo(x.currChildren[parentId], []) : []),
     _.isEqual
   );
   const siblingIds = isTopLevel ? topLevelSectionIds : potentialSiblingIds;
