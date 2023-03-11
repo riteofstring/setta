@@ -5,13 +5,13 @@ import { useAuth } from "models/auth";
 import { useSearch } from "models/search";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
-import { Link } from "react-router-dom";
 import { Badge } from "utils/atoms/badges/badge";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { router } from "utils/Routes/router";
 import "./homepage.css";
+import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
   const { projects, getProjects, createProject } = useGetOrCreateProjects();
@@ -70,11 +70,19 @@ function ProjectItems({ projects }) {
 const ProjectItem = forwardRef(({ project }, forwardedRef) => {
   const { name, configs } = project;
   const [openConfigs, setOpenConfigs] = useState(false);
-  const defaultConfigAddress = useDefaultConfigAddress(project);
+
+  function onClick() {
+    goToDefaultConfig(project);
+  }
 
   function onClickConfigsButton(e) {
     e.stopPropagation();
     setOpenConfigs(!openConfigs);
+  }
+
+  function onConfigClick(e, configId) {
+    e.stopPropagation();
+    goToProject({ project, configId });
   }
 
   // bg-[url('https://via.placeholder.com/400')]
@@ -83,63 +91,60 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
     "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0";
 
   return (
-    <div ref={forwardedRef} className={itemStyles}>
-      <Link to={defaultConfigAddress}>
-        <ThumbnailArea
-          onClickConfigsButton={onClickConfigsButton}
-          project={project}
-          configs={configs}
-        />
-        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 ">
-          <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600">
-            {name}
-          </p>
-          <Badges />
-        </div>
-      </Link>
+    <div onClick={onClick} ref={forwardedRef} className={itemStyles}>
+      <ThumbnailArea
+        onClickConfigsButton={onClickConfigsButton}
+        configs={configs}
+        onConfigClick={onConfigClick}
+      />
+      <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 ">
+        <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600">
+          {name}
+        </p>
+        <Badges />
+      </div>
     </div>
   );
 });
 
-function ThumbnailArea({ onClickConfigsButton, project, configs }) {
+function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
   return (
     <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4">
       <StandardDropdown
         trigger={
           <div
-            className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50"
+            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50"
             onClick={onClickConfigsButton}
           >
             <BiGitBranch />
             Configs
           </div>
         }
-        content={<Body project={project} configs={configs} />}
+        content={<Body configs={configs} onClick={onConfigClick} />}
         align="end"
+      />
+      <ThumbnailLogo
+        styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
+        svgStyles="fill-slate-200"
       />
     </div>
   );
 }
 
-function Body({ project, configs }) {
+function Body({ configs, onClick }) {
   return configs.map((x, idx) => (
-    <ConfigItem project={project} config={x} key={`Config ${idx}`} />
+    <Item
+      className="flex flex-row"
+      key={`Config ${idx}`}
+      onClick={(e) => onClick(e, x.id)}
+    >
+      {x.name}
+      <DefaultConfigBadge config={x} />
+    </Item>
   ));
 }
 
-function ConfigItem({ project, config }) {
-  const configAddress = useConfigAddress({ project, configId: config.id });
-  return (
-    <Link to={configAddress}>
-      <Item className="flex flex-row">
-        {config.name}
-        <DefaultConfigBadge config={config} />
-      </Item>
-    </Link>
-  );
-}
-
-function DefaultConfigBadge({ config }) {
+export function DefaultConfigBadge({ config }) {
   return (
     config.isDefault && (
       <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
@@ -186,15 +191,4 @@ function goToDefaultConfig(project) {
     project,
     configId: project.configs.find((x) => x.isDefault).id,
   });
-}
-
-function useConfigAddress({ project, configId }) {
-  const username = useAuth((x) => x.username);
-  const configName = project.configs.find((x) => x.id === configId).name;
-  return `${username}/${project.name}/${configName}`;
-}
-
-function useDefaultConfigAddress(project) {
-  const configId = project.configs.find((x) => x.isDefault).id;
-  return useConfigAddress({ project, configId });
 }
