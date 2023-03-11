@@ -11,6 +11,7 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { router } from "utils/Routes/router";
 import "./homepage.css";
+import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
   const { projects, getProjects, createProject } = useGetOrCreateProjects();
@@ -112,7 +113,7 @@ function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
       <StandardDropdown
         trigger={
           <div
-            className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50"
+            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50"
             onClick={onClickConfigsButton}
           >
             <BiGitBranch />
@@ -121,6 +122,10 @@ function ThumbnailArea({ onClickConfigsButton, configs, onConfigClick }) {
         }
         content={<Body configs={configs} onClick={onConfigClick} />}
         align="end"
+      />
+      <ThumbnailLogo
+        styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
+        svgStyles="fill-slate-200"
       />
     </div>
   );
