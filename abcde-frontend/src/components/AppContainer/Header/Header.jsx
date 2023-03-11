@@ -37,7 +37,7 @@ function Search({ searchPlaceholder }) {
   const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.NAVBAR_SEARCH);
   return (
     <StandardSearch
-      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)] bg-white ml-2"
+      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)] bg-white ml-4"
       inputStyles="flex-grow outline-0 cursor-auto bg-slate-100 hover:bg-white hover:ring-slate-200 transition-all focus:bg-white rounded-full text-xs text-slate-900 ring-2 ring-transparent focus-visible:ring-blue-300 pl-7 py-1"
       leftElementStyles="pl-1"
       placeholder={searchPlaceholder}
