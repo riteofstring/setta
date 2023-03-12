@@ -1,5 +1,6 @@
 import {
   DICT_ROOT,
+  FN,
   LIST_ROOT,
   REF,
   SECTION,
@@ -47,6 +48,7 @@ function getVarDeclaration(varName, x, selected) {
     case SWITCH:
       return `${varName} = ${getBoolean(x.value)}`;
     case SECTION:
+    case FN:
       if (!x.value.callable) {
         return `${varName} = {${getDictContents(x.value.params, selected)}}`;
       } else {
