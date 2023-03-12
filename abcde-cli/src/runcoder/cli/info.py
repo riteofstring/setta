@@ -97,40 +97,37 @@ def construct_path(import_from, import_this):
     return f"{import_from}.{import_this}" if import_this else import_from
 
 
+def get_info(**kwargs):
+    return {
+        "id": str(uuid.uuid4()),
+        "name": None,
+        "version": None,
+        "defaultVal": None,
+        "type": None,
+        "description": None,
+        "rcType": None,
+        "inCodeParentId": None,
+        "path": None,
+        "children": [],
+        "returnType": None,
+        **kwargs,
+    }
+
+
 def module_info(import_from, import_this, version, output):
     path = construct_path(import_from, import_this)
     name = import_this if import_this else import_from
-    id = str(uuid.uuid4())
-    info = {
-        "id": id,
-        "name": name,
-        "version": version,
-        "defaultVal": None,
-        "type": "module",
-        "description": None,
-        "rcType": COLLECTION,
-        "inCodeParentId": None,
-        "path": path,
-        "children": [],
-    }
+    info = get_info(
+        name=name, version=version, type="module", rcType=COLLECTION, path=path
+    )
     output[path] = info
 
 
 def callable_info(obj, import_from, import_this, version, output):
     path = construct_path(import_from, import_this)
-    id = str(uuid.uuid4())
-    info = {
-        "id": id,
-        "name": import_this,
-        "version": version,
-        "defaultVal": None,
-        "type": "callable",
-        "description": None,
-        "rcType": CALLABLE,
-        "inCodeParentId": None,
-        "path": path,
-        "children": [],
-    }
+    info = get_info(
+        name=import_this, version=version, type="callable", rcType=CALLABLE, path=path
+    )
     output[path] = info
     for v in inspect.signature(obj).parameters.values():
         if v.kind not in [
@@ -142,19 +139,14 @@ def callable_info(obj, import_from, import_this, version, output):
 
 def parameter_info(obj_path, param, version, output):
     path = f"{obj_path}.{param.name}"
-    id = str(uuid.uuid4())
-    info = {
-        "id": id,
-        "name": param.name,
-        "version": version,
-        "defaultVal": str(param.default),
-        "type": str(param.annotation),
-        "description": None,
-        "rcType": PARAMETER,
-        "inCodeParentId": None,
-        "path": path,
-        "children": [],
-    }
+    info = get_info(
+        name=param.name,
+        version=version,
+        defaultVal=str(param.default),
+        type=str(param.annotation),
+        rcType=PARAMETER,
+        path=path,
+    )
     output[path] = info
 
 
