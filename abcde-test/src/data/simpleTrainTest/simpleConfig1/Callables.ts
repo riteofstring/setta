@@ -1664,4 +1664,19 @@ export default {
       returnType: null,
     },
   ],
+  "88413938-51d4-4d8c-a1b6-94861e07eb22": [
+    {
+      id: "f03ce732-e07d-48bc-af22-374677b463a2",
+      name: "parameters",
+      version: "0.14.0",
+      defaultVal: null,
+      type: "callable",
+      description: null,
+      rcType: "callable",
+      inCodeParentId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      path: "torchvision.models.ResNet.parameters",
+      children: [],
+      returnType: null,
+    },
+  ],
 };
