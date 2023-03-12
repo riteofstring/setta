@@ -37,8 +37,6 @@ export async function loadProjectSpecificData({
   const output = {};
   for (const k of [
     "allCodeInfo",
-    "params",
-    "paramCollections",
     "ev",
     "evCols",
     "kwargCols",
@@ -88,8 +86,6 @@ export async function loadOneProject({
 
   const {
     allCodeInfo,
-    params,
-    paramCollections,
     kwargInfo,
     uiTypes,
     baseUITypes,
@@ -109,7 +105,6 @@ export async function loadOneProject({
   } else if (forCodeGen) {
     const codeInfo = {
       allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      paramCollections,
     };
     return {
       codeInfo,
@@ -121,8 +116,6 @@ export async function loadOneProject({
     // This means we're testing the frontend, so we need everything
     const codeInfo = {
       allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      params,
-      paramCollections,
     };
     return {
       codeInfo,
