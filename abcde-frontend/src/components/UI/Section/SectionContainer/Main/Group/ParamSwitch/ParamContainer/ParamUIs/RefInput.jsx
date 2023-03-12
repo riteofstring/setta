@@ -68,6 +68,7 @@ function addAttrSection({
       x: sectionPosition.x + sectionWidth,
       y: sectionPosition.y,
     },
+    chainedFrom: refSectionId,
   };
 
   const configProps = {
