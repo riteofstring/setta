@@ -20,6 +20,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "Torchvision Models",
+    returnType: null,
   },
   "bb751616-d554-4ec8-84c1-8760078956d3": {
     id: "bb751616-d554-4ec8-84c1-8760078956d3",
@@ -32,6 +33,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "My Models",
+    returnType: null,
   },
   "93cd43f3-218c-4542-ad03-406a5b77aab5": {
     id: "93cd43f3-218c-4542-ad03-406a5b77aab5",
@@ -48,6 +50,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "The Best Optimizers",
+    returnType: null,
   },
   "69405361-0296-4321-9361-bd5b35aa2e5e": {
     id: "69405361-0296-4321-9361-bd5b35aa2e5e",
@@ -61,6 +64,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "Compose Transform",
+    returnType: null,
   },
   "400e8e11-596b-4a4b-a69b-4c5201b58a84": {
     id: "400e8e11-596b-4a4b-a69b-4c5201b58a84",
@@ -111,6 +115,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "Complete Datasets",
+    returnType: null,
   },
   "253cd8a8-a95a-4d15-b98b-73318b3632a1": {
     id: "253cd8a8-a95a-4d15-b98b-73318b3632a1",
@@ -128,6 +133,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "Various Params",
+    returnType: null,
   },
   "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86": {
     id: "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86",
@@ -140,6 +146,7 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "A Single Parameter",
+    returnType: null,
   },
   "1ec242dd-688e-4f71-a0de-cc13752461ce": {
     id: "1ec242dd-688e-4f71-a0de-cc13752461ce",
@@ -194,5 +201,6 @@ export default {
     defaultVal: null,
     inCodeParentId: null,
     path: "All Transforms",
+    returnType: null,
   },
 };

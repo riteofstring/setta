@@ -14,6 +14,7 @@ export default {
         "c1d20337-7f4a-4ce6-bfc3-70a80f50550c",
         "fa1920e3-e540-493d-b021-53f899ec5ab4",
       ],
+      returnType: null,
     },
     {
       id: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
@@ -29,6 +30,7 @@ export default {
         "421f8f4e-41ce-4582-8aa5-a18273f4919b",
         "0f376c6e-4387-4116-84fd-dddeeb8e9243",
       ],
+      returnType: null,
     },
     {
       id: "c26ea423-e1c2-40c4-a832-c46dcdff4a67",
@@ -44,6 +46,7 @@ export default {
         "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc",
         "65381024-c817-426b-881a-08de50b755c2",
       ],
+      returnType: null,
     },
     {
       id: "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4",
@@ -59,6 +62,7 @@ export default {
         "cdb49aa9-3e11-445d-8996-9a1f3af49228",
         "ad98684a-8cc1-44fb-a340-030606ae83d8",
       ],
+      returnType: null,
     },
     {
       id: "4470e113-a93f-41c5-9369-8981aa90da5d",
@@ -74,6 +78,7 @@ export default {
         "213303fc-dbfd-4463-89e3-6df407009f84",
         "3dc40c9f-954b-440d-a054-f73c75c8b68a",
       ],
+      returnType: null,
     },
     {
       id: "4a202711-496d-42d0-b432-8884aa68dd38",
@@ -89,6 +94,7 @@ export default {
         "093b232a-4afc-40fd-824b-4e32b4964fd4",
         "6852734b-4b08-4ee6-bb79-4e548bfbbb32",
       ],
+      returnType: null,
     },
     {
       id: "a41fc545-d910-405f-9c9f-9afe66914d69",
@@ -104,6 +110,7 @@ export default {
         "b57b65fd-cf13-48da-a8fe-8c170fda4681",
         "37413893-2bba-4dbb-96dd-266f1c1a9269",
       ],
+      returnType: null,
     },
     {
       id: "9b2f4419-9347-49be-b082-772497712d65",
@@ -119,6 +126,7 @@ export default {
         "c539862c-c83b-4b57-87b7-8d9bb39cf0b5",
         "5c68cf83-f28e-4d76-afff-07e055cbbe42",
       ],
+      returnType: null,
     },
     {
       id: "795f9f49-1c37-4ee6-8542-a0648b7879f8",
@@ -134,6 +142,7 @@ export default {
         "43aaac65-8682-41cb-b730-f28d5095121c",
         "d3408cf9-4b33-4146-946f-d2761bca5d66",
       ],
+      returnType: null,
     },
     {
       id: "da9f67ba-9294-4887-ba8f-e0f93b9c7098",
@@ -153,6 +162,7 @@ export default {
         "7cd6952b-9d4a-4c9a-b920-3e58f7dcd984",
         "78a84e61-2750-455a-a796-a9d195102b49",
       ],
+      returnType: null,
     },
     {
       id: "3ee957ad-3f93-4915-923e-8e3d1a29ca27",
@@ -172,6 +182,7 @@ export default {
         "4088714d-ee65-42c3-a474-fc345c78763a",
         "24f3b563-9c90-42c4-87b4-b9b27eb3f9b4",
       ],
+      returnType: null,
     },
     {
       id: "d9f380b9-db64-4b12-8025-05660f243e80",
@@ -191,6 +202,7 @@ export default {
         "5dd2c507-1dd7-4d21-9da6-3c25552ed557",
         "c074203f-5c72-4435-a3fe-bcfaf882d3af",
       ],
+      returnType: null,
     },
     {
       id: "39cab60a-f604-48a9-94ba-f867158bb142",
@@ -209,6 +221,7 @@ export default {
         "6bd2eaf4-90e8-40c4-8bfb-be1c1ee8b8cd",
         "96b597ac-683a-49e8-ad16-b87da1fe43c3",
       ],
+      returnType: null,
     },
     {
       id: "0aaa0099-4c39-4ca6-9c4a-9d2e3ef306c1",
@@ -229,6 +242,7 @@ export default {
         "627a5a72-834f-4bf3-8356-acc0ced588f4",
         "4d0bc5bf-bb0b-47b0-9864-71e49b88c4c3",
       ],
+      returnType: null,
     },
     {
       id: "541c5f9b-338e-4d6f-9d84-c986007f1794",
@@ -249,6 +263,7 @@ export default {
         "06266ef9-e8ad-456a-8ade-6d42ffb6d9c5",
         "97efcc7b-be5c-488d-9a66-22e383b4ddc4",
       ],
+      returnType: null,
     },
     {
       id: "2ac1a8c7-68a8-4300-be38-f8488b980375",
@@ -267,6 +282,7 @@ export default {
         "2897485b-3a89-4ac0-9679-420d03456919",
         "ee515a0c-df3f-4a09-8e00-74659a11d7ea",
       ],
+      returnType: null,
     },
     {
       id: "2d1a998a-a7e5-4ed6-be90-84ea61467a86",
@@ -285,6 +301,7 @@ export default {
         "9c4bc41a-cca9-4e24-96f3-713fb6a1cbbc",
         "b1712856-e944-4cb4-bff5-241f086d5228",
       ],
+      returnType: null,
     },
     {
       id: "555e2a80-b56b-4e5d-8b0e-e20121fde33e",
@@ -305,6 +322,7 @@ export default {
         "6714e04a-528a-4335-a92e-635881d9cba1",
         "acbf3a54-16d4-416a-8a03-325c6ed5a357",
       ],
+      returnType: null,
     },
     {
       id: "eb25f701-b78a-4cc7-936c-39271783de33",
@@ -325,6 +343,7 @@ export default {
         "37fcd6f7-bffc-4d81-af4f-15c862f97e7d",
         "b31f675c-1ae1-4376-9687-064c5895d665",
       ],
+      returnType: null,
     },
     {
       id: "bf653368-3cf1-474a-8c1c-f21f544e3c80",
@@ -346,6 +365,7 @@ export default {
         "e02da405-3435-4090-9d2c-c62878f4b78d",
         "0547e566-16fa-4146-a7a2-75d562ee6f7d",
       ],
+      returnType: null,
     },
     {
       id: "3fd4f0de-10a6-49f8-b791-0d93fb0f01c5",
@@ -365,6 +385,7 @@ export default {
         "4f3642e2-c8d3-48a6-8c41-6e6ce80242d7",
         "28f2d49f-49a9-4876-9441-bd2bae8f4762",
       ],
+      returnType: null,
     },
     {
       id: "c015223e-1910-4dd6-b1bd-ac1eb1388656",
@@ -383,6 +404,7 @@ export default {
         "666a13c2-1273-4f16-9538-5beb92cc8945",
         "ac777ad1-e1a1-40c5-9d6e-8792c863ea0b",
       ],
+      returnType: null,
     },
     {
       id: "6e502d5d-d206-4eb5-b92e-2c10ca3097db",
@@ -401,6 +423,7 @@ export default {
         "7970b44a-5ea4-4a2b-94b8-1cb9ec889f7a",
         "02c7cb12-d981-43c0-a340-4ef88b589a9a",
       ],
+      returnType: null,
     },
     {
       id: "7c5ee16c-0843-4dec-897c-e8e5f178f938",
@@ -430,6 +453,7 @@ export default {
         "636ae4f3-f1b7-4dc7-80ca-5930c66db239",
         "25074965-fcdb-4469-a10c-54c473b87a41",
       ],
+      returnType: null,
     },
     {
       id: "96b752b6-9d4b-4cee-a954-256f58bdc908",
@@ -450,6 +474,7 @@ export default {
         "6596d26b-07ab-4c16-8d06-20eee37e27d8",
         "0ce97988-b789-4dcf-9f98-e028c82355d1",
       ],
+      returnType: null,
     },
     {
       id: "46879cda-56c6-4e59-9d5a-bc5ccfc9c44d",
@@ -472,6 +497,7 @@ export default {
         "6b7c74bb-4af0-4ba3-bee2-cc4a8653ef49",
         "3705b635-2f8c-4a8a-8bb6-ffff15d9a3d2",
       ],
+      returnType: null,
     },
     {
       id: "34022ef3-4f7d-4b0d-860c-8c200b197d0b",
@@ -491,6 +517,7 @@ export default {
         "f952b777-5210-4821-9906-064294d819a3",
         "e71ab373-1432-46d1-9b90-d4c2938f7031",
       ],
+      returnType: null,
     },
     {
       id: "90c3554d-8493-46a6-a3a2-c3e07f14bdc3",
@@ -519,6 +546,7 @@ export default {
         "1cbb2e04-9c6a-40d1-beaf-d5e3a36c86a7",
         "bf1c8f62-1382-4a1a-a777-a4bdc199b3f7",
       ],
+      returnType: null,
     },
     {
       id: "67ff5d6f-2c42-453c-bad8-bd16869ad7b4",
@@ -537,6 +565,7 @@ export default {
         "83e05943-266d-4bb7-9a85-94ad9f15e41c",
         "157d3f5f-01f4-45a7-a719-d320c7b63b76",
       ],
+      returnType: null,
     },
     {
       id: "adc84df1-44b4-4903-a86f-d80a4f968d58",
@@ -554,6 +583,7 @@ export default {
         "4d6521b9-642e-4a81-8bf1-c2daf5d9defc",
         "9bde54dc-c528-4472-90a8-db15d07d658d",
       ],
+      returnType: null,
     },
     {
       id: "c63599bc-f49a-44ad-bbef-32e4a8c6b5fc",
@@ -573,6 +603,7 @@ export default {
         "021ee6aa-75f0-4556-a9cb-3837eb3df4de",
         "a1e91896-5216-4986-aeea-9fc2accfbc75",
       ],
+      returnType: null,
     },
     {
       id: "da9e705b-632d-4232-b336-f830d2cc304b",
@@ -592,6 +623,7 @@ export default {
         "df551ebd-bb06-449b-92a2-cde9b6e2a0ad",
         "afa60929-7438-4241-8b35-5facac9b4cb6",
       ],
+      returnType: null,
     },
     {
       id: "2630d425-8d3d-40ed-adc8-f58d8c1f8769",
@@ -612,6 +644,7 @@ export default {
         "0737f538-c784-416f-bbab-e7378d629247",
         "40083909-67a7-4e45-9889-4def063c8fd8",
       ],
+      returnType: null,
     },
     {
       id: "3f851a51-be87-4711-aceb-0b5408ef6d4a",
@@ -633,6 +666,7 @@ export default {
         "a0fdb583-7501-4805-a4cd-57a7de640986",
         "6bf04e74-c12e-4610-9c1f-660e3b9164de",
       ],
+      returnType: null,
     },
     {
       id: "27a2a668-166d-450c-8b71-0aae55db33bc",
@@ -654,6 +688,7 @@ export default {
         "0d7e2acb-a72c-4aae-8051-8e7942b9457b",
         "b7b17a72-bf7f-4fa5-8a1b-645b49a20272",
       ],
+      returnType: null,
     },
     {
       id: "689a57d2-9473-44b1-a09e-3d6d4bc1f742",
@@ -674,6 +709,7 @@ export default {
         "7a1c8734-2ffb-4abb-a016-f6ba74b8f647",
         "2d652178-cbc1-4860-84e3-7ff1f92242c4",
       ],
+      returnType: null,
     },
     {
       id: "a13f8782-59ed-461b-992b-448828c76df8",
@@ -692,6 +728,7 @@ export default {
         "5522e78c-97b3-42e4-b48e-f0cfd2f7bb9c",
         "6e7a3ddf-8049-4e0b-8831-fc469455a5e5",
       ],
+      returnType: null,
     },
     {
       id: "0baa4077-534e-4e41-b764-350a7d1943c0",
@@ -710,6 +747,7 @@ export default {
         "d5fe1abb-61aa-4eed-b54a-9f86107ea647",
         "77292a8f-512e-4810-917a-6ec82b36721a",
       ],
+      returnType: null,
     },
     {
       id: "bcfcdb60-0ed8-4560-af2d-59d94ec4d17f",
@@ -730,6 +768,7 @@ export default {
         "7d333138-c371-4936-98eb-b91a06670c98",
         "778fc935-502d-4990-b732-ccb6772a78cd",
       ],
+      returnType: null,
     },
     {
       id: "715c9139-0812-4308-8f72-3390e359d82b",
@@ -749,6 +788,7 @@ export default {
         "5ce52f54-bca9-4e3d-beb0-e50779491bb9",
         "392d2d84-6c6a-4403-b323-7607cd000c34",
       ],
+      returnType: null,
     },
     {
       id: "dc4c50bd-b705-4eea-9345-8e17844540a3",
@@ -778,6 +818,7 @@ export default {
         "005991f7-3061-4887-8c12-9b0d9cec02aa",
         "4e9dc4d8-d311-4731-a6b9-7079b95d7357",
       ],
+      returnType: null,
     },
     {
       id: "cac3f4ef-7068-41ff-8389-2dce926c492f",
@@ -797,6 +838,7 @@ export default {
         "baea51c5-30b3-46fd-aea9-fb8e48cc12b2",
         "2395d2d4-5ec4-4b2a-bdb8-3dd05a114205",
       ],
+      returnType: null,
     },
     {
       id: "96563c99-db40-41e8-a6d5-cc40ea42e4d2",
@@ -817,6 +859,7 @@ export default {
         "61004234-0216-4d5f-ae62-7253ce8f97ae",
         "0f069ff7-7c02-4c05-b746-24b85a24a117",
       ],
+      returnType: null,
     },
     {
       id: "811db7c6-4b25-4a4f-bc75-c20258a5e891",
@@ -837,6 +880,7 @@ export default {
         "e5fad867-4aa8-4432-85ae-76350537a502",
         "8b10a490-21b1-4625-92ff-c3c68284e0d3",
       ],
+      returnType: null,
     },
     {
       id: "037da68a-1827-47ef-adec-b081388c657c",
@@ -854,6 +898,7 @@ export default {
         "f48dbd8e-4cf7-4603-b8cb-1c7da74fea40",
         "9164b1cd-5abd-4f41-a4fc-f5fc55479832",
       ],
+      returnType: null,
     },
     {
       id: "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa",
@@ -873,6 +918,7 @@ export default {
         "01feb165-d921-4304-9869-5735a90b39b0",
         "60e4b0b4-c260-4c52-a656-e1592d88690b",
       ],
+      returnType: null,
     },
     {
       id: "ac679940-4a07-4fc0-9fa4-4b5498405693",
@@ -885,6 +931,7 @@ export default {
       path: "torchvision.transforms.Compose",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f"],
+      returnType: null,
     },
     {
       id: "fe8ec1e4-e978-40b2-8764-146b39e62269",
@@ -901,6 +948,7 @@ export default {
         "e56fd110-131d-4b43-acb1-efa118d48344",
         "772e9aec-c917-46c4-bee5-ea80895e8ecf",
       ],
+      returnType: null,
     },
     {
       id: "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59",
@@ -913,6 +961,7 @@ export default {
       path: "torchvision.transforms.AutoAugmentPolicy",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "373b3443-760f-4fce-b650-5dc6952098a0",
@@ -925,6 +974,7 @@ export default {
       path: "torchvision.transforms.CenterCrop",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["0b0f526a-753b-4ebe-9616-593eb1c927be"],
+      returnType: null,
     },
     {
       id: "b61c3e59-27d9-4faf-97af-7a85246e07dc",
@@ -942,6 +992,7 @@ export default {
         "614525d6-ea7d-4ad3-b34a-bf058d4087b3",
         "e7e48958-0304-4e7b-a69e-c127e0104a20",
       ],
+      returnType: null,
     },
     {
       id: "fda8c0e1-2a63-4e0f-9868-0024d8143800",
@@ -954,6 +1005,7 @@ export default {
       path: "torchvision.transforms.ConvertImageDtype",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd"],
+      returnType: null,
     },
     {
       id: "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
@@ -966,6 +1018,7 @@ export default {
       path: "torchvision.transforms.Enum",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "8b59f872-8f35-4809-8650-2a2cdc984038",
@@ -978,6 +1031,7 @@ export default {
       path: "torchvision.transforms.FiveCrop",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["6112b3b2-ef47-49a2-9de0-95737cb2c256"],
+      returnType: null,
     },
     {
       id: "26791c4a-acc1-4202-ae32-15bd29157531",
@@ -993,6 +1047,7 @@ export default {
         "54836fc4-783d-46c0-ae86-d54c85847197",
         "3206924e-30de-41e6-8d1e-adb5c660b44d",
       ],
+      returnType: null,
     },
     {
       id: "09ffb861-9a4b-4563-bf02-9bb9de287ca4",
@@ -1005,6 +1060,7 @@ export default {
       path: "torchvision.transforms.Grayscale",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["d7bc278f-f75c-4828-b3fe-a140f0c3aea3"],
+      returnType: null,
     },
     {
       id: "a948b064-ac6b-4e93-b912-c4d886dbd70c",
@@ -1017,6 +1073,7 @@ export default {
       path: "torchvision.transforms.InterpolationMode",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "cde94860-d427-49d5-9309-85727f8c22c5",
@@ -1029,6 +1086,7 @@ export default {
       path: "torchvision.transforms.Lambda",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["09a81554-070f-4e8b-9ba3-4d440609e2db"],
+      returnType: null,
     },
     {
       id: "83f71661-8d3c-46a0-948e-1d09891ecf0e",
@@ -1044,6 +1102,7 @@ export default {
         "2c020268-bcec-4bc3-a33b-598026e142b1",
         "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2",
       ],
+      returnType: null,
     },
     {
       id: "9ae00374-aa16-484f-af8b-658af1815f60",
@@ -1060,6 +1119,7 @@ export default {
         "b2b9788d-86bb-478c-8743-72487f3984c8",
         "2d820b56-02c5-414d-8804-eefeac5eb2f2",
       ],
+      returnType: null,
     },
     {
       id: "802f156d-a319-43ad-8ee0-1470806f8842",
@@ -1072,6 +1132,7 @@ export default {
       path: "torchvision.transforms.PILToTensor",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "abfb28a7-aaf9-47f2-be30-2a415a2865f3",
@@ -1088,6 +1149,7 @@ export default {
         "a0871405-cbf4-41e1-b0eb-51574b54a020",
         "912fa335-af40-4ecc-afd5-8aebd76c83d9",
       ],
+      returnType: null,
     },
     {
       id: "7c28c9ae-8d17-4635-b521-43c727a3c05c",
@@ -1103,6 +1165,7 @@ export default {
         "82da212c-508b-46a0-bf76-01e9e798d6d0",
         "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb",
       ],
+      returnType: null,
     },
     {
       id: "5e456a49-b4da-484a-b420-3696ac4cd361",
@@ -1124,6 +1187,7 @@ export default {
         "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f",
         "51e65f5a-71ff-4e6c-8524-b347b927d94c",
       ],
+      returnType: null,
     },
     {
       id: "ece98f3e-3f59-438a-bf90-1e1313d374ce",
@@ -1139,6 +1203,7 @@ export default {
         "608628df-3881-49e6-9e1d-3832de3c1425",
         "7bba5280-2fdf-4900-868b-2c18b43c3011",
       ],
+      returnType: null,
     },
     {
       id: "5f69ca04-fa41-4d87-8f48-f59e99b8c1db",
@@ -1151,6 +1216,7 @@ export default {
       path: "torchvision.transforms.RandomAutocontrast",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["24a460a6-1340-402c-94ae-4f5c0df3b91f"],
+      returnType: null,
     },
     {
       id: "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb",
@@ -1163,6 +1229,7 @@ export default {
       path: "torchvision.transforms.RandomChoice",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["af4db3a3-e6f4-45d1-83b3-bdfda629f5d4"],
+      returnType: null,
     },
     {
       id: "8841a2c8-1bd3-42d4-8c14-2325506f05d8",
@@ -1181,6 +1248,7 @@ export default {
         "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e",
         "54ff94b4-8c62-4217-8b0f-90cf353ccea0",
       ],
+      returnType: null,
     },
     {
       id: "294d0c8e-0755-42e4-9bb0-7034616bb306",
@@ -1193,6 +1261,7 @@ export default {
       path: "torchvision.transforms.RandomEqualize",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["51f2f000-4d06-46f9-8ade-43383b5c2113"],
+      returnType: null,
     },
     {
       id: "c29fb726-bb9b-4a59-a253-1a1485073197",
@@ -1211,6 +1280,7 @@ export default {
         "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da",
         "3884d8a0-bc03-40d2-93c5-62641fa6bf2a",
       ],
+      returnType: null,
     },
     {
       id: "c79959d6-6bdd-4586-877f-ff84ab4bb986",
@@ -1223,6 +1293,7 @@ export default {
       path: "torchvision.transforms.RandomGrayscale",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["ebca8b88-83d8-443e-978c-e70b6878f441"],
+      returnType: null,
     },
     {
       id: "f5346240-9bf1-4647-a37b-2045e5acd181",
@@ -1235,6 +1306,7 @@ export default {
       path: "torchvision.transforms.RandomHorizontalFlip",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["e8e949a7-5beb-466a-a69b-fd59e8261cce"],
+      returnType: null,
     },
     {
       id: "689b3a68-ad65-4e61-9262-17a0f85e5b17",
@@ -1247,6 +1319,7 @@ export default {
       path: "torchvision.transforms.RandomInvert",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["f744b2c1-40a8-49e3-9fe4-ac3916c8faac"],
+      returnType: null,
     },
     {
       id: "c6f9ad05-bc30-4260-9f81-11368d539bd1",
@@ -1259,6 +1332,7 @@ export default {
       path: "torchvision.transforms.RandomOrder",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["5d6760a3-4741-4e9b-983a-d0c1966eead1"],
+      returnType: null,
     },
     {
       id: "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd",
@@ -1276,6 +1350,7 @@ export default {
         "ce96a97b-2bcb-48a2-ab6c-de8757a070d6",
         "c0eaf861-134e-4aeb-a190-d0aa7d8b928a",
       ],
+      returnType: null,
     },
     {
       id: "ad41317a-2495-457b-b19e-96fc074e96f1",
@@ -1291,6 +1366,7 @@ export default {
         "90300435-efad-49cb-986b-a922ab01fec9",
         "06a000e6-96ea-4ef6-801a-7d88d2022fb1",
       ],
+      returnType: null,
     },
     {
       id: "51277118-3bda-4ebe-960f-4a3f36b74d50",
@@ -1308,6 +1384,7 @@ export default {
         "91acec7a-9b31-4acb-b31c-0dd49a71a8a1",
         "611a8cb9-22ed-4af9-a026-1889f59b0502",
       ],
+      returnType: null,
     },
     {
       id: "5faeee6c-1227-4487-b050-88a954758a6c",
@@ -1327,6 +1404,7 @@ export default {
         "ba036e59-2a45-4b00-b7ad-7c7511543c8f",
         "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a",
       ],
+      returnType: null,
     },
     {
       id: "ada150b1-0785-45fe-a1fb-837fafccb845",
@@ -1344,6 +1422,7 @@ export default {
         "d97e4857-6ad5-4690-a3ce-c23afc0128c8",
         "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81",
       ],
+      returnType: null,
     },
     {
       id: "6e95b433-7806-4ab9-a5d6-23909a3fb320",
@@ -1359,6 +1438,7 @@ export default {
         "89586475-c469-47d6-9ae5-74d1f8bd767c",
         "70074a30-edb9-4f98-b22e-aa1c5be8861f",
       ],
+      returnType: null,
     },
     {
       id: "964783a7-c538-42ef-88d0-66ac64f973c9",
@@ -1371,6 +1451,7 @@ export default {
       path: "torchvision.transforms.RandomVerticalFlip",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["15c257d2-3f34-49c4-85e0-41f23345092a"],
+      returnType: null,
     },
     {
       id: "93af0e0a-9ea5-4705-a1d3-bc450936c534",
@@ -1386,6 +1467,7 @@ export default {
         "d9050cc3-5864-42c2-8111-f544d2c4707f",
         "df9ccd04-23f8-4890-8970-f58b3117b857",
       ],
+      returnType: null,
     },
     {
       id: "b7716641-97ef-4401-97dd-0872701b1651",
@@ -1401,6 +1483,7 @@ export default {
         "c2f429aa-2397-4a11-8650-88cf4b30a7eb",
         "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8",
       ],
+      returnType: null,
     },
     {
       id: "31467e40-c796-4e17-8a0d-23477ec8d05f",
@@ -1416,6 +1499,7 @@ export default {
         "b8f64b24-f2f9-4438-95c4-1059f6b2eea1",
         "a1d40131-a21a-4296-8138-bc47cdfcb7ac",
       ],
+      returnType: null,
     },
     {
       id: "079c1a70-f2e9-452a-a011-7a2e685efcd4",
@@ -1428,6 +1512,7 @@ export default {
       path: "torchvision.transforms.Tensor",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
@@ -1440,6 +1525,7 @@ export default {
       path: "torchvision.transforms.ToPILImage",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["24da26a7-30e6-4590-a66d-2aedd6c710b5"],
+      returnType: null,
     },
     {
       id: "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
@@ -1452,6 +1538,7 @@ export default {
       path: "torchvision.transforms.ToTensor",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
   ],
   "0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0": [
@@ -1469,6 +1556,7 @@ export default {
         "c1d20337-7f4a-4ce6-bfc3-70a80f50550c",
         "fa1920e3-e540-493d-b021-53f899ec5ab4",
       ],
+      returnType: null,
     },
     {
       id: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
@@ -1484,6 +1572,7 @@ export default {
         "421f8f4e-41ce-4582-8aa5-a18273f4919b",
         "0f376c6e-4387-4116-84fd-dddeeb8e9243",
       ],
+      returnType: null,
     },
     {
       id: "c26ea423-e1c2-40c4-a832-c46dcdff4a67",
@@ -1499,6 +1588,7 @@ export default {
         "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc",
         "65381024-c817-426b-881a-08de50b755c2",
       ],
+      returnType: null,
     },
     {
       id: "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4",
@@ -1514,6 +1604,7 @@ export default {
         "cdb49aa9-3e11-445d-8996-9a1f3af49228",
         "ad98684a-8cc1-44fb-a340-030606ae83d8",
       ],
+      returnType: null,
     },
     {
       id: "4470e113-a93f-41c5-9369-8981aa90da5d",
@@ -1529,6 +1620,7 @@ export default {
         "213303fc-dbfd-4463-89e3-6df407009f84",
         "3dc40c9f-954b-440d-a054-f73c75c8b68a",
       ],
+      returnType: null,
     },
     {
       id: "4a202711-496d-42d0-b432-8884aa68dd38",
@@ -1544,6 +1636,7 @@ export default {
         "093b232a-4afc-40fd-824b-4e32b4964fd4",
         "6852734b-4b08-4ee6-bb79-4e548bfbbb32",
       ],
+      returnType: null,
     },
     {
       id: "a41fc545-d910-405f-9c9f-9afe66914d69",
@@ -1559,6 +1652,7 @@ export default {
         "b57b65fd-cf13-48da-a8fe-8c170fda4681",
         "37413893-2bba-4dbb-96dd-266f1c1a9269",
       ],
+      returnType: null,
     },
     {
       id: "9b2f4419-9347-49be-b082-772497712d65",
@@ -1574,6 +1668,7 @@ export default {
         "c539862c-c83b-4b57-87b7-8d9bb39cf0b5",
         "5c68cf83-f28e-4d76-afff-07e055cbbe42",
       ],
+      returnType: null,
     },
     {
       id: "795f9f49-1c37-4ee6-8542-a0648b7879f8",
@@ -1589,6 +1684,7 @@ export default {
         "43aaac65-8682-41cb-b730-f28d5095121c",
         "d3408cf9-4b33-4146-946f-d2761bca5d66",
       ],
+      returnType: null,
     },
   ],
   "ea46767b-51c8-42d7-9434-771c6b144864": [
@@ -1610,6 +1706,7 @@ export default {
         "7cd6952b-9d4a-4c9a-b920-3e58f7dcd984",
         "78a84e61-2750-455a-a796-a9d195102b49",
       ],
+      returnType: null,
     },
     {
       id: "3ee957ad-3f93-4915-923e-8e3d1a29ca27",
@@ -1629,6 +1726,7 @@ export default {
         "4088714d-ee65-42c3-a474-fc345c78763a",
         "24f3b563-9c90-42c4-87b4-b9b27eb3f9b4",
       ],
+      returnType: null,
     },
     {
       id: "d9f380b9-db64-4b12-8025-05660f243e80",
@@ -1648,6 +1746,7 @@ export default {
         "5dd2c507-1dd7-4d21-9da6-3c25552ed557",
         "c074203f-5c72-4435-a3fe-bcfaf882d3af",
       ],
+      returnType: null,
     },
     {
       id: "39cab60a-f604-48a9-94ba-f867158bb142",
@@ -1666,6 +1765,7 @@ export default {
         "6bd2eaf4-90e8-40c4-8bfb-be1c1ee8b8cd",
         "96b597ac-683a-49e8-ad16-b87da1fe43c3",
       ],
+      returnType: null,
     },
     {
       id: "0aaa0099-4c39-4ca6-9c4a-9d2e3ef306c1",
@@ -1686,6 +1786,7 @@ export default {
         "627a5a72-834f-4bf3-8356-acc0ced588f4",
         "4d0bc5bf-bb0b-47b0-9864-71e49b88c4c3",
       ],
+      returnType: null,
     },
     {
       id: "541c5f9b-338e-4d6f-9d84-c986007f1794",
@@ -1706,6 +1807,7 @@ export default {
         "06266ef9-e8ad-456a-8ade-6d42ffb6d9c5",
         "97efcc7b-be5c-488d-9a66-22e383b4ddc4",
       ],
+      returnType: null,
     },
     {
       id: "2ac1a8c7-68a8-4300-be38-f8488b980375",
@@ -1724,6 +1826,7 @@ export default {
         "2897485b-3a89-4ac0-9679-420d03456919",
         "ee515a0c-df3f-4a09-8e00-74659a11d7ea",
       ],
+      returnType: null,
     },
     {
       id: "2d1a998a-a7e5-4ed6-be90-84ea61467a86",
@@ -1742,6 +1845,7 @@ export default {
         "9c4bc41a-cca9-4e24-96f3-713fb6a1cbbc",
         "b1712856-e944-4cb4-bff5-241f086d5228",
       ],
+      returnType: null,
     },
     {
       id: "555e2a80-b56b-4e5d-8b0e-e20121fde33e",
@@ -1762,6 +1866,7 @@ export default {
         "6714e04a-528a-4335-a92e-635881d9cba1",
         "acbf3a54-16d4-416a-8a03-325c6ed5a357",
       ],
+      returnType: null,
     },
     {
       id: "eb25f701-b78a-4cc7-936c-39271783de33",
@@ -1782,6 +1887,7 @@ export default {
         "37fcd6f7-bffc-4d81-af4f-15c862f97e7d",
         "b31f675c-1ae1-4376-9687-064c5895d665",
       ],
+      returnType: null,
     },
     {
       id: "bf653368-3cf1-474a-8c1c-f21f544e3c80",
@@ -1803,6 +1909,7 @@ export default {
         "e02da405-3435-4090-9d2c-c62878f4b78d",
         "0547e566-16fa-4146-a7a2-75d562ee6f7d",
       ],
+      returnType: null,
     },
     {
       id: "3fd4f0de-10a6-49f8-b791-0d93fb0f01c5",
@@ -1822,6 +1929,7 @@ export default {
         "4f3642e2-c8d3-48a6-8c41-6e6ce80242d7",
         "28f2d49f-49a9-4876-9441-bd2bae8f4762",
       ],
+      returnType: null,
     },
     {
       id: "c015223e-1910-4dd6-b1bd-ac1eb1388656",
@@ -1840,6 +1948,7 @@ export default {
         "666a13c2-1273-4f16-9538-5beb92cc8945",
         "ac777ad1-e1a1-40c5-9d6e-8792c863ea0b",
       ],
+      returnType: null,
     },
     {
       id: "6e502d5d-d206-4eb5-b92e-2c10ca3097db",
@@ -1858,6 +1967,7 @@ export default {
         "7970b44a-5ea4-4a2b-94b8-1cb9ec889f7a",
         "02c7cb12-d981-43c0-a340-4ef88b589a9a",
       ],
+      returnType: null,
     },
     {
       id: "7c5ee16c-0843-4dec-897c-e8e5f178f938",
@@ -1887,6 +1997,7 @@ export default {
         "636ae4f3-f1b7-4dc7-80ca-5930c66db239",
         "25074965-fcdb-4469-a10c-54c473b87a41",
       ],
+      returnType: null,
     },
     {
       id: "96b752b6-9d4b-4cee-a954-256f58bdc908",
@@ -1907,6 +2018,7 @@ export default {
         "6596d26b-07ab-4c16-8d06-20eee37e27d8",
         "0ce97988-b789-4dcf-9f98-e028c82355d1",
       ],
+      returnType: null,
     },
     {
       id: "46879cda-56c6-4e59-9d5a-bc5ccfc9c44d",
@@ -1929,6 +2041,7 @@ export default {
         "6b7c74bb-4af0-4ba3-bee2-cc4a8653ef49",
         "3705b635-2f8c-4a8a-8bb6-ffff15d9a3d2",
       ],
+      returnType: null,
     },
     {
       id: "34022ef3-4f7d-4b0d-860c-8c200b197d0b",
@@ -1948,6 +2061,7 @@ export default {
         "f952b777-5210-4821-9906-064294d819a3",
         "e71ab373-1432-46d1-9b90-d4c2938f7031",
       ],
+      returnType: null,
     },
     {
       id: "90c3554d-8493-46a6-a3a2-c3e07f14bdc3",
@@ -1976,6 +2090,7 @@ export default {
         "1cbb2e04-9c6a-40d1-beaf-d5e3a36c86a7",
         "bf1c8f62-1382-4a1a-a777-a4bdc199b3f7",
       ],
+      returnType: null,
     },
     {
       id: "67ff5d6f-2c42-453c-bad8-bd16869ad7b4",
@@ -1994,6 +2109,7 @@ export default {
         "83e05943-266d-4bb7-9a85-94ad9f15e41c",
         "157d3f5f-01f4-45a7-a719-d320c7b63b76",
       ],
+      returnType: null,
     },
     {
       id: "adc84df1-44b4-4903-a86f-d80a4f968d58",
@@ -2011,6 +2127,7 @@ export default {
         "4d6521b9-642e-4a81-8bf1-c2daf5d9defc",
         "9bde54dc-c528-4472-90a8-db15d07d658d",
       ],
+      returnType: null,
     },
     {
       id: "c63599bc-f49a-44ad-bbef-32e4a8c6b5fc",
@@ -2030,6 +2147,7 @@ export default {
         "021ee6aa-75f0-4556-a9cb-3837eb3df4de",
         "a1e91896-5216-4986-aeea-9fc2accfbc75",
       ],
+      returnType: null,
     },
     {
       id: "da9e705b-632d-4232-b336-f830d2cc304b",
@@ -2049,6 +2167,7 @@ export default {
         "df551ebd-bb06-449b-92a2-cde9b6e2a0ad",
         "afa60929-7438-4241-8b35-5facac9b4cb6",
       ],
+      returnType: null,
     },
     {
       id: "2630d425-8d3d-40ed-adc8-f58d8c1f8769",
@@ -2069,6 +2188,7 @@ export default {
         "0737f538-c784-416f-bbab-e7378d629247",
         "40083909-67a7-4e45-9889-4def063c8fd8",
       ],
+      returnType: null,
     },
     {
       id: "3f851a51-be87-4711-aceb-0b5408ef6d4a",
@@ -2090,6 +2210,7 @@ export default {
         "a0fdb583-7501-4805-a4cd-57a7de640986",
         "6bf04e74-c12e-4610-9c1f-660e3b9164de",
       ],
+      returnType: null,
     },
     {
       id: "27a2a668-166d-450c-8b71-0aae55db33bc",
@@ -2111,6 +2232,7 @@ export default {
         "0d7e2acb-a72c-4aae-8051-8e7942b9457b",
         "b7b17a72-bf7f-4fa5-8a1b-645b49a20272",
       ],
+      returnType: null,
     },
     {
       id: "689a57d2-9473-44b1-a09e-3d6d4bc1f742",
@@ -2131,6 +2253,7 @@ export default {
         "7a1c8734-2ffb-4abb-a016-f6ba74b8f647",
         "2d652178-cbc1-4860-84e3-7ff1f92242c4",
       ],
+      returnType: null,
     },
     {
       id: "a13f8782-59ed-461b-992b-448828c76df8",
@@ -2149,6 +2272,7 @@ export default {
         "5522e78c-97b3-42e4-b48e-f0cfd2f7bb9c",
         "6e7a3ddf-8049-4e0b-8831-fc469455a5e5",
       ],
+      returnType: null,
     },
     {
       id: "0baa4077-534e-4e41-b764-350a7d1943c0",
@@ -2167,6 +2291,7 @@ export default {
         "d5fe1abb-61aa-4eed-b54a-9f86107ea647",
         "77292a8f-512e-4810-917a-6ec82b36721a",
       ],
+      returnType: null,
     },
     {
       id: "bcfcdb60-0ed8-4560-af2d-59d94ec4d17f",
@@ -2187,6 +2312,7 @@ export default {
         "7d333138-c371-4936-98eb-b91a06670c98",
         "778fc935-502d-4990-b732-ccb6772a78cd",
       ],
+      returnType: null,
     },
     {
       id: "715c9139-0812-4308-8f72-3390e359d82b",
@@ -2206,6 +2332,7 @@ export default {
         "5ce52f54-bca9-4e3d-beb0-e50779491bb9",
         "392d2d84-6c6a-4403-b323-7607cd000c34",
       ],
+      returnType: null,
     },
     {
       id: "dc4c50bd-b705-4eea-9345-8e17844540a3",
@@ -2235,6 +2362,7 @@ export default {
         "005991f7-3061-4887-8c12-9b0d9cec02aa",
         "4e9dc4d8-d311-4731-a6b9-7079b95d7357",
       ],
+      returnType: null,
     },
     {
       id: "cac3f4ef-7068-41ff-8389-2dce926c492f",
@@ -2254,6 +2382,7 @@ export default {
         "baea51c5-30b3-46fd-aea9-fb8e48cc12b2",
         "2395d2d4-5ec4-4b2a-bdb8-3dd05a114205",
       ],
+      returnType: null,
     },
     {
       id: "96563c99-db40-41e8-a6d5-cc40ea42e4d2",
@@ -2274,6 +2403,7 @@ export default {
         "61004234-0216-4d5f-ae62-7253ce8f97ae",
         "0f069ff7-7c02-4c05-b746-24b85a24a117",
       ],
+      returnType: null,
     },
     {
       id: "811db7c6-4b25-4a4f-bc75-c20258a5e891",
@@ -2294,6 +2424,7 @@ export default {
         "e5fad867-4aa8-4432-85ae-76350537a502",
         "8b10a490-21b1-4625-92ff-c3c68284e0d3",
       ],
+      returnType: null,
     },
     {
       id: "037da68a-1827-47ef-adec-b081388c657c",
@@ -2311,6 +2442,7 @@ export default {
         "f48dbd8e-4cf7-4603-b8cb-1c7da74fea40",
         "9164b1cd-5abd-4f41-a4fc-f5fc55479832",
       ],
+      returnType: null,
     },
     {
       id: "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa",
@@ -2330,6 +2462,7 @@ export default {
         "01feb165-d921-4304-9869-5735a90b39b0",
         "60e4b0b4-c260-4c52-a656-e1592d88690b",
       ],
+      returnType: null,
     },
   ],
   "9976c3f9-0a8e-4dad-894e-2bea3604d8d3": [
@@ -2344,6 +2477,7 @@ export default {
       path: "torchvision.transforms.Compose",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f"],
+      returnType: null,
     },
     {
       id: "fe8ec1e4-e978-40b2-8764-146b39e62269",
@@ -2360,6 +2494,7 @@ export default {
         "e56fd110-131d-4b43-acb1-efa118d48344",
         "772e9aec-c917-46c4-bee5-ea80895e8ecf",
       ],
+      returnType: null,
     },
     {
       id: "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59",
@@ -2372,6 +2507,7 @@ export default {
       path: "torchvision.transforms.AutoAugmentPolicy",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "373b3443-760f-4fce-b650-5dc6952098a0",
@@ -2384,6 +2520,7 @@ export default {
       path: "torchvision.transforms.CenterCrop",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["0b0f526a-753b-4ebe-9616-593eb1c927be"],
+      returnType: null,
     },
     {
       id: "b61c3e59-27d9-4faf-97af-7a85246e07dc",
@@ -2401,6 +2538,7 @@ export default {
         "614525d6-ea7d-4ad3-b34a-bf058d4087b3",
         "e7e48958-0304-4e7b-a69e-c127e0104a20",
       ],
+      returnType: null,
     },
     {
       id: "fda8c0e1-2a63-4e0f-9868-0024d8143800",
@@ -2413,6 +2551,7 @@ export default {
       path: "torchvision.transforms.ConvertImageDtype",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd"],
+      returnType: null,
     },
     {
       id: "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
@@ -2425,6 +2564,7 @@ export default {
       path: "torchvision.transforms.Enum",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "8b59f872-8f35-4809-8650-2a2cdc984038",
@@ -2437,6 +2577,7 @@ export default {
       path: "torchvision.transforms.FiveCrop",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["6112b3b2-ef47-49a2-9de0-95737cb2c256"],
+      returnType: null,
     },
     {
       id: "26791c4a-acc1-4202-ae32-15bd29157531",
@@ -2452,6 +2593,7 @@ export default {
         "54836fc4-783d-46c0-ae86-d54c85847197",
         "3206924e-30de-41e6-8d1e-adb5c660b44d",
       ],
+      returnType: null,
     },
     {
       id: "09ffb861-9a4b-4563-bf02-9bb9de287ca4",
@@ -2464,6 +2606,7 @@ export default {
       path: "torchvision.transforms.Grayscale",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["d7bc278f-f75c-4828-b3fe-a140f0c3aea3"],
+      returnType: null,
     },
     {
       id: "a948b064-ac6b-4e93-b912-c4d886dbd70c",
@@ -2476,6 +2619,7 @@ export default {
       path: "torchvision.transforms.InterpolationMode",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "cde94860-d427-49d5-9309-85727f8c22c5",
@@ -2488,6 +2632,7 @@ export default {
       path: "torchvision.transforms.Lambda",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["09a81554-070f-4e8b-9ba3-4d440609e2db"],
+      returnType: null,
     },
     {
       id: "83f71661-8d3c-46a0-948e-1d09891ecf0e",
@@ -2503,6 +2648,7 @@ export default {
         "2c020268-bcec-4bc3-a33b-598026e142b1",
         "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2",
       ],
+      returnType: null,
     },
     {
       id: "9ae00374-aa16-484f-af8b-658af1815f60",
@@ -2519,6 +2665,7 @@ export default {
         "b2b9788d-86bb-478c-8743-72487f3984c8",
         "2d820b56-02c5-414d-8804-eefeac5eb2f2",
       ],
+      returnType: null,
     },
     {
       id: "802f156d-a319-43ad-8ee0-1470806f8842",
@@ -2531,6 +2678,7 @@ export default {
       path: "torchvision.transforms.PILToTensor",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "abfb28a7-aaf9-47f2-be30-2a415a2865f3",
@@ -2547,6 +2695,7 @@ export default {
         "a0871405-cbf4-41e1-b0eb-51574b54a020",
         "912fa335-af40-4ecc-afd5-8aebd76c83d9",
       ],
+      returnType: null,
     },
     {
       id: "7c28c9ae-8d17-4635-b521-43c727a3c05c",
@@ -2562,6 +2711,7 @@ export default {
         "82da212c-508b-46a0-bf76-01e9e798d6d0",
         "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb",
       ],
+      returnType: null,
     },
     {
       id: "5e456a49-b4da-484a-b420-3696ac4cd361",
@@ -2583,6 +2733,7 @@ export default {
         "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f",
         "51e65f5a-71ff-4e6c-8524-b347b927d94c",
       ],
+      returnType: null,
     },
     {
       id: "ece98f3e-3f59-438a-bf90-1e1313d374ce",
@@ -2598,6 +2749,7 @@ export default {
         "608628df-3881-49e6-9e1d-3832de3c1425",
         "7bba5280-2fdf-4900-868b-2c18b43c3011",
       ],
+      returnType: null,
     },
     {
       id: "5f69ca04-fa41-4d87-8f48-f59e99b8c1db",
@@ -2610,6 +2762,7 @@ export default {
       path: "torchvision.transforms.RandomAutocontrast",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["24a460a6-1340-402c-94ae-4f5c0df3b91f"],
+      returnType: null,
     },
     {
       id: "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb",
@@ -2622,6 +2775,7 @@ export default {
       path: "torchvision.transforms.RandomChoice",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["af4db3a3-e6f4-45d1-83b3-bdfda629f5d4"],
+      returnType: null,
     },
     {
       id: "8841a2c8-1bd3-42d4-8c14-2325506f05d8",
@@ -2640,6 +2794,7 @@ export default {
         "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e",
         "54ff94b4-8c62-4217-8b0f-90cf353ccea0",
       ],
+      returnType: null,
     },
     {
       id: "294d0c8e-0755-42e4-9bb0-7034616bb306",
@@ -2652,6 +2807,7 @@ export default {
       path: "torchvision.transforms.RandomEqualize",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["51f2f000-4d06-46f9-8ade-43383b5c2113"],
+      returnType: null,
     },
     {
       id: "c29fb726-bb9b-4a59-a253-1a1485073197",
@@ -2670,6 +2826,7 @@ export default {
         "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da",
         "3884d8a0-bc03-40d2-93c5-62641fa6bf2a",
       ],
+      returnType: null,
     },
     {
       id: "c79959d6-6bdd-4586-877f-ff84ab4bb986",
@@ -2682,6 +2839,7 @@ export default {
       path: "torchvision.transforms.RandomGrayscale",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["ebca8b88-83d8-443e-978c-e70b6878f441"],
+      returnType: null,
     },
     {
       id: "f5346240-9bf1-4647-a37b-2045e5acd181",
@@ -2694,6 +2852,7 @@ export default {
       path: "torchvision.transforms.RandomHorizontalFlip",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["e8e949a7-5beb-466a-a69b-fd59e8261cce"],
+      returnType: null,
     },
     {
       id: "689b3a68-ad65-4e61-9262-17a0f85e5b17",
@@ -2706,6 +2865,7 @@ export default {
       path: "torchvision.transforms.RandomInvert",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["f744b2c1-40a8-49e3-9fe4-ac3916c8faac"],
+      returnType: null,
     },
     {
       id: "c6f9ad05-bc30-4260-9f81-11368d539bd1",
@@ -2718,6 +2878,7 @@ export default {
       path: "torchvision.transforms.RandomOrder",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["5d6760a3-4741-4e9b-983a-d0c1966eead1"],
+      returnType: null,
     },
     {
       id: "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd",
@@ -2735,6 +2896,7 @@ export default {
         "ce96a97b-2bcb-48a2-ab6c-de8757a070d6",
         "c0eaf861-134e-4aeb-a190-d0aa7d8b928a",
       ],
+      returnType: null,
     },
     {
       id: "ad41317a-2495-457b-b19e-96fc074e96f1",
@@ -2750,6 +2912,7 @@ export default {
         "90300435-efad-49cb-986b-a922ab01fec9",
         "06a000e6-96ea-4ef6-801a-7d88d2022fb1",
       ],
+      returnType: null,
     },
     {
       id: "51277118-3bda-4ebe-960f-4a3f36b74d50",
@@ -2767,6 +2930,7 @@ export default {
         "91acec7a-9b31-4acb-b31c-0dd49a71a8a1",
         "611a8cb9-22ed-4af9-a026-1889f59b0502",
       ],
+      returnType: null,
     },
     {
       id: "5faeee6c-1227-4487-b050-88a954758a6c",
@@ -2786,6 +2950,7 @@ export default {
         "ba036e59-2a45-4b00-b7ad-7c7511543c8f",
         "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a",
       ],
+      returnType: null,
     },
     {
       id: "ada150b1-0785-45fe-a1fb-837fafccb845",
@@ -2803,6 +2968,7 @@ export default {
         "d97e4857-6ad5-4690-a3ce-c23afc0128c8",
         "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81",
       ],
+      returnType: null,
     },
     {
       id: "6e95b433-7806-4ab9-a5d6-23909a3fb320",
@@ -2818,6 +2984,7 @@ export default {
         "89586475-c469-47d6-9ae5-74d1f8bd767c",
         "70074a30-edb9-4f98-b22e-aa1c5be8861f",
       ],
+      returnType: null,
     },
     {
       id: "964783a7-c538-42ef-88d0-66ac64f973c9",
@@ -2830,6 +2997,7 @@ export default {
       path: "torchvision.transforms.RandomVerticalFlip",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["15c257d2-3f34-49c4-85e0-41f23345092a"],
+      returnType: null,
     },
     {
       id: "93af0e0a-9ea5-4705-a1d3-bc450936c534",
@@ -2845,6 +3013,7 @@ export default {
         "d9050cc3-5864-42c2-8111-f544d2c4707f",
         "df9ccd04-23f8-4890-8970-f58b3117b857",
       ],
+      returnType: null,
     },
     {
       id: "b7716641-97ef-4401-97dd-0872701b1651",
@@ -2860,6 +3029,7 @@ export default {
         "c2f429aa-2397-4a11-8650-88cf4b30a7eb",
         "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8",
       ],
+      returnType: null,
     },
     {
       id: "31467e40-c796-4e17-8a0d-23477ec8d05f",
@@ -2875,6 +3045,7 @@ export default {
         "b8f64b24-f2f9-4438-95c4-1059f6b2eea1",
         "a1d40131-a21a-4296-8138-bc47cdfcb7ac",
       ],
+      returnType: null,
     },
     {
       id: "079c1a70-f2e9-452a-a011-7a2e685efcd4",
@@ -2887,6 +3058,7 @@ export default {
       path: "torchvision.transforms.Tensor",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
     {
       id: "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
@@ -2899,6 +3071,7 @@ export default {
       path: "torchvision.transforms.ToPILImage",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: ["24da26a7-30e6-4590-a66d-2aedd6c710b5"],
+      returnType: null,
     },
     {
       id: "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
@@ -2911,6 +3084,7 @@ export default {
       path: "torchvision.transforms.ToTensor",
       inCodeParentId: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
       children: [],
+      returnType: null,
     },
   ],
   "7e7eebd5-5959-4e8a-b263-ad8a54b89c33": [
@@ -2932,6 +3106,7 @@ export default {
         "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83",
         "28e30b99-dfe9-4cf0-9489-47de985d93ed",
       ],
+      returnType: null,
     },
     {
       id: "6927502e-42bb-4b31-bf8a-96f47c63febc",
@@ -2952,6 +3127,7 @@ export default {
         "efec7ee2-2c58-43a8-92be-b4c713e4fc88",
         "dbe671ff-a652-45dc-836d-ff242601a602",
       ],
+      returnType: null,
     },
     {
       id: "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
@@ -2972,6 +3148,7 @@ export default {
         "3c7a2bd2-7294-4663-b87a-13c97e7ce128",
         "46e93a34-fc95-4faa-93a8-e7de771ee01c",
       ],
+      returnType: null,
     },
     {
       id: "f2f8c557-7e6d-4f35-9a99-4304066c3294",
@@ -3001,6 +3178,7 @@ export default {
         "0689b68c-1bee-47b0-82d0-323462e74b8c",
         "509e1d4c-be21-4681-aa34-64f6456c0d32",
       ],
+      returnType: null,
     },
   ],
   "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91": [
@@ -3022,6 +3200,7 @@ export default {
         "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83",
         "28e30b99-dfe9-4cf0-9489-47de985d93ed",
       ],
+      returnType: null,
     },
     {
       id: "6927502e-42bb-4b31-bf8a-96f47c63febc",
@@ -3042,6 +3221,7 @@ export default {
         "efec7ee2-2c58-43a8-92be-b4c713e4fc88",
         "dbe671ff-a652-45dc-836d-ff242601a602",
       ],
+      returnType: null,
     },
     {
       id: "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
@@ -3062,6 +3242,7 @@ export default {
         "3c7a2bd2-7294-4663-b87a-13c97e7ce128",
         "46e93a34-fc95-4faa-93a8-e7de771ee01c",
       ],
+      returnType: null,
     },
   ],
   "6aabbf76-5324-463c-bd50-b03bc322a2a0": [
@@ -3093,6 +3274,7 @@ export default {
         "0689b68c-1bee-47b0-82d0-323462e74b8c",
         "509e1d4c-be21-4681-aa34-64f6456c0d32",
       ],
+      returnType: null,
     },
   ],
   "c3e6681b-1645-420b-9f96-939d212b4a02": [
@@ -3124,6 +3306,7 @@ export default {
         "0689b68c-1bee-47b0-82d0-323462e74b8c",
         "509e1d4c-be21-4681-aa34-64f6456c0d32",
       ],
+      returnType: null,
     },
   ],
   "f281d845-2c30-45a8-bf6c-a18ef11597b2": [
@@ -3190,6 +3373,7 @@ export default {
         "ee8f4df7-4110-4179-952f-c24913cf30b8",
         "2150b463-68c4-4414-8c1a-fc0ca86334d1",
       ],
+      returnType: null,
     },
     {
       id: "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43",
@@ -3205,6 +3389,7 @@ export default {
         "84233378-407e-42a6-8f8d-54a1509eecb4",
         "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
       ],
+      returnType: null,
     },
     {
       id: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
@@ -3223,6 +3408,7 @@ export default {
         "b945ed95-0774-45a9-8830-bc40c60a6e9f",
         "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
       ],
+      returnType: null,
     },
   ],
   "5c27250d-86ae-4377-bb12-85c63b190da6": [
@@ -3240,6 +3426,7 @@ export default {
         "84233378-407e-42a6-8f8d-54a1509eecb4",
         "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
       ],
+      returnType: null,
     },
   ],
   "66f5a9fd-d136-4cfa-af2d-122af47be289": [
@@ -3257,6 +3444,7 @@ export default {
         "84233378-407e-42a6-8f8d-54a1509eecb4",
         "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
       ],
+      returnType: null,
     },
   ],
   "f34a093a-bfc6-4454-aa95-d39a6f316a1a": [
@@ -3277,6 +3465,7 @@ export default {
         "b945ed95-0774-45a9-8830-bc40c60a6e9f",
         "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
       ],
+      returnType: null,
     },
   ],
   "527d6511-0a07-4b88-8eb1-810288c82be9": [
@@ -3291,6 +3480,7 @@ export default {
       path: "src.pytorch_lightning_mnist.model.MNISTModel",
       inCodeParentId: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
       children: [],
+      returnType: null,
     },
     {
       id: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
@@ -3307,6 +3497,7 @@ export default {
         "0a917bc9-569a-4c41-ad08-1adc0a115114",
         "76349524-f39c-4c35-a5b7-06c21f4ce753",
       ],
+      returnType: null,
     },
     {
       id: "06a5c61c-916f-44d2-ae4b-655a9f3a57d1",
@@ -3319,6 +3510,7 @@ export default {
       path: "src.pytorch_lightning_mnist.logger.RuncoderLogger",
       inCodeParentId: "1982446b-549a-437b-8c09-a1a05c8683b3",
       children: [],
+      returnType: null,
     },
   ],
   "14c75190-075e-45b4-9d41-b52b3dc74ffb": [
@@ -3333,6 +3525,7 @@ export default {
       path: "src.pytorch_lightning_mnist.model.MNISTModel",
       inCodeParentId: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
       children: [],
+      returnType: null,
     },
   ],
   "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9": [
@@ -3351,6 +3544,7 @@ export default {
         "0a917bc9-569a-4c41-ad08-1adc0a115114",
         "76349524-f39c-4c35-a5b7-06c21f4ce753",
       ],
+      returnType: null,
     },
   ],
   "1982446b-549a-437b-8c09-a1a05c8683b3": [
@@ -3365,6 +3559,7 @@ export default {
       path: "src.pytorch_lightning_mnist.logger.RuncoderLogger",
       inCodeParentId: "1982446b-549a-437b-8c09-a1a05c8683b3",
       children: [],
+      returnType: null,
     },
   ],
 };

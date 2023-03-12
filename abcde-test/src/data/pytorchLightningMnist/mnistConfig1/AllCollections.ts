@@ -14,6 +14,7 @@ export default {
       "ea46767b-51c8-42d7-9434-771c6b144864",
       "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
     ],
+    returnType: null,
   },
   "0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0": {
     id: "0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0",
@@ -36,6 +37,7 @@ export default {
       "9b2f4419-9347-49be-b082-772497712d65",
       "795f9f49-1c37-4ee6-8542-a0648b7879f8",
     ],
+    returnType: null,
   },
   "ea46767b-51c8-42d7-9434-771c6b144864": {
     id: "ea46767b-51c8-42d7-9434-771c6b144864",
@@ -86,6 +88,7 @@ export default {
       "037da68a-1827-47ef-adec-b081388c657c",
       "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa",
     ],
+    returnType: null,
   },
   "9976c3f9-0a8e-4dad-894e-2bea3604d8d3": {
     id: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
@@ -140,6 +143,7 @@ export default {
       "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
       "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
     ],
+    returnType: null,
   },
   "7e7eebd5-5959-4e8a-b263-ad8a54b89c33": {
     id: "7e7eebd5-5959-4e8a-b263-ad8a54b89c33",
@@ -155,6 +159,7 @@ export default {
       "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91",
       "6aabbf76-5324-463c-bd50-b03bc322a2a0",
     ],
+    returnType: null,
   },
   "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91": {
     id: "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91",
@@ -171,6 +176,7 @@ export default {
       "6927502e-42bb-4b31-bf8a-96f47c63febc",
       "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
     ],
+    returnType: null,
   },
   "6aabbf76-5324-463c-bd50-b03bc322a2a0": {
     id: "6aabbf76-5324-463c-bd50-b03bc322a2a0",
@@ -183,6 +189,7 @@ export default {
     path: "torch.utils",
     inCodeParentId: "7e7eebd5-5959-4e8a-b263-ad8a54b89c33",
     children: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
+    returnType: null,
   },
   "c3e6681b-1645-420b-9f96-939d212b4a02": {
     id: "c3e6681b-1645-420b-9f96-939d212b4a02",
@@ -195,6 +202,7 @@ export default {
     path: "torch.utils.data",
     inCodeParentId: "6aabbf76-5324-463c-bd50-b03bc322a2a0",
     children: ["f2f8c557-7e6d-4f35-9a99-4304066c3294"],
+    returnType: null,
   },
   "f281d845-2c30-45a8-bf6c-a18ef11597b2": {
     id: "f281d845-2c30-45a8-bf6c-a18ef11597b2",
@@ -211,6 +219,7 @@ export default {
       "5c27250d-86ae-4377-bb12-85c63b190da6",
       "f34a093a-bfc6-4454-aa95-d39a6f316a1a",
     ],
+    returnType: null,
   },
   "5c27250d-86ae-4377-bb12-85c63b190da6": {
     id: "5c27250d-86ae-4377-bb12-85c63b190da6",
@@ -223,6 +232,7 @@ export default {
     path: "pytorch_lightning.callbacks",
     inCodeParentId: "f281d845-2c30-45a8-bf6c-a18ef11597b2",
     children: ["66f5a9fd-d136-4cfa-af2d-122af47be289"],
+    returnType: null,
   },
   "66f5a9fd-d136-4cfa-af2d-122af47be289": {
     id: "66f5a9fd-d136-4cfa-af2d-122af47be289",
@@ -235,6 +245,7 @@ export default {
     path: "pytorch_lightning.callbacks.progress",
     inCodeParentId: "5c27250d-86ae-4377-bb12-85c63b190da6",
     children: ["6b0ddead-f5a3-4f4c-93df-d50c1d23cb43"],
+    returnType: null,
   },
   "f34a093a-bfc6-4454-aa95-d39a6f316a1a": {
     id: "f34a093a-bfc6-4454-aa95-d39a6f316a1a",
@@ -247,6 +258,7 @@ export default {
     path: "pytorch_lightning.loggers",
     inCodeParentId: "f281d845-2c30-45a8-bf6c-a18ef11597b2",
     children: ["ed3cff4f-ffc5-448b-95b4-6142fb9911cd"],
+    returnType: null,
   },
   "527d6511-0a07-4b88-8eb1-810288c82be9": {
     id: "527d6511-0a07-4b88-8eb1-810288c82be9",
@@ -263,6 +275,7 @@ export default {
       "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9",
       "1982446b-549a-437b-8c09-a1a05c8683b3",
     ],
+    returnType: null,
   },
   "14c75190-075e-45b4-9d41-b52b3dc74ffb": {
     id: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
@@ -275,6 +288,7 @@ export default {
     path: "src.pytorch_lightning_mnist.model",
     inCodeParentId: "527d6511-0a07-4b88-8eb1-810288c82be9",
     children: ["a18b4e95-7c7f-4a69-8322-6e84501a35eb"],
+    returnType: null,
   },
   "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9": {
     id: "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9",
@@ -287,6 +301,7 @@ export default {
     path: "src.pytorch_lightning_mnist.train",
     inCodeParentId: "527d6511-0a07-4b88-8eb1-810288c82be9",
     children: ["294108f5-898d-44aa-b3d6-3136fb0eeda5"],
+    returnType: null,
   },
   "1982446b-549a-437b-8c09-a1a05c8683b3": {
     id: "1982446b-549a-437b-8c09-a1a05c8683b3",
@@ -299,5 +314,6 @@ export default {
     path: "src.pytorch_lightning_mnist.logger",
     inCodeParentId: "527d6511-0a07-4b88-8eb1-810288c82be9",
     children: ["06a5c61c-916f-44d2-ae4b-655a9f3a57d1"],
+    returnType: null,
   },
 };

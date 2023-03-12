@@ -12,6 +12,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet101.pretrained",
+      returnType: null,
     },
     {
       id: "fa1920e3-e540-493d-b021-53f899ec5ab4",
@@ -24,6 +25,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet101.progress",
+      returnType: null,
     },
     {
       id: "421f8f4e-41ce-4582-8aa5-a18273f4919b",
@@ -36,6 +38,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet152.pretrained",
+      returnType: null,
     },
     {
       id: "0f376c6e-4387-4116-84fd-dddeeb8e9243",
@@ -48,6 +51,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet152.progress",
+      returnType: null,
     },
     {
       id: "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc",
@@ -60,6 +64,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet18.pretrained",
+      returnType: null,
     },
     {
       id: "65381024-c817-426b-881a-08de50b755c2",
@@ -72,6 +77,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet18.progress",
+      returnType: null,
     },
     {
       id: "cdb49aa9-3e11-445d-8996-9a1f3af49228",
@@ -84,6 +90,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet34.pretrained",
+      returnType: null,
     },
     {
       id: "ad98684a-8cc1-44fb-a340-030606ae83d8",
@@ -96,6 +103,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet34.progress",
+      returnType: null,
     },
     {
       id: "213303fc-dbfd-4463-89e3-6df407009f84",
@@ -108,6 +116,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet50.pretrained",
+      returnType: null,
     },
     {
       id: "3dc40c9f-954b-440d-a054-f73c75c8b68a",
@@ -120,6 +129,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet50.progress",
+      returnType: null,
     },
     {
       id: "093b232a-4afc-40fd-824b-4e32b4964fd4",
@@ -132,6 +142,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d.pretrained",
+      returnType: null,
     },
     {
       id: "6852734b-4b08-4ee6-bb79-4e548bfbbb32",
@@ -144,6 +155,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d.progress",
+      returnType: null,
     },
     {
       id: "b57b65fd-cf13-48da-a8fe-8c170fda4681",
@@ -156,6 +168,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d.pretrained",
+      returnType: null,
     },
     {
       id: "37413893-2bba-4dbb-96dd-266f1c1a9269",
@@ -168,6 +181,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d.progress",
+      returnType: null,
     },
     {
       id: "c539862c-c83b-4b57-87b7-8d9bb39cf0b5",
@@ -180,6 +194,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2.pretrained",
+      returnType: null,
     },
     {
       id: "5c68cf83-f28e-4d76-afff-07e055cbbe42",
@@ -192,6 +207,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2.progress",
+      returnType: null,
     },
     {
       id: "43aaac65-8682-41cb-b730-f28d5095121c",
@@ -204,6 +220,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2.pretrained",
+      returnType: null,
     },
     {
       id: "d3408cf9-4b33-4146-946f-d2761bca5d66",
@@ -216,6 +233,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2.progress",
+      returnType: null,
     },
   ],
   "bb751616-d554-4ec8-84c1-8760078956d3": [],
@@ -232,6 +250,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2.pretrained",
+      returnType: null,
     },
     {
       id: "d3408cf9-4b33-4146-946f-d2761bca5d66",
@@ -244,6 +263,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2.progress",
+      returnType: null,
     },
   ],
   "40283a3a-9ab4-42ef-9527-045597a9639f": [],
@@ -259,6 +279,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2.progress",
+      returnType: null,
     },
   ],
   "43aaac65-8682-41cb-b730-f28d5095121c": [
@@ -273,6 +294,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2.pretrained",
+      returnType: null,
     },
   ],
   "9b2f4419-9347-49be-b082-772497712d65": [
@@ -287,6 +309,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2.pretrained",
+      returnType: null,
     },
     {
       id: "5c68cf83-f28e-4d76-afff-07e055cbbe42",
@@ -299,6 +322,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2.progress",
+      returnType: null,
     },
   ],
   "08808c4c-5c81-4974-9d2b-60500c1498f3": [],
@@ -314,6 +338,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2.progress",
+      returnType: null,
     },
   ],
   "c539862c-c83b-4b57-87b7-8d9bb39cf0b5": [
@@ -328,6 +353,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2.pretrained",
+      returnType: null,
     },
   ],
   "a41fc545-d910-405f-9c9f-9afe66914d69": [
@@ -342,6 +368,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d.pretrained",
+      returnType: null,
     },
     {
       id: "37413893-2bba-4dbb-96dd-266f1c1a9269",
@@ -354,6 +381,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d.progress",
+      returnType: null,
     },
   ],
   "91b46467-325d-4d2a-9df4-6e132a260a22": [],
@@ -369,6 +397,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d.progress",
+      returnType: null,
     },
   ],
   "b57b65fd-cf13-48da-a8fe-8c170fda4681": [
@@ -383,6 +412,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d.pretrained",
+      returnType: null,
     },
   ],
   "4a202711-496d-42d0-b432-8884aa68dd38": [
@@ -397,6 +427,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d.pretrained",
+      returnType: null,
     },
     {
       id: "6852734b-4b08-4ee6-bb79-4e548bfbbb32",
@@ -409,6 +440,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d.progress",
+      returnType: null,
     },
   ],
   "761fc9d3-0ab8-4b45-8160-0d58e81577e1": [],
@@ -424,6 +456,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d.progress",
+      returnType: null,
     },
   ],
   "093b232a-4afc-40fd-824b-4e32b4964fd4": [
@@ -438,6 +471,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d.pretrained",
+      returnType: null,
     },
   ],
   "4470e113-a93f-41c5-9369-8981aa90da5d": [
@@ -452,6 +486,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet50.pretrained",
+      returnType: null,
     },
     {
       id: "3dc40c9f-954b-440d-a054-f73c75c8b68a",
@@ -464,6 +499,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet50.progress",
+      returnType: null,
     },
   ],
   "a34e8724-2ff9-449e-963f-13b65cb8c945": [],
@@ -479,6 +515,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet50.progress",
+      returnType: null,
     },
   ],
   "213303fc-dbfd-4463-89e3-6df407009f84": [
@@ -493,6 +530,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet50.pretrained",
+      returnType: null,
     },
   ],
   "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4": [
@@ -507,6 +545,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet34.pretrained",
+      returnType: null,
     },
     {
       id: "ad98684a-8cc1-44fb-a340-030606ae83d8",
@@ -519,6 +558,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet34.progress",
+      returnType: null,
     },
   ],
   "452a7829-dba7-4da4-acb5-77ab736eb73f": [],
@@ -534,6 +574,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet34.progress",
+      returnType: null,
     },
   ],
   "cdb49aa9-3e11-445d-8996-9a1f3af49228": [
@@ -548,6 +589,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet34.pretrained",
+      returnType: null,
     },
   ],
   "c26ea423-e1c2-40c4-a832-c46dcdff4a67": [
@@ -562,6 +604,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet18.pretrained",
+      returnType: null,
     },
     {
       id: "65381024-c817-426b-881a-08de50b755c2",
@@ -574,6 +617,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet18.progress",
+      returnType: null,
     },
   ],
   "7b0f3db6-3a38-4b40-a7fb-794592ee20a0": [],
@@ -589,6 +633,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet18.progress",
+      returnType: null,
     },
   ],
   "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc": [
@@ -603,6 +648,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet18.pretrained",
+      returnType: null,
     },
   ],
   "d7592b4b-5635-44e0-ab36-da6c3cdf5852": [
@@ -617,6 +663,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet152.pretrained",
+      returnType: null,
     },
     {
       id: "0f376c6e-4387-4116-84fd-dddeeb8e9243",
@@ -629,6 +676,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet152.progress",
+      returnType: null,
     },
   ],
   "b0c6c763-d5f5-4b7b-9a07-6f62a95a063e": [],
@@ -644,6 +692,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet152.progress",
+      returnType: null,
     },
   ],
   "421f8f4e-41ce-4582-8aa5-a18273f4919b": [
@@ -658,6 +707,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet152.pretrained",
+      returnType: null,
     },
   ],
   "5ed7e68a-b880-4bfd-9d7d-2fecfa7defd6": [
@@ -672,6 +722,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet101.pretrained",
+      returnType: null,
     },
     {
       id: "fa1920e3-e540-493d-b021-53f899ec5ab4",
@@ -684,6 +735,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet101.progress",
+      returnType: null,
     },
   ],
   "0b94da92-bca3-49b3-8587-b9b4e784ac4e": [],
@@ -699,6 +751,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet101.progress",
+      returnType: null,
     },
   ],
   "c1d20337-7f4a-4ce6-bfc3-70a80f50550c": [
@@ -713,6 +766,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.models.resnet101.pretrained",
+      returnType: null,
     },
   ],
   "93cd43f3-218c-4542-ad03-406a5b77aab5": [
@@ -727,6 +781,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.params",
+      returnType: null,
     },
     {
       id: "bc7e073d-8a5d-41fc-9c24-0874fc69218d",
@@ -739,6 +794,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.lr",
+      returnType: null,
     },
     {
       id: "4920512a-3fab-42c7-aaae-6a5d3f35d2cb",
@@ -751,6 +807,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.rho",
+      returnType: null,
     },
     {
       id: "9e3cb412-ae21-4720-a970-65aead49dbff",
@@ -763,6 +820,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.eps",
+      returnType: null,
     },
     {
       id: "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83",
@@ -775,6 +833,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.weight_decay",
+      returnType: null,
     },
     {
       id: "28e30b99-dfe9-4cf0-9489-47de985d93ed",
@@ -787,6 +846,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.defaults",
+      returnType: null,
     },
     {
       id: "eefe5d7c-3479-4f97-b6ff-54d90c0df33f",
@@ -799,6 +859,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.params",
+      returnType: null,
     },
     {
       id: "f868a26d-8937-4929-b2a7-c8ce0e80ddbb",
@@ -811,6 +872,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.lr",
+      returnType: null,
     },
     {
       id: "44778a64-0a6f-49f5-a2d6-27dcc75b6ee9",
@@ -823,6 +885,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.betas",
+      returnType: null,
     },
     {
       id: "8fe67f74-7a42-4b14-b16f-79b99055bb32",
@@ -835,6 +898,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.eps",
+      returnType: null,
     },
     {
       id: "c33629c7-ee42-4412-94ba-8eda2b50b616",
@@ -847,6 +911,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.weight_decay",
+      returnType: null,
     },
     {
       id: "efec7ee2-2c58-43a8-92be-b4c713e4fc88",
@@ -859,6 +924,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.amsgrad",
+      returnType: null,
     },
     {
       id: "dbe671ff-a652-45dc-836d-ff242601a602",
@@ -871,6 +937,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.defaults",
+      returnType: null,
     },
     {
       id: "9bd3d397-8bdd-43c0-976e-423866c57a95",
@@ -883,6 +950,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.params",
+      returnType: null,
     },
     {
       id: "3b75a04b-ecef-40b8-a362-b7f5766e2763",
@@ -895,6 +963,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.lr",
+      returnType: null,
     },
     {
       id: "58aaaad9-37e7-4fe7-9f5f-6f68b6e4c03c",
@@ -907,6 +976,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.momentum",
+      returnType: null,
     },
     {
       id: "d67a434f-b723-482b-a6f8-9e1bad99fa8e",
@@ -919,6 +989,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.dampening",
+      returnType: null,
     },
     {
       id: "60013d91-075b-418b-8657-6b241809c5ae",
@@ -931,6 +1002,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.weight_decay",
+      returnType: null,
     },
     {
       id: "3c7a2bd2-7294-4663-b87a-13c97e7ce128",
@@ -943,6 +1015,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.nesterov",
+      returnType: null,
     },
     {
       id: "46e93a34-fc95-4faa-93a8-e7de771ee01c",
@@ -955,6 +1028,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.defaults",
+      returnType: null,
     },
   ],
   "0c264e90-eb09-4dfb-bb5b-b357037b2a08": [
@@ -969,6 +1043,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.params",
+      returnType: null,
     },
     {
       id: "3b75a04b-ecef-40b8-a362-b7f5766e2763",
@@ -981,6 +1056,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.lr",
+      returnType: null,
     },
     {
       id: "58aaaad9-37e7-4fe7-9f5f-6f68b6e4c03c",
@@ -993,6 +1069,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.momentum",
+      returnType: null,
     },
     {
       id: "d67a434f-b723-482b-a6f8-9e1bad99fa8e",
@@ -1005,6 +1082,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.dampening",
+      returnType: null,
     },
     {
       id: "60013d91-075b-418b-8657-6b241809c5ae",
@@ -1017,6 +1095,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.weight_decay",
+      returnType: null,
     },
     {
       id: "3c7a2bd2-7294-4663-b87a-13c97e7ce128",
@@ -1029,6 +1108,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.nesterov",
+      returnType: null,
     },
     {
       id: "46e93a34-fc95-4faa-93a8-e7de771ee01c",
@@ -1041,6 +1121,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.defaults",
+      returnType: null,
     },
   ],
   "46e93a34-fc95-4faa-93a8-e7de771ee01c": [
@@ -1055,6 +1136,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.defaults",
+      returnType: null,
     },
   ],
   "3c7a2bd2-7294-4663-b87a-13c97e7ce128": [
@@ -1069,6 +1151,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.nesterov",
+      returnType: null,
     },
   ],
   "60013d91-075b-418b-8657-6b241809c5ae": [
@@ -1083,6 +1166,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.weight_decay",
+      returnType: null,
     },
   ],
   "d67a434f-b723-482b-a6f8-9e1bad99fa8e": [
@@ -1097,6 +1181,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.dampening",
+      returnType: null,
     },
   ],
   "58aaaad9-37e7-4fe7-9f5f-6f68b6e4c03c": [
@@ -1111,6 +1196,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.momentum",
+      returnType: null,
     },
   ],
   "3b75a04b-ecef-40b8-a362-b7f5766e2763": [
@@ -1125,6 +1211,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.lr",
+      returnType: null,
     },
   ],
   "9bd3d397-8bdd-43c0-976e-423866c57a95": [
@@ -1139,6 +1226,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.SGD.params",
+      returnType: null,
     },
   ],
   "6927502e-42bb-4b31-bf8a-96f47c63febc": [
@@ -1153,6 +1241,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.params",
+      returnType: null,
     },
     {
       id: "f868a26d-8937-4929-b2a7-c8ce0e80ddbb",
@@ -1165,6 +1254,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.lr",
+      returnType: null,
     },
     {
       id: "44778a64-0a6f-49f5-a2d6-27dcc75b6ee9",
@@ -1177,6 +1267,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.betas",
+      returnType: null,
     },
     {
       id: "8fe67f74-7a42-4b14-b16f-79b99055bb32",
@@ -1189,6 +1280,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.eps",
+      returnType: null,
     },
     {
       id: "c33629c7-ee42-4412-94ba-8eda2b50b616",
@@ -1201,6 +1293,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.weight_decay",
+      returnType: null,
     },
     {
       id: "efec7ee2-2c58-43a8-92be-b4c713e4fc88",
@@ -1213,6 +1306,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.amsgrad",
+      returnType: null,
     },
     {
       id: "dbe671ff-a652-45dc-836d-ff242601a602",
@@ -1225,6 +1319,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.defaults",
+      returnType: null,
     },
   ],
   "dbe671ff-a652-45dc-836d-ff242601a602": [
@@ -1239,6 +1334,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.defaults",
+      returnType: null,
     },
   ],
   "efec7ee2-2c58-43a8-92be-b4c713e4fc88": [
@@ -1253,6 +1349,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.amsgrad",
+      returnType: null,
     },
   ],
   "c33629c7-ee42-4412-94ba-8eda2b50b616": [
@@ -1267,6 +1364,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.weight_decay",
+      returnType: null,
     },
   ],
   "8fe67f74-7a42-4b14-b16f-79b99055bb32": [
@@ -1281,6 +1379,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.eps",
+      returnType: null,
     },
   ],
   "44778a64-0a6f-49f5-a2d6-27dcc75b6ee9": [
@@ -1295,6 +1394,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.betas",
+      returnType: null,
     },
   ],
   "f868a26d-8937-4929-b2a7-c8ce0e80ddbb": [
@@ -1309,6 +1409,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.lr",
+      returnType: null,
     },
   ],
   "eefe5d7c-3479-4f97-b6ff-54d90c0df33f": [
@@ -1323,6 +1424,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adam.params",
+      returnType: null,
     },
   ],
   "a98c53c2-fe71-4bf7-80f9-243ab4926324": [
@@ -1337,6 +1439,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.params",
+      returnType: null,
     },
     {
       id: "bc7e073d-8a5d-41fc-9c24-0874fc69218d",
@@ -1349,6 +1452,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.lr",
+      returnType: null,
     },
     {
       id: "4920512a-3fab-42c7-aaae-6a5d3f35d2cb",
@@ -1361,6 +1465,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.rho",
+      returnType: null,
     },
     {
       id: "9e3cb412-ae21-4720-a970-65aead49dbff",
@@ -1373,6 +1478,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.eps",
+      returnType: null,
     },
     {
       id: "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83",
@@ -1385,6 +1491,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.weight_decay",
+      returnType: null,
     },
     {
       id: "28e30b99-dfe9-4cf0-9489-47de985d93ed",
@@ -1397,6 +1504,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.defaults",
+      returnType: null,
     },
   ],
   "28e30b99-dfe9-4cf0-9489-47de985d93ed": [
@@ -1411,6 +1519,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.defaults",
+      returnType: null,
     },
   ],
   "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83": [
@@ -1425,6 +1534,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.weight_decay",
+      returnType: null,
     },
   ],
   "9e3cb412-ae21-4720-a970-65aead49dbff": [
@@ -1439,6 +1549,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.eps",
+      returnType: null,
     },
   ],
   "4920512a-3fab-42c7-aaae-6a5d3f35d2cb": [
@@ -1453,6 +1564,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.rho",
+      returnType: null,
     },
   ],
   "bc7e073d-8a5d-41fc-9c24-0874fc69218d": [
@@ -1467,6 +1579,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.lr",
+      returnType: null,
     },
   ],
   "f54fe79e-2337-4d58-9787-3922bab61f41": [
@@ -1481,6 +1594,7 @@ export default {
       version: null,
       description: null,
       path: "torch.optim.Adadelta.params",
+      returnType: null,
     },
   ],
   "69405361-0296-4321-9361-bd5b35aa2e5e": [
@@ -1495,6 +1609,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Compose.transforms",
+      returnType: null,
     },
   ],
   "ac679940-4a07-4fc0-9fa4-4b5498405693": [
@@ -1509,6 +1624,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Compose.transforms",
+      returnType: null,
     },
   ],
   "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f": [
@@ -1523,6 +1639,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Compose.transforms",
+      returnType: null,
     },
   ],
   "400e8e11-596b-4a4b-a69b-4c5201b58a84": [
@@ -1537,6 +1654,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.root",
+      returnType: null,
     },
     {
       id: "550720ca-c41f-46b7-8bdf-763c00634ed5",
@@ -1549,6 +1667,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.train",
+      returnType: null,
     },
     {
       id: "2c899942-7d7f-4f44-aa43-35cf11e8d98a",
@@ -1561,6 +1680,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.transform",
+      returnType: null,
     },
     {
       id: "827bdc0b-d06e-4746-9ad2-ad83f8e17aa2",
@@ -1573,6 +1693,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.target_transform",
+      returnType: null,
     },
     {
       id: "7cd6952b-9d4a-4c9a-b920-3e58f7dcd984",
@@ -1585,6 +1706,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.download",
+      returnType: null,
     },
     {
       id: "78a84e61-2750-455a-a796-a9d195102b49",
@@ -1597,6 +1719,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.transforms",
+      returnType: null,
     },
     {
       id: "6c9a40ff-3065-42f3-90c6-583a7fc203c4",
@@ -1609,6 +1732,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.root",
+      returnType: null,
     },
     {
       id: "c0aaaf2b-8b75-411f-8413-eeb18780ab69",
@@ -1621,6 +1745,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.train",
+      returnType: null,
     },
     {
       id: "5306fa40-3a1d-439c-93f2-7eba8f04358c",
@@ -1633,6 +1758,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.transform",
+      returnType: null,
     },
     {
       id: "f00ecb40-7b7a-40d5-b6ac-a5f284ec5f43",
@@ -1645,6 +1771,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.target_transform",
+      returnType: null,
     },
     {
       id: "4088714d-ee65-42c3-a474-fc345c78763a",
@@ -1657,6 +1784,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.download",
+      returnType: null,
     },
     {
       id: "24f3b563-9c90-42c4-87b4-b9b27eb3f9b4",
@@ -1669,6 +1797,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.transforms",
+      returnType: null,
     },
     {
       id: "a78ef65c-7608-4e56-84af-41a1818cfafd",
@@ -1681,6 +1810,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.root",
+      returnType: null,
     },
     {
       id: "593448fc-312b-4780-9639-5b3d88dc51f7",
@@ -1693,6 +1823,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.target_type",
+      returnType: null,
     },
     {
       id: "f62428b7-93f8-4327-9ae6-e79784377ad7",
@@ -1705,6 +1836,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.transform",
+      returnType: null,
     },
     {
       id: "95a31d36-fce7-4630-9777-8a0a2573de9c",
@@ -1717,6 +1849,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.target_transform",
+      returnType: null,
     },
     {
       id: "5dd2c507-1dd7-4d21-9da6-3c25552ed557",
@@ -1729,6 +1862,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.download",
+      returnType: null,
     },
     {
       id: "c074203f-5c72-4435-a3fe-bcfaf882d3af",
@@ -1741,6 +1875,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.transforms",
+      returnType: null,
     },
     {
       id: "ba1ae8cf-bf45-4142-a98c-a6107d11fe2a",
@@ -1753,6 +1888,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.root",
+      returnType: null,
     },
     {
       id: "0a785d62-e353-4bd1-9e2c-4737ef36383e",
@@ -1765,6 +1901,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.transform",
+      returnType: null,
     },
     {
       id: "bda1fdb2-ee12-4aef-af5c-07c6fe886716",
@@ -1777,6 +1914,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.target_transform",
+      returnType: null,
     },
     {
       id: "6bd2eaf4-90e8-40c4-8bfb-be1c1ee8b8cd",
@@ -1789,6 +1927,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.download",
+      returnType: null,
     },
     {
       id: "96b597ac-683a-49e8-ad16-b87da1fe43c3",
@@ -1801,6 +1940,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.transforms",
+      returnType: null,
     },
     {
       id: "8b46649a-468c-4387-b093-60420bab2616",
@@ -1813,6 +1953,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.root",
+      returnType: null,
     },
     {
       id: "24f270d1-9a6d-4814-af5e-7d8a0a227d41",
@@ -1825,6 +1966,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.split",
+      returnType: null,
     },
     {
       id: "6f01a458-1c62-4d2b-a140-ba1e690a5510",
@@ -1837,6 +1979,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.target_type",
+      returnType: null,
     },
     {
       id: "e4a12512-2b7f-4209-aec2-bba9d1678159",
@@ -1849,6 +1992,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.transform",
+      returnType: null,
     },
     {
       id: "43244c26-b285-4182-8f5f-832bba7fef6c",
@@ -1861,6 +2005,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.target_transform",
+      returnType: null,
     },
     {
       id: "627a5a72-834f-4bf3-8356-acc0ced588f4",
@@ -1873,6 +2018,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.download",
+      returnType: null,
     },
     {
       id: "4d0bc5bf-bb0b-47b0-9864-71e49b88c4c3",
@@ -1885,6 +2031,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.transforms",
+      returnType: null,
     },
     {
       id: "9331da01-4443-4611-95ac-910f41fa0b06",
@@ -1897,6 +2044,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.root",
+      returnType: null,
     },
     {
       id: "ca612557-401b-487f-be2d-6ac0ee6294e6",
@@ -1909,6 +2057,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.split",
+      returnType: null,
     },
     {
       id: "ba23cb42-1370-4c5c-889c-2768b2dd417f",
@@ -1921,6 +2070,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.mode",
+      returnType: null,
     },
     {
       id: "44d5c1d1-9efc-4951-8f73-a26cd03e7643",
@@ -1933,6 +2083,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.target_type",
+      returnType: null,
     },
     {
       id: "83ff981a-d49c-4ca7-94f3-3812f36c95d3",
@@ -1945,6 +2096,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.transform",
+      returnType: null,
     },
     {
       id: "06266ef9-e8ad-456a-8ade-6d42ffb6d9c5",
@@ -1957,6 +2109,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.target_transform",
+      returnType: null,
     },
     {
       id: "97efcc7b-be5c-488d-9a66-22e383b4ddc4",
@@ -1969,6 +2122,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.transforms",
+      returnType: null,
     },
     {
       id: "a267e5bf-0f70-497b-8eb4-f2592bf83243",
@@ -1981,6 +2135,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.root",
+      returnType: null,
     },
     {
       id: "6efb72b8-f2e7-4013-a7e4-ade1b3f126b5",
@@ -1993,6 +2148,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.annFile",
+      returnType: null,
     },
     {
       id: "22699772-6f2e-43c3-8aae-60aff2a5e167",
@@ -2005,6 +2161,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.transform",
+      returnType: null,
     },
     {
       id: "2897485b-3a89-4ac0-9679-420d03456919",
@@ -2017,6 +2174,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.target_transform",
+      returnType: null,
     },
     {
       id: "ee515a0c-df3f-4a09-8e00-74659a11d7ea",
@@ -2029,6 +2187,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.transforms",
+      returnType: null,
     },
     {
       id: "aa757257-5899-4c6e-a897-1b49f849ba1d",
@@ -2041,6 +2200,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.root",
+      returnType: null,
     },
     {
       id: "0033e4aa-b202-4b22-a538-e8a4c1e9391d",
@@ -2053,6 +2213,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.annFile",
+      returnType: null,
     },
     {
       id: "b26c9d6a-b57b-42c7-9831-df67ce13f14e",
@@ -2065,6 +2226,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.transform",
+      returnType: null,
     },
     {
       id: "9c4bc41a-cca9-4e24-96f3-713fb6a1cbbc",
@@ -2077,6 +2239,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.target_transform",
+      returnType: null,
     },
     {
       id: "b1712856-e944-4cb4-bff5-241f086d5228",
@@ -2089,6 +2252,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.transforms",
+      returnType: null,
     },
     {
       id: "148f2c0a-e98e-45e9-87d7-ea12727fe1b4",
@@ -2101,6 +2265,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.root",
+      returnType: null,
     },
     {
       id: "1d27da5b-c884-47a2-ad0e-a1778de4de34",
@@ -2113,6 +2278,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.loader",
+      returnType: null,
     },
     {
       id: "b35fe592-0646-48c6-adbf-b9c5365a9658",
@@ -2125,6 +2291,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.extensions",
+      returnType: null,
     },
     {
       id: "b036a9fe-be53-4055-bb49-7e82b33c8ae9",
@@ -2137,6 +2304,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.transform",
+      returnType: null,
     },
     {
       id: "31e48b95-8223-4947-991e-e2225e618eb4",
@@ -2149,6 +2317,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.target_transform",
+      returnType: null,
     },
     {
       id: "6714e04a-528a-4335-a92e-635881d9cba1",
@@ -2161,6 +2330,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.is_valid_file",
+      returnType: null,
     },
     {
       id: "acbf3a54-16d4-416a-8a03-325c6ed5a357",
@@ -2173,6 +2343,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.transforms",
+      returnType: null,
     },
     {
       id: "8cdaefc7-371f-466d-94d4-395a4b043212",
@@ -2185,6 +2356,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.root",
+      returnType: null,
     },
     {
       id: "93c3bc04-c0bc-4d53-87f0-09233acb1fd9",
@@ -2197,6 +2369,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.split",
+      returnType: null,
     },
     {
       id: "17070bd0-ed19-46a2-8e94-d4408d4a822e",
@@ -2209,6 +2382,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.train",
+      returnType: null,
     },
     {
       id: "312c6487-d517-409e-8fae-0e1a19406771",
@@ -2221,6 +2395,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.transform",
+      returnType: null,
     },
     {
       id: "eed1ea5d-c2e0-4053-b4fd-db728b5fdf71",
@@ -2233,6 +2408,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "37fcd6f7-bffc-4d81-af4f-15c862f97e7d",
@@ -2245,6 +2421,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.download",
+      returnType: null,
     },
     {
       id: "b31f675c-1ae1-4376-9687-064c5895d665",
@@ -2257,6 +2434,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.transforms",
+      returnType: null,
     },
     {
       id: "7bc2e80f-f7d6-4763-9ba6-2a751367dcbf",
@@ -2269,6 +2447,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.size",
+      returnType: null,
     },
     {
       id: "7444f64a-9a2b-485c-89b1-633055faf748",
@@ -2281,6 +2460,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.image_size",
+      returnType: null,
     },
     {
       id: "d82ed45e-e0a4-4408-b844-358e982f828f",
@@ -2293,6 +2473,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.num_classes",
+      returnType: null,
     },
     {
       id: "78db4d8b-c4b9-4e1b-8997-b1fd29032b13",
@@ -2305,6 +2486,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.transform",
+      returnType: null,
     },
     {
       id: "b1cb5ffa-488c-43ee-8ac1-161f6c9b74de",
@@ -2317,6 +2499,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.target_transform",
+      returnType: null,
     },
     {
       id: "b1b853c4-a8d9-4b65-bfda-3d79835cba1a",
@@ -2329,6 +2512,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.random_offset",
+      returnType: null,
     },
     {
       id: "e02da405-3435-4090-9d2c-c62878f4b78d",
@@ -2341,6 +2525,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.root",
+      returnType: null,
     },
     {
       id: "0547e566-16fa-4146-a7a2-75d562ee6f7d",
@@ -2353,6 +2538,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.transforms",
+      returnType: null,
     },
     {
       id: "2bf5dd09-6de2-4d45-b673-5c6ebd789cea",
@@ -2365,6 +2551,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.root",
+      returnType: null,
     },
     {
       id: "a68a7aa7-d84e-4fc9-935f-2848fc20b568",
@@ -2377,6 +2564,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.train",
+      returnType: null,
     },
     {
       id: "bf2a0b46-8843-40fc-9de7-0d075d45402f",
@@ -2389,6 +2577,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.transform",
+      returnType: null,
     },
     {
       id: "7d85a84a-9bb1-4162-a823-74ec428afb13",
@@ -2401,6 +2590,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "4f3642e2-c8d3-48a6-8c41-6e6ce80242d7",
@@ -2413,6 +2603,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.download",
+      returnType: null,
     },
     {
       id: "28f2d49f-49a9-4876-9441-bd2bae8f4762",
@@ -2425,6 +2616,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.transforms",
+      returnType: null,
     },
     {
       id: "ae5cc793-4b2b-4743-8a12-781f787cff1a",
@@ -2437,6 +2629,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.root",
+      returnType: null,
     },
     {
       id: "3cc9b033-1273-4253-b6e7-1f9814bb601c",
@@ -2449,6 +2642,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.ann_file",
+      returnType: null,
     },
     {
       id: "5e08f920-018c-417b-addd-d5d2815bb1ff",
@@ -2461,6 +2655,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.transform",
+      returnType: null,
     },
     {
       id: "666a13c2-1273-4f16-9538-5beb92cc8945",
@@ -2473,6 +2668,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.target_transform",
+      returnType: null,
     },
     {
       id: "ac777ad1-e1a1-40c5-9d6e-8792c863ea0b",
@@ -2485,6 +2681,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.transforms",
+      returnType: null,
     },
     {
       id: "681af690-ce12-4c2b-b619-7561f2b7ec4d",
@@ -2497,6 +2694,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.root",
+      returnType: null,
     },
     {
       id: "ff707b69-f6f3-437d-a667-241e0ab8c0a9",
@@ -2509,6 +2707,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.ann_file",
+      returnType: null,
     },
     {
       id: "8f683bc3-f930-443e-ac67-2cfc5e1b8320",
@@ -2521,6 +2720,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.transform",
+      returnType: null,
     },
     {
       id: "7970b44a-5ea4-4a2b-94b8-1cb9ec889f7a",
@@ -2533,6 +2733,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.target_transform",
+      returnType: null,
     },
     {
       id: "02c7cb12-d981-43c0-a340-4ef88b589a9a",
@@ -2545,6 +2746,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.transforms",
+      returnType: null,
     },
     {
       id: "5f95208d-f358-4de5-89c5-356d1709a48f",
@@ -2557,6 +2759,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.root",
+      returnType: null,
     },
     {
       id: "08b6dcd7-98f4-4978-8893-3c7a4d9314ad",
@@ -2569,6 +2772,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.annotation_path",
+      returnType: null,
     },
     {
       id: "2a71f4b8-8005-42a8-883a-7aca7ad7294d",
@@ -2581,6 +2785,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.frames_per_clip",
+      returnType: null,
     },
     {
       id: "3a96d15c-9aee-453e-9b4a-56470f8ef906",
@@ -2593,6 +2798,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.step_between_clips",
+      returnType: null,
     },
     {
       id: "2389c4fd-e60b-47a7-924f-8093ba10e911",
@@ -2605,6 +2811,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.frame_rate",
+      returnType: null,
     },
     {
       id: "ca94448c-4d2d-42e3-b595-e268e14d31a9",
@@ -2617,6 +2824,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.fold",
+      returnType: null,
     },
     {
       id: "2e3c7702-5a44-40e7-a1b5-a770a272e944",
@@ -2629,6 +2837,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.train",
+      returnType: null,
     },
     {
       id: "9ccb1f17-0b0f-4ded-92c7-f75c98504916",
@@ -2641,6 +2850,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.transform",
+      returnType: null,
     },
     {
       id: "79142e25-132b-490e-ba18-7472acc22f90",
@@ -2653,6 +2863,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._precomputed_metadata",
+      returnType: null,
     },
     {
       id: "5a10a232-e123-49b4-985e-c13e1902d694",
@@ -2665,6 +2876,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.num_workers",
+      returnType: null,
     },
     {
       id: "2720e80e-5c9d-4934-99da-ad2de05a6c4e",
@@ -2677,6 +2889,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_width",
+      returnType: null,
     },
     {
       id: "ab756f9a-3675-497b-83e1-bf193833e130",
@@ -2689,6 +2902,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_height",
+      returnType: null,
     },
     {
       id: "9245420f-0f09-42c7-b574-bae1ecc9e1ab",
@@ -2701,6 +2915,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_min_dimension",
+      returnType: null,
     },
     {
       id: "1d98acd8-0845-402c-8057-10abd4221019",
@@ -2713,6 +2928,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._audio_samples",
+      returnType: null,
     },
     {
       id: "636ae4f3-f1b7-4dc7-80ca-5930c66db239",
@@ -2725,6 +2941,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.transforms",
+      returnType: null,
     },
     {
       id: "25074965-fcdb-4469-a10c-54c473b87a41",
@@ -2737,6 +2954,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.target_transform",
+      returnType: null,
     },
     {
       id: "d36d3782-8d12-41f9-86b7-1923609281a7",
@@ -2749,6 +2967,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.root",
+      returnType: null,
     },
     {
       id: "058a1657-51ec-430c-8122-1b0a14e41cfa",
@@ -2761,6 +2980,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.transform",
+      returnType: null,
     },
     {
       id: "33bf8a93-2007-4653-b482-1ed63b8eeef7",
@@ -2773,6 +2993,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.target_transform",
+      returnType: null,
     },
     {
       id: "208dad87-1f41-498b-aba1-679790eac4cc",
@@ -2785,6 +3006,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.loader",
+      returnType: null,
     },
     {
       id: "90576be6-c694-4c72-b0d1-cffc40d2c9cb",
@@ -2797,6 +3019,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.is_valid_file",
+      returnType: null,
     },
     {
       id: "6596d26b-07ab-4c16-8d06-20eee37e27d8",
@@ -2809,6 +3032,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.extensions",
+      returnType: null,
     },
     {
       id: "0ce97988-b789-4dcf-9f98-e028c82355d1",
@@ -2821,6 +3045,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.transforms",
+      returnType: null,
     },
     {
       id: "3a2bb2f8-5745-42a4-827e-2f53d034c38c",
@@ -2833,6 +3058,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.root",
+      returnType: null,
     },
     {
       id: "3ecb373e-c687-469d-876b-c27050e5abfd",
@@ -2845,6 +3071,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.split",
+      returnType: null,
     },
     {
       id: "57e72930-4042-4290-8abe-0c9e11e6efee",
@@ -2857,6 +3084,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.download",
+      returnType: null,
     },
     {
       id: "6e2756bb-0f60-4833-bc5c-49c479e31fc1",
@@ -2869,6 +3097,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.transform",
+      returnType: null,
     },
     {
       id: "d2c999ef-26d0-443d-8e90-c2fb122b39c4",
@@ -2881,6 +3110,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.target_transform",
+      returnType: null,
     },
     {
       id: "09db2321-4b1f-4769-af05-95059d0c013c",
@@ -2893,6 +3123,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.loader",
+      returnType: null,
     },
     {
       id: "d43e658a-a6d5-4a74-95c1-6ea521502354",
@@ -2905,6 +3136,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.is_valid_file",
+      returnType: null,
     },
     {
       id: "6b7c74bb-4af0-4ba3-bee2-cc4a8653ef49",
@@ -2917,6 +3149,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.extensions",
+      returnType: null,
     },
     {
       id: "3705b635-2f8c-4a8a-8bb6-ffff15d9a3d2",
@@ -2929,6 +3162,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.transforms",
+      returnType: null,
     },
     {
       id: "58c0ea6d-3297-4c20-b579-26304a7ae6be",
@@ -2941,6 +3175,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.root",
+      returnType: null,
     },
     {
       id: "d0b30d4f-d3e0-4528-951a-17d8470589b7",
@@ -2953,6 +3188,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.train",
+      returnType: null,
     },
     {
       id: "fdd9e7c9-a8c7-459f-b30a-4147a31d95d7",
@@ -2965,6 +3201,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.transform",
+      returnType: null,
     },
     {
       id: "80ce6ccd-19c0-4f79-965d-f635378ecd14",
@@ -2977,6 +3214,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "f952b777-5210-4821-9906-064294d819a3",
@@ -2989,6 +3227,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.download",
+      returnType: null,
     },
     {
       id: "e71ab373-1432-46d1-9b90-d4c2938f7031",
@@ -3001,6 +3240,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.transforms",
+      returnType: null,
     },
     {
       id: "deb6fcbf-f392-4073-b72e-344b9e86102b",
@@ -3013,6 +3253,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.root",
+      returnType: null,
     },
     {
       id: "a6f63619-a086-45f8-9448-0b671debe064",
@@ -3025,6 +3266,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.frames_per_clip",
+      returnType: null,
     },
     {
       id: "fb9ac6e2-4c42-4551-83d4-625a8d87a1fd",
@@ -3037,6 +3279,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.step_between_clips",
+      returnType: null,
     },
     {
       id: "15d3dd00-30fc-4cfc-86c6-4a829b83bf9d",
@@ -3049,6 +3292,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.frame_rate",
+      returnType: null,
     },
     {
       id: "8dd48c1a-63c6-4557-b4a5-ac071c90ad95",
@@ -3061,6 +3305,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.extensions",
+      returnType: null,
     },
     {
       id: "f5fbf9d4-2e7b-4aca-83c5-6eb14459b993",
@@ -3073,6 +3318,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.transform",
+      returnType: null,
     },
     {
       id: "1f6a9259-ab50-43f7-a142-705114773aea",
@@ -3085,6 +3331,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._precomputed_metadata",
+      returnType: null,
     },
     {
       id: "4f17c48a-9186-4386-abf5-2a9cc1f3c6c7",
@@ -3097,6 +3344,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.num_workers",
+      returnType: null,
     },
     {
       id: "744a2185-2635-48b9-b515-02714df81fd6",
@@ -3109,6 +3357,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_width",
+      returnType: null,
     },
     {
       id: "1b509b2d-714c-4b0f-9a55-f6e7376576ac",
@@ -3121,6 +3370,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_height",
+      returnType: null,
     },
     {
       id: "543fb066-5eea-4d63-a110-989cd42c3076",
@@ -3133,6 +3383,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_min_dimension",
+      returnType: null,
     },
     {
       id: "8563357d-acce-4db5-ab8b-b2ac80d4ae63",
@@ -3145,6 +3396,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._audio_samples",
+      returnType: null,
     },
     {
       id: "c6d1a03d-9b81-4ea0-afd8-b3734f5b3bbc",
@@ -3157,6 +3409,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._audio_channels",
+      returnType: null,
     },
     {
       id: "1cbb2e04-9c6a-40d1-beaf-d5e3a36c86a7",
@@ -3169,6 +3422,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.transforms",
+      returnType: null,
     },
     {
       id: "bf1c8f62-1382-4a1a-a777-a4bdc199b3f7",
@@ -3181,6 +3435,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.target_transform",
+      returnType: null,
     },
     {
       id: "cdd2bfd4-c4ef-4ff2-8ab5-fdbed7f610a9",
@@ -3193,6 +3448,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.root",
+      returnType: null,
     },
     {
       id: "a425ad2e-a1e6-4fb4-9703-98f2874b038f",
@@ -3205,6 +3461,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.classes",
+      returnType: null,
     },
     {
       id: "a1f34695-7a86-4fb1-85fc-3bfd8cf10c75",
@@ -3217,6 +3474,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.transform",
+      returnType: null,
     },
     {
       id: "83e05943-266d-4bb7-9a85-94ad9f15e41c",
@@ -3229,6 +3487,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.target_transform",
+      returnType: null,
     },
     {
       id: "157d3f5f-01f4-45a7-a719-d320c7b63b76",
@@ -3241,6 +3500,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.transforms",
+      returnType: null,
     },
     {
       id: "3860065e-d644-4dd1-985f-5c9e8094b13e",
@@ -3253,6 +3513,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.root",
+      returnType: null,
     },
     {
       id: "814af498-e0fd-45da-a939-8fde1f7754c2",
@@ -3265,6 +3526,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.transform",
+      returnType: null,
     },
     {
       id: "4d6521b9-642e-4a81-8bf1-c2daf5d9defc",
@@ -3277,6 +3539,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.target_transform",
+      returnType: null,
     },
     {
       id: "9bde54dc-c528-4472-90a8-db15d07d658d",
@@ -3289,6 +3552,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.transforms",
+      returnType: null,
     },
     {
       id: "fb0910d1-bbda-4d1e-98a5-bff21f1affd7",
@@ -3301,6 +3565,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.root",
+      returnType: null,
     },
     {
       id: "0efd6387-f609-49dc-960c-59bf36e41617",
@@ -3313,6 +3578,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.train",
+      returnType: null,
     },
     {
       id: "014763c4-c1c2-4712-b72e-6c2425435007",
@@ -3325,6 +3591,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.transform",
+      returnType: null,
     },
     {
       id: "07732ab6-cc1b-45a2-bdde-7a4ef6e46fc1",
@@ -3337,6 +3604,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.target_transform",
+      returnType: null,
     },
     {
       id: "021ee6aa-75f0-4556-a9cb-3837eb3df4de",
@@ -3349,6 +3617,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.download",
+      returnType: null,
     },
     {
       id: "a1e91896-5216-4986-aeea-9fc2accfbc75",
@@ -3361,6 +3630,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.transforms",
+      returnType: null,
     },
     {
       id: "b2c5b78c-8e24-4d92-9c00-fc602176886d",
@@ -3373,6 +3643,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.root",
+      returnType: null,
     },
     {
       id: "0c9ec84e-46f0-4152-958f-35778c37db84",
@@ -3385,6 +3656,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.background",
+      returnType: null,
     },
     {
       id: "2186eb86-8d20-48e4-adb2-3224c693d978",
@@ -3397,6 +3669,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.transform",
+      returnType: null,
     },
     {
       id: "306b26b0-72ef-4072-8b22-01752061e337",
@@ -3409,6 +3682,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.target_transform",
+      returnType: null,
     },
     {
       id: "df551ebd-bb06-449b-92a2-cde9b6e2a0ad",
@@ -3421,6 +3695,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.download",
+      returnType: null,
     },
     {
       id: "afa60929-7438-4241-8b35-5facac9b4cb6",
@@ -3433,6 +3708,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.transforms",
+      returnType: null,
     },
     {
       id: "c0b4729d-cc6a-492f-a604-d9d9ebcf8040",
@@ -3445,6 +3721,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.root",
+      returnType: null,
     },
     {
       id: "ee31afd7-54d2-4ff6-a4e0-0fb391467fad",
@@ -3457,6 +3734,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.name",
+      returnType: null,
     },
     {
       id: "f4aebac8-2510-49d9-8798-bc9514e413fe",
@@ -3469,6 +3747,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.train",
+      returnType: null,
     },
     {
       id: "43612388-4e57-434d-bcb8-aadbce5e52c2",
@@ -3481,6 +3760,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.transform",
+      returnType: null,
     },
     {
       id: "6ccfa902-d5a4-44ac-8591-508241a4a0f4",
@@ -3493,6 +3773,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.download",
+      returnType: null,
     },
     {
       id: "0737f538-c784-416f-bbab-e7378d629247",
@@ -3505,6 +3786,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.transforms",
+      returnType: null,
     },
     {
       id: "40083909-67a7-4e45-9889-4def063c8fd8",
@@ -3517,6 +3799,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.target_transform",
+      returnType: null,
     },
     {
       id: "1d426a8b-37bc-482d-82a1-61e77cdee282",
@@ -3529,6 +3812,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.root",
+      returnType: null,
     },
     {
       id: "d86ea947-0243-4d1c-94ad-43888b59c084",
@@ -3541,6 +3825,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.split",
+      returnType: null,
     },
     {
       id: "541f9f22-866f-41f5-b1cc-5fc88df63817",
@@ -3553,6 +3838,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.small",
+      returnType: null,
     },
     {
       id: "5812c454-0d59-4d92-9179-7beeaf293f1d",
@@ -3565,6 +3851,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.download",
+      returnType: null,
     },
     {
       id: "3faf8223-fb58-4812-8c82-b521d4b120de",
@@ -3577,6 +3864,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.transform",
+      returnType: null,
     },
     {
       id: "c57a05d2-f7b4-4904-986b-8853ac81d709",
@@ -3589,6 +3877,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.target_transform",
+      returnType: null,
     },
     {
       id: "a0fdb583-7501-4805-a4cd-57a7de640986",
@@ -3601,6 +3890,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.loader",
+      returnType: null,
     },
     {
       id: "6bf04e74-c12e-4610-9c1f-660e3b9164de",
@@ -3613,6 +3903,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.transforms",
+      returnType: null,
     },
     {
       id: "2ce69df0-adc8-42a0-be62-ee7df63c4bce",
@@ -3625,6 +3916,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.root",
+      returnType: null,
     },
     {
       id: "cb7bb418-68e8-4ae2-914e-edd341b40f57",
@@ -3637,6 +3929,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.what",
+      returnType: null,
     },
     {
       id: "54d927e1-b1a2-46e6-977e-14ee238ce9dc",
@@ -3649,6 +3942,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.compat",
+      returnType: null,
     },
     {
       id: "cba80f01-341c-41eb-b93a-63c35c3790f5",
@@ -3661,6 +3955,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.train",
+      returnType: null,
     },
     {
       id: "94d83e05-c9c0-4388-a61e-9ff9d37cf349",
@@ -3673,6 +3968,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.transform",
+      returnType: null,
     },
     {
       id: "63784f7d-197d-4128-81a7-5e85149bc2e7",
@@ -3685,6 +3981,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "0d7e2acb-a72c-4aae-8051-8e7942b9457b",
@@ -3697,6 +3994,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.download",
+      returnType: null,
     },
     {
       id: "b7b17a72-bf7f-4fa5-8a1b-645b49a20272",
@@ -3709,6 +4007,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.transforms",
+      returnType: null,
     },
     {
       id: "198cc561-9cff-4340-8ea0-125810dbcae0",
@@ -3721,6 +4020,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.root",
+      returnType: null,
     },
     {
       id: "fc1efe37-fd22-40a2-be8b-482259ef90e5",
@@ -3733,6 +4033,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.image_set",
+      returnType: null,
     },
     {
       id: "df4809e2-28e0-4ba4-a12c-0cebbdc6bf83",
@@ -3745,6 +4046,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.mode",
+      returnType: null,
     },
     {
       id: "2610549d-0de7-4c9a-986c-f247f47518f2",
@@ -3757,6 +4059,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.download",
+      returnType: null,
     },
     {
       id: "47474817-9143-4c1e-98c8-b4ace7b9d7ef",
@@ -3769,6 +4072,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.transforms",
+      returnType: null,
     },
     {
       id: "7a1c8734-2ffb-4abb-a016-f6ba74b8f647",
@@ -3781,6 +4085,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.transform",
+      returnType: null,
     },
     {
       id: "2d652178-cbc1-4860-84e3-7ff1f92242c4",
@@ -3793,6 +4098,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.target_transform",
+      returnType: null,
     },
     {
       id: "a7785cf8-60c4-4e7c-9da9-28bbb5a960ce",
@@ -3805,6 +4111,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.root",
+      returnType: null,
     },
     {
       id: "4e8a9333-43c5-4a94-90c2-4bb90cb8ddae",
@@ -3817,6 +4124,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.transform",
+      returnType: null,
     },
     {
       id: "c37bf275-e54d-4bdd-aa82-8ff2d83dbffb",
@@ -3829,6 +4137,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.target_transform",
+      returnType: null,
     },
     {
       id: "5522e78c-97b3-42e4-b48e-f0cfd2f7bb9c",
@@ -3841,6 +4150,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.download",
+      returnType: null,
     },
     {
       id: "6e7a3ddf-8049-4e0b-8831-fc469455a5e5",
@@ -3853,6 +4163,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.transforms",
+      returnType: null,
     },
     {
       id: "08c52175-6f27-466b-b9f5-e4d302008287",
@@ -3865,6 +4176,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.root",
+      returnType: null,
     },
     {
       id: "d225fe4e-447a-4862-adb2-69db27804069",
@@ -3877,6 +4189,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.transform",
+      returnType: null,
     },
     {
       id: "38e70a10-e569-43f9-890d-67790e0367cc",
@@ -3889,6 +4202,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.target_transform",
+      returnType: null,
     },
     {
       id: "d5fe1abb-61aa-4eed-b54a-9f86107ea647",
@@ -3901,6 +4215,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.download",
+      returnType: null,
     },
     {
       id: "77292a8f-512e-4810-917a-6ec82b36721a",
@@ -3913,6 +4228,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.transforms",
+      returnType: null,
     },
     {
       id: "62ffa9a5-269a-4ac2-82b6-f960c1c3e83d",
@@ -3925,6 +4241,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.root",
+      returnType: null,
     },
     {
       id: "6a1da1c7-7968-481c-b424-56bd2e53336a",
@@ -3937,6 +4254,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.split",
+      returnType: null,
     },
     {
       id: "c7e81be3-fcbb-4066-8d76-cdf0666c3ab3",
@@ -3949,6 +4267,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.folds",
+      returnType: null,
     },
     {
       id: "4398a9b7-68c9-4142-a499-24ee13036ff7",
@@ -3961,6 +4280,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.transform",
+      returnType: null,
     },
     {
       id: "95f5b969-70c3-4a94-923d-ca299318cc6d",
@@ -3973,6 +4293,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.target_transform",
+      returnType: null,
     },
     {
       id: "7d333138-c371-4936-98eb-b91a06670c98",
@@ -3985,6 +4306,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.download",
+      returnType: null,
     },
     {
       id: "778fc935-502d-4990-b732-ccb6772a78cd",
@@ -3997,6 +4319,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.transforms",
+      returnType: null,
     },
     {
       id: "19009466-db59-4fff-8542-c599854372c2",
@@ -4009,6 +4332,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.root",
+      returnType: null,
     },
     {
       id: "b6955498-6506-4f26-b85b-5b717ce9be7c",
@@ -4021,6 +4345,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.split",
+      returnType: null,
     },
     {
       id: "826ee1ba-617d-46ec-ab68-c8aad429df7c",
@@ -4033,6 +4358,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.transform",
+      returnType: null,
     },
     {
       id: "4b552b8d-84bf-47d3-8c37-02544185038a",
@@ -4045,6 +4371,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.target_transform",
+      returnType: null,
     },
     {
       id: "5ce52f54-bca9-4e3d-beb0-e50779491bb9",
@@ -4057,6 +4384,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.download",
+      returnType: null,
     },
     {
       id: "392d2d84-6c6a-4403-b323-7607cd000c34",
@@ -4069,6 +4397,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.transforms",
+      returnType: null,
     },
     {
       id: "ddae7743-208c-40b7-8c76-619819fd6afd",
@@ -4081,6 +4410,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.root",
+      returnType: null,
     },
     {
       id: "bf5722d1-c3e0-487d-8ad7-679ee5c044ce",
@@ -4093,6 +4423,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.annotation_path",
+      returnType: null,
     },
     {
       id: "4547b8b5-78b2-475c-9b97-503075675501",
@@ -4105,6 +4436,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.frames_per_clip",
+      returnType: null,
     },
     {
       id: "0de7cdc4-dd54-41be-a4f2-831297a86db7",
@@ -4117,6 +4449,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.step_between_clips",
+      returnType: null,
     },
     {
       id: "4680bdca-f2d9-46e4-a3be-c5189b12eadf",
@@ -4129,6 +4462,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.frame_rate",
+      returnType: null,
     },
     {
       id: "ba0d2b21-2719-45ef-897b-fe74b710e5ce",
@@ -4141,6 +4475,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.fold",
+      returnType: null,
     },
     {
       id: "8a229b0f-4d1d-46d1-82ba-7905b2049869",
@@ -4153,6 +4488,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.train",
+      returnType: null,
     },
     {
       id: "dc43f058-6c2f-4aa1-83f0-dfd493514e0a",
@@ -4165,6 +4501,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.transform",
+      returnType: null,
     },
     {
       id: "8c137a94-30e3-4a98-afed-e426e0fd8876",
@@ -4177,6 +4514,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._precomputed_metadata",
+      returnType: null,
     },
     {
       id: "f4e763b7-c19e-4797-adae-612edadf4eb0",
@@ -4189,6 +4527,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.num_workers",
+      returnType: null,
     },
     {
       id: "6655c6ff-8ddd-434d-b4ba-bbf575f3c097",
@@ -4201,6 +4540,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_width",
+      returnType: null,
     },
     {
       id: "868833ec-6942-4df8-8afe-18eed027dedd",
@@ -4213,6 +4553,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_height",
+      returnType: null,
     },
     {
       id: "4bd4333f-cc06-4000-a0ad-0ab47d837b36",
@@ -4225,6 +4566,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_min_dimension",
+      returnType: null,
     },
     {
       id: "b62c631e-21b6-4eee-9bb3-c79617d405c5",
@@ -4237,6 +4579,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._audio_samples",
+      returnType: null,
     },
     {
       id: "005991f7-3061-4887-8c12-9b0d9cec02aa",
@@ -4249,6 +4592,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.transforms",
+      returnType: null,
     },
     {
       id: "4e9dc4d8-d311-4731-a6b9-7079b95d7357",
@@ -4261,6 +4605,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.target_transform",
+      returnType: null,
     },
     {
       id: "5f124114-6397-4961-9412-d8fb718c75f6",
@@ -4273,6 +4618,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.root",
+      returnType: null,
     },
     {
       id: "1b639d8b-4561-46c7-a3be-af8792bba35d",
@@ -4285,6 +4631,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.train",
+      returnType: null,
     },
     {
       id: "c919473c-1f46-407b-932c-2ac7e8dfc119",
@@ -4297,6 +4644,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.transform",
+      returnType: null,
     },
     {
       id: "e50d14b0-f7e8-4a75-9ce5-5f5833d4c72d",
@@ -4309,6 +4657,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.target_transform",
+      returnType: null,
     },
     {
       id: "baea51c5-30b3-46fd-aea9-fb8e48cc12b2",
@@ -4321,6 +4670,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.download",
+      returnType: null,
     },
     {
       id: "2395d2d4-5ec4-4b2a-bdb8-3dd05a114205",
@@ -4333,6 +4683,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.transforms",
+      returnType: null,
     },
     {
       id: "a00655a1-adf6-4375-8ff3-4bd882f3afc7",
@@ -4345,6 +4696,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.root",
+      returnType: null,
     },
     {
       id: "31a7ce52-d4dc-4410-bbfa-ca0a1e6dc0af",
@@ -4357,6 +4709,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.year",
+      returnType: null,
     },
     {
       id: "b5f8cf68-3358-489a-9a02-4f9e10d11cca",
@@ -4369,6 +4722,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.image_set",
+      returnType: null,
     },
     {
       id: "b18e3ccb-05e2-42f8-9842-659e4658ee40",
@@ -4381,6 +4735,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.download",
+      returnType: null,
     },
     {
       id: "feeaaa74-7448-405d-87a1-1e962905925b",
@@ -4393,6 +4748,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.transform",
+      returnType: null,
     },
     {
       id: "61004234-0216-4d5f-ae62-7253ce8f97ae",
@@ -4405,6 +4761,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.target_transform",
+      returnType: null,
     },
     {
       id: "0f069ff7-7c02-4c05-b746-24b85a24a117",
@@ -4417,6 +4774,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.transforms",
+      returnType: null,
     },
     {
       id: "143718d5-d1d9-4ad1-a45b-463bda8ee192",
@@ -4429,6 +4787,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.root",
+      returnType: null,
     },
     {
       id: "b25a07d5-4fda-46c3-8b50-b1d4feae9dd7",
@@ -4441,6 +4800,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.year",
+      returnType: null,
     },
     {
       id: "3049ae0f-f76f-47e6-bfb3-edca94b4fc84",
@@ -4453,6 +4813,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.image_set",
+      returnType: null,
     },
     {
       id: "396ea131-2ff3-45f9-b90b-3e84bce322ea",
@@ -4465,6 +4826,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.download",
+      returnType: null,
     },
     {
       id: "bd10b3dd-0ff9-4ff6-b557-1c068cee8936",
@@ -4477,6 +4839,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.transform",
+      returnType: null,
     },
     {
       id: "e5fad867-4aa8-4432-85ae-76350537a502",
@@ -4489,6 +4852,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.target_transform",
+      returnType: null,
     },
     {
       id: "8b10a490-21b1-4625-92ff-c3c68284e0d3",
@@ -4501,6 +4865,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.transforms",
+      returnType: null,
     },
     {
       id: "a8938abd-90f3-4296-9c4b-a95ba196fc02",
@@ -4513,6 +4878,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.root",
+      returnType: null,
     },
     {
       id: "12f3b527-5ed6-4186-a85e-a03f78499771",
@@ -4525,6 +4891,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.transforms",
+      returnType: null,
     },
     {
       id: "f48dbd8e-4cf7-4603-b8cb-1c7da74fea40",
@@ -4537,6 +4904,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.transform",
+      returnType: null,
     },
     {
       id: "9164b1cd-5abd-4f41-a4fc-f5fc55479832",
@@ -4549,6 +4917,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.target_transform",
+      returnType: null,
     },
     {
       id: "16c1bac5-6230-41a3-96c3-ee68916c032a",
@@ -4561,6 +4930,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.root",
+      returnType: null,
     },
     {
       id: "b3dc89c5-2b48-468d-8cae-654478b5e3a1",
@@ -4573,6 +4943,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.split",
+      returnType: null,
     },
     {
       id: "01063877-3518-4c0d-8849-4c2f4297e255",
@@ -4585,6 +4956,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.transform",
+      returnType: null,
     },
     {
       id: "9ef45702-d7ca-44a6-98b3-82eac8eeb4eb",
@@ -4597,6 +4969,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.target_transform",
+      returnType: null,
     },
     {
       id: "01feb165-d921-4304-9869-5735a90b39b0",
@@ -4609,6 +4982,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.download",
+      returnType: null,
     },
     {
       id: "60e4b0b4-c260-4c52-a656-e1592d88690b",
@@ -4621,6 +4995,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.transforms",
+      returnType: null,
     },
   ],
   "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa": [
@@ -4635,6 +5010,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.root",
+      returnType: null,
     },
     {
       id: "b3dc89c5-2b48-468d-8cae-654478b5e3a1",
@@ -4647,6 +5023,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.split",
+      returnType: null,
     },
     {
       id: "01063877-3518-4c0d-8849-4c2f4297e255",
@@ -4659,6 +5036,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.transform",
+      returnType: null,
     },
     {
       id: "9ef45702-d7ca-44a6-98b3-82eac8eeb4eb",
@@ -4671,6 +5049,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.target_transform",
+      returnType: null,
     },
     {
       id: "01feb165-d921-4304-9869-5735a90b39b0",
@@ -4683,6 +5062,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.download",
+      returnType: null,
     },
     {
       id: "60e4b0b4-c260-4c52-a656-e1592d88690b",
@@ -4695,6 +5075,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.transforms",
+      returnType: null,
     },
   ],
   "9ee60eef-4d99-4649-9114-76097854cfb0": [],
@@ -4711,6 +5092,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.transforms",
+      returnType: null,
     },
   ],
   "01feb165-d921-4304-9869-5735a90b39b0": [
@@ -4725,6 +5107,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.download",
+      returnType: null,
     },
   ],
   "9ef45702-d7ca-44a6-98b3-82eac8eeb4eb": [
@@ -4739,6 +5122,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.target_transform",
+      returnType: null,
     },
   ],
   "01063877-3518-4c0d-8849-4c2f4297e255": [
@@ -4753,6 +5137,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.transform",
+      returnType: null,
     },
   ],
   "b3dc89c5-2b48-468d-8cae-654478b5e3a1": [
@@ -4767,6 +5152,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.split",
+      returnType: null,
     },
   ],
   "16c1bac5-6230-41a3-96c3-ee68916c032a": [
@@ -4781,6 +5167,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.WIDERFace.root",
+      returnType: null,
     },
   ],
   "037da68a-1827-47ef-adec-b081388c657c": [
@@ -4795,6 +5182,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.root",
+      returnType: null,
     },
     {
       id: "12f3b527-5ed6-4186-a85e-a03f78499771",
@@ -4807,6 +5195,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.transforms",
+      returnType: null,
     },
     {
       id: "f48dbd8e-4cf7-4603-b8cb-1c7da74fea40",
@@ -4819,6 +5208,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.transform",
+      returnType: null,
     },
     {
       id: "9164b1cd-5abd-4f41-a4fc-f5fc55479832",
@@ -4831,6 +5221,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.target_transform",
+      returnType: null,
     },
   ],
   "fec33716-0e84-49d0-8646-4c8a35c023c6": [],
@@ -4847,6 +5238,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.target_transform",
+      returnType: null,
     },
   ],
   "f48dbd8e-4cf7-4603-b8cb-1c7da74fea40": [
@@ -4861,6 +5253,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.transform",
+      returnType: null,
     },
   ],
   "12f3b527-5ed6-4186-a85e-a03f78499771": [
@@ -4875,6 +5268,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.transforms",
+      returnType: null,
     },
   ],
   "a8938abd-90f3-4296-9c4b-a95ba196fc02": [
@@ -4889,6 +5283,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VisionDataset.root",
+      returnType: null,
     },
   ],
   "811db7c6-4b25-4a4f-bc75-c20258a5e891": [
@@ -4903,6 +5298,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.root",
+      returnType: null,
     },
     {
       id: "b25a07d5-4fda-46c3-8b50-b1d4feae9dd7",
@@ -4915,6 +5311,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.year",
+      returnType: null,
     },
     {
       id: "3049ae0f-f76f-47e6-bfb3-edca94b4fc84",
@@ -4927,6 +5324,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.image_set",
+      returnType: null,
     },
     {
       id: "396ea131-2ff3-45f9-b90b-3e84bce322ea",
@@ -4939,6 +5337,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.download",
+      returnType: null,
     },
     {
       id: "bd10b3dd-0ff9-4ff6-b557-1c068cee8936",
@@ -4951,6 +5350,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.transform",
+      returnType: null,
     },
     {
       id: "e5fad867-4aa8-4432-85ae-76350537a502",
@@ -4963,6 +5363,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.target_transform",
+      returnType: null,
     },
     {
       id: "8b10a490-21b1-4625-92ff-c3c68284e0d3",
@@ -4975,6 +5376,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.transforms",
+      returnType: null,
     },
   ],
   "00a0f201-d90d-4af8-bf8a-404be98893d8": [],
@@ -4991,6 +5393,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.transforms",
+      returnType: null,
     },
   ],
   "e5fad867-4aa8-4432-85ae-76350537a502": [
@@ -5005,6 +5408,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.target_transform",
+      returnType: null,
     },
   ],
   "bd10b3dd-0ff9-4ff6-b557-1c068cee8936": [
@@ -5019,6 +5423,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.transform",
+      returnType: null,
     },
   ],
   "396ea131-2ff3-45f9-b90b-3e84bce322ea": [
@@ -5033,6 +5438,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.download",
+      returnType: null,
     },
   ],
   "3049ae0f-f76f-47e6-bfb3-edca94b4fc84": [
@@ -5047,6 +5453,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.image_set",
+      returnType: null,
     },
   ],
   "b25a07d5-4fda-46c3-8b50-b1d4feae9dd7": [
@@ -5061,6 +5468,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.year",
+      returnType: null,
     },
   ],
   "143718d5-d1d9-4ad1-a45b-463bda8ee192": [
@@ -5075,6 +5483,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation.root",
+      returnType: null,
     },
   ],
   "96563c99-db40-41e8-a6d5-cc40ea42e4d2": [
@@ -5089,6 +5498,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.root",
+      returnType: null,
     },
     {
       id: "31a7ce52-d4dc-4410-bbfa-ca0a1e6dc0af",
@@ -5101,6 +5511,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.year",
+      returnType: null,
     },
     {
       id: "b5f8cf68-3358-489a-9a02-4f9e10d11cca",
@@ -5113,6 +5524,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.image_set",
+      returnType: null,
     },
     {
       id: "b18e3ccb-05e2-42f8-9842-659e4658ee40",
@@ -5125,6 +5537,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.download",
+      returnType: null,
     },
     {
       id: "feeaaa74-7448-405d-87a1-1e962905925b",
@@ -5137,6 +5550,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.transform",
+      returnType: null,
     },
     {
       id: "61004234-0216-4d5f-ae62-7253ce8f97ae",
@@ -5149,6 +5563,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.target_transform",
+      returnType: null,
     },
     {
       id: "0f069ff7-7c02-4c05-b746-24b85a24a117",
@@ -5161,6 +5576,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.transforms",
+      returnType: null,
     },
   ],
   "d3b7c340-11f3-40b9-b991-4023d01d742f": [],
@@ -5177,6 +5593,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.transforms",
+      returnType: null,
     },
   ],
   "61004234-0216-4d5f-ae62-7253ce8f97ae": [
@@ -5191,6 +5608,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.target_transform",
+      returnType: null,
     },
   ],
   "feeaaa74-7448-405d-87a1-1e962905925b": [
@@ -5205,6 +5623,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.transform",
+      returnType: null,
     },
   ],
   "b18e3ccb-05e2-42f8-9842-659e4658ee40": [
@@ -5219,6 +5638,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.download",
+      returnType: null,
     },
   ],
   "b5f8cf68-3358-489a-9a02-4f9e10d11cca": [
@@ -5233,6 +5653,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.image_set",
+      returnType: null,
     },
   ],
   "31a7ce52-d4dc-4410-bbfa-ca0a1e6dc0af": [
@@ -5247,6 +5668,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.year",
+      returnType: null,
     },
   ],
   "a00655a1-adf6-4375-8ff3-4bd882f3afc7": [
@@ -5261,6 +5683,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.VOCDetection.root",
+      returnType: null,
     },
   ],
   "cac3f4ef-7068-41ff-8389-2dce926c492f": [
@@ -5275,6 +5698,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.root",
+      returnType: null,
     },
     {
       id: "1b639d8b-4561-46c7-a3be-af8792bba35d",
@@ -5287,6 +5711,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.train",
+      returnType: null,
     },
     {
       id: "c919473c-1f46-407b-932c-2ac7e8dfc119",
@@ -5299,6 +5724,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.transform",
+      returnType: null,
     },
     {
       id: "e50d14b0-f7e8-4a75-9ce5-5f5833d4c72d",
@@ -5311,6 +5737,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.target_transform",
+      returnType: null,
     },
     {
       id: "baea51c5-30b3-46fd-aea9-fb8e48cc12b2",
@@ -5323,6 +5750,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.download",
+      returnType: null,
     },
     {
       id: "2395d2d4-5ec4-4b2a-bdb8-3dd05a114205",
@@ -5335,6 +5763,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.transforms",
+      returnType: null,
     },
   ],
   "c3db1995-c6a1-4915-b512-57f3830803a4": [],
@@ -5351,6 +5780,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.transforms",
+      returnType: null,
     },
   ],
   "baea51c5-30b3-46fd-aea9-fb8e48cc12b2": [
@@ -5365,6 +5795,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.download",
+      returnType: null,
     },
   ],
   "e50d14b0-f7e8-4a75-9ce5-5f5833d4c72d": [
@@ -5379,6 +5810,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.target_transform",
+      returnType: null,
     },
   ],
   "c919473c-1f46-407b-932c-2ac7e8dfc119": [
@@ -5393,6 +5825,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.transform",
+      returnType: null,
     },
   ],
   "1b639d8b-4561-46c7-a3be-af8792bba35d": [
@@ -5407,6 +5840,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.train",
+      returnType: null,
     },
   ],
   "5f124114-6397-4961-9412-d8fb718c75f6": [
@@ -5421,6 +5855,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.USPS.root",
+      returnType: null,
     },
   ],
   "dc4c50bd-b705-4eea-9345-8e17844540a3": [
@@ -5435,6 +5870,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.root",
+      returnType: null,
     },
     {
       id: "bf5722d1-c3e0-487d-8ad7-679ee5c044ce",
@@ -5447,6 +5883,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.annotation_path",
+      returnType: null,
     },
     {
       id: "4547b8b5-78b2-475c-9b97-503075675501",
@@ -5459,6 +5896,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.frames_per_clip",
+      returnType: null,
     },
     {
       id: "0de7cdc4-dd54-41be-a4f2-831297a86db7",
@@ -5471,6 +5909,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.step_between_clips",
+      returnType: null,
     },
     {
       id: "4680bdca-f2d9-46e4-a3be-c5189b12eadf",
@@ -5483,6 +5922,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.frame_rate",
+      returnType: null,
     },
     {
       id: "ba0d2b21-2719-45ef-897b-fe74b710e5ce",
@@ -5495,6 +5935,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.fold",
+      returnType: null,
     },
     {
       id: "8a229b0f-4d1d-46d1-82ba-7905b2049869",
@@ -5507,6 +5948,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.train",
+      returnType: null,
     },
     {
       id: "dc43f058-6c2f-4aa1-83f0-dfd493514e0a",
@@ -5519,6 +5961,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.transform",
+      returnType: null,
     },
     {
       id: "8c137a94-30e3-4a98-afed-e426e0fd8876",
@@ -5531,6 +5974,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._precomputed_metadata",
+      returnType: null,
     },
     {
       id: "f4e763b7-c19e-4797-adae-612edadf4eb0",
@@ -5543,6 +5987,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.num_workers",
+      returnType: null,
     },
     {
       id: "6655c6ff-8ddd-434d-b4ba-bbf575f3c097",
@@ -5555,6 +6000,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_width",
+      returnType: null,
     },
     {
       id: "868833ec-6942-4df8-8afe-18eed027dedd",
@@ -5567,6 +6013,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_height",
+      returnType: null,
     },
     {
       id: "4bd4333f-cc06-4000-a0ad-0ab47d837b36",
@@ -5579,6 +6026,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_min_dimension",
+      returnType: null,
     },
     {
       id: "b62c631e-21b6-4eee-9bb3-c79617d405c5",
@@ -5591,6 +6039,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._audio_samples",
+      returnType: null,
     },
     {
       id: "005991f7-3061-4887-8c12-9b0d9cec02aa",
@@ -5603,6 +6052,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.transforms",
+      returnType: null,
     },
     {
       id: "4e9dc4d8-d311-4731-a6b9-7079b95d7357",
@@ -5615,6 +6065,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.target_transform",
+      returnType: null,
     },
   ],
   "142fbbdf-0993-418d-ab06-99b8c41c6a4f": [],
@@ -5631,6 +6082,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.target_transform",
+      returnType: null,
     },
   ],
   "005991f7-3061-4887-8c12-9b0d9cec02aa": [
@@ -5645,6 +6097,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.transforms",
+      returnType: null,
     },
   ],
   "b62c631e-21b6-4eee-9bb3-c79617d405c5": [
@@ -5659,6 +6112,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._audio_samples",
+      returnType: null,
     },
   ],
   "4bd4333f-cc06-4000-a0ad-0ab47d837b36": [
@@ -5673,6 +6127,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_min_dimension",
+      returnType: null,
     },
   ],
   "868833ec-6942-4df8-8afe-18eed027dedd": [
@@ -5687,6 +6142,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_height",
+      returnType: null,
     },
   ],
   "6655c6ff-8ddd-434d-b4ba-bbf575f3c097": [
@@ -5701,6 +6157,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._video_width",
+      returnType: null,
     },
   ],
   "f4e763b7-c19e-4797-adae-612edadf4eb0": [
@@ -5715,6 +6172,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.num_workers",
+      returnType: null,
     },
   ],
   "8c137a94-30e3-4a98-afed-e426e0fd8876": [
@@ -5729,6 +6187,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101._precomputed_metadata",
+      returnType: null,
     },
   ],
   "dc43f058-6c2f-4aa1-83f0-dfd493514e0a": [
@@ -5743,6 +6202,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.transform",
+      returnType: null,
     },
   ],
   "8a229b0f-4d1d-46d1-82ba-7905b2049869": [
@@ -5757,6 +6217,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.train",
+      returnType: null,
     },
   ],
   "ba0d2b21-2719-45ef-897b-fe74b710e5ce": [
@@ -5771,6 +6232,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.fold",
+      returnType: null,
     },
   ],
   "4680bdca-f2d9-46e4-a3be-c5189b12eadf": [
@@ -5785,6 +6247,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.frame_rate",
+      returnType: null,
     },
   ],
   "0de7cdc4-dd54-41be-a4f2-831297a86db7": [
@@ -5799,6 +6262,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.step_between_clips",
+      returnType: null,
     },
   ],
   "4547b8b5-78b2-475c-9b97-503075675501": [
@@ -5813,6 +6277,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.frames_per_clip",
+      returnType: null,
     },
   ],
   "bf5722d1-c3e0-487d-8ad7-679ee5c044ce": [
@@ -5827,6 +6292,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.annotation_path",
+      returnType: null,
     },
   ],
   "ddae7743-208c-40b7-8c76-619819fd6afd": [
@@ -5841,6 +6307,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.UCF101.root",
+      returnType: null,
     },
   ],
   "715c9139-0812-4308-8f72-3390e359d82b": [
@@ -5855,6 +6322,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.root",
+      returnType: null,
     },
     {
       id: "b6955498-6506-4f26-b85b-5b717ce9be7c",
@@ -5867,6 +6335,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.split",
+      returnType: null,
     },
     {
       id: "826ee1ba-617d-46ec-ab68-c8aad429df7c",
@@ -5879,6 +6348,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.transform",
+      returnType: null,
     },
     {
       id: "4b552b8d-84bf-47d3-8c37-02544185038a",
@@ -5891,6 +6361,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.target_transform",
+      returnType: null,
     },
     {
       id: "5ce52f54-bca9-4e3d-beb0-e50779491bb9",
@@ -5903,6 +6374,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.download",
+      returnType: null,
     },
     {
       id: "392d2d84-6c6a-4403-b323-7607cd000c34",
@@ -5915,6 +6387,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.transforms",
+      returnType: null,
     },
   ],
   "254f8a54-6dc3-4a28-9f6a-ec849bc11bda": [],
@@ -5931,6 +6404,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.transforms",
+      returnType: null,
     },
   ],
   "5ce52f54-bca9-4e3d-beb0-e50779491bb9": [
@@ -5945,6 +6419,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.download",
+      returnType: null,
     },
   ],
   "4b552b8d-84bf-47d3-8c37-02544185038a": [
@@ -5959,6 +6434,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.target_transform",
+      returnType: null,
     },
   ],
   "826ee1ba-617d-46ec-ab68-c8aad429df7c": [
@@ -5973,6 +6449,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.transform",
+      returnType: null,
     },
   ],
   "b6955498-6506-4f26-b85b-5b717ce9be7c": [
@@ -5987,6 +6464,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.split",
+      returnType: null,
     },
   ],
   "19009466-db59-4fff-8542-c599854372c2": [
@@ -6001,6 +6479,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SVHN.root",
+      returnType: null,
     },
   ],
   "bcfcdb60-0ed8-4560-af2d-59d94ec4d17f": [
@@ -6015,6 +6494,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.root",
+      returnType: null,
     },
     {
       id: "6a1da1c7-7968-481c-b424-56bd2e53336a",
@@ -6027,6 +6507,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.split",
+      returnType: null,
     },
     {
       id: "c7e81be3-fcbb-4066-8d76-cdf0666c3ab3",
@@ -6039,6 +6520,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.folds",
+      returnType: null,
     },
     {
       id: "4398a9b7-68c9-4142-a499-24ee13036ff7",
@@ -6051,6 +6533,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.transform",
+      returnType: null,
     },
     {
       id: "95f5b969-70c3-4a94-923d-ca299318cc6d",
@@ -6063,6 +6546,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.target_transform",
+      returnType: null,
     },
     {
       id: "7d333138-c371-4936-98eb-b91a06670c98",
@@ -6075,6 +6559,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.download",
+      returnType: null,
     },
     {
       id: "778fc935-502d-4990-b732-ccb6772a78cd",
@@ -6087,6 +6572,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.transforms",
+      returnType: null,
     },
   ],
   "8d02484c-e20b-48f2-98a4-7a22612dea80": [],
@@ -6103,6 +6589,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.transforms",
+      returnType: null,
     },
   ],
   "7d333138-c371-4936-98eb-b91a06670c98": [
@@ -6117,6 +6604,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.download",
+      returnType: null,
     },
   ],
   "95f5b969-70c3-4a94-923d-ca299318cc6d": [
@@ -6131,6 +6619,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.target_transform",
+      returnType: null,
     },
   ],
   "4398a9b7-68c9-4142-a499-24ee13036ff7": [
@@ -6145,6 +6634,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.transform",
+      returnType: null,
     },
   ],
   "c7e81be3-fcbb-4066-8d76-cdf0666c3ab3": [
@@ -6159,6 +6649,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.folds",
+      returnType: null,
     },
   ],
   "6a1da1c7-7968-481c-b424-56bd2e53336a": [
@@ -6173,6 +6664,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.split",
+      returnType: null,
     },
   ],
   "62ffa9a5-269a-4ac2-82b6-f960c1c3e83d": [
@@ -6187,6 +6679,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.STL10.root",
+      returnType: null,
     },
   ],
   "0baa4077-534e-4e41-b764-350a7d1943c0": [
@@ -6201,6 +6694,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.root",
+      returnType: null,
     },
     {
       id: "d225fe4e-447a-4862-adb2-69db27804069",
@@ -6213,6 +6707,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.transform",
+      returnType: null,
     },
     {
       id: "38e70a10-e569-43f9-890d-67790e0367cc",
@@ -6225,6 +6720,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.target_transform",
+      returnType: null,
     },
     {
       id: "d5fe1abb-61aa-4eed-b54a-9f86107ea647",
@@ -6237,6 +6733,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.download",
+      returnType: null,
     },
     {
       id: "77292a8f-512e-4810-917a-6ec82b36721a",
@@ -6249,6 +6746,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.transforms",
+      returnType: null,
     },
   ],
   "37680a63-15ad-4ca7-8ff1-073de9a8d7d8": [],
@@ -6265,6 +6763,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.transforms",
+      returnType: null,
     },
   ],
   "d5fe1abb-61aa-4eed-b54a-9f86107ea647": [
@@ -6279,6 +6778,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.download",
+      returnType: null,
     },
   ],
   "38e70a10-e569-43f9-890d-67790e0367cc": [
@@ -6293,6 +6793,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.target_transform",
+      returnType: null,
     },
   ],
   "d225fe4e-447a-4862-adb2-69db27804069": [
@@ -6307,6 +6808,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.transform",
+      returnType: null,
     },
   ],
   "08c52175-6f27-466b-b9f5-e4d302008287": [
@@ -6321,6 +6823,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SEMEION.root",
+      returnType: null,
     },
   ],
   "a13f8782-59ed-461b-992b-448828c76df8": [
@@ -6335,6 +6838,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.root",
+      returnType: null,
     },
     {
       id: "4e8a9333-43c5-4a94-90c2-4bb90cb8ddae",
@@ -6347,6 +6851,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.transform",
+      returnType: null,
     },
     {
       id: "c37bf275-e54d-4bdd-aa82-8ff2d83dbffb",
@@ -6359,6 +6864,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.target_transform",
+      returnType: null,
     },
     {
       id: "5522e78c-97b3-42e4-b48e-f0cfd2f7bb9c",
@@ -6371,6 +6877,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.download",
+      returnType: null,
     },
     {
       id: "6e7a3ddf-8049-4e0b-8831-fc469455a5e5",
@@ -6383,6 +6890,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.transforms",
+      returnType: null,
     },
   ],
   "71c68b63-72e8-4b17-bbc6-31f75171a091": [],
@@ -6399,6 +6907,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.transforms",
+      returnType: null,
     },
   ],
   "5522e78c-97b3-42e4-b48e-f0cfd2f7bb9c": [
@@ -6413,6 +6922,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.download",
+      returnType: null,
     },
   ],
   "c37bf275-e54d-4bdd-aa82-8ff2d83dbffb": [
@@ -6427,6 +6937,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.target_transform",
+      returnType: null,
     },
   ],
   "4e8a9333-43c5-4a94-90c2-4bb90cb8ddae": [
@@ -6441,6 +6952,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.transform",
+      returnType: null,
     },
   ],
   "a7785cf8-60c4-4e7c-9da9-28bbb5a960ce": [
@@ -6455,6 +6967,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBU.root",
+      returnType: null,
     },
   ],
   "689a57d2-9473-44b1-a09e-3d6d4bc1f742": [
@@ -6469,6 +6982,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.root",
+      returnType: null,
     },
     {
       id: "fc1efe37-fd22-40a2-be8b-482259ef90e5",
@@ -6481,6 +6995,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.image_set",
+      returnType: null,
     },
     {
       id: "df4809e2-28e0-4ba4-a12c-0cebbdc6bf83",
@@ -6493,6 +7008,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.mode",
+      returnType: null,
     },
     {
       id: "2610549d-0de7-4c9a-986c-f247f47518f2",
@@ -6505,6 +7021,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.download",
+      returnType: null,
     },
     {
       id: "47474817-9143-4c1e-98c8-b4ace7b9d7ef",
@@ -6517,6 +7034,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.transforms",
+      returnType: null,
     },
     {
       id: "7a1c8734-2ffb-4abb-a016-f6ba74b8f647",
@@ -6529,6 +7047,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.transform",
+      returnType: null,
     },
     {
       id: "2d652178-cbc1-4860-84e3-7ff1f92242c4",
@@ -6541,6 +7060,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.target_transform",
+      returnType: null,
     },
   ],
   "5283bde6-e7b8-47fe-85f4-2cbd67bf1535": [],
@@ -6557,6 +7077,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.target_transform",
+      returnType: null,
     },
   ],
   "7a1c8734-2ffb-4abb-a016-f6ba74b8f647": [
@@ -6571,6 +7092,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.transform",
+      returnType: null,
     },
   ],
   "47474817-9143-4c1e-98c8-b4ace7b9d7ef": [
@@ -6585,6 +7107,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.transforms",
+      returnType: null,
     },
   ],
   "2610549d-0de7-4c9a-986c-f247f47518f2": [
@@ -6599,6 +7122,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.download",
+      returnType: null,
     },
   ],
   "df4809e2-28e0-4ba4-a12c-0cebbdc6bf83": [
@@ -6613,6 +7137,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.mode",
+      returnType: null,
     },
   ],
   "fc1efe37-fd22-40a2-be8b-482259ef90e5": [
@@ -6627,6 +7152,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.image_set",
+      returnType: null,
     },
   ],
   "198cc561-9cff-4340-8ea0-125810dbcae0": [
@@ -6641,6 +7167,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.SBDataset.root",
+      returnType: null,
     },
   ],
   "27a2a668-166d-450c-8b71-0aae55db33bc": [
@@ -6655,6 +7182,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.root",
+      returnType: null,
     },
     {
       id: "cb7bb418-68e8-4ae2-914e-edd341b40f57",
@@ -6667,6 +7195,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.what",
+      returnType: null,
     },
     {
       id: "54d927e1-b1a2-46e6-977e-14ee238ce9dc",
@@ -6679,6 +7208,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.compat",
+      returnType: null,
     },
     {
       id: "cba80f01-341c-41eb-b93a-63c35c3790f5",
@@ -6691,6 +7221,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.train",
+      returnType: null,
     },
     {
       id: "94d83e05-c9c0-4388-a61e-9ff9d37cf349",
@@ -6703,6 +7234,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.transform",
+      returnType: null,
     },
     {
       id: "63784f7d-197d-4128-81a7-5e85149bc2e7",
@@ -6715,6 +7247,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "0d7e2acb-a72c-4aae-8051-8e7942b9457b",
@@ -6727,6 +7260,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.download",
+      returnType: null,
     },
     {
       id: "b7b17a72-bf7f-4fa5-8a1b-645b49a20272",
@@ -6739,6 +7273,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.transforms",
+      returnType: null,
     },
   ],
   "5ca65ba7-e2f2-48f7-99ec-be3ffdee0542": [],
@@ -6754,6 +7289,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.transforms",
+      returnType: null,
     },
   ],
   "0d7e2acb-a72c-4aae-8051-8e7942b9457b": [
@@ -6768,6 +7304,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.download",
+      returnType: null,
     },
   ],
   "63784f7d-197d-4128-81a7-5e85149bc2e7": [
@@ -6782,6 +7319,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.target_transform",
+      returnType: null,
     },
   ],
   "94d83e05-c9c0-4388-a61e-9ff9d37cf349": [
@@ -6796,6 +7334,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.transform",
+      returnType: null,
     },
   ],
   "1c923535-2578-4666-91fd-039922c53af8": [],
@@ -6811,6 +7350,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.train",
+      returnType: null,
     },
   ],
   "54d927e1-b1a2-46e6-977e-14ee238ce9dc": [
@@ -6825,6 +7365,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.compat",
+      returnType: null,
     },
   ],
   "cb7bb418-68e8-4ae2-914e-edd341b40f57": [
@@ -6839,6 +7380,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.what",
+      returnType: null,
     },
   ],
   "2ce69df0-adc8-42a0-be62-ee7df63c4bce": [
@@ -6853,6 +7395,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.QMNIST.root",
+      returnType: null,
     },
   ],
   "3f851a51-be87-4711-aceb-0b5408ef6d4a": [
@@ -6867,6 +7410,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.root",
+      returnType: null,
     },
     {
       id: "d86ea947-0243-4d1c-94ad-43888b59c084",
@@ -6879,6 +7423,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.split",
+      returnType: null,
     },
     {
       id: "541f9f22-866f-41f5-b1cc-5fc88df63817",
@@ -6891,6 +7436,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.small",
+      returnType: null,
     },
     {
       id: "5812c454-0d59-4d92-9179-7beeaf293f1d",
@@ -6903,6 +7449,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.download",
+      returnType: null,
     },
     {
       id: "3faf8223-fb58-4812-8c82-b521d4b120de",
@@ -6915,6 +7462,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.transform",
+      returnType: null,
     },
     {
       id: "c57a05d2-f7b4-4904-986b-8853ac81d709",
@@ -6927,6 +7475,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.target_transform",
+      returnType: null,
     },
     {
       id: "a0fdb583-7501-4805-a4cd-57a7de640986",
@@ -6939,6 +7488,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.loader",
+      returnType: null,
     },
     {
       id: "6bf04e74-c12e-4610-9c1f-660e3b9164de",
@@ -6951,6 +7501,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.transforms",
+      returnType: null,
     },
   ],
   "41831fba-dd48-4c24-9db2-6783f6bd6584": [],
@@ -6967,6 +7518,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.transforms",
+      returnType: null,
     },
   ],
   "a0fdb583-7501-4805-a4cd-57a7de640986": [
@@ -6981,6 +7533,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.loader",
+      returnType: null,
     },
   ],
   "c57a05d2-f7b4-4904-986b-8853ac81d709": [
@@ -6995,6 +7548,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.target_transform",
+      returnType: null,
     },
   ],
   "3faf8223-fb58-4812-8c82-b521d4b120de": [
@@ -7009,6 +7563,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.transform",
+      returnType: null,
     },
   ],
   "5812c454-0d59-4d92-9179-7beeaf293f1d": [
@@ -7023,6 +7578,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.download",
+      returnType: null,
     },
   ],
   "541f9f22-866f-41f5-b1cc-5fc88df63817": [
@@ -7037,6 +7593,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.small",
+      returnType: null,
     },
   ],
   "d86ea947-0243-4d1c-94ad-43888b59c084": [
@@ -7051,6 +7608,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.split",
+      returnType: null,
     },
   ],
   "1d426a8b-37bc-482d-82a1-61e77cdee282": [
@@ -7065,6 +7623,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Places365.root",
+      returnType: null,
     },
   ],
   "2630d425-8d3d-40ed-adc8-f58d8c1f8769": [
@@ -7079,6 +7638,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.root",
+      returnType: null,
     },
     {
       id: "ee31afd7-54d2-4ff6-a4e0-0fb391467fad",
@@ -7091,6 +7651,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.name",
+      returnType: null,
     },
     {
       id: "f4aebac8-2510-49d9-8798-bc9514e413fe",
@@ -7103,6 +7664,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.train",
+      returnType: null,
     },
     {
       id: "43612388-4e57-434d-bcb8-aadbce5e52c2",
@@ -7115,6 +7677,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.transform",
+      returnType: null,
     },
     {
       id: "6ccfa902-d5a4-44ac-8591-508241a4a0f4",
@@ -7127,6 +7690,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.download",
+      returnType: null,
     },
     {
       id: "0737f538-c784-416f-bbab-e7378d629247",
@@ -7139,6 +7703,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.transforms",
+      returnType: null,
     },
     {
       id: "40083909-67a7-4e45-9889-4def063c8fd8",
@@ -7151,6 +7716,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.target_transform",
+      returnType: null,
     },
   ],
   "b0dbd5b1-1b03-40dc-88af-8aa53dfaf42b": [],
@@ -7167,6 +7733,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.target_transform",
+      returnType: null,
     },
   ],
   "0737f538-c784-416f-bbab-e7378d629247": [
@@ -7181,6 +7748,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.transforms",
+      returnType: null,
     },
   ],
   "6ccfa902-d5a4-44ac-8591-508241a4a0f4": [
@@ -7195,6 +7763,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.download",
+      returnType: null,
     },
   ],
   "43612388-4e57-434d-bcb8-aadbce5e52c2": [
@@ -7209,6 +7778,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.transform",
+      returnType: null,
     },
   ],
   "f4aebac8-2510-49d9-8798-bc9514e413fe": [
@@ -7223,6 +7793,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.train",
+      returnType: null,
     },
   ],
   "ee31afd7-54d2-4ff6-a4e0-0fb391467fad": [
@@ -7237,6 +7808,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.name",
+      returnType: null,
     },
   ],
   "c0b4729d-cc6a-492f-a604-d9d9ebcf8040": [
@@ -7251,6 +7823,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.PhotoTour.root",
+      returnType: null,
     },
   ],
   "da9e705b-632d-4232-b336-f830d2cc304b": [
@@ -7265,6 +7838,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.root",
+      returnType: null,
     },
     {
       id: "0c9ec84e-46f0-4152-958f-35778c37db84",
@@ -7277,6 +7851,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.background",
+      returnType: null,
     },
     {
       id: "2186eb86-8d20-48e4-adb2-3224c693d978",
@@ -7289,6 +7864,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.transform",
+      returnType: null,
     },
     {
       id: "306b26b0-72ef-4072-8b22-01752061e337",
@@ -7301,6 +7877,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.target_transform",
+      returnType: null,
     },
     {
       id: "df551ebd-bb06-449b-92a2-cde9b6e2a0ad",
@@ -7313,6 +7890,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.download",
+      returnType: null,
     },
     {
       id: "afa60929-7438-4241-8b35-5facac9b4cb6",
@@ -7325,6 +7903,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.transforms",
+      returnType: null,
     },
   ],
   "5737c412-865d-4313-b679-1fbb93685255": [],
@@ -7341,6 +7920,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.transforms",
+      returnType: null,
     },
   ],
   "df551ebd-bb06-449b-92a2-cde9b6e2a0ad": [
@@ -7355,6 +7935,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.download",
+      returnType: null,
     },
   ],
   "306b26b0-72ef-4072-8b22-01752061e337": [
@@ -7369,6 +7950,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.target_transform",
+      returnType: null,
     },
   ],
   "2186eb86-8d20-48e4-adb2-3224c693d978": [
@@ -7383,6 +7965,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.transform",
+      returnType: null,
     },
   ],
   "0c9ec84e-46f0-4152-958f-35778c37db84": [
@@ -7397,6 +7980,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.background",
+      returnType: null,
     },
   ],
   "b2c5b78c-8e24-4d92-9c00-fc602176886d": [
@@ -7411,6 +7995,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Omniglot.root",
+      returnType: null,
     },
   ],
   "c63599bc-f49a-44ad-bbef-32e4a8c6b5fc": [
@@ -7425,6 +8010,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.root",
+      returnType: null,
     },
     {
       id: "0efd6387-f609-49dc-960c-59bf36e41617",
@@ -7437,6 +8023,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.train",
+      returnType: null,
     },
     {
       id: "014763c4-c1c2-4712-b72e-6c2425435007",
@@ -7449,6 +8036,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.transform",
+      returnType: null,
     },
     {
       id: "07732ab6-cc1b-45a2-bdde-7a4ef6e46fc1",
@@ -7461,6 +8049,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.target_transform",
+      returnType: null,
     },
     {
       id: "021ee6aa-75f0-4556-a9cb-3837eb3df4de",
@@ -7473,6 +8062,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.download",
+      returnType: null,
     },
     {
       id: "a1e91896-5216-4986-aeea-9fc2accfbc75",
@@ -7485,6 +8075,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.transforms",
+      returnType: null,
     },
   ],
   "8bc43f80-4808-4911-a265-05d1adb47ac2": [],
@@ -7501,6 +8092,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.transforms",
+      returnType: null,
     },
   ],
   "021ee6aa-75f0-4556-a9cb-3837eb3df4de": [
@@ -7515,6 +8107,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.download",
+      returnType: null,
     },
   ],
   "07732ab6-cc1b-45a2-bdde-7a4ef6e46fc1": [
@@ -7529,6 +8122,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.target_transform",
+      returnType: null,
     },
   ],
   "014763c4-c1c2-4712-b72e-6c2425435007": [
@@ -7543,6 +8137,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.transform",
+      returnType: null,
     },
   ],
   "0efd6387-f609-49dc-960c-59bf36e41617": [
@@ -7557,6 +8152,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.train",
+      returnType: null,
     },
   ],
   "fb0910d1-bbda-4d1e-98a5-bff21f1affd7": [
@@ -7571,6 +8167,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.MNIST.root",
+      returnType: null,
     },
   ],
   "adc84df1-44b4-4903-a86f-d80a4f968d58": [
@@ -7585,6 +8182,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.root",
+      returnType: null,
     },
     {
       id: "814af498-e0fd-45da-a939-8fde1f7754c2",
@@ -7597,6 +8195,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.transform",
+      returnType: null,
     },
     {
       id: "4d6521b9-642e-4a81-8bf1-c2daf5d9defc",
@@ -7609,6 +8208,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.target_transform",
+      returnType: null,
     },
     {
       id: "9bde54dc-c528-4472-90a8-db15d07d658d",
@@ -7621,6 +8221,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.transforms",
+      returnType: null,
     },
   ],
   "d8317416-3715-4c33-bce1-123a501b5f50": [],
@@ -7637,6 +8238,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.transforms",
+      returnType: null,
     },
   ],
   "4d6521b9-642e-4a81-8bf1-c2daf5d9defc": [
@@ -7651,6 +8253,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.target_transform",
+      returnType: null,
     },
   ],
   "814af498-e0fd-45da-a939-8fde1f7754c2": [
@@ -7665,6 +8268,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.transform",
+      returnType: null,
     },
   ],
   "3860065e-d644-4dd1-985f-5c9e8094b13e": [
@@ -7679,6 +8283,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUNClass.root",
+      returnType: null,
     },
   ],
   "67ff5d6f-2c42-453c-bad8-bd16869ad7b4": [
@@ -7693,6 +8298,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.root",
+      returnType: null,
     },
     {
       id: "a425ad2e-a1e6-4fb4-9703-98f2874b038f",
@@ -7705,6 +8311,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.classes",
+      returnType: null,
     },
     {
       id: "a1f34695-7a86-4fb1-85fc-3bfd8cf10c75",
@@ -7717,6 +8324,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.transform",
+      returnType: null,
     },
     {
       id: "83e05943-266d-4bb7-9a85-94ad9f15e41c",
@@ -7729,6 +8337,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.target_transform",
+      returnType: null,
     },
     {
       id: "157d3f5f-01f4-45a7-a719-d320c7b63b76",
@@ -7741,6 +8350,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.transforms",
+      returnType: null,
     },
   ],
   "de5db24c-42f9-4677-bef1-8b9722b19e7f": [],
@@ -7757,6 +8367,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.transforms",
+      returnType: null,
     },
   ],
   "83e05943-266d-4bb7-9a85-94ad9f15e41c": [
@@ -7771,6 +8382,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.target_transform",
+      returnType: null,
     },
   ],
   "a1f34695-7a86-4fb1-85fc-3bfd8cf10c75": [
@@ -7785,6 +8397,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.transform",
+      returnType: null,
     },
   ],
   "a425ad2e-a1e6-4fb4-9703-98f2874b038f": [
@@ -7799,6 +8412,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.classes",
+      returnType: null,
     },
   ],
   "cdd2bfd4-c4ef-4ff2-8ab5-fdbed7f610a9": [
@@ -7813,6 +8427,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.LSUN.root",
+      returnType: null,
     },
   ],
   "90c3554d-8493-46a6-a3a2-c3e07f14bdc3": [
@@ -7827,6 +8442,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.root",
+      returnType: null,
     },
     {
       id: "a6f63619-a086-45f8-9448-0b671debe064",
@@ -7839,6 +8455,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.frames_per_clip",
+      returnType: null,
     },
     {
       id: "fb9ac6e2-4c42-4551-83d4-625a8d87a1fd",
@@ -7851,6 +8468,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.step_between_clips",
+      returnType: null,
     },
     {
       id: "15d3dd00-30fc-4cfc-86c6-4a829b83bf9d",
@@ -7863,6 +8481,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.frame_rate",
+      returnType: null,
     },
     {
       id: "8dd48c1a-63c6-4557-b4a5-ac071c90ad95",
@@ -7875,6 +8494,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.extensions",
+      returnType: null,
     },
     {
       id: "f5fbf9d4-2e7b-4aca-83c5-6eb14459b993",
@@ -7887,6 +8507,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.transform",
+      returnType: null,
     },
     {
       id: "1f6a9259-ab50-43f7-a142-705114773aea",
@@ -7899,6 +8520,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._precomputed_metadata",
+      returnType: null,
     },
     {
       id: "4f17c48a-9186-4386-abf5-2a9cc1f3c6c7",
@@ -7911,6 +8533,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.num_workers",
+      returnType: null,
     },
     {
       id: "744a2185-2635-48b9-b515-02714df81fd6",
@@ -7923,6 +8546,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_width",
+      returnType: null,
     },
     {
       id: "1b509b2d-714c-4b0f-9a55-f6e7376576ac",
@@ -7935,6 +8559,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_height",
+      returnType: null,
     },
     {
       id: "543fb066-5eea-4d63-a110-989cd42c3076",
@@ -7947,6 +8572,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_min_dimension",
+      returnType: null,
     },
     {
       id: "8563357d-acce-4db5-ab8b-b2ac80d4ae63",
@@ -7959,6 +8585,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._audio_samples",
+      returnType: null,
     },
     {
       id: "c6d1a03d-9b81-4ea0-afd8-b3734f5b3bbc",
@@ -7971,6 +8598,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._audio_channels",
+      returnType: null,
     },
     {
       id: "1cbb2e04-9c6a-40d1-beaf-d5e3a36c86a7",
@@ -7983,6 +8611,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.transforms",
+      returnType: null,
     },
     {
       id: "bf1c8f62-1382-4a1a-a777-a4bdc199b3f7",
@@ -7995,6 +8624,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.target_transform",
+      returnType: null,
     },
   ],
   "c62e1a32-a5be-413a-94f2-76e76762546a": [],
@@ -8011,6 +8641,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.target_transform",
+      returnType: null,
     },
   ],
   "1cbb2e04-9c6a-40d1-beaf-d5e3a36c86a7": [
@@ -8025,6 +8656,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.transforms",
+      returnType: null,
     },
   ],
   "c6d1a03d-9b81-4ea0-afd8-b3734f5b3bbc": [
@@ -8039,6 +8671,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._audio_channels",
+      returnType: null,
     },
   ],
   "8563357d-acce-4db5-ab8b-b2ac80d4ae63": [
@@ -8053,6 +8686,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._audio_samples",
+      returnType: null,
     },
   ],
   "543fb066-5eea-4d63-a110-989cd42c3076": [
@@ -8067,6 +8701,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_min_dimension",
+      returnType: null,
     },
   ],
   "1b509b2d-714c-4b0f-9a55-f6e7376576ac": [
@@ -8081,6 +8716,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_height",
+      returnType: null,
     },
   ],
   "744a2185-2635-48b9-b515-02714df81fd6": [
@@ -8095,6 +8731,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._video_width",
+      returnType: null,
     },
   ],
   "4f17c48a-9186-4386-abf5-2a9cc1f3c6c7": [
@@ -8109,6 +8746,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.num_workers",
+      returnType: null,
     },
   ],
   "1f6a9259-ab50-43f7-a142-705114773aea": [
@@ -8123,6 +8761,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400._precomputed_metadata",
+      returnType: null,
     },
   ],
   "f5fbf9d4-2e7b-4aca-83c5-6eb14459b993": [
@@ -8137,6 +8776,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.transform",
+      returnType: null,
     },
   ],
   "8dd48c1a-63c6-4557-b4a5-ac071c90ad95": [
@@ -8151,6 +8791,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.extensions",
+      returnType: null,
     },
   ],
   "15d3dd00-30fc-4cfc-86c6-4a829b83bf9d": [
@@ -8165,6 +8806,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.frame_rate",
+      returnType: null,
     },
   ],
   "fb9ac6e2-4c42-4551-83d4-625a8d87a1fd": [
@@ -8179,6 +8821,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.step_between_clips",
+      returnType: null,
     },
   ],
   "a6f63619-a086-45f8-9448-0b671debe064": [
@@ -8193,6 +8836,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.frames_per_clip",
+      returnType: null,
     },
   ],
   "deb6fcbf-f392-4073-b72e-344b9e86102b": [
@@ -8207,6 +8851,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Kinetics400.root",
+      returnType: null,
     },
   ],
   "34022ef3-4f7d-4b0d-860c-8c200b197d0b": [
@@ -8221,6 +8866,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.root",
+      returnType: null,
     },
     {
       id: "d0b30d4f-d3e0-4528-951a-17d8470589b7",
@@ -8233,6 +8879,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.train",
+      returnType: null,
     },
     {
       id: "fdd9e7c9-a8c7-459f-b30a-4147a31d95d7",
@@ -8245,6 +8892,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.transform",
+      returnType: null,
     },
     {
       id: "80ce6ccd-19c0-4f79-965d-f635378ecd14",
@@ -8257,6 +8905,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "f952b777-5210-4821-9906-064294d819a3",
@@ -8269,6 +8918,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.download",
+      returnType: null,
     },
     {
       id: "e71ab373-1432-46d1-9b90-d4c2938f7031",
@@ -8281,6 +8931,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.transforms",
+      returnType: null,
     },
   ],
   "21ed2c4f-8113-405e-aae6-839881c24294": [],
@@ -8297,6 +8948,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.transforms",
+      returnType: null,
     },
   ],
   "f952b777-5210-4821-9906-064294d819a3": [
@@ -8311,6 +8963,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.download",
+      returnType: null,
     },
   ],
   "80ce6ccd-19c0-4f79-965d-f635378ecd14": [
@@ -8325,6 +8978,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.target_transform",
+      returnType: null,
     },
   ],
   "fdd9e7c9-a8c7-459f-b30a-4147a31d95d7": [
@@ -8339,6 +8993,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.transform",
+      returnType: null,
     },
   ],
   "d0b30d4f-d3e0-4528-951a-17d8470589b7": [
@@ -8353,6 +9008,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.train",
+      returnType: null,
     },
   ],
   "58c0ea6d-3297-4c20-b579-26304a7ae6be": [
@@ -8367,6 +9023,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.KMNIST.root",
+      returnType: null,
     },
   ],
   "46879cda-56c6-4e59-9d5a-bc5ccfc9c44d": [
@@ -8381,6 +9038,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.root",
+      returnType: null,
     },
     {
       id: "3ecb373e-c687-469d-876b-c27050e5abfd",
@@ -8393,6 +9051,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.split",
+      returnType: null,
     },
     {
       id: "57e72930-4042-4290-8abe-0c9e11e6efee",
@@ -8405,6 +9064,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.download",
+      returnType: null,
     },
     {
       id: "6e2756bb-0f60-4833-bc5c-49c479e31fc1",
@@ -8417,6 +9077,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.transform",
+      returnType: null,
     },
     {
       id: "d2c999ef-26d0-443d-8e90-c2fb122b39c4",
@@ -8429,6 +9090,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.target_transform",
+      returnType: null,
     },
     {
       id: "09db2321-4b1f-4769-af05-95059d0c013c",
@@ -8441,6 +9103,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.loader",
+      returnType: null,
     },
     {
       id: "d43e658a-a6d5-4a74-95c1-6ea521502354",
@@ -8453,6 +9116,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.is_valid_file",
+      returnType: null,
     },
     {
       id: "6b7c74bb-4af0-4ba3-bee2-cc4a8653ef49",
@@ -8465,6 +9129,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.extensions",
+      returnType: null,
     },
     {
       id: "3705b635-2f8c-4a8a-8bb6-ffff15d9a3d2",
@@ -8477,6 +9142,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.transforms",
+      returnType: null,
     },
   ],
   "8d7ec184-8ddd-4c01-967d-aa1380c5e2ca": [],
@@ -8492,6 +9158,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.transforms",
+      returnType: null,
     },
   ],
   "6b7c74bb-4af0-4ba3-bee2-cc4a8653ef49": [
@@ -8506,6 +9173,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.extensions",
+      returnType: null,
     },
   ],
   "d43e658a-a6d5-4a74-95c1-6ea521502354": [
@@ -8520,6 +9188,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.is_valid_file",
+      returnType: null,
     },
   ],
   "09db2321-4b1f-4769-af05-95059d0c013c": [
@@ -8534,6 +9203,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.loader",
+      returnType: null,
     },
   ],
   "d2c999ef-26d0-443d-8e90-c2fb122b39c4": [
@@ -8548,6 +9218,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.target_transform",
+      returnType: null,
     },
   ],
   "6e2756bb-0f60-4833-bc5c-49c479e31fc1": [
@@ -8562,6 +9233,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.transform",
+      returnType: null,
     },
   ],
   "5892c03b-b427-4c96-be7a-7fed41742f15": [],
@@ -8577,6 +9249,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.download",
+      returnType: null,
     },
   ],
   "3ecb373e-c687-469d-876b-c27050e5abfd": [
@@ -8591,6 +9264,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.split",
+      returnType: null,
     },
   ],
   "3a2bb2f8-5745-42a4-827e-2f53d034c38c": [
@@ -8605,6 +9279,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageNet.root",
+      returnType: null,
     },
   ],
   "96b752b6-9d4b-4cee-a954-256f58bdc908": [
@@ -8619,6 +9294,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.root",
+      returnType: null,
     },
     {
       id: "058a1657-51ec-430c-8122-1b0a14e41cfa",
@@ -8631,6 +9307,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.transform",
+      returnType: null,
     },
     {
       id: "33bf8a93-2007-4653-b482-1ed63b8eeef7",
@@ -8643,6 +9320,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.target_transform",
+      returnType: null,
     },
     {
       id: "208dad87-1f41-498b-aba1-679790eac4cc",
@@ -8655,6 +9333,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.loader",
+      returnType: null,
     },
     {
       id: "90576be6-c694-4c72-b0d1-cffc40d2c9cb",
@@ -8667,6 +9346,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.is_valid_file",
+      returnType: null,
     },
     {
       id: "6596d26b-07ab-4c16-8d06-20eee37e27d8",
@@ -8679,6 +9359,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.extensions",
+      returnType: null,
     },
     {
       id: "0ce97988-b789-4dcf-9f98-e028c82355d1",
@@ -8691,6 +9372,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.transforms",
+      returnType: null,
     },
   ],
   "bd80fafd-8ffd-4ee2-8b84-9e575d05b88d": [],
@@ -8707,6 +9389,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.transforms",
+      returnType: null,
     },
   ],
   "6596d26b-07ab-4c16-8d06-20eee37e27d8": [
@@ -8721,6 +9404,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.extensions",
+      returnType: null,
     },
   ],
   "90576be6-c694-4c72-b0d1-cffc40d2c9cb": [
@@ -8735,6 +9419,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.is_valid_file",
+      returnType: null,
     },
   ],
   "208dad87-1f41-498b-aba1-679790eac4cc": [
@@ -8749,6 +9434,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.loader",
+      returnType: null,
     },
   ],
   "33bf8a93-2007-4653-b482-1ed63b8eeef7": [
@@ -8763,6 +9449,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.target_transform",
+      returnType: null,
     },
   ],
   "058a1657-51ec-430c-8122-1b0a14e41cfa": [
@@ -8777,6 +9464,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.transform",
+      returnType: null,
     },
   ],
   "d36d3782-8d12-41f9-86b7-1923609281a7": [
@@ -8791,6 +9479,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.ImageFolder.root",
+      returnType: null,
     },
   ],
   "7c5ee16c-0843-4dec-897c-e8e5f178f938": [
@@ -8805,6 +9494,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.root",
+      returnType: null,
     },
     {
       id: "08b6dcd7-98f4-4978-8893-3c7a4d9314ad",
@@ -8817,6 +9507,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.annotation_path",
+      returnType: null,
     },
     {
       id: "2a71f4b8-8005-42a8-883a-7aca7ad7294d",
@@ -8829,6 +9520,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.frames_per_clip",
+      returnType: null,
     },
     {
       id: "3a96d15c-9aee-453e-9b4a-56470f8ef906",
@@ -8841,6 +9533,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.step_between_clips",
+      returnType: null,
     },
     {
       id: "2389c4fd-e60b-47a7-924f-8093ba10e911",
@@ -8853,6 +9546,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.frame_rate",
+      returnType: null,
     },
     {
       id: "ca94448c-4d2d-42e3-b595-e268e14d31a9",
@@ -8865,6 +9559,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.fold",
+      returnType: null,
     },
     {
       id: "2e3c7702-5a44-40e7-a1b5-a770a272e944",
@@ -8877,6 +9572,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.train",
+      returnType: null,
     },
     {
       id: "9ccb1f17-0b0f-4ded-92c7-f75c98504916",
@@ -8889,6 +9585,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.transform",
+      returnType: null,
     },
     {
       id: "79142e25-132b-490e-ba18-7472acc22f90",
@@ -8901,6 +9598,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._precomputed_metadata",
+      returnType: null,
     },
     {
       id: "5a10a232-e123-49b4-985e-c13e1902d694",
@@ -8913,6 +9611,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.num_workers",
+      returnType: null,
     },
     {
       id: "2720e80e-5c9d-4934-99da-ad2de05a6c4e",
@@ -8925,6 +9624,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_width",
+      returnType: null,
     },
     {
       id: "ab756f9a-3675-497b-83e1-bf193833e130",
@@ -8937,6 +9637,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_height",
+      returnType: null,
     },
     {
       id: "9245420f-0f09-42c7-b574-bae1ecc9e1ab",
@@ -8949,6 +9650,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_min_dimension",
+      returnType: null,
     },
     {
       id: "1d98acd8-0845-402c-8057-10abd4221019",
@@ -8961,6 +9663,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._audio_samples",
+      returnType: null,
     },
     {
       id: "636ae4f3-f1b7-4dc7-80ca-5930c66db239",
@@ -8973,6 +9676,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.transforms",
+      returnType: null,
     },
     {
       id: "25074965-fcdb-4469-a10c-54c473b87a41",
@@ -8985,6 +9689,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.target_transform",
+      returnType: null,
     },
   ],
   "11403f7b-fbd2-4fa0-a8f4-77eaae6404ad": [],
@@ -9001,6 +9706,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.target_transform",
+      returnType: null,
     },
   ],
   "636ae4f3-f1b7-4dc7-80ca-5930c66db239": [
@@ -9015,6 +9721,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.transforms",
+      returnType: null,
     },
   ],
   "1d98acd8-0845-402c-8057-10abd4221019": [
@@ -9029,6 +9736,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._audio_samples",
+      returnType: null,
     },
   ],
   "9245420f-0f09-42c7-b574-bae1ecc9e1ab": [
@@ -9043,6 +9751,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_min_dimension",
+      returnType: null,
     },
   ],
   "ab756f9a-3675-497b-83e1-bf193833e130": [
@@ -9057,6 +9766,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_height",
+      returnType: null,
     },
   ],
   "2720e80e-5c9d-4934-99da-ad2de05a6c4e": [
@@ -9071,6 +9781,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._video_width",
+      returnType: null,
     },
   ],
   "5a10a232-e123-49b4-985e-c13e1902d694": [
@@ -9085,6 +9796,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.num_workers",
+      returnType: null,
     },
   ],
   "79142e25-132b-490e-ba18-7472acc22f90": [
@@ -9099,6 +9811,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51._precomputed_metadata",
+      returnType: null,
     },
   ],
   "9ccb1f17-0b0f-4ded-92c7-f75c98504916": [
@@ -9113,6 +9826,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.transform",
+      returnType: null,
     },
   ],
   "2e3c7702-5a44-40e7-a1b5-a770a272e944": [
@@ -9127,6 +9841,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.train",
+      returnType: null,
     },
   ],
   "ca94448c-4d2d-42e3-b595-e268e14d31a9": [
@@ -9141,6 +9856,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.fold",
+      returnType: null,
     },
   ],
   "2389c4fd-e60b-47a7-924f-8093ba10e911": [
@@ -9155,6 +9871,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.frame_rate",
+      returnType: null,
     },
   ],
   "3a96d15c-9aee-453e-9b4a-56470f8ef906": [
@@ -9169,6 +9886,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.step_between_clips",
+      returnType: null,
     },
   ],
   "2a71f4b8-8005-42a8-883a-7aca7ad7294d": [
@@ -9183,6 +9901,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.frames_per_clip",
+      returnType: null,
     },
   ],
   "08b6dcd7-98f4-4978-8893-3c7a4d9314ad": [
@@ -9197,6 +9916,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.annotation_path",
+      returnType: null,
     },
   ],
   "5f95208d-f358-4de5-89c5-356d1709a48f": [
@@ -9211,6 +9931,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.HMDB51.root",
+      returnType: null,
     },
   ],
   "6e502d5d-d206-4eb5-b92e-2c10ca3097db": [
@@ -9225,6 +9946,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.root",
+      returnType: null,
     },
     {
       id: "ff707b69-f6f3-437d-a667-241e0ab8c0a9",
@@ -9237,6 +9959,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.ann_file",
+      returnType: null,
     },
     {
       id: "8f683bc3-f930-443e-ac67-2cfc5e1b8320",
@@ -9249,6 +9972,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.transform",
+      returnType: null,
     },
     {
       id: "7970b44a-5ea4-4a2b-94b8-1cb9ec889f7a",
@@ -9261,6 +9985,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.target_transform",
+      returnType: null,
     },
     {
       id: "02c7cb12-d981-43c0-a340-4ef88b589a9a",
@@ -9273,6 +9998,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.transforms",
+      returnType: null,
     },
   ],
   "734e6bc4-c01e-46bd-97c2-fcdb6abd8024": [],
@@ -9289,6 +10015,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.transforms",
+      returnType: null,
     },
   ],
   "7970b44a-5ea4-4a2b-94b8-1cb9ec889f7a": [
@@ -9303,6 +10030,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.target_transform",
+      returnType: null,
     },
   ],
   "8f683bc3-f930-443e-ac67-2cfc5e1b8320": [
@@ -9317,6 +10045,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.transform",
+      returnType: null,
     },
   ],
   "ff707b69-f6f3-437d-a667-241e0ab8c0a9": [
@@ -9331,6 +10060,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.ann_file",
+      returnType: null,
     },
   ],
   "681af690-ce12-4c2b-b619-7561f2b7ec4d": [
@@ -9345,6 +10075,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr8k.root",
+      returnType: null,
     },
   ],
   "c015223e-1910-4dd6-b1bd-ac1eb1388656": [
@@ -9359,6 +10090,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.root",
+      returnType: null,
     },
     {
       id: "3cc9b033-1273-4253-b6e7-1f9814bb601c",
@@ -9371,6 +10103,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.ann_file",
+      returnType: null,
     },
     {
       id: "5e08f920-018c-417b-addd-d5d2815bb1ff",
@@ -9383,6 +10116,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.transform",
+      returnType: null,
     },
     {
       id: "666a13c2-1273-4f16-9538-5beb92cc8945",
@@ -9395,6 +10129,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.target_transform",
+      returnType: null,
     },
     {
       id: "ac777ad1-e1a1-40c5-9d6e-8792c863ea0b",
@@ -9407,6 +10142,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.transforms",
+      returnType: null,
     },
   ],
   "58680c5c-47d2-4852-b661-c79851936485": [],
@@ -9423,6 +10159,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.transforms",
+      returnType: null,
     },
   ],
   "666a13c2-1273-4f16-9538-5beb92cc8945": [
@@ -9437,6 +10174,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.target_transform",
+      returnType: null,
     },
   ],
   "5e08f920-018c-417b-addd-d5d2815bb1ff": [
@@ -9451,6 +10189,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.transform",
+      returnType: null,
     },
   ],
   "3cc9b033-1273-4253-b6e7-1f9814bb601c": [
@@ -9465,6 +10204,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.ann_file",
+      returnType: null,
     },
   ],
   "ae5cc793-4b2b-4743-8a12-781f787cff1a": [
@@ -9479,6 +10219,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Flickr30k.root",
+      returnType: null,
     },
   ],
   "3fd4f0de-10a6-49f8-b791-0d93fb0f01c5": [
@@ -9493,6 +10234,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.root",
+      returnType: null,
     },
     {
       id: "a68a7aa7-d84e-4fc9-935f-2848fc20b568",
@@ -9505,6 +10247,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.train",
+      returnType: null,
     },
     {
       id: "bf2a0b46-8843-40fc-9de7-0d075d45402f",
@@ -9517,6 +10260,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.transform",
+      returnType: null,
     },
     {
       id: "7d85a84a-9bb1-4162-a823-74ec428afb13",
@@ -9529,6 +10273,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "4f3642e2-c8d3-48a6-8c41-6e6ce80242d7",
@@ -9541,6 +10286,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.download",
+      returnType: null,
     },
     {
       id: "28f2d49f-49a9-4876-9441-bd2bae8f4762",
@@ -9553,6 +10299,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.transforms",
+      returnType: null,
     },
   ],
   "60b3d45b-4fe4-4073-9360-2432d9361af8": [],
@@ -9569,6 +10316,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.transforms",
+      returnType: null,
     },
   ],
   "4f3642e2-c8d3-48a6-8c41-6e6ce80242d7": [
@@ -9583,6 +10331,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.download",
+      returnType: null,
     },
   ],
   "7d85a84a-9bb1-4162-a823-74ec428afb13": [
@@ -9597,6 +10346,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.target_transform",
+      returnType: null,
     },
   ],
   "bf2a0b46-8843-40fc-9de7-0d075d45402f": [
@@ -9611,6 +10361,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.transform",
+      returnType: null,
     },
   ],
   "a68a7aa7-d84e-4fc9-935f-2848fc20b568": [
@@ -9625,6 +10376,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.train",
+      returnType: null,
     },
   ],
   "2bf5dd09-6de2-4d45-b673-5c6ebd789cea": [
@@ -9639,6 +10391,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST.root",
+      returnType: null,
     },
   ],
   "bf653368-3cf1-474a-8c1c-f21f544e3c80": [
@@ -9653,6 +10406,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.size",
+      returnType: null,
     },
     {
       id: "7444f64a-9a2b-485c-89b1-633055faf748",
@@ -9665,6 +10419,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.image_size",
+      returnType: null,
     },
     {
       id: "d82ed45e-e0a4-4408-b844-358e982f828f",
@@ -9677,6 +10432,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.num_classes",
+      returnType: null,
     },
     {
       id: "78db4d8b-c4b9-4e1b-8997-b1fd29032b13",
@@ -9689,6 +10445,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.transform",
+      returnType: null,
     },
     {
       id: "b1cb5ffa-488c-43ee-8ac1-161f6c9b74de",
@@ -9701,6 +10458,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.target_transform",
+      returnType: null,
     },
     {
       id: "b1b853c4-a8d9-4b65-bfda-3d79835cba1a",
@@ -9713,6 +10471,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.random_offset",
+      returnType: null,
     },
     {
       id: "e02da405-3435-4090-9d2c-c62878f4b78d",
@@ -9725,6 +10484,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.root",
+      returnType: null,
     },
     {
       id: "0547e566-16fa-4146-a7a2-75d562ee6f7d",
@@ -9737,6 +10497,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.transforms",
+      returnType: null,
     },
   ],
   "59109dbe-c437-441a-b7c5-fc44380d787d": [],
@@ -9753,6 +10514,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.transforms",
+      returnType: null,
     },
   ],
   "e02da405-3435-4090-9d2c-c62878f4b78d": [
@@ -9767,6 +10529,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.root",
+      returnType: null,
     },
   ],
   "b1b853c4-a8d9-4b65-bfda-3d79835cba1a": [
@@ -9781,6 +10544,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.random_offset",
+      returnType: null,
     },
   ],
   "b1cb5ffa-488c-43ee-8ac1-161f6c9b74de": [
@@ -9795,6 +10559,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.target_transform",
+      returnType: null,
     },
   ],
   "78db4d8b-c4b9-4e1b-8997-b1fd29032b13": [
@@ -9809,6 +10574,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.transform",
+      returnType: null,
     },
   ],
   "d82ed45e-e0a4-4408-b844-358e982f828f": [
@@ -9823,6 +10589,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.num_classes",
+      returnType: null,
     },
   ],
   "7444f64a-9a2b-485c-89b1-633055faf748": [
@@ -9837,6 +10604,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.image_size",
+      returnType: null,
     },
   ],
   "7bc2e80f-f7d6-4763-9ba6-2a751367dcbf": [
@@ -9851,6 +10619,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.FakeData.size",
+      returnType: null,
     },
   ],
   "eb25f701-b78a-4cc7-936c-39271783de33": [
@@ -9865,6 +10634,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.root",
+      returnType: null,
     },
     {
       id: "93c3bc04-c0bc-4d53-87f0-09233acb1fd9",
@@ -9877,6 +10647,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.split",
+      returnType: null,
     },
     {
       id: "17070bd0-ed19-46a2-8e94-d4408d4a822e",
@@ -9889,6 +10660,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.train",
+      returnType: null,
     },
     {
       id: "312c6487-d517-409e-8fae-0e1a19406771",
@@ -9901,6 +10673,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.transform",
+      returnType: null,
     },
     {
       id: "eed1ea5d-c2e0-4053-b4fd-db728b5fdf71",
@@ -9913,6 +10686,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.target_transform",
+      returnType: null,
     },
     {
       id: "37fcd6f7-bffc-4d81-af4f-15c862f97e7d",
@@ -9925,6 +10699,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.download",
+      returnType: null,
     },
     {
       id: "b31f675c-1ae1-4376-9687-064c5895d665",
@@ -9937,6 +10712,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.transforms",
+      returnType: null,
     },
   ],
   "b7b2ef17-ec9e-4f60-ac4a-5089a4d20206": [],
@@ -9952,6 +10728,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.transforms",
+      returnType: null,
     },
   ],
   "37fcd6f7-bffc-4d81-af4f-15c862f97e7d": [
@@ -9966,6 +10743,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.download",
+      returnType: null,
     },
   ],
   "eed1ea5d-c2e0-4053-b4fd-db728b5fdf71": [
@@ -9980,6 +10758,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.target_transform",
+      returnType: null,
     },
   ],
   "312c6487-d517-409e-8fae-0e1a19406771": [
@@ -9994,6 +10773,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.transform",
+      returnType: null,
     },
   ],
   "17070bd0-ed19-46a2-8e94-d4408d4a822e": [
@@ -10008,6 +10788,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.train",
+      returnType: null,
     },
   ],
   "da47897d-36fe-455e-94c4-56316306b815": [],
@@ -10023,6 +10804,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.split",
+      returnType: null,
     },
   ],
   "8cdaefc7-371f-466d-94d4-395a4b043212": [
@@ -10037,6 +10819,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.EMNIST.root",
+      returnType: null,
     },
   ],
   "555e2a80-b56b-4e5d-8b0e-e20121fde33e": [
@@ -10051,6 +10834,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.root",
+      returnType: null,
     },
     {
       id: "1d27da5b-c884-47a2-ad0e-a1778de4de34",
@@ -10063,6 +10847,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.loader",
+      returnType: null,
     },
     {
       id: "b35fe592-0646-48c6-adbf-b9c5365a9658",
@@ -10075,6 +10860,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.extensions",
+      returnType: null,
     },
     {
       id: "b036a9fe-be53-4055-bb49-7e82b33c8ae9",
@@ -10087,6 +10873,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.transform",
+      returnType: null,
     },
     {
       id: "31e48b95-8223-4947-991e-e2225e618eb4",
@@ -10099,6 +10886,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.target_transform",
+      returnType: null,
     },
     {
       id: "6714e04a-528a-4335-a92e-635881d9cba1",
@@ -10111,6 +10899,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.is_valid_file",
+      returnType: null,
     },
     {
       id: "acbf3a54-16d4-416a-8a03-325c6ed5a357",
@@ -10123,6 +10912,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.transforms",
+      returnType: null,
     },
   ],
   "c4873979-b04c-4b9e-834b-f2758ebccbfb": [],
@@ -10139,6 +10929,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.transforms",
+      returnType: null,
     },
   ],
   "6714e04a-528a-4335-a92e-635881d9cba1": [
@@ -10153,6 +10944,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.is_valid_file",
+      returnType: null,
     },
   ],
   "31e48b95-8223-4947-991e-e2225e618eb4": [
@@ -10167,6 +10959,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.target_transform",
+      returnType: null,
     },
   ],
   "b036a9fe-be53-4055-bb49-7e82b33c8ae9": [
@@ -10181,6 +10974,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.transform",
+      returnType: null,
     },
   ],
   "b35fe592-0646-48c6-adbf-b9c5365a9658": [
@@ -10195,6 +10989,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.extensions",
+      returnType: null,
     },
   ],
   "1d27da5b-c884-47a2-ad0e-a1778de4de34": [
@@ -10209,6 +11004,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.loader",
+      returnType: null,
     },
   ],
   "148f2c0a-e98e-45e9-87d7-ea12727fe1b4": [
@@ -10223,6 +11019,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder.root",
+      returnType: null,
     },
   ],
   "2d1a998a-a7e5-4ed6-be90-84ea61467a86": [
@@ -10237,6 +11034,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.root",
+      returnType: null,
     },
     {
       id: "0033e4aa-b202-4b22-a538-e8a4c1e9391d",
@@ -10249,6 +11047,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.annFile",
+      returnType: null,
     },
     {
       id: "b26c9d6a-b57b-42c7-9831-df67ce13f14e",
@@ -10261,6 +11060,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.transform",
+      returnType: null,
     },
     {
       id: "9c4bc41a-cca9-4e24-96f3-713fb6a1cbbc",
@@ -10273,6 +11073,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.target_transform",
+      returnType: null,
     },
     {
       id: "b1712856-e944-4cb4-bff5-241f086d5228",
@@ -10285,6 +11086,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.transforms",
+      returnType: null,
     },
   ],
   "66483da5-19bc-4214-8ed0-e6259525619f": [],
@@ -10301,6 +11103,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.transforms",
+      returnType: null,
     },
   ],
   "9c4bc41a-cca9-4e24-96f3-713fb6a1cbbc": [
@@ -10315,6 +11118,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.target_transform",
+      returnType: null,
     },
   ],
   "b26c9d6a-b57b-42c7-9831-df67ce13f14e": [
@@ -10329,6 +11133,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.transform",
+      returnType: null,
     },
   ],
   "0033e4aa-b202-4b22-a538-e8a4c1e9391d": [
@@ -10343,6 +11148,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.annFile",
+      returnType: null,
     },
   ],
   "aa757257-5899-4c6e-a897-1b49f849ba1d": [
@@ -10357,6 +11163,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoDetection.root",
+      returnType: null,
     },
   ],
   "2ac1a8c7-68a8-4300-be38-f8488b980375": [
@@ -10371,6 +11178,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.root",
+      returnType: null,
     },
     {
       id: "6efb72b8-f2e7-4013-a7e4-ade1b3f126b5",
@@ -10383,6 +11191,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.annFile",
+      returnType: null,
     },
     {
       id: "22699772-6f2e-43c3-8aae-60aff2a5e167",
@@ -10395,6 +11204,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.transform",
+      returnType: null,
     },
     {
       id: "2897485b-3a89-4ac0-9679-420d03456919",
@@ -10407,6 +11217,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.target_transform",
+      returnType: null,
     },
     {
       id: "ee515a0c-df3f-4a09-8e00-74659a11d7ea",
@@ -10419,6 +11230,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.transforms",
+      returnType: null,
     },
   ],
   "ce685cf1-1b02-46fa-9b94-854f0520c8a0": [],
@@ -10435,6 +11247,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.transforms",
+      returnType: null,
     },
   ],
   "2897485b-3a89-4ac0-9679-420d03456919": [
@@ -10449,6 +11262,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.target_transform",
+      returnType: null,
     },
   ],
   "22699772-6f2e-43c3-8aae-60aff2a5e167": [
@@ -10463,6 +11277,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.transform",
+      returnType: null,
     },
   ],
   "6efb72b8-f2e7-4013-a7e4-ade1b3f126b5": [
@@ -10477,6 +11292,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.annFile",
+      returnType: null,
     },
   ],
   "a267e5bf-0f70-497b-8eb4-f2592bf83243": [
@@ -10491,6 +11307,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions.root",
+      returnType: null,
     },
   ],
   "541c5f9b-338e-4d6f-9d84-c986007f1794": [
@@ -10505,6 +11322,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.root",
+      returnType: null,
     },
     {
       id: "ca612557-401b-487f-be2d-6ac0ee6294e6",
@@ -10517,6 +11335,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.split",
+      returnType: null,
     },
     {
       id: "ba23cb42-1370-4c5c-889c-2768b2dd417f",
@@ -10529,6 +11348,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.mode",
+      returnType: null,
     },
     {
       id: "44d5c1d1-9efc-4951-8f73-a26cd03e7643",
@@ -10541,6 +11361,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.target_type",
+      returnType: null,
     },
     {
       id: "83ff981a-d49c-4ca7-94f3-3812f36c95d3",
@@ -10553,6 +11374,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.transform",
+      returnType: null,
     },
     {
       id: "06266ef9-e8ad-456a-8ade-6d42ffb6d9c5",
@@ -10565,6 +11387,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.target_transform",
+      returnType: null,
     },
     {
       id: "97efcc7b-be5c-488d-9a66-22e383b4ddc4",
@@ -10577,6 +11400,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.transforms",
+      returnType: null,
     },
   ],
   "cd753dda-9ea8-4f11-a2c4-9d9620a007bd": [],
@@ -10593,6 +11417,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.transforms",
+      returnType: null,
     },
   ],
   "06266ef9-e8ad-456a-8ade-6d42ffb6d9c5": [
@@ -10607,6 +11432,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.target_transform",
+      returnType: null,
     },
   ],
   "83ff981a-d49c-4ca7-94f3-3812f36c95d3": [
@@ -10621,6 +11447,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.transform",
+      returnType: null,
     },
   ],
   "44d5c1d1-9efc-4951-8f73-a26cd03e7643": [
@@ -10635,6 +11462,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.target_type",
+      returnType: null,
     },
   ],
   "ba23cb42-1370-4c5c-889c-2768b2dd417f": [
@@ -10649,6 +11477,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.mode",
+      returnType: null,
     },
   ],
   "ca612557-401b-487f-be2d-6ac0ee6294e6": [
@@ -10663,6 +11492,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.split",
+      returnType: null,
     },
   ],
   "9331da01-4443-4611-95ac-910f41fa0b06": [
@@ -10677,6 +11507,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Cityscapes.root",
+      returnType: null,
     },
   ],
   "0aaa0099-4c39-4ca6-9c4a-9d2e3ef306c1": [
@@ -10691,6 +11522,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.root",
+      returnType: null,
     },
     {
       id: "24f270d1-9a6d-4814-af5e-7d8a0a227d41",
@@ -10703,6 +11535,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.split",
+      returnType: null,
     },
     {
       id: "6f01a458-1c62-4d2b-a140-ba1e690a5510",
@@ -10715,6 +11548,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.target_type",
+      returnType: null,
     },
     {
       id: "e4a12512-2b7f-4209-aec2-bba9d1678159",
@@ -10727,6 +11561,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.transform",
+      returnType: null,
     },
     {
       id: "43244c26-b285-4182-8f5f-832bba7fef6c",
@@ -10739,6 +11574,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.target_transform",
+      returnType: null,
     },
     {
       id: "627a5a72-834f-4bf3-8356-acc0ced588f4",
@@ -10751,6 +11587,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.download",
+      returnType: null,
     },
     {
       id: "4d0bc5bf-bb0b-47b0-9864-71e49b88c4c3",
@@ -10763,6 +11600,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.transforms",
+      returnType: null,
     },
   ],
   "c8c3b293-87dd-4def-a3fd-59575a90e630": [],
@@ -10779,6 +11617,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.transforms",
+      returnType: null,
     },
   ],
   "627a5a72-834f-4bf3-8356-acc0ced588f4": [
@@ -10793,6 +11632,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.download",
+      returnType: null,
     },
   ],
   "43244c26-b285-4182-8f5f-832bba7fef6c": [
@@ -10807,6 +11647,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.target_transform",
+      returnType: null,
     },
   ],
   "e4a12512-2b7f-4209-aec2-bba9d1678159": [
@@ -10821,6 +11662,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.transform",
+      returnType: null,
     },
   ],
   "6f01a458-1c62-4d2b-a140-ba1e690a5510": [
@@ -10835,6 +11677,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.target_type",
+      returnType: null,
     },
   ],
   "24f270d1-9a6d-4814-af5e-7d8a0a227d41": [
@@ -10849,6 +11692,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.split",
+      returnType: null,
     },
   ],
   "8b46649a-468c-4387-b093-60420bab2616": [
@@ -10863,6 +11707,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CelebA.root",
+      returnType: null,
     },
   ],
   "39cab60a-f604-48a9-94ba-f867158bb142": [
@@ -10877,6 +11722,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.root",
+      returnType: null,
     },
     {
       id: "0a785d62-e353-4bd1-9e2c-4737ef36383e",
@@ -10889,6 +11735,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.transform",
+      returnType: null,
     },
     {
       id: "bda1fdb2-ee12-4aef-af5c-07c6fe886716",
@@ -10901,6 +11748,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.target_transform",
+      returnType: null,
     },
     {
       id: "6bd2eaf4-90e8-40c4-8bfb-be1c1ee8b8cd",
@@ -10913,6 +11761,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.download",
+      returnType: null,
     },
     {
       id: "96b597ac-683a-49e8-ad16-b87da1fe43c3",
@@ -10925,6 +11774,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.transforms",
+      returnType: null,
     },
   ],
   "37d52b31-773b-4fe7-abc8-d3faf990bf78": [],
@@ -10941,6 +11791,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.transforms",
+      returnType: null,
     },
   ],
   "6bd2eaf4-90e8-40c4-8bfb-be1c1ee8b8cd": [
@@ -10955,6 +11806,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.download",
+      returnType: null,
     },
   ],
   "bda1fdb2-ee12-4aef-af5c-07c6fe886716": [
@@ -10969,6 +11821,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.target_transform",
+      returnType: null,
     },
   ],
   "0a785d62-e353-4bd1-9e2c-4737ef36383e": [
@@ -10983,6 +11836,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.transform",
+      returnType: null,
     },
   ],
   "ba1ae8cf-bf45-4142-a98c-a6107d11fe2a": [
@@ -10997,6 +11851,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech256.root",
+      returnType: null,
     },
   ],
   "d9f380b9-db64-4b12-8025-05660f243e80": [
@@ -11011,6 +11866,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.root",
+      returnType: null,
     },
     {
       id: "593448fc-312b-4780-9639-5b3d88dc51f7",
@@ -11023,6 +11879,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.target_type",
+      returnType: null,
     },
     {
       id: "f62428b7-93f8-4327-9ae6-e79784377ad7",
@@ -11035,6 +11892,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.transform",
+      returnType: null,
     },
     {
       id: "95a31d36-fce7-4630-9777-8a0a2573de9c",
@@ -11047,6 +11905,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.target_transform",
+      returnType: null,
     },
     {
       id: "5dd2c507-1dd7-4d21-9da6-3c25552ed557",
@@ -11059,6 +11918,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.download",
+      returnType: null,
     },
     {
       id: "c074203f-5c72-4435-a3fe-bcfaf882d3af",
@@ -11071,6 +11931,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.transforms",
+      returnType: null,
     },
   ],
   "5481bf0f-e47c-4dd5-a888-f8e4ecf5a4fe": [],
@@ -11087,6 +11948,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.transforms",
+      returnType: null,
     },
   ],
   "5dd2c507-1dd7-4d21-9da6-3c25552ed557": [
@@ -11101,6 +11963,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.download",
+      returnType: null,
     },
   ],
   "95a31d36-fce7-4630-9777-8a0a2573de9c": [
@@ -11115,6 +11978,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.target_transform",
+      returnType: null,
     },
   ],
   "f62428b7-93f8-4327-9ae6-e79784377ad7": [
@@ -11129,6 +11993,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.transform",
+      returnType: null,
     },
   ],
   "593448fc-312b-4780-9639-5b3d88dc51f7": [
@@ -11143,6 +12008,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.target_type",
+      returnType: null,
     },
   ],
   "a78ef65c-7608-4e56-84af-41a1818cfafd": [
@@ -11157,6 +12023,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.Caltech101.root",
+      returnType: null,
     },
   ],
   "3ee957ad-3f93-4915-923e-8e3d1a29ca27": [
@@ -11171,6 +12038,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.root",
+      returnType: null,
     },
     {
       id: "c0aaaf2b-8b75-411f-8413-eeb18780ab69",
@@ -11183,6 +12051,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.train",
+      returnType: null,
     },
     {
       id: "5306fa40-3a1d-439c-93f2-7eba8f04358c",
@@ -11195,6 +12064,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.transform",
+      returnType: null,
     },
     {
       id: "f00ecb40-7b7a-40d5-b6ac-a5f284ec5f43",
@@ -11207,6 +12077,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.target_transform",
+      returnType: null,
     },
     {
       id: "4088714d-ee65-42c3-a474-fc345c78763a",
@@ -11219,6 +12090,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.download",
+      returnType: null,
     },
     {
       id: "24f3b563-9c90-42c4-87b4-b9b27eb3f9b4",
@@ -11231,6 +12103,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.transforms",
+      returnType: null,
     },
   ],
   "55e9b771-e7ba-4146-9cda-4a7accbfcd46": [],
@@ -11247,6 +12120,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.transforms",
+      returnType: null,
     },
   ],
   "4088714d-ee65-42c3-a474-fc345c78763a": [
@@ -11261,6 +12135,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.download",
+      returnType: null,
     },
   ],
   "f00ecb40-7b7a-40d5-b6ac-a5f284ec5f43": [
@@ -11275,6 +12150,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.target_transform",
+      returnType: null,
     },
   ],
   "5306fa40-3a1d-439c-93f2-7eba8f04358c": [
@@ -11289,6 +12165,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.transform",
+      returnType: null,
     },
   ],
   "c0aaaf2b-8b75-411f-8413-eeb18780ab69": [
@@ -11303,6 +12180,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.train",
+      returnType: null,
     },
   ],
   "6c9a40ff-3065-42f3-90c6-583a7fc203c4": [
@@ -11317,6 +12195,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR100.root",
+      returnType: null,
     },
   ],
   "da9f67ba-9294-4887-ba8f-e0f93b9c7098": [
@@ -11331,6 +12210,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.root",
+      returnType: null,
     },
     {
       id: "550720ca-c41f-46b7-8bdf-763c00634ed5",
@@ -11343,6 +12223,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.train",
+      returnType: null,
     },
     {
       id: "2c899942-7d7f-4f44-aa43-35cf11e8d98a",
@@ -11355,6 +12236,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.transform",
+      returnType: null,
     },
     {
       id: "827bdc0b-d06e-4746-9ad2-ad83f8e17aa2",
@@ -11367,6 +12249,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.target_transform",
+      returnType: null,
     },
     {
       id: "7cd6952b-9d4a-4c9a-b920-3e58f7dcd984",
@@ -11379,6 +12262,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.download",
+      returnType: null,
     },
     {
       id: "78a84e61-2750-455a-a796-a9d195102b49",
@@ -11391,6 +12275,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.transforms",
+      returnType: null,
     },
   ],
   "edad9682-4f8b-446d-9bb8-e07db92ecd4f": [],
@@ -11407,6 +12292,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.transforms",
+      returnType: null,
     },
   ],
   "7cd6952b-9d4a-4c9a-b920-3e58f7dcd984": [
@@ -11421,6 +12307,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.download",
+      returnType: null,
     },
   ],
   "827bdc0b-d06e-4746-9ad2-ad83f8e17aa2": [
@@ -11435,6 +12322,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.target_transform",
+      returnType: null,
     },
   ],
   "2c899942-7d7f-4f44-aa43-35cf11e8d98a": [
@@ -11449,6 +12337,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.transform",
+      returnType: null,
     },
   ],
   "550720ca-c41f-46b7-8bdf-763c00634ed5": [
@@ -11463,6 +12352,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.train",
+      returnType: null,
     },
   ],
   "6b098f6b-5a67-4a3e-a7ed-af7dc3e338e7": [
@@ -11477,6 +12367,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.datasets.CIFAR10.root",
+      returnType: null,
     },
   ],
   "253cd8a8-a95a-4d15-b98b-73318b3632a1": [
@@ -11491,6 +12382,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.dataset_root",
+      returnType: null,
     },
     {
       id: "039be87f-76d9-4e39-979b-ac7cef982937",
@@ -11503,6 +12395,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.batch_size",
+      returnType: null,
     },
     {
       id: "97e7a459-3b8b-4908-9843-71f4a43b2b2e",
@@ -11515,6 +12408,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.test_batch_size",
+      returnType: null,
     },
     {
       id: "c947c792-05d5-433c-95e5-2db1919c4b4e",
@@ -11527,6 +12421,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.epochs",
+      returnType: null,
     },
   ],
   "c947c792-05d5-433c-95e5-2db1919c4b4e": [
@@ -11541,6 +12436,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.epochs",
+      returnType: null,
     },
   ],
   "97e7a459-3b8b-4908-9843-71f4a43b2b2e": [
@@ -11555,6 +12451,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.test_batch_size",
+      returnType: null,
     },
   ],
   "039be87f-76d9-4e39-979b-ac7cef982937": [
@@ -11569,6 +12466,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.batch_size",
+      returnType: null,
     },
   ],
   "30c695b3-49b4-4fc7-9dc5-1dff0cc4dc21": [
@@ -11583,6 +12481,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.dataset_root",
+      returnType: null,
     },
   ],
   "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86": [
@@ -11597,6 +12496,7 @@ export default {
       version: null,
       description: null,
       path: "A Single Parameter.birth_location",
+      returnType: null,
     },
   ],
   "297fbd94-70ca-4e90-81b8-96a603519a85": [
@@ -11611,6 +12511,7 @@ export default {
       version: null,
       description: null,
       path: "A Single Parameter.birth_location",
+      returnType: null,
     },
   ],
   "1ec242dd-688e-4f71-a0de-cc13752461ce": [
@@ -11625,6 +12526,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Compose.transforms",
+      returnType: null,
     },
     {
       id: "ed375176-0282-4276-847e-0454de5cde79",
@@ -11637,6 +12539,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.policy",
+      returnType: null,
     },
     {
       id: "e56fd110-131d-4b43-acb1-efa118d48344",
@@ -11649,6 +12552,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.interpolation",
+      returnType: null,
     },
     {
       id: "772e9aec-c917-46c4-bee5-ea80895e8ecf",
@@ -11661,6 +12565,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.fill",
+      returnType: null,
     },
     {
       id: "0b0f526a-753b-4ebe-9616-593eb1c927be",
@@ -11673,6 +12578,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.CenterCrop.size",
+      returnType: null,
     },
     {
       id: "e6fc6b9a-3bd9-46d2-a6cc-c437da148243",
@@ -11685,6 +12591,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.brightness",
+      returnType: null,
     },
     {
       id: "95aa2c62-e434-497b-b848-7153f3bb841f",
@@ -11697,6 +12604,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.contrast",
+      returnType: null,
     },
     {
       id: "614525d6-ea7d-4ad3-b34a-bf058d4087b3",
@@ -11709,6 +12617,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.saturation",
+      returnType: null,
     },
     {
       id: "e7e48958-0304-4e7b-a69e-c127e0104a20",
@@ -11721,6 +12630,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.hue",
+      returnType: null,
     },
     {
       id: "e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd",
@@ -11733,6 +12643,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ConvertImageDtype.dtype",
+      returnType: null,
     },
     {
       id: "6112b3b2-ef47-49a2-9de0-95737cb2c256",
@@ -11745,6 +12656,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.FiveCrop.size",
+      returnType: null,
     },
     {
       id: "54836fc4-783d-46c0-ae86-d54c85847197",
@@ -11757,6 +12669,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur.kernel_size",
+      returnType: null,
     },
     {
       id: "3206924e-30de-41e6-8d1e-adb5c660b44d",
@@ -11769,6 +12682,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur.sigma",
+      returnType: null,
     },
     {
       id: "d7bc278f-f75c-4828-b3fe-a140f0c3aea3",
@@ -11781,6 +12695,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Grayscale.num_output_channels",
+      returnType: null,
     },
     {
       id: "09a81554-070f-4e8b-9ba3-4d440609e2db",
@@ -11793,6 +12708,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Lambda.lambd",
+      returnType: null,
     },
     {
       id: "2c020268-bcec-4bc3-a33b-598026e142b1",
@@ -11805,6 +12721,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation.transformation_matrix",
+      returnType: null,
     },
     {
       id: "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2",
@@ -11817,6 +12734,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation.mean_vector",
+      returnType: null,
     },
     {
       id: "703a4b4c-fc1b-425f-9470-f824ef89032a",
@@ -11829,6 +12747,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.mean",
+      returnType: null,
     },
     {
       id: "b2b9788d-86bb-478c-8743-72487f3984c8",
@@ -11841,6 +12760,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.std",
+      returnType: null,
     },
     {
       id: "2d820b56-02c5-414d-8804-eefeac5eb2f2",
@@ -11853,6 +12773,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.inplace",
+      returnType: null,
     },
     {
       id: "0731599c-d1c6-4352-868e-a1a23af1e13f",
@@ -11865,6 +12786,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.padding",
+      returnType: null,
     },
     {
       id: "a0871405-cbf4-41e1-b0eb-51574b54a020",
@@ -11877,6 +12799,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.fill",
+      returnType: null,
     },
     {
       id: "912fa335-af40-4ecc-afd5-8aebd76c83d9",
@@ -11889,6 +12812,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.padding_mode",
+      returnType: null,
     },
     {
       id: "82da212c-508b-46a0-bf76-01e9e798d6d0",
@@ -11901,6 +12825,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness.sharpness_factor",
+      returnType: null,
     },
     {
       id: "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb",
@@ -11913,6 +12838,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness.p",
+      returnType: null,
     },
     {
       id: "5c4adb06-7534-4b50-b0f3-c8763b8ca8f4",
@@ -11925,6 +12851,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.degrees",
+      returnType: null,
     },
     {
       id: "69e163c6-ac0d-4728-aa3d-9bc36ef12432",
@@ -11937,6 +12864,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.translate",
+      returnType: null,
     },
     {
       id: "090241ec-fc03-4e78-ae1c-84b6289376e5",
@@ -11949,6 +12877,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.scale",
+      returnType: null,
     },
     {
       id: "919a35b5-7f97-4d84-a6c3-49358f910dcc",
@@ -11961,6 +12890,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.shear",
+      returnType: null,
     },
     {
       id: "075ab7ea-0a98-4919-8476-ad30d274ff7e",
@@ -11973,6 +12903,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.interpolation",
+      returnType: null,
     },
     {
       id: "2258b1aa-a5ed-4069-975a-5da1a2315642",
@@ -11985,6 +12916,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.fill",
+      returnType: null,
     },
     {
       id: "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f",
@@ -11997,6 +12929,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.fillcolor",
+      returnType: null,
     },
     {
       id: "51e65f5a-71ff-4e6c-8524-b347b927d94c",
@@ -12009,6 +12942,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.resample",
+      returnType: null,
     },
     {
       id: "608628df-3881-49e6-9e1d-3832de3c1425",
@@ -12021,6 +12955,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomApply.transforms",
+      returnType: null,
     },
     {
       id: "7bba5280-2fdf-4900-868b-2c18b43c3011",
@@ -12033,6 +12968,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomApply.p",
+      returnType: null,
     },
     {
       id: "24a460a6-1340-402c-94ae-4f5c0df3b91f",
@@ -12045,6 +12981,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAutocontrast.p",
+      returnType: null,
     },
     {
       id: "af4db3a3-e6f4-45d1-83b3-bdfda629f5d4",
@@ -12057,6 +12994,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomChoice.transforms",
+      returnType: null,
     },
     {
       id: "9c62aa3b-3f05-42a1-9402-47edcf3136f9",
@@ -12069,6 +13007,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.size",
+      returnType: null,
     },
     {
       id: "2aaa8118-b82f-4749-8abc-c6ebf5526b44",
@@ -12081,6 +13020,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.padding",
+      returnType: null,
     },
     {
       id: "d4801eeb-d375-4e48-82b0-ff5069bfca73",
@@ -12093,6 +13033,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.pad_if_needed",
+      returnType: null,
     },
     {
       id: "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e",
@@ -12105,6 +13046,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.fill",
+      returnType: null,
     },
     {
       id: "54ff94b4-8c62-4217-8b0f-90cf353ccea0",
@@ -12117,6 +13059,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.padding_mode",
+      returnType: null,
     },
     {
       id: "51f2f000-4d06-46f9-8ade-43383b5c2113",
@@ -12129,6 +13072,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomEqualize.p",
+      returnType: null,
     },
     {
       id: "b0510974-5436-492d-8616-2caae9020d90",
@@ -12141,6 +13085,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.p",
+      returnType: null,
     },
     {
       id: "2302095c-ba9c-42c6-9040-96a76adcbe08",
@@ -12153,6 +13098,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.scale",
+      returnType: null,
     },
     {
       id: "11bd9c61-0735-4da6-8874-6f92a84da2a1",
@@ -12165,6 +13111,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.ratio",
+      returnType: null,
     },
     {
       id: "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da",
@@ -12177,6 +13124,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.value",
+      returnType: null,
     },
     {
       id: "3884d8a0-bc03-40d2-93c5-62641fa6bf2a",
@@ -12189,6 +13137,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.inplace",
+      returnType: null,
     },
     {
       id: "ebca8b88-83d8-443e-978c-e70b6878f441",
@@ -12201,6 +13150,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomGrayscale.p",
+      returnType: null,
     },
     {
       id: "e8e949a7-5beb-466a-a69b-fd59e8261cce",
@@ -12213,6 +13163,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomHorizontalFlip.p",
+      returnType: null,
     },
     {
       id: "f744b2c1-40a8-49e3-9fe4-ac3916c8faac",
@@ -12225,6 +13176,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomInvert.p",
+      returnType: null,
     },
     {
       id: "5d6760a3-4741-4e9b-983a-d0c1966eead1",
@@ -12237,6 +13189,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomOrder.transforms",
+      returnType: null,
     },
     {
       id: "642b2461-5f07-4abb-833e-54b7c1611f6d",
@@ -12249,6 +13202,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.distortion_scale",
+      returnType: null,
     },
     {
       id: "97905d46-61dd-4f42-88f5-4fbe0576fbd6",
@@ -12261,6 +13215,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.p",
+      returnType: null,
     },
     {
       id: "ce96a97b-2bcb-48a2-ab6c-de8757a070d6",
@@ -12273,6 +13228,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.interpolation",
+      returnType: null,
     },
     {
       id: "c0eaf861-134e-4aeb-a190-d0aa7d8b928a",
@@ -12285,6 +13241,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.fill",
+      returnType: null,
     },
     {
       id: "90300435-efad-49cb-986b-a922ab01fec9",
@@ -12297,6 +13254,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize.bits",
+      returnType: null,
     },
     {
       id: "06a000e6-96ea-4ef6-801a-7d88d2022fb1",
@@ -12309,6 +13267,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize.p",
+      returnType: null,
     },
     {
       id: "f75f0d4c-b597-499e-979b-082b33e82c57",
@@ -12321,6 +13280,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.size",
+      returnType: null,
     },
     {
       id: "04805ff3-3ff2-4d83-ae85-20bdf73221cf",
@@ -12333,6 +13293,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.scale",
+      returnType: null,
     },
     {
       id: "91acec7a-9b31-4acb-b31c-0dd49a71a8a1",
@@ -12345,6 +13306,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.ratio",
+      returnType: null,
     },
     {
       id: "611a8cb9-22ed-4af9-a026-1889f59b0502",
@@ -12357,6 +13319,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.interpolation",
+      returnType: null,
     },
     {
       id: "ebcf7677-6377-48fe-ade1-5bd31262aa0b",
@@ -12369,6 +13332,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.degrees",
+      returnType: null,
     },
     {
       id: "25da2421-ee9d-4379-bbc6-00218eed43a9",
@@ -12381,6 +13345,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.interpolation",
+      returnType: null,
     },
     {
       id: "2af0ef3e-e806-496c-9979-2741a3988537",
@@ -12393,6 +13358,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.expand",
+      returnType: null,
     },
     {
       id: "47866a00-23e5-4739-904b-611d5e4b0ab9",
@@ -12405,6 +13371,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.center",
+      returnType: null,
     },
     {
       id: "ba036e59-2a45-4b00-b7ad-7c7511543c8f",
@@ -12417,6 +13384,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.fill",
+      returnType: null,
     },
     {
       id: "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a",
@@ -12429,6 +13397,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.resample",
+      returnType: null,
     },
     {
       id: "42afa529-ca79-436c-826f-deaaab5c44b8",
@@ -12441,6 +13410,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.size",
+      returnType: null,
     },
     {
       id: "27c50c5d-3859-43dd-8dc0-9c969697d6de",
@@ -12453,6 +13423,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.scale",
+      returnType: null,
     },
     {
       id: "d97e4857-6ad5-4690-a3ce-c23afc0128c8",
@@ -12465,6 +13436,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.ratio",
+      returnType: null,
     },
     {
       id: "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81",
@@ -12477,6 +13449,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.interpolation",
+      returnType: null,
     },
     {
       id: "89586475-c469-47d6-9ae5-74d1f8bd767c",
@@ -12489,6 +13462,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize.threshold",
+      returnType: null,
     },
     {
       id: "70074a30-edb9-4f98-b22e-aa1c5be8861f",
@@ -12501,6 +13475,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize.p",
+      returnType: null,
     },
     {
       id: "15c257d2-3f34-49c4-85e0-41f23345092a",
@@ -12513,6 +13488,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomVerticalFlip.p",
+      returnType: null,
     },
     {
       id: "d9050cc3-5864-42c2-8111-f544d2c4707f",
@@ -12525,6 +13501,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Resize.size",
+      returnType: null,
     },
     {
       id: "df9ccd04-23f8-4890-8970-f58b3117b857",
@@ -12537,6 +13514,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Resize.interpolation",
+      returnType: null,
     },
     {
       id: "c2f429aa-2397-4a11-8650-88cf4b30a7eb",
@@ -12549,6 +13527,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Scale.size",
+      returnType: null,
     },
     {
       id: "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8",
@@ -12561,6 +13540,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Scale.interpolation",
+      returnType: null,
     },
     {
       id: "b8f64b24-f2f9-4438-95c4-1059f6b2eea1",
@@ -12573,6 +13553,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.TenCrop.size",
+      returnType: null,
     },
     {
       id: "a1d40131-a21a-4296-8138-bc47cdfcb7ac",
@@ -12585,6 +13566,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.TenCrop.vertical_flip",
+      returnType: null,
     },
     {
       id: "24da26a7-30e6-4590-a66d-2aedd6c710b5",
@@ -12597,6 +13579,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ToPILImage.mode",
+      returnType: null,
     },
   ],
   "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69": [],
@@ -12614,6 +13597,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ToPILImage.mode",
+      returnType: null,
     },
   ],
   "24da26a7-30e6-4590-a66d-2aedd6c710b5": [
@@ -12628,6 +13612,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ToPILImage.mode",
+      returnType: null,
     },
   ],
   "079c1a70-f2e9-452a-a011-7a2e685efcd4": [],
@@ -12645,6 +13630,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.TenCrop.size",
+      returnType: null,
     },
     {
       id: "a1d40131-a21a-4296-8138-bc47cdfcb7ac",
@@ -12657,6 +13643,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.TenCrop.vertical_flip",
+      returnType: null,
     },
   ],
   "a1d40131-a21a-4296-8138-bc47cdfcb7ac": [
@@ -12671,6 +13658,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.TenCrop.vertical_flip",
+      returnType: null,
     },
   ],
   "b8f64b24-f2f9-4438-95c4-1059f6b2eea1": [
@@ -12685,6 +13673,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.TenCrop.size",
+      returnType: null,
     },
   ],
   "b7716641-97ef-4401-97dd-0872701b1651": [
@@ -12699,6 +13688,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Scale.size",
+      returnType: null,
     },
     {
       id: "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8",
@@ -12711,6 +13701,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Scale.interpolation",
+      returnType: null,
     },
   ],
   "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8": [
@@ -12725,6 +13716,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Scale.interpolation",
+      returnType: null,
     },
   ],
   "c2f429aa-2397-4a11-8650-88cf4b30a7eb": [
@@ -12739,6 +13731,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Scale.size",
+      returnType: null,
     },
   ],
   "5bd5adfe-639c-4d97-bc32-e40d9d53f653": [],
@@ -12755,6 +13748,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Resize.size",
+      returnType: null,
     },
     {
       id: "df9ccd04-23f8-4890-8970-f58b3117b857",
@@ -12767,6 +13761,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Resize.interpolation",
+      returnType: null,
     },
   ],
   "df9ccd04-23f8-4890-8970-f58b3117b857": [
@@ -12781,6 +13776,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Resize.interpolation",
+      returnType: null,
     },
   ],
   "d9050cc3-5864-42c2-8111-f544d2c4707f": [
@@ -12795,6 +13791,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Resize.size",
+      returnType: null,
     },
   ],
   "964783a7-c538-42ef-88d0-66ac64f973c9": [
@@ -12809,6 +13806,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomVerticalFlip.p",
+      returnType: null,
     },
   ],
   "15c257d2-3f34-49c4-85e0-41f23345092a": [
@@ -12823,6 +13821,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomVerticalFlip.p",
+      returnType: null,
     },
   ],
   "6e95b433-7806-4ab9-a5d6-23909a3fb320": [
@@ -12837,6 +13836,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize.threshold",
+      returnType: null,
     },
     {
       id: "70074a30-edb9-4f98-b22e-aa1c5be8861f",
@@ -12849,6 +13849,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize.p",
+      returnType: null,
     },
   ],
   "70074a30-edb9-4f98-b22e-aa1c5be8861f": [
@@ -12863,6 +13864,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize.p",
+      returnType: null,
     },
   ],
   "89586475-c469-47d6-9ae5-74d1f8bd767c": [
@@ -12877,6 +13879,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize.threshold",
+      returnType: null,
     },
   ],
   "ada150b1-0785-45fe-a1fb-837fafccb845": [
@@ -12891,6 +13894,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.size",
+      returnType: null,
     },
     {
       id: "27c50c5d-3859-43dd-8dc0-9c969697d6de",
@@ -12903,6 +13907,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.scale",
+      returnType: null,
     },
     {
       id: "d97e4857-6ad5-4690-a3ce-c23afc0128c8",
@@ -12915,6 +13920,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.ratio",
+      returnType: null,
     },
     {
       id: "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81",
@@ -12927,6 +13933,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.interpolation",
+      returnType: null,
     },
   ],
   "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81": [
@@ -12941,6 +13948,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.interpolation",
+      returnType: null,
     },
   ],
   "d97e4857-6ad5-4690-a3ce-c23afc0128c8": [
@@ -12955,6 +13963,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.ratio",
+      returnType: null,
     },
   ],
   "27c50c5d-3859-43dd-8dc0-9c969697d6de": [
@@ -12969,6 +13978,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.scale",
+      returnType: null,
     },
   ],
   "42afa529-ca79-436c-826f-deaaab5c44b8": [
@@ -12983,6 +13993,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop.size",
+      returnType: null,
     },
   ],
   "73054faa-c668-4f48-bf80-135c4ddde885": [],
@@ -12999,6 +14010,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.degrees",
+      returnType: null,
     },
     {
       id: "25da2421-ee9d-4379-bbc6-00218eed43a9",
@@ -13011,6 +14023,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.interpolation",
+      returnType: null,
     },
     {
       id: "2af0ef3e-e806-496c-9979-2741a3988537",
@@ -13023,6 +14036,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.expand",
+      returnType: null,
     },
     {
       id: "47866a00-23e5-4739-904b-611d5e4b0ab9",
@@ -13035,6 +14049,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.center",
+      returnType: null,
     },
     {
       id: "ba036e59-2a45-4b00-b7ad-7c7511543c8f",
@@ -13047,6 +14062,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.fill",
+      returnType: null,
     },
     {
       id: "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a",
@@ -13059,6 +14075,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.resample",
+      returnType: null,
     },
   ],
   "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a": [
@@ -13073,6 +14090,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.resample",
+      returnType: null,
     },
   ],
   "ba036e59-2a45-4b00-b7ad-7c7511543c8f": [
@@ -13087,6 +14105,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.fill",
+      returnType: null,
     },
   ],
   "47866a00-23e5-4739-904b-611d5e4b0ab9": [
@@ -13101,6 +14120,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.center",
+      returnType: null,
     },
   ],
   "2af0ef3e-e806-496c-9979-2741a3988537": [
@@ -13115,6 +14135,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.expand",
+      returnType: null,
     },
   ],
   "25da2421-ee9d-4379-bbc6-00218eed43a9": [
@@ -13129,6 +14150,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.interpolation",
+      returnType: null,
     },
   ],
   "ebcf7677-6377-48fe-ade1-5bd31262aa0b": [
@@ -13143,6 +14165,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomRotation.degrees",
+      returnType: null,
     },
   ],
   "51277118-3bda-4ebe-960f-4a3f36b74d50": [
@@ -13157,6 +14180,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.size",
+      returnType: null,
     },
     {
       id: "04805ff3-3ff2-4d83-ae85-20bdf73221cf",
@@ -13169,6 +14193,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.scale",
+      returnType: null,
     },
     {
       id: "91acec7a-9b31-4acb-b31c-0dd49a71a8a1",
@@ -13181,6 +14206,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.ratio",
+      returnType: null,
     },
     {
       id: "611a8cb9-22ed-4af9-a026-1889f59b0502",
@@ -13193,6 +14219,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.interpolation",
+      returnType: null,
     },
   ],
   "611a8cb9-22ed-4af9-a026-1889f59b0502": [
@@ -13207,6 +14234,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.interpolation",
+      returnType: null,
     },
   ],
   "91acec7a-9b31-4acb-b31c-0dd49a71a8a1": [
@@ -13221,6 +14249,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.ratio",
+      returnType: null,
     },
   ],
   "04805ff3-3ff2-4d83-ae85-20bdf73221cf": [
@@ -13235,6 +14264,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.scale",
+      returnType: null,
     },
   ],
   "f75f0d4c-b597-499e-979b-082b33e82c57": [
@@ -13249,6 +14279,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop.size",
+      returnType: null,
     },
   ],
   "ad41317a-2495-457b-b19e-96fc074e96f1": [
@@ -13263,6 +14294,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize.bits",
+      returnType: null,
     },
     {
       id: "06a000e6-96ea-4ef6-801a-7d88d2022fb1",
@@ -13275,6 +14307,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize.p",
+      returnType: null,
     },
   ],
   "06a000e6-96ea-4ef6-801a-7d88d2022fb1": [
@@ -13289,6 +14322,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize.p",
+      returnType: null,
     },
   ],
   "90300435-efad-49cb-986b-a922ab01fec9": [
@@ -13303,6 +14337,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize.bits",
+      returnType: null,
     },
   ],
   "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd": [
@@ -13317,6 +14352,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.distortion_scale",
+      returnType: null,
     },
     {
       id: "97905d46-61dd-4f42-88f5-4fbe0576fbd6",
@@ -13329,6 +14365,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.p",
+      returnType: null,
     },
     {
       id: "ce96a97b-2bcb-48a2-ab6c-de8757a070d6",
@@ -13341,6 +14378,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.interpolation",
+      returnType: null,
     },
     {
       id: "c0eaf861-134e-4aeb-a190-d0aa7d8b928a",
@@ -13353,6 +14391,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.fill",
+      returnType: null,
     },
   ],
   "c0eaf861-134e-4aeb-a190-d0aa7d8b928a": [
@@ -13367,6 +14406,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.fill",
+      returnType: null,
     },
   ],
   "ce96a97b-2bcb-48a2-ab6c-de8757a070d6": [
@@ -13381,6 +14421,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.interpolation",
+      returnType: null,
     },
   ],
   "97905d46-61dd-4f42-88f5-4fbe0576fbd6": [
@@ -13395,6 +14436,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.p",
+      returnType: null,
     },
   ],
   "642b2461-5f07-4abb-833e-54b7c1611f6d": [
@@ -13409,6 +14451,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective.distortion_scale",
+      returnType: null,
     },
   ],
   "c6f9ad05-bc30-4260-9f81-11368d539bd1": [
@@ -13423,6 +14466,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomOrder.transforms",
+      returnType: null,
     },
   ],
   "5d6760a3-4741-4e9b-983a-d0c1966eead1": [
@@ -13437,6 +14481,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomOrder.transforms",
+      returnType: null,
     },
   ],
   "689b3a68-ad65-4e61-9262-17a0f85e5b17": [
@@ -13451,6 +14496,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomInvert.p",
+      returnType: null,
     },
   ],
   "f744b2c1-40a8-49e3-9fe4-ac3916c8faac": [
@@ -13465,6 +14511,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomInvert.p",
+      returnType: null,
     },
   ],
   "f5346240-9bf1-4647-a37b-2045e5acd181": [
@@ -13479,6 +14526,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomHorizontalFlip.p",
+      returnType: null,
     },
   ],
   "e8e949a7-5beb-466a-a69b-fd59e8261cce": [
@@ -13493,6 +14541,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomHorizontalFlip.p",
+      returnType: null,
     },
   ],
   "c79959d6-6bdd-4586-877f-ff84ab4bb986": [
@@ -13507,6 +14556,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomGrayscale.p",
+      returnType: null,
     },
   ],
   "ebca8b88-83d8-443e-978c-e70b6878f441": [
@@ -13521,6 +14571,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomGrayscale.p",
+      returnType: null,
     },
   ],
   "c29fb726-bb9b-4a59-a253-1a1485073197": [
@@ -13535,6 +14586,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.p",
+      returnType: null,
     },
     {
       id: "2302095c-ba9c-42c6-9040-96a76adcbe08",
@@ -13547,6 +14599,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.scale",
+      returnType: null,
     },
     {
       id: "11bd9c61-0735-4da6-8874-6f92a84da2a1",
@@ -13559,6 +14612,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.ratio",
+      returnType: null,
     },
     {
       id: "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da",
@@ -13571,6 +14625,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.value",
+      returnType: null,
     },
     {
       id: "3884d8a0-bc03-40d2-93c5-62641fa6bf2a",
@@ -13583,6 +14638,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.inplace",
+      returnType: null,
     },
   ],
   "3884d8a0-bc03-40d2-93c5-62641fa6bf2a": [
@@ -13597,6 +14653,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.inplace",
+      returnType: null,
     },
   ],
   "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da": [
@@ -13611,6 +14668,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.value",
+      returnType: null,
     },
   ],
   "11bd9c61-0735-4da6-8874-6f92a84da2a1": [
@@ -13625,6 +14683,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.ratio",
+      returnType: null,
     },
   ],
   "2302095c-ba9c-42c6-9040-96a76adcbe08": [
@@ -13639,6 +14698,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.scale",
+      returnType: null,
     },
   ],
   "b0510974-5436-492d-8616-2caae9020d90": [
@@ -13653,6 +14713,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomErasing.p",
+      returnType: null,
     },
   ],
   "294d0c8e-0755-42e4-9bb0-7034616bb306": [
@@ -13667,6 +14728,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomEqualize.p",
+      returnType: null,
     },
   ],
   "51f2f000-4d06-46f9-8ade-43383b5c2113": [
@@ -13681,6 +14743,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomEqualize.p",
+      returnType: null,
     },
   ],
   "8841a2c8-1bd3-42d4-8c14-2325506f05d8": [
@@ -13695,6 +14758,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.size",
+      returnType: null,
     },
     {
       id: "2aaa8118-b82f-4749-8abc-c6ebf5526b44",
@@ -13707,6 +14771,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.padding",
+      returnType: null,
     },
     {
       id: "d4801eeb-d375-4e48-82b0-ff5069bfca73",
@@ -13719,6 +14784,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.pad_if_needed",
+      returnType: null,
     },
     {
       id: "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e",
@@ -13731,6 +14797,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.fill",
+      returnType: null,
     },
     {
       id: "54ff94b4-8c62-4217-8b0f-90cf353ccea0",
@@ -13743,6 +14810,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.padding_mode",
+      returnType: null,
     },
   ],
   "54ff94b4-8c62-4217-8b0f-90cf353ccea0": [
@@ -13757,6 +14825,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.padding_mode",
+      returnType: null,
     },
   ],
   "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e": [
@@ -13771,6 +14840,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.fill",
+      returnType: null,
     },
   ],
   "d4801eeb-d375-4e48-82b0-ff5069bfca73": [
@@ -13785,6 +14855,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.pad_if_needed",
+      returnType: null,
     },
   ],
   "2aaa8118-b82f-4749-8abc-c6ebf5526b44": [
@@ -13799,6 +14870,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.padding",
+      returnType: null,
     },
   ],
   "9c62aa3b-3f05-42a1-9402-47edcf3136f9": [
@@ -13813,6 +14885,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomCrop.size",
+      returnType: null,
     },
   ],
   "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb": [
@@ -13827,6 +14900,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomChoice.transforms",
+      returnType: null,
     },
   ],
   "af4db3a3-e6f4-45d1-83b3-bdfda629f5d4": [
@@ -13841,6 +14915,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomChoice.transforms",
+      returnType: null,
     },
   ],
   "5f69ca04-fa41-4d87-8f48-f59e99b8c1db": [
@@ -13855,6 +14930,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAutocontrast.p",
+      returnType: null,
     },
   ],
   "24a460a6-1340-402c-94ae-4f5c0df3b91f": [
@@ -13869,6 +14945,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAutocontrast.p",
+      returnType: null,
     },
   ],
   "ece98f3e-3f59-438a-bf90-1e1313d374ce": [
@@ -13883,6 +14960,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomApply.transforms",
+      returnType: null,
     },
     {
       id: "7bba5280-2fdf-4900-868b-2c18b43c3011",
@@ -13895,6 +14973,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomApply.p",
+      returnType: null,
     },
   ],
   "7bba5280-2fdf-4900-868b-2c18b43c3011": [
@@ -13909,6 +14988,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomApply.p",
+      returnType: null,
     },
   ],
   "608628df-3881-49e6-9e1d-3832de3c1425": [
@@ -13923,6 +15003,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomApply.transforms",
+      returnType: null,
     },
   ],
   "5e456a49-b4da-484a-b420-3696ac4cd361": [
@@ -13937,6 +15018,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.degrees",
+      returnType: null,
     },
     {
       id: "69e163c6-ac0d-4728-aa3d-9bc36ef12432",
@@ -13949,6 +15031,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.translate",
+      returnType: null,
     },
     {
       id: "090241ec-fc03-4e78-ae1c-84b6289376e5",
@@ -13961,6 +15044,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.scale",
+      returnType: null,
     },
     {
       id: "919a35b5-7f97-4d84-a6c3-49358f910dcc",
@@ -13973,6 +15057,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.shear",
+      returnType: null,
     },
     {
       id: "075ab7ea-0a98-4919-8476-ad30d274ff7e",
@@ -13985,6 +15070,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.interpolation",
+      returnType: null,
     },
     {
       id: "2258b1aa-a5ed-4069-975a-5da1a2315642",
@@ -13997,6 +15083,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.fill",
+      returnType: null,
     },
     {
       id: "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f",
@@ -14009,6 +15096,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.fillcolor",
+      returnType: null,
     },
     {
       id: "51e65f5a-71ff-4e6c-8524-b347b927d94c",
@@ -14021,6 +15109,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.resample",
+      returnType: null,
     },
   ],
   "51e65f5a-71ff-4e6c-8524-b347b927d94c": [
@@ -14035,6 +15124,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.resample",
+      returnType: null,
     },
   ],
   "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f": [
@@ -14049,6 +15139,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.fillcolor",
+      returnType: null,
     },
   ],
   "2258b1aa-a5ed-4069-975a-5da1a2315642": [
@@ -14063,6 +15154,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.fill",
+      returnType: null,
     },
   ],
   "075ab7ea-0a98-4919-8476-ad30d274ff7e": [
@@ -14077,6 +15169,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.interpolation",
+      returnType: null,
     },
   ],
   "919a35b5-7f97-4d84-a6c3-49358f910dcc": [
@@ -14091,6 +15184,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.shear",
+      returnType: null,
     },
   ],
   "090241ec-fc03-4e78-ae1c-84b6289376e5": [
@@ -14105,6 +15199,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.scale",
+      returnType: null,
     },
   ],
   "69e163c6-ac0d-4728-aa3d-9bc36ef12432": [
@@ -14119,6 +15214,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.translate",
+      returnType: null,
     },
   ],
   "5c4adb06-7534-4b50-b0f3-c8763b8ca8f4": [
@@ -14133,6 +15229,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAffine.degrees",
+      returnType: null,
     },
   ],
   "7c28c9ae-8d17-4635-b521-43c727a3c05c": [
@@ -14147,6 +15244,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness.sharpness_factor",
+      returnType: null,
     },
     {
       id: "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb",
@@ -14159,6 +15257,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness.p",
+      returnType: null,
     },
   ],
   "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb": [
@@ -14173,6 +15272,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness.p",
+      returnType: null,
     },
   ],
   "82da212c-508b-46a0-bf76-01e9e798d6d0": [
@@ -14187,6 +15287,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness.sharpness_factor",
+      returnType: null,
     },
   ],
   "abfb28a7-aaf9-47f2-be30-2a415a2865f3": [
@@ -14201,6 +15302,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.padding",
+      returnType: null,
     },
     {
       id: "a0871405-cbf4-41e1-b0eb-51574b54a020",
@@ -14213,6 +15315,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.fill",
+      returnType: null,
     },
     {
       id: "912fa335-af40-4ecc-afd5-8aebd76c83d9",
@@ -14225,6 +15328,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.padding_mode",
+      returnType: null,
     },
   ],
   "912fa335-af40-4ecc-afd5-8aebd76c83d9": [
@@ -14239,6 +15343,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.padding_mode",
+      returnType: null,
     },
   ],
   "a0871405-cbf4-41e1-b0eb-51574b54a020": [
@@ -14253,6 +15358,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.fill",
+      returnType: null,
     },
   ],
   "0731599c-d1c6-4352-868e-a1a23af1e13f": [
@@ -14267,6 +15373,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Pad.padding",
+      returnType: null,
     },
   ],
   "802f156d-a319-43ad-8ee0-1470806f8842": [],
@@ -14284,6 +15391,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.mean",
+      returnType: null,
     },
     {
       id: "b2b9788d-86bb-478c-8743-72487f3984c8",
@@ -14296,6 +15404,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.std",
+      returnType: null,
     },
     {
       id: "2d820b56-02c5-414d-8804-eefeac5eb2f2",
@@ -14308,6 +15417,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.inplace",
+      returnType: null,
     },
   ],
   "2d820b56-02c5-414d-8804-eefeac5eb2f2": [
@@ -14322,6 +15432,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.inplace",
+      returnType: null,
     },
   ],
   "b2b9788d-86bb-478c-8743-72487f3984c8": [
@@ -14336,6 +15447,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.std",
+      returnType: null,
     },
   ],
   "703a4b4c-fc1b-425f-9470-f824ef89032a": [
@@ -14350,6 +15462,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Normalize.mean",
+      returnType: null,
     },
   ],
   "83f71661-8d3c-46a0-948e-1d09891ecf0e": [
@@ -14364,6 +15477,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation.transformation_matrix",
+      returnType: null,
     },
     {
       id: "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2",
@@ -14376,6 +15490,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation.mean_vector",
+      returnType: null,
     },
   ],
   "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2": [
@@ -14390,6 +15505,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation.mean_vector",
+      returnType: null,
     },
   ],
   "2c020268-bcec-4bc3-a33b-598026e142b1": [
@@ -14404,6 +15520,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation.transformation_matrix",
+      returnType: null,
     },
   ],
   "cde94860-d427-49d5-9309-85727f8c22c5": [
@@ -14418,6 +15535,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Lambda.lambd",
+      returnType: null,
     },
   ],
   "09a81554-070f-4e8b-9ba3-4d440609e2db": [
@@ -14432,6 +15550,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Lambda.lambd",
+      returnType: null,
     },
   ],
   "a948b064-ac6b-4e93-b912-c4d886dbd70c": [],
@@ -14449,6 +15568,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Grayscale.num_output_channels",
+      returnType: null,
     },
   ],
   "d7bc278f-f75c-4828-b3fe-a140f0c3aea3": [
@@ -14463,6 +15583,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.Grayscale.num_output_channels",
+      returnType: null,
     },
   ],
   "26791c4a-acc1-4202-ae32-15bd29157531": [
@@ -14477,6 +15598,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur.kernel_size",
+      returnType: null,
     },
     {
       id: "3206924e-30de-41e6-8d1e-adb5c660b44d",
@@ -14489,6 +15611,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur.sigma",
+      returnType: null,
     },
   ],
   "3206924e-30de-41e6-8d1e-adb5c660b44d": [
@@ -14503,6 +15626,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur.sigma",
+      returnType: null,
     },
   ],
   "54836fc4-783d-46c0-ae86-d54c85847197": [
@@ -14517,6 +15641,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur.kernel_size",
+      returnType: null,
     },
   ],
   "8b59f872-8f35-4809-8650-2a2cdc984038": [
@@ -14531,6 +15656,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.FiveCrop.size",
+      returnType: null,
     },
   ],
   "6112b3b2-ef47-49a2-9de0-95737cb2c256": [
@@ -14545,6 +15671,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.FiveCrop.size",
+      returnType: null,
     },
   ],
   "5fc8d2db-f035-4a57-ab92-38f4dfe53526": [],
@@ -14562,6 +15689,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ConvertImageDtype.dtype",
+      returnType: null,
     },
   ],
   "e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd": [
@@ -14576,6 +15704,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ConvertImageDtype.dtype",
+      returnType: null,
     },
   ],
   "b61c3e59-27d9-4faf-97af-7a85246e07dc": [
@@ -14590,6 +15719,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.brightness",
+      returnType: null,
     },
     {
       id: "95aa2c62-e434-497b-b848-7153f3bb841f",
@@ -14602,6 +15732,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.contrast",
+      returnType: null,
     },
     {
       id: "614525d6-ea7d-4ad3-b34a-bf058d4087b3",
@@ -14614,6 +15745,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.saturation",
+      returnType: null,
     },
     {
       id: "e7e48958-0304-4e7b-a69e-c127e0104a20",
@@ -14626,6 +15758,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.hue",
+      returnType: null,
     },
   ],
   "e7e48958-0304-4e7b-a69e-c127e0104a20": [
@@ -14640,6 +15773,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.hue",
+      returnType: null,
     },
   ],
   "614525d6-ea7d-4ad3-b34a-bf058d4087b3": [
@@ -14654,6 +15788,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.saturation",
+      returnType: null,
     },
   ],
   "95aa2c62-e434-497b-b848-7153f3bb841f": [
@@ -14668,6 +15803,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.contrast",
+      returnType: null,
     },
   ],
   "e6fc6b9a-3bd9-46d2-a6cc-c437da148243": [
@@ -14682,6 +15818,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.ColorJitter.brightness",
+      returnType: null,
     },
   ],
   "373b3443-760f-4fce-b650-5dc6952098a0": [
@@ -14696,6 +15833,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.CenterCrop.size",
+      returnType: null,
     },
   ],
   "0b0f526a-753b-4ebe-9616-593eb1c927be": [
@@ -14710,6 +15848,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.CenterCrop.size",
+      returnType: null,
     },
   ],
   "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59": [],
@@ -14727,6 +15866,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.policy",
+      returnType: null,
     },
     {
       id: "e56fd110-131d-4b43-acb1-efa118d48344",
@@ -14739,6 +15879,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.interpolation",
+      returnType: null,
     },
     {
       id: "772e9aec-c917-46c4-bee5-ea80895e8ecf",
@@ -14751,6 +15892,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.fill",
+      returnType: null,
     },
   ],
   "772e9aec-c917-46c4-bee5-ea80895e8ecf": [
@@ -14765,6 +15907,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.fill",
+      returnType: null,
     },
   ],
   "e56fd110-131d-4b43-acb1-efa118d48344": [
@@ -14779,6 +15922,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.interpolation",
+      returnType: null,
     },
   ],
   "ed375176-0282-4276-847e-0454de5cde79": [
@@ -14793,6 +15937,7 @@ export default {
       version: null,
       description: null,
       path: "torchvision.transforms.AutoAugment.policy",
+      returnType: null,
     },
   ],
   "8893ded5-2740-47d7-ae41-674ab14f191c": [
@@ -14807,6 +15952,7 @@ export default {
       version: null,
       description: null,
       path: "dog_power",
+      returnType: null,
     },
   ],
   "b2870195-c853-4d4f-ac20-9fe0a57da17c": [
@@ -14821,6 +15967,7 @@ export default {
       version: null,
       description: null,
       path: "num_layers",
+      returnType: null,
     },
   ],
   "63a3117c-b38b-4f3f-a46c-f4c86030c918": [
@@ -14835,6 +15982,7 @@ export default {
       version: null,
       description: null,
       path: "color",
+      returnType: null,
     },
   ],
   "cd4e58a0-5a43-4968-8ac4-648eae7cca0a": [
@@ -14849,6 +15997,7 @@ export default {
       version: null,
       description: null,
       path: "transparency",
+      returnType: null,
     },
   ],
   "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d": [
@@ -14863,6 +16012,7 @@ export default {
       version: null,
       description: null,
       path: "birth_details",
+      returnType: null,
     },
   ],
 };

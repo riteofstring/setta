@@ -31,6 +31,16 @@ def update_children_parent(contents, all_code_info):
     return contents
 
 
+def add_return_type(contents):
+    for v in contents.values():
+        if isinstance(v, dict):
+            v["returnType"] = None
+        elif isinstance(v, list):
+            for x in v:
+                x["returnType"] = None
+    return contents
+
+
 def update_evcols_uitypecols(contents, all_code_info):
     new_contents = {}
     for col_id, col in contents.items():
@@ -57,6 +67,7 @@ def main():
     for filename in ["pytorch", "pytorchLightning", "pytorchLightningMnist"]:
         filepath = f"src/data/_codeInfo/{filename}.ts"
         new_contents = update_children_parent(read_ts_file(filepath), all_code_info)
+        new_contents = add_return_type(new_contents)
         write_ts_file(new_contents, filepath)
 
 
@@ -65,6 +76,7 @@ def main():
         for f in matches:
             new_contents = remove_args_kwargs(read_ts_file(f))
             new_contents = update_children_parent(new_contents, all_code_info)
+            new_contents = add_return_type(new_contents)
             write_ts_file(new_contents, f)
             
 
