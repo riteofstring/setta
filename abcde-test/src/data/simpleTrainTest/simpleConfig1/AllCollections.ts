@@ -14,6 +14,7 @@ export default {
       "a41fc545-d910-405f-9c9f-9afe66914d69",
       "9b2f4419-9347-49be-b082-772497712d65",
       "795f9f49-1c37-4ee6-8542-a0648b7879f8",
+      "88413938-51d4-4d8c-a1b6-94861e07eb22",
     ],
     rcType: "collection",
     version: null,
