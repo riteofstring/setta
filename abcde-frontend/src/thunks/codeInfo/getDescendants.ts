@@ -6,48 +6,13 @@ import {
 } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 
-function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
-  const output = {};
-  for (const k of Object.keys(allCollections)) {
-    output[k] = fn(allCodeInfo, [k]);
-  }
-  return output;
-}
-
-function getCallables(allCodeInfo, allCollections) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCollections,
-    findAllCallables
-  );
-}
-
-function getParams(allCodeInfo) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCodeInfo,
-    findAllParameters
-  );
-}
-
-function getParamCollections(allCodeInfo, allCollections) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCollections,
-    findAllParameterCollections
-  );
-}
-
 export function getCollections(allCodeInfo) {
   return _.pickBy(allCodeInfo, (v) => v.rcType === RCType.COLLECTION);
 }
 
 export function createAllInfo(packages: ManyCodeInfoType): CodeInfoStateType {
   const allCodeInfo = packages;
-  const allCollections = getCollections(allCodeInfo);
-  const params = getParams(allCodeInfo);
-  const paramCollections = getParamCollections(allCodeInfo, allCollections);
-  return { allCodeInfo, params, paramCollections };
+  return { allCodeInfo };
 }
 
 function defaultCondition(currInfo: CodeInfoType, rcType: RCType) {
@@ -88,7 +53,6 @@ export function findAllParameters(allCodeInfo, collectionIds) {
 
 export function findAllParameterCollections(allCodeInfo, collectionIds) {
   function condition(currInfo, rcType) {
-    console.log("currInfo", currInfo)
     return (
       defaultCondition(currInfo, rcType) &&
       allCodeInfo[currInfo.inCodeParentId].rcType === RCType.COLLECTION

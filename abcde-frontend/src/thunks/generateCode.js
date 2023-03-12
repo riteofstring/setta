@@ -12,10 +12,7 @@ export function getProjectDataToGenerateCode() {
     ...codeInfoState.allCodeInfo,
     ...project.kwargInfo,
   };
-  project.codeInfo = {
-    allCodeInfo,
-    paramCollections: codeInfoState.paramCollections,
-  };
+  project.codeInfo = { allCodeInfo };
   const baseUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...baseUITypes };
   delete project.kwargInfo;

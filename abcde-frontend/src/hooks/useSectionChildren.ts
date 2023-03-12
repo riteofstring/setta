@@ -41,9 +41,6 @@ function useChildrenRequiringNestedSection(
   sectionId: string,
   allParamInfoIds: (string | null)[]
 ) {
-  const currObjParam = useGetCurrObjParamKwargInfos(sectionId)
-  console.log("currObjParam", currObjParam)
-
   const currParamInfoIds = new Set(
     useGetCurrObjParamKwargInfos(sectionId).map((x) => x.id)
   );

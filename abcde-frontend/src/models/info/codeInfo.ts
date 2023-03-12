@@ -9,8 +9,6 @@ import { create } from "../utils";
 // allCodeInfo maps from every objInfo key to its objInfo
 const initialState: CodeInfoStateType = {
   allCodeInfo: {},
-  params: {},
-  paramCollections: {},
 };
 
 export const useCodeInfo = create(

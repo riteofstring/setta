@@ -13,10 +13,12 @@ export function getCurrObjParamKwargInfos(sectionId) {
   return [...paramInfos, ...kwargInfos];
 }
 
+// TODO: get paramCollections fetching working again
 function getParamInfos(sectionId, objInfoId) {
-  const objParamInfos = useCodeInfo.getState().params[objInfoId];
-  const paramCollections = getAllParamCollections(sectionId);
-  return [...objParamInfos, ...paramCollections];
+  // const objParamInfos = useCodeInfo.getState().params[objInfoId];
+  // const paramCollections = getAllParamCollections(sectionId);
+  // return [...objParamInfos];
+  return [];
 }
 
 function getCollectionChildren(sectionId, type) {
