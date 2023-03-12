@@ -1,3 +1,5 @@
+import "@fontsource/cormorant-garamond";
+import "@fontsource/cormorant-garamond/700-italic.css";
 import "@fontsource/inter";
 import "@fontsource/jetbrains-mono/600.css";
 import "@fontsource/source-code-pro";

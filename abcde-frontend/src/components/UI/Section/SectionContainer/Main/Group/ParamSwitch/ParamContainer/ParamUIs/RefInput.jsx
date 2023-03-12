@@ -4,7 +4,6 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useStoreApi } from "react-flow-renderer";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionName } from "thunks/sections/sections";
-import { Button } from "utils/atoms/buttons/Button";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export function RefInputConfig() {
@@ -24,7 +23,7 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   }
 
   return (
-    <>
+    <div className="flex gap-1">
       <IdNameCombobox
         allItems={allItems}
         initialSelection={value}
@@ -33,8 +32,15 @@ export function RefInput({ sectionId, value, onBlur, className }) {
         small={true}
         onClick={onClick}
       />
-      <Button onClick={onFnClick}>Attr</Button>
-    </>
+      <div>
+        <button
+          className="grid h-7 w-7 place-items-center rounded-full bg-slate-600 font-fancy text-sm font-bold italic text-slate-50 hover:cursor-pointer hover:bg-white hover:text-slate-500 hover:shadow-md"
+          onClick={onFnClick}
+        >
+          f
+        </button>
+      </div>
+    </div>
   );
 }
 
