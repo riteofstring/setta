@@ -48,7 +48,7 @@ export function createAllInfo(packages: ManyCodeInfoType): CodeInfoStateType {
   const callables = getCallables(allCodeInfo, allCollections);
   const params = getParams(allCodeInfo);
   const paramCollections = getParamCollections(allCodeInfo, allCollections);
-  return { allCodeInfo, allCollections, callables, params, paramCollections };
+  return { allCodeInfo, callables, params, paramCollections };
 }
 
 function defaultCondition(currInfo: CodeInfoType, rcType: RCType) {
