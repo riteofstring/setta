@@ -8,3 +8,4 @@ export function getAllCollections() {
     (x) => x.rcType === RCType.COLLECTION
   );
 }
+

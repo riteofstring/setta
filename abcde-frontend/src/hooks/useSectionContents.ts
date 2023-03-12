@@ -1,10 +1,11 @@
-import {
-  CodeInfoStateType,
-  CodeInfoType,
-} from "abcde-utils/src/types/codeInfo";
+import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
+import {
+  findAllCallables,
+  findAllParameterCollections,
+} from "thunks/codeInfo/getDescendants";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./useOutputNames";
 import { useGetSectionConfig } from "./useSectionConfig";
@@ -12,33 +13,29 @@ import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetCurrObjParamKwargInfos(sectionId: string) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
-  console.log("selectedItem", selectedItem)
+  console.log("selectedItem", selectedItem);
   const paramInfos = useGetParamInfos(sectionId, selectedItem);
-  console.log("paramInfos", paramInfos)
+  console.log("paramInfos", paramInfos);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
-  console.log("kwargInfos", kwargInfos)
+  console.log("kwargInfos", kwargInfos);
   return [...paramInfos, ...kwargInfos];
 }
 
-function useGetCollectionChildren<K extends keyof CodeInfoStateType>(
-  sectionId: string,
-  type: K
-) {
+function useGetCollectionChildren(sectionId: string, fn) {
   const collectionIds = useGetSectionTypeConfig(sectionId, "collections");
-  console.log("collectionIds", collectionIds)
+  console.log("collectionIds", collectionIds);
   return useCodeInfo(
-    (x) =>
-      ([] as CodeInfoType[]).concat(...collectionIds.map((y) => x[type][y])),
+    (x) => ([] as CodeInfoType[]).concat(fn(x.allCodeInfo, collectionIds)),
     _.isEqual
   );
 }
 
 export function useGetAllCallables(sectionId: string) {
-  return useGetCollectionChildren(sectionId, "callables");
+  return useGetCollectionChildren(sectionId, findAllCallables);
 }
 
 function useGetAllParamCollections(sectionId: string) {
-  return useGetCollectionChildren(sectionId, "paramCollections");
+  return useGetCollectionChildren(sectionId, findAllParameterCollections);
 }
 
 function useGetKwargIds(sectionId: string, objInfoId: string) {
@@ -57,8 +54,8 @@ export function useGetKwargInfos(sectionId: string, objInfoId: string) {
 export function useGetParamInfos(sectionId: string, objInfoId: string) {
   const objParamInfos = useCodeInfo((x) => x.params[objInfoId], _.isEqual);
   const paramCollections = useGetAllParamCollections(sectionId);
-  console.log("objParamInfos", objParamInfos)
-  console.log("paramCollections", paramCollections)
+  console.log("objParamInfos", objParamInfos);
+  console.log("paramCollections", paramCollections);
   return [...objParamInfos, ...paramCollections];
 }
 
