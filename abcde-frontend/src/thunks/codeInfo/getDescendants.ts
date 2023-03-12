@@ -28,8 +28,38 @@ function findAllDescendants(
   return output.reverse();
 }
 
-export function findAllCallables(allCodeInfo, collectionIds) {
-  return findAllDescendants(allCodeInfo, collectionIds, RCType.CALLABLE);
+function findAllCallables(allCodeInfo, collectionIds, parentCondition) {
+  function condition(currInfo, rcType) {
+    return (
+      defaultCondition(currInfo, rcType) &&
+      parentCondition(allCodeInfo[currInfo.inCodeParentId]?.rcType)
+    );
+  }
+
+  return findAllDescendants(
+    allCodeInfo,
+    collectionIds,
+    RCType.CALLABLE,
+    condition
+  );
+}
+
+export function findAllCallablesOfCollections(allCodeInfo, collectionIds) {
+  function condition(parentRcType) {
+    // check inequality instead of equality with RCType.COLLECTION
+    // because parentRcType might be undefined
+    return (
+      parentRcType !== RCType.CALLABLE && parentRcType !== RCType.PARAMETER
+    );
+  }
+  return findAllCallables(allCodeInfo, collectionIds, condition);
+}
+
+export function findAllCallablesOfCallables(allCodeInfo, collectionIds) {
+  function condition(parentRcType) {
+    return parentRcType === RCType.CALLABLE;
+  }
+  return findAllCallables(allCodeInfo, collectionIds, condition);
 }
 
 export function findAllParameters(allCodeInfo, collectionIds) {

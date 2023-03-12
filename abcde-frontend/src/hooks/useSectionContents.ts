@@ -1,16 +1,18 @@
+import { ATTRIBUTE } from "abcde-utils/src/constants";
 import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import {
-  findAllCallables,
+  findAllCallablesOfCallables,
+  findAllCallablesOfCollections,
   findAllParameterCollections,
   findAllParameters,
 } from "thunks/codeInfo/getDescendants";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./useOutputNames";
 import { useGetSectionConfig } from "./useSectionConfig";
-import { useGetSectionTypeConfig } from "./useSectionType";
+import { useGetSectionType, useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetCurrObjParamKwargInfos(sectionId: string) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
@@ -28,7 +30,12 @@ function useGetCollectionChildren(sectionId: string, fn) {
 }
 
 export function useGetAllCallables(sectionId: string) {
-  return useGetCollectionChildren(sectionId, findAllCallables);
+  const sectionType = useGetSectionType(sectionId, "type");
+  const fn =
+    sectionType === ATTRIBUTE
+      ? findAllCallablesOfCallables
+      : findAllCallablesOfCollections;
+  return useGetCollectionChildren(sectionId, fn);
 }
 
 function useGetAllParamCollections(sectionId: string) {
