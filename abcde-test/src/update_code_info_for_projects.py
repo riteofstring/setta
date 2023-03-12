@@ -7,7 +7,7 @@ def main():
         filepath = f"src/data/_codeInfo/{filename}.ts"
         all_code_info = {**all_code_info, **read_ts_file(filepath)}
 
-    for filename in ["AllCodeInfo", "AllCollections", "Callables", "ParamCollections", "Params"]:
+    for filename in ["AllCodeInfo", "Callables", "ParamCollections", "Params"]:
         matches = glob.glob(f"src/data/**/**/{filename}.ts")
         for f in matches:
             contents = read_ts_file(f)

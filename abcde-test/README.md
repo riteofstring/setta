@@ -9,7 +9,6 @@ On the frontend, paste this code into `thunks/save.getProjectData()`:
   console.log(
     _.pick(useCodeInfo.getState(), [
       "allCodeInfo",
-      "allCollections",
       "callables",
       "params",
       "paramCollections",
