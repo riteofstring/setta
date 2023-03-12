@@ -27,7 +27,7 @@ class RuncoderLogger(Logger):
     def log_metrics(self, metrics, step):
         # metrics is a dictionary of metric names and values
         # your code to record metrics goes here
-        if (step + 1) % 1000 == 0:
+        if (step + 1) % 500 == 0:
             print("logging")
             self.rc_logger.log("losses", "loss", metrics["loss"])
         pass
