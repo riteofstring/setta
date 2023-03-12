@@ -69,7 +69,7 @@ export function ComboboxSearch({
         onClick={onClick}
       />
 
-      <div className="flex min-w-[150px] flex-col items-stretch">
+      <div className="flex min-w-[200px] flex-col items-stretch">
         <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps} width={width}>
           <div className="m-3 max-h-full w-full overflow-x-hidden overflow-y-scroll">
             <ComboboxItems
