@@ -1,25 +1,10 @@
-import {
-  CodeInfoStateType,
-  CodeInfoType,
-  ManyCodeInfoType,
-  RCType,
-} from "abcde-utils/src/types/codeInfo";
-import _ from "lodash";
-
-export function getCollections(allCodeInfo) {
-  return _.pickBy(allCodeInfo, (v) => v.rcType === RCType.COLLECTION);
-}
-
-export function createAllInfo(packages: ManyCodeInfoType): CodeInfoStateType {
-  const allCodeInfo = packages;
-  return { allCodeInfo };
-}
+import { CodeInfoType, RCType } from "abcde-utils/src/types/codeInfo";
 
 function defaultCondition(currInfo: CodeInfoType, rcType: RCType) {
   return currInfo.rcType === rcType;
 }
 
-export function findAllDescendants(
+function findAllDescendants(
   allCodeInfo,
   collectionIds,
   rcType,
