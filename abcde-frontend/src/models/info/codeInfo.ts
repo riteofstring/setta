@@ -7,11 +7,9 @@ import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
 // allCodeInfo maps from every objInfo key to its objInfo
-// allCollections maps from every collection key to its objInfo
 // callables maps from every collection key to a list of objInfo that are callables
 const initialState: CodeInfoStateType = {
   allCodeInfo: {},
-  allCollections: {},
   callables: {},
   params: {},
   paramCollections: {},

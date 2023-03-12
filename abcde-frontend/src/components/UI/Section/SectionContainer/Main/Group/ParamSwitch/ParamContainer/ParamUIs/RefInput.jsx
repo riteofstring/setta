@@ -60,6 +60,12 @@ function addAttrSection({
 }) {
   const { selectedItem } = getSectionConfig(refSectionId);
   const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
+
+  // console.log("selectedItem", selectedItem)
+  // console.log("returnTypeId", returnTypeId)
+  // console.log("parameter codeInfo", useCodeInfo.getState().allCodeInfo["f03ce732-e07d-48bc-af22-374677b463a2"])
+  // console.log("useCodeInfo.getState().allCodeInfo[return")
+
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()
@@ -92,5 +98,5 @@ function addAttrSection({
     isTopLevel: true,
   });
 
-  onCreation(newId);
+  // onCreation(newId);
 }
