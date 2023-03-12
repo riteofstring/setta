@@ -59,7 +59,7 @@ function addAttrSection({
   onCreation,
 }) {
   const { selectedItem } = getSectionConfig(refSectionId);
-  const { returnType } = useCodeInfo.getState().allCodeInfo[selectedItem];
+  const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()
@@ -79,7 +79,7 @@ function addAttrSection({
     name: "",
     presetType: null,
   });
-  uiType.config.collections = [returnType];
+  uiType.config.collections = [returnTypeId];
 
   useUITypes.getState().x[uiType.id] = uiType;
   const configProps = {
