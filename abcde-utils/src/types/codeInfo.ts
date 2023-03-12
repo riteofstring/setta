@@ -11,6 +11,7 @@ export type CodeInfoType = {
   inCodeParentId: string | null;
   path: string;
   children: string[];
+  returnTypeId: string | null;
 };
 
 export enum RCType {
