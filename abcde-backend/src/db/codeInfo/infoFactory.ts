@@ -14,13 +14,6 @@ function getDescendantsOfAllCollections(allCodeInfo, allCollections, fn) {
   return output;
 }
 
-function getCallables(allCodeInfo, allCollections) {
-  return getDescendantsOfAllCollections(
-    allCodeInfo,
-    allCollections,
-    findAllCallables,
-  );
-}
 
 function getParams(allCodeInfo) {
   return getDescendantsOfAllCollections(
@@ -45,10 +38,9 @@ export function getCollections(allCodeInfo) {
 export function createAllInfo(packages: ManyCodeInfoType): CodeInfoStateType {
   const allCodeInfo = packages;
   const allCollections = getCollections(allCodeInfo);
-  const callables = getCallables(allCodeInfo, allCollections);
   const params = getParams(allCodeInfo);
   const paramCollections = getParamCollections(allCodeInfo, allCollections);
-  return { allCodeInfo, callables, params, paramCollections };
+  return { allCodeInfo, params, paramCollections };
 }
 
 function defaultCondition(currInfo: CodeInfoType, rcType: RCType) {
