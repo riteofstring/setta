@@ -23,7 +23,7 @@ export function CollectionsSearch({ sectionId }) {
   async function onSelectionChange({ newValueFn, id }) {
     // collection needs to be retrieved from db
     await getCollectionDetails(id);
-    initializeParam(sectionId, useCodeInfo.getState().allCodeInfo[id]);
+    initializeParam(sectionId, useCodeInfo.getState().params[id]);
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "collections", newValueFn },

@@ -97,7 +97,7 @@ function getLeftDistCondition(collisions, zoom) {
   );
 }
 
-function getShouldDrop(active, over, collisions) {
+export function getShouldDrop(active, over, collisions) {
   // Make sure collisions[0] agrees with over.id).
   // Make sure active is not over
   // Make sure over is a sortable or over has no children and can have children
@@ -110,7 +110,7 @@ function getShouldDrop(active, over, collisions) {
 }
 
 // returns [dropType, newParentId, newIndex]
-function getPositionDropType({ centerYCondition, leftDistCondition }) {
+export function getPositionDropType({ centerYCondition, leftDistCondition }) {
   const { activeId, overId } = useDndState.getState();
   const s = useSectionInfos.getState();
   const overParentId = getSectionParentId(overId);
@@ -148,7 +148,7 @@ function getPositionDropType({ centerYCondition, leftDistCondition }) {
 }
 
 // returns [dropType, newParentId, newIndex]
-function getBehaviorDropType({ newParentId }) {
+export function getBehaviorDropType({ newParentId }) {
   const activeId = useDndState.getState().activeId;
   // invalid if parent can't have children
   // or if child can only be in deck and parent is not a deck

@@ -44,7 +44,6 @@ export function getProjectData(): ProjectSaveType {
       "paramInfoId",
       "sectionChildrenId",
       "initialPosition",
-      "chainedFrom",
     ])
   );
 

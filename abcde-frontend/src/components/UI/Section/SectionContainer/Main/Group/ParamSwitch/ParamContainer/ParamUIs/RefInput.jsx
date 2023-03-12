@@ -1,12 +1,13 @@
-import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
+import { ATTRIBUTE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useUITypes } from "models/info/uiTypes";
 import { useStoreApi } from "react-flow-renderer";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionConfig, getSectionName } from "thunks/sections/sections";
-import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { cloneNewUIType } from "utils/uiTypeUtils";
 
 export function RefInputConfig() {
   return null;
@@ -57,38 +58,38 @@ function addAttrSection({
   reactFlowStore,
   onCreation,
 }) {
+  const { selectedItem } = getSectionConfig(refSectionId);
+  const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()
     .nodeInternals.get(sectionId);
 
   const sectionProps = {
-    name: `${refSectionName}.Fn()`,
+    name: `${refSectionName}.Attr`,
     initialPosition: {
       x: sectionPosition.x + sectionWidth,
       y: sectionPosition.y,
     },
-    chainedFrom: refSectionId,
   };
 
+  const attrUIType = useUITypes.getState().x[ATTRIBUTE_UI_TYPE_ID];
+  const uiType = cloneNewUIType({
+    uiType: attrUIType,
+    name: "",
+    presetType: null,
+  });
+  uiType.config.collections = [returnTypeId];
+
+  useUITypes.getState().x[uiType.id] = uiType;
   const configProps = {
-    uiTypeId: FN_UI_TYPE_ID,
+    uiTypeId: uiType.id,
   };
 
   const [newId] = createDefaultSectionInfo({
     sectionProps,
     configProps,
     isTopLevel: true,
-  });
-
-  const { selectedItem } = getSectionConfig(refSectionId);
-  const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
-  setSectionUITypeConfig({
-    sectionId: newId,
-    configProps: {
-      configName: "collections",
-      newValueFn: () => [returnTypeId],
-    },
   });
 
   onCreation(newId);

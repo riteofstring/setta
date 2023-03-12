@@ -33,7 +33,7 @@ export function getCollectionsAndModulesFn(callback) {
 
 export async function getCollectionDetails(id) {
   const s = useCodeInfo.getState();
-  if (id in s.allCodeInfo) {
+  if (id in s.allCollections) {
     return;
   }
 
