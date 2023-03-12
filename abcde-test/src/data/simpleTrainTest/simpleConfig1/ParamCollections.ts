@@ -16,7 +16,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.dataset_root",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "039be87f-76d9-4e39-979b-ac7cef982937",
@@ -29,7 +29,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.batch_size",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "97e7a459-3b8b-4908-9843-71f4a43b2b2e",
@@ -42,7 +42,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.test_batch_size",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c947c792-05d5-433c-95e5-2db1919c4b4e",
@@ -55,7 +55,7 @@ export default {
       version: null,
       description: null,
       path: "Various Params.epochs",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86": [
@@ -70,7 +70,7 @@ export default {
       version: null,
       description: null,
       path: "A Single Parameter.birth_location",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "1ec242dd-688e-4f71-a0de-cc13752461ce": [],

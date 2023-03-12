@@ -10,7 +10,7 @@ export default {
     inCodeParentId: null,
     path: "src",
     children: ["527d6511-0a07-4b88-8eb1-810288c82be9"],
-    returnType: null,
+    returnTypeId: null,
   },
   "527d6511-0a07-4b88-8eb1-810288c82be9": {
     id: "527d6511-0a07-4b88-8eb1-810288c82be9",
@@ -27,7 +27,7 @@ export default {
       "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9",
       "1982446b-549a-437b-8c09-a1a05c8683b3",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "14c75190-075e-45b4-9d41-b52b3dc74ffb": {
     id: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
@@ -40,7 +40,7 @@ export default {
     inCodeParentId: "527d6511-0a07-4b88-8eb1-810288c82be9",
     path: "src.pytorch_lightning_mnist.model",
     children: ["a18b4e95-7c7f-4a69-8322-6e84501a35eb"],
-    returnType: null,
+    returnTypeId: null,
   },
   "a18b4e95-7c7f-4a69-8322-6e84501a35eb": {
     id: "a18b4e95-7c7f-4a69-8322-6e84501a35eb",
@@ -53,7 +53,7 @@ export default {
     inCodeParentId: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
     path: "src.pytorch_lightning_mnist.model.MNISTModel",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9": {
     id: "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9",
@@ -66,7 +66,7 @@ export default {
     inCodeParentId: "527d6511-0a07-4b88-8eb1-810288c82be9",
     path: "src.pytorch_lightning_mnist.train",
     children: ["294108f5-898d-44aa-b3d6-3136fb0eeda5"],
-    returnType: null,
+    returnTypeId: null,
   },
   "294108f5-898d-44aa-b3d6-3136fb0eeda5": {
     id: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
@@ -83,7 +83,7 @@ export default {
       "0a917bc9-569a-4c41-ad08-1adc0a115114",
       "76349524-f39c-4c35-a5b7-06c21f4ce753",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "dd3fe4b0-9a46-4a49-bede-3f9933737e47": {
     id: "dd3fe4b0-9a46-4a49-bede-3f9933737e47",
@@ -96,7 +96,7 @@ export default {
     inCodeParentId: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
     path: "src.pytorch_lightning_mnist.train.train.trainer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0a917bc9-569a-4c41-ad08-1adc0a115114": {
     id: "0a917bc9-569a-4c41-ad08-1adc0a115114",
@@ -109,7 +109,7 @@ export default {
     inCodeParentId: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
     path: "src.pytorch_lightning_mnist.train.train.model",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "76349524-f39c-4c35-a5b7-06c21f4ce753": {
     id: "76349524-f39c-4c35-a5b7-06c21f4ce753",
@@ -122,7 +122,7 @@ export default {
     inCodeParentId: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
     path: "src.pytorch_lightning_mnist.train.train.dataloader",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "1982446b-549a-437b-8c09-a1a05c8683b3": {
     id: "1982446b-549a-437b-8c09-a1a05c8683b3",
@@ -135,7 +135,7 @@ export default {
     inCodeParentId: "527d6511-0a07-4b88-8eb1-810288c82be9",
     path: "src.pytorch_lightning_mnist.logger",
     children: ["06a5c61c-916f-44d2-ae4b-655a9f3a57d1"],
-    returnType: null,
+    returnTypeId: null,
   },
   "06a5c61c-916f-44d2-ae4b-655a9f3a57d1": {
     id: "06a5c61c-916f-44d2-ae4b-655a9f3a57d1",
@@ -148,6 +148,6 @@ export default {
     inCodeParentId: "1982446b-549a-437b-8c09-a1a05c8683b3",
     path: "src.pytorch_lightning_mnist.logger.RuncoderLogger",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
 };

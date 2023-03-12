@@ -34,10 +34,10 @@ def update_children_parent(contents, all_code_info):
 def add_return_type(contents):
     for v in contents.values():
         if isinstance(v, dict):
-            v["returnType"] = None
+            v["returnTypeId"] = None
         elif isinstance(v, list):
             for x in v:
-                x["returnType"] = None
+                x["returnTypeId"] = None
     return contents
 
 

@@ -14,7 +14,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet101",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
@@ -30,7 +30,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet152",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "c26ea423-e1c2-40c4-a832-c46dcdff4a67",
@@ -46,7 +46,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet18",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4",
@@ -62,7 +62,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet34",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "4470e113-a93f-41c5-9369-8981aa90da5d",
@@ -78,7 +78,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet50",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "4a202711-496d-42d0-b432-8884aa68dd38",
@@ -94,7 +94,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "a41fc545-d910-405f-9c9f-9afe66914d69",
@@ -110,7 +110,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "9b2f4419-9347-49be-b082-772497712d65",
@@ -126,7 +126,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "795f9f49-1c37-4ee6-8542-a0648b7879f8",
@@ -142,7 +142,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "da9f67ba-9294-4887-ba8f-e0f93b9c7098",
@@ -162,7 +162,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CIFAR10",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "3ee957ad-3f93-4915-923e-8e3d1a29ca27",
@@ -182,7 +182,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CIFAR100",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "d9f380b9-db64-4b12-8025-05660f243e80",
@@ -202,7 +202,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Caltech101",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "39cab60a-f604-48a9-94ba-f867158bb142",
@@ -221,7 +221,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Caltech256",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "0aaa0099-4c39-4ca6-9c4a-9d2e3ef306c1",
@@ -242,7 +242,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CelebA",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "541c5f9b-338e-4d6f-9d84-c986007f1794",
@@ -263,7 +263,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Cityscapes",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "2ac1a8c7-68a8-4300-be38-f8488b980375",
@@ -282,7 +282,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "2d1a998a-a7e5-4ed6-be90-84ea61467a86",
@@ -301,7 +301,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CocoDetection",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "555e2a80-b56b-4e5d-8b0e-e20121fde33e",
@@ -322,7 +322,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "eb25f701-b78a-4cc7-936c-39271783de33",
@@ -343,7 +343,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.EMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "bf653368-3cf1-474a-8c1c-f21f544e3c80",
@@ -365,7 +365,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.FakeData",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "3fd4f0de-10a6-49f8-b791-0d93fb0f01c5",
@@ -385,7 +385,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c015223e-1910-4dd6-b1bd-ac1eb1388656",
@@ -404,7 +404,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Flickr30k",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6e502d5d-d206-4eb5-b92e-2c10ca3097db",
@@ -423,7 +423,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Flickr8k",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "7c5ee16c-0843-4dec-897c-e8e5f178f938",
@@ -453,7 +453,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.HMDB51",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "96b752b6-9d4b-4cee-a954-256f58bdc908",
@@ -474,7 +474,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.ImageFolder",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "46879cda-56c6-4e59-9d5a-bc5ccfc9c44d",
@@ -497,7 +497,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.ImageNet",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "34022ef3-4f7d-4b0d-860c-8c200b197d0b",
@@ -517,7 +517,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.KMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "90c3554d-8493-46a6-a3a2-c3e07f14bdc3",
@@ -546,7 +546,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Kinetics400",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "67ff5d6f-2c42-453c-bad8-bd16869ad7b4",
@@ -565,7 +565,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.LSUN",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "adc84df1-44b4-4903-a86f-d80a4f968d58",
@@ -583,7 +583,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.LSUNClass",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c63599bc-f49a-44ad-bbef-32e4a8c6b5fc",
@@ -603,7 +603,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.MNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "da9e705b-632d-4232-b336-f830d2cc304b",
@@ -623,7 +623,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Omniglot",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "2630d425-8d3d-40ed-adc8-f58d8c1f8769",
@@ -644,7 +644,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.PhotoTour",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "3f851a51-be87-4711-aceb-0b5408ef6d4a",
@@ -666,7 +666,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Places365",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "27a2a668-166d-450c-8b71-0aae55db33bc",
@@ -688,7 +688,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.QMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "689a57d2-9473-44b1-a09e-3d6d4bc1f742",
@@ -709,7 +709,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SBDataset",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "a13f8782-59ed-461b-992b-448828c76df8",
@@ -728,7 +728,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SBU",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "0baa4077-534e-4e41-b764-350a7d1943c0",
@@ -747,7 +747,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SEMEION",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "bcfcdb60-0ed8-4560-af2d-59d94ec4d17f",
@@ -768,7 +768,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.STL10",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "715c9139-0812-4308-8f72-3390e359d82b",
@@ -788,7 +788,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SVHN",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "dc4c50bd-b705-4eea-9345-8e17844540a3",
@@ -818,7 +818,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.UCF101",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "cac3f4ef-7068-41ff-8389-2dce926c492f",
@@ -838,7 +838,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.USPS",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "96563c99-db40-41e8-a6d5-cc40ea42e4d2",
@@ -859,7 +859,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.VOCDetection",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "811db7c6-4b25-4a4f-bc75-c20258a5e891",
@@ -880,7 +880,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "037da68a-1827-47ef-adec-b081388c657c",
@@ -898,7 +898,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.VisionDataset",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa",
@@ -918,7 +918,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.WIDERFace",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ac679940-4a07-4fc0-9fa4-4b5498405693",
@@ -931,7 +931,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Compose",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "fe8ec1e4-e978-40b2-8764-146b39e62269",
@@ -948,7 +948,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.AutoAugment",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59",
@@ -961,7 +961,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.AutoAugmentPolicy",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "373b3443-760f-4fce-b650-5dc6952098a0",
@@ -974,7 +974,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.CenterCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "b61c3e59-27d9-4faf-97af-7a85246e07dc",
@@ -992,7 +992,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ColorJitter",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "fda8c0e1-2a63-4e0f-9868-0024d8143800",
@@ -1005,7 +1005,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ConvertImageDtype",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
@@ -1018,7 +1018,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Enum",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "8b59f872-8f35-4809-8650-2a2cdc984038",
@@ -1031,7 +1031,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.FiveCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "26791c4a-acc1-4202-ae32-15bd29157531",
@@ -1047,7 +1047,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "09ffb861-9a4b-4563-bf02-9bb9de287ca4",
@@ -1060,7 +1060,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Grayscale",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "a948b064-ac6b-4e93-b912-c4d886dbd70c",
@@ -1073,7 +1073,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.InterpolationMode",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "cde94860-d427-49d5-9309-85727f8c22c5",
@@ -1086,7 +1086,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Lambda",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "83f71661-8d3c-46a0-948e-1d09891ecf0e",
@@ -1102,7 +1102,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "9ae00374-aa16-484f-af8b-658af1815f60",
@@ -1119,7 +1119,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Normalize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "802f156d-a319-43ad-8ee0-1470806f8842",
@@ -1132,7 +1132,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.PILToTensor",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "abfb28a7-aaf9-47f2-be30-2a415a2865f3",
@@ -1149,7 +1149,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Pad",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "7c28c9ae-8d17-4635-b521-43c727a3c05c",
@@ -1165,7 +1165,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5e456a49-b4da-484a-b420-3696ac4cd361",
@@ -1187,7 +1187,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomAffine",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ece98f3e-3f59-438a-bf90-1e1313d374ce",
@@ -1203,7 +1203,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomApply",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5f69ca04-fa41-4d87-8f48-f59e99b8c1db",
@@ -1216,7 +1216,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomAutocontrast",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb",
@@ -1229,7 +1229,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomChoice",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "8841a2c8-1bd3-42d4-8c14-2325506f05d8",
@@ -1248,7 +1248,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "294d0c8e-0755-42e4-9bb0-7034616bb306",
@@ -1261,7 +1261,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomEqualize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c29fb726-bb9b-4a59-a253-1a1485073197",
@@ -1280,7 +1280,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomErasing",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c79959d6-6bdd-4586-877f-ff84ab4bb986",
@@ -1293,7 +1293,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomGrayscale",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "f5346240-9bf1-4647-a37b-2045e5acd181",
@@ -1306,7 +1306,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomHorizontalFlip",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "689b3a68-ad65-4e61-9262-17a0f85e5b17",
@@ -1319,7 +1319,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomInvert",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c6f9ad05-bc30-4260-9f81-11368d539bd1",
@@ -1332,7 +1332,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomOrder",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd",
@@ -1350,7 +1350,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ad41317a-2495-457b-b19e-96fc074e96f1",
@@ -1366,7 +1366,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "51277118-3bda-4ebe-960f-4a3f36b74d50",
@@ -1384,7 +1384,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5faeee6c-1227-4487-b050-88a954758a6c",
@@ -1404,7 +1404,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomRotation",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ada150b1-0785-45fe-a1fb-837fafccb845",
@@ -1422,7 +1422,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6e95b433-7806-4ab9-a5d6-23909a3fb320",
@@ -1438,7 +1438,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "964783a7-c538-42ef-88d0-66ac64f973c9",
@@ -1451,7 +1451,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomVerticalFlip",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "93af0e0a-9ea5-4705-a1d3-bc450936c534",
@@ -1467,7 +1467,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Resize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "b7716641-97ef-4401-97dd-0872701b1651",
@@ -1483,7 +1483,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Scale",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "31467e40-c796-4e17-8a0d-23477ec8d05f",
@@ -1499,7 +1499,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.TenCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "079c1a70-f2e9-452a-a011-7a2e685efcd4",
@@ -1512,7 +1512,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Tensor",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
@@ -1525,7 +1525,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ToPILImage",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
@@ -1538,7 +1538,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ToTensor",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0": [
@@ -1556,7 +1556,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet101",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
@@ -1572,7 +1572,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet152",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "c26ea423-e1c2-40c4-a832-c46dcdff4a67",
@@ -1588,7 +1588,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet18",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4",
@@ -1604,7 +1604,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet34",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "4470e113-a93f-41c5-9369-8981aa90da5d",
@@ -1620,7 +1620,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnet50",
-      returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
+      returnTypeId: "88413938-51d4-4d8c-a1b6-94861e07eb22",
     },
     {
       id: "4a202711-496d-42d0-b432-8884aa68dd38",
@@ -1636,7 +1636,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnext101_32x8d",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "a41fc545-d910-405f-9c9f-9afe66914d69",
@@ -1652,7 +1652,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.resnext50_32x4d",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "9b2f4419-9347-49be-b082-772497712d65",
@@ -1668,7 +1668,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.wide_resnet101_2",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "795f9f49-1c37-4ee6-8542-a0648b7879f8",
@@ -1684,7 +1684,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.models.wide_resnet50_2",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "ea46767b-51c8-42d7-9434-771c6b144864": [
@@ -1706,7 +1706,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CIFAR10",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "3ee957ad-3f93-4915-923e-8e3d1a29ca27",
@@ -1726,7 +1726,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CIFAR100",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "d9f380b9-db64-4b12-8025-05660f243e80",
@@ -1746,7 +1746,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Caltech101",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "39cab60a-f604-48a9-94ba-f867158bb142",
@@ -1765,7 +1765,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Caltech256",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "0aaa0099-4c39-4ca6-9c4a-9d2e3ef306c1",
@@ -1786,7 +1786,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CelebA",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "541c5f9b-338e-4d6f-9d84-c986007f1794",
@@ -1807,7 +1807,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Cityscapes",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "2ac1a8c7-68a8-4300-be38-f8488b980375",
@@ -1826,7 +1826,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CocoCaptions",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "2d1a998a-a7e5-4ed6-be90-84ea61467a86",
@@ -1845,7 +1845,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.CocoDetection",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "555e2a80-b56b-4e5d-8b0e-e20121fde33e",
@@ -1866,7 +1866,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.DatasetFolder",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "eb25f701-b78a-4cc7-936c-39271783de33",
@@ -1887,7 +1887,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.EMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "bf653368-3cf1-474a-8c1c-f21f544e3c80",
@@ -1909,7 +1909,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.FakeData",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "3fd4f0de-10a6-49f8-b791-0d93fb0f01c5",
@@ -1929,7 +1929,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.FashionMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c015223e-1910-4dd6-b1bd-ac1eb1388656",
@@ -1948,7 +1948,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Flickr30k",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6e502d5d-d206-4eb5-b92e-2c10ca3097db",
@@ -1967,7 +1967,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Flickr8k",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "7c5ee16c-0843-4dec-897c-e8e5f178f938",
@@ -1997,7 +1997,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.HMDB51",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "96b752b6-9d4b-4cee-a954-256f58bdc908",
@@ -2018,7 +2018,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.ImageFolder",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "46879cda-56c6-4e59-9d5a-bc5ccfc9c44d",
@@ -2041,7 +2041,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.ImageNet",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "34022ef3-4f7d-4b0d-860c-8c200b197d0b",
@@ -2061,7 +2061,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.KMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "90c3554d-8493-46a6-a3a2-c3e07f14bdc3",
@@ -2090,7 +2090,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Kinetics400",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "67ff5d6f-2c42-453c-bad8-bd16869ad7b4",
@@ -2109,7 +2109,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.LSUN",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "adc84df1-44b4-4903-a86f-d80a4f968d58",
@@ -2127,7 +2127,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.LSUNClass",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c63599bc-f49a-44ad-bbef-32e4a8c6b5fc",
@@ -2147,7 +2147,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.MNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "da9e705b-632d-4232-b336-f830d2cc304b",
@@ -2167,7 +2167,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Omniglot",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "2630d425-8d3d-40ed-adc8-f58d8c1f8769",
@@ -2188,7 +2188,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.PhotoTour",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "3f851a51-be87-4711-aceb-0b5408ef6d4a",
@@ -2210,7 +2210,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.Places365",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "27a2a668-166d-450c-8b71-0aae55db33bc",
@@ -2232,7 +2232,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.QMNIST",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "689a57d2-9473-44b1-a09e-3d6d4bc1f742",
@@ -2253,7 +2253,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SBDataset",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "a13f8782-59ed-461b-992b-448828c76df8",
@@ -2272,7 +2272,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SBU",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "0baa4077-534e-4e41-b764-350a7d1943c0",
@@ -2291,7 +2291,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SEMEION",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "bcfcdb60-0ed8-4560-af2d-59d94ec4d17f",
@@ -2312,7 +2312,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.STL10",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "715c9139-0812-4308-8f72-3390e359d82b",
@@ -2332,7 +2332,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.SVHN",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "dc4c50bd-b705-4eea-9345-8e17844540a3",
@@ -2362,7 +2362,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.UCF101",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "cac3f4ef-7068-41ff-8389-2dce926c492f",
@@ -2382,7 +2382,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.USPS",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "96563c99-db40-41e8-a6d5-cc40ea42e4d2",
@@ -2403,7 +2403,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.VOCDetection",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "811db7c6-4b25-4a4f-bc75-c20258a5e891",
@@ -2424,7 +2424,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.VOCSegmentation",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "037da68a-1827-47ef-adec-b081388c657c",
@@ -2442,7 +2442,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.VisionDataset",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "d04f5d9f-fac5-4e4b-aa34-98ece954e8fa",
@@ -2462,7 +2462,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.datasets.WIDERFace",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "9976c3f9-0a8e-4dad-894e-2bea3604d8d3": [
@@ -2477,7 +2477,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Compose",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "fe8ec1e4-e978-40b2-8764-146b39e62269",
@@ -2494,7 +2494,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.AutoAugment",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59",
@@ -2507,7 +2507,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.AutoAugmentPolicy",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "373b3443-760f-4fce-b650-5dc6952098a0",
@@ -2520,7 +2520,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.CenterCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "b61c3e59-27d9-4faf-97af-7a85246e07dc",
@@ -2538,7 +2538,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ColorJitter",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "fda8c0e1-2a63-4e0f-9868-0024d8143800",
@@ -2551,7 +2551,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ConvertImageDtype",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
@@ -2564,7 +2564,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Enum",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "8b59f872-8f35-4809-8650-2a2cdc984038",
@@ -2577,7 +2577,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.FiveCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "26791c4a-acc1-4202-ae32-15bd29157531",
@@ -2593,7 +2593,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.GaussianBlur",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "09ffb861-9a4b-4563-bf02-9bb9de287ca4",
@@ -2606,7 +2606,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Grayscale",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "a948b064-ac6b-4e93-b912-c4d886dbd70c",
@@ -2619,7 +2619,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.InterpolationMode",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "cde94860-d427-49d5-9309-85727f8c22c5",
@@ -2632,7 +2632,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Lambda",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "83f71661-8d3c-46a0-948e-1d09891ecf0e",
@@ -2648,7 +2648,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.LinearTransformation",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "9ae00374-aa16-484f-af8b-658af1815f60",
@@ -2665,7 +2665,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Normalize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "802f156d-a319-43ad-8ee0-1470806f8842",
@@ -2678,7 +2678,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.PILToTensor",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "abfb28a7-aaf9-47f2-be30-2a415a2865f3",
@@ -2695,7 +2695,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Pad",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "7c28c9ae-8d17-4635-b521-43c727a3c05c",
@@ -2711,7 +2711,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomAdjustSharpness",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5e456a49-b4da-484a-b420-3696ac4cd361",
@@ -2733,7 +2733,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomAffine",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ece98f3e-3f59-438a-bf90-1e1313d374ce",
@@ -2749,7 +2749,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomApply",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5f69ca04-fa41-4d87-8f48-f59e99b8c1db",
@@ -2762,7 +2762,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomAutocontrast",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb",
@@ -2775,7 +2775,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomChoice",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "8841a2c8-1bd3-42d4-8c14-2325506f05d8",
@@ -2794,7 +2794,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "294d0c8e-0755-42e4-9bb0-7034616bb306",
@@ -2807,7 +2807,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomEqualize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c29fb726-bb9b-4a59-a253-1a1485073197",
@@ -2826,7 +2826,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomErasing",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c79959d6-6bdd-4586-877f-ff84ab4bb986",
@@ -2839,7 +2839,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomGrayscale",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "f5346240-9bf1-4647-a37b-2045e5acd181",
@@ -2852,7 +2852,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomHorizontalFlip",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "689b3a68-ad65-4e61-9262-17a0f85e5b17",
@@ -2865,7 +2865,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomInvert",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c6f9ad05-bc30-4260-9f81-11368d539bd1",
@@ -2878,7 +2878,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomOrder",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd",
@@ -2896,7 +2896,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomPerspective",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ad41317a-2495-457b-b19e-96fc074e96f1",
@@ -2912,7 +2912,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomPosterize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "51277118-3bda-4ebe-960f-4a3f36b74d50",
@@ -2930,7 +2930,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomResizedCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "5faeee6c-1227-4487-b050-88a954758a6c",
@@ -2950,7 +2950,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomRotation",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ada150b1-0785-45fe-a1fb-837fafccb845",
@@ -2968,7 +2968,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomSizedCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6e95b433-7806-4ab9-a5d6-23909a3fb320",
@@ -2984,7 +2984,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomSolarize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "964783a7-c538-42ef-88d0-66ac64f973c9",
@@ -2997,7 +2997,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.RandomVerticalFlip",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "93af0e0a-9ea5-4705-a1d3-bc450936c534",
@@ -3013,7 +3013,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Resize",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "b7716641-97ef-4401-97dd-0872701b1651",
@@ -3029,7 +3029,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Scale",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "31467e40-c796-4e17-8a0d-23477ec8d05f",
@@ -3045,7 +3045,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.TenCrop",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "079c1a70-f2e9-452a-a011-7a2e685efcd4",
@@ -3058,7 +3058,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.Tensor",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
@@ -3071,7 +3071,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ToPILImage",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
@@ -3084,7 +3084,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torchvision.transforms.ToTensor",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "7e7eebd5-5959-4e8a-b263-ad8a54b89c33": [
@@ -3106,7 +3106,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torch.optim.Adadelta",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6927502e-42bb-4b31-bf8a-96f47c63febc",
@@ -3127,7 +3127,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torch.optim.Adam",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
@@ -3148,7 +3148,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torch.optim.SGD",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "f2f8c557-7e6d-4f35-9a99-4304066c3294",
@@ -3178,7 +3178,7 @@ export default {
         "0689b68c-1bee-47b0-82d0-323462e74b8c",
         "509e1d4c-be21-4681-aa34-64f6456c0d32",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91": [
@@ -3200,7 +3200,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torch.optim.Adadelta",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6927502e-42bb-4b31-bf8a-96f47c63febc",
@@ -3221,7 +3221,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torch.optim.Adam",
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
@@ -3242,7 +3242,7 @@ export default {
       defaultVal: null,
       description: null,
       path: "torch.optim.SGD",
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "6aabbf76-5324-463c-bd50-b03bc322a2a0": [
@@ -3274,7 +3274,7 @@ export default {
         "0689b68c-1bee-47b0-82d0-323462e74b8c",
         "509e1d4c-be21-4681-aa34-64f6456c0d32",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "c3e6681b-1645-420b-9f96-939d212b4a02": [
@@ -3306,7 +3306,7 @@ export default {
         "0689b68c-1bee-47b0-82d0-323462e74b8c",
         "509e1d4c-be21-4681-aa34-64f6456c0d32",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "f281d845-2c30-45a8-bf6c-a18ef11597b2": [
@@ -3373,7 +3373,7 @@ export default {
         "ee8f4df7-4110-4179-952f-c24913cf30b8",
         "2150b463-68c4-4414-8c1a-fc0ca86334d1",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43",
@@ -3389,7 +3389,7 @@ export default {
         "84233378-407e-42a6-8f8d-54a1509eecb4",
         "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
@@ -3408,7 +3408,7 @@ export default {
         "b945ed95-0774-45a9-8830-bc40c60a6e9f",
         "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "5c27250d-86ae-4377-bb12-85c63b190da6": [
@@ -3426,7 +3426,7 @@ export default {
         "84233378-407e-42a6-8f8d-54a1509eecb4",
         "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "66f5a9fd-d136-4cfa-af2d-122af47be289": [
@@ -3444,7 +3444,7 @@ export default {
         "84233378-407e-42a6-8f8d-54a1509eecb4",
         "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "f34a093a-bfc6-4454-aa95-d39a6f316a1a": [
@@ -3465,7 +3465,7 @@ export default {
         "b945ed95-0774-45a9-8830-bc40c60a6e9f",
         "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "527d6511-0a07-4b88-8eb1-810288c82be9": [
@@ -3480,7 +3480,7 @@ export default {
       inCodeParentId: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
       path: "src.pytorch_lightning_mnist.model.MNISTModel",
       children: [],
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
@@ -3497,7 +3497,7 @@ export default {
         "0a917bc9-569a-4c41-ad08-1adc0a115114",
         "76349524-f39c-4c35-a5b7-06c21f4ce753",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
     {
       id: "06a5c61c-916f-44d2-ae4b-655a9f3a57d1",
@@ -3510,7 +3510,7 @@ export default {
       inCodeParentId: "1982446b-549a-437b-8c09-a1a05c8683b3",
       path: "src.pytorch_lightning_mnist.logger.RuncoderLogger",
       children: [],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "14c75190-075e-45b4-9d41-b52b3dc74ffb": [
@@ -3525,7 +3525,7 @@ export default {
       inCodeParentId: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
       path: "src.pytorch_lightning_mnist.model.MNISTModel",
       children: [],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9": [
@@ -3544,7 +3544,7 @@ export default {
         "0a917bc9-569a-4c41-ad08-1adc0a115114",
         "76349524-f39c-4c35-a5b7-06c21f4ce753",
       ],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
   "1982446b-549a-437b-8c09-a1a05c8683b3": [
@@ -3559,7 +3559,7 @@ export default {
       inCodeParentId: "1982446b-549a-437b-8c09-a1a05c8683b3",
       path: "src.pytorch_lightning_mnist.logger.RuncoderLogger",
       children: [],
-      returnType: null,
+      returnTypeId: null,
     },
   ],
 };
