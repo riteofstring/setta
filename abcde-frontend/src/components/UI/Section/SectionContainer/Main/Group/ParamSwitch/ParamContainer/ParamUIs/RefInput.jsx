@@ -23,7 +23,12 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   ];
   const reactFlowStore = useStoreApi();
   function onFnClick() {
-    addAttrSection({ sectionId, refSectionId: value, reactFlowStore });
+    addAttrSection({
+      sectionId,
+      refSectionId: value,
+      reactFlowStore,
+      onCreation: onBlur,
+    });
   }
 
   return (
@@ -41,7 +46,12 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   );
 }
 
-function addAttrSection({ sectionId, refSectionId, reactFlowStore }) {
+function addAttrSection({
+  sectionId,
+  refSectionId,
+  reactFlowStore,
+  onCreation,
+}) {
   const { selectedItem } = getSectionConfig(refSectionId);
   const { returnType } = useCodeInfo.getState().allCodeInfo[selectedItem];
   const refSectionName = getSectionName(refSectionId);
@@ -75,4 +85,6 @@ function addAttrSection({ sectionId, refSectionId, reactFlowStore }) {
     configProps,
     isTopLevel: true,
   });
+
+  onCreation(newId);
 }
