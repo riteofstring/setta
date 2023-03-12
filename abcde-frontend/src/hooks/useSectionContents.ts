@@ -1,4 +1,4 @@
-import { ATTRIBUTE } from "abcde-utils/src/constants";
+import { FN } from "abcde-utils/src/constants";
 import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
@@ -32,7 +32,7 @@ function useGetCollectionChildren(sectionId: string, fn) {
 export function useGetAllCallables(sectionId: string) {
   const sectionType = useGetSectionType(sectionId, "type");
   const fn =
-    sectionType === ATTRIBUTE
+    sectionType === FN
       ? findAllCallablesOfCallables
       : findAllCallablesOfCollections;
   return useGetCollectionChildren(sectionId, fn);

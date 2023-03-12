@@ -1,4 +1,4 @@
-import { ATTRIBUTE_UI_TYPE_ID } from "abcde-utils/src/constants";
+import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -67,14 +67,14 @@ function addAttrSection({
     .nodeInternals.get(sectionId);
 
   const sectionProps = {
-    name: `${refSectionName}.Attr`,
+    name: `${refSectionName}.Fn()`,
     initialPosition: {
       x: sectionPosition.x + sectionWidth,
       y: sectionPosition.y,
     },
   };
 
-  const attrUIType = useUITypes.getState().x[ATTRIBUTE_UI_TYPE_ID];
+  const attrUIType = useUITypes.getState().x[FN_UI_TYPE_ID];
   const uiType = cloneNewUIType({
     uiType: attrUIType,
     name: "",
