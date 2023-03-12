@@ -4,7 +4,7 @@ import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { Button } from "utils/atoms/buttons/Button";
-import { CLOSED_PANE_WIDTH } from "utils/constants";
+import { MIN_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
 export function PaneContainer({
@@ -29,16 +29,16 @@ export function PaneContainer({
     const newVis = !vis;
     setVis({ paneName, vis: newVis });
     setBtnDir(!btnDir);
-    setTrueWidth({ paneName, trueWidth: newVis ? width : CLOSED_PANE_WIDTH });
+    setTrueWidth({ paneName, trueWidth: newVis ? width : MIN_PANE_WIDTH });
     if (onResizeStop) {
-      const widthDiff = width - CLOSED_PANE_WIDTH;
+      const widthDiff = width - MIN_PANE_WIDTH;
       onResizeStop(newVis ? widthDiff : -widthDiff);
     }
   }
 
   function setNewWidth(newWidth) {
     setWidth(newWidth);
-    setTrueWidth({ paneName, trueWidth: vis ? newWidth : CLOSED_PANE_WIDTH });
+    setTrueWidth({ paneName, trueWidth: vis ? newWidth : MIN_PANE_WIDTH });
   }
 
   useEffect(() => {

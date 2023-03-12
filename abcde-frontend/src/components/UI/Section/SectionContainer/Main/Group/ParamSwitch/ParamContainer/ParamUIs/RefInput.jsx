@@ -1,14 +1,10 @@
 import { ATTRIBUTE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
-import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useUITypes } from "models/info/uiTypes";
 import { useStoreApi } from "react-flow-renderer";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
-import { getSectionConfig, getSectionName } from "thunks/sections/sections";
-import { Button } from "utils/atoms/buttons/Button";
+import { getSectionName } from "thunks/sections/sections";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
-import { cloneNewUIType } from "utils/uiTypeUtils";
 
 export function RefInputConfig() {
   return null;
@@ -23,16 +19,11 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   ];
   const reactFlowStore = useStoreApi();
   function onFnClick() {
-    addAttrSection({
-      sectionId,
-      refSectionId: value,
-      reactFlowStore,
-      onCreation: onBlur,
-    });
+    addAttrSection({ sectionId, refSectionId: value, reactFlowStore });
   }
 
   return (
-    <>
+    <div className="flex gap-1">
       <IdNameCombobox
         allItems={allItems}
         initialSelection={value}
@@ -41,19 +32,19 @@ export function RefInput({ sectionId, value, onBlur, className }) {
         small={true}
         onClick={onClick}
       />
-      <Button onClick={onFnClick}>Attr</Button>
-    </>
+      <div>
+        <button
+          className="grid h-7 w-7 place-items-center rounded-full bg-slate-600 font-fancy text-sm font-bold italic text-slate-50 hover:cursor-pointer hover:bg-white hover:text-slate-500 hover:shadow-md"
+          onClick={onFnClick}
+        >
+          f
+        </button>
+      </div>
+    </div>
   );
 }
 
-function addAttrSection({
-  sectionId,
-  refSectionId,
-  reactFlowStore,
-  onCreation,
-}) {
-  const { selectedItem } = getSectionConfig(refSectionId);
-  const { returnType } = useCodeInfo.getState().allCodeInfo[selectedItem];
+function addAttrSection({ sectionId, refSectionId, reactFlowStore }) {
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()
@@ -66,25 +57,11 @@ function addAttrSection({
       y: sectionPosition.y,
     },
   };
-
-  const attrUIType = useUITypes.getState().x[ATTRIBUTE_UI_TYPE_ID];
-  const uiType = cloneNewUIType({
-    uiType: attrUIType,
-    name: "",
-    presetType: null,
-  });
-  uiType.config.collections = [returnType];
-
-  useUITypes.getState().x[uiType.id] = uiType;
-  const configProps = {
-    uiTypeId: uiType.id,
-  };
+  const configProps = { uiTypeId: ATTRIBUTE_UI_TYPE_ID };
 
   const [newId] = createDefaultSectionInfo({
     sectionProps,
     configProps,
     isTopLevel: true,
   });
-
-  onCreation(newId);
 }
