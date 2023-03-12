@@ -7325,7 +7325,7 @@ export default {
       "daf84b74-bc3d-4bcb-a1f5-084731b389be",
       "f03ce732-e07d-48bc-af22-374677b463a2",
     ],
-    returnType: null,
+    returnType: "88413938-51d4-4d8c-a1b6-94861e07eb22",
   },
   "e2434f86-903a-4ed7-9997-9ce056b75cbb": {
     id: "e2434f86-903a-4ed7-9997-9ce056b75cbb",
