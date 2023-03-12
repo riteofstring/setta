@@ -1,10 +1,13 @@
 import { ATTRIBUTE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useUITypes } from "models/info/uiTypes";
 import { useStoreApi } from "react-flow-renderer";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
-import { getSectionName } from "thunks/sections/sections";
+import { getSectionConfig, getSectionName } from "thunks/sections/sections";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { cloneNewUIType } from "utils/uiTypeUtils";
 
 export function RefInputConfig() {
   return null;
@@ -19,7 +22,12 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   ];
   const reactFlowStore = useStoreApi();
   function onFnClick() {
-    addAttrSection({ sectionId, refSectionId: value, reactFlowStore });
+    addAttrSection({
+      sectionId,
+      refSectionId: value,
+      reactFlowStore,
+      onCreation: onBlur,
+    });
   }
 
   return (
@@ -44,7 +52,14 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   );
 }
 
-function addAttrSection({ sectionId, refSectionId, reactFlowStore }) {
+function addAttrSection({
+  sectionId,
+  refSectionId,
+  reactFlowStore,
+  onCreation,
+}) {
+  const { selectedItem } = getSectionConfig(refSectionId);
+  const { returnType } = useCodeInfo.getState().allCodeInfo[selectedItem];
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()
@@ -57,11 +72,25 @@ function addAttrSection({ sectionId, refSectionId, reactFlowStore }) {
       y: sectionPosition.y,
     },
   };
-  const configProps = { uiTypeId: ATTRIBUTE_UI_TYPE_ID };
+
+  const attrUIType = useUITypes.getState().x[ATTRIBUTE_UI_TYPE_ID];
+  const uiType = cloneNewUIType({
+    uiType: attrUIType,
+    name: "",
+    presetType: null,
+  });
+  uiType.config.collections = [returnType];
+
+  useUITypes.getState().x[uiType.id] = uiType;
+  const configProps = {
+    uiTypeId: uiType.id,
+  };
 
   const [newId] = createDefaultSectionInfo({
     sectionProps,
     configProps,
     isTopLevel: true,
   });
+
+  onCreation(newId);
 }
