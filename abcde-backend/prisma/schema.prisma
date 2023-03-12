@@ -20,6 +20,9 @@ model CodeInfo {
   inCodeParent              CodeInfo?                  @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
   inCodeChildren            CodeInfo[]                 @relation("InCodeDirectParent")
   inCodeParentId            String?                    @db.Uuid
+  returnType                CodeInfo?                  @relation("ReturnType", fields: [returnTypeId], references: [id])
+  returnTypeOf              CodeInfo[]                 @relation("ReturnType")
+  returnTypeId              String?                    @db.Uuid
   sections                  Section[] // Section.paramInfo
   kwargOwner                KwargCol[]                 @relation("KwargOwner") // KwargCol.codeInfo
   kwarg                     KwargCol[]                 @relation("Kwarg") // KwargCol.kwargInfo
