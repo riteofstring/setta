@@ -44,21 +44,6 @@ export default {
     },
     chainedFrom: "bf1fbb88-d022-4eb7-a1a2-3663d3e562f6",
   },
-  "c778efbc-6389-4d63-b211-1a370fb481c9": {
-    id: "c778efbc-6389-4d63-b211-1a370fb481c9",
-    name: "train",
-    paramInfoId: null,
-    sectionChildrenId: "9a580d74-ad30-4aab-a756-4f7046879601",
-    initialPosition: {
-      x: 1804.4499184505994,
-      y: 503.4918197688746,
-    },
-    size: {
-      width: "auto",
-      height: "auto",
-    },
-    chainedFrom: null,
-  },
   "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42": {
     id: "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
     name: "Training Dataset",
@@ -356,6 +341,21 @@ export default {
     size: {
       width: "auto",
       height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9": {
+    id: "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    name: "train",
+    paramInfoId: null,
+    sectionChildrenId: "fd74d8cf-4c7a-48cb-983d-e84bb1194faf",
+    initialPosition: {
+      x: 1743.4656367386465,
+      y: 416.5895257111966,
+    },
+    size: {
+      width: 599,
+      height: 482,
     },
     chainedFrom: null,
   },

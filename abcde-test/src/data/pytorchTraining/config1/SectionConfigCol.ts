@@ -5,8 +5,6 @@ export default {
     "e36de0ad-4653-4b13-a626-e2fe2340f6d5",
   "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284":
     "023f5837-2ca1-4159-be90-487b5ba6a599",
-  "c778efbc-6389-4d63-b211-1a370fb481c9":
-    "498a4a4a-6ff6-4a10-b051-2ec77ecf20a0",
   "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42":
     "bcb40dfa-ab73-4d76-8166-039f291cb98b",
   "90a654d6-b1bd-4e29-9327-113f75b8f2fa":
@@ -47,4 +45,6 @@ export default {
     "e7d26cff-19b9-418a-baed-d05bd609a085",
   "aa2078ab-8613-4498-951a-8c990f56be44":
     "b970e632-c936-4d96-9bbf-d216a20dffef",
+  "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9":
+    "bf16106c-fc9c-467e-bafd-e73e0d9cd58b",
 };

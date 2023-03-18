@@ -47,22 +47,6 @@ export default {
       sectionId: "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284",
     },
   },
-  "b5b17b43-0f95-4c66-89d3-29a83e076b41": {
-    id: "b5b17b43-0f95-4c66-89d3-29a83e076b41",
-    name: "train",
-    type: "SECTION",
-    presetType: null,
-    isForChildOfOriginInfoId: false,
-    config: {
-      subType: null,
-      childUITypeId: null,
-      collections: ["a1ed7b85-78c6-491e-ace0-97942d27e50e"],
-      outputGroup: null,
-    },
-    originInfoId: {
-      sectionId: "c778efbc-6389-4d63-b211-1a370fb481c9",
-    },
-  },
   "086f477d-87b7-4e5d-9999-e0c9bf601d1b": {
     id: "086f477d-87b7-4e5d-9999-e0c9bf601d1b",
     name: "Training Dataset",
@@ -171,6 +155,25 @@ export default {
     },
     originInfoId: {
       sectionId: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
+  "2276d785-6f3e-43c3-9134-3890952f608e": {
+    id: "2276d785-6f3e-43c3-9134-3890952f608e",
+    type: "SECTION",
+    name: "train",
+    presetType: null,
+    config: {
+      collections: ["a1ed7b85-78c6-491e-ace0-97942d27e50e"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
       uiTypeColId: null,
       paramInfoId: null,
     },
