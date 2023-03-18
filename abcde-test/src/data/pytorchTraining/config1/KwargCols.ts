@@ -1,4 +1,6 @@
 export default {
   "0c1b0d2b-a3e7-4a25-9dfa-eb69cdb71c6e": {},
   "8e12825b-63ae-4b07-bf54-68ff47579faf": {},
+  "f6c31535-d91a-41a6-a0d8-1d4a82928ca2": {},
+  "56308ed3-74aa-4556-94dd-5f02802cf023": {},
 };
