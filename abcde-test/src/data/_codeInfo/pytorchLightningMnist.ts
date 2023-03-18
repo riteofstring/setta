@@ -9,7 +9,10 @@ export default {
     rcType: "collection",
     inCodeParentId: null,
     path: "src",
-    children: ["527d6511-0a07-4b88-8eb1-810288c82be9"],
+    children: [
+      "527d6511-0a07-4b88-8eb1-810288c82be9",
+      "b714773e-1394-461e-9fb0-55ac117273f1",
+    ],
     returnTypeId: null,
   },
   "527d6511-0a07-4b88-8eb1-810288c82be9": {
