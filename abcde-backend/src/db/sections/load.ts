@@ -90,7 +90,6 @@ export async function getSectionConfigs(ids) {
   const sectionUITypes = await getUITypesByWhere(
     {
       id: { in: s.map((x) => x.uiTypeId) },
-      presetType: null,
     },
     UITypeNames.sectionUIType,
   );

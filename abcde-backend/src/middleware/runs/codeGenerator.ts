@@ -39,22 +39,21 @@ function getBoolean(value) {
   return value ? 'True' : 'False';
 }
 
-function getSmartText(value) {
-  if (isNumeric(value)) {
-    return parseFloat(value);
-  } else if (value == '') {
-    return null;
-  }
-  return `"${value}"`;
-}
+// function getSmartText(value) {
+//   if (isNumeric(value)) {
+//     return parseFloat(value);
+//   } else if (value == '') {
+//     return null;
+//   }
+//   return `"${value}"`;
+// }
 
 // x is the details of a var
 function getVarDeclaration(varName, x, selected) {
   switch (x.type) {
     case TEXT:
-      const smartText = getSmartText(x.value);
-      if (smartText) {
-        return `${varName} = ${smartText}`;
+      if (x.value) {
+        return `${varName} = ${x.value}`;
       }
     case SLIDER:
       return `${varName} = ${x.value}`;
