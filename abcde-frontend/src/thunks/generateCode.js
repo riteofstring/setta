@@ -13,8 +13,8 @@ export function getProjectDataToGenerateCode() {
     ...project.kwargInfo,
   };
   project.codeInfo = { allCodeInfo };
-  const baseUITypes = assembleUITypes(useUITypes.getState().x, true);
-  project.uiTypes = { ...project.uiTypes, ...baseUITypes };
+  const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
+  project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   delete project.kwargInfo;
   return project;
 }
