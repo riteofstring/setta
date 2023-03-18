@@ -24,4 +24,9 @@ export default {
     height: 100,
     visible: false,
   },
+  "599076c2-7a8b-41c2-aaaf-01934f6f8623": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
 };

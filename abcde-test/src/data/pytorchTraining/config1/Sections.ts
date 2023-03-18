@@ -74,4 +74,19 @@ export default {
     },
     chainedFrom: null,
   },
+  "90a654d6-b1bd-4e29-9327-113f75b8f2fa": {
+    id: "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+    name: "Training Dataloader",
+    paramInfoId: null,
+    sectionChildrenId: "c813bf2d-3ba4-4f0a-8ed1-2cb6da535d4a",
+    initialPosition: {
+      x: 1113,
+      y: 747.7083320617676,
+    },
+    size: {
+      width: 562,
+      height: 550,
+    },
+    chainedFrom: null,
+  },
 };

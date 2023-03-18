@@ -81,4 +81,23 @@ export default {
       paramInfoId: null,
     },
   },
+  "e4e12b6a-1212-4faa-a049-dabfba99bcfb": {
+    id: "e4e12b6a-1212-4faa-a049-dabfba99bcfb",
+    type: "SECTION",
+    name: "Training Dataloader",
+    presetType: null,
+    config: {
+      collections: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
 };
