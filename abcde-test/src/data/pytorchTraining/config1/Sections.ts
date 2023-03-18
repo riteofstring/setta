@@ -39,7 +39,7 @@ export default {
       y: 472.7083320617676,
     },
     size: {
-      width: "auto",
+      width: 450,
       height: "auto",
     },
     chainedFrom: "bf1fbb88-d022-4eb7-a1a2-3663d3e562f6",
@@ -50,8 +50,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9a580d74-ad30-4aab-a756-4f7046879601",
     initialPosition: {
-      x: 483.4499184505997,
-      y: 806.4918197688745,
+      x: 1804.4499184505994,
+      y: 503.4918197688746,
     },
     size: {
       width: "auto",
@@ -69,7 +69,7 @@ export default {
       y: 211.70833206176758,
     },
     size: {
-      width: "auto",
+      width: 562,
       height: 397,
     },
     chainedFrom: null,
@@ -99,7 +99,7 @@ export default {
       y: 211.98479084061333,
     },
     size: {
-      width: "auto",
+      width: 538,
       height: "auto",
     },
     chainedFrom: null,
@@ -129,7 +129,7 @@ export default {
       y: 1412.9218532797977,
     },
     size: {
-      width: 450,
+      width: 562,
       height: "auto",
     },
     chainedFrom: null,
@@ -144,7 +144,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 450,
+      width: 562,
       height: "auto",
     },
     chainedFrom: null,
@@ -159,7 +159,7 @@ export default {
       y: 1474.9515644496375,
     },
     size: {
-      width: "auto",
+      width: 538,
       height: "auto",
     },
     chainedFrom: null,
@@ -174,7 +174,7 @@ export default {
       y: 0,
     },
     size: {
-      width: "auto",
+      width: 538,
       height: "auto",
     },
     chainedFrom: null,
@@ -189,7 +189,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 450,
+      width: 562,
       height: 138,
     },
     chainedFrom: null,
@@ -204,7 +204,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 450,
+      width: 562,
       height: "auto",
     },
     chainedFrom: null,
@@ -219,7 +219,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 450,
+      width: 562,
       height: 227,
     },
     chainedFrom: null,
@@ -234,7 +234,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 450,
+      width: 562,
       height: "auto",
     },
     chainedFrom: null,
@@ -249,7 +249,7 @@ export default {
       y: 0,
     },
     size: {
-      width: "auto",
+      width: 562,
       height: "auto",
     },
     chainedFrom: null,
@@ -264,7 +264,7 @@ export default {
       y: 0,
     },
     size: {
-      width: "auto",
+      width: 538,
       height: "auto",
     },
     chainedFrom: null,
@@ -279,7 +279,7 @@ export default {
       y: 0,
     },
     size: {
-      width: "auto",
+      width: 538,
       height: "auto",
     },
     chainedFrom: null,
@@ -294,7 +294,7 @@ export default {
       y: 0,
     },
     size: {
-      width: "auto",
+      width: 538,
       height: "auto",
     },
     chainedFrom: null,
@@ -307,6 +307,51 @@ export default {
     initialPosition: {
       x: 0,
       y: 0,
+    },
+    size: {
+      width: 538,
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
+    id: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
+    name: "Model + Optimizer",
+    paramInfoId: null,
+    sectionChildrenId: "33e516af-dfe2-4891-a511-29ebd754b30e",
+    initialPosition: {
+      x: -535.0190832651891,
+      y: 59.9391174669141,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "5d890f43-1ff0-4e47-950d-23c43e160e8c": {
+    id: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
+    name: "Training",
+    paramInfoId: null,
+    sectionChildrenId: "9e0898a3-1911-4a70-9b71-5e0a0c660951",
+    initialPosition: {
+      x: 50.99166653255725,
+      y: 48.20680300706829,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "aa2078ab-8613-4498-951a-8c990f56be44": {
+    id: "aa2078ab-8613-4498-951a-8c990f56be44",
+    name: "Validation",
+    paramInfoId: null,
+    sectionChildrenId: "d9e22eca-fcbf-44e0-a06b-6d4ef112b577",
+    initialPosition: {
+      x: 883.3408440310747,
+      y: 44.09135158589402,
     },
     size: {
       width: "auto",

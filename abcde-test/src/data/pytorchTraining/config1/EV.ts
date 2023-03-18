@@ -16,7 +16,7 @@ export default {
   },
   "da5d9cb0-fdc9-4b14-9c04-52eed0347cc8": {
     id: "da5d9cb0-fdc9-4b14-9c04-52eed0347cc8",
-    value: null,
+    value: "0.01",
     childId: null,
   },
   "b270064b-7c84-4c5c-b605-1d7483cdadd9": {
@@ -66,12 +66,12 @@ export default {
   },
   "9b2904a9-595c-4dbf-b2c5-674980cd7e69": {
     id: "9b2904a9-595c-4dbf-b2c5-674980cd7e69",
-    value: ".",
+    value: '"."',
     childId: null,
   },
   "a349d8c9-7e3e-482a-9947-f453b34c11bc": {
     id: "a349d8c9-7e3e-482a-9947-f453b34c11bc",
-    value: "train",
+    value: '"train"',
     childId: null,
   },
   "fea8a866-ed6c-4931-bd22-549a67cdb11b": {
@@ -181,12 +181,12 @@ export default {
   },
   "0a9f160f-e540-465d-9ec0-bf3644e1cb9e": {
     id: "0a9f160f-e540-465d-9ec0-bf3644e1cb9e",
-    value: ".",
+    value: '"."',
     childId: null,
   },
   "7908a231-8c3d-463c-8bba-9b84502aefd3": {
     id: "7908a231-8c3d-463c-8bba-9b84502aefd3",
-    value: "test",
+    value: '"test"',
     childId: null,
   },
   "e897c4ed-9d49-4c74-8864-ce86d54972e4": {
@@ -351,12 +351,12 @@ export default {
   },
   "fa5d6961-1553-400c-ac88-e3184523e738": {
     id: "fa5d6961-1553-400c-ac88-e3184523e738",
-    value: null,
+    value: "[0.485, 0.456, 0.406]",
     childId: null,
   },
   "ee135bb6-16fb-4991-b7d7-51ea5916fe7e": {
     id: "ee135bb6-16fb-4991-b7d7-51ea5916fe7e",
-    value: null,
+    value: "[0.229, 0.224, 0.225]",
     childId: null,
   },
   "dfb3c386-c5c0-47b8-b84b-a65ccc7ffae6": {
@@ -381,12 +381,12 @@ export default {
   },
   "59ead4b9-aedd-4199-9204-df4586373e14": {
     id: "59ead4b9-aedd-4199-9204-df4586373e14",
-    value: null,
+    value: "[0.485, 0.456, 0.406]",
     childId: null,
   },
   "01e0bee3-7317-4143-a543-c542c9f363ea": {
     id: "01e0bee3-7317-4143-a543-c542c9f363ea",
-    value: null,
+    value: "[0.229, 0.224, 0.225]",
     childId: null,
   },
   "3c8b7070-ad60-4664-be95-42b4f4d03dee": {
