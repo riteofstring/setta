@@ -44,6 +44,7 @@ export function getProjectData(): ProjectSaveType {
       "paramInfoId",
       "sectionChildrenId",
       "initialPosition",
+      "size",
       "chainedFrom",
     ])
   );
@@ -54,6 +55,7 @@ export function getProjectData(): ProjectSaveType {
     sectionInfosState.x,
     (v) => v.configId
   );
+  const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
@@ -72,8 +74,13 @@ export function getProjectData(): ProjectSaveType {
     sectionChildren,
     sectionConfigs,
     sectionConfigCol,
+    sectionDescriptions,
     projectConfigCodeInfoMaps,
   };
+  // console.log(output);
+  // console.log(_.pick(useCodeInfo.getState(), ["allCodeInfo"]));
+
+  // return output;
 }
 
 export function saveProject({ reactFlowStore }) {
