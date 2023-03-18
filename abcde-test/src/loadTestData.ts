@@ -8,6 +8,7 @@ const PROJECT_NAMES: projectNamesType = {
     "appleOrchardFarm",
     "diffusionDrops",
     "pytorchLightningMnist",
+    "pytorchTraining",
   ],
   inMem: [],
 };
@@ -16,6 +17,7 @@ const PROJECT_CONFIG_NAMES = {
   appleOrchardFarm: ["appleConfig1"],
   diffusionDrops: ["diffusionConfig1", "diffusionConfig2"],
   pytorchLightningMnist: ["mnistConfig1"],
+  pytorchTraining: ["config1"],
 };
 const IN_MEM_PROJECTS = {};
 const IN_MEM_PROJECT_CONFIGS = {};
