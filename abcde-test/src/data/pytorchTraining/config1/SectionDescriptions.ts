@@ -39,4 +39,24 @@ export default {
     height: 100,
     visible: false,
   },
+  "27d01c9e-2fcb-409f-a267-3c596468e528": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "372d068e-05f3-4af7-b971-f8ba26912966": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "fbfde13b-5f8b-4f05-9f7e-d049519640dd": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "b0ca4b21-538e-4499-af95-a0fb80df5675": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
 };

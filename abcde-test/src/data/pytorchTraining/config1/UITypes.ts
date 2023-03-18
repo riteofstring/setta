@@ -138,4 +138,42 @@ export default {
     },
     isForChildOfOriginInfoId: false,
   },
+  "9eb15d74-d986-498b-9692-8a236ace33d6": {
+    id: "9eb15d74-d986-498b-9692-8a236ace33d6",
+    type: "SECTION",
+    name: "Training Transform",
+    presetType: null,
+    config: {
+      collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
+  "7d7b9546-3a8f-4846-a497-0ad09f34014b": {
+    id: "7d7b9546-3a8f-4846-a497-0ad09f34014b",
+    type: "SECTION",
+    name: "Validation Transform",
+    presetType: null,
+    config: {
+      collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
 };

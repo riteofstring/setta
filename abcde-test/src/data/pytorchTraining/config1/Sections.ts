@@ -119,4 +119,64 @@ export default {
     },
     chainedFrom: null,
   },
+  "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d": {
+    id: "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
+    name: "Training Transform",
+    paramInfoId: null,
+    sectionChildrenId: "b55c232e-5a26-40ad-a143-cff5e955442e",
+    initialPosition: {
+      x: 562.8074952354698,
+      y: 1412.9218532797977,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "d182ccf0-07b2-4061-bf10-7e0dc25234da": {
+    id: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
+    name: "transforms",
+    paramInfoId: "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
+    sectionChildrenId: "3a12f1c3-4c83-415d-8a46-61a12f650389",
+    initialPosition: {
+      x: 0,
+      y: 0,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e": {
+    id: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
+    name: "Validation Transform",
+    paramInfoId: null,
+    sectionChildrenId: "cf9c207f-05bb-4fdc-82fb-6979afd7b1b5",
+    initialPosition: {
+      x: 1178.5098135138803,
+      y: 1474.9515644496375,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "6da834af-b00d-492e-aa31-51be3f93b61f": {
+    id: "6da834af-b00d-492e-aa31-51be3f93b61f",
+    name: "transforms",
+    paramInfoId: "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
+    sectionChildrenId: "bc863afc-d160-4ce2-9ffc-8d55456da8ff",
+    initialPosition: {
+      x: 0,
+      y: 0,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
 };

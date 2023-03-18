@@ -7,4 +7,8 @@ export default {
   "c9c76987-3588-4588-8e74-57adac2af7a3": {},
   "5a11446c-0bf2-4e75-ac27-93ce4b2c8214": {},
   "92de2c58-4fd6-4793-a06c-aeb9774aa6ce": {},
+  "cb2041f8-97cc-408b-aa1f-7d2f13bf8114": {},
+  "f42b3e6c-aec7-41d1-bf1e-025614872e21": {},
+  "6f2b9604-a631-4a1c-9b57-85cc59e9d740": {},
+  "ef0cd49b-de10-4dce-bde2-696e03d1c4a1": {},
 };

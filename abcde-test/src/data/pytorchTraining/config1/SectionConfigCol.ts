@@ -15,4 +15,12 @@ export default {
     "4e49ed62-18e4-4485-a2a5-9bf1d1f64236",
   "6621cd83-3be9-4f37-8b9e-6201a124ea28":
     "cf6aa29b-9ff9-4833-835e-93cd286a1d2a",
+  "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d":
+    "6d5c0e53-515f-4407-931a-ddff8a4f4690",
+  "d182ccf0-07b2-4061-bf10-7e0dc25234da":
+    "44a0a681-eaa8-4bf4-beb8-278bd229a3c5",
+  "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e":
+    "124e3df0-ca69-434c-93ff-b2ec690c8dc8",
+  "6da834af-b00d-492e-aa31-51be3f93b61f":
+    "91abacc8-679b-4980-819b-eeebbaceeb5c",
 };
