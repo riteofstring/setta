@@ -112,6 +112,9 @@ export const useSectionInfos = create(
           delete state.allChildren[y];
           delete state.currChildren[y];
         });
+        for (const [k, v] of Object.entries(state.allChildren)) {
+          state.allChildren[k] = v.filter((x) => !payload.includes(x));
+        }
       }),
 
     setAll: (payload) => set(payload),

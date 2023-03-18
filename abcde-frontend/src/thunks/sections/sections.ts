@@ -4,6 +4,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { findAllParameters } from "thunks/codeInfo/getDescendants";
 import { initializeParam } from "../initializeParam";
 
 function getSectionConfigId(sectionId) {
@@ -67,7 +68,9 @@ export function setSelectedItem(sectionId, selectedItem) {
     attr: "selectedItem",
     value: selectedItem,
   });
-  const params = useCodeInfo.getState().params[selectedItem];
+  const params = findAllParameters(useCodeInfo.getState().allCodeInfo, [
+    selectedItem,
+  ]);
   initializeParam(sectionId, params);
 }
 

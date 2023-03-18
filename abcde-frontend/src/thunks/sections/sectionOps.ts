@@ -15,7 +15,11 @@ import { addKwarg } from "thunks/kwargs";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import { setParamChildId, setParamEnteredValue } from "../paramInfos";
+import {
+  getParamChildId,
+  setParamChildId,
+  setParamEnteredValue,
+} from "../paramInfos";
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
 import {
@@ -225,6 +229,11 @@ function maybeChangeNewParamUIType({
 
 function linkParamToSection({ parentId, paramInfoId, sectionId }) {
   const { uiTypeId } = getSectionConfig(sectionId);
+  const oldChildId = getParamChildId(parentId, paramInfoId);
+  if (oldChildId) {
+    deleteSections({ sectionIds: [oldChildId] });
+  }
+
   setSectionParamInfoId(sectionId, paramInfoId);
   setParamChildId({
     sectionId: parentId,
