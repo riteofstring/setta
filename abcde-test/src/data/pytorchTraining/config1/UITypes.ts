@@ -63,4 +63,22 @@ export default {
       sectionId: "c778efbc-6389-4d63-b211-1a370fb481c9",
     },
   },
+  "086f477d-87b7-4e5d-9999-e0c9bf601d1b": {
+    id: "086f477d-87b7-4e5d-9999-e0c9bf601d1b",
+    name: "Training Dataset",
+    type: "SECTION",
+    presetType: null,
+    isForChildOfOriginInfoId: false,
+    config: {
+      subType: null,
+      childUITypeId: null,
+      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
+      outputGroup: null,
+    },
+    originInfoId: {
+      sectionId: "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+  },
 };

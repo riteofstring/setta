@@ -59,4 +59,19 @@ export default {
     },
     chainedFrom: null,
   },
+  "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42": {
+    id: "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+    name: "Training Dataset",
+    paramInfoId: null,
+    sectionChildrenId: "064d8168-2a56-4bd1-aafd-7e04fa78d4ae",
+    initialPosition: {
+      x: 1468,
+      y: 211.70833206176758,
+    },
+    size: {
+      width: "auto",
+      height: 397,
+    },
+    chainedFrom: null,
+  },
 };

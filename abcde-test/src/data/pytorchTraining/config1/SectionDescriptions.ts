@@ -19,4 +19,9 @@ export default {
     height: 100,
     visible: false,
   },
+  "2ef1861e-3e18-49eb-b52e-55a954424246": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
 };
