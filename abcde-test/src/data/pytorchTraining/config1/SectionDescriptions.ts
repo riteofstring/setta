@@ -59,4 +59,29 @@ export default {
     height: 100,
     visible: false,
   },
+  "b717781b-9c17-433e-abe1-e12b74727c74": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "6f29cf04-2e2b-4128-a70f-aeaec1915842": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "465141b7-3fd5-4d72-8952-cc75adead6b3": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "4960160f-41b3-41b7-8c36-7f353e03a8e7": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
+  "94793bfd-df8e-4de3-ae1b-d1affd0907b7": {
+    value: "",
+    height: 100,
+    visible: false,
+  },
 };
