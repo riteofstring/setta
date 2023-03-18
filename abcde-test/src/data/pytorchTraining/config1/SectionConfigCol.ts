@@ -33,4 +33,12 @@ export default {
     "ace73aff-cbdf-4786-91df-c8fe9d752b53",
   "6352b363-2800-427a-a98e-424b03750f94":
     "6428737e-214f-45ff-9f1d-270bc967d447",
+  "3dab4514-ad65-416e-aa3b-038314ef119f":
+    "61aa891f-0aed-46b5-9a18-2d139caa6eb0",
+  "2983b469-c363-4332-83f8-3d3991f2d8f9":
+    "35918ab7-6c7d-42c9-9e01-b5e8a552b55c",
+  "486afb30-ed4b-43db-acbc-097f3d575f40":
+    "fc2ae28e-880d-4f74-ad21-dbc09c58b0fe",
+  "fe23c7d7-15ae-4137-836d-0b16defdbe51":
+    "6c29e603-bd64-46d8-8aca-df3eef76fa1f",
 };

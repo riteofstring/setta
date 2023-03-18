@@ -254,4 +254,64 @@ export default {
     },
     chainedFrom: null,
   },
+  "3dab4514-ad65-416e-aa3b-038314ef119f": {
+    id: "3dab4514-ad65-416e-aa3b-038314ef119f",
+    name: "[3]",
+    paramInfoId: null,
+    sectionChildrenId: "32a8d36a-59e7-44e3-abb7-3e6cf8d5ae5d",
+    initialPosition: {
+      x: 0,
+      y: 0,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "2983b469-c363-4332-83f8-3d3991f2d8f9": {
+    id: "2983b469-c363-4332-83f8-3d3991f2d8f9",
+    name: "[2]",
+    paramInfoId: null,
+    sectionChildrenId: "10d854ea-22fc-491b-8ca9-57bf45335fe3",
+    initialPosition: {
+      x: 0,
+      y: 0,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "486afb30-ed4b-43db-acbc-097f3d575f40": {
+    id: "486afb30-ed4b-43db-acbc-097f3d575f40",
+    name: "[1]",
+    paramInfoId: null,
+    sectionChildrenId: "61a14cdb-4664-4b5a-8d4b-e8c7c130bf76",
+    initialPosition: {
+      x: 0,
+      y: 0,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "fe23c7d7-15ae-4137-836d-0b16defdbe51": {
+    id: "fe23c7d7-15ae-4137-836d-0b16defdbe51",
+    name: "[0]",
+    paramInfoId: null,
+    sectionChildrenId: "0a8bf243-f2f2-4f6d-a29d-bb428e4907ff",
+    initialPosition: {
+      x: 0,
+      y: 0,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
 };
