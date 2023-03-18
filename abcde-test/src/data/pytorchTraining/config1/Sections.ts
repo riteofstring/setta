@@ -89,4 +89,34 @@ export default {
     },
     chainedFrom: null,
   },
+  "b4026079-d0ca-4524-8ee4-4aae614cfec3": {
+    id: "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    name: "Validation Dataset",
+    paramInfoId: null,
+    sectionChildrenId: "ccb7350f-4a08-4fa8-8be6-458643cffda5",
+    initialPosition: {
+      x: 1969.0472029484977,
+      y: 211.98479084061333,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "6621cd83-3be9-4f37-8b9e-6201a124ea28": {
+    id: "6621cd83-3be9-4f37-8b9e-6201a124ea28",
+    name: "Validation Dataloader",
+    paramInfoId: null,
+    sectionChildrenId: "4d78e963-5261-48eb-bac0-7fb3611b9c3f",
+    initialPosition: {
+      x: 1850.414559934631,
+      y: 745.4425561785798,
+    },
+    size: {
+      width: 538,
+      height: 549,
+    },
+    chainedFrom: null,
+  },
 };

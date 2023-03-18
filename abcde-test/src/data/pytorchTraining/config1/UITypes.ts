@@ -100,4 +100,42 @@ export default {
     },
     isForChildOfOriginInfoId: false,
   },
+  "e4b153f3-77db-4d47-a638-ca508af906ee": {
+    id: "e4b153f3-77db-4d47-a638-ca508af906ee",
+    type: "SECTION",
+    name: "Validation Dataset",
+    presetType: null,
+    config: {
+      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
+  "ff509491-22c9-43ab-9ae6-2d62c73df36a": {
+    id: "ff509491-22c9-43ab-9ae6-2d62c73df36a",
+    type: "SECTION",
+    name: "Validation Dataloader",
+    presetType: null,
+    config: {
+      collections: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "6621cd83-3be9-4f37-8b9e-6201a124ea28",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
 };

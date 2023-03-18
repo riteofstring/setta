@@ -174,4 +174,119 @@ export default {
     value: null,
     childId: null,
   },
+  "44c608f9-0957-41d8-817e-edbbe30eadae": {
+    id: "44c608f9-0957-41d8-817e-edbbe30eadae",
+    value: null,
+    childId: null,
+  },
+  "0a9f160f-e540-465d-9ec0-bf3644e1cb9e": {
+    id: "0a9f160f-e540-465d-9ec0-bf3644e1cb9e",
+    value: ".",
+    childId: null,
+  },
+  "7908a231-8c3d-463c-8bba-9b84502aefd3": {
+    id: "7908a231-8c3d-463c-8bba-9b84502aefd3",
+    value: "test",
+    childId: null,
+  },
+  "e897c4ed-9d49-4c74-8864-ce86d54972e4": {
+    id: "e897c4ed-9d49-4c74-8864-ce86d54972e4",
+    value: "",
+    childId: null,
+  },
+  "24526279-af89-4137-97cd-53c79de0afee": {
+    id: "24526279-af89-4137-97cd-53c79de0afee",
+    value: null,
+    childId: null,
+  },
+  "a4fd9638-39dc-41d4-bfab-a93cbd79996a": {
+    id: "a4fd9638-39dc-41d4-bfab-a93cbd79996a",
+    value: true,
+    childId: null,
+  },
+  "6e727914-8661-4a44-a904-f51037afc02e": {
+    id: "6e727914-8661-4a44-a904-f51037afc02e",
+    value: null,
+    childId: null,
+  },
+  "a537e628-799e-44b9-8680-06a16f0a4ea9": {
+    id: "a537e628-799e-44b9-8680-06a16f0a4ea9",
+    value: "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    childId: null,
+  },
+  "cafc4a94-ce9f-43b4-95aa-b7c416d4d2b4": {
+    id: "cafc4a94-ce9f-43b4-95aa-b7c416d4d2b4",
+    value: null,
+    childId: null,
+  },
+  "62896eaa-9760-4f57-af12-d26a75fac69d": {
+    id: "62896eaa-9760-4f57-af12-d26a75fac69d",
+    value: null,
+    childId: null,
+  },
+  "63f52867-132e-4d23-aea2-b1bb3e5a6d5b": {
+    id: "63f52867-132e-4d23-aea2-b1bb3e5a6d5b",
+    value: null,
+    childId: null,
+  },
+  "0397e8fe-7e6f-484d-868e-94d5c47543dd": {
+    id: "0397e8fe-7e6f-484d-868e-94d5c47543dd",
+    value: null,
+    childId: null,
+  },
+  "5ad378de-e231-437c-9177-ce4ebbfed94a": {
+    id: "5ad378de-e231-437c-9177-ce4ebbfed94a",
+    value: null,
+    childId: null,
+  },
+  "3e36c7f3-b8c0-4198-84a7-c640933db4ab": {
+    id: "3e36c7f3-b8c0-4198-84a7-c640933db4ab",
+    value: null,
+    childId: null,
+  },
+  "f3154b8c-6aff-4344-9f34-7b34ad5c9f9d": {
+    id: "f3154b8c-6aff-4344-9f34-7b34ad5c9f9d",
+    value: null,
+    childId: null,
+  },
+  "808ca640-2884-440d-ae68-1dccf91498a3": {
+    id: "808ca640-2884-440d-ae68-1dccf91498a3",
+    value: null,
+    childId: null,
+  },
+  "b7543a8e-3ab7-46f5-8596-f95362cfa3d2": {
+    id: "b7543a8e-3ab7-46f5-8596-f95362cfa3d2",
+    value: null,
+    childId: null,
+  },
+  "33a82826-2e34-4cb2-8812-c164bc723c6f": {
+    id: "33a82826-2e34-4cb2-8812-c164bc723c6f",
+    value: null,
+    childId: null,
+  },
+  "fe2803ce-e2dc-4562-898e-a526b8cc2c64": {
+    id: "fe2803ce-e2dc-4562-898e-a526b8cc2c64",
+    value: null,
+    childId: null,
+  },
+  "1d8d5a7b-3e94-45b1-b655-e14dff4ffa53": {
+    id: "1d8d5a7b-3e94-45b1-b655-e14dff4ffa53",
+    value: null,
+    childId: null,
+  },
+  "57ce2457-45f9-449f-989a-6a6790b7ad0c": {
+    id: "57ce2457-45f9-449f-989a-6a6790b7ad0c",
+    value: null,
+    childId: null,
+  },
+  "9ccdd6fd-021f-4c8f-8603-6d77c31e2af5": {
+    id: "9ccdd6fd-021f-4c8f-8603-6d77c31e2af5",
+    value: null,
+    childId: null,
+  },
+  "e20143f7-60f8-4693-8002-041b5d99a398": {
+    id: "e20143f7-60f8-4693-8002-041b5d99a398",
+    value: null,
+    childId: null,
+  },
 };
