@@ -38,7 +38,6 @@ export async function loadProjectSpecificData({
 }) {
   const output = {};
   for (const k of [
-    "allCodeInfo",
     "ev",
     "evCols",
     "kwargCols",
@@ -85,6 +84,7 @@ export async function loadOneProject({
     loaded,
     await loadProjectSpecificData({ projectName, subFolderName })
   );
+  loaded["allCodeInfo"] = await loadGlobalCodeInfo();
 
   const {
     allCodeInfo,
