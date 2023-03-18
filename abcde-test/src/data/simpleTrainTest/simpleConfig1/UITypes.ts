@@ -59,7 +59,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
+      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
       subType: null,
       childUITypeId: null,
       outputGroup: null,
@@ -76,7 +76,7 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      collections: ["400e8e11-596b-4a4b-a69b-4c5201b58a84"],
+      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
       subType: null,
       childUITypeId: null,
       outputGroup: null,

@@ -77,7 +77,7 @@ export default {
   "c49578eb-dd0a-43bd-ba4a-9bf687d04b14": {
     id: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
     name: "transform",
-    paramInfoId: "014763c4-c1c2-4712-b72e-6c2425435007",
+    paramInfoId: "0533e630-8444-4ea5-a703-2a89fec6449e",
     sectionChildrenId: "8f034016-ceb6-40e3-9e10-0d3df1df4ee5",
     initialPosition: {
       x: 0,
