@@ -18,9 +18,6 @@ def train_loop(
         if i % log_interval == 0:
             logger.log("Training", "loss", loss.item())
 
-        if i > 100:
-            break
-
 
 @torch.no_grad()
 def eval_loop(model, val_dataloader, logger, metrics, device):
@@ -32,8 +29,6 @@ def eval_loop(model, val_dataloader, logger, metrics, device):
         preds = logits.softmax(dim=-1)
         all_preds.append(preds)
         all_labels.append(labels)
-        if i > 100:
-            break
 
     all_preds = torch.cat(all_preds, dim=0)
     all_labels = torch.cat(all_labels, dim=0)
@@ -41,7 +36,6 @@ def eval_loop(model, val_dataloader, logger, metrics, device):
         metric(all_preds, all_labels)
 
     accs = {metric.__class__.__name__: metric.compute().item() for metric in metrics}
-    print("accs", accs)
     for k, v in accs.items():
         logger.log("Evaluation", k, v)
 
@@ -66,6 +60,9 @@ def train(
     model.fc = nn.Linear(model.fc.in_features, len(train_dataloader.dataset.classes))
     model.to(device)
     metrics = [metric.to(device) for metric in metrics]
+
+    print(f"Evaluating pretrained model")
+    eval_loop(model, val_dataloader, logger, metrics, device)
 
     for e in range(epochs):
         print(f"Training epoch {e}")
