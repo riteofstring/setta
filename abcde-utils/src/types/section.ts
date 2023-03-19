@@ -14,7 +14,6 @@ export type SectionCoreType = {
   paramInfoId: string | null;
   size: SizeType;
   initialPosition: SectionPositionType;
-  chainedFrom: string | null;
 };
 
 export type ManySectionCoreType = ManyOf<SectionCoreType>;
