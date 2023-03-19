@@ -8,10 +8,15 @@ import { saveProjectConfig } from 'src/db/projectConfigs/save';
 import {
   saveSectionConfigCol,
   saveSectionConfigs,
-  saveSectionDescriptions,
   saveSections,
 } from 'src/db/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/db/uiTypes/save';
+
+export async function saveMultipleProjectDetails(userId, projects) {
+  for (const p of projects) {
+    await saveProjectDetails(userId, p);
+  }
+}
 
 export async function saveProjectDetails(userId, p: ProjectSaveType) {
   await saveKwargInfo(p.kwargInfo);
@@ -21,7 +26,6 @@ export async function saveProjectDetails(userId, p: ProjectSaveType) {
   await saveEVCols(p.evCols);
   await saveUITypes(userId, p.uiTypes);
   await saveUITypeCols(p.uiTypeCols);
-  await saveSectionDescriptions(p.sectionDescriptions);
   await saveSectionConfigs(p.sectionConfigs);
   await saveSectionConfigCol(
     p.sectionConfigCol,

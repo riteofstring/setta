@@ -45,7 +45,6 @@ export async function saveCodeInfo(codeInfo: ManyCodeInfoType, upsert = false) {
         where: { id: v.id },
         data: {
           inCodeParentId: v.inCodeParentId,
-          returnTypeId: v.returnTypeId,
         },
       }),
     ),

@@ -20,9 +20,6 @@ model CodeInfo {
   inCodeParent              CodeInfo?                  @relation("InCodeDirectParent", fields: [inCodeParentId], references: [id])
   inCodeChildren            CodeInfo[]                 @relation("InCodeDirectParent")
   inCodeParentId            String?                    @db.Uuid
-  returnType                CodeInfo?                  @relation("ReturnType", fields: [returnTypeId], references: [id])
-  returnTypeOf              CodeInfo[]                 @relation("ReturnType")
-  returnTypeId              String?                    @db.Uuid
   sections                  Section[] // Section.paramInfo
   kwargOwner                KwargCol[]                 @relation("KwargOwner") // KwargCol.codeInfo
   kwarg                     KwargCol[]                 @relation("Kwarg") // KwargCol.kwargInfo
@@ -66,23 +63,10 @@ model Section {
   paramInfoId    String?            @db.Uuid
   children       SectionChildrenId  @relation(fields: [childrenId], references: [id])
   childrenId     String             @db.Uuid
-  width          Int
-  height         Int
   siblings       SectionChildren[] //SectionChildren.section
   evChildren     EV[] //EV.child
   sectionConfigs SectionConfigCol[] //SectionConfigCol.section
   uiTypeOrigins  UIType[] //UIType.originSection
-  chainedFrom    Section?           @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
-  chainedTo      Section[]          @relation("SectionChainedFrom")
-  chainedFromId  String?            @db.Uuid
-}
-
-model SectionDescription {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  value          String          @db.Text
-  height         Int
-  visible        Boolean
-  sectionConfigs SectionConfig[]
 }
 
 model SectionChildrenId {
@@ -176,8 +160,6 @@ model SectionConfig {
   uiTypeId       String             @db.Uuid
   uiTypeCol      UITypeColId        @relation(fields: [uiTypeColId], references: [id])
   uiTypeColId    String             @db.Uuid
-  description    SectionDescription @relation(fields: [descriptionId], references: [id])
-  descriptionId  String             @db.Uuid
   configCol      SectionConfigCol[] //SectionConfigCol.config
 }
 
@@ -234,8 +216,7 @@ model SectionUIType {
   childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
   childUITypeId String?        @unique @db.Uuid
   parentUIType  SectionUIType? @relation("ChildUIType")
-  outputGroup   OutputGroup?   @relation(fields: [outputGroupId], references: [id])
-  outputGroupId String?        @db.Uuid
+  outputGroups  OutputGroup[]
 
   @@id([idid])
 }

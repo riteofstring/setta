@@ -1,7 +1,6 @@
 import {
   DECK,
   DICT_ROOT,
-  FN,
   isSectionUIType,
   LIST_ROOT,
   REF,
@@ -21,12 +20,6 @@ function getSectionType(p, id) {
 function getSelectedItem(p, id) {
   const { selectedItem } = getSectionConfig(p, id);
   return p.codeInfo.allCodeInfo[selectedItem].path;
-}
-
-function getChainedSelectedItem(p, chainedFromVarName, id) {
-  const { selectedItem } = getSectionConfig(p, id);
-  const { name } = p.codeInfo.allCodeInfo[selectedItem];
-  return `${chainedFromVarName}.${name}`;
 }
 
 function getParamIds(p, id) {
@@ -107,23 +100,14 @@ class Exporter {
     if (type === SECTION) {
       return {
         callable: getSelectedItem(this.p, id),
-        params: this.exportParams(id),
-      };
-    } else if (type === FN) {
-      const chainedFromVarName = this.exportSection(
-        this.p.sections[id].chainedFrom,
-      );
-      return {
-        callable: getChainedSelectedItem(this.p, chainedFromVarName, id),
-        params: this.exportParams(id),
+        params: this.exportParams(id, getParamIds(this.p, id)),
       };
     } else if ([LIST_ROOT, DICT_ROOT, DECK].includes(type)) {
       return this.exportSections(this.p.sectionCurrChildren[id]);
     }
   }
 
-  exportParams(sectionId) {
-    const ids = getParamIds(this.p, sectionId);
+  exportParams(sectionId, ids) {
     return ids.map((x) => this.exportParam(sectionId, x)).filter((x) => x);
   }
 

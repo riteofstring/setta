@@ -25,6 +25,7 @@ export function UITypeNameToIncludeObj(typeName) {
       sectionUIType: {
         include: {
           collections: { select: { id: true } },
+          outputGroups: { select: { id: true } },
         },
       },
       sliderUIType: true,
@@ -37,6 +38,7 @@ export function UITypeNameToIncludeObj(typeName) {
       sectionUIType: {
         include: {
           collections: { select: { id: true } },
+          outputGroups: { select: { id: true } },
         },
       },
     };
