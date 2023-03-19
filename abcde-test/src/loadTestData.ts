@@ -154,6 +154,7 @@ export async function loadGlobalCodeInfo() {
     "pytorchLightning",
     "pytorchLightningMnist",
     "pytorchTraining",
+    "runcoder",
   ]) {
     Object.assign(
       output,

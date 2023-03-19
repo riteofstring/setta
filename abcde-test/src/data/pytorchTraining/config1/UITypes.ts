@@ -159,4 +159,23 @@ export default {
       sectionId: "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
     },
   },
+  "b1af0031-d5df-434b-b12e-b5d69d99ba06": {
+    id: "b1af0031-d5df-434b-b12e-b5d69d99ba06",
+    type: "SECTION",
+    name: "Logger",
+    presetType: null,
+    config: {
+      collections: ["f0628534-0d78-483c-9d4a-b37fcfcf6544"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
 };
