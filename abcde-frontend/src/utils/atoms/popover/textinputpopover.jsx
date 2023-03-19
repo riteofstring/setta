@@ -1,5 +1,5 @@
 import * as Popover from "@radix-ui/react-popover";
-import { FiSave } from "react-icons/fi";
+import { BiSave } from "react-icons/bi";
 import { Button } from "../buttons/Button";
 import { StandardPopover } from "./standardpopover";
 
@@ -62,7 +62,7 @@ function Body({ onChange, value, onClick }) {
             twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
             onClick={onClick}
           >
-            Save <FiSave className="text-slate-400" />
+            Save <BiSave className="text-slate-400" />
           </Button>
         </Popover.Close>
       </div>

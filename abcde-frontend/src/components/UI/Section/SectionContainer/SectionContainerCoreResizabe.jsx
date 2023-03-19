@@ -51,6 +51,7 @@ export function SectionContainerCoreResizable({
                 isSeriesElement={isSeriesElement}
                 isRoot={isRoot}
                 hasNested={hasNested}
+                isActiveSection={isActiveSection}
               />
               <AreaSwitch
                 sectionId={sectionId}
