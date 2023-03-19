@@ -1,6 +1,5 @@
 import {
   DICT_ROOT,
-  FN,
   LIST_ROOT,
   REF,
   SECTION,
@@ -8,7 +7,6 @@ import {
   SWITCH,
   TEXT,
 } from 'abcde-utils/src/constants';
-import { isNumeric } from './utils';
 
 function getImport(x) {
   if (x.type === SECTION) {
@@ -39,28 +37,16 @@ function getBoolean(value) {
   return value ? 'True' : 'False';
 }
 
-// function getSmartText(value) {
-//   if (isNumeric(value)) {
-//     return parseFloat(value);
-//   } else if (value == '') {
-//     return null;
-//   }
-//   return `"${value}"`;
-// }
-
 // x is the details of a var
 function getVarDeclaration(varName, x, selected) {
   switch (x.type) {
     case TEXT:
-      if (x.value) {
-        return `${varName} = ${x.value}`;
-      }
+      return `${varName} = "${x.value}"`;
     case SLIDER:
       return `${varName} = ${x.value}`;
     case SWITCH:
       return `${varName} = ${getBoolean(x.value)}`;
     case SECTION:
-    case FN:
       if (!x.value.callable) {
         return `${varName} = {${getDictContents(x.value.params, selected)}}`;
       } else {

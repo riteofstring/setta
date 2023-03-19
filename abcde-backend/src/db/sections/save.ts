@@ -43,7 +43,6 @@ export async function saveSections(
       paramInfoId: v.paramInfoId,
       width: convertSize(v.size.width),
       height: convertSize(v.size.height),
-      chainedFromId: v.chainedFrom,
     });
   }
 

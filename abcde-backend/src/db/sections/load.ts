@@ -39,7 +39,6 @@ export async function getSections(ids) {
     sectionChildrenId: v.childrenId,
     initialPosition: { x: 0, y: 0 },
     size: { width: convertSize(v.width), height: convertSize(v.height) },
-    chainedFrom: v.chainedFromId,
   }));
 
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>
@@ -90,6 +89,7 @@ export async function getSectionConfigs(ids) {
   const sectionUITypes = await getUITypesByWhere(
     {
       id: { in: s.map((x) => x.uiTypeId) },
+      presetType: null,
     },
     UITypeNames.sectionUIType,
   );

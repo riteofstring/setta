@@ -72,9 +72,6 @@ model Section {
   evChildren     EV[] //EV.child
   sectionConfigs SectionConfigCol[] //SectionConfigCol.section
   uiTypeOrigins  UIType[] //UIType.originSection
-  chainedFrom    Section?           @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
-  chainedTo      Section[]          @relation("SectionChainedFrom")
-  chainedFromId  String?            @db.Uuid
 }
 
 model SectionDescription {
