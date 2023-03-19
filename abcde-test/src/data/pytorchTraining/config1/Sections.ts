@@ -305,8 +305,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "33e516af-dfe2-4891-a511-29ebd754b30e",
     initialPosition: {
-      x: -515.0190832651891,
-      y: 75.9391174669141,
+      x: -424.0190832651891,
+      y: 44.9391174669141,
     },
     size: {
       width: "auto",
@@ -320,8 +320,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9e0898a3-1911-4a70-9b71-5e0a0c660951",
     initialPosition: {
-      x: 50.99166653255725,
-      y: 48.20680300706829,
+      x: 138.99166653255725,
+      y: 45.20680300706829,
     },
     size: {
       width: 590,
@@ -350,8 +350,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "fd74d8cf-4c7a-48cb-983d-e84bb1194faf",
     initialPosition: {
-      x: 2202.465636738646,
-      y: 583.5895257111965,
+      x: -1078.534363261354,
+      y: 585.5895257111965,
     },
     size: {
       width: 609,
@@ -365,8 +365,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "227edf00-28cb-4616-b5a2-af75ed28e7ab",
     initialPosition: {
-      x: 1630.992643460439,
-      y: 142.67494262214723,
+      x: 1622.992643460439,
+      y: 51.67494262214723,
     },
     size: {
       width: "auto",
@@ -395,8 +395,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9a43154a-7c97-43c1-9f37-741b02ac392b",
     initialPosition: {
-      x: 1637.312109789116,
-      y: 570.6002371801551,
+      x: 1629.312109789116,
+      y: 259.6002371801551,
     },
     size: {
       width: "auto",
@@ -455,8 +455,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "8ef7e264-652d-44e2-b409-49d9518c33cd",
     initialPosition: {
-      x: -523.9213312766315,
-      y: 907.923666790208,
+      x: -421.92133127663146,
+      y: 790.923666790208,
     },
     size: {
       width: "auto",
@@ -470,8 +470,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "854d9ab8-0128-43fe-9f0e-9e265e06bf05",
     initialPosition: {
-      x: 2160.487183556977,
-      y: 28.58483523805444,
+      x: -1143.512816443023,
+      y: 51.58483523805443,
     },
     size: {
       width: 677,
