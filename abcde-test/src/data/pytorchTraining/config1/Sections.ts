@@ -365,7 +365,7 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "227edf00-28cb-4616-b5a2-af75ed28e7ab",
     initialPosition: {
-      x: 1680.9926434604388,
+      x: 1680.992643460439,
       y: 2.67494262214711,
     },
     size: {
@@ -381,7 +381,7 @@ export default {
     sectionChildrenId: "18de3a3c-7f5a-4c0a-aada-2a50d1824d79",
     initialPosition: {
       x: 1610.594793419988,
-      y: 1057.2137069606408,
+      y: 1057.213706960641,
     },
     size: {
       width: "auto",
@@ -395,8 +395,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9a43154a-7c97-43c1-9f37-741b02ac392b",
     initialPosition: {
-      x: 1718.3121097891164,
-      y: 1334.6002371801546,
+      x: 1718.312109789116,
+      y: 1334.600237180155,
     },
     size: {
       width: "auto",
