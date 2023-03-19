@@ -11,7 +11,7 @@ async function findIds(runId, group, key) {
   });
 
   let groupId = result?.id;
-  let keyId = result?.children[0].id;
+  let keyId = result?.children[0]?.id;
 
   if (!groupId) {
     const newGroup = await prisma.outputGroup.create({
