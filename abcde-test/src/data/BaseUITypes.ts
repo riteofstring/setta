@@ -142,7 +142,7 @@ export default {
   },
   "51470547-1f60-4933-952c-ac8745b30b22": {
     id: "51470547-1f60-4933-952c-ac8745b30b22",
-    type: "FN",
+    type: "ATTRIBUTE",
     name: "",
     presetType: "BASE",
     config: {
