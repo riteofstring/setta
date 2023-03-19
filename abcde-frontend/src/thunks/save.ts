@@ -66,7 +66,7 @@ export function getProjectData(): ProjectSaveType {
     .getState()
     .exportForDb();
 
-  return {
+  const output = {
     project,
     projectConfig,
     ev,
@@ -83,9 +83,8 @@ export function getProjectData(): ProjectSaveType {
     projectConfigCodeInfoMaps,
   };
   // console.log(output);
-  // console.log(_.pick(useCodeInfo.getState(), ["allCodeInfo"]));
 
-  // return output;
+  return output;
 }
 
 export function saveProject({ reactFlowStore }) {
