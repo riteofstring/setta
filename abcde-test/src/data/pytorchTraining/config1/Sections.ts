@@ -404,21 +404,6 @@ export default {
     },
     chainedFrom: null,
   },
-  "21e6008f-aa67-4201-b891-cf0b3cc659f1": {
-    id: "21e6008f-aa67-4201-b891-cf0b3cc659f1",
-    name: "[2]",
-    paramInfoId: null,
-    sectionChildrenId: "c3953464-4f4b-4b82-a97d-71916bc66720",
-    initialPosition: {
-      x: 0,
-      y: 0,
-    },
-    size: {
-      width: "auto",
-      height: "auto",
-    },
-    chainedFrom: null,
-  },
   "379a611c-6584-4db0-85bd-5c419bbd110d": {
     id: "379a611c-6584-4db0-85bd-5c419bbd110d",
     name: "[1]",

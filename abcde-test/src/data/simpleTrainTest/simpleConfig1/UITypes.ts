@@ -148,6 +148,7 @@ export default {
       subType: null,
       childUITypeId: null,
       outputGroup: "67863f2c-9916-4d9b-9c60-b7ed3781f49d",
+      social: null,
     },
     originInfoId: {
       sectionId: "02d30f19-1160-4050-a2d7-390d36b3637e",
