@@ -5,6 +5,7 @@ import {
 } from 'abcde-utils/src/types/sectionChildren';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
+import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
 import {
   ChildrenSectionPositionType,
   TopLevelSectionPositionType,
@@ -16,8 +17,13 @@ import {
   PrismaSectionChildrenType,
   PrismaSectionConfigColType,
   PrismaSectionConfigType,
+  PrismaSectionDescriptionType,
   PrismaSectionType,
 } from './types';
+
+function convertSize(x) {
+  return x === 'auto' ? -1 : x;
+}
 
 export async function saveSections(
   sections: ManySectionCoreType,
@@ -35,6 +41,9 @@ export async function saveSections(
       name: v.name,
       childrenId: v.sectionChildrenId,
       paramInfoId: v.paramInfoId,
+      width: convertSize(v.size.width),
+      height: convertSize(v.size.height),
+      chainedFromId: v.chainedFrom,
     });
   }
 
@@ -90,6 +99,7 @@ function assembleSectionConfig(sectionConfigs: ManySectionConfigType) {
       uiTypeColId: v.uiTypeColId,
       selectedItemId: v.selectedItem,
       uiTypeId: v.uiTypeId,
+      descriptionId: v.descriptionId,
     });
   }
   return inDbFormat;
@@ -137,4 +147,34 @@ export async function saveSectionConfigCol(
 
   const inDbFormat = assembleSectionConfigCol(sectionConfigCol, colId);
   await deleteThenCreateCol(prisma.sectionConfigCol, [colId], inDbFormat);
+}
+
+function assembleSectionDescription(
+  sectionDescriptions: ManySectionDescriptionType,
+) {
+  const inDbFormat: PrismaSectionDescriptionType[] = [];
+  for (const [k, v] of Object.entries(sectionDescriptions)) {
+    inDbFormat.push({
+      id: k,
+      value: v.value,
+      height: v.height,
+      visible: v.visible,
+    });
+  }
+  return inDbFormat;
+}
+
+export async function saveSectionDescriptions(
+  sectionDescriptions: ManySectionDescriptionType,
+) {
+  const inDbFormat = assembleSectionDescription(sectionDescriptions);
+  await prisma.$transaction(
+    inDbFormat.map((v) =>
+      prisma.sectionDescription.upsert({
+        where: { id: v.id },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
 }

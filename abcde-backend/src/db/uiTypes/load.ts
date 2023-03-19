@@ -58,8 +58,9 @@ function processSpecificUITypeConfig(uiTypeConfig) {
     if ('collections' in config) {
       config.collections = config.collections.map((x) => x.id);
     }
-    if ('outputGroups' in config) {
-      config.outputGroups = config.outputGroups.map((x) => x.id);
+    if ('outputGroupId' in config) {
+      config.outputGroup = config.outputGroupId;
+      delete config.outputGroupId;
     }
     return { config };
   }

@@ -3,6 +3,7 @@ import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManySectionCoreType } from 'abcde-utils/src/types/section';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
+import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
@@ -11,6 +12,10 @@ import { getUITypesByWhere } from 'src/db/uiTypes/load';
 import { getOrderedChildren, getOrderedChildrenFull } from 'src/utils/utils';
 import { UITypeNames } from '../uiTypes/types';
 import { PrismaSectionChildrenType } from './types';
+
+function convertSize(x) {
+  return x === -1 ? 'auto' : x;
+}
 
 export async function getSections(ids) {
   const s = await prisma.section.findMany({
@@ -33,6 +38,8 @@ export async function getSections(ids) {
     paramInfoId: v.paramInfoId,
     sectionChildrenId: v.childrenId,
     initialPosition: { x: 0, y: 0 },
+    size: { width: convertSize(v.width), height: convertSize(v.height) },
+    chainedFrom: v.chainedFromId,
   }));
 
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>
@@ -70,13 +77,19 @@ export async function getSectionConfigs(ids) {
           },
         },
       },
+      description: {
+        select: {
+          value: true,
+          height: true,
+          visible: true,
+        },
+      },
     },
   });
 
   const sectionUITypes = await getUITypesByWhere(
     {
       id: { in: s.map((x) => x.uiTypeId) },
-      presetType: null,
     },
     UITypeNames.sectionUIType,
   );
@@ -90,6 +103,7 @@ export async function getSectionConfigs(ids) {
       kwargColId: x.kwargColId,
       uiTypeColId: x.uiTypeColId,
       selectedItem: x.selectedItemId,
+      descriptionId: x.descriptionId,
     };
   }
 
@@ -125,7 +139,20 @@ export async function getSectionConfigs(ids) {
     );
   }
 
-  return { sectionConfigs, ev, evCols, kwargCols, uiTypeCols, sectionUITypes };
+  const sectionDescriptions: ManySectionDescriptionType = {};
+  for (const config of s) {
+    sectionDescriptions[config.descriptionId] = config.description;
+  }
+
+  return {
+    sectionConfigs,
+    ev,
+    evCols,
+    kwargCols,
+    uiTypeCols,
+    sectionUITypes,
+    sectionDescriptions,
+  };
 }
 
 export function getSectionPositions(
