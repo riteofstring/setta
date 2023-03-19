@@ -197,4 +197,43 @@ export default {
     },
     isForChildOfOriginInfoId: false,
   },
+  "d0a1935a-3964-4aed-be15-470a02cf8fb9": {
+    id: "d0a1935a-3964-4aed-be15-470a02cf8fb9",
+    type: "LIST_ROOT",
+    name: "Metrics",
+    presetType: null,
+    config: {
+      collections: ["011b492a-eab7-4e00-941a-7b9ee74ebc10"],
+      subType: null,
+      childUITypeId: "1208c3e6-43a6-46fa-afc0-67c552e05298",
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
+  "1208c3e6-43a6-46fa-afc0-67c552e05298": {
+    id: "1208c3e6-43a6-46fa-afc0-67c552e05298",
+    type: "SECTION",
+    name: "Metrics",
+    presetType: null,
+    config: {
+      collections: ["011b492a-eab7-4e00-941a-7b9ee74ebc10"],
+      subType: "LIST",
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      uiTypeColId: "ecf3fbd0-74f2-4710-abe0-90cfa9eb8a4d",
+    },
+    originInfoId: {
+      sectionId: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: true,
+  },
 };

@@ -25,4 +25,8 @@ export default {
   "b1b2f52e-2533-4fa9-ac30-c0d529b03624": {},
   "21a0da23-ba77-44aa-bf86-d4c3e50bfe94": {},
   "fb5a5b41-fd31-4bf8-82b7-13dd3c428a85": {},
+  "6a6b19ae-5549-4d24-b3a2-10be916d1931": {},
+  "fdfbaaf6-102b-4089-ac71-43a33d4bb57f": {},
+  "a115b837-90ba-4f7c-b250-a3579f50bdfa": {},
+  "115c86b9-af5e-4adc-820d-32e2367576aa": {},
 };
