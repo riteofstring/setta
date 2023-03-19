@@ -10,6 +10,7 @@ export function IdNameCombobox({
   itemStyleGetter,
   small,
   onClick,
+  position,
 }) {
   const init = _.find(flattenedItems(allItems), { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
@@ -39,6 +40,7 @@ export function IdNameCombobox({
       itemStyleGetter={itemStyleGetter}
       small={small}
       onClick={onClick}
+      position={position}
     />
   );
 }
