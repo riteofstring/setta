@@ -13,6 +13,7 @@ function _SectionHeader({
   isSeriesElement,
   isRoot,
   hasNested,
+  isActiveSection,
 }) {
   const isInfo = useIsInfo(sectionId);
   const onCustomCloseButtonClick = (e) => {
@@ -26,7 +27,7 @@ function _SectionHeader({
     <div className="flex flex-row items-center px-9">
       {!isInfo && (
         <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
-          <CardTitle sectionId={sectionId} />
+          <CardTitle sectionId={sectionId} isActiveSection={isActiveSection} />
           <SaveButton sectionId={sectionId} />
         </div>
       )}
@@ -50,11 +51,13 @@ function _SectionHeader({
   );
 }
 
-function CardTitle({ sectionId }) {
+function CardTitle({ sectionId, isActiveSection }) {
   const titleProps = {
     editing:
-      "cursor-text nodrag h-6 font-heading font-bold px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full  ",
-    notEditing: "font-heading cursor-pointer font-bold max-w-full truncate",
+      "cursor-text nodrag h-6 font-heading font-semibold px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full",
+    notEditing: `transition-colors font-heading cursor-pointer font-semibold max-w-full truncate ${
+      isActiveSection ? "text-blue-800" : "text-slate-700"
+    }`,
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

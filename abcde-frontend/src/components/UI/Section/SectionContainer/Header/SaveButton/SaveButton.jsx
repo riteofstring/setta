@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiSave } from "react-icons/fi";
+import { BiSave } from "react-icons/bi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
@@ -11,7 +11,7 @@ export function SaveButton({ sectionId }) {
   return (
     <SectionSaveModal sectionId={sectionId} type={type}>
       <StandardDropdown
-        trigger={<IconButton color="text-slate-400" icon={<FiSave />} />}
+        trigger={<IconButton color="text-slate-400" icon={<BiSave />} />}
         content={
           <DialogDropdownTriggerItem
             onClick={() => setType("Custom Arguments")}
