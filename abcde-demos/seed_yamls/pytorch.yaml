@@ -1,3 +1,5 @@
+- torch.nn.CrossEntropyLoss
+- torch.nn.NLLLoss
 - torch.utils.data.DataLoader
 - torchvision.models.ResNet
 - torchvision.datasets.Caltech101
