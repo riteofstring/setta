@@ -18,7 +18,6 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
       allItems={groupedAsList}
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
-      position="absolute"
     />
   );
 }

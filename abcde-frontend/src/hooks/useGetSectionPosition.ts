@@ -1,4 +1,3 @@
-import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { useReactFlow, useStoreApi } from "react-flow-renderer";
@@ -14,7 +13,6 @@ export function relativePos(sectionId) {
 export function useGoToSection(sectionId: string) {
   const { project, setCenter } = useReactFlow();
   const store = useStoreApi(); // height and width of the react flow container
-  const setActiveSection = useActiveSection((x) => x.setId);
 
   return () => {
     const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
@@ -27,6 +25,5 @@ export function useGoToSection(sectionId: string) {
       zoom: 1,
       duration: 100,
     });
-    setActiveSection(sectionId);
   };
 }
