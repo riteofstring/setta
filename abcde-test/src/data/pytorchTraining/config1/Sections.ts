@@ -380,8 +380,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "18de3a3c-7f5a-4c0a-aada-2a50d1824d79",
     initialPosition: {
-      x: 1638.594793419988,
-      y: 1091.2137069606408,
+      x: 1610.594793419988,
+      y: 1057.2137069606408,
     },
     size: {
       width: "auto",
@@ -395,8 +395,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9a43154a-7c97-43c1-9f37-741b02ac392b",
     initialPosition: {
-      x: 1699.3121097891162,
-      y: 1421.6002371801546,
+      x: 1718.3121097891164,
+      y: 1334.6002371801546,
     },
     size: {
       width: "auto",
