@@ -1,7 +1,7 @@
 import {
-  ATTRIBUTE,
   DICT,
   DICT_ROOT,
+  FN,
   INFO,
   LIST_ROOT,
   OUTPUT,
@@ -48,7 +48,7 @@ export const uiTypesToPretty = Object.freeze(
       [REF]: "Reference to Object",
       [INFO]: "Info",
       [SOCIAL]: "Social",
-      [ATTRIBUTE]: "Attribute",
+      [FN]: "Function",
     })
   )
 );

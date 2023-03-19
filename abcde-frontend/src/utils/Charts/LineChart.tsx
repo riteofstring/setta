@@ -1,7 +1,6 @@
 import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { Line } from "@visx/shape";
 import { TooltipWithBounds } from "@visx/tooltip";
-import { updateOutput } from "thunks/outputs";
 import { getTooltipText } from "./getTooltipText";
 import { LineAndPointsCore } from "./LineAndPointsCore";
 import { useColorScale } from "./useColorScale";
