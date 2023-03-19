@@ -1,7 +1,8 @@
 const project = require("./NewProject.json");
+const codeInfo = require("./NewCodeInfo.json");
 const fs = require("fs");
 
-for (const data of [project]) {
+for (const data of [project, codeInfo]) {
   for (const [k, v] of Object.entries(data)) {
     let filename = "";
     if (k === "ev") {
