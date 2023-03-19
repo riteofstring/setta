@@ -11,6 +11,7 @@ export type CodeInfoType = {
   inCodeParentId: string | null;
   path: string;
   children: string[];
+  returnTypeId: string | null;
 };
 
 export enum RCType {
@@ -27,10 +28,6 @@ export type ManyParamCollectionsType = ManyOf<CodeInfoType[]>;
 
 export type CodeInfoStateType = {
   allCodeInfo: ManyCodeInfoType;
-  allCollections: ManyCollectionsType;
-  callables: ManyCallablesType;
-  params: ManyParamsType;
-  paramCollections: ManyParamCollectionsType;
 };
 
 export type CodeInfoActionTypes = {
