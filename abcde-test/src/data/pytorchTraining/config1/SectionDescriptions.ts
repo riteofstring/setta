@@ -159,4 +159,10 @@ export default {
     height: 100,
     visible: false,
   },
+  "555378f4-7fd8-4288-a456-d9d00baed5f4": {
+    value:
+      "# Training a Machine Learning Model with Runcoder + PyTorch\n\n\n## Steps\n\n1. Configure the training run using this UI.\n2. Click Generate. The generated command should look something like:\n```\nruncoder run 7fcb602c-d078-4c42-b8b2-a94abf33a2c5\n```\n3. Paste into your command line and run.\n\n",
+    height: 100,
+    visible: false,
+  },
 };

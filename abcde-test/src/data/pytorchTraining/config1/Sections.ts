@@ -464,4 +464,19 @@ export default {
     },
     chainedFrom: null,
   },
+  "7af597f1-f9e2-4988-8b73-70c147c4b769": {
+    id: "7af597f1-f9e2-4988-8b73-70c147c4b769",
+    name: "New Section",
+    paramInfoId: null,
+    sectionChildrenId: "854d9ab8-0128-43fe-9f0e-9e265e06bf05",
+    initialPosition: {
+      x: -1255.512816443023,
+      y: 153.58483523805444,
+    },
+    size: {
+      width: 677,
+      height: 485,
+    },
+    chainedFrom: null,
+  },
 };
