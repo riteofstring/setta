@@ -374,4 +374,19 @@ export default {
     },
     chainedFrom: null,
   },
+  "915d5594-d78e-4b96-ad91-6003462fa969": {
+    id: "915d5594-d78e-4b96-ad91-6003462fa969",
+    name: "Loss Fn",
+    paramInfoId: null,
+    sectionChildrenId: "18de3a3c-7f5a-4c0a-aada-2a50d1824d79",
+    initialPosition: {
+      x: 1638.594793419988,
+      y: 1091.2137069606408,
+    },
+    size: {
+      width: "auto",
+      height: 190,
+    },
+    chainedFrom: null,
+  },
 };

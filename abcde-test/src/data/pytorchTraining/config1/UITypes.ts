@@ -178,4 +178,23 @@ export default {
     },
     isForChildOfOriginInfoId: false,
   },
+  "7241905d-c8b9-4f77-a360-cdd3b5e8e8d6": {
+    id: "7241905d-c8b9-4f77-a360-cdd3b5e8e8d6",
+    type: "SECTION",
+    name: "Loss Fn",
+    presetType: null,
+    config: {
+      collections: ["53c34f44-2c9a-4cd4-9e7a-904360ad210b"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {
+      sectionId: "915d5594-d78e-4b96-ad91-6003462fa969",
+      uiTypeColId: null,
+      paramInfoId: null,
+    },
+    isForChildOfOriginInfoId: false,
+  },
 };
