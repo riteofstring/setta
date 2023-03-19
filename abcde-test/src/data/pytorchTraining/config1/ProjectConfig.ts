@@ -11,6 +11,7 @@ export default {
     "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa",
     "915d5594-d78e-4b96-ad91-6003462fa969",
     "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
+    "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
   ],
   isDefault: true,
 };

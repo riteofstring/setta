@@ -434,4 +434,19 @@ export default {
     },
     chainedFrom: null,
   },
+  "73c7f2c5-1c05-49ee-9812-2fbd27a849c3": {
+    id: "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    name: "LR Scheduler",
+    paramInfoId: null,
+    sectionChildrenId: "15828e95-708d-4122-b353-517f458b90b6",
+    initialPosition: {
+      x: -1005.1975337924653,
+      y: 1084.978612630031,
+    },
+    size: {
+      width: "auto",
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
 };
