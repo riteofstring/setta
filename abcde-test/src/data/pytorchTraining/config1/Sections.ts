@@ -354,8 +354,8 @@ export default {
       y: 416.5895257111966,
     },
     size: {
-      width: 599,
-      height: 482,
+      width: 609,
+      height: "auto",
     },
     chainedFrom: null,
   },
