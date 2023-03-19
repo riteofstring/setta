@@ -12,6 +12,7 @@ export function newCodeInfo({
   inCodeParentId = null,
   path = "",
   children = [],
+  returnTypeId = null,
 }: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
   return {
     id: maybeNewId(id),
@@ -24,5 +25,6 @@ export function newCodeInfo({
     inCodeParentId,
     path,
     children,
+    returnTypeId,
   };
 }
