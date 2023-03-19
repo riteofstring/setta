@@ -313,4 +313,5 @@ export default {
     "46bd70f9-f448-447e-94ff-ca760d9de8d6":
       "3fdaeb6a-e989-4888-b844-17a76f0b0192",
   },
+  "b1ac6f64-ee9f-4b11-813f-58624d36fa9e": {},
 };

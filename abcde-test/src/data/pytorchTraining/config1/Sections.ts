@@ -301,12 +301,12 @@ export default {
   },
   "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
     id: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
-    name: "Model + Optimizer",
+    name: "Model + Loss",
     paramInfoId: null,
     sectionChildrenId: "33e516af-dfe2-4891-a511-29ebd754b30e",
     initialPosition: {
-      x: -535.0190832651891,
-      y: 59.9391174669141,
+      x: -515.0190832651891,
+      y: 75.9391174669141,
     },
     size: {
       width: "auto",
@@ -350,8 +350,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "fd74d8cf-4c7a-48cb-983d-e84bb1194faf",
     initialPosition: {
-      x: 1743.465636738646,
-      y: 416.5895257111966,
+      x: 1668.465636738646,
+      y: 78.58952571119659,
     },
     size: {
       width: 609,
@@ -365,8 +365,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "227edf00-28cb-4616-b5a2-af75ed28e7ab",
     initialPosition: {
-      x: 1680.992643460439,
-      y: 2.67494262214711,
+      x: 1660.992643460439,
+      y: 909.6749426221472,
     },
     size: {
       width: "auto",
@@ -384,7 +384,7 @@ export default {
       y: 1057.213706960641,
     },
     size: {
-      width: "auto",
+      width: 450,
       height: 190,
     },
     chainedFrom: null,
@@ -395,8 +395,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9a43154a-7c97-43c1-9f37-741b02ac392b",
     initialPosition: {
-      x: 1718.312109789116,
-      y: 1334.600237180155,
+      x: 1656.312109789116,
+      y: 1260.600237180155,
     },
     size: {
       width: "auto",
@@ -442,6 +442,21 @@ export default {
     initialPosition: {
       x: -1005.1975337924653,
       y: 1084.978612630031,
+    },
+    size: {
+      width: 450,
+      height: "auto",
+    },
+    chainedFrom: null,
+  },
+  "8f6b5dd4-ba63-4259-af49-77ea52c4ea99": {
+    id: "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
+    name: "Optimizer + LR Scheduler",
+    paramInfoId: null,
+    sectionChildrenId: "8ef7e264-652d-44e2-b409-49d9518c33cd",
+    initialPosition: {
+      x: -523.9213312766315,
+      y: 907.923666790208,
     },
     size: {
       width: "auto",
