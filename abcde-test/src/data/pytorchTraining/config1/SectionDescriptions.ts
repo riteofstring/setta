@@ -115,8 +115,9 @@ export default {
     visible: false,
   },
   "0a24b9d0-817b-4d14-9e01-e33426b4cb7e": {
-    value: "",
-    height: 100,
+    value:
+      "## Argument descriptions\n\n| Argument | Description |\n| --- | --- |\nmodel | Predicts the class of each image\noptimizer | Updates the model's parameters\nlr_scheduler | Updates the optimizer's learning rate\nloss_fn | Tells the model how it's doing\nmetrics | A list of functions used for evaluating the model\ntrain_dataloader | Returns images from the training dataset\nval_dataloader | Returns images from the validation dataset\nlogger | Logs experiment data so that it can be viewed later\nepochs | Number of passes through the training dataset\nval_interval | How frequently the model should be evaluated\nlog_interval | How frequently experiment data should be logged",
+    height: 620,
     visible: false,
   },
   "eaa438d1-3b39-4b6c-aa29-c507395cad57": {

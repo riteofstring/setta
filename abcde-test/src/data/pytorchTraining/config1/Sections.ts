@@ -350,8 +350,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "fd74d8cf-4c7a-48cb-983d-e84bb1194faf",
     initialPosition: {
-      x: 1668.465636738646,
-      y: 78.58952571119659,
+      x: 2202.465636738646,
+      y: 583.5895257111965,
     },
     size: {
       width: 609,
@@ -365,8 +365,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "227edf00-28cb-4616-b5a2-af75ed28e7ab",
     initialPosition: {
-      x: 1660.992643460439,
-      y: 909.6749426221472,
+      x: 1630.992643460439,
+      y: 142.67494262214723,
     },
     size: {
       width: "auto",
@@ -395,8 +395,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "9a43154a-7c97-43c1-9f37-741b02ac392b",
     initialPosition: {
-      x: 1656.312109789116,
-      y: 1260.600237180155,
+      x: 1637.312109789116,
+      y: 570.6002371801551,
     },
     size: {
       width: "auto",
@@ -470,8 +470,8 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "854d9ab8-0128-43fe-9f0e-9e265e06bf05",
     initialPosition: {
-      x: -1255.512816443023,
-      y: 153.58483523805444,
+      x: 2160.487183556977,
+      y: 28.58483523805444,
     },
     size: {
       width: 677,
