@@ -28,10 +28,6 @@ export type ManyParamCollectionsType = ManyOf<CodeInfoType[]>;
 
 export type CodeInfoStateType = {
   allCodeInfo: ManyCodeInfoType;
-  allCollections: ManyCollectionsType;
-  callables: ManyCallablesType;
-  params: ManyParamsType;
-  paramCollections: ManyParamCollectionsType;
 };
 
 export type CodeInfoActionTypes = {
