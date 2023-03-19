@@ -1,12 +1,36 @@
+from collections import defaultdict
+
+import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+
+
+@torch.no_grad()
+def train_loop_log(model, optimizer, loss, to_log, logger, log_interval, i):
+    to_log["Training losses"]["loss"].append(loss.item())
+    for (name, p) in model.named_parameters():
+        if "weight" in name and "0.conv1" in name:
+            lr = optimizer.param_groups[0]["lr"]
+            to_log["Gradient ratios"][name].append(
+                ((lr * p.grad).std() / p.data.std()).log10().item()
+            )
+
+    if i % log_interval == 0:
+        for log_group_name, log_group in to_log.items():
+            for series_name, series in log_group.items():
+                logger.log(log_group_name, series_name, np.mean(series))
+            to_log[log_group_name] = defaultdict(list)
 
 
 def train_loop(
     model, optimizer, loss_fn, train_dataloader, logger, log_interval, device
 ):
     model.train()
+    to_log = {
+        "Training losses": defaultdict(list),
+        "Gradient ratios": defaultdict(list),
+    }
     for i, (imgs, labels) in enumerate(tqdm(train_dataloader)):
         imgs, labels = imgs.to(device), labels.to(device)
         logits = model(imgs)
@@ -15,8 +39,7 @@ def train_loop(
         loss.backward()
         optimizer.step()
 
-        if i % log_interval == 0:
-            logger.log("Training", "loss", loss.item())
+        train_loop_log(model, optimizer, loss, to_log, logger, log_interval, i)
 
 
 @torch.no_grad()
@@ -61,8 +84,8 @@ def train(
     model.to(device)
     metrics = [metric.to(device) for metric in metrics]
 
-    print(f"Evaluating pretrained model")
-    eval_loop(model, val_dataloader, logger, metrics, device)
+    # print(f"Evaluating pretrained model")
+    # eval_loop(model, val_dataloader, logger, metrics, device)
 
     for e in range(epochs):
         print(f"Training epoch {e}")
