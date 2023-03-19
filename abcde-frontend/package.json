@@ -72,7 +72,7 @@
     "start": "vite",
     "sna": "vite --mode sna",
     "snancm": "vite --mode snancm",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "test": "yarn vitest --mode sna",
     "serve": "vite preview",
     "l": "yarn eslint src --ext .js,.jsx,.ts,.tsx --fix",

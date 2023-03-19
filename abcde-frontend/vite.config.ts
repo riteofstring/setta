@@ -24,5 +24,8 @@ export default defineConfig({
       allow: [searchForWorkspaceRoot(process.cwd()), "../abcde-test"],
     },
   },
+  preview: {
+    port: 3000,
+  },
   test: vitestConfig.test,
 });
