@@ -7,11 +7,11 @@ from tqdm import tqdm
 
 
 @torch.no_grad()
-def train_loop_log(model, optimizer, loss, to_log, logger, log_interval, i):
+def train_loop_log(model, lr, loss, to_log, logger, log_interval, i):
     to_log["Training losses"]["loss"].append(loss.item())
+    to_log["Learning rates"]["lr"].append(lr)
     for (name, p) in model.named_parameters():
         if "weight" in name and "0.conv1" in name:
-            lr = optimizer.param_groups[0]["lr"]
             to_log["Gradient ratios"][name].append(
                 ((lr * p.grad).std() / p.data.std()).log10().item()
             )
@@ -24,11 +24,19 @@ def train_loop_log(model, optimizer, loss, to_log, logger, log_interval, i):
 
 
 def train_loop(
-    model, optimizer, loss_fn, train_dataloader, logger, log_interval, device
+    model,
+    optimizer,
+    lr_scheduler,
+    loss_fn,
+    train_dataloader,
+    logger,
+    log_interval,
+    device,
 ):
     model.train()
     to_log = {
         "Training losses": defaultdict(list),
+        "Learning rates": defaultdict(list),
         "Gradient ratios": defaultdict(list),
     }
     for i, (imgs, labels) in enumerate(tqdm(train_dataloader)):
@@ -38,8 +46,10 @@ def train_loop(
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        train_loop_log(model, optimizer, loss, to_log, logger, log_interval, i)
+        train_loop_log(
+            model, lr_scheduler.get_last_lr()[0], loss, to_log, logger, log_interval, i
+        )
+        lr_scheduler.step()
 
 
 @torch.no_grad()
@@ -70,6 +80,7 @@ def eval_loop(model, val_dataloader, logger, metrics, device):
 def train(
     model,
     optimizer,
+    lr_scheduler,
     loss_fn,
     metrics,
     train_dataloader,
@@ -90,7 +101,14 @@ def train(
     for e in range(epochs):
         print(f"Training epoch {e}")
         train_loop(
-            model, optimizer, loss_fn, train_dataloader, logger, log_interval, device
+            model,
+            optimizer,
+            lr_scheduler,
+            loss_fn,
+            train_dataloader,
+            logger,
+            log_interval,
+            device,
         )
 
         if e % val_interval == 0:

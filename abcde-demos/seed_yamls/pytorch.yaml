@@ -1,6 +1,13 @@
 - torch.nn.CrossEntropyLoss
 - torch.nn.NLLLoss
 - torch.utils.data.DataLoader
+- torch.optim.lr_scheduler.LinearLR
+- torch.optim.lr_scheduler.ExponentialLR
+- torch.optim.lr_scheduler.PolynomialLR
+- torch.optim.lr_scheduler.CosineAnnealingLR
+- torch.optim.lr_scheduler.CyclicLR
+- torch.optim.lr_scheduler.OneCycleLR
+- torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
 - torchvision.models.ResNet
 - torchvision.datasets.Caltech101
 - torchvision.datasets.Caltech256
