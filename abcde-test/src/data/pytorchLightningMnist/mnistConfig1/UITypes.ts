@@ -46,7 +46,7 @@ export default {
     config: {
       subType: null,
       childUITypeId: null,
-      collections: ["978f9dd3-f675-47f1-b37a-bae12d45c194"],
+      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
       outputGroup: null,
       social: null,
     },
@@ -110,7 +110,7 @@ export default {
     originInfoId: {
       sectionId: null,
       uiTypeColId: "0d7cb175-dd61-4806-8f4f-b9b25f1d9bde",
-      paramInfoId: "014763c4-c1c2-4712-b72e-6c2425435007",
+      paramInfoId: "0533e630-8444-4ea5-a703-2a89fec6449e",
     },
   },
   "e44ede4f-9ff4-4208-8612-79226ee0f2fa": {

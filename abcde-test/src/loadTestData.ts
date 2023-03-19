@@ -8,6 +8,7 @@ const PROJECT_NAMES: projectNamesType = {
     "appleOrchardFarm",
     "diffusionDrops",
     "pytorchLightningMnist",
+    "pytorchTraining",
   ],
   inMem: [],
 };
@@ -16,6 +17,7 @@ const PROJECT_CONFIG_NAMES = {
   appleOrchardFarm: ["appleConfig1"],
   diffusionDrops: ["diffusionConfig1", "diffusionConfig2"],
   pytorchLightningMnist: ["mnistConfig1"],
+  pytorchTraining: ["config1"],
 };
 const IN_MEM_PROJECTS = {};
 const IN_MEM_PROJECT_CONFIGS = {};
@@ -36,11 +38,6 @@ export async function loadProjectSpecificData({
 }) {
   const output = {};
   for (const k of [
-    "allCodeInfo",
-    "allCollections",
-    "callables",
-    "params",
-    "paramCollections",
     "ev",
     "evCols",
     "kwargCols",
@@ -87,13 +84,10 @@ export async function loadOneProject({
     loaded,
     await loadProjectSpecificData({ projectName, subFolderName })
   );
+  loaded["allCodeInfo"] = await loadGlobalCodeInfo();
 
   const {
     allCodeInfo,
-    allCollections,
-    callables,
-    params,
-    paramCollections,
     kwargInfo,
     uiTypes,
     baseUITypes,
@@ -113,7 +107,6 @@ export async function loadOneProject({
   } else if (forCodeGen) {
     const codeInfo = {
       allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      paramCollections,
     };
     return {
       codeInfo,
@@ -125,10 +118,6 @@ export async function loadOneProject({
     // This means we're testing the frontend, so we need everything
     const codeInfo = {
       allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-      allCollections,
-      callables,
-      params,
-      paramCollections,
     };
     return {
       codeInfo,
@@ -160,7 +149,14 @@ export async function loadSpecificTestData({
 
 export async function loadGlobalCodeInfo() {
   const output: any = {};
-  for (const k of ["pytorch", "pytorchLightning", "pytorchLightningMnist"]) {
+  for (const k of [
+    "pytorch",
+    "pytorchLightning",
+    "pytorchLightningMnist",
+    "pytorchTraining",
+    "runcoder",
+    "torchmetrics",
+  ]) {
     Object.assign(
       output,
       await loadSpecificTestData({ name: k, projectName: "_codeInfo" })

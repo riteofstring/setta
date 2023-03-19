@@ -71,7 +71,7 @@ def main():
         write_ts_file(new_contents, filepath)
 
 
-    for filename in ["AllCodeInfo", "AllCollections", "Callables", "ParamCollections", "Params"]:
+    for filename in ["AllCodeInfo"]:
         matches = glob.glob(f"src/data/**/**/{filename}.ts")
         for f in matches:
             new_contents = remove_args_kwargs(read_ts_file(f))
