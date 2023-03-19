@@ -14,7 +14,7 @@ export default {
       "5c27250d-86ae-4377-bb12-85c63b190da6",
       "f34a093a-bfc6-4454-aa95-d39a6f316a1a",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5": {
     id: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
@@ -79,7 +79,7 @@ export default {
       "ee8f4df7-4110-4179-952f-c24913cf30b8",
       "2150b463-68c4-4414-8c1a-fc0ca86334d1",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "7c7d85b4-5722-4456-8b57-c7cc940de9de": {
     id: "7c7d85b4-5722-4456-8b57-c7cc940de9de",
@@ -92,7 +92,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.logger",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "43b21b20-5bb3-4832-994d-369cdfa3faec": {
     id: "43b21b20-5bb3-4832-994d-369cdfa3faec",
@@ -105,7 +105,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.enable_checkpointing",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a1cb772a-1015-473a-9a99-e627a2df2c21": {
     id: "a1cb772a-1015-473a-9a99-e627a2df2c21",
@@ -118,7 +118,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.callbacks",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "16ce7a73-9e24-4a7e-9650-f8ff79168d31": {
     id: "16ce7a73-9e24-4a7e-9650-f8ff79168d31",
@@ -131,7 +131,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.default_root_dir",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f28b8d6b-b832-4b0c-a769-0e95b14c3650": {
     id: "f28b8d6b-b832-4b0c-a769-0e95b14c3650",
@@ -144,7 +144,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.gradient_clip_val",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "57bf52f8-c701-4390-8fa2-f1c1b53ecb06": {
     id: "57bf52f8-c701-4390-8fa2-f1c1b53ecb06",
@@ -157,7 +157,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.gradient_clip_algorithm",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "13ee0f89-3e20-4db2-9eed-2ae6fa4b8db6": {
     id: "13ee0f89-3e20-4db2-9eed-2ae6fa4b8db6",
@@ -170,7 +170,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.num_nodes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d388c7fa-1f25-4c4e-8b15-2b8088da4a9f": {
     id: "d388c7fa-1f25-4c4e-8b15-2b8088da4a9f",
@@ -183,7 +183,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.num_processes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "64597900-0744-4f0f-a356-80d71493a487": {
     id: "64597900-0744-4f0f-a356-80d71493a487",
@@ -196,7 +196,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.devices",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c05bce28-188d-4ba5-9d7a-0d640058c3d9": {
     id: "c05bce28-188d-4ba5-9d7a-0d640058c3d9",
@@ -209,7 +209,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.gpus",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "4b320a96-e95f-4981-a741-8846854ca068": {
     id: "4b320a96-e95f-4981-a741-8846854ca068",
@@ -222,7 +222,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.auto_select_gpus",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3f522edc-11b2-48da-829d-496c3dc493b9": {
     id: "3f522edc-11b2-48da-829d-496c3dc493b9",
@@ -235,7 +235,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.tpu_cores",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "dbf23adc-ae5f-4990-bc89-43bb7a776b39": {
     id: "dbf23adc-ae5f-4990-bc89-43bb7a776b39",
@@ -248,7 +248,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.ipus",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "244d3b9c-0671-43f8-9ba3-5d6ff263dee9": {
     id: "244d3b9c-0671-43f8-9ba3-5d6ff263dee9",
@@ -261,7 +261,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.enable_progress_bar",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b267e7b8-16fa-4f8e-9f23-9f7186a7e109": {
     id: "b267e7b8-16fa-4f8e-9f23-9f7186a7e109",
@@ -274,7 +274,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.overfit_batches",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "04d715d2-0392-47b3-a62c-2b310f18acc2": {
     id: "04d715d2-0392-47b3-a62c-2b310f18acc2",
@@ -287,7 +287,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.track_grad_norm",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "749db362-03c2-4f50-94d2-9e75bfc7e17c": {
     id: "749db362-03c2-4f50-94d2-9e75bfc7e17c",
@@ -300,7 +300,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.check_val_every_n_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8cbf0edd-3e12-4acd-9620-91287a16597f": {
     id: "8cbf0edd-3e12-4acd-9620-91287a16597f",
@@ -313,7 +313,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.fast_dev_run",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "01146b39-cb40-46d2-8540-65f419b0fc56": {
     id: "01146b39-cb40-46d2-8540-65f419b0fc56",
@@ -326,7 +326,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.accumulate_grad_batches",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ba68d2b8-4dd2-4503-aec6-e3591b57fa02": {
     id: "ba68d2b8-4dd2-4503-aec6-e3591b57fa02",
@@ -339,7 +339,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.max_epochs",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6c7614e2-a5f8-4488-90da-7e4e24cc1504": {
     id: "6c7614e2-a5f8-4488-90da-7e4e24cc1504",
@@ -352,7 +352,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.min_epochs",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "19e0614b-61a0-46c8-81ff-43b3c3eb685f": {
     id: "19e0614b-61a0-46c8-81ff-43b3c3eb685f",
@@ -365,7 +365,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.max_steps",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "81f3b764-8c63-4729-9fd3-97658e6b8aae": {
     id: "81f3b764-8c63-4729-9fd3-97658e6b8aae",
@@ -378,7 +378,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.min_steps",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "9cca038c-1b96-459c-8a46-80b5cb2966f9": {
     id: "9cca038c-1b96-459c-8a46-80b5cb2966f9",
@@ -391,7 +391,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.max_time",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "956f2c30-8264-4f2d-955b-ae25a2752665": {
     id: "956f2c30-8264-4f2d-955b-ae25a2752665",
@@ -404,7 +404,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.limit_train_batches",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6eea722a-c6f4-47ee-abd2-09fff997ff77": {
     id: "6eea722a-c6f4-47ee-abd2-09fff997ff77",
@@ -417,7 +417,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.limit_val_batches",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d0b9c313-e2b3-4ff6-b62c-114305e306fc": {
     id: "d0b9c313-e2b3-4ff6-b62c-114305e306fc",
@@ -430,7 +430,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.limit_test_batches",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b6addae7-12ec-4d2d-97ca-8e8eca8f268a": {
     id: "b6addae7-12ec-4d2d-97ca-8e8eca8f268a",
@@ -443,7 +443,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.limit_predict_batches",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6ec093cc-c85c-4e23-9d30-1a5b75f39a25": {
     id: "6ec093cc-c85c-4e23-9d30-1a5b75f39a25",
@@ -456,7 +456,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.val_check_interval",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f60dd9f1-597d-4bde-ab22-dd2eeb56014f": {
     id: "f60dd9f1-597d-4bde-ab22-dd2eeb56014f",
@@ -469,7 +469,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.log_every_n_steps",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "acf4bd77-311e-4e1e-a417-51f254e38241": {
     id: "acf4bd77-311e-4e1e-a417-51f254e38241",
@@ -482,7 +482,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.accelerator",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d78b1f4a-4439-41a7-af1b-7c76cb1f4195": {
     id: "d78b1f4a-4439-41a7-af1b-7c76cb1f4195",
@@ -495,7 +495,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.strategy",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "221efa9b-d432-4d82-ae91-da95e562534a": {
     id: "221efa9b-d432-4d82-ae91-da95e562534a",
@@ -508,7 +508,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.sync_batchnorm",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8a4bf600-3236-4dfd-9f07-f65c42fc0795": {
     id: "8a4bf600-3236-4dfd-9f07-f65c42fc0795",
@@ -521,7 +521,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.precision",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8d991557-9ca7-45eb-9005-30c291037ccc": {
     id: "8d991557-9ca7-45eb-9005-30c291037ccc",
@@ -534,7 +534,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.enable_model_summary",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c6d6a43a-ad7d-48a5-857e-0d6a9d1d1d0e": {
     id: "c6d6a43a-ad7d-48a5-857e-0d6a9d1d1d0e",
@@ -547,7 +547,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.num_sanity_val_steps",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "158af096-d43c-4a98-88e8-21568fd01b69": {
     id: "158af096-d43c-4a98-88e8-21568fd01b69",
@@ -560,7 +560,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.resume_from_checkpoint",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "55cd1580-1586-4d5a-b1e4-edeb1b98dad5": {
     id: "55cd1580-1586-4d5a-b1e4-edeb1b98dad5",
@@ -573,7 +573,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.profiler",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c45a41ef-82a1-4848-965c-0f91bc809fce": {
     id: "c45a41ef-82a1-4848-965c-0f91bc809fce",
@@ -586,7 +586,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.benchmark",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "55de349f-ac58-476e-a5ba-7fa04bf84e63": {
     id: "55de349f-ac58-476e-a5ba-7fa04bf84e63",
@@ -599,7 +599,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.deterministic",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "359065bf-1a38-4932-b700-ba3ea86f436a": {
     id: "359065bf-1a38-4932-b700-ba3ea86f436a",
@@ -612,7 +612,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.reload_dataloaders_every_n_epochs",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "746382be-6309-43b6-bc65-91feaa7e012f": {
     id: "746382be-6309-43b6-bc65-91feaa7e012f",
@@ -625,7 +625,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.auto_lr_find",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3b50fa37-2e2c-45ff-8bd6-edf1c2b8ce9f": {
     id: "3b50fa37-2e2c-45ff-8bd6-edf1c2b8ce9f",
@@ -638,7 +638,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.replace_sampler_ddp",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "37211f46-0b08-4e0f-b970-d0f50cb6751c": {
     id: "37211f46-0b08-4e0f-b970-d0f50cb6751c",
@@ -651,7 +651,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.detect_anomaly",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "94f4bd05-f7bb-4318-a46c-c49daec8549e": {
     id: "94f4bd05-f7bb-4318-a46c-c49daec8549e",
@@ -664,7 +664,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.auto_scale_batch_size",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b6d210a6-2742-48b6-8973-fd7c0ec1bdea": {
     id: "b6d210a6-2742-48b6-8973-fd7c0ec1bdea",
@@ -677,7 +677,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.plugins",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f06b1831-1270-455a-918d-cf934332730c": {
     id: "f06b1831-1270-455a-918d-cf934332730c",
@@ -690,7 +690,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.amp_backend",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c49b0361-d0eb-4483-8ffa-466440ff88df": {
     id: "c49b0361-d0eb-4483-8ffa-466440ff88df",
@@ -703,7 +703,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.amp_level",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "16a5f770-1105-403e-ab3a-64b24c4af053": {
     id: "16a5f770-1105-403e-ab3a-64b24c4af053",
@@ -716,7 +716,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.move_metrics_to_cpu",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ee8f4df7-4110-4179-952f-c24913cf30b8": {
     id: "ee8f4df7-4110-4179-952f-c24913cf30b8",
@@ -729,7 +729,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.multiple_trainloader_mode",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2150b463-68c4-4414-8c1a-fc0ca86334d1": {
     id: "2150b463-68c4-4414-8c1a-fc0ca86334d1",
@@ -742,7 +742,7 @@ export default {
     inCodeParentId: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
     path: "pytorch_lightning.Trainer.inference_mode",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5c27250d-86ae-4377-bb12-85c63b190da6": {
     id: "5c27250d-86ae-4377-bb12-85c63b190da6",
@@ -755,7 +755,7 @@ export default {
     inCodeParentId: "f281d845-2c30-45a8-bf6c-a18ef11597b2",
     path: "pytorch_lightning.callbacks",
     children: ["66f5a9fd-d136-4cfa-af2d-122af47be289"],
-    returnType: null,
+    returnTypeId: null,
   },
   "66f5a9fd-d136-4cfa-af2d-122af47be289": {
     id: "66f5a9fd-d136-4cfa-af2d-122af47be289",
@@ -768,7 +768,7 @@ export default {
     inCodeParentId: "5c27250d-86ae-4377-bb12-85c63b190da6",
     path: "pytorch_lightning.callbacks.progress",
     children: ["6b0ddead-f5a3-4f4c-93df-d50c1d23cb43"],
-    returnType: null,
+    returnTypeId: null,
   },
   "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43": {
     id: "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43",
@@ -784,7 +784,7 @@ export default {
       "84233378-407e-42a6-8f8d-54a1509eecb4",
       "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "84233378-407e-42a6-8f8d-54a1509eecb4": {
     id: "84233378-407e-42a6-8f8d-54a1509eecb4",
@@ -797,7 +797,7 @@ export default {
     inCodeParentId: "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43",
     path: "pytorch_lightning.callbacks.progress.TQDMProgressBar.refresh_rate",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5a4db7cc-b81a-44b6-8632-5da2e346b76a": {
     id: "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
@@ -810,7 +810,7 @@ export default {
     inCodeParentId: "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43",
     path: "pytorch_lightning.callbacks.progress.TQDMProgressBar.process_position",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f34a093a-bfc6-4454-aa95-d39a6f316a1a": {
     id: "f34a093a-bfc6-4454-aa95-d39a6f316a1a",
@@ -823,7 +823,7 @@ export default {
     inCodeParentId: "f281d845-2c30-45a8-bf6c-a18ef11597b2",
     path: "pytorch_lightning.loggers",
     children: ["ed3cff4f-ffc5-448b-95b4-6142fb9911cd"],
-    returnType: null,
+    returnTypeId: null,
   },
   "ed3cff4f-ffc5-448b-95b4-6142fb9911cd": {
     id: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
@@ -842,7 +842,7 @@ export default {
       "b945ed95-0774-45a9-8830-bc40c60a6e9f",
       "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "9e18c747-894c-479d-a9ad-8d51b7e278d8": {
     id: "9e18c747-894c-479d-a9ad-8d51b7e278d8",
@@ -855,7 +855,7 @@ export default {
     inCodeParentId: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
     path: "pytorch_lightning.loggers.CSVLogger.save_dir",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "56ee7285-2945-43ca-a67e-5713869fb357": {
     id: "56ee7285-2945-43ca-a67e-5713869fb357",
@@ -868,7 +868,7 @@ export default {
     inCodeParentId: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
     path: "pytorch_lightning.loggers.CSVLogger.name",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "7a19b646-d968-46fa-8e9c-33dfc76a075a": {
     id: "7a19b646-d968-46fa-8e9c-33dfc76a075a",
@@ -881,7 +881,7 @@ export default {
     inCodeParentId: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
     path: "pytorch_lightning.loggers.CSVLogger.version",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b945ed95-0774-45a9-8830-bc40c60a6e9f": {
     id: "b945ed95-0774-45a9-8830-bc40c60a6e9f",
@@ -894,7 +894,7 @@ export default {
     inCodeParentId: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
     path: "pytorch_lightning.loggers.CSVLogger.prefix",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "51978d1f-7766-4d97-bdaf-0e9d1143b3fa": {
     id: "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
@@ -907,6 +907,6 @@ export default {
     inCodeParentId: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
     path: "pytorch_lightning.loggers.CSVLogger.flush_logs_every_n_steps",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
 };

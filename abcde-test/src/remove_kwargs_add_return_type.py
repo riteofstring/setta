@@ -34,10 +34,10 @@ def update_children_parent(contents, all_code_info):
 def add_return_type(contents):
     for v in contents.values():
         if isinstance(v, dict):
-            v["returnType"] = None
+            v["returnTypeId"] = None
         elif isinstance(v, list):
             for x in v:
-                x["returnType"] = None
+                x["returnTypeId"] = None
     return contents
 
 
@@ -71,7 +71,7 @@ def main():
         write_ts_file(new_contents, filepath)
 
 
-    for filename in ["AllCodeInfo", "AllCollections", "Callables", "ParamCollections", "Params"]:
+    for filename in ["AllCodeInfo"]:
         matches = glob.glob(f"src/data/**/**/{filename}.ts")
         for f in matches:
             new_contents = remove_args_kwargs(read_ts_file(f))
