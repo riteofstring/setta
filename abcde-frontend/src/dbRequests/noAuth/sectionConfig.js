@@ -1,10 +1,9 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { getAllCollections } from "thunks/codeInfo/codeInfo";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 
 function searchCollectionsInMemory({ searchTerm }) {
-  const allCollections = getAllCollections();
+  const allCollections = useCodeInfo.getState().allCollections;
   if (!searchTerm) {
     return allCollections;
   }

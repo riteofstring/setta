@@ -1,6 +1,6 @@
 import {
+  ATTRIBUTE,
   DECK,
-  FN,
   INFO,
   isRoot,
   isSeriesElement,
@@ -71,6 +71,6 @@ export function useIsSocial(sectionId: string) {
   return useIsType(sectionId, SOCIAL);
 }
 
-export function useIsFn(sectionId: string) {
-  return useIsType(sectionId, FN);
+export function useIsAttribute(sectionId: string) {
+  return useIsType(sectionId, ATTRIBUTE);
 }

@@ -62,14 +62,6 @@ function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
   };
 }
 
-function getDefaultUIType({ mapState, paramInfos, paramId, uiTypesState }) {
-  const defaultUITypeId = _.defaultTo(
-    mapState.codeInfoMaps[paramId]?.uiTypeId,
-    mapState.codeInfoTypeMaps[paramInfos[paramId].type]?.uiTypeId
-  );
-  return uiTypesState.x[defaultUITypeId];
-}
-
 function initializeParamUIType(
   sectionId: string,
   paramInfos: ManyCodeInfoType
@@ -86,25 +78,19 @@ function initializeParamUIType(
   const newIds: ManyOf<string> = {};
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     if (!uiTypeId) {
-      const projectDefaultUIType = getDefaultUIType({
-        mapState: pCodeMaps,
-        paramInfos,
-        paramId,
-        uiTypesState,
-      });
+      // TODO: need to do both codeMap and codeTypeMap for both project config and user
+      const projectDefaultUITypeId = pCodeMaps.codeInfoMaps[paramId]?.uiTypeId;
+      const projectDefaultUIType = uiTypesState.x[projectDefaultUITypeId];
 
-      const userDefaultUIType = getDefaultUIType({
-        mapState: userCodeMaps,
-        paramInfos,
-        paramId,
-        uiTypesState,
-      });
+      const globalDefaultUITypeId =
+        userCodeMaps.codeInfoTypeMaps[paramInfos[paramId].type]?.uiTypeId;
+      const globalDefaultUIType = uiTypesState.x[globalDefaultUITypeId];
 
       let newId: string;
       if (projectDefaultUIType) {
         newId = projectDefaultUIType.id;
-      } else if (userDefaultUIType) {
-        newId = userDefaultUIType.id;
+      } else if (globalDefaultUIType) {
+        newId = globalDefaultUIType.id;
       } else {
         newId = DEFAULT_BASE_UI_TYPE_ID;
       }
