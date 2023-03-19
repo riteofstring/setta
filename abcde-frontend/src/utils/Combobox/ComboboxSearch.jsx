@@ -16,6 +16,7 @@ export function ComboboxSearch({
   matchSorterProps,
   small,
   onClick,
+  position,
 }) {
   const {
     sizeRef,
@@ -70,7 +71,12 @@ export function ComboboxSearch({
       />
 
       <div className="flex min-w-[150px] flex-col items-stretch">
-        <ComboboxList isOpen={isOpen} getMenuProps={getMenuProps} width={width}>
+        <ComboboxList
+          isOpen={isOpen}
+          getMenuProps={getMenuProps}
+          width={width}
+          position={position}
+        >
           <div className="m-3 max-h-full w-full overflow-x-hidden overflow-y-scroll">
             <ComboboxItems
               filteredItems={filteredItems}

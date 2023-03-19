@@ -4,11 +4,7 @@ import { ProjectSaveType } from "abcde-utils/src/types/projectSaveLoad";
 import { ManySectionCoreType } from "abcde-utils/src/types/section";
 import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
-import {
-  isBasePreset,
-  isPreset,
-  isUserPreset,
-} from "abcde-utils/src/uiTypeConstants";
+import { isBasePreset, isUserPreset } from "abcde-utils/src/uiTypeConstants";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
@@ -24,7 +20,6 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionConfigs } from "models/info/sectionConfigs";
-import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { xnor } from "utils/utils";
@@ -49,8 +44,6 @@ export function getProjectData(): ProjectSaveType {
       "paramInfoId",
       "sectionChildrenId",
       "initialPosition",
-      "size",
-      "chainedFrom",
     ])
   );
 
@@ -60,13 +53,12 @@ export function getProjectData(): ProjectSaveType {
     sectionInfosState.x,
     (v) => v.configId
   );
-  const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
     .exportForDb();
 
-  const output = {
+  return {
     project,
     projectConfig,
     ev,
@@ -79,12 +71,8 @@ export function getProjectData(): ProjectSaveType {
     sectionChildren,
     sectionConfigs,
     sectionConfigCol,
-    sectionDescriptions,
     projectConfigCodeInfoMaps,
   };
-  // console.log(output);
-
-  return output;
 }
 
 export function saveProject({ reactFlowStore }) {
@@ -162,7 +150,7 @@ function assembleKwargInfos(kwargCols: ManyKwargColType) {
 
 export function assembleUITypes(
   s: ManyUITypeType,
-  _isPreset: boolean
+  isBase: boolean
 ): ManyUITypeType {
-  return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
+  return _.pickBy(s, (v) => xnor(isBase, isBasePreset(v)));
 }

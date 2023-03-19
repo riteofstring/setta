@@ -10,14 +10,13 @@ export function ComboboxInput({
   small,
   onClick,
 }) {
-  const searchStyles =
-    "w-full outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm pl-10 focus-visible:ring-2";
-
   const toggleButtonProps = getToggleButtonProps({ onClick });
 
   return (
     <StandardSearch
-      inputStyles={`${searchStyles} + ${small ? "h-7" : "h-10"}`}
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm pl-10 focus-visible:ring-2 ${
+        small ? "h-7" : "h-10"
+      }`}
       leftElementStyles="pl-3"
       {...toggleButtonProps}
       {...getInputProps()}
@@ -32,15 +31,24 @@ export function ComboboxInput({
   );
 }
 
-export function ComboboxList({ isOpen, children, getMenuProps, width }) {
+export function ComboboxList({
+  isOpen,
+  children,
+  getMenuProps,
+  width,
+  position = "fixed",
+}) {
   const display = isOpen ? "flex" : "hidden";
+
   return (
-    <div
-      className={`nowheel nodrag ${display} fixed z-20 mt-2 max-h-96 flex-1 items-stretch !overflow-visible rounded-3xl bg-white shadow-xl`}
-      {...getMenuProps()}
-      style={{ width }}
-    >
-      {children}
+    <div className="relative">
+      <div
+        className={`nowheel nodrag ${display} ${position} z-20 mt-2 max-h-96 flex-1 items-stretch !overflow-visible rounded-3xl bg-white shadow-xl`}
+        {...getMenuProps()}
+        style={{ width }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
