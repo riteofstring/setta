@@ -51,7 +51,7 @@ export default {
   },
   "9b2904a9-595c-4dbf-b2c5-674980cd7e69": {
     id: "9b2904a9-595c-4dbf-b2c5-674980cd7e69",
-    value: '"."',
+    value: '"C:/Users/Kevin/MachineLearningDatasets"',
     childId: null,
   },
   "a349d8c9-7e3e-482a-9947-f453b34c11bc": {
@@ -166,7 +166,7 @@ export default {
   },
   "0a9f160f-e540-465d-9ec0-bf3644e1cb9e": {
     id: "0a9f160f-e540-465d-9ec0-bf3644e1cb9e",
-    value: '"."',
+    value: '"C:/Users/Kevin/MachineLearningDatasets"',
     childId: null,
   },
   "7908a231-8c3d-463c-8bba-9b84502aefd3": {

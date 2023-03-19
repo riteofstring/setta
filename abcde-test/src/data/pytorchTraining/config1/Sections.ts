@@ -54,8 +54,8 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
-      height: 397,
+      width: 590,
+      height: 396,
     },
     chainedFrom: null,
   },
@@ -69,7 +69,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: 550,
     },
     chainedFrom: null,
@@ -84,8 +84,8 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
-      height: "auto",
+      width: 596,
+      height: 379,
     },
     chainedFrom: null,
   },
@@ -99,7 +99,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: 549,
     },
     chainedFrom: null,
@@ -114,7 +114,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: "auto",
     },
     chainedFrom: null,
@@ -129,7 +129,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: "auto",
     },
     chainedFrom: null,
@@ -144,7 +144,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
@@ -159,7 +159,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
@@ -174,7 +174,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: 138,
     },
     chainedFrom: null,
@@ -189,7 +189,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: "auto",
     },
     chainedFrom: null,
@@ -204,7 +204,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: 227,
     },
     chainedFrom: null,
@@ -219,7 +219,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: "auto",
     },
     chainedFrom: null,
@@ -234,7 +234,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 562,
+      width: 590,
       height: "auto",
     },
     chainedFrom: null,
@@ -249,7 +249,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
@@ -264,7 +264,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
@@ -279,7 +279,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
@@ -294,7 +294,7 @@ export default {
       y: 0,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
@@ -324,7 +324,7 @@ export default {
       y: 48.20680300706829,
     },
     size: {
-      width: "auto",
+      width: 590,
       height: "auto",
     },
     chainedFrom: null,
@@ -335,11 +335,11 @@ export default {
     paramInfoId: null,
     sectionChildrenId: "d9e22eca-fcbf-44e0-a06b-6d4ef112b577",
     initialPosition: {
-      x: 883.3408440310747,
-      y: 44.09135158589402,
+      x: 881.3408440310747,
+      y: 45.09135158589402,
     },
     size: {
-      width: 556,
+      width: 596,
       height: "auto",
     },
     chainedFrom: null,
