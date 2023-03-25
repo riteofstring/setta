@@ -14,7 +14,7 @@ export function ComboboxInput({
 
   return (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm pl-10 focus-visible:ring-2 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white rounded-full shadow-sm text-sm pl-10 focus-visible:border-white focus-visible:ring-2 border border-solid border-slate-200 ${
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
