@@ -35,7 +35,7 @@ function RightColumn({ projects, createProject }) {
   }
 
   const stdbtnStyles =
-    "py-2 px-4 rounded-full font-bold font-heading text-white bg-slate-600 border border-solid border-slate-300 hover:border-white hover:shadow-xl hover:bg-white hover:text-slate-900 gap-2";
+    "py-2 px-4 rounded-full font-bold font-heading text-white bg-slate-600  hover:shadow-xl hover:bg-blue-500 gap-2";
 
   return (
     <div className="overflow-y-auto px-10 py-8">
