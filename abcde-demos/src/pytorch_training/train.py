@@ -50,6 +50,8 @@ def train_loop(
             model, lr_scheduler.get_last_lr()[0], loss, to_log, logger, log_interval, i
         )
         lr_scheduler.step()
+        if i == 499:
+            break
 
 
 @torch.no_grad()
@@ -62,6 +64,8 @@ def eval_loop(model, val_dataloader, logger, metrics, device):
         preds = logits.softmax(dim=-1)
         all_preds.append(preds)
         all_labels.append(labels)
+        if i == 99:
+            break
 
     all_preds = torch.cat(all_preds, dim=0)
     all_labels = torch.cat(all_labels, dim=0)
