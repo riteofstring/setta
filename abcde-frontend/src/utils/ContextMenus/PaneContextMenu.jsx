@@ -17,7 +17,7 @@ export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
         New Section
       </Item>
       <Item onClick={() => onClick({ isDeck: true, ...commonProps })}>
-        New Deck
+        New Group
       </Item>
     </ContextMenuCore>
   );
