@@ -36,7 +36,7 @@ export function DndSlot({
 function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
   return (
     <div
-      className={`absolute z-10 grid h-full w-full justify-center ${
+      className={`absolute z-20 grid h-full w-full justify-center ${
         isDeck ? "[place-content:end_center]" : "place-content-center"
       }`}
     >
@@ -51,7 +51,7 @@ function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
 
 function DndSlotTop({ text, behaviorDropType }) {
   return (
-    <div className="relative z-10 flex w-full justify-center">
+    <div className="relative z-20 flex w-full justify-center">
       <div className="absolute -bottom-5 flex justify-center">
         <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
       </div>
@@ -61,7 +61,7 @@ function DndSlotTop({ text, behaviorDropType }) {
 
 function DndSlotBottom({ text, behaviorDropType }) {
   return (
-    <div className="relative z-10 flex w-full justify-center">
+    <div className="relative z-20 flex w-full justify-center">
       <div className="absolute -bottom-5 flex justify-center">
         <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
       </div>
