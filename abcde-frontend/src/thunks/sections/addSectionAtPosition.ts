@@ -20,7 +20,7 @@ export function addSectionAtPosition({
   };
   const configProps: Parameters<typeof newSectionConfig>[0] = {};
   if (isDeck) {
-    sectionProps.name = "Group";
+    sectionProps.name = "Deck";
     configProps.uiTypeId = DECK_UI_TYPE_ID;
   }
   const [newId] = createDefaultSectionInfo({
