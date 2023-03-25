@@ -17,7 +17,7 @@ export function MenuDropdown({
   return (
     <Menubar.Menu>
       <Menubar.Trigger
-        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-bold leading-none text-slate-700 outline-none transition-colors duration-150 hover:bg-slate-100 focus-visible:ring-2 ${triggerStyle}`}
+        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-slate-700 outline-none transition-colors duration-150 hover:bg-slate-100 focus-visible:ring-2 ${triggerStyle}`}
       >
         {trigger}
       </Menubar.Trigger>

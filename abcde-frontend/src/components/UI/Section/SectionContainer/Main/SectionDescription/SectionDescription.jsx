@@ -26,7 +26,7 @@ function Markdown({ markdownSource }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="prose max-w-none px-8 [flex:1_1_auto] prose-headings:font-heading prose-headings:text-slate-500 prose-p:text-sm [&_*]:[word-wrap:break-word]"
+      className="prose max-w-none px-8 [flex:1_1_auto] prose-headings:font-heading prose-headings:tracking-tighter prose-headings:text-slate-500 prose-p:text-sm [&_*]:[word-wrap:break-word]"
     >
       {markdownSource}
     </ReactMarkdown>
