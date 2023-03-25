@@ -95,7 +95,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
           <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600">
             {name}
           </p>
-          <Badges />
+          <Badges name={name} />
         </div>
       </Link>
     </div>
@@ -152,33 +152,6 @@ function DefaultConfigBadge({ config }) {
   );
 }
 
-function Badges() {
-  return (
-    <div className="[background:linear-gradient(to right, rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade  mt-1 flex flex-row gap-[0.15rem]">
-      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-        PyTorch 2.9
-      </Badge>
-      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
-      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-        PyTorch 2.9
-      </Badge>
-      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
-      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-        PyTorch 2.9
-      </Badge>
-      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
-      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-        PyTorch 2.9
-      </Badge>
-      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
-      <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
-        PyTorch 2.9
-      </Badge>
-      <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">NumPy</Badge>
-    </div>
-  );
-}
-
 function goToProject({ project, configId }) {
   const username = useAuth.getState().username;
   const configName = project.configs.find((x) => x.id === configId).name;
@@ -202,4 +175,127 @@ function useConfigAddress({ project, configId }) {
 function useDefaultConfigAddress(project) {
   const configId = project.configs.find((x) => x.isDefault).id;
   return useConfigAddress({ project, configId });
+}
+
+// BADGES
+
+function Badges({ name }) {
+  return (
+    <div className="[background:linear-gradient(to right, rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade  mt-1 flex flex-row gap-[0.15rem]">
+      <BadgeSwitch name={name} />
+    </div>
+  );
+}
+// appleOrchardFarm: scikit-learn, clustering
+// diffusionDrops: stable-diffusion
+// pytorchLightningMnist: toy-model, torchmetrics
+// pytorchTraining: pytorch, image-classification
+// simpleTrainTest: numpy
+
+function BadgeSwitch({ name }) {
+  switch (name) {
+    case "appleOrchardFarm":
+      return (
+        <>
+          <BadgeSciKit /> <BadgeClustering />
+        </>
+      );
+
+    case "diffusionDrops":
+      return (
+        <>
+          <BadgeSD />
+        </>
+      );
+
+    case "pytorchLightningMnist":
+      return (
+        <>
+          <BadgeTorchMetrics />
+        </>
+      );
+
+    case "pytorchTraining":
+      return (
+        <>
+          <BadgePyTorch /> <BadgeImageClassification />
+        </>
+      );
+
+    case "simpleTrainTest":
+      return (
+        <>
+          <BadgeNumPy />
+        </>
+      );
+
+    default:
+      return <></>;
+  }
+}
+
+function BadgeSciKit() {
+  return (
+    <Badge twClasses="bg-cyan-100 text-cyan-800 hover:bg-cyan-200">
+      Scikit-Learn
+    </Badge>
+  );
+}
+
+function BadgePyTorch() {
+  return (
+    <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+      PyTorch 2.9
+    </Badge>
+  );
+}
+
+function BadgeNumPy() {
+  return (
+    <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+      NumPy
+    </Badge>
+  );
+}
+function BadgeML() {
+  return (
+    <Badge twClasses="bg-slate-100 text-slate-800 hover:bg-slate-200">
+      Machine Learning
+    </Badge>
+  );
+}
+function BadgeSD() {
+  return (
+    <Badge twClasses="bg-orange-100 text-orange-800 hover:bg-orange-200">
+      Stable Diffusion
+    </Badge>
+  );
+}
+function BadgeClustering() {
+  return (
+    <Badge twClasses="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">
+      Clustering
+    </Badge>
+  );
+}
+function BadgeTorchVision() {
+  return (
+    <Badge twClasses="bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200">
+      Torch Vision
+    </Badge>
+  );
+}
+function BadgeTorchMetrics() {
+  return (
+    <Badge twClasses="bg-purple-100 text-purple-800 hover:bg-purple-200">
+      Torch Metrics
+    </Badge>
+  );
+}
+function BadgeImageClassification() {
+  return (
+    <Badge twClasses="bg-blue-100 text-blue-800 hover:bg-blue-200">
+      Image Classification
+    </Badge>
+  );
 }
