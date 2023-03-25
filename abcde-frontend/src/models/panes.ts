@@ -17,7 +17,7 @@ type PanesZustandType = PanesStateType & PanesActionType;
 export const usePanes = create(
   immer<PanesZustandType>((set) => ({
     vis: { [OVERVIEW]: true, [UI_EDITOR]: false },
-    trueWidth: { [OVERVIEW]: 320, [UI_EDITOR]: CLOSED_PANE_WIDTH },
+    trueWidth: { [OVERVIEW]: 335, [UI_EDITOR]: CLOSED_PANE_WIDTH },
 
     setVis: ({ paneName, vis }) =>
       set((state) => {
