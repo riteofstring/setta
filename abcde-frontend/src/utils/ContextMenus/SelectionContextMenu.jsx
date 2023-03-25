@@ -27,7 +27,7 @@ export function SelectionContextMenu({
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
       <DropdownMenu.Item onClick={() => onClickCreateDeck(onClickProps)}>
-        Create Deck
+        Create Group
       </DropdownMenu.Item>
       <DropdownMenu.Item onClick={onClickDelete}>Delete</DropdownMenu.Item>
     </ContextMenuCore>
