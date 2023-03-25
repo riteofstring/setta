@@ -28,9 +28,10 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[518px] flex-col items-stretch rounded-3xl border border-solid border-[#ffffff2f] bg-[#515f7056] px-8 pt-3 pb-6 backdrop-blur ${className}`}
+        className={`flex min-w-[518px] flex-col items-stretch px-8 pt-3 pb-6  ${className}`}
         {...commonProps}
       >
+        <div className="absolute top-0 left-0 h-full w-full rounded-3xl border border-solid border-[#ffffff4d] bg-[#515f7056] backdrop-blur" />
         <div className="relative h-10">
           <DeckSectionTitle sectionId={sectionId} />
         </div>

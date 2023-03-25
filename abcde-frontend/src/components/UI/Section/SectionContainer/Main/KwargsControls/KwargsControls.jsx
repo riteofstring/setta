@@ -26,7 +26,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
     "flex-1 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
 
   return (
-    <div className="border-b border-solid border-white bg-gradient-to-t from-white py-2 shadow-sm">
+    <div className="border-b border-solid border-white bg-gradient-to-t from-slate-50 py-2 shadow-sm">
       <div className="flex items-center px-9">
         <p className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
           arguments
