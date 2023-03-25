@@ -466,7 +466,7 @@ export default {
   },
   "7af597f1-f9e2-4988-8b73-70c147c4b769": {
     id: "7af597f1-f9e2-4988-8b73-70c147c4b769",
-    name: "New Section",
+    name: "Readme",
     paramInfoId: null,
     sectionChildrenId: "854d9ab8-0128-43fe-9f0e-9e265e06bf05",
     initialPosition: {

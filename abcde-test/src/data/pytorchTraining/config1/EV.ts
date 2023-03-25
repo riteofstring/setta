@@ -421,7 +421,7 @@ export default {
   },
   "41100df9-b031-4b01-9294-c5e79d4580ba": {
     id: "41100df9-b031-4b01-9294-c5e79d4580ba",
-    value: "3",
+    value: "5",
     childId: null,
   },
   "ec497976-6543-4e8a-abf3-f666a7d652dc": {
@@ -591,12 +591,12 @@ export default {
   },
   "123cc4e2-71e7-4866-8586-d851592eafea": {
     id: "123cc4e2-71e7-4866-8586-d851592eafea",
-    value: "3",
+    value: "5",
     childId: null,
   },
   "56faf74d-a597-4d4e-b9f6-ec3e278b4493": {
     id: "56faf74d-a597-4d4e-b9f6-ec3e278b4493",
-    value: "2367",
+    value: "500",
     childId: null,
   },
   "8d223709-ba17-47ef-a401-e2e37074db78": {
