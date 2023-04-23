@@ -4,14 +4,14 @@ import {
 } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 // allCodeInfo maps from every objInfo key to its objInfo
 const initialState: CodeInfoStateType = {
   allCodeInfo: {},
 };
 
-export const useCodeInfo = create(
+export const useCodeInfo = createProjectState(
   immer<CodeInfoZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

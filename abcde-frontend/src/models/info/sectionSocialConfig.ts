@@ -1,5 +1,5 @@
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 export const SOCIAL_TYPES = {
   youtube: {
@@ -16,7 +16,7 @@ export const SOCIAL_TYPES = {
 
 const initialState = { x: {} };
 
-export const useSectionSocialConfig = create(
+export const useSectionSocialConfig = createProjectState(
   immer((set) => ({
     ...initialState,
     initConfig: ({ sectionId, id }) =>

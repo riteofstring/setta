@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { logout } from "dbRequests/authentication";
-import { resetAllStores } from "models/utils";
+import { resetStores, STATE_TYPES } from "models/utils";
 import { FiMenu } from "react-icons/fi";
 import { Item } from "utils/atoms/dropdown/item";
 import { router } from "utils/Routes/router";
@@ -8,7 +8,7 @@ import { router } from "utils/Routes/router";
 export function MainSideMenu() {
   const onClickLogout = () => {
     logout();
-    resetAllStores();
+    resetStores(STATE_TYPES.BASE_STATE);
     router.navigate("/");
   };
 

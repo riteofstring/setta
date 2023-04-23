@@ -4,12 +4,12 @@ import {
 } from "abcde-utils/src/types/paramInfo";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 import { initValue } from "./utils";
 
 const initialState: ParamInfoStateType = { x: {}, y: {} };
 
-export const useParamInfos = create(
+export const useParamInfos = createProjectState(
   immer<ParamInfoZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: ({ evCols, uiTypeCols }) => {

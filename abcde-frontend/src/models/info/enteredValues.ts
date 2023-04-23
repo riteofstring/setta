@@ -1,7 +1,7 @@
 import { newEV } from "abcde-utils/src/objs/ev";
 import { EVStateType, EVZustandType } from "abcde-utils/src/types/ev";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 function getEVInfo(state: EVZustandType, evId: string) {
   if (!(evId in state.x)) {
@@ -12,7 +12,7 @@ function getEVInfo(state: EVZustandType, evId: string) {
 
 const initialState: EVStateType = { x: {} };
 
-export const useEnteredValues = create(
+export const useEnteredValues = createProjectState(
   immer<EVZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

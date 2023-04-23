@@ -4,11 +4,11 @@ import {
   SectionDescriptionZustandType,
 } from "abcde-utils/src/types/sectionDescription";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 const initialState: SectionDescriptionStateType = { x: {} };
 
-export const useSectionDescription = create(
+export const useSectionDescription = createProjectState(
   immer<SectionDescriptionZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

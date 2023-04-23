@@ -3,7 +3,7 @@ import {
   ProjectConfigZustandType,
 } from "abcde-utils/src/types/projectConfig";
 import _ from "lodash";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 const initialState: ProjectConfigType = {
   id: "",
@@ -14,7 +14,7 @@ const initialState: ProjectConfigType = {
   isDefault: false,
 };
 
-export const useProjectConfig = create<ProjectConfigZustandType>(
+export const useProjectConfig = createProjectState<ProjectConfigZustandType>(
   (set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

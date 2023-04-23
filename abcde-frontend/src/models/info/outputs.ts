@@ -3,11 +3,11 @@ import {
   OutputZustandType,
 } from "abcde-utils/src/types/output";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 const initialState: OutputStateType = { x: {} };
 
-export const useOutputs = create(
+export const useOutputs = createProjectState(
   immer<OutputZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

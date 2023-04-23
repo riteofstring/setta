@@ -6,7 +6,7 @@ import {
 } from "abcde-utils/src/types/section";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 import { initValue } from "./utils";
 
 const initialState: SectionInfoStateType = {
@@ -15,7 +15,7 @@ const initialState: SectionInfoStateType = {
   currChildren: {},
 };
 
-export const useSectionInfos = create(
+export const useSectionInfos = createProjectState(
   immer<SectionInfoZustandType>((set, get) => ({
     ...initialState,
 

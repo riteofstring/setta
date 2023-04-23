@@ -4,12 +4,12 @@ import {
 } from "abcde-utils/src/types/kwargCol";
 import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 import { initValue } from "./utils";
 
 const initialState: KwargColStateType = { x: {} };
 
-export const useKwargCols = create(
+export const useKwargCols = createProjectState(
   immer<KwargColZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

@@ -3,11 +3,11 @@ import {
   SectionConfigZustandType,
 } from "abcde-utils/src/types/sectionConfig";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 const initialState: SectionConfigStateType = { x: {} };
 
-export const useSectionConfigs = create(
+export const useSectionConfigs = createProjectState(
   immer<SectionConfigZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {

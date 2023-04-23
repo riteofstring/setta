@@ -1,4 +1,4 @@
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 export const initialState = {
   activeId: null,
@@ -9,7 +9,7 @@ export const initialState = {
   leftDistCondition: false,
 };
 
-export const useDndState = create((set) => ({
+export const useDndState = createProjectState((set) => ({
   ...initialState,
   setActive: ({ id, isTopLevel }) =>
     set({ activeId: id, activeIsTopLevel: isTopLevel }),

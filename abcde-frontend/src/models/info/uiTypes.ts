@@ -3,11 +3,11 @@ import {
   UITypeZustandType,
 } from "abcde-utils/src/types/uiType";
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 const initialState: UITypeStateType = { x: {} };
 
-export const useUITypes = create(
+export const useUITypes = createProjectState(
   immer<UITypeZustandType>((set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
