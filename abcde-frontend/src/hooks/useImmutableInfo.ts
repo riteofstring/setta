@@ -1,5 +1,5 @@
-import { getFullObjPath } from "classes/immutableInfo";
 import _ from "lodash";
+import { getFullObjPath } from "utils/getFullObjPath";
 
 export function useGroupedObjInfos(details) {
   return _.groupBy(details, (x) => {
