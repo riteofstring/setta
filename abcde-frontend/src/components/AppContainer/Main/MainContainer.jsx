@@ -1,7 +1,7 @@
 import { useLoadProject } from "hooks/useProject";
 import { useLocation, useParams } from "react-router-dom";
+import { GridWrapper } from "../../../utils/Wrappers/GridWrapper";
 import { UIPage } from "../../UI/UiPage";
-import { GridWrapper } from "../GridWrapper/GridWrapper";
 import { Overview } from "./UiEditorContainer/SidePanes/Overview/Overview";
 import { UiEditor } from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
