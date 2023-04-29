@@ -1,7 +1,6 @@
 import { ManyOf } from "./utils";
 
 export type UITypeType = {
-  id: string;
   type: string;
   name: string;
   config: UITypeConfigType;
@@ -9,6 +8,8 @@ export type UITypeType = {
   originInfoId: OriginInfoIdType;
   isForChildOfOriginInfoId: boolean;
 };
+
+export type UITypeTypeWithId = UITypeType & { id: string };
 
 export type SectionUITypeType = Omit<UITypeType, "config"> & {
   config: SectionUITypeConfigType;
@@ -60,7 +61,7 @@ export type UITypeSetOneConfigPayloadType<T> = {
 
 export type UITypeActionType = {
   resetAndSetAll: (payload: ManyUITypeType) => void;
-  setUIType: (payload: { uiType: UITypeType }) => void;
+  setUIType: (payload: { uiType: UITypeTypeWithId }) => void;
   setConfig: (payload: {
     uiTypeId: string;
     newStateFn: (currConfig: UITypeConfigType) => UITypeConfigType;
