@@ -22,11 +22,6 @@ export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 
-export const SET_FROM_SIDEPANE = 3;
-export const PROJECT_DEFAULT = 2;
-export const GLOBAL_DEFAULT = 1;
-export const DEFAULT_DEFAULT = 0;
-
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
 }

@@ -1,6 +1,6 @@
 import { createProjectState } from "../utils";
 
-export const initialState = {
+const initialState = {
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
