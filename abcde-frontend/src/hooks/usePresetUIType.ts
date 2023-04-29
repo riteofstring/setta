@@ -72,11 +72,11 @@ function isSectionType(v) {
 }
 
 function filterUITypes(uiTypes, generalFilterFn, originFilterFn, selectedId) {
-  const matchesOriginOrIsSelected = _.filter(uiTypes, (v) => originFilterFn(v));
+  const matchesOriginOrIsSelected = _.pickBy(uiTypes, (v) => originFilterFn(v));
   const typesOfMatchesOrigin = _.map(matchesOriginOrIsSelected, (v) => v.type);
 
   // include presets + base presets of types that aren't already included in typesOfMatchesOrigin
-  const presetsFiltered = _.filter(
+  const presetsFiltered = _.pickBy(
     uiTypes,
     (v) =>
       generalFilterFn(v) &&
@@ -87,14 +87,16 @@ function filterUITypes(uiTypes, generalFilterFn, originFilterFn, selectedId) {
   );
 
   // always include the selected uiType
-  const selected = _.filter(uiTypes, (v) => v.id === selectedId);
+  const selected = _.pickBy(uiTypes, (v, id) => id === selectedId);
 
-  return _.uniq([
+  const output = {
     ...presetsFiltered,
     ...matchesOriginOrIsSelected,
     ...selected,
-  ]).map((v) => ({
-    id: v.id,
+  };
+
+  return _.map(output, (v, id) => ({
+    id,
     name: createName(v),
     presetType: v.presetType,
   }));

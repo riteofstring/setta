@@ -1,5 +1,8 @@
 import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
-import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
+import {
+  SectionUITypeConfigType,
+  UITypeTypeWithId,
+} from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -24,10 +27,11 @@ export function getSectionConfig(sectionId) {
   return useSectionConfigs.getState().x[configId];
 }
 
-export function getSectionType(sectionId) {
+export function getSectionType(sectionId): UITypeTypeWithId {
   const config = getSectionConfig(sectionId);
   const sectionTypeId = config.uiTypeId;
-  return useUITypes.getState().x[sectionTypeId];
+  const uiType = useUITypes.getState().x[sectionTypeId];
+  return { id: sectionTypeId, ...uiType };
 }
 
 export function getSectionIsRoot(sectionId) {
