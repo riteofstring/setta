@@ -30,7 +30,7 @@ function onFreeMoveEnd({ dummyRef, project }) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
-    position = project({ x, y: y - NAVBAR_HEIGHT * 4 });
+    position = project({ x, y: y - NAVBAR_HEIGHT });
   } else if (overId) {
     const dropType = getDropType({
       centerYCondition: dndState.centerYCondition,
