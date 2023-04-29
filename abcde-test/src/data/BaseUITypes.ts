@@ -1,6 +1,5 @@
 export default {
   "3fdaeb6a-e989-4888-b844-17a76f0b0192": {
-    id: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
     type: "TEXT",
     name: "",
     presetType: "BASE",
@@ -9,7 +8,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "eab8f446-17cc-4512-bab5-42bff8570f1f": {
-    id: "eab8f446-17cc-4512-bab5-42bff8570f1f",
     type: "SLIDER",
     name: "",
     presetType: "BASE",
@@ -18,7 +16,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
-    id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
     type: "SWITCH",
     name: "",
     presetType: "BASE",
@@ -27,7 +24,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "0595871f-4506-4bda-b6f1-9a3864e02a68": {
-    id: "0595871f-4506-4bda-b6f1-9a3864e02a68",
     type: "REF",
     name: "",
     presetType: "BASE",
@@ -36,7 +32,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
-    id: "0191cde4-3d98-4ba0-972a-fead19b8ac73",
     type: "SECTION",
     name: "",
     presetType: "BASE",
@@ -51,7 +46,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
-    id: "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
     type: "LIST_ROOT",
     name: "",
     presetType: "BASE",
@@ -66,7 +60,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "623a9242-53e9-4b42-b695-431e9754a836": {
-    id: "623a9242-53e9-4b42-b695-431e9754a836",
     type: "DICT_ROOT",
     name: "",
     presetType: "BASE",
@@ -81,7 +74,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "0e050316-06ca-48f4-92c1-9845abdf85f7": {
-    id: "0e050316-06ca-48f4-92c1-9845abdf85f7",
     type: "DECK",
     name: "",
     presetType: "BASE",
@@ -96,7 +88,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "06b511f3-dced-43be-97d7-1ceaddc763d5": {
-    id: "06b511f3-dced-43be-97d7-1ceaddc763d5",
     type: "OUTPUT",
     name: "",
     presetType: "BASE",
@@ -111,7 +102,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "2b06a83b-b96a-490d-a2d7-3631619e6495": {
-    id: "2b06a83b-b96a-490d-a2d7-3631619e6495",
     type: "INFO",
     name: "",
     presetType: "BASE",
@@ -126,7 +116,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "76cd4b19-cc63-4e2c-8214-5a4246ca637c": {
-    id: "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
     type: "SOCIAL",
     name: "",
     presetType: "BASE",
@@ -141,7 +130,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "51470547-1f60-4933-952c-ac8745b30b22": {
-    id: "51470547-1f60-4933-952c-ac8745b30b22",
     type: "FN",
     name: "",
     presetType: "BASE",

@@ -1,6 +1,5 @@
 export default {
   "ad41e56e-0c81-413d-8a63-ccfa59107c79": {
-    id: "ad41e56e-0c81-413d-8a63-ccfa59107c79",
     name: "Model",
     type: "SECTION",
     presetType: null,
@@ -20,7 +19,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "aca715a7-e487-4151-8099-5823b9f54637": {
-    id: "aca715a7-e487-4151-8099-5823b9f54637",
     name: "Optimizer",
     type: "SECTION",
     presetType: null,
@@ -37,7 +35,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "4dfce153-7c8a-427e-bc86-31802494166d": {
-    id: "4dfce153-7c8a-427e-bc86-31802494166d",
     name: "Transform",
     type: "SECTION",
     presetType: null,
@@ -54,7 +51,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5": {
-    id: "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5",
     name: "TrainDataset",
     type: "SECTION",
     presetType: null,
@@ -71,7 +67,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "861265e9-2701-42dd-821b-d80734ec0db1": {
-    id: "861265e9-2701-42dd-821b-d80734ec0db1",
     name: "ValDataset",
     type: "SECTION",
     presetType: null,
@@ -88,7 +83,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "2b157b97-4424-4831-83a5-836c7dc17a6e": {
-    id: "2b157b97-4424-4831-83a5-836c7dc17a6e",
     name: "OtherParameters",
     type: "SECTION",
     presetType: null,
@@ -105,7 +99,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9": {
-    id: "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
     name: "The2ndOtherParameters",
     type: "SECTION",
     presetType: null,
@@ -122,7 +115,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "58f123d7-8a82-44d8-9d83-06d1659052c7": {
-    id: "58f123d7-8a82-44d8-9d83-06d1659052c7",
     name: "X",
     type: "SECTION",
     presetType: null,
@@ -139,7 +131,6 @@ export default {
     isForChildOfOriginInfoId: false,
   },
   "f07e5f4f-3302-4676-acff-adf159c3f942": {
-    id: "f07e5f4f-3302-4676-acff-adf159c3f942",
     type: "OUTPUT",
     name: "New Section",
     presetType: null,
