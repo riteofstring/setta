@@ -220,11 +220,13 @@ function maybeChangeNewParamUIType({
     paramIdToLinkTo = paramIdToLinkTo.id;
   }
 
-  linkParamToSection({
-    parentId: newParentId,
-    paramInfoId: paramIdToLinkTo,
-    sectionId,
-  });
+  if (paramIdToLinkTo) {
+    linkParamToSection({
+      parentId: newParentId,
+      paramInfoId: paramIdToLinkTo,
+      sectionId,
+    });
+  }
 }
 
 function linkParamToSection({ parentId, paramInfoId, sectionId }) {
