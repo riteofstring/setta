@@ -6,9 +6,8 @@ import {
   TEXT,
 } from 'abcde-utils/src/constants';
 import {
+  ManySectionUITypeType,
   ManyUITypeType,
-  SectionUITypeType,
-  UITypeType,
 } from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
@@ -17,9 +16,8 @@ import { deleteThenCreateCol } from 'src/utils/utils';
 import { PrismaUITypeColType } from './types';
 
 async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
-  const data = Object.values(uiTypes).map((x) => {
+  const data = _.mapValues(uiTypes, (x) => {
     return {
-      id: x.id,
       ownerId: userId,
       type: x.type,
       name: x.name,
@@ -32,9 +30,9 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   });
 
   // create any missing uiTypeCols because saveUITypeCols is usually called later
-  const originUITypeCols = data
-    .map((v) => v.originUITypeColId)
-    .filter((v): v is string => !!v);
+  const originUITypeCols = _.map(data, (v) => v.originUITypeColId).filter(
+    (v): v is string => !!v,
+  );
   await prisma.$transaction(
     originUITypeCols.map((v) => {
       const where = { id: v };
@@ -43,27 +41,29 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   );
 
   await prisma.$transaction(
-    data.map((v) =>
+    _.map(data, (v, id) =>
       prisma.uIType.upsert({
-        where: { id: v.id, ownerId: userId },
-        create: v,
-        update: v,
+        where: { id, ownerId: userId },
+        create: { id, ...v },
+        update: { id, ...v },
       }),
     ),
   );
 }
 
-export async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
-  const data = sectionUITypes.map((x) => ({
-    idid: x.id,
+export async function saveSectionUITypes(
+  sectionUITypes: ManySectionUITypeType,
+) {
+  const data = Object.keys(sectionUITypes).map((k) => ({
+    idid: k,
   }));
 
   await prisma.sectionUIType.createMany({ data, skipDuplicates: true });
 
   await prisma.$transaction(
-    sectionUITypes.map((v) =>
+    _.map(sectionUITypes, (v, k) =>
       prisma.sectionUIType.update({
-        where: { idid: v.id },
+        where: { idid: k },
         data: {
           collections: { set: v.config.collections.map((x) => ({ id: x })) },
           outputGroupId: v.config.outputGroup,
@@ -75,12 +75,12 @@ export async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
   );
 }
 
-async function saveRegularUIType(db, uiTypes: UITypeType[]) {
-  if (uiTypes.length === 0) {
+async function saveRegularUIType(db, uiTypes: ManyUITypeType) {
+  if (Object.keys(uiTypes).length === 0) {
     return;
   }
-  const data = uiTypes.map((x) => ({
-    idid: x.id,
+  const data = _.map(uiTypes, (x, k) => ({
+    idid: k,
     ...x.config,
   }));
   await prisma.$transaction(
@@ -99,19 +99,19 @@ export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
   await saveSectionUITypes(extractSectionUITypes(uiTypes));
   await saveRegularUIType(
     prisma.sliderUIType,
-    _.filter(uiTypes, (v) => v.type === SLIDER),
+    _.pickBy(uiTypes, (v) => v.type === SLIDER),
   );
   await saveRegularUIType(
     prisma.textUIType,
-    _.filter(uiTypes, (v) => v.type === TEXT),
+    _.pickBy(uiTypes, (v) => v.type === TEXT),
   );
   await saveRegularUIType(
     prisma.switchUIType,
-    _.filter(uiTypes, (v) => v.type === SWITCH),
+    _.pickBy(uiTypes, (v) => v.type === SWITCH),
   );
   await saveRegularUIType(
     prisma.refUIType,
-    _.filter(uiTypes, (v) => v.type === REF),
+    _.pickBy(uiTypes, (v) => v.type === REF),
   );
 }
 
@@ -135,12 +135,8 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
   await deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
 }
 
-export function extractSectionUITypes(uiTypes: ManyUITypeType) {
-  const sectionUITypes: SectionUITypeType[] = [];
-  _.forEach(uiTypes, (v) => {
-    if (isSectionUIType(v)) {
-      sectionUITypes.push(v);
-    }
-  });
-  return sectionUITypes;
+export function extractSectionUITypes(
+  uiTypes: ManyUITypeType,
+): ManySectionUITypeType {
+  return _.pickBy(uiTypes, isSectionUIType);
 }

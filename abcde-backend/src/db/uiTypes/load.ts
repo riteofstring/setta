@@ -45,7 +45,7 @@ function processUIType(uiType) {
       ].includes(key)
     ) {
       output = { ...output, ...processSpecificUITypeConfig(val) };
-    } else if (key !== 'ownerId') {
+    } else if (!['id', 'ownerId'].includes(key)) {
       output[key] = val;
     }
   }
