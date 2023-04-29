@@ -5,12 +5,12 @@ import { OVERVIEW } from "utils/constants";
 
 export function useAddSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
   const store = useStoreApi();
-  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
 
   return () => {
     const {
       transform: [_x, _y, zoom],
     } = store.getState();
+    const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
 
     const x = (overviewWidth - _x) / zoom;
     const y = -_y / zoom;
