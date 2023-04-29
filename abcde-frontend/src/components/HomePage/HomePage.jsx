@@ -1,4 +1,4 @@
-import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
+import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
 import { useAuth } from "models/auth";
 import { useSearch } from "models/search";

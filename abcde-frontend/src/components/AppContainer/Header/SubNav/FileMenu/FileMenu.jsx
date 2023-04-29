@@ -1,4 +1,4 @@
-import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
+import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
 import { useCurrProjectName } from "hooks/useProject";
 import _ from "lodash";
 import { useAuth } from "models/auth";
