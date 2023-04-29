@@ -36,7 +36,7 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
   });
 }
 
-function getHighestAncestor(sectionId) {
+export function getHighestAncestor(sectionId) {
   let parentId = getSectionParentId(sectionId);
   let highestAncestor = sectionId;
 
