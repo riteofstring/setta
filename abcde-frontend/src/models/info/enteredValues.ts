@@ -5,7 +5,7 @@ import { createProjectState } from "../utils";
 
 function getEVInfo(state: EVZustandType, evId: string) {
   if (!(evId in state.x)) {
-    state.x[evId] = newEV({ id: evId, value: null, childId: null });
+    state.x[evId] = newEV({ value: null, childId: null });
   }
   return state.x[evId];
 }
