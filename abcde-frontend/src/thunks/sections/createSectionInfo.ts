@@ -11,10 +11,12 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getChildUITypeId } from "utils/uiTypeUtils";
+import { getSectionType } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
-  const uiTypeId = getChildUITypeId(parentId);
+  const parentUIType = getSectionType(parentId);
+  const uiTypeId = getChildUITypeId(parentUIType, parentId);
 
   return createManySectionInfo({
     sectionProps: { parentId, parentName },

@@ -1,6 +1,7 @@
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useSearch } from "models/search";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { NAVBAR_HEIGHT } from "utils/constants";
 import { MainSideMenu } from "./MainSideMenu/MainSideMenu";
 import { SiteLogo } from "./SiteLogo";
 import { SubNav } from "./SubNav/SubNav";
@@ -19,7 +20,7 @@ export function HeaderContainer() {
 function FlexContainer({ children }) {
   return (
     <div
-      className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md`}
+      className={`min-h-${NAVBAR_HEIGHT} z-20 flex h-${NAVBAR_HEIGHT} w-[100vw] flex-row items-center bg-white px-11 shadow-md`}
     >
       {children}
     </div>

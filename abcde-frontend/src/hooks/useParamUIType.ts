@@ -1,18 +1,13 @@
 import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
-import { UITypeTypeWithId } from "abcde-utils/src/types/uiType";
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
 import { useGetSectionConfig } from "./useSectionConfig";
 
-export function useGetParamUIType(
-  sectionId: string,
-  paramInfoId: string
-): UITypeTypeWithId {
+export function useGetParamUIType(sectionId: string, paramInfoId: string) {
   const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
-  const uiType = useUITypes((x) => x.x[uiTypeId], _.isEqual);
-  return { id: uiTypeId, ...uiType };
+  return useUITypes((x) => x.x[uiTypeId], _.isEqual);
 }
 
 export function useParamUITypeId(sectionId: string, paramInfoId: string) {

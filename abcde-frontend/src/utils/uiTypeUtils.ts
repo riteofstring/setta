@@ -1,28 +1,23 @@
 import { rootTypeToChildSubType, SECTION } from "abcde-utils/src/constants";
-import {
-  OriginInfoIdType,
-  UITypeType,
-  UITypeTypeWithId,
-} from "abcde-utils/src/types/uiType";
+import { OriginInfoIdType, UITypeType } from "abcde-utils/src/types/uiType";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionType } from "thunks/sections/sections";
 
-function cloneRootUIType(parentUIType, parentId): UITypeTypeWithId {
+function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
+  uiType.id = createNewId();
   uiType.type = SECTION;
   uiType.config.uiTypeColId = createNewId();
   uiType.config.subType = rootTypeToChildSubType[parentUIType.type];
   uiType.presetType = null;
   uiType.originInfoId = createSectionOriginInfoId(parentId);
   uiType.isForChildOfOriginInfoId = true;
-  return { id: createNewId(), ...uiType };
+  return uiType;
 }
 
-export function getChildUITypeId(parentId) {
+export function getChildUITypeId(parentUIType, parentId) {
   // If a childUIType was created before, then the parentUIType will have its id
-  const parentUIType = getSectionType(parentId);
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
     return childUITypeId;
@@ -64,8 +59,9 @@ export function cloneNewUIType({
   presetType = null,
   originInfoId = { sectionId: null, uiTypeColId: null, paramInfoId: null },
   isForChildOfOriginInfoId = false,
-}: Partial<UITypeType> & { uiType: UITypeType }): UITypeTypeWithId {
+}: Partial<UITypeType> & { uiType: UITypeType }) {
   const newUIType = _.cloneDeep(uiType);
+  newUIType.id = createNewId();
   newUIType.name = name;
   newUIType.presetType = presetType;
   newUIType.originInfoId = originInfoId;
@@ -73,7 +69,7 @@ export function cloneNewUIType({
     newUIType.config = config;
   }
   newUIType.isForChildOfOriginInfoId = isForChildOfOriginInfoId;
-  return { id: createNewId(), ...newUIType };
+  return newUIType;
 }
 
 // Root sections and child behavior:

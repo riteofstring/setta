@@ -17,8 +17,7 @@ export const useUITypes = createProjectState(
     },
     setUIType: ({ uiType }) =>
       set((state) => {
-        const { id, ...theRest } = uiType;
-        state.x[id] = theRest;
+        state.x[uiType.id] = uiType;
       }),
     setConfig: ({ uiTypeId, newStateFn }) =>
       set((state) => {
