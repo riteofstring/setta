@@ -76,7 +76,7 @@ function getShouldDrop(active, over, collisions) {
   // Make sure active is not over
   // Make sure over is a sortable or over has no children and can have children
   return (
-    over &&
+    !!over &&
     collisions[0]?.id === over.id &&
     active.id !== over.id &&
     (over.data.current.sortable || !over.data.current.hasNested)
