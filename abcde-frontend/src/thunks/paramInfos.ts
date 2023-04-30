@@ -1,6 +1,8 @@
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { useStateVersion } from "models/stateVersion";
+import { incrementStateVersion } from "models/utils";
 import { requiresNestedSection } from "utils/constants";
 import { getSectionConfig } from "./sections/sections";
 
@@ -29,29 +31,51 @@ export function getParamIsNested(sectionId, paramInfoId) {
   return requiresNestedSection(uiType.type);
 }
 
-export function setParamEVAttr(sectionId, paramInfoId, fn, props) {
+export function setParamEVAttr(
+  sectionId,
+  paramInfoId,
+  fn,
+  props,
+  incrementVersion
+) {
   const evId = getParamEVId(sectionId, paramInfoId);
   fn({ enteredValueId: evId, ...props });
+  if (incrementVersion) {
+    incrementStateVersion(useStateVersion);
+    incrementStateVersion(useEnteredValues);
+  }
 }
 
-export function setParamChildId({ sectionId, paramInfoId, childId }) {
+export function setParamChildId({
+  sectionId,
+  paramInfoId,
+  childId,
+  incrementVersion = false,
+}) {
   setParamEVAttr(
     sectionId,
     paramInfoId,
     useEnteredValues.getState().setChildId,
     {
       childId,
-    }
+    },
+    incrementVersion
   );
 }
 
-export function setParamEnteredValue({ sectionId, paramInfoId, value }) {
+export function setParamEnteredValue({
+  sectionId,
+  paramInfoId,
+  value,
+  incrementVersion = false,
+}) {
   setParamEVAttr(
     sectionId,
     paramInfoId,
     useEnteredValues.getState().setEnteredValue,
     {
       value,
-    }
+    },
+    incrementVersion
   );
 }

@@ -45,7 +45,9 @@ export function loadProjectState({
   useProjectConfigCodeInfoMaps
     .getState()
     .resetAndSetAll(projectConfigCodeInfoMaps);
+  useEnteredValues.temporal.getState().pause();
   useEnteredValues.getState().resetAndSetAll(ev);
+  useEnteredValues.temporal.getState().resume();
   useKwargCols.getState().resetAndSetAll(kwargCols);
   useSectionInfos.getState().resetAndSetAll({
     sections,
