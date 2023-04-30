@@ -10,6 +10,7 @@ export type ManyEVType = ManyOf<EVType>;
 
 export type EVStateType = {
   x: ManyEVType;
+  version: number;
 };
 
 export type EVActionType = {
@@ -23,8 +24,6 @@ export type EVActionType = {
     enteredValueId: string;
     childId: EVType["childId"];
   }) => void;
-  setAll: (payload: EVStateType) => void;
-  reset: () => void;
 };
 
 export type EVZustandType = EVStateType & EVActionType;

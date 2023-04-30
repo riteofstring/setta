@@ -48,6 +48,7 @@ export type ManySectionUITypeType = ManyOf<SectionUITypeType>;
 
 export type UITypeStateType = {
   x: ManyUITypeType;
+  version: number;
 };
 
 export type NewValueFnType<T> = (currValue: T) => T;
@@ -67,8 +68,6 @@ export type UITypeActionType = {
   }) => void;
   setOneConfig: <T>(payload: UITypeSetOneConfigPayloadType<T>) => void;
   deleteUIType: (payload: { uiTypeId: string }) => void;
-  setAll: (payload: UITypeStateType) => void;
-  reset: () => void;
 };
 
 export type UITypeZustandType = UITypeStateType & UITypeActionType;
