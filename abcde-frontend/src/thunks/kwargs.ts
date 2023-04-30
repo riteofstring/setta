@@ -9,7 +9,7 @@ import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionConfig } from "./sections/sections";
-import { incrementStateVersion } from "./undo";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
   sectionId: string;
@@ -36,9 +36,7 @@ export function addKwarg({
     newStateFn: (x) => [...x, kwargInfo.id],
   });
   initializeParam(sectionId, [kwargInfo]);
-  if (incrementVersion) {
-    incrementStateVersion([useKwargCols]);
-  }
+  maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
 

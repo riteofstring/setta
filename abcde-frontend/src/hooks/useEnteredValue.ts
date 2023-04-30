@@ -2,7 +2,10 @@ import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useGetSectionConfig } from "./useSectionConfig";
 
-export function useGetParamEnteredValue(sectionId: string, paramInfoId: string) {
+export function useGetParamEnteredValue(
+  sectionId: string,
+  paramInfoId: string
+) {
   const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
   return useEnteredValues((x) => x.x[enteredValueId].value);
 }

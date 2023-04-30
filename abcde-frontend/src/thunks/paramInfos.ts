@@ -3,7 +3,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
 import { getSectionConfig } from "./sections/sections";
-import { incrementStateVersion } from "./undo";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function getParamEVId(sectionId, paramInfoId) {
   const { evColId } = getSectionConfig(sectionId);
@@ -39,9 +39,7 @@ export function setParamEVAttr(
 ) {
   const evId = getParamEVId(sectionId, paramInfoId);
   fn({ enteredValueId: evId, ...props });
-  if (incrementVersion) {
-    incrementStateVersion([useEnteredValues]);
-  }
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamChildId({

@@ -13,7 +13,7 @@ import { useSectionConfigs } from "../models/info/sectionConfigs";
 import { useSectionDescription } from "../models/info/sectionDescription";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
-import { incrementStateVersion } from "./undo";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function loadProjectState({
   project,
@@ -57,5 +57,5 @@ export function loadProjectState({
   useSectionDescription.getState().resetAndSetAll(sectionDescriptions);
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
-  incrementStateVersion([useEnteredValues, useKwargCols]);
+  maybeIncrementProjectStateVersion(true);
 }
