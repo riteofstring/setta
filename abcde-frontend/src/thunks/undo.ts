@@ -7,27 +7,29 @@ export function undoProjectState() {
     return;
   }
 
+  const matchedStates = [];
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
     const sVersion = s.getState().version;
-    if (version === sVersion && s !== useStateVersion) {
-      s.temporal.getState().undo();
+    if (s.temporal && s !== useStateVersion && version === sVersion) {
+      s.temporal.getState().undo(2);
+      matchedStates.push(s);
     }
   }
 
-  useStateVersion.temporal.getState().undo();
+  useStateVersion.temporal.getState().undo(2);
+  incrementStateVersion(matchedStates);
 }
 
 export function incrementStateVersion(statePointers) {
-  for (const s of statePointers) {
-    pauseThenResumeTemporal(s, () =>
-      s.setState((state) => ({ version: state.version + 1 }))
-    );
+  const version = useStateVersion.getState().version;
+  for (const s of [useStateVersion, ...statePointers]) {
+    resumeThenPauseTemporal(s, () => s.setState({ version }));
+    s.setState({ version: version + 1 });
   }
-  useStateVersion.getState().incrementVersion();
 }
 
-function pauseThenResumeTemporal(statePointer, callback) {
-  statePointer.temporal.getState().pause();
-  callback();
+function resumeThenPauseTemporal(statePointer, callback) {
   statePointer.temporal.getState().resume();
+  callback();
+  statePointer.temporal.getState().pause();
 }

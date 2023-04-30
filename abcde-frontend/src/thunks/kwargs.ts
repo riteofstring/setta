@@ -9,14 +9,21 @@ import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionConfig } from "./sections/sections";
+import { incrementStateVersion } from "./undo";
 
 type AddKwargPayload = {
   sectionId: string;
   objInfoId: string;
   name?: string;
+  incrementVersion?: boolean;
 };
 
-export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
+export function addKwarg({
+  sectionId,
+  objInfoId,
+  name = "",
+  incrementVersion = false,
+}: AddKwargPayload) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name,
@@ -29,6 +36,9 @@ export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
     newStateFn: (x) => [...x, kwargInfo.id],
   });
   initializeParam(sectionId, [kwargInfo]);
+  if (incrementVersion) {
+    incrementStateVersion([useKwargCols]);
+  }
   return kwargInfo.id;
 }
 
