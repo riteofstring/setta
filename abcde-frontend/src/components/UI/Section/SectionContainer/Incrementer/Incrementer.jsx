@@ -30,12 +30,17 @@ export function Incrementer({
 
   const deleteChildren = (numSections) => {
     if (isRoot) {
-      deleteChild({ parentId: sectionId, numChildren: numSections });
+      deleteChild({
+        parentId: sectionId,
+        numChildren: numSections,
+        incrementVersion: true,
+      });
     } else {
       deleteChild({
         parentId,
         numChildren: numSections,
         startId: nextId,
+        incrementVersion: true,
       });
     }
   };
