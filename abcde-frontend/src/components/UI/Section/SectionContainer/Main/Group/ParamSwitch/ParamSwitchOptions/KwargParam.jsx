@@ -13,7 +13,12 @@ export function KwargParam(props) {
   };
 
   const onClick = () => {
-    deleteKwarg({ sectionId, objInfoId, kwargId: kwargInfo.id });
+    deleteKwarg({
+      sectionId,
+      objInfoId,
+      kwargId: kwargInfo.id,
+      incrementVersion: true,
+    });
   };
 
   return (

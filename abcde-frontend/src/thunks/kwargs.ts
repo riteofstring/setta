@@ -45,10 +45,16 @@ type DeleteKwargPayload = {
   objInfoId: string;
   deleteLast?: boolean;
   kwargId?: string;
+  incrementVersion?: boolean;
 };
 
 export function deleteKwarg(payload: DeleteKwargPayload) {
-  const { sectionId, objInfoId, deleteLast = false } = payload;
+  const {
+    sectionId,
+    objInfoId,
+    deleteLast = false,
+    incrementVersion = false,
+  } = payload;
   let { kwargId = "" } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionConfig(sectionId);
@@ -73,6 +79,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   if (childId) {
     deleteChild({ parentId: sectionId, startId: childId });
   }
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {

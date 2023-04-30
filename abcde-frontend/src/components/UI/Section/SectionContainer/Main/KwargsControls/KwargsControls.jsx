@@ -16,7 +16,12 @@ export function KwargsControls({ sectionId, objInfoId }) {
     addKwarg({ sectionId, objInfoId, incrementVersion: true });
   }
   function onClickDeleteKwarg() {
-    deleteKwarg({ sectionId, objInfoId, deleteLast: true });
+    deleteKwarg({
+      sectionId,
+      objInfoId,
+      deleteLast: true,
+      incrementVersion: true,
+    });
   }
   function onSearchChange(e) {
     setParamFilter({ sectionId, filter: e.target.value });
