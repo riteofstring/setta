@@ -14,32 +14,20 @@ export function undoProjectState() {
     }
   }
 
-  decrementStateVersion([]);
+  useStateVersion.temporal.getState().undo();
 }
 
 export function incrementStateVersion(statePointers) {
-  for (const s of [useStateVersion, ...statePointers]) {
+  for (const s of statePointers) {
     pauseThenResumeTemporal(s, () =>
       s.setState((state) => ({ version: state.version + 1 }))
     );
   }
-}
-
-function decrementStateVersion(statePointers) {
-  for (const s of [useStateVersion, ...statePointers]) {
-    pauseThenResumeTemporal(s, () =>
-      s.setState((state) => ({ version: state.version - 1 }))
-    );
-  }
+  useStateVersion.getState().incrementVersion();
 }
 
 function pauseThenResumeTemporal(statePointer, callback) {
-  const isTemporal = statePointer.temporal;
-  if (isTemporal) {
-    statePointer.temporal.getState().pause();
-  }
+  statePointer.temporal.getState().pause();
   callback();
-  if (isTemporal) {
-    statePointer.temporal.getState().resume();
-  }
+  statePointer.temporal.getState().resume();
 }
