@@ -1,5 +1,5 @@
 import { useStateVersion } from "models/stateVersion";
-import { decrementStateVersion, stateDict, STATE_TYPES } from "models/utils";
+import { stateDict, STATE_TYPES } from "models/utils";
 
 export function undoProjectState() {
   const version = useStateVersion.getState().version;
@@ -14,5 +14,32 @@ export function undoProjectState() {
     }
   }
 
-  decrementStateVersion(useStateVersion);
+  decrementStateVersion([]);
+}
+
+export function incrementStateVersion(statePointers) {
+  for (const s of [useStateVersion, ...statePointers]) {
+    pauseThenResumeTemporal(s, () =>
+      s.setState((state) => ({ version: state.version + 1 }))
+    );
+  }
+}
+
+function decrementStateVersion(statePointers) {
+  for (const s of [useStateVersion, ...statePointers]) {
+    pauseThenResumeTemporal(s, () =>
+      s.setState((state) => ({ version: state.version - 1 }))
+    );
+  }
+}
+
+function pauseThenResumeTemporal(statePointer, callback) {
+  const isTemporal = statePointer.temporal;
+  if (isTemporal) {
+    statePointer.temporal.getState().pause();
+  }
+  callback();
+  if (isTemporal) {
+    statePointer.temporal.getState().resume();
+  }
 }

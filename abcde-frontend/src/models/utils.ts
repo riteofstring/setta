@@ -59,26 +59,3 @@ function getInitialStateForResetter(initialState) {
   }
   return initialState;
 }
-
-export function incrementStateVersion(statePointer) {
-  pauseThenResumeTemporal(statePointer, () =>
-    statePointer.setState((state) => ({ version: state.version + 1 }))
-  );
-}
-
-export function decrementStateVersion(statePointer) {
-  pauseThenResumeTemporal(statePointer, () =>
-    statePointer.setState((state) => ({ version: state.version - 1 }))
-  );
-}
-
-function pauseThenResumeTemporal(statePointer, callback) {
-  const isTemporal = statePointer.temporal;
-  if (isTemporal) {
-    statePointer.temporal.getState().pause();
-  }
-  callback();
-  if (isTemporal) {
-    statePointer.temporal.getState().resume();
-  }
-}

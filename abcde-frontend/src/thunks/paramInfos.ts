@@ -1,10 +1,9 @@
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { useStateVersion } from "models/stateVersion";
-import { incrementStateVersion } from "models/utils";
 import { requiresNestedSection } from "utils/constants";
 import { getSectionConfig } from "./sections/sections";
+import { incrementStateVersion } from "./undo";
 
 export function getParamEVId(sectionId, paramInfoId) {
   const { evColId } = getSectionConfig(sectionId);
@@ -41,8 +40,7 @@ export function setParamEVAttr(
   const evId = getParamEVId(sectionId, paramInfoId);
   fn({ enteredValueId: evId, ...props });
   if (incrementVersion) {
-    incrementStateVersion(useStateVersion);
-    incrementStateVersion(useEnteredValues);
+    incrementStateVersion([useEnteredValues]);
   }
 }
 
