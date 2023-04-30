@@ -1,6 +1,7 @@
 import { ManyOf } from "./utils";
 
 export type EVType = {
+  id: string;
   value: string | null;
   childId: string | null;
 };
