@@ -11,6 +11,7 @@ export function undoProjectState() {
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
     const sVersion = s.getState().version;
     if (s.temporal && s !== useStateVersion && version === sVersion) {
+      console.log("past states", s.temporal.getState().pastStates);
       s.temporal.getState().undo(2);
       matchedStates.push(s);
     }
