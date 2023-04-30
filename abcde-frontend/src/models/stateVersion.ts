@@ -1,6 +1,6 @@
-import { create } from "./utils";
+import { createProjectState } from "./utils";
 
-export const useStateVersion = create((set) => ({
+export const useStateVersion = createProjectState((set) => ({
   version: 0,
   reset: () => set({ version: 0 }),
 }));
