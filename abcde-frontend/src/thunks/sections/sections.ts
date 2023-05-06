@@ -5,6 +5,7 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAllParameters } from "thunks/codeInfo/getDescendants";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { initializeParam } from "../initializeParam";
 
 function getSectionConfigId(sectionId) {
@@ -72,6 +73,7 @@ export function setSelectedItem(sectionId, selectedItem) {
     selectedItem,
   ]);
   initializeParam(sectionId, params);
+  maybeIncrementProjectStateVersion(true);
 }
 
 function setSectionInfoAttr(props) {
