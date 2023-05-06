@@ -107,3 +107,8 @@ export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
   // TODO fix this call
   // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 }
+
+export function changeKwargName({ id, name }) {
+  useCodeInfo.getState().setName({ id, name });
+  maybeIncrementProjectStateVersion(true);
+}
