@@ -1,6 +1,7 @@
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { moveSections } from "thunks/sections/sectionOps";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 
 export function useCreateDeck() {
@@ -17,7 +18,7 @@ export function useCreateDeck() {
 
   const fn = useOnClickAddSection();
 
-  return ({ nodeIds, x, y, callbackBeforeExit, projectXY }) =>
+  return ({ nodeIds, x, y, callbackBeforeExit, projectXY }) => {
     fn({
       isDeck: true,
       x,
@@ -28,6 +29,8 @@ export function useCreateDeck() {
       }),
       projectXY,
     });
+    maybeIncrementProjectStateVersion(true);
+  };
 }
 
 export function useOnClickAddSection() {
