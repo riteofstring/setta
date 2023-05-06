@@ -31,12 +31,12 @@ export function ComboboxSearch({
 
   useEffect(() => {
     if (!_.isEqual(selection, initialSelection)) {
-      onSelectedItemChange(selection, initialSelection, setSelection);
+      onSelectedItemChange(selection, initialSelection, setSelection, false);
     }
   }, [initialSelection]);
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
-    onSelectedItemChange(selection, selectedItem, setSelection);
+    onSelectedItemChange(selection, selectedItem, setSelection, true);
   };
 
   const {

@@ -18,13 +18,13 @@ export function ParamInput({
     setValue(v);
   };
 
-  const onBlur = (v) => {
+  const onBlur = (v, changedByUser = true) => {
     onChange(v);
     setParamEnteredValue({
       sectionId,
       paramInfoId,
       value: v,
-      incrementVersion: true,
+      incrementVersion: changedByUser,
     });
   };
 
