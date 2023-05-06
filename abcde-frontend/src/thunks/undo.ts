@@ -9,12 +9,9 @@ export function undoProjectState() {
 
   const version = useStateVersion.getState().version;
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
-    const sVersion = s.getState().version;
-    if (s.temporal && version === sVersion) {
+    if (s.temporal && version === s.getState().version) {
       s.temporal.getState().undo(2);
       undoSetPastAndFutureStates(s);
-      console.log("sPastStates", s.temporal.getState().pastStates);
-      console.log("sFutureStates", s.temporal.getState().futureStates);
     }
   }
 }
@@ -41,12 +38,9 @@ function filterPastOrFutureStates(states) {
 export function redoProjectState() {
   const version = useStateVersion.getState().version;
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
-    const sVersion = s.getState().version;
-    if (s.temporal && version === sVersion) {
+    if (s.temporal && version === s.getState().version) {
       s.temporal.getState().redo();
       redoSetPastAndFutureStates(s);
-      console.log("sPastStates", s.temporal.getState().pastStates);
-      console.log("sFutureStates", s.temporal.getState().futureStates);
     }
   }
 }
