@@ -18,6 +18,7 @@ export function useAddSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
     addSectionAtPosition({
       isDeck,
       initialPosition: { x, y },
+      incrementVersion: true,
     });
   };
 }
