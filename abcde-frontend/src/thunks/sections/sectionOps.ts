@@ -116,6 +116,8 @@ export function moveSection({
   maybeSetInitialPosition({ newParentId, sectionId, position });
 
   setSectionSize({ newParentId, sectionId });
+
+  maybeIncrementProjectStateVersion(true);
 }
 
 function setChildrenAndParent({
