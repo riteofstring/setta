@@ -3,31 +3,66 @@ import { stateDict, STATE_TYPES } from "models/utils";
 
 export function undoProjectState() {
   const pastStates = useStateVersion.temporal.getState().pastStates;
-  if (pastStates.length === 1) {
+  if (pastStates.length <= 1) {
     return;
   }
 
   const version = useStateVersion.getState().version;
-  const matchedStates = [useStateVersion];
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
     const sVersion = s.getState().version;
-    if (s.temporal && s !== useStateVersion && version === sVersion) {
-      console.log("past states", s.temporal.getState().pastStates);
+    if (s.temporal && version === sVersion) {
       s.temporal.getState().undo(2);
-      matchedStates.push(s);
+      undoSetPastAndFutureStates(s);
+      console.log("sPastStates", s.temporal.getState().pastStates);
+      console.log("sFutureStates", s.temporal.getState().futureStates);
     }
   }
+}
 
-  useStateVersion.temporal.getState().undo(2);
-  incrementStateVersion(matchedStates);
+function undoSetPastAndFutureStates(s) {
+  s.temporal.setState((state) => ({
+    pastStates: [...state.pastStates, s.getState()],
+    futureStates: filterPastOrFutureStates(state.futureStates),
+  }));
+}
+
+function filterPastOrFutureStates(states) {
+  const output = [];
+  const versions = new Set();
+  for (const f of states) {
+    if (!versions.has(f.version)) {
+      output.push(f);
+      versions.add(f.version);
+    }
+  }
+  return output;
+}
+
+export function redoProjectState() {
+  const version = useStateVersion.getState().version;
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
+    const sVersion = s.getState().version;
+    if (s.temporal && version === sVersion) {
+      s.temporal.getState().redo();
+      redoSetPastAndFutureStates(s);
+      console.log("sPastStates", s.temporal.getState().pastStates);
+      console.log("sFutureStates", s.temporal.getState().futureStates);
+    }
+  }
+}
+
+function redoSetPastAndFutureStates(s) {
+  s.temporal.setState((state) => ({
+    pastStates: filterPastOrFutureStates([...state.pastStates, s.getState()]),
+  }));
 }
 
 function incrementStateVersion(statePointers) {
   const version = useStateVersion.getState().version;
   for (const s of statePointers) {
     if (s.temporal) {
-      resumeThenPauseTemporal(s, () => s.setState({ version }));
       s.setState({ version: version + 1 });
+      resumeThenPauseTemporal(s, () => s.setState({})); //trigger a zundo update without actually changing state
     }
   }
 }

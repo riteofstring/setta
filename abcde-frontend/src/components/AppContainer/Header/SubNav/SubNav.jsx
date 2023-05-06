@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
 import { EditMenu } from "./EditMenu/EditMenu";
 import { FileMenu } from "./FileMenu/FileMenu";
+import { RedoButton } from "./RedoButton/RedoButton";
 import { RunButton } from "./RunButton/RunButton";
 import { UndoButton } from "./UndoButton/UndoButton";
 
@@ -34,6 +35,7 @@ function UiEditorSubNav() {
       <CommunityButton />
       <RunButton />
       <UndoButton />
+      <RedoButton />
     </div>
   );
 }
