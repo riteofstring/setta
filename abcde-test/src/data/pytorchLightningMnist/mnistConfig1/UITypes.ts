@@ -1,5 +1,6 @@
 export default {
   "81ee0a64-ca39-4676-a1c7-8f017ace888f": {
+    id: "81ee0a64-ca39-4676-a1c7-8f017ace888f",
     name: "Model",
     type: "SECTION",
     presetType: null,
@@ -18,6 +19,7 @@ export default {
     },
   },
   "d23fae1c-c113-4648-8f51-0e15ee78322a": {
+    id: "d23fae1c-c113-4648-8f51-0e15ee78322a",
     name: "Dataloader",
     type: "SECTION",
     presetType: null,
@@ -36,6 +38,7 @@ export default {
     },
   },
   "655bf82b-24e1-4283-bab3-77dc86a5eda0": {
+    id: "655bf82b-24e1-4283-bab3-77dc86a5eda0",
     name: "Dataset",
     type: "SECTION",
     presetType: null,
@@ -54,6 +57,7 @@ export default {
     },
   },
   "e51351bb-731b-40f1-a4d8-63b1ab1a3fa6": {
+    id: "e51351bb-731b-40f1-a4d8-63b1ab1a3fa6",
     name: "Trainer",
     type: "SECTION",
     presetType: null,
@@ -72,6 +76,7 @@ export default {
     },
   },
   "452ce274-77e7-40a9-b205-88ffb5a6f3a1": {
+    id: "452ce274-77e7-40a9-b205-88ffb5a6f3a1",
     name: "Entry",
     type: "SECTION",
     presetType: null,
@@ -90,6 +95,7 @@ export default {
     },
   },
   "24d5fc47-3047-4c92-86ec-d086c74bce9e": {
+    id: "24d5fc47-3047-4c92-86ec-d086c74bce9e",
     name: "transform",
     type: "SECTION",
     presetType: null,
@@ -108,6 +114,7 @@ export default {
     },
   },
   "e44ede4f-9ff4-4208-8612-79226ee0f2fa": {
+    id: "e44ede4f-9ff4-4208-8612-79226ee0f2fa",
     name: "Logger",
     type: "SECTION",
     presetType: null,
