@@ -9,6 +9,7 @@ import {
   useStoreApi,
 } from "react-flow-renderer";
 import { RiLayoutFill } from "react-icons/ri";
+import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW } from "utils/constants";
 
 export function ResponsiveControls() {
@@ -18,18 +19,18 @@ export function ResponsiveControls() {
 
   function onClickLayout() {
     const margin = 50;
-    const nodeInternals = [...store.getState().nodeInternals];
+    const nodeInternals = Array.from(store.getState().nodeInternals.values());
 
     let sizes = nodeInternals.map((x) => ({
-      id: x[0],
-      w: x[1].width + margin,
-      h: x[1].height + margin,
+      id: x.id,
+      w: x.width + margin,
+      h: x.height + margin,
     }));
     potpack(sizes); // mutates input
     sizes = _.keyBy(sizes, "id");
 
-    const minX = Math.min(...nodeInternals.map((n) => n[1].position.x));
-    const minY = Math.min(...nodeInternals.map((n) => n[1].position.y));
+    const minX = Math.min(...nodeInternals.map((n) => n.position.x));
+    const minY = Math.min(...nodeInternals.map((n) => n.position.y));
 
     rf.setNodes((nodes) =>
       nodes.map((node) => {
@@ -40,6 +41,8 @@ export function ResponsiveControls() {
         return node;
       })
     );
+
+    setPositionState(Array.from(store.getState().nodeInternals.values()));
   }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
