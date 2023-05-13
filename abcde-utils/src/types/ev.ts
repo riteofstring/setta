@@ -2,7 +2,7 @@ import { ManyOf } from "./utils";
 
 export type EVType = {
   id: string;
-  value: boolean | number | string | null;
+  value: string | null;
   childId: string | null;
 };
 
@@ -15,7 +15,7 @@ export type EVStateType = {
 
 export type EVActionType = {
   resetAndSetAll: (payload: ManyEVType) => void;
-  initManyEnteredValues: (payload: { evIdsToUITypes: ManyOf<string> }) => void;
+  initManyEnteredValues: (payload: { enteredValueIds: string[] }) => void;
   setEnteredValue: (payload: {
     enteredValueId: string;
     value: EVType["value"];
