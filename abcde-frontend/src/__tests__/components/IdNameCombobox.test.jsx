@@ -1,89 +1,103 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { flattenedItems } from "utils/Combobox/utils";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 
 global.ResizeObserver = ResizeObserver;
 
-test("Test IdNameCombobox", async () => {
-  const state = { selected: 2 };
-  const allItems = [
-    {
-      group: "animals",
-      items: [
-        { id: 1, name: "dogs" },
-        { id: 2, name: "cats" },
-        { id: 3, name: "elephants" },
-      ],
-    },
-  ];
+describe("IdNameCombobox", () => {
+  let state;
+  let allItems;
+  let allFlattened;
+  let props;
 
-  const allFlattened = flattenedItems(allItems);
+  beforeAll(() => {
+    state = { selected: 2 };
+    allItems = [
+      {
+        group: "animals",
+        items: [
+          { id: 1, name: "dogs" },
+          { id: 2, name: "cats" },
+          { id: 3, name: "elephants" },
+        ],
+      },
+    ];
 
-  const props = {
-    allItems,
-    initialSelection: state.selected,
-    onSelectedItemChange: (id) => {
-      state.selected = id;
-    },
-  };
+    allFlattened = flattenedItems(allItems);
 
-  const { rerender } = render(<IdNameCombobox {...props} />);
+    props = {
+      allItems,
+      initialSelection: state.selected,
+      onSelectedItemChange: (id) => {
+        state.selected = id;
+      },
+    };
+  });
 
-  // should have initial selection displayed
-  const searchBox = screen.getByRole("textbox");
-  expect(searchBox.value).toEqual("cats");
-  expect(state.selected).toEqual(2);
+  it("should have initial selection displayed", async () => {
+    const { searchBox } = renderIdNameCombobox(props);
+    expect(searchBox.value).toEqual("cats");
+    expect(state.selected).toEqual(2);
+  });
 
-  // clear search box and type "dogs"
-  await userEvent.clear(searchBox);
-  await userEvent.type(searchBox, "dogs");
-  expect(searchBox.value).toEqual("dogs");
-  let listItems = screen.getAllByTestId("ComboboxListItem");
-  expect(listItems.length).toEqual(1);
+  it("should show 1 match when typing in 'dogs', then reset to 'cats' when tabbing away", async () => {
+    const { searchBox } = renderIdNameCombobox(props);
+    await userEvent.clear(searchBox);
+    await userEvent.type(searchBox, "dogs");
+    expect(searchBox.value).toEqual("dogs");
+    const listItems = screen.getAllByTestId("ComboboxListItem");
+    expect(listItems.length).toEqual(1);
+    await userEvent.tab();
+    expect(searchBox.value).toEqual("cats");
+  });
 
-  // tabbing away should reset to "cats"
-  await userEvent.tab();
-  expect(searchBox.value).toEqual("cats");
+  it("should show all items when clearing the search field, and the value should remain as 'cats' when tabbing away", async () => {
+    const { searchBox } = renderIdNameCombobox(props);
+    await userEvent.clear(searchBox);
+    const listItems = screen.getAllByTestId("ComboboxListItem");
+    expect(listItems.length).toEqual(allFlattened.length);
+    await userEvent.tab();
+    expect(searchBox.value).toEqual("cats");
+  });
 
-  // typing in nothing should show all items
-  await userEvent.clear(searchBox);
-  listItems = screen.getAllByTestId("ComboboxListItem");
-  expect(listItems.length).toEqual(allFlattened.length);
+  it("should show all items after clicking on searchbox with field filled in", async () => {
+    const { searchBox } = renderIdNameCombobox(props);
+    await userEvent.click(searchBox);
+    const listItems = screen.getAllByTestId("ComboboxListItem");
+    expect(listItems.length).toEqual(allFlattened.length);
+  });
 
-  // tabbing away should reset to "cats"
-  await userEvent.tab();
-  expect(searchBox.value).toEqual("cats");
+  it("should show filtered results when editing the search field, and clicking on the edited field shouldn't change the content", async () => {
+    const { searchBox } = renderIdNameCombobox(props);
+    await userEvent.type(searchBox, "{backspace}");
+    expect(searchBox.value).toEqual("cat");
+    const listItems = screen.getAllByTestId("ComboboxListItem");
+    expect(listItems.length).toEqual(1);
+    await userEvent.click(searchBox);
+    expect(searchBox.value).toEqual("cat");
+  });
 
-  // all items should show after clicking on searchbox with field filled in
-  await userEvent.click(searchBox);
-  listItems = screen.getAllByTestId("ComboboxListItem");
-  expect(listItems.length).toEqual(allFlattened.length);
+  it("should select the correct id after tabbing away, clicking on searchbox, and selecting an item", async () => {
+    const { searchBox } = renderIdNameCombobox(props);
+    await userEvent.tab();
+    await userEvent.click(searchBox);
+    const listItems = screen.getAllByTestId("ComboboxListItem");
+    await userEvent.click(listItems[2]);
+    expect(state.selected).toEqual(allFlattened[2].id);
+  });
 
-  // editing the field should result in filtering
-  await userEvent.type(searchBox, "{backspace}");
-  expect(searchBox.value).toEqual("cat");
-  listItems = screen.getAllByTestId("ComboboxListItem");
-  expect(listItems.length).toEqual(1);
-
-  // clicking on an edited field shouldn't change the field's contents
-  await userEvent.click(searchBox);
-  expect(searchBox.value).toEqual("cat");
-
-  // escape, click on searchbox, then select an item
-  // state.selected should now be the new id
-  await userEvent.tab();
-  await userEvent.click(searchBox);
-  listItems = screen.getAllByTestId("ComboboxListItem");
-  await userEvent.click(listItems[2]);
-  expect(state.selected).toEqual(allFlattened[2].id);
-
-  // removing searchable items should set the selected value to be null
-  while (allItems.length > 0) {
-    allItems.pop();
-  }
-  rerender(<IdNameCombobox {...props} />);
-  expect(state.selected).toEqual(NULL_OBJ_ID);
+  it("should set the selected value to be NULL_OBJ_ID if the searchable items are removed", async () => {
+    const { rerender } = renderIdNameCombobox(props);
+    rerender(<IdNameCombobox {...props} allItems={[]} />);
+    expect(state.selected).toEqual(NULL_OBJ_ID);
+  });
 });
+
+function renderIdNameCombobox(props) {
+  const { rerender } = render(<IdNameCombobox {...props} />);
+  const searchBox = screen.getByRole("textbox");
+  return { rerender, searchBox };
+}
