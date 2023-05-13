@@ -18,34 +18,24 @@ export function Incrementer({
 
   const addSections = (numSections) => {
     if (isRoot) {
-      addChildForSeries({
-        parentId: sectionId,
-        numChildren: numSections,
-        incrementVersion: true,
-      });
+      addChildForSeries({ parentId: sectionId, numChildren: numSections });
     } else {
       addChildForSeries({
         parentId,
         numChildren: numSections,
         startId: sectionId,
-        incrementVersion: true,
       });
     }
   };
 
   const deleteChildren = (numSections) => {
     if (isRoot) {
-      deleteChild({
-        parentId: sectionId,
-        numChildren: numSections,
-        incrementVersion: true,
-      });
+      deleteChild({ parentId: sectionId, numChildren: numSections });
     } else {
       deleteChild({
         parentId,
         numChildren: numSections,
         startId: nextId,
-        incrementVersion: true,
       });
     }
   };

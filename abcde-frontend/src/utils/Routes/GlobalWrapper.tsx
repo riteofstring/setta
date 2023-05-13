@@ -1,7 +1,7 @@
 import { useWebsocket } from "hooks/useWebsocket";
+import { resetStores, STATE_TYPES } from "models/utils";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { resetProjectStores } from "thunks/reset";
 
 export function GlobalWrapper({ children }) {
   useWebsocket();
@@ -12,6 +12,6 @@ export function GlobalWrapper({ children }) {
 function useResetProjectState() {
   const location = useLocation();
   useEffect(() => {
-    resetProjectStores();
+    resetStores(STATE_TYPES.PROJECT_STATE);
   }, [location.pathname]);
 }

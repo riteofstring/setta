@@ -20,7 +20,7 @@ export function SelectionContextMenu({
   };
 
   function onClickDelete() {
-    deleteSections({ sectionIds: nodeIds, incrementVersion: true });
+    deleteSections({ sectionIds: nodeIds });
     closeContextMenu();
   }
 

@@ -1,10 +1,10 @@
 import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
+import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
 import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import colors from "tailwindcss/colors";
-import { setPositionState } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
@@ -22,6 +22,20 @@ const reactFlowStyle = {
   height: "100%",
 };
 
+function setInitialToCurrent(initialNodes, nodes) {
+  let newNodeStates = _.cloneDeep(initialNodes);
+  for (let n of newNodeStates) {
+    for (let m of nodes) {
+      if (n.id === m.id) {
+        // Use position as set by react flow, instead of initialPosition
+        n.position = m.position;
+        break;
+      }
+    }
+  }
+  return newNodeStates;
+}
+
 function _SectionsPane({ initialNodes }) {
   const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -29,7 +43,10 @@ function _SectionsPane({ initialNodes }) {
   useGroupSectionsOnKeyActivation();
 
   useDeepCompareEffect(() => {
-    setNodes(initialNodes);
+    if (!_.isEqual(_.map(nodes, "id"), _.map(initialNodes, "id"))) {
+      const newNodeStates = setInitialToCurrent(initialNodes, nodes);
+      setNodes(newNodeStates);
+    }
   }, [initialNodes]);
 
   const [
@@ -50,14 +67,6 @@ function _SectionsPane({ initialNodes }) {
     setActiveSection(null);
   }
 
-  function onNodeDragStop(e, node) {
-    setPositionState([node]);
-  }
-
-  function onSelectionDragStop(e, nodes) {
-    setPositionState(nodes);
-  }
-
   return (
     <ReactFlow
       ref={reactFlowRef}
@@ -74,8 +83,6 @@ function _SectionsPane({ initialNodes }) {
       onNodeContextMenu={openNodeCtxMenu}
       onPaneClick={onPaneClick}
       onMoveStart={closeCtxMenus}
-      onNodeDragStop={onNodeDragStop}
-      onSelectionDragStop={onSelectionDragStop}
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}

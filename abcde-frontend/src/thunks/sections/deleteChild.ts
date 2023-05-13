@@ -22,11 +22,10 @@ export function deleteChild({
   parentId,
   numChildren = 1,
   startId = null,
-  incrementVersion = false,
 }: DeleteChildFnType) {
   // For deleting root sections, in which case the parent (sectionid) is "null"
   if (_.isNil(parentId)) {
-    deleteSections({ sectionIds: [startId], incrementVersion });
+    deleteSections({ sectionIds: [startId] });
     return;
   }
 
@@ -38,7 +37,7 @@ export function deleteChild({
     getNewStateFn(deletedChildren, numChildren, startId)
   );
 
-  deleteSections({ sectionIds: deletedChildren[0], incrementVersion });
+  deleteSections({ sectionIds: deletedChildren[0] });
 }
 
 // if sectionId is null, then startId must be specified
@@ -47,11 +46,9 @@ type DeleteChildFnType =
       parentId: string;
       numChildren?: number;
       startId?: string | null;
-      incrementVersion?: boolean;
     }
   | {
       parentId: null | undefined;
       numChildren?: number;
       startId: string;
-      incrementVersion?: boolean;
     };

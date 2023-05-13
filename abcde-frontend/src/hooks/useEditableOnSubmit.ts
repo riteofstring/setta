@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function useEditableOnSubmit<T>(
   initialValue: T,
@@ -18,10 +18,6 @@ export function useEditableOnSubmit<T>(
   function onCancel() {
     setInputValue(initialValue);
   }
-
-  useEffect(() => {
-    setInputValue(initialValue);
-  }, [initialValue]);
 
   return [inputValue, setInputValue, onBlur, onCancel];
 }
