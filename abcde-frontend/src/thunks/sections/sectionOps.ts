@@ -92,6 +92,7 @@ export function moveSection({
   newIndex,
   position,
   behaviorDropType,
+  incrementVersion = false,
 }) {
   if (!newParentId || behaviorDropType === BehaviorDropType.INVALID) {
     return;
@@ -117,7 +118,7 @@ export function moveSection({
 
   setSectionSize({ newParentId, sectionId });
 
-  maybeIncrementProjectStateVersion(true);
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 function setChildrenAndParent({

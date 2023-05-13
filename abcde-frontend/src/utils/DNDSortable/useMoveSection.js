@@ -53,6 +53,7 @@ function onFreeMoveEnd({ dummyRef, project }) {
     newIndex,
     position,
     behaviorDropType,
+    incrementVersion: true,
   });
 }
 

@@ -1,6 +1,6 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useCreateDeck } from "hooks/useCreateSectionOrDeck";
 import { deleteSections } from "thunks/sections/sectionOps";
+import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function SelectionContextMenu({
@@ -26,10 +26,8 @@ export function SelectionContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <DropdownMenu.Item onClick={() => onClickCreateDeck(onClickProps)}>
-        Create Group
-      </DropdownMenu.Item>
-      <DropdownMenu.Item onClick={onClickDelete}>Delete</DropdownMenu.Item>
+      <Item onClick={() => onClickCreateDeck(onClickProps)}>Create Group</Item>
+      <Item onClick={onClickDelete}>Delete</Item>
     </ContextMenuCore>
   );
 }
