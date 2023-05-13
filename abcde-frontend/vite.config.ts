@@ -1,4 +1,4 @@
-/// <reference types="vite" />
+/// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import svgrPlugin from "vite-plugin-svgr";

@@ -3,13 +3,10 @@ import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetAllCallables } from "hooks/useSectionContents";
 import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
 import { useEffect } from "react";
+import { setSelectedItem } from "thunks/sections/sections";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
-export function SectionSearch({
-  sectionId,
-  onSelectedItemChange,
-  initialSelection,
-}) {
+export function SectionSearch({ sectionId, initialSelection }) {
   const onClick = useSetReactFlowActiveSectionOnClick(sectionId);
   const searchableItems = useGetAllCallables(sectionId);
   const groupedItems = useGroupedObjInfos(searchableItems);
@@ -18,6 +15,10 @@ export function SectionSearch({
     items: groupedItems[k],
   }));
   const hasSearchableItems = groupedItemsAsList.length > 0;
+
+  function onSelectedItemChange(value, changedByUser) {
+    setSelectedItem(sectionId, value, changedByUser);
+  }
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
