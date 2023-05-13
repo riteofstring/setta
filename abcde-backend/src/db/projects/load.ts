@@ -54,9 +54,7 @@ export async function loadOne({
   const project = await getProject(projectId);
   const { projectConfig, sectionConfigCol, sectionPositions } =
     await getProjectConfig(configId);
-  const { sections, sectionChildren } = await getSections(
-    Object.keys(sectionConfigCol),
-  );
+  const { sections, sectionChildren } = await getSections(sectionConfigCol);
   const {
     sectionConfigs,
     ev,
@@ -85,7 +83,6 @@ export async function loadOne({
   return {
     project,
     projectConfig,
-    sectionConfigCol,
     sections,
     sectionChildren,
     sectionConfigs,

@@ -23,10 +23,7 @@ export async function saveProjectDetails(userId, p: ProjectSaveType) {
   await saveUITypeCols(p.uiTypeCols);
   await saveSectionDescriptions(p.sectionDescriptions);
   await saveSectionConfigs(p.sectionConfigs);
-  await saveSectionConfigCol(
-    p.sectionConfigCol,
-    p.projectConfig.sectionConfigCol,
-  );
+  await saveSectionConfigCol(p.sections, p.projectConfig.sectionConfigCol);
   await saveProject(userId, p.project);
   await saveProjectConfig(p.project.id, p.projectConfig, p.sections);
   await saveAllProjectConfigCodeInfoMaps(

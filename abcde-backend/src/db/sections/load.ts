@@ -1,8 +1,10 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import { ManySectionCoreType } from 'abcde-utils/src/types/section';
+import { ManySectionType } from 'abcde-utils/src/types/section';
+import { ManySectionChildrenType } from 'abcde-utils/src/types/sectionChildren';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
+import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
 import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
@@ -17,7 +19,8 @@ function convertSize(x) {
   return x === -1 ? 'auto' : x;
 }
 
-export async function getSections(ids) {
+export async function getSections(sectionConfigCol: SectionConfigColType) {
+  const ids = Object.keys(sectionConfigCol);
   const s = await prisma.section.findMany({
     where: { id: { in: ids } },
     include: {
@@ -32,7 +35,11 @@ export async function getSections(ids) {
   });
   const idsAsKeys = _.keyBy(s, 'id');
 
-  const sections: ManySectionCoreType = _.mapValues(idsAsKeys, (v) => ({
+  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
+    getOrderedChildren(v.children.children, 'sectionId'),
+  );
+
+  const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
     id: v.id,
     name: v.name,
     paramInfoId: v.paramInfoId,
@@ -40,11 +47,9 @@ export async function getSections(ids) {
     initialPosition: { x: 0, y: 0 },
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
+    configId: sectionConfigCol[v.id],
+    parentId: getParentId(v.id, sectionChildren),
   }));
-
-  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
-    getOrderedChildren(v.children.children, 'sectionId'),
-  );
 
   _.forEach(idsAsKeys, (v) => {
     const s = getSectionPositions(v.children.children);
@@ -163,11 +168,27 @@ export function getSectionPositions(
 }
 
 export function setSectionPositions(
-  sections: ManySectionCoreType,
+  sections: ManySectionType,
   sectionPositions: SiblingSectionPositionType,
 ) {
   _.forEach(
     sectionPositions,
     (pos, id) => (sections[id].initialPosition = pos),
   );
+}
+
+function getParentId(
+  sectionId: string,
+  sectionChildren: ManySectionChildrenType,
+) {
+  for (const [k, v] of Object.entries(sectionChildren)) {
+    if (v.includes(sectionId)) {
+      return k;
+    }
+  }
+  return null;
+}
+
+export function getSectionConfigCol(sections: ManySectionType) {
+  return _.mapValues(sections, (v) => v.configId);
 }

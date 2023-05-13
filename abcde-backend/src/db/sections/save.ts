@@ -1,4 +1,4 @@
-import { ManySectionCoreType } from 'abcde-utils/src/types/section';
+import { ManySectionType } from 'abcde-utils/src/types/section';
 import {
   ManySectionChildrenType,
   TopLevelSectionChildrenType,
@@ -13,6 +13,7 @@ import {
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
+import { getSectionConfigCol } from './load';
 import {
   PrismaSectionChildrenType,
   PrismaSectionConfigColType,
@@ -26,7 +27,7 @@ function convertSize(x) {
 }
 
 export async function saveSections(
-  sections: ManySectionCoreType,
+  sections: ManySectionType,
   sectionChildren: ManySectionChildrenType,
 ) {
   await prisma.sectionChildrenId.createMany({
@@ -136,16 +137,16 @@ function assembleSectionConfigCol(
   return inDbFormat;
 }
 
-export async function saveSectionConfigCol(
-  sectionConfigCol: SectionConfigColType,
-  colId,
-) {
+export async function saveSectionConfigCol(sections: ManySectionType, colId) {
   await prisma.sectionConfigColId.createMany({
     data: [{ id: colId }],
     skipDuplicates: true,
   });
 
-  const inDbFormat = assembleSectionConfigCol(sectionConfigCol, colId);
+  const inDbFormat = assembleSectionConfigCol(
+    getSectionConfigCol(sections),
+    colId,
+  );
   await deleteThenCreateCol(prisma.sectionConfigCol, [colId], inDbFormat);
 }
 

@@ -1,5 +1,5 @@
+import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
-import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
 import _ from 'lodash';
 import { createIdMap, renameKeys } from 'src/utils/utils';
 
@@ -20,15 +20,12 @@ export function copySectionConfigs(
   return { newSectionConfigs, sectionConfigIdMap };
 }
 
-export function copySectionConfigCol(
-  sectionConfigCol: SectionConfigColType,
-  sectionConfigIdMap,
-) {
-  const newSectionConfigCol = _.cloneDeep(sectionConfigCol);
-  for (const [sectionId, configId] of Object.entries(newSectionConfigCol)) {
-    if (configId in sectionConfigIdMap) {
-      newSectionConfigCol[sectionId] = sectionConfigIdMap[configId];
+export function copySections(sections: ManySectionType, sectionConfigIdMap) {
+  const newSections = _.cloneDeep(sections);
+  for (const section of Object.values(newSections)) {
+    if (section.configId in sectionConfigIdMap) {
+      section.configId = sectionConfigIdMap[section.configId];
     }
   }
-  return newSectionConfigCol;
+  return newSections;
 }
