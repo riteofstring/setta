@@ -30,7 +30,6 @@ export type SectionInfoStateType = {
   x: ManySectionType;
   allChildren: ManySectionChildrenType;
   currChildren: ManySectionChildrenType;
-  version: number;
 };
 
 export type SectionInfoActionType = {
@@ -76,6 +75,10 @@ export type SectionInfoActionType = {
   }) => void;
 
   removeSectionInfos: (payload: string[]) => void;
+
+  setAll: (payload: SectionInfoStateType) => void;
+
+  reset: () => void;
 };
 
 export type SectionInfoZustandType = SectionInfoStateType &

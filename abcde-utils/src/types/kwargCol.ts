@@ -6,7 +6,7 @@ export type KwargColType = {
 
 export type ManyKwargColType = ManyOf<KwargColType>;
 
-export type KwargColStateType = { x: ManyKwargColType; version: number };
+export type KwargColStateType = { x: ManyKwargColType };
 
 export type KwargColActionType = {
   resetAndSetAll: (payload: ManyKwargColType) => void;
@@ -18,6 +18,10 @@ export type KwargColActionType = {
     objInfoId: string;
     newStateFn: (currIds: string[]) => string[];
   }) => void;
+
+  setAll: (payload: KwargColStateType) => void;
+
+  reset: () => void;
 };
 
 export type KwargColZustandType = KwargColStateType & KwargColActionType;

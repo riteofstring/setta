@@ -5,7 +5,6 @@ export type ProjectConfigType = {
   childrenId: string;
   children: string[];
   isDefault: boolean;
-  version: number;
 };
 
 export type ProjectConfigActionType = {
@@ -14,6 +13,10 @@ export type ProjectConfigActionType = {
   addChildren: (payload: string[]) => void;
 
   deleteChildren: (payload: string[]) => void;
+
+  setAll: (payload: ProjectConfigType) => void;
+
+  reset: () => void;
 
   getAll: () => ProjectConfigType;
 };

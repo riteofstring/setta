@@ -4,7 +4,6 @@ import { ManyUITypeColType } from "./uiTypeCol";
 export type ParamInfoStateType = {
   x: ManyEVColType;
   y: ManyUITypeColType;
-  version: number;
 };
 
 export type ParamInfoActionType = {
@@ -44,6 +43,10 @@ export type ParamInfoActionType = {
     uiTypeColId: string;
     ids: string[];
   }) => void;
+
+  setAll: (payload: ParamInfoStateType) => void;
+
+  reset: () => void;
 };
 
 export type ParamInfoZustandType = ParamInfoStateType & ParamInfoActionType;
