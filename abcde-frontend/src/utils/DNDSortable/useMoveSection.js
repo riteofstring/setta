@@ -5,15 +5,20 @@ import { useRef } from "react";
 import { useReactFlow } from "react-flow-renderer";
 import { moveSection } from "thunks/sections/sectionOps";
 import { getSectionParentId, setAllChildren } from "thunks/sections/sections";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
-  setAllChildren(
-    active.data.current.sortable?.containerId,
-    updateWithArrayMove(active, over)
-  );
+  if (active.id !== over.id) {
+    setAllChildren(
+      active.data.current.sortable?.containerId,
+      updateWithArrayMove(active, over)
+    );
+
+    maybeIncrementProjectStateVersion(true);
+  }
 }
 
 function onFreeMoveEnd({ dummyRef, project }) {

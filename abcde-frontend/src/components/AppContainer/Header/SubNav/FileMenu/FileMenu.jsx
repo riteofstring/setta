@@ -3,7 +3,6 @@ import { useCurrProjectName } from "hooks/useProject";
 import _ from "lodash";
 import { useAuth } from "models/auth";
 import { useState } from "react";
-import { useStoreApi } from "react-flow-renderer";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   saveAsExistingProjectConfig,
@@ -17,7 +16,6 @@ import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const reactFlowStore = useStoreApi();
   const username = useAuth((x) => x.username);
   const { projects: rawProjects, getProjects } = useGetOrCreateProjects();
   const { projectName: currProjectName, configName: currConfigName } =
@@ -30,7 +28,7 @@ export function FileMenu() {
   });
 
   function onClickSave() {
-    saveProject({ reactFlowStore });
+    saveProject();
   }
 
   function onClickLoad() {
@@ -58,11 +56,9 @@ export function FileMenu() {
       );
       const newProjectConfig = matchingConfig
         ? await saveAsExistingProjectConfig({
-            reactFlowStore,
             configId: matchingConfig.id,
           })
         : await saveAsNewProjectConfig({
-            reactFlowStore,
             newConfigName,
           });
 

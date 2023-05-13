@@ -20,6 +20,6 @@ export function useUndeck(deckId) {
       sectionIds: childIds,
       positions,
     });
-    deleteSections({ sectionIds: [deckId] });
+    deleteSections({ sectionIds: [deckId], incrementVersion: true });
   };
 }

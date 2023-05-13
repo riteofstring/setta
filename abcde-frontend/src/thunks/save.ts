@@ -87,35 +87,27 @@ export function getProjectData(): ProjectSaveType {
   return output;
 }
 
-export function saveProject({ reactFlowStore }) {
-  const x = assembleProject(reactFlowStore);
+export function saveProject() {
+  const x = assembleProject();
   saveProjectDb(x);
 }
 
-export async function saveAsNewProjectConfig({
-  reactFlowStore,
-  newConfigName,
-}) {
+export async function saveAsNewProjectConfig({ newConfigName }) {
   return await saveProjectAs({
-    reactFlowStore,
     fn: saveAsNewProjectConfigDb,
     otherArgs: { newConfigName },
   });
 }
 
-export async function saveAsExistingProjectConfig({
-  reactFlowStore,
-  configId,
-}) {
+export async function saveAsExistingProjectConfig({ configId }) {
   return await saveProjectAs({
-    reactFlowStore,
     fn: saveAsExistingProjectConfigDb,
     otherArgs: { configId },
   });
 }
 
-async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
-  const x = assembleProject(reactFlowStore);
+async function saveProjectAs({ fn, otherArgs }) {
+  const x = assembleProject();
   const newProjectConfig = await fn({ ...x, ...otherArgs });
   const uiTypesState = useUITypes.getState();
   // load base and preset ui types from memory
@@ -133,18 +125,8 @@ async function saveProjectAs({ reactFlowStore, fn, otherArgs }) {
   return newProjectConfig;
 }
 
-function assembleProject(reactFlowStore) {
-  updateInitialPositions(reactFlowStore);
+function assembleProject() {
   return { project: getProjectData() };
-}
-
-function updateInitialPositions(reactFlowStore) {
-  const rfState = reactFlowStore.getState();
-  const newValues = {};
-  for (const [key, value] of rfState.nodeInternals) {
-    newValues[key] = { initialPosition: value.position };
-  }
-  useSectionInfos.getState().setSectionInfoAttrObjInput({ newValues });
 }
 
 function assembleKwargInfos(kwargCols: ManyKwargColType) {

@@ -17,7 +17,7 @@ export function useCreateDeck() {
 
   const fn = useOnClickAddSection();
 
-  return ({ nodeIds, x, y, callbackBeforeExit, projectXY }) =>
+  return ({ nodeIds, x, y, callbackBeforeExit, projectXY }) => {
     fn({
       isDeck: true,
       x,
@@ -27,15 +27,29 @@ export function useCreateDeck() {
         callbackBeforeExit,
       }),
       projectXY,
+      incrementVersion: true,
     });
+  };
 }
 
 export function useOnClickAddSection() {
   const getPosition = useMouseToReactFlowPosition();
 
-  return ({ isDeck, x, y, callbackBeforeExit, projectXY }) => {
+  return ({
+    isDeck,
+    x,
+    y,
+    callbackBeforeExit,
+    projectXY,
+    incrementVersion,
+  }) => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
     const initialPosition = projectXY ? getPosition(x, y) : { x, y };
-    addSectionAtPosition({ isDeck, initialPosition, callbackBeforeExit });
+    addSectionAtPosition({
+      isDeck,
+      initialPosition,
+      callbackBeforeExit,
+      incrementVersion,
+    });
   };
 }

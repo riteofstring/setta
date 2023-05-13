@@ -70,6 +70,7 @@ function _UIElement({ sectionId, paramInfo }) {
       uiTypeId: e,
       sectionId,
       paramInfoId,
+      incrementVersion: true,
     });
   };
 
