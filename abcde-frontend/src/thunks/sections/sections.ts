@@ -80,8 +80,9 @@ function setSectionInfoAttr(props) {
   useSectionInfos.getState().setSectionInfoAttr(props);
 }
 
-export function setSectionName(sectionId, name) {
+export function setSectionName(sectionId, name, incrementVersion) {
   setSectionInfoAttr({ sectionId, attr: "name", value: name });
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setSectionSize(sectionId, size) {
