@@ -45,7 +45,6 @@ export async function loadProjectSpecificData({
     "projectConfigCodeInfoMaps",
     "sectionCurrChildren",
     "sectionChildren",
-    "sectionConfigCol",
     "sectionConfigs",
     "sectionDescriptions",
     "sections",
