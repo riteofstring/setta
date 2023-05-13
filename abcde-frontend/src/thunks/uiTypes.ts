@@ -77,6 +77,7 @@ export function setSectionUITypeConfig({
   sectionId,
   settingPreset = false,
   configProps,
+  incrementVersion = false,
 }) {
   const {
     name: defaultName,
@@ -102,6 +103,8 @@ export function setSectionUITypeConfig({
     setUITypeId,
     configProps,
   });
+
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamUITypeConfig({
