@@ -13,15 +13,10 @@ export function KwargsControls({ sectionId, objInfoId }) {
   useSearchShortcutKey({ sectionId, searchRef });
 
   function onClickAddKwarg() {
-    addKwarg({ sectionId, objInfoId, incrementVersion: true });
+    addKwarg({ sectionId, objInfoId });
   }
   function onClickDeleteKwarg() {
-    deleteKwarg({
-      sectionId,
-      objInfoId,
-      deleteLast: true,
-      incrementVersion: true,
-    });
+    deleteKwarg({ sectionId, objInfoId, deleteLast: true });
   }
   function onSearchChange(e) {
     setParamFilter({ sectionId, filter: e.target.value });

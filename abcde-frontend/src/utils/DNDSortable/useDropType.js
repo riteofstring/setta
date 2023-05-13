@@ -1,7 +1,8 @@
 import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useStoreApi } from "react-flow-renderer";
+import { useCallback } from "react";
+import { useStore } from "react-flow-renderer";
 import { getParamIsNested } from "thunks/paramInfos";
 import { getParamWithSameName } from "thunks/sections/sectionContents";
 import {
@@ -17,15 +18,35 @@ import {
 } from "utils/DNDSortable/dropTypes";
 
 export function useOnDragMove() {
+  const zoom = useStore((x) => x.transform[2]);
   const { isMovingFree } = useDndMode();
-  const rfStore = useStoreApi();
-  return (props) => {
-    onDragMove({
-      ...props,
+  const currOver = useDndState((x) => x.overId);
+  const currShouldDrop = useDndState((x) => x.shouldDrop);
+  const currCenterYCondition = useDndState((x) => x.centerYCondition);
+  const currLeftDistCondition = useDndState((x) => x.centerLeftDistCondition);
+  const setOver = useDndState((x) => x.setOver);
+  return useCallback(
+    (props) =>
+      onDragMove({
+        ...props,
+        zoom,
+        isMovingFree,
+        currOver,
+        currShouldDrop,
+        currCenterYCondition,
+        currLeftDistCondition,
+        setOver,
+      }),
+    [
+      zoom,
       isMovingFree,
-      rfStore,
-    });
-  };
+      currOver,
+      currShouldDrop,
+      currCenterYCondition,
+      currLeftDistCondition,
+      setOver,
+    ]
+  );
 }
 
 export function onDragStart({ active }) {
@@ -38,36 +59,41 @@ export function onDragEnd() {
   useDndState.getState().reset();
 }
 
-function onDragMove({ active, over, collisions, isMovingFree, rfStore }) {
+function onDragMove({
+  active,
+  over,
+  collisions,
+  zoom,
+  isMovingFree,
+  currOver,
+  currShouldDrop,
+  currCenterYCondition,
+  currLeftDistCondition,
+  setOver,
+}) {
   if (isMovingFree) {
     const shouldDrop = getShouldDrop(active, over, collisions);
     const overId = over ? over.id : null;
     const centerYCondition = collisions[0]?.data.centerYDist < 0;
-    const leftDistCondition = getLeftDistCondition(collisions, rfStore);
-    const dndState = useDndState.getState();
+    const leftDistCondition = getLeftDistCondition(collisions, zoom);
 
     if (
-      overId !== dndState.overId ||
-      shouldDrop !== dndState.shouldDrop ||
-      centerYCondition !== dndState.centerYCondition ||
-      leftDistCondition !== dndState.leftDistCondition
+      overId !== currOver ||
+      shouldDrop !== currShouldDrop ||
+      centerYCondition !== currCenterYCondition ||
+      leftDistCondition !== currLeftDistCondition
     ) {
-      dndState.setOver({
-        overId,
-        shouldDrop,
-        centerYCondition,
-        leftDistCondition,
-      });
+      setOver({ overId, shouldDrop, centerYCondition, leftDistCondition });
     }
   }
 }
 
-function getLeftDistCondition(collisions, rfStore) {
+function getLeftDistCondition(collisions, zoom) {
   // true if section has not children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 200 * rfStore.getState().transform[2]
+    collisions[0]?.data.leftDist > 200 * zoom
   );
 }
 
@@ -76,7 +102,7 @@ function getShouldDrop(active, over, collisions) {
   // Make sure active is not over
   // Make sure over is a sortable or over has no children and can have children
   return (
-    !!over &&
+    over &&
     collisions[0]?.id === over.id &&
     active.id !== over.id &&
     (over.data.current.sortable || !over.data.current.hasNested)

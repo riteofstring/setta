@@ -3,8 +3,7 @@ import {
   ProjectConfigZustandType,
 } from "abcde-utils/src/types/projectConfig";
 import _ from "lodash";
-import { temporal } from "zundo";
-import { createProjectState } from "../utils";
+import { create } from "../utils";
 
 const initialState: ProjectConfigType = {
   id: "",
@@ -13,14 +12,15 @@ const initialState: ProjectConfigType = {
   childrenId: "",
   children: [],
   isDefault: false,
-  version: 0,
 };
 
-export const useProjectConfig = createProjectState(
-  temporal<ProjectConfigZustandType>((set, get) => ({
+export const useProjectConfig = create<ProjectConfigZustandType>(
+  (set, get) => ({
     ...initialState,
     resetAndSetAll: (payload) => {
-      set((state) => ({ ...state, ...payload }), true);
+      const s = get();
+      s.reset();
+      s.setAll(payload);
     },
     addChildren: (payload) =>
       set((state) => ({ children: _.uniq([...state.children, ...payload]) })),
@@ -29,6 +29,8 @@ export const useProjectConfig = createProjectState(
         children: state.children.filter((x) => !payload.includes(x)),
       })),
     setName: (name) => set({ name }), //TODO, need to update db
+    setAll: (payload) => set(payload),
+    reset: () => set(initialState),
     getAll: () =>
       _.pick(get(), [
         "id",
@@ -37,9 +39,6 @@ export const useProjectConfig = createProjectState(
         "childrenId",
         "children",
         "isDefault",
-        "version",
       ]),
-  }))
+  })
 );
-
-useProjectConfig.temporal.getState().pause();

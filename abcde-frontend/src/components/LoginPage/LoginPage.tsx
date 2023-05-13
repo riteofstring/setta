@@ -1,10 +1,10 @@
+import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
 import { login } from "dbRequests/authentication";
 import { useFormik } from "formik";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { FormInput } from "utils/atoms/input/FormInput";
 import { PasswordInput } from "utils/atoms/input/PasswordInput";
 import { StandAloneInputContainer } from "utils/atoms/input/StandAloneInputContainer";
-import { GridWrapper } from "utils/Wrappers/GridWrapper";
 
 export function LoginPage() {
   // touched, errors,

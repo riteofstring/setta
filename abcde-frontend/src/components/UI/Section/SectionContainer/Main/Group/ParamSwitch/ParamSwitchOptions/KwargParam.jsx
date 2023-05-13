@@ -1,22 +1,19 @@
+import { useCodeInfo } from "models/info/codeInfo";
 import { IoClose } from "react-icons/io5";
-import { changeKwargName, deleteKwarg } from "thunks/kwargs";
+import { deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { ParamContainer } from "../ParamContainer/ParamContainer";
 import { ParamNameInput } from "../ParamContainer/ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
   const { sectionId, objInfoId, paramInfo: kwargInfo } = props;
+  const setName = useCodeInfo((x) => x.setName);
   const onBlur = (v) => {
-    changeKwargName({ id: kwargInfo.id, name: v });
+    setName({ id: kwargInfo.id, name: v });
   };
 
   const onClick = () => {
-    deleteKwarg({
-      sectionId,
-      objInfoId,
-      kwargId: kwargInfo.id,
-      incrementVersion: true,
-    });
+    deleteKwarg({ sectionId, objInfoId, kwargId: kwargInfo.id });
   };
 
   return (

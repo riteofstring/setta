@@ -19,13 +19,8 @@ import {
 } from "utils/uiTypeUtils";
 import { initializeChild } from "./initializeParam";
 import { getParamEVId, getParamUIType } from "./paramInfos";
-import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function setSectionUITypeId({
-  uiTypeId,
-  sectionId,
-  incrementVersion = false,
-}) {
+export function setSectionUITypeId({ uiTypeId, sectionId }) {
   const { parentId, paramInfoId } = useSectionInfos.getState().x[sectionId];
 
   setSectionConfigAttr({
@@ -37,16 +32,9 @@ export function setSectionUITypeId({
   if (paramInfoId) {
     setParamUITypeId({ sectionId: parentId, paramInfoId, uiTypeId });
   }
-
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function setParamUITypeId({
-  uiTypeId,
-  sectionId,
-  paramInfoId,
-  incrementVersion = false,
-}) {
+export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId }) {
   const { uiTypeColId } = getSectionConfig(sectionId);
 
   useParamInfos.getState().setUITypeId({
@@ -75,15 +63,12 @@ export function setParamUITypeId({
       value: uiTypeId,
     });
   }
-
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setSectionUITypeConfig({
   sectionId,
   settingPreset = false,
   configProps,
-  incrementVersion = false,
 }) {
   const {
     name: defaultName,
@@ -109,8 +94,6 @@ export function setSectionUITypeConfig({
     setUITypeId,
     configProps,
   });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamUITypeConfig({

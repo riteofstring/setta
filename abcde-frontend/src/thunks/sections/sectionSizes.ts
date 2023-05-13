@@ -1,5 +1,4 @@
 import { useSectionInfos } from "models/info/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { getSectionParentId, setSectionSize } from "./sections";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
@@ -10,8 +9,6 @@ export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
     sectionId,
     width: size.width,
   });
-
-  maybeIncrementProjectStateVersion(true);
 }
 
 function setAllOtherWidths({ sectionId, width }) {
@@ -39,7 +36,7 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
   });
 }
 
-export function getHighestAncestor(sectionId) {
+function getHighestAncestor(sectionId) {
   let parentId = getSectionParentId(sectionId);
   let highestAncestor = sectionId;
 

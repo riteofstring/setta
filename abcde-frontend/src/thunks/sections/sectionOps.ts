@@ -12,7 +12,6 @@ import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
@@ -33,7 +32,7 @@ import {
 } from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
 
-export function deleteSections({ sectionIds, incrementVersion = false }) {
+export function deleteSections({ sectionIds }) {
   const idsToDelete: string[] = [];
   for (const sid of sectionIds) {
     idsToDelete.push(...getIdsToDelete(sid));
@@ -46,8 +45,6 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
   }
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
   useProjectConfig.getState().deleteChildren(idsToDelete);
-
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 function getIdsToDelete(sectionId) {
@@ -116,8 +113,6 @@ export function moveSection({
   maybeSetInitialPosition({ newParentId, sectionId, position });
 
   setSectionSize({ newParentId, sectionId });
-
-  maybeIncrementProjectStateVersion(true);
 }
 
 function setChildrenAndParent({
@@ -225,13 +220,11 @@ function maybeChangeNewParamUIType({
     paramIdToLinkTo = paramIdToLinkTo.id;
   }
 
-  if (paramIdToLinkTo) {
-    linkParamToSection({
-      parentId: newParentId,
-      paramInfoId: paramIdToLinkTo,
-      sectionId,
-    });
-  }
+  linkParamToSection({
+    parentId: newParentId,
+    paramInfoId: paramIdToLinkTo,
+    sectionId,
+  });
 }
 
 function linkParamToSection({ parentId, paramInfoId, sectionId }) {

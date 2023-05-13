@@ -66,8 +66,7 @@
     "vite-tsconfig-paths": "3.5.1",
     "web-vitals": "2.1.0",
     "yup": "0.32.8",
-    "zundo": "2.0.0-beta.15",
-    "zustand": "4.3.7"
+    "zustand": "4.1.4"
   },
   "scripts": {
     "start": "vite",

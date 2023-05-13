@@ -18,8 +18,7 @@ export function IdNameCombobox({
   const localOnSelectedItemChange = (
     currSelectedItem,
     newSelectedItem,
-    setSelection,
-    changedByUser
+    setSelection
   ) => {
     const sid = newSelectedItem ? newSelectedItem.id : NULL_OBJ_ID;
     const currId = currSelectedItem ? currSelectedItem.id : NULL_OBJ_ID;
@@ -27,7 +26,7 @@ export function IdNameCombobox({
       setSelection(newSelectedItem);
     }
     if (sid !== initialSelection) {
-      onSelectedItemChange(sid, changedByUser);
+      onSelectedItemChange(sid);
     }
   };
 

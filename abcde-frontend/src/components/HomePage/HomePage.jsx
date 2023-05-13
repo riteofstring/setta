@@ -1,4 +1,5 @@
-import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
+import { GridWrapper } from "components/AppContainer/GridWrapper/GridWrapper";
+import { useGetOrCreateProjects } from "hooks/dbRequests/projects";
 import { matchSorter } from "match-sorter";
 import { useAuth } from "models/auth";
 import { useSearch } from "models/search";
@@ -10,7 +11,6 @@ import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { router } from "utils/Routes/router";
-import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 

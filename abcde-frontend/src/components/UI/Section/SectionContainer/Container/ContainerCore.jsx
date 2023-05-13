@@ -65,3 +65,9 @@ function DeckSectionTitle({ sectionId }) {
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
+
+function Test() {
+  return (
+    <div className="absolute -mx-4 h-10 w-full self-stretch truncate px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100"></div>
+  );
+}

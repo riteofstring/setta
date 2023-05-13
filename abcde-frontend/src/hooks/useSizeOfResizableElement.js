@@ -20,7 +20,7 @@ export function useSizeOfResizableElement({ delay, callback }) {
   return { sizeRef, size };
 }
 
-function useSizeOfResizableRef({ current, delay, callback }) {
+export function useSizeOfResizableRef({ current, delay, callback }) {
   const size = useRef({ width: 0, height: 0 });
 
   const observer = useRef(

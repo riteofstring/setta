@@ -5,7 +5,6 @@ import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAllParameters } from "thunks/codeInfo/getDescendants";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { initializeParam } from "../initializeParam";
 
 function getSectionConfigId(sectionId) {
@@ -63,7 +62,7 @@ export function setCurrChildren({ sectionId, currChildren }) {
   sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
 }
 
-export function setSelectedItem(sectionId, selectedItem, changedByUser) {
+export function setSelectedItem(sectionId, selectedItem) {
   setSectionConfigAttr({
     sectionId,
     attr: "selectedItem",
@@ -73,16 +72,14 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
     selectedItem,
   ]);
   initializeParam(sectionId, params);
-  maybeIncrementProjectStateVersion(changedByUser);
 }
 
 function setSectionInfoAttr(props) {
   useSectionInfos.getState().setSectionInfoAttr(props);
 }
 
-export function setSectionName(sectionId, name, incrementVersion) {
+export function setSectionName(sectionId, name) {
   setSectionInfoAttr({ sectionId, attr: "name", value: name });
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setSectionSize(sectionId, size) {

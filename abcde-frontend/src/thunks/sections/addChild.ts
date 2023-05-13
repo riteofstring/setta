@@ -1,5 +1,4 @@
 import { setParamChildId } from "thunks/paramInfos";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArrayOrXpend } from "utils/utils";
 import {
   createChildForSeries,
@@ -21,12 +20,10 @@ export function addChildForSeries({
   parentId,
   numChildren,
   startId = null,
-  incrementVersion = false,
 }: {
   parentId: string;
   numChildren: number;
   startId: string | null;
-  incrementVersion?: boolean;
 }) {
   const newIds = createChildForSeries({
     parentId,
@@ -34,8 +31,6 @@ export function addChildForSeries({
   });
 
   setAllChildren(parentId, getNewStateFn(startId, newIds));
-
-  maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
 }

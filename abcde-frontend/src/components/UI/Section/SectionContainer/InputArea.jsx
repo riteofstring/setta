@@ -8,8 +8,8 @@ import { SectionSearch } from "./Main/Search/Search";
 function _InputArea({ sectionId }) {
   const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
 
-  function onSelectedItemChange(value, changedByUser) {
-    setSelectedItem(sectionId, value, changedByUser);
+  function onSelectedItemChange(value) {
+    setSelectedItem(sectionId, value);
   }
 
   return (

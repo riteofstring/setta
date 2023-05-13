@@ -1,5 +1,5 @@
+import { FlexWrapper } from "components/AppContainer/FlexWrapper/FlexWrapper";
 import { HeaderContainer } from "components/AppContainer/Header/Header";
-import { FlexWrapper } from "utils/Wrappers/FlexWrapper";
 import { TemplateDetailPane } from "./CommunityComponents/TemplateDetailsPane";
 import { TemplateListPane } from "./CommunityComponents/TemplateListPane";
 

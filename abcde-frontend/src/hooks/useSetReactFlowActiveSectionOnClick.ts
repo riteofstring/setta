@@ -1,14 +1,13 @@
 import { useStoreApi } from "react-flow-renderer";
-import { getHighestAncestor } from "thunks/sections/sectionSizes";
+import { useIsTopLevelSection } from "./useProjectConfig";
 
+// TODO: make this work for nested sections
 export function useSetReactFlowActiveSectionOnClick(sectionId) {
   const store = useStoreApi();
-
-  return () => {
-    const topMostAncestor = getHighestAncestor(sectionId);
+  const isTopLevel = useIsTopLevelSection(sectionId);
+  return () =>
     store.setState((x) => {
-      x.addSelectedNodes([topMostAncestor]);
+      isTopLevel && x.addSelectedNodes([sectionId]);
       return x;
     });
-  };
 }

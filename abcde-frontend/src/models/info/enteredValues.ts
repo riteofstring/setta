@@ -1,36 +1,38 @@
 import { newEV } from "abcde-utils/src/objs/ev";
 import { EVStateType, EVZustandType } from "abcde-utils/src/types/ev";
-import _ from "lodash";
-import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
-import { createProjectState } from "../utils";
+import { create } from "../utils";
 
-const initialState: EVStateType = { x: {}, version: 0 };
+function getEVInfo(state: EVZustandType, evId: string) {
+  if (!(evId in state.x)) {
+    state.x[evId] = newEV({ id: evId, value: null, childId: null });
+  }
+  return state.x[evId];
+}
 
-export const useEnteredValues = createProjectState(
-  temporal(
-    immer<EVZustandType>((set) => ({
-      ...initialState,
-      resetAndSetAll: (payload) => {
-        set((state) => ({ ...state, x: payload }), true);
-      },
-      initManyEnteredValues: ({ evIdsToUITypes }) =>
-        set((state) => {
-          _.forEach(
-            evIdsToUITypes,
-            (uiType, id) => (state.x[id] = newEV({ id, uiType }))
-          );
-        }),
-      setEnteredValue: ({ enteredValueId, value }) =>
-        set((state) => {
-          state.x[enteredValueId].value = value;
-        }),
-      setChildId: ({ enteredValueId, childId }) =>
-        set((state) => {
-          state.x[enteredValueId].childId = childId;
-        }),
-    }))
-  )
+const initialState: EVStateType = { x: {} };
+
+export const useEnteredValues = create(
+  immer<EVZustandType>((set, get) => ({
+    ...initialState,
+    resetAndSetAll: (payload) => {
+      const s = get();
+      s.reset();
+      s.setAll({ x: payload });
+    },
+    initManyEnteredValues: ({ enteredValueIds }) =>
+      set((state) => {
+        enteredValueIds.forEach((id) => (getEVInfo(state, id).value = null));
+      }),
+    setEnteredValue: ({ enteredValueId, value }) =>
+      set((state) => {
+        getEVInfo(state, enteredValueId).value = value;
+      }),
+    setChildId: ({ enteredValueId, childId }) =>
+      set((state) => {
+        getEVInfo(state, enteredValueId).childId = childId;
+      }),
+    setAll: (payload) => set(payload),
+    reset: () => set(initialState),
+  }))
 );
-
-useEnteredValues.temporal.getState().pause();

@@ -1,57 +1,28 @@
 import { NO_AUTH } from "utils/constants";
-import { create as _create, StateCreator } from "zustand";
+import _create, { StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
+
+const resetters: (() => void)[] = [];
 
 export const create = (<T>(f: StateCreator<T> | undefined) => {
   if (f === undefined) {
     return create;
   }
   const store = _create(f);
-  addResetter(store, STATE_TYPES.BASE_STATE);
-  addStatePointer(store, STATE_TYPES.BASE_STATE);
+  const initialState = store.getState();
+  resetters.push(() => {
+    store.setState(getInitialStateForResetter(initialState), true);
+  });
   return store;
 }) as typeof _create;
 
-export const createProjectState = (<T>(f: StateCreator<T>) => {
-  const store = create(f);
-  addResetter(store, STATE_TYPES.PROJECT_STATE);
-  addStatePointer(store, STATE_TYPES.PROJECT_STATE);
-  return store;
-}) as typeof _create;
-
-function createSubStateDict() {
-  return { resetters: [], statePointers: [] };
-}
-
-export const STATE_TYPES = {
-  PROJECT_STATE: "PROJECT_STATE",
-  BASE_STATE: "BASE_STATE",
-} as const;
-
-export const stateDict = {
-  [STATE_TYPES.BASE_STATE]: createSubStateDict(),
-  [STATE_TYPES.PROJECT_STATE]: createSubStateDict(),
+export const resetAllStores = () => {
+  for (const resetter of resetters) {
+    resetter();
+  }
 };
-
-function createResetter(state) {
-  const initialState = state.getState();
-  return () => {
-    state.setState(getInitialStateForResetter(initialState), true);
-    if (state.temporal) {
-      state.temporal.getState().clear();
-    }
-  };
-}
-
-function addResetter(state, stateType: keyof typeof STATE_TYPES) {
-  stateDict[stateType].resetters.push(createResetter(state));
-}
-
-function addStatePointer(state, stateType: keyof typeof STATE_TYPES) {
-  stateDict[stateType].statePointers.push(state);
-}
 
 function getInitialStateForResetter(initialState) {
   if (NO_AUTH && initialState["isAuthenticated"]) {

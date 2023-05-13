@@ -1,7 +1,7 @@
 import { immer } from "zustand/middleware/immer";
-import { createProjectState } from "./utils";
+import { create } from "./utils";
 
-export const useSectionRefs = createProjectState(
+export const useSectionRefs = create(
   immer((set) => ({
     x: {},
     setRef: ({ sectionId, ref }) =>

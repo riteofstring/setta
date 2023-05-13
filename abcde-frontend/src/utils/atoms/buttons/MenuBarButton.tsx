@@ -7,7 +7,7 @@ interface MenuBarButtonTypes extends ButtonHTMLAttributes<HTMLButtonElement> {
   theRest?: any;
 }
 
-const twClasses =
+export const twClasses =
   "bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 py-1 px-2 rounded-md gap-1 select-none self-center";
 
 export const MenuBarButton = forwardRef<HTMLButtonElement, MenuBarButtonTypes>(
