@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { flattenedItems } from "utils/Combobox/utils";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
+import { ResizeObserver } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;

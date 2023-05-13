@@ -4,10 +4,10 @@ import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { SectionSearch } from "components/UI/Section/SectionContainer/Main/Search/Search";
 import { useCodeInfo } from "models/info/codeInfo";
 import { getSectionConfig, setSelectedItem } from "thunks/sections/sections";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 import {
   getReactFlowProvider,
   loadTestDataIntoState,
+  ResizeObserver,
   sectionIdFromName,
 } from "__tests__utils/utils";
 

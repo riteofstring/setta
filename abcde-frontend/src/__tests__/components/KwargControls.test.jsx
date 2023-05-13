@@ -4,8 +4,7 @@ import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { KwargsControls } from "components/UI/Section/SectionContainer/Main/KwargsControls/KwargsControls";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getKwargIds } from "thunks/sections/sectionContents";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { loadTestDataIntoState } from "__tests__utils/utils";
+import { loadTestDataIntoState, ResizeObserver } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;

@@ -19,3 +19,15 @@ export function sectionIdFromName(name) {
   const sections = useSectionInfos.getState().x;
   return _.find(sections, (x) => x.name === name).id;
 }
+
+export class ResizeObserver {
+  observe() {
+    // do nothing
+  }
+  unobserve() {
+    // do nothing
+  }
+  disconnect() {
+    // do nothing
+  }
+}

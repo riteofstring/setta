@@ -5,8 +5,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addChildForSeries } from "thunks/sections/addChild";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
-import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
-import { loadTestDataIntoState } from "__tests__utils/utils";
+import { loadTestDataIntoState, ResizeObserver } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
