@@ -45,6 +45,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
           icon={<AiOutlinePlus />}
           onClick={onClickAddKwarg}
           type="add"
+          aria-label="Add Kwarg"
         />
         <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
         <StandardSearch

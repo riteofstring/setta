@@ -18,7 +18,7 @@ function getParamInfos(sectionId) {
   return [...objParamInfos, ...paramCollections];
 }
 
-function getKwargIds(sectionId, objInfoId) {
+export function getKwargIds(sectionId, objInfoId) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargCol = useKwargCols.getState().x[kwargColId];
   return objInfoId in kwargCol ? kwargCol[objInfoId] : [];

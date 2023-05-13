@@ -1,14 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { loadSpecificTestData } from "abcde-test/src/loadTestData";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useUITypes } from "models/info/uiTypes";
-import { resetAllStores } from "thunks/reset";
 import { addChildForSeries } from "thunks/sections/addChild";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
+import { loadTestDataIntoState } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
@@ -73,16 +71,10 @@ test("Incrementer: click delete N children", async () => {
 });
 
 async function componentSetup({ forParent, numChildren }) {
-  resetAllStores();
-  useUITypes
-    .getState()
-    .resetAndSetAll(await loadSpecificTestData({ name: "baseUITypes" }));
+  await loadTestDataIntoState({ sections: {}, sectionChildren: {} });
   const parentId = createDefaultSectionInfo({})[0];
-  _.range(numChildren).forEach(() => {
-    addChildForSeries({ parentId, numChildren: 1 });
-  });
-  const state = useSectionInfos.getState();
-  const childIds = state.allChildren[parentId];
+  addChildForSeries({ parentId, numChildren });
+  const childIds = useSectionInfos.getState().allChildren[parentId];
 
   // increment for one of the children
   function SectionHeaderForChild() {
@@ -152,7 +144,6 @@ function assertNChildrenAdded(parentId, numInitialChildren, N) {
 
 function assertNChildrenDeleted(parentId, numInitialChildren, N) {
   const state = useSectionInfos.getState();
-
   // parentId plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
   // every section gets an entry in allChildren, so parentId plus children
