@@ -10,21 +10,24 @@ import { loadTestDataIntoState } from "__tests__utils/utils";
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
 
-test("Adding kwarg to empty section should work", async () => {
-  await loadTestDataIntoState();
-  const sectionId = createDefaultSectionInfo({})[0];
-  const props = { sectionId, objInfoId: NULL_OBJ_ID };
+describe("KwargControls", () => {
+  beforeAll(async () => {
+    await loadTestDataIntoState();
+  });
 
-  render(<KwargsControls {...props} />);
+  it("should add a kwarg to an empty section without crashing", async () => {
+    const sectionId = createDefaultSectionInfo({})[0];
+    const props = { sectionId, objInfoId: NULL_OBJ_ID };
+    render(<KwargsControls {...props} />);
 
-  // there should be no kwargs
-  let kwargIds = getKwargIds(sectionId, NULL_OBJ_ID);
-  expect(kwargIds.length).toEqual(0);
+    // there should be no kwargs
+    let kwargIds = getKwargIds(sectionId, NULL_OBJ_ID);
+    expect(kwargIds.length).toEqual(0);
 
-  const button = screen.getByRole("button", { name: "Add Kwarg" });
-  await userEvent.click(button);
-
-  // now there should be +1 kwarg
-  kwargIds = getKwargIds(sectionId, NULL_OBJ_ID);
-  expect(kwargIds.length).toEqual(1);
+    const button = screen.getByRole("button", { name: "Add Kwarg" });
+    await userEvent.click(button);
+    // now there should be 1 kwarg
+    kwargIds = getKwargIds(sectionId, NULL_OBJ_ID);
+    expect(kwargIds.length).toEqual(1);
+  });
 });

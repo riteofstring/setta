@@ -5,6 +5,7 @@ import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { flattenedItems } from "utils/Combobox/utils";
 import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
 
+// required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
 
 describe("IdNameCombobox", () => {

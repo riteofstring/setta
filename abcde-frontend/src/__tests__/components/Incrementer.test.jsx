@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SectionHeader } from "components/UI/Section/SectionContainer/Header/SectionHeader";
 import _ from "lodash";
@@ -11,67 +11,76 @@ import { loadTestDataIntoState } from "__tests__utils/utils";
 // required to avoid "ReferenceError: ResizeObserver is not defined"
 global.ResizeObserver = ResizeObserver;
 
-test("Incrementer: click add sibling N times", async () => {
-  const { parentId } = await componentSetup({
-    forParent: false,
-    numChildren: 1,
+describe("Incrementer", () => {
+  beforeAll(async () => {
+    await loadTestDataIntoState({ sections: {}, sectionChildren: {} });
   });
-  await clickAddChildNTimes(parentId, 1, 5);
-});
 
-test("Incrementer: click add N siblings", async () => {
-  const { parentId } = await componentSetup({
-    forParent: false,
-    numChildren: 1,
+  afterEach(() => {
+    cleanup(); //get rid of rendered components
+    useSectionInfos
+      .getState()
+      .resetAndSetAll({ sections: {}, sectionChildren: {} });
   });
-  await clickAddNChildren(parentId, 1, 5);
-});
 
-test.each([false, true])(
-  "Incrementer: delete self, forParent=%s",
-  async (forParent) => {
+  test("Adding sibling N times", async () => {
+    const { parentId } = await componentSetup({
+      forParent: false,
+      numChildren: 1,
+    });
+    await clickAddChildNTimes(parentId, 1, 5);
+  });
+
+  test("Clicking add-N siblings", async () => {
+    const { parentId } = await componentSetup({
+      forParent: false,
+      numChildren: 1,
+    });
+    await clickAddNChildren(parentId, 1, 5);
+  });
+
+  test.each([false, true])("Deleting self, forParent=%s", async (forParent) => {
     const { parentId, childIds } = await componentSetup({
       forParent,
       numChildren: 1,
     });
     await clickDeleteSelf(parentId, childIds[0], forParent);
-  }
-);
-
-test("Incrementer: click add child N times ", async () => {
-  const { parentId } = await componentSetup({
-    forParent: true,
-    numChildren: 1,
   });
-  await clickAddChildNTimes(parentId, 1, 5);
-});
 
-test("Incrementer: click add N children ", async () => {
-  const { parentId } = await componentSetup({
-    forParent: true,
-    numChildren: 1,
+  test("Clicking add child N times ", async () => {
+    const { parentId } = await componentSetup({
+      forParent: true,
+      numChildren: 1,
+    });
+    await clickAddChildNTimes(parentId, 1, 5);
   });
-  await clickAddNChildren(parentId, 1, 5);
-});
 
-test("Incrementer: click delete child N times", async () => {
-  const { parentId } = await componentSetup({
-    forParent: true,
-    numChildren: 4,
+  test("Clicking add N children ", async () => {
+    const { parentId } = await componentSetup({
+      forParent: true,
+      numChildren: 1,
+    });
+    await clickAddNChildren(parentId, 1, 5);
   });
-  await clickDeleteChildNTimes(parentId, 4, 4);
-});
 
-test("Incrementer: click delete N children", async () => {
-  const { parentId } = await componentSetup({
-    forParent: true,
-    numChildren: 4,
+  test("Clicking delete child N times", async () => {
+    const { parentId } = await componentSetup({
+      forParent: true,
+      numChildren: 4,
+    });
+    await clickDeleteChildNTimes(parentId, 4, 4);
   });
-  await clickDeleteNChildren(parentId, 4, 4);
+
+  test("Clicking delete N children", async () => {
+    const { parentId } = await componentSetup({
+      forParent: true,
+      numChildren: 4,
+    });
+    await clickDeleteNChildren(parentId, 4, 4);
+  });
 });
 
 async function componentSetup({ forParent, numChildren }) {
-  await loadTestDataIntoState({ sections: {}, sectionChildren: {} });
   const parentId = createDefaultSectionInfo({})[0];
   addChildForSeries({ parentId, numChildren });
   const childIds = useSectionInfos.getState().allChildren[parentId];
