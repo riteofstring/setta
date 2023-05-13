@@ -1,15 +1,26 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { flattenedItems } from "utils/Combobox/utils";
+import { ResizeObserver } from "__tests__utils/resizeObserverDummy";
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
+
+global.ResizeObserver = ResizeObserver;
 
 test("Test IdNameCombobox", async () => {
   const state = { selected: 2 };
   const allItems = [
-    { id: 1, name: "dogs" },
-    { id: 2, name: "cats" },
-    { id: 3, name: "elephants" },
+    {
+      group: "animals",
+      items: [
+        { id: 1, name: "dogs" },
+        { id: 2, name: "cats" },
+        { id: 3, name: "elephants" },
+      ],
+    },
   ];
+
+  const allFlattened = flattenedItems(allItems);
 
   const props = {
     allItems,
@@ -40,7 +51,7 @@ test("Test IdNameCombobox", async () => {
   // typing in nothing should show all items
   await userEvent.clear(searchBox);
   listItems = screen.getAllByTestId("ComboboxListItem");
-  expect(listItems.length).toEqual(allItems.length);
+  expect(listItems.length).toEqual(allFlattened.length);
 
   // tabbing away should reset to "cats"
   await userEvent.tab();
@@ -49,7 +60,7 @@ test("Test IdNameCombobox", async () => {
   // all items should show after clicking on searchbox with field filled in
   await userEvent.click(searchBox);
   listItems = screen.getAllByTestId("ComboboxListItem");
-  expect(listItems.length).toEqual(allItems.length);
+  expect(listItems.length).toEqual(allFlattened.length);
 
   // editing the field should result in filtering
   await userEvent.type(searchBox, "{backspace}");
@@ -67,7 +78,7 @@ test("Test IdNameCombobox", async () => {
   await userEvent.click(searchBox);
   listItems = screen.getAllByTestId("ComboboxListItem");
   await userEvent.click(listItems[2]);
-  expect(state.selected).toEqual(allItems[2].id);
+  expect(state.selected).toEqual(allFlattened[2].id);
 
   // removing searchable items should set the selected value to be null
   while (allItems.length > 0) {
