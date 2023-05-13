@@ -1,5 +1,5 @@
 import {
-  CodeInfoStateType,
+  CodeInfoStateFrontendType,
   CodeInfoZustandType,
 } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
@@ -8,7 +8,7 @@ import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 
 // allCodeInfo maps from every objInfo key to its objInfo
-const initialState: CodeInfoStateType = {
+const initialState: CodeInfoStateFrontendType = {
   allCodeInfo: {},
   version: 0,
 };

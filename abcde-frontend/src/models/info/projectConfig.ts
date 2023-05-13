@@ -1,12 +1,12 @@
 import {
-  ProjectConfigType,
+  ProjectConfigFrontendType,
   ProjectConfigZustandType,
 } from "abcde-utils/src/types/projectConfig";
 import _ from "lodash";
 import { temporal } from "zundo";
 import { createProjectState } from "../utils";
 
-const initialState: ProjectConfigType = {
+const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
   sectionConfigCol: "",

@@ -21,21 +21,6 @@ export const useSectionInfos = createProjectState(
       ...initialState,
 
       resetAndSetAll: ({ sections, sectionChildren }) => {
-        // const sectionInfos = _.mapValues(sections, (x, id) => {
-        //   let parentId: string | null = null;
-        //   for (const [k, v] of Object.entries(sectionChildren)) {
-        //     if (v.includes(id)) {
-        //       parentId = k;
-        //       break;
-        //     }
-        //   }
-        //   const y = newSectionInfo({
-        //     ...x,
-        //     parentId,
-        //     configId: sectionConfigCol[id],
-        //   });
-        //   return y;
-        // });
         set(
           (state) => ({
             ...state,
