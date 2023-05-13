@@ -2,7 +2,6 @@ import {
   ManySectionChildrenType,
   SectionChildrenType,
 } from "./sectionChildren";
-import { SectionConfigColType } from "./sectionConfigCol";
 import { SectionPositionType } from "./sectionPosition";
 import { SizeType } from "./size";
 import { ManyOf } from "./utils";
@@ -36,7 +35,6 @@ export type SectionInfoStateType = {
 export type SectionInfoActionType = {
   resetAndSetAll: (payload: {
     sections: ManySectionCoreType;
-    sectionConfigCol: SectionConfigColType;
     sectionChildren: ManySectionChildrenType;
   }) => void;
 
