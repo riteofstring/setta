@@ -5,6 +5,9 @@ export type ProjectConfigType = {
   childrenId: string;
   children: string[];
   isDefault: boolean;
+};
+
+export type ProjectConfigFrontendType = ProjectConfigType & {
   version: number;
 };
 
@@ -18,5 +21,5 @@ export type ProjectConfigActionType = {
   getAll: () => ProjectConfigType;
 };
 
-export type ProjectConfigZustandType = ProjectConfigType &
+export type ProjectConfigZustandType = ProjectConfigFrontendType &
   ProjectConfigActionType;

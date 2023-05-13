@@ -6,21 +6,16 @@ import { SectionPositionType } from "./sectionPosition";
 import { SizeType } from "./size";
 import { ManyOf } from "./utils";
 
-export type SectionCoreType = {
+export type SectionType = {
   id: string;
   name: string;
+  configId: string;
   sectionChildrenId: string;
+  parentId: string | null;
   paramInfoId: string | null;
   size: SizeType;
   initialPosition: SectionPositionType;
   chainedFrom: string | null;
-};
-
-export type ManySectionCoreType = ManyOf<SectionCoreType>;
-
-export type SectionType = SectionCoreType & {
-  configId: string;
-  parentId: string | null;
 };
 
 export type ManySectionType = ManyOf<SectionType>;
@@ -34,7 +29,7 @@ export type SectionInfoStateType = {
 
 export type SectionInfoActionType = {
   resetAndSetAll: (payload: {
-    sections: ManySectionCoreType;
+    sections: ManySectionType;
     sectionChildren: ManySectionChildrenType;
   }) => void;
 

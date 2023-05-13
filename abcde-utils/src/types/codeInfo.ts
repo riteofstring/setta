@@ -28,8 +28,9 @@ export type ManyParamCollectionsType = ManyOf<CodeInfoType[]>;
 
 export type CodeInfoStateType = {
   allCodeInfo: ManyCodeInfoType;
-  version: number;
 };
+
+export type CodeInfoStateFrontendType = CodeInfoStateType & { version: number };
 
 export type CodeInfoActionTypes = {
   resetAndSetAll: (payload: CodeInfoStateType) => void;
@@ -39,4 +40,5 @@ export type CodeInfoActionTypes = {
   updateInfos: (payload: CodeInfoStateType) => void;
 };
 
-export type CodeInfoZustandType = CodeInfoStateType & CodeInfoActionTypes;
+export type CodeInfoZustandType = CodeInfoStateFrontendType &
+  CodeInfoActionTypes;
