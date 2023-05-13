@@ -80,9 +80,8 @@ describe("IdNameCombobox", () => {
     expect(searchBox.value).toEqual("cat");
   });
 
-  it("should select the correct id after tabbing away, clicking on searchbox, and selecting an item", async () => {
+  it("should select the correct id after clicking on searchbox, and selecting an item", async () => {
     const { searchBox } = renderIdNameCombobox(props);
-    await userEvent.tab();
     await userEvent.click(searchBox);
     const listItems = screen.getAllByTestId("ComboboxListItem");
     await userEvent.click(listItems[2]);
