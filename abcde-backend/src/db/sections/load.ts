@@ -110,10 +110,8 @@ export async function getSectionConfigs(ids) {
   const ev: ManyEVType = {};
   for (const config of s) {
     const allCurrEvs = config.evCol.children.map((x) => x.ev);
-    _.forEach(
-      allCurrEvs,
-      (v) => (ev[v.id] = { value: v.value, childId: v.childId }),
-    );
+    const keyByEVId = _.keyBy(allCurrEvs, 'id');
+    _.forEach(keyByEVId, (v, id) => (ev[id] = v));
   }
 
   const evCols: ManyEVColType = {};
