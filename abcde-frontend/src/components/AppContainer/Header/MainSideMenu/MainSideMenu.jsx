@@ -1,7 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { logout } from "dbRequests/authentication";
-import { resetAllStores } from "models/utils";
 import { FiMenu } from "react-icons/fi";
+import { resetAllStores } from "thunks/reset";
 import { Item } from "utils/atoms/dropdown/item";
 import { router } from "utils/Routes/router";
 

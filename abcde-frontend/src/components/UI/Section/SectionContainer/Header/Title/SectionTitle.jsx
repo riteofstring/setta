@@ -31,7 +31,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
   const siblingNames = useSectionSiblingNames(sectionId);
 
   function onTitleInputChange(value) {
-    setSectionName(sectionId, value);
+    setSectionName(sectionId, value, true);
   }
 
   const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(

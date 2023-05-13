@@ -9,6 +9,7 @@ export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
     y,
     callbackBeforeExit: closeContextMenu,
     projectXY: true,
+    incrementVersion: true,
   };
 
   return (

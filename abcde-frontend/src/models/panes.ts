@@ -1,6 +1,6 @@
 import { CLOSED_PANE_WIDTH, OVERVIEW, UI_EDITOR } from "utils/constants";
 import { immer } from "zustand/middleware/immer";
-import { create } from "./utils";
+import { createProjectState } from "./utils";
 
 type PanesStateType = {
   vis: { [OVERVIEW]: boolean; [UI_EDITOR]: boolean };
@@ -14,7 +14,7 @@ type PanesActionType = {
 
 type PanesZustandType = PanesStateType & PanesActionType;
 
-export const usePanes = create(
+export const usePanes = createProjectState(
   immer<PanesZustandType>((set) => ({
     vis: { [OVERVIEW]: true, [UI_EDITOR]: false },
     trueWidth: { [OVERVIEW]: 335, [UI_EDITOR]: CLOSED_PANE_WIDTH },

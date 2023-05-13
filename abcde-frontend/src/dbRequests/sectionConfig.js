@@ -11,7 +11,7 @@ import {
 } from "./noAuth/sectionConfig";
 import { post } from "./utils";
 
-export async function getCollectionsAndModules({ searchTerm }) {
+async function getCollectionsAndModules({ searchTerm }) {
   if (NO_AUTH) {
     return await noAuthGetCollectionsAndModules({ searchTerm });
   }

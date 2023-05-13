@@ -1,5 +1,5 @@
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 export const ConstantInfoView = {
   OVERVIEW: "OVERVIEW",
@@ -30,7 +30,7 @@ const constantInfoViews = {
 
 const initialState = { x: constantInfoViews, currId: null };
 
-export const useInfoView = create(
+export const useInfoView = createProjectState(
   immer((set) => ({
     ...initialState,
     setInfo: ({ id, value }) =>

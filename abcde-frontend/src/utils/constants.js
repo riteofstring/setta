@@ -17,15 +17,10 @@ import {
 export const NO_AUTH = ["sna", "snancm"].includes(import.meta.env.MODE);
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "snancm";
 export const SECTIONWIDTH = 450;
-export const NAVBAR_HEIGHT = 64;
+export const NAVBAR_HEIGHT = 48;
 export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
-
-export const SET_FROM_SIDEPANE = 3;
-export const PROJECT_DEFAULT = 2;
-export const GLOBAL_DEFAULT = 1;
-export const DEFAULT_DEFAULT = 0;
 
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);

@@ -6,9 +6,7 @@ const initialState = {
   groupSections: false,
 };
 
-function createAndAttachEventListeners(fn) {
-  const state = create(fn);
-
+function attachEventListeners(state) {
   const conditions = {
     isSorting: (e) => e.key === "Control",
     isMovingFree: (e) => e.key === "Alt",
@@ -35,8 +33,10 @@ function createAndAttachEventListeners(fn) {
   return state;
 }
 
-export const useKeyActivations = createAndAttachEventListeners((set) => ({
+export const useKeyActivations = create((set) => ({
   ...initialState,
   setActivation: (key, value) => set({ [key]: value }),
   reset: () => set(initialState),
 }));
+
+attachEventListeners(useKeyActivations);

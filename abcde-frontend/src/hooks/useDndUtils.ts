@@ -8,7 +8,7 @@ import { getDropType } from "utils/DNDSortable/useDropType";
 import { useHasNested } from "./useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
-  const overIsSelf = useDndState((x) => x.overId === sectionId);
+  const overIsSelf = useOverIsSelf(sectionId);
   const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
   const centerYCondition = useDndState((x) => x.centerYCondition);
   const leftDistCondition = useDndState((x) => x.leftDistCondition);
@@ -101,4 +101,8 @@ export function useDndProps({ sectionId, isTopLevel }) {
     id: sectionId,
     data: { isTopLevel, hasNested },
   };
+}
+
+export function useOverIsSelf(sectionId) {
+  return useDndState((x) => x.overId === sectionId);
 }

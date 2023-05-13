@@ -1,4 +1,4 @@
-import { create } from "./utils";
+import { createProjectState } from "./utils";
 
 export const SECTION_CONFIG_TAB = "SectionConfig";
 export const UI_CONFIG_TAB = "UIConfig";
@@ -16,7 +16,7 @@ export const tabNameToPretty = Object.freeze(
   )
 );
 
-export const useUIEditor = create((set) => ({
+export const useUIEditor = createProjectState((set) => ({
   tab: SECTION_CONFIG_TAB,
   cameFromUIConfig: false,
   setTab: (payload) => set(() => ({ tab: payload })),

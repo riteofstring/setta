@@ -9,14 +9,21 @@ import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionConfig } from "./sections/sections";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
   sectionId: string;
   objInfoId: string;
   name?: string;
+  incrementVersion?: boolean;
 };
 
-export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
+export function addKwarg({
+  sectionId,
+  objInfoId,
+  name = "",
+  incrementVersion = false,
+}: AddKwargPayload) {
   const { kwargColId } = getSectionConfig(sectionId);
   const kwargInfo = newCodeInfo({
     name,
@@ -29,6 +36,7 @@ export function addKwarg({ sectionId, objInfoId, name = "" }: AddKwargPayload) {
     newStateFn: (x) => [...x, kwargInfo.id],
   });
   initializeParam(sectionId, [kwargInfo]);
+  maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
 
@@ -37,10 +45,16 @@ type DeleteKwargPayload = {
   objInfoId: string;
   deleteLast?: boolean;
   kwargId?: string;
+  incrementVersion?: boolean;
 };
 
 export function deleteKwarg(payload: DeleteKwargPayload) {
-  const { sectionId, objInfoId, deleteLast = false } = payload;
+  const {
+    sectionId,
+    objInfoId,
+    deleteLast = false,
+    incrementVersion = false,
+  } = payload;
   let { kwargId = "" } = payload;
   const { evColId, kwargColId } = getSectionConfig(sectionId);
   const { uiTypeColId } = getSectionConfig(sectionId);
@@ -65,6 +79,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   if (childId) {
     deleteChild({ parentId: sectionId, startId: childId });
   }
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
@@ -91,4 +106,9 @@ export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
 
   // TODO fix this call
   // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
+}
+
+export function changeKwargName({ id, name }) {
+  useCodeInfo.getState().setName({ id, name });
+  maybeIncrementProjectStateVersion(true);
 }

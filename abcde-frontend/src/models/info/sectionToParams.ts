@@ -1,12 +1,12 @@
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
 // This is a special state that maps directly from
 // sectionIds to current params and paramCollections
 
 const initialState = { params: {}, paramCollections: {} };
 
-export const useSectionToParams = create(
+export const useSectionToParams = createProjectState(
   immer((set) => ({
     ...initialState,
     setParams: ({ sectionId, params }) =>

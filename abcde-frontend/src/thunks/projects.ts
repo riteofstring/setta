@@ -1,6 +1,6 @@
 import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
 import { loadProject as loadProjectDb } from "dbRequests/projects";
-import { loadSections } from "models/master";
+import { loadProjectState } from "thunks/loadProjectState";
 
 export function loadProjectIntoState({
   projectInfo,
@@ -9,7 +9,7 @@ export function loadProjectIntoState({
   projectInfo: ProjectLoadType;
   excludeCodeInfo?: boolean;
 }) {
-  loadSections({
+  loadProjectState({
     ...projectInfo,
     excludeCodeInfo,
   });

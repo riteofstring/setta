@@ -8,16 +8,16 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { loadSections } from "models/master";
 import { resetAllStores } from "models/utils";
 import { ReactFlowProvider } from "react-flow-renderer";
+import { loadProjectState } from "thunks/loadProjectState";
 import { addSectionsToState } from "thunks/sections/createSectionInfo";
 import { renderUseGetSectionType } from "./renderHooks";
 
 export async function loadTestDataIntoState() {
   resetAllStores();
   const testData = await loadOneProject({});
-  loadSections(testData);
+  loadProjectState(testData);
 }
 
 export function getSectionByName(name) {

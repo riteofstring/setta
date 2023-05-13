@@ -12,7 +12,7 @@ export function SectionConfigTypeSelection({ sectionId }) {
 
   const onDropdownSelect = (e) => {
     if (e && e !== selectedId) {
-      setSectionUITypeId({ uiTypeId: e, sectionId });
+      setSectionUITypeId({ uiTypeId: e, sectionId, incrementVersion: true });
     }
   };
 

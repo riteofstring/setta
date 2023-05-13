@@ -1,7 +1,7 @@
 import { immer } from "zustand/middleware/immer";
-import { create } from "../utils";
+import { createProjectState } from "../utils";
 
-export const useSectionParamFilter = create(
+export const useSectionParamFilter = createProjectState(
   immer((set) => ({
     x: {},
     setFilter: ({ sectionId, filter }) =>
