@@ -1,11 +1,10 @@
 import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
-import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import colors from "tailwindcss/colors";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { setPositionState } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
@@ -100,12 +99,3 @@ function _SectionsPane({ initialNodes }) {
 }
 
 export const SectionsPane = React.memo(_SectionsPane);
-
-function setPositionState(nodes) {
-  const newValues = {};
-  for (const n of nodes) {
-    newValues[n.id] = { initialPosition: n.position };
-  }
-  useSectionInfos.getState().setSectionInfoAttrObjInput({ newValues });
-  maybeIncrementProjectStateVersion(true);
-}

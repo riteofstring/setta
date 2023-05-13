@@ -3,6 +3,7 @@ import { useGetSectionTypeConfig } from "hooks/useSectionType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionName, setSectionSize } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
@@ -24,6 +25,7 @@ export function OutputsSearch({ sectionId }) {
     ) {
       setSectionSize(sectionId, INITIAL_CHART_SIZE);
     }
+    maybeIncrementProjectStateVersion(true);
   }
 
   return (
